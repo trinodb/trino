@@ -18,8 +18,9 @@ import io.airlift.testing.Closeables;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.plugin.jdbc.DefaultJdbcMetadata.DEFAULT_COLUMN_ALIAS_LENGTH;
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_PASS;
@@ -29,7 +30,9 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestOracleConnectorTest
         extends BaseOracleConnectorTest
 {
@@ -55,7 +58,7 @@ public class TestOracleConnectorTest
                 REQUIRED_TPCH_TABLES);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public final void destroy()
             throws Exception
     {

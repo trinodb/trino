@@ -25,8 +25,7 @@ import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.testng.services.Flaky;
-import org.testng.SkipException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
@@ -42,6 +41,7 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -152,7 +152,7 @@ public abstract class BaseSqlServerConnectorTest
                             "Lock request time out period exceeded|" +
                             // E.g. system.metadata.table_comments can return empty results, when underlying metadata list tables call fails
                             "Expecting actual not to be empty).*");
-            throw new SkipException("to be fixed");
+            abort("to be fixed");
         }
     }
 
@@ -583,6 +583,7 @@ public abstract class BaseSqlServerConnectorTest
                 ".*\\QConversion failed when converting date and/or time from character string.\\E");
     }
 
+    @Test
     @Override
     public void testNativeQuerySimple()
     {

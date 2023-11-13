@@ -23,7 +23,7 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
@@ -115,14 +115,14 @@ public abstract class BaseOracleConnectorTest
                 "(one NUMBER(19), two NUMBER, three VARCHAR2(10 CHAR))");
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     @Override
     public void testShowColumns()
     {
         assertThat(query("SHOW COLUMNS FROM orders")).matches(getDescribeOrdersResult());
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     @Override
     public void testInformationSchemaFiltering()
     {
@@ -191,6 +191,7 @@ public abstract class BaseOracleConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
     @Override
     public void testCharVarcharComparison()
     {
@@ -214,6 +215,7 @@ public abstract class BaseOracleConnectorTest
         }
     }
 
+    @Test
     @Override
     public void testVarcharCharComparison()
     {
@@ -244,6 +246,7 @@ public abstract class BaseOracleConnectorTest
         }
     }
 
+    @Test
     @Override
     public void testAggregationWithUnsupportedResultType()
     {
@@ -266,6 +269,7 @@ public abstract class BaseOracleConnectorTest
         return new TestTable(onRemoteDatabase(), name, "(short_decimal number(9, 3), long_decimal number(30, 10), a_bigint number(19), t_double binary_double)", rows);
     }
 
+    @Test
     @Override
     public void testDeleteWithLike()
     {
@@ -372,6 +376,7 @@ public abstract class BaseOracleConnectorTest
                 "SELECT * from nation", "Domain compaction threshold \\(10000\\) cannot exceed 1000");
     }
 
+    @Test
     @Override
     public void testNativeQuerySimple()
     {
@@ -379,6 +384,7 @@ public abstract class BaseOracleConnectorTest
         assertQuery("SELECT * FROM TABLE(system.query(query => 'SELECT CAST(1 AS number(2, 1)) FROM DUAL'))", ("VALUES 1"));
     }
 
+    @Test
     @Override
     public void testNativeQueryParameters()
     {
@@ -391,6 +397,7 @@ public abstract class BaseOracleConnectorTest
         assertQuery(session, "EXECUTE my_query USING 'a', '(SELECT CAST(2 AS number(2, 1)) a FROM DUAL) t'", "VALUES 2");
     }
 
+    @Test
     @Override
     public void testNativeQueryInsertStatementTableDoesNotExist()
     {
@@ -400,6 +407,7 @@ public abstract class BaseOracleConnectorTest
                 .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: INSERT INTO non_existent_table VALUES (1)");
     }
 
+    @Test
     @Override
     public void testNativeQueryIncorrectSyntax()
     {

@@ -17,15 +17,19 @@ import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.TestIcebergParquetConnectorTest;
-import org.testng.SkipException;
-import org.testng.annotations.AfterClass;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.testing.FaultTolerantExecutionConnectorTestHelper.getExtraProperties;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestIcebergParquetFaultTolerantExecutionConnectorTest
         extends TestIcebergParquetConnectorTest
 {
@@ -45,27 +49,30 @@ public class TestIcebergParquetFaultTolerantExecutionConnectorTest
                 });
     }
 
+    @Test
     @Override
     public void testSplitPruningForFilterOnPartitionColumn()
     {
         // TODO: figure out why
         assertThatThrownBy(super::testSplitPruningForFilterOnPartitionColumn)
                 .hasMessageContaining("Couldn't find operator summary, probably due to query statistic collection error");
-        throw new SkipException("fails currently on FTE");
+        abort("fails currently on FTE");
     }
 
+    @Test
     @Override
     public void testStatsBasedRepartitionDataOnCtas()
     {
         // TODO: figure out why
-        throw new SkipException("We always get 3 partitions with FTE");
+        abort("We always get 3 partitions with FTE");
     }
 
+    @Test
     @Override
     public void testStatsBasedRepartitionDataOnInsert()
     {
         // TODO: figure out why
-        throw new SkipException("We always get 3 partitions with FTE");
+        abort("We always get 3 partitions with FTE");
     }
 
     @Override
@@ -74,7 +81,7 @@ public class TestIcebergParquetFaultTolerantExecutionConnectorTest
         return checkParquetFileSorting(path, sortColumnName);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void destroy()
             throws Exception
     {
