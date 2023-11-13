@@ -225,7 +225,7 @@ public class QueryContext
         return memoryPool;
     }
 
-    public synchronized long getUserMemoryReservation()
+    public long getUserMemoryReservation()
     {
         return memoryPool.getQueryMemoryReservation(queryId);
     }
