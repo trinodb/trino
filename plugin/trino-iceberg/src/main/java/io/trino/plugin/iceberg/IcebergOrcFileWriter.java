@@ -51,7 +51,7 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITE_VALIDATION_
 import static io.trino.plugin.iceberg.util.OrcMetrics.computeMetrics;
 import static java.util.Objects.requireNonNull;
 
-public class IcebergOrcFileWriter
+public final class IcebergOrcFileWriter
         implements IcebergFileWriter
 {
     private static final Logger log = Logger.get(IcebergOrcFileWriter.class);
