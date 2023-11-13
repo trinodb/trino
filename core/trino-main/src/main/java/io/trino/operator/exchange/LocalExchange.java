@@ -53,7 +53,6 @@ import static io.trino.SystemSessionProperties.getQueryMaxMemoryPerNode;
 import static io.trino.SystemSessionProperties.getSkewedPartitionMinDataProcessedRebalanceThreshold;
 import static io.trino.operator.InterpretedHashGenerator.createChannelsHashGenerator;
 import static io.trino.operator.exchange.LocalExchangeSink.finishedLocalExchangeSink;
-import static io.trino.operator.output.SkewedPartitionRebalancer.getScaleWritersMaxSkewedPartitions;
 import static io.trino.sql.planner.PartitioningHandle.isScaledWriterHashDistribution;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_BROADCAST_DISTRIBUTION;
@@ -61,7 +60,6 @@ import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUT
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_PASSTHROUGH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
-import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
@@ -147,12 +145,7 @@ public class LocalExchange
                     bufferCount,
                     1,
                     writerScalingMinDataProcessed.toBytes(),
-                    getSkewedPartitionMinDataProcessedRebalanceThreshold(session).toBytes(),
-                    // Keep the maxPartitionsToRebalance to atleast writer count such that single partition writes do
-                    // not suffer from skewness and can scale uniformly across all writers. Additionally, note that
-                    // maxWriterCount is calculated considering memory into account. So, it is safe to set the
-                    // maxPartitionsToRebalance to maximum number of writers.
-                    max(getScaleWritersMaxSkewedPartitions(session), bufferCount));
+                    getSkewedPartitionMinDataProcessedRebalanceThreshold(session).toBytes());
             LocalExchangeMemoryManager memoryManager = new LocalExchangeMemoryManager(maxBufferedBytes.toBytes());
             sources = IntStream.range(0, bufferCount)
                     .mapToObj(i -> new LocalExchangeSource(memoryManager, source -> checkAllSourcesFinished()))
