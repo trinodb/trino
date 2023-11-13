@@ -51,14 +51,14 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 public class TestFlatHashStrategy
 {
-    private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
-    private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(TYPE_OPERATORS);
+    private final TypeOperators typeOperators = new TypeOperators();
+    private final JoinCompiler joinCompiler = new JoinCompiler(typeOperators);
 
     @Test
     public void testBatchedRawHashesZeroLength()
     {
-        List<Type> types = createTestingTypes();
-        FlatHashStrategy flatHashStrategy = JOIN_COMPILER.getFlatHashStrategy(types);
+        List<Type> types = createTestingTypes(typeOperators);
+        FlatHashStrategy flatHashStrategy = joinCompiler.getFlatHashStrategy(types);
 
         int positionCount = 10;
         // Attempting to touch any of the blocks would result in a NullPointerException
@@ -68,8 +68,8 @@ public class TestFlatHashStrategy
     @Test
     public void testBatchedRawHashesMatchSinglePositionHashes()
     {
-        List<Type> types = createTestingTypes();
-        FlatHashStrategy flatHashStrategy = JOIN_COMPILER.getFlatHashStrategy(types);
+        List<Type> types = createTestingTypes(typeOperators);
+        FlatHashStrategy flatHashStrategy = joinCompiler.getFlatHashStrategy(types);
 
         int positionCount = 1024;
         Block[] blocks = new Block[types.size()];
@@ -102,7 +102,7 @@ public class TestFlatHashStrategy
         }
     }
 
-    private static List<Type> createTestingTypes()
+    private static List<Type> createTestingTypes(TypeOperators typeOperators)
     {
         List<Type> baseTypes = List.of(
                 BIGINT,
@@ -128,7 +128,7 @@ public class TestFlatHashStrategy
         builder.add(RowType.anonymous(baseTypes));
         for (Type baseType : baseTypes) {
             builder.add(new ArrayType(baseType));
-            builder.add(new MapType(baseType, baseType, TYPE_OPERATORS));
+            builder.add(new MapType(baseType, baseType, typeOperators));
         }
         return builder.build();
     }
