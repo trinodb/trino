@@ -44,6 +44,7 @@ import static io.trino.spi.type.UuidType.UUID;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.IpAddressType.IPADDRESS;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -51,6 +52,17 @@ public class TestFlatHashStrategy
 {
     private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
     private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(TYPE_OPERATORS);
+
+    @Test
+    public void testBatchedRawHashesZeroLength()
+    {
+        List<Type> types = createTestingTypes();
+        FlatHashStrategy flatHashStrategy = JOIN_COMPILER.getFlatHashStrategy(types);
+
+        int positionCount = 10;
+        // Attempting to touch any of the blocks would result in a NullPointerException
+        assertDoesNotThrow(() -> flatHashStrategy.hashBlocksBatched(new Block[types.size()], new long[positionCount], 0, 0));
+    }
 
     @Test
     public void testBatchedRawHashesMatchSinglePositionHashes()
