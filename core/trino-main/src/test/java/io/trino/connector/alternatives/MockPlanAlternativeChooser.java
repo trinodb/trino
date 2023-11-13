@@ -38,6 +38,7 @@ import java.util.Map;
 import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiPredicate;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
@@ -77,7 +78,8 @@ public class MockPlanAlternativeChooser
         if (table instanceof MockPlanAlternativeTableHandle handle) {
             log.debug("filtering table %s, split %s by mock plan alternative connector. df: %s", table, split, dynamicFilter.getCurrentPredicate());
             int filterColumnIndex = columns.indexOf(handle.filterColumn());
-            if (filterColumnIndex < 0) {
+            boolean returnFilterColumn = filterColumnIndex >= 0;
+            if (!returnFilterColumn) {
                 filterColumnIndex = columns.size();
                 columns = ImmutableList.<ColumnHandle>builder()
                         .addAll(columns)
@@ -85,7 +87,7 @@ public class MockPlanAlternativeChooser
                         .build();
             }
             ConnectorPageSource pageSource = delegate.createPageSource(transaction, session, split.getDelegate(), handle.delegate(), columns, dynamicFilter);
-            return new PlanAlternativePageSource(pageSource, handle.filterDefinition().asPredicate(session), filterColumnIndex);
+            return new PlanAlternativePageSource(pageSource, handle.filterDefinition().asPredicate(session), filterColumnIndex, returnFilterColumn);
         }
         log.debug("NOT filtering table %s, split %s by mock plan alternative connector. df: %s", table, split, dynamicFilter.getCurrentPredicate());
         return delegate.createPageSource(transaction, session, split.getDelegate(), table, columns, dynamicFilter);
@@ -100,13 +102,15 @@ public class MockPlanAlternativeChooser
         private final int filterColumnIndex;
         private final BiPredicate<Block, Integer> filter;
         private long filteredOutPositions;
+        private boolean returnFilterColumn;
 
-        public PlanAlternativePageSource(ConnectorPageSource delegate, BiPredicate<Block, Integer> filter, int filterColumnIndex)
+        public PlanAlternativePageSource(ConnectorPageSource delegate, BiPredicate<Block, Integer> filter, int filterColumnIndex, boolean returnFilterColumn)
         {
             this.delegate = requireNonNull(delegate, "delegate is null");
             this.filter = requireNonNull(filter, "filter is null");
             checkArgument(filterColumnIndex >= 0);
             this.filterColumnIndex = filterColumnIndex;
+            this.returnFilterColumn = returnFilterColumn;
         }
 
         @Override
@@ -131,7 +135,15 @@ public class MockPlanAlternativeChooser
                     filteredOutPositions++;
                 }
             }
-            return page.copyPositions(filteredPositions.elements(), 0, filteredPositions.size());
+
+            Page newPage = page.copyPositions(filteredPositions.elements(), 0, filteredPositions.size());
+            if (returnFilterColumn) {
+                return newPage;
+            }
+            int[] columns = IntStream.range(0, newPage.getChannelCount())
+                    .filter(i -> i != filterColumnIndex)
+                    .toArray();
+            return newPage.getColumns(columns);
         }
 
         // just delegation below
