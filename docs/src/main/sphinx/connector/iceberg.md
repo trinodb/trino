@@ -289,12 +289,17 @@ No other types are supported.
 
 ## Security
 
-The Iceberg connector allows you to choose one of several means of providing
-authorization at the catalog level.
+### Kerberos authentication
+
+The Iceberg connector supports Kerberos authentication for the Hive metastore
+and HDFS and is configured using the same parameters as the Hive connector. Find
+more information in the [](/connector/hive-security) section.
 
 (iceberg-authorization)=
+### Authorization
 
-### Authorization checks
+The Iceberg connector allows you to choose one of several means of providing
+authorization at the catalog level.
 
 You can enable authorization checks for the connector by setting the
 `iceberg.security` property in the catalog properties file. This property must
@@ -322,7 +327,6 @@ be one of the following values:
 :::
 
 (iceberg-sql-support)=
-
 ## SQL support
 
 This connector provides read access and write access to data and metadata in
