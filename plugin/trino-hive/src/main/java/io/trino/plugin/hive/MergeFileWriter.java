@@ -58,7 +58,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.util.Objects.requireNonNull;
 
-public class MergeFileWriter
+public final class MergeFileWriter
         implements FileWriter
 {
     // The bucketPath looks like this: /root/dir/delta_nnnnnnn_mmmmmmm_ssss/bucket_bbbbb(_aaaa)?

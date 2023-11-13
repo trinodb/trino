@@ -30,7 +30,7 @@ import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
-public class IcebergSortingFileWriter
+public final class IcebergSortingFileWriter
         implements IcebergFileWriter
 {
     private final IcebergFileWriter outputWriter;

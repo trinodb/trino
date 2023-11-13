@@ -62,7 +62,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class OrcFileWriter
+public final class OrcFileWriter
         implements FileWriter
 {
     private static final Logger log = Logger.get(OrcFileWriter.class);
