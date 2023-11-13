@@ -212,6 +212,7 @@
                                 </item>
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <!-- Any exclusions below can be deleted after each release -->
+                                <!-- Remember to notify to all Trino maintainers before merging backward incompatible SPI changes -->
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
