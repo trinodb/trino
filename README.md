@@ -33,7 +33,7 @@ In the proposed model we have following components:
 This is crucial repository for the company and so we need to be more strict about things we merge here. Especially one
 needs to consider that changes needs to be continues fork friendly. Therefore we would like to follow
 that:
- - only limited set of people can merge the code. That group is known as Code Owners.
+ - In order to merge the code, you need to have the review from the group that is known as Code Owners.
  - Code Owners are defined in [CODEOWNERS file](.github/CODEOWNERS).
  - Code Owners have the right to merge the code, but they also have the responsibility to periodically update the fork
  with Trino changes.
