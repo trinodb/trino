@@ -73,7 +73,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.function.UnaryOperator.identity;
 
-public class DeltaLakeWriter
+public final class DeltaLakeWriter
         implements FileWriter
 {
     private final ParquetFileWriter fileWriter;

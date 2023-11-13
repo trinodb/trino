@@ -59,7 +59,7 @@ import static java.lang.Math.min;
 import static java.util.Comparator.comparing;
 import static java.util.Objects.requireNonNull;
 
-public class SortingFileWriter
+public final class SortingFileWriter
         implements FileWriter
 {
     private static final Logger log = Logger.get(SortingFileWriter.class);
