@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
@@ -78,14 +79,27 @@ public class TestFlatHashStrategy
 
         long[] hashes = new long[positionCount];
         flatHashStrategy.hashBlocksBatched(blocks, hashes, 0, positionCount);
-        for (int position = 0; position < hashes.length; position++) {
-            long singleRowHash = flatHashStrategy.hash(blocks, position);
-            if (hashes[position] != singleRowHash) {
-                fail("Hash mismatch: %s <> %s at position %s - Values: %s".formatted(hashes[position], singleRowHash, position, singleRowTypesAndValues(types, blocks, position)));
-            }
+        assertHashesEqual(types, blocks, hashes, flatHashStrategy);
+
+        // Convert all blocks to RunLengthEncoded and re-check results match
+        for (int i = 0; i < blocks.length; i++) {
+            blocks[i] = RunLengthEncodedBlock.create(blocks[i].getSingleValueBlock(0), positionCount);
         }
+        flatHashStrategy.hashBlocksBatched(blocks, hashes, 0, positionCount);
+        assertHashesEqual(types, blocks, hashes, flatHashStrategy);
+
         // Ensure the formatting logic produces a real string and doesn't blow up since otherwise this code wouldn't be exercised
         assertNotNull(singleRowTypesAndValues(types, blocks, 0));
+    }
+
+    private static void assertHashesEqual(List<Type> types, Block[] blocks, long[] batchedHashes, FlatHashStrategy flatHashStrategy)
+    {
+        for (int position = 0; position < batchedHashes.length; position++) {
+            long singleRowHash = flatHashStrategy.hash(blocks, position);
+            if (batchedHashes[position] != singleRowHash) {
+                fail("Hash mismatch: %s <> %s at position %s - Values: %s".formatted(batchedHashes[position], singleRowHash, position, singleRowTypesAndValues(types, blocks, position)));
+            }
+        }
     }
 
     private static List<Type> createTestingTypes()

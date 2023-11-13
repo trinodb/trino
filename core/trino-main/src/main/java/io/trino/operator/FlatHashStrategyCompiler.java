@@ -23,15 +23,18 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
+import io.airlift.bytecode.expression.BytecodeExpression;
 import io.trino.operator.scalar.CombineHashFunction;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.CallSiteBinder;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -429,35 +432,62 @@ public final class FlatHashStrategyCompiler
         Variable mayHaveNull = scope.declareVariable(boolean.class, "mayHaveNull");
         Variable hash = scope.declareVariable(long.class, "hash");
 
-        body.append(mayHaveNull.set(block.invoke("mayHaveNull", boolean.class)));
         body.append(position.set(invokeStatic(Objects.class, "checkFromToIndex", int.class, offset, add(offset, length), block.invoke("getPositionCount", int.class))));
         body.append(invokeStatic(Objects.class, "checkFromIndexSize", int.class, constantInt(0), length, hashes.length()).pop());
 
-        BytecodeBlock loopBody = new BytecodeBlock().append(new IfStatement("if (mayHaveNull && block.isNull(position))")
-                .condition(and(mayHaveNull, block.invoke("isNull", boolean.class, position)))
-                .ifTrue(hash.set(constantLong(NULL_HASH_CODE)))
-                .ifFalse(hash.set(invokeDynamic(
-                        BOOTSTRAP_METHOD,
-                        ImmutableList.of(callSiteBinder.bind(field.hashBlockMethod()).getBindingId()),
-                        "hash",
-                        long.class,
-                        block,
-                        position))));
+        BytecodeExpression computeHashNonNull = invokeDynamic(
+                BOOTSTRAP_METHOD,
+                ImmutableList.of(callSiteBinder.bind(field.hashBlockMethod()).getBindingId()),
+                "hash",
+                long.class,
+                block,
+                position);
+
+        BytecodeExpression setHashExpression;
         if (field.index() == 0) {
             // hashes[index] = hash;
-            loopBody.append(hashes.setElement(index, hash));
+            setHashExpression = hashes.setElement(index, hash);
         }
         else {
             // hashes[index] = CombineHashFunction.getHash(hashes[index], hash);
-            loopBody.append(hashes.setElement(index, invokeStatic(CombineHashFunction.class, "getHash", long.class, hashes.getElement(index), hash)));
+            setHashExpression = hashes.setElement(index, invokeStatic(CombineHashFunction.class, "getHash", long.class, hashes.getElement(index), hash));
         }
-        loopBody.append(position.increment());
 
-        body.append(new ForLoop("for (index = 0; index < length; index++)")
-                .initialize(index.set(constantInt(0)))
-                .condition(lessThan(index, length))
-                .update(index.increment())
-                .body(loopBody))
+        BytecodeBlock rleHandling = new BytecodeBlock()
+                .append(new IfStatement("hash = block.isNull(position) ? NULL_HASH_CODE : hash(block, position)")
+                        .condition(block.invoke("isNull", boolean.class, position))
+                        .ifTrue(hash.set(constantLong(NULL_HASH_CODE)))
+                        .ifFalse(hash.set(computeHashNonNull)));
+        if (field.index() == 0) {
+            // Arrays.fill(hashes, 0, length, hash)
+            rleHandling.append(invokeStatic(Arrays.class, "fill", void.class, hashes, constantInt(0), length, hash));
+        }
+        else {
+            rleHandling.append(new ForLoop("for (int index = 0; index < length; index++) { hashes[index] = CombineHashFunction.getHash(hashes[index], hash); }")
+                    .initialize(index.set(constantInt(0)))
+                    .condition(lessThan(index, length))
+                    .update(index.increment())
+                    .body(setHashExpression));
+        }
+
+        BytecodeBlock computeHashLoop = new BytecodeBlock()
+                .append(mayHaveNull.set(block.invoke("mayHaveNull", boolean.class)))
+                .append(new ForLoop("for (int index = 0; index < length; index++)")
+                        .initialize(index.set(constantInt(0)))
+                        .condition(lessThan(index, length))
+                        .update(index.increment())
+                        .body(new BytecodeBlock()
+                                .append(new IfStatement("if (mayHaveNull && block.isNull(position))")
+                                        .condition(and(mayHaveNull, block.invoke("isNull", boolean.class, position)))
+                                        .ifTrue(hash.set(constantLong(NULL_HASH_CODE)))
+                                        .ifFalse(hash.set(computeHashNonNull)))
+                                .append(setHashExpression)
+                                .append(position.increment())));
+
+        body.append(new IfStatement("if (block instanceof RunLengthEncodedBlock)")
+                .condition(block.instanceOf(RunLengthEncodedBlock.class))
+                .ifTrue(rleHandling)
+                .ifFalse(computeHashLoop))
                 .ret();
 
         return methodDefinition;
