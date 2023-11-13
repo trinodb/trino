@@ -20,8 +20,9 @@ import io.trino.plugin.exchange.filesystem.containers.MinioStorage;
 import io.trino.plugin.hive.BaseHiveConnectorTest;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT;
@@ -29,7 +30,9 @@ import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_MIN_PART
 import static io.trino.plugin.exchange.filesystem.containers.MinioStorage.getExchangeManagerProperties;
 import static io.trino.testing.FaultTolerantExecutionConnectorTestHelper.getExtraProperties;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestHiveFaultTolerantExecutionConnectorTest
         extends BaseHiveConnectorTest
 {
@@ -50,12 +53,14 @@ public class TestHiveFaultTolerantExecutionConnectorTest
                 }));
     }
 
+    @Test
     @Override
     public void testMultipleWriters()
     {
         // Not applicable for fault-tolerant mode.
     }
 
+    @Test
     @Override
     public void testMultipleWritersWithSkewedData()
     {
@@ -65,6 +70,7 @@ public class TestHiveFaultTolerantExecutionConnectorTest
     // We need to override this method because in the case of pipeline execution,
     // the default number of writers are equal to worker count. Whereas, in the
     // fault-tolerant execution, it starts with 1.
+    @Test
     @Override
     public void testTaskWritersDoesNotScaleWithLargeMinWriterSize()
     {
@@ -72,24 +78,28 @@ public class TestHiveFaultTolerantExecutionConnectorTest
                 .isEqualTo(1);
     }
 
+    @Test
     @Override
     public void testWriterTasksCountLimitUnpartitioned()
     {
         // Not applicable for fault-tolerant mode.
     }
 
+    @Test
     @Override
     public void testWriterTasksCountLimitPartitionedScaleWritersDisabled()
     {
         // Not applicable for fault-tolerant mode.
     }
 
+    @Test
     @Override
     public void testWriterTasksCountLimitPartitionedScaleWritersEnabled()
     {
         // Not applicable for fault-tolerant mode.
     }
 
+    @Test
     @Override
     public void testWritersAcrossMultipleWorkersWhenScaleWritersIsEnabled()
     {
@@ -106,7 +116,7 @@ public class TestHiveFaultTolerantExecutionConnectorTest
         assertQueryFails(session, "SELECT nationkey, count(*) FROM nation GROUP BY nationkey", "Max number of output partitions exceeded for exchange.*");
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void destroy()
             throws Exception
     {

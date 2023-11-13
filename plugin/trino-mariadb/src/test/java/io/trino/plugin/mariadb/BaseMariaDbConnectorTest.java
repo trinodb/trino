@@ -18,7 +18,7 @@ import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -84,7 +84,7 @@ public abstract class BaseMariaDbConnectorTest
                 "(one bigint, two decimal(50,0), three varchar(10))");
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     @Override
     public void testShowColumns()
     {
@@ -181,6 +181,7 @@ public abstract class BaseMariaDbConnectorTest
         assertUpdate("DROP TABLE test_column_comment");
     }
 
+    @Test
     @Override
     public void testAddNotNullColumn()
     {
@@ -288,6 +289,7 @@ public abstract class BaseMariaDbConnectorTest
         }
     }
 
+    @Test
     @Override
     public void testNativeQueryCreateStatement()
     {
@@ -298,6 +300,7 @@ public abstract class BaseMariaDbConnectorTest
         assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
     }
 
+    @Test
     @Override
     public void testNativeQueryInsertStatementTableExists()
     {

@@ -17,8 +17,9 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.containers.MySQLContainer;
-import org.testng.annotations.AfterClass;
 
 import java.io.File;
 import java.util.Map;
@@ -26,7 +27,9 @@ import java.util.Map;
 import static io.trino.plugin.raptor.legacy.RaptorQueryRunner.copyTables;
 import static io.trino.plugin.raptor.legacy.RaptorQueryRunner.createSession;
 import static java.lang.String.format;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestRaptorMySqlConnectorTest
         extends BaseRaptorConnectorTest
 {
@@ -41,7 +44,7 @@ public class TestRaptorMySqlConnectorTest
         return createRaptorMySqlQueryRunner(getJdbcUrl(mysqlContainer));
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public final void destroy()
     {
         mysqlContainer.close();

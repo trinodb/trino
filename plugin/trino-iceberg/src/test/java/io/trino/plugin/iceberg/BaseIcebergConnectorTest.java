@@ -61,9 +61,10 @@ import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.io.FileIO;
 import org.apache.iceberg.util.JsonUtil;
 import org.intellij.lang.annotations.Language;
-import org.testng.SkipException;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 
 import java.io.File;
 import java.io.IOException;
@@ -149,12 +150,15 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
+@TestInstance(PER_CLASS)
 public abstract class BaseIcebergConnectorTest
         extends BaseConnectorTest
 {
@@ -189,13 +193,13 @@ public abstract class BaseIcebergConnectorTest
                 .setInitialTables(REQUIRED_TPCH_TABLES);
     }
 
-    @BeforeClass
+    @BeforeAll
     public void initFileSystem()
     {
         fileSystem = getFileSystemFactory(getDistributedQueryRunner()).create(SESSION);
     }
 
-    @BeforeClass
+    @BeforeAll
     public void initStorageTimePrecision()
     {
         try (TestTable table = new TestTable(getQueryRunner()::execute, "inspect_storage_precision", "(i int)")) {
@@ -240,6 +244,7 @@ public abstract class BaseIcebergConnectorTest
         }
     }
 
+    @Test
     @Override
     public void testAddAndDropColumnName()
     {
@@ -288,6 +293,7 @@ public abstract class BaseIcebergConnectorTest
         }
     }
 
+    @Test
     @Override
     public void testCharVarcharComparison()
     {
@@ -1509,6 +1515,7 @@ public abstract class BaseIcebergConnectorTest
         dropTable("test_schema_evolution_drop_middle");
     }
 
+    @Test
     @Override
     public void testDropRowFieldWhenDuplicates()
     {
@@ -4802,7 +4809,7 @@ public abstract class BaseIcebergConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        throw new SkipException("Iceberg connector does not support column default values");
+        return abort("Iceberg connector does not support column default values");
     }
 
     @Override
@@ -6432,6 +6439,7 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    @Override
     public void testMergeMultipleOperations()
     {
         testMergeMultipleOperations(1, "");
@@ -6538,6 +6546,7 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    @Override
     public void testMergeMultipleRowsMatchFails()
     {
         testMergeMultipleRowsMatchFails("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR)");
@@ -6964,7 +6973,8 @@ public abstract class BaseIcebergConnectorTest
         assertFalse(fileSystem.listFiles(tableLocation).hasNext(), "Table location should not exist");
     }
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testNoRetryWhenMetadataFileInvalid()
             throws Exception
     {
