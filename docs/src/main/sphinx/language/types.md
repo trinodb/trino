@@ -271,12 +271,13 @@ SELECT cast(TIMESTAMP '2020-06-10 15:55:23.383345' as TIMESTAMP(12));
 `TIMESTAMP WITH TIME ZONE` is an alias for `TIMESTAMP(3) WITH TIME ZONE`
 (millisecond precision).
 
+(timestamp-p-with-time-zone-data-type)=
 ### `TIMESTAMP(P) WITH TIME ZONE`
 
 Instant in time that includes the date and time of day with `P` digits of
-precision for the fraction of seconds and with a time zone. Values of this
-type are rendered using the time zone from the value.
-Time zones can be expressed in the following ways:
+precision for the fraction of seconds and with a time zone. Values of this type
+are rendered using the time zone from the value. Time zones can be expressed in
+the following ways:
 
 - `UTC`, with `GMT`, `Z`, or `UT` usable as aliases for UTC.
 - `+hh:mm` or `-hh:mm` with `hh:mm` as an hour and minute offset from UTC.

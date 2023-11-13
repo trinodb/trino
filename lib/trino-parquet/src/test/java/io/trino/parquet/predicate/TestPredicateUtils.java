@@ -21,7 +21,7 @@ import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Types;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Set;
 

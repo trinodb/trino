@@ -16,10 +16,7 @@ package io.trino.plugin.hive.util;
 import com.google.common.base.CharMatcher;
 import com.google.common.collect.ImmutableList;
 import io.trino.filesystem.Location;
-import io.trino.hdfs.HdfsContext;
-import io.trino.hdfs.HdfsEnvironment;
-import io.trino.hdfs.rubix.CachingTrinoS3FileSystem;
-import io.trino.hdfs.s3.TrinoS3FileSystem;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.hive.HiveReadOnlyException;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.metastore.Database;
@@ -39,17 +36,12 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.viewfs.ViewFileSystem;
-import org.apache.hadoop.hdfs.DistributedFileSystem;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -62,8 +54,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.io.BaseEncoding.base16;
-import static io.trino.hdfs.FileSystemUtils.getRawFileSystem;
-import static io.trino.hdfs.s3.HiveS3Module.EMR_FS_CLASS_NAME;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_DATABASE_LOCATION_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
@@ -91,7 +81,6 @@ import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.UUID.randomUUID;
 
 public final class HiveWriteUtils
 {
@@ -221,87 +210,33 @@ public final class HiveWriteUtils
         }
     }
 
-    public static Location getTableDefaultLocation(HdfsContext context, SemiTransactionalHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, String schemaName, String tableName)
+    public static Location getTableDefaultLocation(SemiTransactionalHiveMetastore metastore, TrinoFileSystem fileSystem, String schemaName, String tableName)
     {
         Database database = metastore.getDatabase(schemaName)
                 .orElseThrow(() -> new SchemaNotFoundException(schemaName));
 
-        return getTableDefaultLocation(database, context, hdfsEnvironment, schemaName, tableName);
+        return getTableDefaultLocation(database, fileSystem, schemaName, tableName);
     }
 
-    public static Location getTableDefaultLocation(Database database, HdfsContext context, HdfsEnvironment hdfsEnvironment, String schemaName, String tableName)
+    public static Location getTableDefaultLocation(Database database, TrinoFileSystem fileSystem, String schemaName, String tableName)
     {
-        String location = database.getLocation()
+        Location location = database.getLocation().map(Location::of)
                 .orElseThrow(() -> new TrinoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not set", schemaName)));
 
-        Path databasePath = new Path(location);
-        if (!isS3FileSystem(context, hdfsEnvironment, databasePath)) {
-            if (!pathExists(context, hdfsEnvironment, databasePath)) {
-                throw new TrinoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location does not exist: %s", schemaName, databasePath));
-            }
-            if (!isDirectory(context, hdfsEnvironment, databasePath)) {
-                throw new TrinoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location is not a directory: %s", schemaName, databasePath));
-            }
+        if (!directoryExists(fileSystem, location).orElse(true)) {
+            throw new TrinoException(HIVE_DATABASE_LOCATION_ERROR, format("Database '%s' location does not exist: %s", schemaName, location));
         }
 
-        // Note: this results in `databaseLocation` being a "normalized location", e.g. not containing double slashes.
-        // TODO (https://github.com/trinodb/trino/issues/17803): We need to use normalized location until all relevant Hive connector components are migrated off Hadoop Path.
-        Location databaseLocation = Location.of(databasePath.toString());
-        return databaseLocation.appendPath(escapeTableName(tableName));
+        return location.appendPath(escapeTableName(tableName));
     }
 
-    public static boolean pathExists(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
+    public static Optional<Boolean> directoryExists(TrinoFileSystem fileSystem, Location path)
     {
         try {
-            return hdfsEnvironment.getFileSystem(context, path).exists(path);
+            return fileSystem.directoryExists(path);
         }
         catch (IOException e) {
             throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
-        }
-    }
-
-    public static boolean isS3FileSystem(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
-    {
-        try {
-            FileSystem fileSystem = getRawFileSystem(hdfsEnvironment.getFileSystem(context, path));
-            return fileSystem instanceof TrinoS3FileSystem || fileSystem.getClass().getName().equals(EMR_FS_CLASS_NAME) || fileSystem instanceof CachingTrinoS3FileSystem;
-        }
-        catch (IOException e) {
-            throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
-        }
-    }
-
-    public static boolean isViewFileSystem(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
-    {
-        try {
-            return getRawFileSystem(hdfsEnvironment.getFileSystem(context, path)) instanceof ViewFileSystem;
-        }
-        catch (IOException e) {
-            throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
-        }
-    }
-
-    private static boolean isDirectory(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
-    {
-        try {
-            return hdfsEnvironment.getFileSystem(context, path).isDirectory(path);
-        }
-        catch (IOException e) {
-            throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed checking path: " + path, e);
-        }
-    }
-
-    public static boolean isHdfsEncrypted(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
-    {
-        try {
-            FileSystem fileSystem = getRawFileSystem(hdfsEnvironment.getFileSystem(context, path));
-            if (fileSystem instanceof DistributedFileSystem) {
-                return ((DistributedFileSystem) fileSystem).getEZForPath(path) != null;
-            }
-            return false;
-        }
-        catch (IOException e) {
-            throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed checking encryption status for path: " + path, e);
         }
     }
 
@@ -310,90 +245,16 @@ public final class HiveWriteUtils
         return fileName.startsWith(queryId) || fileName.endsWith(queryId);
     }
 
-    public static Location createTemporaryPath(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path targetPath, String temporaryStagingDirectoryPath)
+    public static Optional<Location> createTemporaryPath(TrinoFileSystem fileSystem, ConnectorIdentity identity, Location targetPath, String temporaryStagingDirectoryPath)
     {
-        // use a per-user temporary directory to avoid permission problems
-        String temporaryPrefix = temporaryStagingDirectoryPath.replace("${USER}", context.getIdentity().getUser());
+        // interpolate the username into the temporary directory path to avoid permission problems
+        String temporaryPrefix = temporaryStagingDirectoryPath.replace("${USER}", identity.getUser());
 
-        // use relative temporary directory on ViewFS
-        if (isViewFileSystem(context, hdfsEnvironment, targetPath)) {
-            temporaryPrefix = ".hive-staging";
-        }
-
-        // create a temporary directory on the same filesystem
-        Path temporaryRoot = new Path(targetPath, temporaryPrefix);
-        Path temporaryPath = new Path(temporaryRoot, randomUUID().toString());
-
-        createDirectory(context, hdfsEnvironment, temporaryPath);
-
-        if (hdfsEnvironment.isNewFileInheritOwnership()) {
-            setDirectoryOwner(context, hdfsEnvironment, temporaryPath, targetPath);
-        }
-
-        return Location.of(temporaryPath.toString());
-    }
-
-    private static void setDirectoryOwner(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path, Path targetPath)
-    {
         try {
-            FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, path);
-            FileStatus fileStatus;
-            if (!fileSystem.exists(targetPath)) {
-                // For new table
-                Path parent = targetPath.getParent();
-                if (!fileSystem.exists(parent)) {
-                    return;
-                }
-                fileStatus = fileSystem.getFileStatus(parent);
-            }
-            else {
-                // For existing table
-                fileStatus = fileSystem.getFileStatus(targetPath);
-            }
-            String owner = fileStatus.getOwner();
-            String group = fileStatus.getGroup();
-            fileSystem.setOwner(path, owner, group);
+            return fileSystem.createTemporaryDirectory(targetPath, temporaryPrefix, ".hive-staging");
         }
         catch (IOException e) {
-            throw new TrinoException(HIVE_FILESYSTEM_ERROR, format("Failed to set owner on %s based on %s", path, targetPath), e);
-        }
-    }
-
-    public static void createDirectory(HdfsContext context, HdfsEnvironment hdfsEnvironment, Path path)
-    {
-        try {
-            if (!hdfsEnvironment.getFileSystem(context, path).mkdirs(path, hdfsEnvironment.getNewDirectoryPermissions().orElse(null))) {
-                throw new IOException("mkdirs returned false");
-            }
-        }
-        catch (IOException e) {
-            throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed to create directory: " + path, e);
-        }
-
-        if (hdfsEnvironment.getNewDirectoryPermissions().isPresent()) {
-            // explicitly set permission since the default umask overrides it on creation
-            try {
-                hdfsEnvironment.getFileSystem(context, path).setPermission(path, hdfsEnvironment.getNewDirectoryPermissions().get());
-            }
-            catch (IOException e) {
-                throw new TrinoException(HIVE_FILESYSTEM_ERROR, "Failed to set permission on directory: " + path, e);
-            }
-        }
-    }
-
-    public static void checkedDelete(FileSystem fileSystem, Path file, boolean recursive)
-            throws IOException
-    {
-        try {
-            if (!fileSystem.delete(file, recursive)) {
-                if (fileSystem.exists(file)) {
-                    // only throw exception if file still exists
-                    throw new IOException("Failed to delete " + file);
-                }
-            }
-        }
-        catch (FileNotFoundException ignored) {
-            // ok
+            throw new TrinoException(HIVE_FILESYSTEM_ERROR, e);
         }
     }
 

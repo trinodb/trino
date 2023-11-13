@@ -15,7 +15,6 @@ package io.trino.plugin.hive.metastore.glue;
 
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.AmazonWebServiceRequest;
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.handlers.AsyncHandler;
 import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.model.AccessDeniedException;
@@ -30,10 +29,12 @@ import com.amazonaws.services.glue.model.BatchUpdatePartitionResult;
 import com.amazonaws.services.glue.model.ConcurrentModificationException;
 import com.amazonaws.services.glue.model.CreateDatabaseRequest;
 import com.amazonaws.services.glue.model.CreateTableRequest;
+import com.amazonaws.services.glue.model.CreateUserDefinedFunctionRequest;
 import com.amazonaws.services.glue.model.DatabaseInput;
 import com.amazonaws.services.glue.model.DeleteDatabaseRequest;
 import com.amazonaws.services.glue.model.DeletePartitionRequest;
 import com.amazonaws.services.glue.model.DeleteTableRequest;
+import com.amazonaws.services.glue.model.DeleteUserDefinedFunctionRequest;
 import com.amazonaws.services.glue.model.EntityNotFoundException;
 import com.amazonaws.services.glue.model.ErrorDetail;
 import com.amazonaws.services.glue.model.GetDatabaseRequest;
@@ -48,6 +49,9 @@ import com.amazonaws.services.glue.model.GetTableRequest;
 import com.amazonaws.services.glue.model.GetTableResult;
 import com.amazonaws.services.glue.model.GetTablesRequest;
 import com.amazonaws.services.glue.model.GetTablesResult;
+import com.amazonaws.services.glue.model.GetUserDefinedFunctionRequest;
+import com.amazonaws.services.glue.model.GetUserDefinedFunctionsRequest;
+import com.amazonaws.services.glue.model.GetUserDefinedFunctionsResult;
 import com.amazonaws.services.glue.model.PartitionError;
 import com.amazonaws.services.glue.model.PartitionInput;
 import com.amazonaws.services.glue.model.PartitionValueList;
@@ -56,7 +60,8 @@ import com.amazonaws.services.glue.model.TableInput;
 import com.amazonaws.services.glue.model.UpdateDatabaseRequest;
 import com.amazonaws.services.glue.model.UpdatePartitionRequest;
 import com.amazonaws.services.glue.model.UpdateTableRequest;
-import com.google.common.annotations.VisibleForTesting;
+import com.amazonaws.services.glue.model.UpdateUserDefinedFunctionRequest;
+import com.amazonaws.services.glue.model.UserDefinedFunctionInput;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
@@ -72,14 +77,6 @@ import io.airlift.log.Logger;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
-import io.trino.hdfs.DynamicHdfsConfiguration;
-import io.trino.hdfs.HdfsConfig;
-import io.trino.hdfs.HdfsConfiguration;
-import io.trino.hdfs.HdfsConfigurationInitializer;
-import io.trino.hdfs.HdfsEnvironment;
-import io.trino.hdfs.TrinoHdfsFileSystemStats;
-import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionNotFoundException;
@@ -108,6 +105,7 @@ import io.trino.spi.connector.ColumnNotFoundException;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.RoleGrant;
@@ -120,6 +118,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -134,6 +133,7 @@ import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.Future;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -142,26 +142,28 @@ import static com.google.common.collect.Comparators.lexicographical;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
+import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.toPartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
-import static io.trino.plugin.hive.metastore.glue.GlueClientUtil.createAsyncGlueClient;
+import static io.trino.plugin.hive.metastore.glue.converter.GlueInputConverter.convertFunction;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueInputConverter.convertPartition;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableParameters;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableTypeNullable;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.mappedCopy;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
+import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.metastoreFunctionName;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static io.trino.plugin.hive.util.HiveUtil.escapeSchemaName;
 import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
+import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.security.PrincipalType.USER;
 import static java.util.Objects.requireNonNull;
@@ -219,25 +221,6 @@ public class GlueHiveMetastore
         this.tableFilter = requireNonNull(tableFilter, "tableFilter is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.columnStatisticsProvider = columnStatisticsProviderFactory.createGlueColumnStatisticsProvider(glueClient, stats);
-    }
-
-    @VisibleForTesting
-    public static GlueHiveMetastore createTestingGlueHiveMetastore(java.nio.file.Path defaultWarehouseDir)
-    {
-        HdfsConfig hdfsConfig = new HdfsConfig();
-        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), ImmutableSet.of());
-        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
-        GlueMetastoreStats stats = new GlueMetastoreStats();
-        GlueHiveMetastoreConfig glueConfig = new GlueHiveMetastoreConfig()
-                .setDefaultWarehouseDir(defaultWarehouseDir.toUri().toString());
-        return new GlueHiveMetastore(
-                new HdfsFileSystemFactory(hdfsEnvironment, new TrinoHdfsFileSystemStats()),
-                glueConfig,
-                directExecutor(),
-                new DefaultGlueColumnStatisticsProviderFactory(directExecutor(), directExecutor()),
-                createAsyncGlueClient(glueConfig, DefaultAWSCredentialsProviderChain.getInstance(), ImmutableSet.of(), stats.newRequestMetricsCollector()),
-                stats,
-                table -> true);
     }
 
     @Managed
@@ -347,6 +330,12 @@ public class GlueHiveMetastore
 
     @Override
     public void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, Function<PartitionStatistics, PartitionStatistics> update)
+    {
+        Failsafe.with(CONCURRENT_MODIFICATION_EXCEPTION_RETRY_POLICY)
+                .run(() -> updateTableStatisticsInternal(databaseName, tableName, transaction, update));
+    }
+
+    private void updateTableStatisticsInternal(String databaseName, String tableName, AcidTransaction transaction, Function<PartitionStatistics, PartitionStatistics> update)
     {
         Table table = getExistingTable(databaseName, tableName);
         if (transaction.isAcidTransactionRunning()) {
@@ -696,7 +685,11 @@ public class GlueHiveMetastore
     @Override
     public void commentTable(String databaseName, String tableName, Optional<String> comment)
     {
-        throw new TrinoException(NOT_SUPPORTED, "Table comment is not yet supported by Glue service");
+        Table oldTable = getExistingTable(databaseName, tableName);
+        Table newTable = Table.builder(oldTable)
+                .setParameter(TABLE_COMMENT, comment)
+                .build();
+        replaceTable(databaseName, tableName, newTable, null);
     }
 
     @Override
@@ -1171,12 +1164,6 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public Set<RoleGrant> listGrantedPrincipals(String role)
-    {
-        throw new TrinoException(NOT_SUPPORTED, "listPrincipals is not supported by Glue");
-    }
-
-    @Override
     public Set<RoleGrant> listRoleGrants(HivePrincipal principal)
     {
         if (principal.getType() == USER) {
@@ -1207,6 +1194,117 @@ public class GlueHiveMetastore
     public void checkSupportsTransactions()
     {
         throw new TrinoException(NOT_SUPPORTED, "Glue does not support ACID tables");
+    }
+
+    @Override
+    public boolean functionExists(String databaseName, String functionName, String signatureToken)
+    {
+        try {
+            stats.getGetUserDefinedFunction().call(() ->
+                    glueClient.getUserDefinedFunction(new GetUserDefinedFunctionRequest()
+                            .withDatabaseName(databaseName)
+                            .withFunctionName(metastoreFunctionName(functionName, signatureToken))));
+            return true;
+        }
+        catch (EntityNotFoundException e) {
+            return false;
+        }
+        catch (AmazonServiceException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+    }
+
+    @Override
+    public Collection<LanguageFunction> getFunctions(String databaseName)
+    {
+        return getFunctionsByPattern(databaseName, "trino__.*");
+    }
+
+    @Override
+    public Collection<LanguageFunction> getFunctions(String databaseName, String functionName)
+    {
+        return getFunctionsByPattern(databaseName, "trino__" + Pattern.quote(functionName) + "__.*");
+    }
+
+    private Collection<LanguageFunction> getFunctionsByPattern(String databaseName, String functionNamePattern)
+    {
+        try {
+            return getPaginatedResults(
+                    glueClient::getUserDefinedFunctions,
+                    new GetUserDefinedFunctionsRequest()
+                            .withDatabaseName(databaseName)
+                            .withPattern(functionNamePattern),
+                    GetUserDefinedFunctionsRequest::setNextToken,
+                    GetUserDefinedFunctionsResult::getNextToken,
+                    stats.getGetUserDefinedFunctions())
+                    .map(GetUserDefinedFunctionsResult::getUserDefinedFunctions)
+                    .flatMap(List::stream)
+                    .map(GlueToTrinoConverter::convertFunction)
+                    .collect(toImmutableList());
+        }
+        catch (EntityNotFoundException | AccessDeniedException e) {
+            return ImmutableList.of();
+        }
+        catch (AmazonServiceException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+    }
+
+    @Override
+    public void createFunction(String databaseName, String functionName, LanguageFunction function)
+    {
+        if (functionName.contains("__")) {
+            throw new TrinoException(NOT_SUPPORTED, "Function names with double underscore are not supported");
+        }
+        try {
+            UserDefinedFunctionInput functionInput = convertFunction(functionName, function);
+            stats.getCreateUserDefinedFunction().call(() ->
+                    glueClient.createUserDefinedFunction(new CreateUserDefinedFunctionRequest()
+                            .withDatabaseName(databaseName)
+                            .withFunctionInput(functionInput)));
+        }
+        catch (AlreadyExistsException e) {
+            throw new TrinoException(ALREADY_EXISTS, "Function already exists");
+        }
+        catch (EntityNotFoundException e) {
+            throw new SchemaNotFoundException(databaseName);
+        }
+        catch (AmazonServiceException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+    }
+
+    @Override
+    public void replaceFunction(String databaseName, String functionName, LanguageFunction function)
+    {
+        try {
+            UserDefinedFunctionInput functionInput = convertFunction(functionName, function);
+            stats.getUpdateUserDefinedFunction().call(() ->
+                    glueClient.updateUserDefinedFunction(new UpdateUserDefinedFunctionRequest()
+                            .withDatabaseName(databaseName)
+                            .withFunctionName(metastoreFunctionName(functionName, function.signatureToken()))
+                            .withFunctionInput(functionInput)));
+        }
+        catch (AmazonServiceException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+    }
+
+    @Override
+    public void dropFunction(String databaseName, String functionName, String signatureToken)
+    {
+        try {
+            stats.getDeleteUserDefinedFunction().call(() ->
+                    glueClient.deleteUserDefinedFunction(new DeleteUserDefinedFunctionRequest()
+                            .withDatabaseName(databaseName)
+                            .withFunctionName(metastoreFunctionName(functionName, signatureToken))));
+        }
+        catch (EntityNotFoundException e) {
+            throw new TrinoException(FUNCTION_NOT_FOUND, "Function not found");
+        }
+        catch (AmazonServiceException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
     }
 
     private Stream<com.amazonaws.services.glue.model.Table> getGlueTables(String databaseName)

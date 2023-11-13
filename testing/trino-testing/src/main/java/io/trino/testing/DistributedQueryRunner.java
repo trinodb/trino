@@ -33,6 +33,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AllNodes;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.FunctionManager;
+import io.trino.metadata.LanguageFunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
@@ -299,7 +300,8 @@ public class DistributedQueryRunner
     {
         long start = System.nanoTime();
         while (!allNodesGloballyVisible()) {
-            Assertions.assertLessThan(nanosSince(start), new Duration(10, SECONDS));
+            // TODO node announcement should be propagated faster when new node starts
+            Assertions.assertLessThan(nanosSince(start), new Duration(30, SECONDS));
             MILLISECONDS.sleep(10);
         }
         log.info("Announced servers in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
@@ -368,6 +370,12 @@ public class DistributedQueryRunner
     public FunctionManager getFunctionManager()
     {
         return coordinator.getFunctionManager();
+    }
+
+    @Override
+    public LanguageFunctionManager getLanguageFunctionManager()
+    {
+        return coordinator.getLanguageFunctionManager();
     }
 
     @Override

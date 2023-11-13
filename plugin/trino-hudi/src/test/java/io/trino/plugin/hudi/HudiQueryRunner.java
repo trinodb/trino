@@ -14,6 +14,7 @@
 package io.trino.plugin.hudi;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Level;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
@@ -36,6 +37,11 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public final class HudiQueryRunner
 {
+    static {
+        Logging logging = Logging.initialize();
+        logging.setLevel("org.apache.hudi", Level.OFF);
+    }
+
     private static final String SCHEMA_NAME = "tests";
 
     private HudiQueryRunner() {}

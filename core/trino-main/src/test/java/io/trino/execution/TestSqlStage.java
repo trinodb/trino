@@ -42,6 +42,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -68,6 +69,7 @@ import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertSame;
@@ -75,6 +77,7 @@ import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestSqlStage
 {
     private ExecutorService executor;
@@ -244,6 +247,7 @@ public class TestSqlStage
                 ImmutableList.of(planNode.getId()),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), planNode.getOutputSymbols()),
                 StatsAndCosts.empty(),
+                ImmutableList.of(),
                 ImmutableList.of(),
                 Optional.empty());
     }

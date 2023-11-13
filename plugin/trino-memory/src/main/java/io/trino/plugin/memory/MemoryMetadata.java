@@ -49,6 +49,8 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.ViewNotFoundException;
+import io.trino.spi.function.LanguageFunction;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.Estimate;
@@ -100,6 +102,7 @@ public class MemoryMetadata
     private final Map<Long, TableInfo> tables = new HashMap<>();
     @GuardedBy("this")
     private final Map<SchemaTableName, ConnectorViewDefinition> views = new HashMap<>();
+    private final Map<SchemaFunctionName, Map<String, LanguageFunction>> functions = new HashMap<>();
 
     @Inject
     public MemoryMetadata(NodeManager nodeManager)
@@ -553,5 +556,49 @@ public class MemoryMetadata
                                 .collect(toImmutableList()),
                         info.getDataFragments(),
                         info.getComment()));
+    }
+
+    @Override
+    public synchronized Collection<LanguageFunction> listLanguageFunctions(ConnectorSession session, String schemaName)
+    {
+        return functions.entrySet().stream()
+                .filter(entry -> entry.getKey().getSchemaName().equals(schemaName))
+                .flatMap(entry -> entry.getValue().values().stream())
+                .toList();
+    }
+
+    @Override
+    public synchronized Collection<LanguageFunction> getLanguageFunctions(ConnectorSession session, SchemaFunctionName name)
+    {
+        return functions.getOrDefault(name, Map.of()).values();
+    }
+
+    @Override
+    public synchronized boolean languageFunctionExists(ConnectorSession session, SchemaFunctionName name, String signatureToken)
+    {
+        return functions.getOrDefault(name, Map.of()).containsKey(signatureToken);
+    }
+
+    @Override
+    public synchronized void createLanguageFunction(ConnectorSession session, SchemaFunctionName name, LanguageFunction function, boolean replace)
+    {
+        Map<String, LanguageFunction> map = functions.computeIfAbsent(name, ignored -> new HashMap<>());
+        if (!replace && map.containsKey(function.signatureToken())) {
+            throw new TrinoException(ALREADY_EXISTS, "Function already exists");
+        }
+        map.put(function.signatureToken(), function);
+    }
+
+    @Override
+    public synchronized void dropLanguageFunction(ConnectorSession session, SchemaFunctionName name, String signatureToken)
+    {
+        Map<String, LanguageFunction> map = functions.get(name);
+        if ((map == null) || !map.containsKey(signatureToken)) {
+            throw new TrinoException(NOT_FOUND, "Function not found");
+        }
+        map.remove(signatureToken);
+        if (map.isEmpty()) {
+            functions.remove(name);
+        }
     }
 }

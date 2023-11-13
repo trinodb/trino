@@ -719,7 +719,7 @@ public class PlanBuilder
                 rowCountSymbol);
     }
 
-    public CreateTarget createTarget(CatalogHandle catalogHandle, SchemaTableName schemaTableName, boolean multipleWritersPerPartitionSupported, OptionalInt maxWriterTasks, WriterScalingOptions writerScalingOptions)
+    public CreateTarget createTarget(CatalogHandle catalogHandle, SchemaTableName schemaTableName, boolean multipleWritersPerPartitionSupported, OptionalInt maxWriterTasks, WriterScalingOptions writerScalingOptions, boolean replace)
     {
         OutputTableHandle tableHandle = new OutputTableHandle(
                 catalogHandle,
@@ -731,12 +731,13 @@ public class PlanBuilder
                 schemaTableName,
                 multipleWritersPerPartitionSupported,
                 maxWriterTasks,
-                writerScalingOptions);
+                writerScalingOptions,
+                replace);
     }
 
-    public CreateTarget createTarget(CatalogHandle catalogHandle, SchemaTableName schemaTableName, boolean multipleWritersPerPartitionSupported, WriterScalingOptions writerScalingOptions)
+    public CreateTarget createTarget(CatalogHandle catalogHandle, SchemaTableName schemaTableName, boolean multipleWritersPerPartitionSupported, WriterScalingOptions writerScalingOptions, boolean replace)
     {
-        return createTarget(catalogHandle, schemaTableName, multipleWritersPerPartitionSupported, OptionalInt.empty(), writerScalingOptions);
+        return createTarget(catalogHandle, schemaTableName, multipleWritersPerPartitionSupported, OptionalInt.empty(), writerScalingOptions, replace);
     }
 
     public MergeWriterNode merge(SchemaTableName schemaTableName, PlanNode mergeSource, Symbol mergeRow, Symbol rowId, List<Symbol> outputs)

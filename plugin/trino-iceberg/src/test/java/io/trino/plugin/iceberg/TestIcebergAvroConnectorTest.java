@@ -48,4 +48,10 @@ public class TestIcebergAvroConnectorTest
     {
         throw new SkipException("Unimplemented");
     }
+
+    @Override
+    protected boolean supportsPhysicalPushdown()
+    {
+        return false;
+    }
 }

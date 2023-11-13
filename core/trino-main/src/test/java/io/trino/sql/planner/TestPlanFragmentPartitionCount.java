@@ -31,6 +31,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Map;
 import java.util.Optional;
@@ -44,8 +45,10 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestPlanFragmentPartitionCount
 {
     private PlanFragmenter planFragmenter;
@@ -64,6 +67,7 @@ public class TestPlanFragmentPartitionCount
                 localQueryRunner.getFunctionManager(),
                 localQueryRunner.getTransactionManager(),
                 localQueryRunner.getCatalogManager(),
+                localQueryRunner.getLanguageFunctionManager(),
                 new QueryManagerConfig());
     }
 
@@ -143,6 +147,7 @@ public class TestPlanFragmentPartitionCount
 
     private SubPlan fragment(Plan plan)
     {
+        localQueryRunner.getLanguageFunctionManager().registerQuery(session);
         return inTransaction(session -> planFragmenter.createSubPlans(session, plan, false, WarningCollector.NOOP));
     }
 

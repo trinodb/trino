@@ -91,20 +91,20 @@ connector {ref}`modifies some types <type-mapping-overview>` when reading data.
 The connector returns fixed columns that have a defined mapping to Trino types
 according to the following table:
 
-```{eval-rst}
-.. list-table:: Prometheus column to Trino type mapping
-  :widths: 50, 50
-  :header-rows: 1
 
-  * - Prometheus column
-    - Trino type
-  * - ``labels``
-    - ``MAP(VARCHAR,VARCHAR)``
-  * - ``TIMESTAMP``
-    - ``TIMESTAMP(3) WITH TIMEZONE``
-  * - ``value``
-    - ``DOUBLE``
-```
+:::{list-table} Prometheus column to Trino type mapping
+:widths: 50, 50
+:header-rows: 1
+
+* - Prometheus column
+  - Trino type
+* -  `labels `
+  -  `MAP(VARCHAR,VARCHAR) `
+* -  `TIMESTAMP `
+  -  `TIMESTAMP(3) WITH TIMEZONE `
+* -  `value `
+  -  `DOUBLE `
+:::
 
 No other types are supported.
 

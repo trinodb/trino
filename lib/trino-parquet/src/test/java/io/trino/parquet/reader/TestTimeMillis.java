@@ -23,13 +23,11 @@ import io.trino.spi.type.SqlTime;
 import io.trino.spi.type.TimeType;
 import io.trino.spi.type.Type;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Stream;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.ParquetTestUtils.createParquetReader;
@@ -37,14 +35,22 @@ import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
 import static io.trino.spi.type.TimeType.TIME_NANOS;
 import static io.trino.spi.type.TimeType.TIME_SECONDS;
-import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTimeMillis
 {
-    @Test(dataProvider = "timeTypeProvider")
-    public void testTimeMillsInt32(TimeType timeType)
+    @Test
+    public void testTimeMillsInt32()
+            throws Exception
+    {
+        testTimeMillsInt32(TIME_SECONDS);
+        testTimeMillsInt32(TIME_MILLIS);
+        testTimeMillsInt32(TIME_MICROS);
+        testTimeMillsInt32(TIME_NANOS);
+    }
+
+    private void testTimeMillsInt32(TimeType timeType)
             throws Exception
     {
         List<String> columnNames = ImmutableList.of("COLUMN1", "COLUMN2");
@@ -70,12 +76,5 @@ public class TestTimeMillis
         // Rounded up to 0 if precision < 3
         assertThat(timeType.getObjectValue(SESSION, block, 0))
                 .isEqualTo(SqlTime.newInstance(precision, timeType == TIME_SECONDS ? 0L : 86399999000000000L));
-    }
-
-    @DataProvider
-    public static Object[][] timeTypeProvider()
-    {
-        return Stream.of(TIME_SECONDS, TIME_MILLIS, TIME_MICROS, TIME_NANOS)
-                .collect(toDataProvider());
     }
 }

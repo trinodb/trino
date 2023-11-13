@@ -14,43 +14,30 @@
 package io.trino.plugin.kafka;
 
 import com.google.common.collect.ImmutableList;
-import com.google.inject.Binder;
 import com.google.inject.Module;
-import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.trino.plugin.kafka.security.KafkaSecurityModule;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 
-import static java.util.Objects.requireNonNull;
+import java.util.List;
 
 public class KafkaPlugin
         implements Plugin
 {
-    public static final Module DEFAULT_EXTENSION = new AbstractConfigurationAwareModule()
-    {
-        @Override
-        protected void setup(Binder binder)
-        {
-            install(new KafkaClientsModule());
-            install(new KafkaSecurityModule());
-        }
-    };
-
-    private final Module extension;
+    private final List<Module> extensions;
 
     public KafkaPlugin()
     {
-        this(DEFAULT_EXTENSION);
+        this(ImmutableList.of());
     }
 
-    public KafkaPlugin(Module extension)
+    public KafkaPlugin(List<Module> extensions)
     {
-        this.extension = requireNonNull(extension, "extension is null");
+        this.extensions = ImmutableList.copyOf(extensions);
     }
 
     @Override
     public synchronized Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new KafkaConnectorFactory(extension));
+        return ImmutableList.of(new KafkaConnectorFactory(extensions));
     }
 }

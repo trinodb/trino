@@ -15,9 +15,11 @@ package io.trino.plugin.raptor.legacy.metadata;
 
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -25,17 +27,20 @@ import java.util.OptionalLong;
 
 import static io.trino.plugin.raptor.legacy.DatabaseTesting.createTestingJdbi;
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestMetadataDao
 {
     private MetadataDao dao;
     private Handle dummyHandle;
 
-    @BeforeMethod
+    @BeforeEach
     public void setup()
     {
         Jdbi dbi = createTestingJdbi();
@@ -44,7 +49,7 @@ public class TestMetadataDao
         createTablesWithRetry(dbi);
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
     {
         dummyHandle.close();

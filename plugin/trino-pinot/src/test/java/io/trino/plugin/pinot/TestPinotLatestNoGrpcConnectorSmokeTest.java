@@ -13,8 +13,11 @@
  */
 package io.trino.plugin.pinot;
 
+import org.junit.jupiter.api.parallel.Isolated;
+
 import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_LATEST_IMAGE_NAME;
 
+@Isolated
 public class TestPinotLatestNoGrpcConnectorSmokeTest
         extends BasePinotConnectorSmokeTest
 {

@@ -404,4 +404,14 @@ public class AllowAllAccessControl
     {
         return functionNames;
     }
+
+    @Override
+    public void checkCanCreateFunction(SecurityContext context, QualifiedObjectName functionName)
+    {
+    }
+
+    @Override
+    public void checkCanDropFunction(SecurityContext context, QualifiedObjectName functionName)
+    {
+    }
 }

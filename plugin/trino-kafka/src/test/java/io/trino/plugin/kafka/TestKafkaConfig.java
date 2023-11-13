@@ -16,7 +16,7 @@ package io.trino.plugin.kafka;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.kafka.schema.file.FileTableDescriptionSupplier;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;

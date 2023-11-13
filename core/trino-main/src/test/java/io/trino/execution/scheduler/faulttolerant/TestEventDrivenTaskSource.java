@@ -49,6 +49,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -81,11 +82,13 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestEventDrivenTaskSource
 {
     private static final int INVOCATION_COUNT = 20;
@@ -361,7 +364,7 @@ public class TestEventDrivenTaskSource
         Map<Integer, SetMultimap<PlanNodeId, TestingConnectorSplit>> actualSplits = new HashMap<>();
         for (TaskDescriptor taskDescriptor : taskDescriptors) {
             int partitionId = taskDescriptor.getPartitionId();
-            for (Map.Entry<PlanNodeId, Split> entry : taskDescriptor.getSplits().entries()) {
+            for (Map.Entry<PlanNodeId, Split> entry : taskDescriptor.getSplits().getSplitsFlat().entries()) {
                 if (entry.getValue().getCatalogHandle().equals(REMOTE_CATALOG_HANDLE)) {
                     RemoteSplit remoteSplit = (RemoteSplit) entry.getValue().getConnectorSplit();
                     SpoolingExchangeInput input = (SpoolingExchangeInput) remoteSplit.getExchangeInput();
@@ -671,15 +674,18 @@ public class TestEventDrivenTaskSource
                 if (partitions.add(partition)) {
                     result.addPartition(new Partition(partition, new NodeRequirements(Optional.empty(), ImmutableSet.of())));
                     for (PlanNodeId finishedSource : finishedSources) {
-                        result.updatePartition(new PartitionUpdate(partition, finishedSource, false, ImmutableList.of(), true));
+                        result.updatePartition(new PartitionUpdate(partition, finishedSource, false, ImmutableListMultimap.of(), true));
                     }
                 }
-                result.updatePartition(new PartitionUpdate(partition, planNodeId, true, splits, noMoreSplits));
+
+                // todo - why are mixing source and task partition ids here
+                ListMultimap<Integer, Split> partitionSplits = ImmutableListMultimap.<Integer, Split>builder().putAll(partition, splits).build();
+                result.updatePartition(new PartitionUpdate(partition, planNodeId, true, partitionSplits, noMoreSplits));
             });
             if (noMoreSplits) {
                 finishedSources.add(planNodeId);
                 for (Integer partition : partitions) {
-                    result.updatePartition(new PartitionUpdate(partition, planNodeId, false, ImmutableList.of(), true));
+                    result.updatePartition(new PartitionUpdate(partition, planNodeId, false, ImmutableListMultimap.of(), true));
                 }
             }
             if (finishedSources.containsAll(allSources)) {

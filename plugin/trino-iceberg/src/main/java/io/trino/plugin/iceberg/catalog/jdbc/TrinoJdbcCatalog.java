@@ -29,7 +29,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
-import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.security.TrinoPrincipal;
@@ -92,7 +91,7 @@ public class TrinoJdbcCatalog
             boolean useUniqueTableLocation,
             String defaultWarehouseDir)
     {
-        super(catalogName, typeManager, tableOperationsProvider, useUniqueTableLocation);
+        super(catalogName, typeManager, tableOperationsProvider, fileSystemFactory, useUniqueTableLocation);
         this.jdbcCatalog = requireNonNull(jdbcCatalog, "jdbcCatalog is null");
         this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
@@ -210,10 +209,28 @@ public class TrinoJdbcCatalog
             String location,
             Map<String, String> properties)
     {
-        if (!listNamespaces(session, Optional.of(schemaTableName.getSchemaName())).contains(schemaTableName.getSchemaName())) {
-            throw new SchemaNotFoundException(schemaTableName.getSchemaName());
-        }
         return newCreateTableTransaction(
+                session,
+                schemaTableName,
+                schema,
+                partitionSpec,
+                sortOrder,
+                location,
+                properties,
+                Optional.of(session.getUser()));
+    }
+
+    @Override
+    public Transaction newCreateOrReplaceTableTransaction(
+            ConnectorSession session,
+            SchemaTableName schemaTableName,
+            Schema schema,
+            PartitionSpec partitionSpec,
+            SortOrder sortOrder,
+            String location,
+            Map<String, String> properties)
+    {
+        return newCreateOrReplaceTableTransaction(
                 session,
                 schemaTableName,
                 schema,
@@ -386,6 +403,12 @@ public class TrinoJdbcCatalog
     protected Optional<ConnectorMaterializedViewDefinition> doGetMaterializedView(ConnectorSession session, SchemaTableName schemaViewName)
     {
         return Optional.empty();
+    }
+
+    @Override
+    public Optional<BaseTable> getMaterializedViewStorageTable(ConnectorSession session, SchemaTableName viewName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "The Iceberg JDBC catalog does not support materialized views");
     }
 
     @Override

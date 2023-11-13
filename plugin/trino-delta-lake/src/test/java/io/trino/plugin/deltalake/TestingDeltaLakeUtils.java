@@ -25,7 +25,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Stream;
 
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
@@ -49,12 +48,10 @@ public final class TestingDeltaLakeUtils
         // force entries to have JSON serializable statistics
         transactionLogAccess.flushCache();
 
-        TableSnapshot snapshot = transactionLogAccess.getSnapshot(SESSION, dummyTable, tableLocation, Optional.empty());
+        TableSnapshot snapshot = transactionLogAccess.loadSnapshot(SESSION, dummyTable, tableLocation);
         MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(snapshot, SESSION);
         ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, snapshot);
-        List<AddFileEntry> activeFiles = transactionLogAccess.getActiveFiles(snapshot, metadataEntry, protocolEntry, SESSION);
-        transactionLogAccess.cleanupQuery(SESSION);
-        return activeFiles;
+        return transactionLogAccess.getActiveFiles(snapshot, metadataEntry, protocolEntry, SESSION);
     }
 
     public static void copyDirectoryContents(Path source, Path destination)

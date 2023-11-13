@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>431-SNAPSHOT</version>
+        <version>434-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -24,8 +24,9 @@
           TODO (https://github.com/trinodb/trino/issues/11294) remove when we upgrade to surefire with https://issues.apache.org/jira/browse/SUREFIRE-1967
           -->
         <air.test.parallel>instances</air.test.parallel>
+        <dep.keycloak.version>21.1.2</dep.keycloak.version>
         <!-- Nessie version (matching to Iceberg release) must be bumped along with Iceberg version bump to avoid compatibility issues -->
-        <dep.nessie.version>0.59.0</dep.nessie.version>
+        <dep.nessie.version>0.71.0</dep.nessie.version>
     </properties>
 
     <dependencies>
@@ -128,11 +129,6 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-filesystem-manager</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-hdfs</artifactId>
         </dependency>
 
         <dependency>
@@ -250,11 +246,6 @@
         </dependency>
 
         <dependency>
-            <groupId>org.gaul</groupId>
-            <artifactId>modernizer-maven-annotations</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>org.jdbi</groupId>
             <artifactId>jdbi3-core</artifactId>
         </dependency>
@@ -355,7 +346,7 @@
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-hadoop-toolkit</artifactId>
+            <artifactId>trino-hdfs</artifactId>
             <scope>runtime</scope>
         </dependency>
 
@@ -573,6 +564,36 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.keycloak</groupId>
+            <artifactId>keycloak-admin-client-jakarta</artifactId>
+            <version>${dep.keycloak.version}</version>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.jboss.resteasy</groupId>
+                    <artifactId>resteasy-jaxb-provider</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.jboss.spec.javax.ws.rs</groupId>
+                    <artifactId>jboss-jaxrs-api_3.0_spec</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.keycloak</groupId>
+            <artifactId>keycloak-core</artifactId>
+            <version>${dep.keycloak.version}</version>
             <scope>test</scope>
         </dependency>
 

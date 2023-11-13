@@ -27,7 +27,6 @@ import static java.nio.file.Files.createDirectories;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
 
-// staging directory is shared mutable state
 public class TestHiveInMemoryMetastore
         extends AbstractTestHiveLocal
 {

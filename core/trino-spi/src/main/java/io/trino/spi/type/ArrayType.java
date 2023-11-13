@@ -583,9 +583,9 @@ public class ArrayType
         if (array instanceof DictionaryBlock dictionaryBlock) {
             ValueBlock valuesBlock = dictionaryBlock.getDictionary();
             long hash = 0;
-            for (int position = 0; position < valuesBlock.getPositionCount(); position++) {
+            for (int position = 0; position < dictionaryBlock.getPositionCount(); position++) {
                 int index = dictionaryBlock.getId(position);
-                long elementHash = valuesBlock.isNull(position) ? NULL_HASH_CODE : (long) hashOperator.invokeExact(valuesBlock, index);
+                long elementHash = valuesBlock.isNull(index) ? NULL_HASH_CODE : (long) hashOperator.invokeExact(valuesBlock, index);
                 hash = 31 * hash + elementHash;
             }
             return hash;

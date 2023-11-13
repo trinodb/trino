@@ -23,8 +23,8 @@ import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.QueryInfo;
+import io.trino.filesystem.Location;
 import io.trino.metadata.FunctionManager;
-import io.trino.metadata.InsertTableHandle;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
@@ -37,7 +37,6 @@ import io.trino.plugin.hive.metastore.Storage;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.CatalogSchemaTableName;
-import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.security.Identity;
@@ -67,7 +66,6 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import io.trino.type.TypeDeserializer;
-import org.apache.hadoop.fs.Path;
 import org.assertj.core.api.AbstractLongAssert;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
@@ -233,6 +231,10 @@ public abstract class BaseHiveConnectorTest
                 // This is needed for e2e scale writers test otherwise 50% threshold of
                 // bufferSize won't get exceeded for scaling to happen.
                 .addExtraProperty("task.max-local-exchange-buffer-size", "32MB")
+                // SQL functions
+                .addExtraProperty("sql.path", "hive.functions")
+                .addExtraProperty("sql.default-function-catalog", "hive")
+                .addExtraProperty("sql.default-function-schema", "functions")
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .setTpchBucketedCatalogEnabled(true)
                 .build();
@@ -260,6 +262,7 @@ public abstract class BaseHiveConnectorTest
                     SUPPORTS_SET_COLUMN_TYPE,
                     SUPPORTS_TOPN_PUSHDOWN,
                     SUPPORTS_TRUNCATE -> false;
+            case SUPPORTS_CREATE_FUNCTION -> true;
             default -> super.hasBehavior(connectorBehavior);
         };
     }
@@ -2930,7 +2933,7 @@ public abstract class BaseHiveConnectorTest
         List<MaterializedRow> paths = getQueryRunner().execute(getSession(), "SELECT \"$path\" FROM " + tableName + " ORDER BY \"$path\" ASC").toTestTypes().getMaterializedRows();
         assertEquals(paths.size(), 3);
 
-        String firstPartition = new Path((String) paths.get(0).getField(0)).getParent().toString();
+        String firstPartition = Location.of((String) paths.get(0).getField(0)).parentDirectory().toString();
 
         assertAccessDenied(
                 format("CALL system.unregister_partition('%s', '%s', ARRAY['part'], ARRAY['first'])", TPCH_SCHEMA, tableName),
@@ -3624,17 +3627,17 @@ public abstract class BaseHiveConnectorTest
         assertQueryFails(
                 getSession(),
                 "SHOW COLUMNS FROM \"$partitions\"",
-                ".*Table '.*\\.tpch\\.\\$partitions' does not exist");
+                ".*Table '.*\\.tpch\\.\"\\$partitions\"' does not exist");
 
         assertQueryFails(
                 getSession(),
                 "SHOW COLUMNS FROM \"orders$partitions\"",
-                ".*Table '.*\\.tpch\\.orders\\$partitions' does not exist");
+                ".*Table '.*\\.tpch\\.\"orders\\$partitions\"' does not exist");
 
         assertQueryFails(
                 getSession(),
                 "SHOW COLUMNS FROM \"blah$partitions\"",
-                ".*Table '.*\\.tpch\\.blah\\$partitions' does not exist");
+                ".*Table '.*\\.tpch\\.\"blah\\$partitions\"' does not exist");
     }
 
     @Test
@@ -3656,12 +3659,12 @@ public abstract class BaseHiveConnectorTest
         assertQueryFails(
                 getSession(),
                 "SELECT * FROM \"test_partitions_invalid$partitions$partitions\"",
-                ".*Table '.*\\.tpch\\.test_partitions_invalid\\$partitions\\$partitions' does not exist");
+                ".*Table '.*\\.tpch\\.\"test_partitions_invalid\\$partitions\\$partitions\"' does not exist");
 
         assertQueryFails(
                 getSession(),
                 "SELECT * FROM \"non_existent$partitions\"",
-                ".*Table '.*\\.tpch\\.non_existent\\$partitions' does not exist");
+                ".*Table '.*\\.tpch\\.\"non_existent\\$partitions\"' does not exist");
     }
 
     @Test
@@ -4400,8 +4403,7 @@ public abstract class BaseHiveConnectorTest
 
         // Table properties
         StringJoiner propertiesSql = new StringJoiner(",\n   ");
-        propertiesSql.add(
-                format("external_location = '%s'", new Path(tempDir.toUri().toASCIIString())));
+        propertiesSql.add(format("external_location = '%s'", tempDir.toUri().toASCIIString()));
         propertiesSql.add("format = 'TEXTFILE'");
         tableProperties.forEach(propertiesSql::add);
 
@@ -4733,7 +4735,7 @@ public abstract class BaseHiveConnectorTest
             int col0 = (int) row.getField(0);
             int col1 = (int) row.getField(1);
             String pathName = (String) row.getField(2);
-            String parentDirectory = new Path(pathName).getParent().toString();
+            String parentDirectory = Location.of(pathName).parentDirectory().toString();
 
             assertTrue(pathName.length() > 0);
             assertEquals(col0 % 3, col1);
@@ -5609,7 +5611,7 @@ public abstract class BaseHiveConnectorTest
 
     private void testReadWithPartitionSchemaMismatch(Session session, HiveStorageFormat format)
     {
-        if (isMappingByName(session, format)) {
+        if (isMappingByName(format)) {
             testReadWithPartitionSchemaMismatchByName(session, format);
         }
         else {
@@ -5617,7 +5619,7 @@ public abstract class BaseHiveConnectorTest
         }
     }
 
-    private boolean isMappingByName(Session session, HiveStorageFormat format)
+    private boolean isMappingByName(HiveStorageFormat format)
     {
         return switch(format) {
             case PARQUET -> true;
@@ -7964,22 +7966,6 @@ public abstract class BaseHiveConnectorTest
                 "WHERE x < 0 AND cast(p AS int) > 0");
 
         assertUpdate("DROP TABLE test_prune_failure");
-    }
-
-    private HiveInsertTableHandle getHiveInsertTableHandle(Session session, String tableName)
-    {
-        Metadata metadata = getDistributedQueryRunner().getCoordinator().getMetadata();
-        return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getMetadata(), getQueryRunner().getAccessControl())
-                .execute(session, transactionSession -> {
-                    QualifiedObjectName objectName = new QualifiedObjectName(catalog, TPCH_SCHEMA, tableName);
-                    Optional<TableHandle> handle = metadata.getTableHandle(transactionSession, objectName);
-                    List<ColumnHandle> columns = ImmutableList.copyOf(metadata.getColumnHandles(transactionSession, handle.get()).values());
-                    InsertTableHandle insertTableHandle = metadata.beginInsert(transactionSession, handle.get(), columns);
-                    HiveInsertTableHandle hiveInsertTableHandle = (HiveInsertTableHandle) insertTableHandle.getConnectorHandle();
-
-                    metadata.finishInsert(transactionSession, insertTableHandle, ImmutableList.of(), ImmutableList.of());
-                    return hiveInsertTableHandle;
-                });
     }
 
     @Test

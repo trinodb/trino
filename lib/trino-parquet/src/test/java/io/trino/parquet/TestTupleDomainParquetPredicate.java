@@ -159,7 +159,7 @@ public class TestTupleDomainParquetPredicate
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
                 .isThrownBy(() -> getDomain(columnDescriptor, BIGINT, 10, longColumnStats(100L, 10L), ID, UTC))
-                .withMessage("Corrupted statistics for column \"[] required int64 BigintColumn\" in Parquet file \"testFile\": [min: 100, max: 10, num_nulls: 0]");
+                .withMessage("Malformed Parquet file. Corrupted statistics for column \"[] required int64 BigintColumn\": [min: 100, max: 10, num_nulls: 0] [testFile]");
     }
 
     @Test
@@ -179,7 +179,7 @@ public class TestTupleDomainParquetPredicate
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
                 .isThrownBy(() -> getDomain(columnDescriptor, INTEGER, 10, longColumnStats(2147483648L, 10), ID, UTC))
-                .withMessage("Corrupted statistics for column \"[] required int32 IntegerColumn\" in Parquet file \"testFile\": [min: 2147483648, max: 10, num_nulls: 0]");
+                .withMessage("Malformed Parquet file. Corrupted statistics for column \"[] required int32 IntegerColumn\": [min: 2147483648, max: 10, num_nulls: 0] [testFile]");
     }
 
     @Test
@@ -199,7 +199,7 @@ public class TestTupleDomainParquetPredicate
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
                 .isThrownBy(() -> getDomain(columnDescriptor, SMALLINT, 10, longColumnStats(2147483648L, 10), ID, UTC))
-                .withMessage("Corrupted statistics for column \"[] required int32 SmallintColumn\" in Parquet file \"testFile\": [min: 2147483648, max: 10, num_nulls: 0]");
+                .withMessage("Malformed Parquet file. Corrupted statistics for column \"[] required int32 SmallintColumn\": [min: 2147483648, max: 10, num_nulls: 0] [testFile]");
     }
 
     @Test
@@ -219,7 +219,7 @@ public class TestTupleDomainParquetPredicate
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
                 .isThrownBy(() -> getDomain(columnDescriptor, TINYINT, 10, longColumnStats(2147483648L, 10), ID, UTC))
-                .withMessage("Corrupted statistics for column \"[] required int32 TinyintColumn\" in Parquet file \"testFile\": [min: 2147483648, max: 10, num_nulls: 0]");
+                .withMessage("Malformed Parquet file. Corrupted statistics for column \"[] required int32 TinyintColumn\": [min: 2147483648, max: 10, num_nulls: 0] [testFile]");
     }
 
     @Test
@@ -238,7 +238,7 @@ public class TestTupleDomainParquetPredicate
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
                 .isThrownBy(() -> getDomain(columnDescriptor, type, 10, longColumnStats(100L, 10L), ID, UTC))
-                .withMessage("Corrupted statistics for column \"[] required int32 ShortDecimalColumn\" in Parquet file \"testFile\": [min: 100, max: 10, num_nulls: 0]");
+                .withMessage("Malformed Parquet file. Corrupted statistics for column \"[] required int32 ShortDecimalColumn\": [min: 100, max: 10, num_nulls: 0] [testFile]");
     }
 
     @Test
@@ -257,7 +257,7 @@ public class TestTupleDomainParquetPredicate
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
                 .isThrownBy(() -> getDomain(columnDescriptor, type, 10, longColumnStats(100L, 10L), ID, UTC))
-                .withMessage("Corrupted statistics for column \"[] required int32 ShortDecimalColumnWithNoScale\" in Parquet file \"testFile\": [min: 100, max: 10, num_nulls: 0]");
+                .withMessage("Malformed Parquet file. Corrupted statistics for column \"[] required int32 ShortDecimalColumnWithNoScale\": [min: 100, max: 10, num_nulls: 0] [testFile]");
     }
 
     @Test
@@ -281,7 +281,7 @@ public class TestTupleDomainParquetPredicate
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
                 .isThrownBy(() -> getDomain(columnDescriptor, type, 10, binaryColumnStats(100L, 10L), ID, UTC))
-                .withMessage("Corrupted statistics for column \"[] required fixed_len_byte_array(0) LongDecimalColumn\" in Parquet file \"testFile\": [min: 0x64, max: 0x0A, num_nulls: 0]");
+                .withMessage("Malformed Parquet file. Corrupted statistics for column \"[] required fixed_len_byte_array(0) LongDecimalColumn\": [min: 0x64, max: 0x0A, num_nulls: 0] [testFile]");
     }
 
     @Test
@@ -300,7 +300,7 @@ public class TestTupleDomainParquetPredicate
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
                 .isThrownBy(() -> getDomain(columnDescriptor, type, 10, binaryColumnStats(100L, 10L), ID, UTC))
-                .withMessage("Corrupted statistics for column \"[] required fixed_len_byte_array(0) LongDecimalColumnWithNoScale\" in Parquet file \"testFile\": [min: 0x64, max: 0x0A, num_nulls: 0]");
+                .withMessage("Malformed Parquet file. Corrupted statistics for column \"[] required fixed_len_byte_array(0) LongDecimalColumnWithNoScale\": [min: 0x64, max: 0x0A, num_nulls: 0] [testFile]");
     }
 
     @Test
@@ -329,7 +329,7 @@ public class TestTupleDomainParquetPredicate
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
                 .isThrownBy(() -> getDomain(columnDescriptor, DOUBLE, 10, doubleColumnStats(42.24, 3.3), ID, UTC))
-                .withMessage("Corrupted statistics for column \"[] required double DoubleColumn\" in Parquet file \"testFile\": [min: 42.24, max: 3.3, num_nulls: 0]");
+                .withMessage("Malformed Parquet file. Corrupted statistics for column \"[] required double DoubleColumn\": [min: 42.24, max: 3.3, num_nulls: 0] [testFile]");
     }
 
     @Test
@@ -348,7 +348,7 @@ public class TestTupleDomainParquetPredicate
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
                 .isThrownBy(() -> getDomain(columnDescriptor, createUnboundedVarcharType(), 10, stringColumnStats("taco", "apple"), ID, UTC))
-                .withMessage("Corrupted statistics for column \"[] required binary StringColumn\" in Parquet file \"testFile\": [min: 0x7461636F, max: 0x6170706C65, num_nulls: 0]");
+                .withMessage("Malformed Parquet file. Corrupted statistics for column \"[] required binary StringColumn\": [min: 0x7461636F, max: 0x6170706C65, num_nulls: 0] [testFile]");
     }
 
     private static BinaryStatistics stringColumnStats(String minimum, String maximum)
@@ -391,7 +391,7 @@ public class TestTupleDomainParquetPredicate
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
                 .isThrownBy(() -> getDomain(columnDescriptor, REAL, 10, floatColumnStats(maximum, minimum), ID, UTC))
-                .withMessage("Corrupted statistics for column \"[] required float FloatColumn\" in Parquet file \"testFile\": [min: 40.3, max: 4.3, num_nulls: 0]");
+                .withMessage("Malformed Parquet file. Corrupted statistics for column \"[] required float FloatColumn\": [min: 40.3, max: 4.3, num_nulls: 0] [testFile]");
     }
 
     @Test
@@ -406,7 +406,7 @@ public class TestTupleDomainParquetPredicate
         // fail on corrupted statistics
         assertThatExceptionOfType(ParquetCorruptionException.class)
                 .isThrownBy(() -> getDomain(columnDescriptor, DATE, 10, intColumnStats(200, 100), ID, UTC))
-                .withMessage("Corrupted statistics for column \"[] required int32 DateColumn\" in Parquet file \"testFile\": [min: 200, max: 100, num_nulls: 0]");
+                .withMessage("Malformed Parquet file. Corrupted statistics for column \"[] required int32 DateColumn\": [min: 200, max: 100, num_nulls: 0] [testFile]");
     }
 
     @DataProvider

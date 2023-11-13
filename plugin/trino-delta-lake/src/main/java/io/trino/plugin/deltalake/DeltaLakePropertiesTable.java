@@ -34,7 +34,6 @@ import io.trino.spi.predicate.TupleDomain;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Optional;
 
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
@@ -84,7 +83,7 @@ public class DeltaLakePropertiesTable
 
         try {
             SchemaTableName baseTableName = new SchemaTableName(tableName.getSchemaName(), DeltaLakeTableName.tableNameFrom(tableName.getTableName()));
-            TableSnapshot tableSnapshot = transactionLogAccess.getSnapshot(session, baseTableName, tableLocation, Optional.empty());
+            TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(session, baseTableName, tableLocation);
             metadataEntry = transactionLogAccess.getMetadataEntry(tableSnapshot, session);
             protocolEntry = transactionLogAccess.getProtocolEntry(session, tableSnapshot);
         }

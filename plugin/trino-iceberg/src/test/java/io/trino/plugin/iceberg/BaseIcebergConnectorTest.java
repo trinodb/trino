@@ -112,6 +112,7 @@ import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.DYNAMIC_FILTERING_WAIT_TIMEOUT;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.EXTENDED_STATISTICS_ENABLED;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
@@ -217,7 +218,8 @@ public abstract class BaseIcebergConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_REPORTING_WRITTEN_BYTES -> true;
+            case SUPPORTS_CREATE_OR_REPLACE_TABLE,
+                    SUPPORTS_REPORTING_WRITTEN_BYTES -> true;
             case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT,
                     SUPPORTS_RENAME_MATERIALIZED_VIEW_ACROSS_SCHEMAS,
                     SUPPORTS_TOPN_PUSHDOWN,
@@ -4704,7 +4706,7 @@ public abstract class BaseIcebergConnectorTest
         assertThat(actual).isNotNull();
         MaterializedResult expected = resultBuilder(getSession())
                 .row("write.format.default", format.name())
-                .build();
+                .row("write.parquet.compression-codec", "zstd").build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
 
@@ -6268,6 +6270,109 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testCreateOrReplaceTableSnapshots()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_", " AS SELECT BIGINT '42' a, DOUBLE '-38.5' b")) {
+            long v1SnapshotId = getCurrentSnapshotId(table.getName());
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT BIGINT '-42' a, DOUBLE '38.5' b", 1);
+            assertThat(query("SELECT CAST(a AS bigint), b FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '-42', 385e-1)");
+
+            assertThat(query("SELECT a, b  FROM " + table.getName() + " FOR VERSION AS OF " + v1SnapshotId))
+                    .matches("VALUES (BIGINT '42', -385e-1)");
+        }
+    }
+
+    @Test
+    public void testCreateOrReplaceTableChangeColumnNamesAndTypes()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_", " AS SELECT BIGINT '42' a, DOUBLE '-38.5' b")) {
+            long v1SnapshotId = getCurrentSnapshotId(table.getName());
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT CAST(ARRAY[ROW('test')] AS ARRAY(ROW(field VARCHAR))) a, VARCHAR 'test2' b", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (CAST(ARRAY[ROW('test')] AS ARRAY(ROW(field VARCHAR))), VARCHAR 'test2')");
+
+            assertThat(query("SELECT * FROM " + table.getName() + " FOR VERSION AS OF " + v1SnapshotId))
+                    .matches("VALUES (BIGINT '42', -385e-1)");
+        }
+    }
+
+    @Test
+    public void testCreateOrReplaceTableChangePartitionedTableIntoUnpartitioned()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_", " WITH (partitioning=ARRAY['a']) AS SELECT BIGINT '42' a, 'some data' b UNION ALL SELECT BIGINT '43' a, 'another data' b")) {
+            long v1SnapshotId = getCurrentSnapshotId(table.getName());
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " WITH (sorted_by=ARRAY['a']) AS SELECT BIGINT '22' a, 'new data' b", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '22', CAST('new data' AS VARCHAR))");
+
+            assertThat(query("SELECT partition FROM \"" + table.getName() + "$partitions\""))
+                    .matches("VALUES (ROW(CAST (ROW(NULL) AS ROW(a BIGINT))))");
+
+            assertThat(query("SELECT * FROM " + table.getName() + " FOR VERSION AS OF " + v1SnapshotId))
+                    .matches("VALUES (BIGINT '42', CAST('some data' AS VARCHAR)), (BIGINT '43', CAST('another data' AS VARCHAR))");
+
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("sorted_by = ARRAY['a ASC NULLS FIRST']");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .doesNotContain("partitioning = ARRAY['a']");
+        }
+    }
+
+    @Test
+    public void testCreateOrReplaceTableChangeUnpartitionedTableIntoPartitioned()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_", " WITH (sorted_by=ARRAY['a']) AS SELECT BIGINT '22' a, CAST('some data' AS VARCHAR) b")) {
+            long v1SnapshotId = getCurrentSnapshotId(table.getName());
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " WITH (partitioning=ARRAY['a']) AS SELECT BIGINT '42' a, 'some data' b UNION ALL SELECT BIGINT '43' a, 'another data' b", 2);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '42', CAST('some data' AS VARCHAR)), (BIGINT '43', CAST('another data' AS VARCHAR))");
+
+            assertThat(query("SELECT partition FROM \"" + table.getName() + "$partitions\""))
+                    .matches("VALUES (ROW(CAST (ROW(BIGINT '42') AS ROW(a BIGINT)))), (ROW(CAST (ROW(BIGINT '43') AS ROW(a BIGINT))))");
+
+            assertThat(query("SELECT * FROM " + table.getName() + " FOR VERSION AS OF " + v1SnapshotId))
+                    .matches("VALUES (BIGINT '22', CAST('some data' AS VARCHAR))");
+
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("partitioning = ARRAY['a']");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .doesNotContain("sorted_by = ARRAY['a ASC NULLS FIRST']");
+        }
+    }
+
+    @Test
+    public void testCreateOrReplaceTableWithComments()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_", " (a BIGINT COMMENT 'This is a column') COMMENT 'This is a table'")) {
+            long v1SnapshotId = getCurrentSnapshotId(table.getName());
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT 1 a", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES 1");
+
+            assertThat(query("SELECT * FROM " + table.getName() + " FOR VERSION AS OF " + v1SnapshotId))
+                    .returnsEmptyResult();
+
+            assertThat(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), table.getName()))
+                    .isNull();
+            assertThat(getColumnComment(table.getName(), "a"))
+                    .isNull();
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " (a BIGINT COMMENT 'This is a column') COMMENT 'This is a table'");
+
+            assertThat(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), table.getName()))
+                    .isEqualTo("This is a table");
+            assertThat(getColumnComment(table.getName(), "a"))
+                    .isEqualTo("This is a column");
+        }
+    }
+
+    @Test
     public void testMergeSimpleSelectPartitioned()
     {
         String targetTable = "merge_simple_target_" + randomNameSuffix();
@@ -6595,30 +6700,6 @@ public abstract class BaseIcebergConnectorTest
         // Merge
         assertQueryIdStored(tableName, executeWithQueryId(format("MERGE INTO %s t USING %s s ON t.a = s.a AND t.b = s.b " +
                 "WHEN MATCHED THEN UPDATE SET b = t.b * 50", tableName, sourceTableName)));
-    }
-
-    @Test
-    public void testMaterializedViewSnapshotSummariesHaveTrinoQueryId()
-    {
-        String matViewName = "test_materialized_view_snapshot_query_ids" + randomNameSuffix();
-        String sourceTableName = "test_source_table_for_mat_view" + randomNameSuffix();
-        assertUpdate(format("CREATE TABLE %s (a bigint, b bigint)", sourceTableName));
-        assertUpdate(format("INSERT INTO %s VALUES (1, 1), (1, 4), (2, 2)", sourceTableName), 3);
-
-        // create a materialized view
-        QueryId matViewCreateQueryId = getDistributedQueryRunner()
-                .executeWithQueryId(getSession(), format("CREATE MATERIALIZED VIEW %s WITH (partitioning = ARRAY['a']) AS SELECT * FROM %s", matViewName, sourceTableName))
-                .getQueryId();
-
-        // fetch the underlying storage table name so we can inspect its snapshot summary after the REFRESH
-        // running queries against "materialized_view$snapshots" is not supported
-        String storageTable = (String) getDistributedQueryRunner()
-                .execute(getSession(), format("SELECT storage_table FROM system.metadata.materialized_views WHERE name = '%s'", matViewName))
-                .getOnlyValue();
-
-        assertQueryIdStored(storageTable, matViewCreateQueryId);
-
-        assertQueryIdStored(storageTable, executeWithQueryId(format("REFRESH MATERIALIZED VIEW %s", matViewName)));
     }
 
     @Override
@@ -7194,6 +7275,24 @@ public abstract class BaseIcebergConnectorTest
                 .build();
     }
 
+    @Test
+    public void testUuidDynamicFilter()
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+        try (TestTable dataTable = new TestTable(getQueryRunner()::execute, "data_table", "(value uuid)");
+                TestTable filteringTable = new TestTable(getQueryRunner()::execute, "filtering_table", "(filtering_value uuid)")) {
+            assertUpdate("INSERT INTO " + dataTable.getName() + " VALUES UUID 'f73894f0-5447-41c5-a727-436d04c7f8ab', UUID '4f676658-67c9-4e80-83be-ec75f0b9d0c9'", 2);
+            assertUpdate("INSERT INTO " + filteringTable.getName() + " VALUES UUID 'f73894f0-5447-41c5-a727-436d04c7f8ab'", 1);
+
+            assertThat(query(
+                    Session.builder(getSession())
+                            .setCatalogSessionProperty(catalog, DYNAMIC_FILTERING_WAIT_TIMEOUT, "10s")
+                            .build(),
+                    "SELECT value FROM " + dataTable.getName() + " WHERE EXISTS (SELECT 1 FROM " + filteringTable.getName() + " WHERE filtering_value = value)"))
+                    .matches("VALUES UUID 'f73894f0-5447-41c5-a727-436d04c7f8ab'");
+        }
+    }
+
     @Override
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
@@ -7417,13 +7516,6 @@ public abstract class BaseIcebergConnectorTest
                 "|Time(stamp)? precision \\(3\\) not supported for Iceberg. Use \"time(stamp)?\\(6\\)\" instead" +
                 "|Type not supported for Iceberg: char\\(20\\)" +
                 "|Iceberg doesn't support changing field type (from|to) non-primitive types).*");
-    }
-
-    @Override
-    protected boolean supportsPhysicalPushdown()
-    {
-        // TODO https://github.com/trinodb/trino/issues/17156
-        return false;
     }
 
     @Override

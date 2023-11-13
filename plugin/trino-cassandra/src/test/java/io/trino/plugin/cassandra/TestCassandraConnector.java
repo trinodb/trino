@@ -52,6 +52,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -94,6 +95,7 @@ import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 @TestInstance(PER_CLASS)
+@Isolated
 public class TestCassandraConnector
 {
     protected static final String INVALID_DATABASE = "totally_invalid_database";
@@ -126,7 +128,8 @@ public class TestCassandraConnector
                 "cassandra.contact-points", server.getHost(),
                 "cassandra.load-policy.use-dc-aware", "true",
                 "cassandra.load-policy.dc-aware.local-dc", "datacenter1",
-                "cassandra.native-protocol-port", Integer.toString(server.getPort())),
+                "cassandra.native-protocol-port", Integer.toString(server.getPort()),
+                "bootstrap.quiet", "true"),
                 new TestingConnectorContext());
 
         metadata = connector.getMetadata(SESSION, CassandraTransactionHandle.INSTANCE);

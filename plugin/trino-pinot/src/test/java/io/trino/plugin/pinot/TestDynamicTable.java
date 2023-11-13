@@ -24,7 +24,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 

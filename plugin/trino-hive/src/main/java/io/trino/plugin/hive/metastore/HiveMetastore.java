@@ -24,10 +24,12 @@ import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.type.Type;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -144,8 +146,6 @@ public interface HiveMetastore
 
     void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor);
 
-    Set<RoleGrant> listGrantedPrincipals(String role);
-
     Set<RoleGrant> listRoleGrants(HivePrincipal principal);
 
     void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption);
@@ -224,11 +224,6 @@ public interface HiveMetastore
         throw new UnsupportedOperationException();
     }
 
-    default void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
-    {
-        throw new UnsupportedOperationException();
-    }
-
     default void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
     {
         throw new UnsupportedOperationException();
@@ -238,4 +233,16 @@ public interface HiveMetastore
     {
         throw new UnsupportedOperationException();
     }
+
+    boolean functionExists(String databaseName, String functionName, String signatureToken);
+
+    Collection<LanguageFunction> getFunctions(String databaseName);
+
+    Collection<LanguageFunction> getFunctions(String databaseName, String functionName);
+
+    void createFunction(String databaseName, String functionName, LanguageFunction function);
+
+    void replaceFunction(String databaseName, String functionName, LanguageFunction function);
+
+    void dropFunction(String databaseName, String functionName, String signatureToken);
 }

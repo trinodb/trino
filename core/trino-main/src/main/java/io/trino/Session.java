@@ -14,7 +14,6 @@
 package io.trino;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
@@ -24,7 +23,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
 import io.trino.client.ProtocolHeaders;
-import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
@@ -58,7 +56,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
-import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.sql.SqlPath.EMPTY_PATH;
 import static io.trino.util.Failures.checkCondition;
@@ -314,6 +311,11 @@ public final class Session
     public Optional<Slice> getExchangeEncryptionKey()
     {
         return exchangeEncryptionKey;
+    }
+
+    public SessionPropertyManager getSessionPropertyManager()
+    {
+        return sessionPropertyManager;
     }
 
     public Session beginTransactionId(TransactionId transactionId, TransactionManager transactionManager, AccessControl accessControl)
@@ -584,16 +586,13 @@ public final class Session
         }
     }
 
-    public Session createViewSession(Optional<String> catalog, Optional<String> schema, Identity identity, List<CatalogSchemaName> path)
+    public Session createViewSession(Optional<String> catalog, Optional<String> schema, Identity identity, List<CatalogSchemaName> viewPath)
     {
-        // For a view, we prepend the global function schema to the path, which should not be in the path
-        // We do not change the raw path, as that is use for the current_path function
-        SqlPath sqlPath = new SqlPath(
-                ImmutableList.<CatalogSchemaName>builder()
-                        .add(new CatalogSchemaName(GlobalSystemConnector.NAME, BUILTIN_SCHEMA))
-                        .addAll(path)
-                        .build(),
-                getPath().getRawPath());
+        return createViewSession(catalog, schema, identity, path.forView(viewPath));
+    }
+
+    public Session createViewSession(Optional<String> catalog, Optional<String> schema, Identity identity, SqlPath sqlPath)
+    {
         return builder(sessionPropertyManager)
                 .setQueryId(getQueryId())
                 .setTransactionId(getTransactionId().orElse(null))

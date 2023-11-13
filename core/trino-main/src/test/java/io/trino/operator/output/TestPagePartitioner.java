@@ -144,11 +144,17 @@ public class TestPagePartitioner
         PagePartitioner pagePartitioner = pagePartitioner(BIGINT).build();
         Page page = new Page(createLongsBlock(ImmutableList.of()));
 
-        pagePartitioner.partitionPage(page);
+        pagePartitioner.partitionPage(page, operatorContext());
         pagePartitioner.close();
 
         List<Object> partitioned = readLongs(outputBuffer.getEnqueuedDeserialized(), 0);
         assertThat(partitioned).isEmpty();
+    }
+
+    private OperatorContext operatorContext()
+    {
+        return new DriverContextBuilder(executor, scheduledExecutor).buildDriverContext()
+                .addOperatorContext(0, new PlanNodeId("plan-node-0"), PartitionedOutputOperator.class.getSimpleName());
     }
 
     @Test(dataProvider = "partitioningMode")
@@ -533,9 +539,8 @@ public class TestPagePartitioner
     public static class PagePartitionerBuilder
     {
         public static final PositionsAppenderFactory POSITIONS_APPENDER_FACTORY = new PositionsAppenderFactory(new BlockTypeOperators());
-        private final ExecutorService executor;
-        private final ScheduledExecutorService scheduledExecutor;
         private final OutputBuffer outputBuffer;
+        private final DriverContextBuilder driverContextBuilder;
 
         private ImmutableList<Integer> partitionChannels = ImmutableList.of(0);
         private List<Optional<NullableValue>> partitionConstants = ImmutableList.of();
@@ -547,9 +552,8 @@ public class TestPagePartitioner
 
         PagePartitionerBuilder(ExecutorService executor, ScheduledExecutorService scheduledExecutor, OutputBuffer outputBuffer)
         {
-            this.executor = requireNonNull(executor, "executor is null");
-            this.scheduledExecutor = requireNonNull(scheduledExecutor, "scheduledExecutor is null");
             this.outputBuffer = requireNonNull(outputBuffer, "outputBuffer is null");
+            this.driverContextBuilder = new DriverContextBuilder(executor, scheduledExecutor);
         }
 
         public PagePartitionerBuilder withPartitionChannels(Integer... partitionChannels)
@@ -621,7 +625,7 @@ public class TestPagePartitioner
 
         public PartitionedOutputOperator buildPartitionedOutputOperator()
         {
-            DriverContext driverContext = buildDriverContext();
+            DriverContext driverContext = driverContextBuilder.buildDriverContext();
 
             OutputFactory operatorFactory = new PartitionedOutputOperator.PartitionedOutputFactory(
                     partitionFunction,
@@ -645,11 +649,7 @@ public class TestPagePartitioner
 
         public PagePartitioner build()
         {
-            DriverContext driverContext = buildDriverContext();
-
-            OperatorContext operatorContext = driverContext.addOperatorContext(0, new PlanNodeId("plan-node-0"), PartitionedOutputOperator.class.getSimpleName());
-
-            PagePartitioner pagePartitioner = new PagePartitioner(
+            return new PagePartitioner(
                     partitionFunction,
                     partitionChannels,
                     partitionConstants,
@@ -663,12 +663,21 @@ public class TestPagePartitioner
                     Optional.empty(),
                     memoryContext,
                     true);
-            pagePartitioner.setupOperator(operatorContext);
+        }
+    }
 
-            return pagePartitioner;
+    public static class DriverContextBuilder
+    {
+        private final ExecutorService executor;
+        private final ScheduledExecutorService scheduledExecutor;
+
+        DriverContextBuilder(ExecutorService executor, ScheduledExecutorService scheduledExecutor)
+        {
+            this.executor = requireNonNull(executor, "executor is null");
+            this.scheduledExecutor = requireNonNull(scheduledExecutor, "scheduledExecutor is null");
         }
 
-        private DriverContext buildDriverContext()
+        public DriverContext buildDriverContext()
         {
             return TestingTaskContext.builder(executor, scheduledExecutor, TEST_SESSION)
                     .setMemoryPoolSize(MAX_MEMORY)

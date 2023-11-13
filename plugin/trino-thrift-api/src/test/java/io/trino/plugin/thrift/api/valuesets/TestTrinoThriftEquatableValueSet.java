@@ -16,7 +16,7 @@ package io.trino.plugin.thrift.api.valuesets;
 import com.google.common.collect.ImmutableList;
 import io.trino.plugin.thrift.api.datatypes.TrinoThriftJson;
 import io.trino.spi.predicate.ValueSet;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.thrift.api.TrinoThriftBlock.jsonData;

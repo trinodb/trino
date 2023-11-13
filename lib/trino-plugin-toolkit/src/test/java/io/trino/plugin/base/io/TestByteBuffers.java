@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.base.io;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
 

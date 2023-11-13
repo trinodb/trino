@@ -171,6 +171,7 @@ databases:
 
   delta:
       jdbc_driver_class: org.apache.hive.jdbc.HiveDriver
+      jdbc_jar: /docker/jdbc/hive-jdbc.jar
       schema: default
       prepare_statement:
           - USE ${databases.delta.schema}

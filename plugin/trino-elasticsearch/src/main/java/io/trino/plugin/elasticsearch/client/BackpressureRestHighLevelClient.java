@@ -23,7 +23,6 @@ import dev.failsafe.function.CheckedSupplier;
 import io.airlift.log.Logger;
 import io.airlift.stats.TimeStat;
 import io.trino.plugin.elasticsearch.ElasticsearchConfig;
-import org.apache.http.Header;
 import org.elasticsearch.ElasticsearchStatusException;
 import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.action.search.ClearScrollRequest;
@@ -31,6 +30,7 @@ import org.elasticsearch.action.search.ClearScrollResponse;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.SearchScrollRequest;
+import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClientBuilder;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.rest.RestStatus;
@@ -84,22 +84,22 @@ public class BackpressureRestHighLevelClient
         delegate.close();
     }
 
-    public SearchResponse search(SearchRequest searchRequest, Header... headers)
+    public SearchResponse search(SearchRequest searchRequest)
             throws IOException
     {
-        return executeWithRetries(() -> delegate.search(searchRequest, headers));
+        return executeWithRetries(() -> delegate.search(searchRequest, RequestOptions.DEFAULT));
     }
 
-    public SearchResponse searchScroll(SearchScrollRequest searchScrollRequest, Header... headers)
+    public SearchResponse searchScroll(SearchScrollRequest searchScrollRequest)
             throws IOException
     {
-        return executeWithRetries(() -> delegate.searchScroll(searchScrollRequest, headers));
+        return executeWithRetries(() -> delegate.scroll(searchScrollRequest, RequestOptions.DEFAULT));
     }
 
-    public ClearScrollResponse clearScroll(ClearScrollRequest clearScrollRequest, Header... headers)
+    public ClearScrollResponse clearScroll(ClearScrollRequest clearScrollRequest)
             throws IOException
     {
-        return executeWithRetries(() -> delegate.clearScroll(clearScrollRequest, headers));
+        return executeWithRetries(() -> delegate.clearScroll(clearScrollRequest, RequestOptions.DEFAULT));
     }
 
     private static boolean isBackpressure(Throwable throwable)

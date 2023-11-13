@@ -71,10 +71,11 @@ import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.io.compress.CompressionCodecFactory;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.JobConf;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.lang.reflect.Constructor;
@@ -96,7 +97,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertBetweenInclusive;
 import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.orc.OrcReader.MAX_BATCH_SIZE;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
@@ -106,6 +106,7 @@ import static io.trino.plugin.hive.HivePageSourceProvider.ColumnMapping.buildCol
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
+import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.sql.relational.Expressions.field;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
@@ -120,23 +121,26 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.ql.io.orc.CompressionKind.ZLIB;
-import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.apache.hadoop.mapreduce.lib.output.FileOutputFormat.COMPRESS_CODEC;
 import static org.apache.hadoop.mapreduce.lib.output.FileOutputFormat.COMPRESS_TYPE;
 import static org.joda.time.DateTimeZone.UTC;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestOrcPageSourceMemoryTracking
 {
     private static final String ORC_RECORD_WRITER = OrcOutputFormat.class.getName() + "$OrcRecordWriter";
     private static final Constructor<? extends RecordWriter> WRITER_CONSTRUCTOR = getOrcWriterConstructor();
-    private static final Configuration CONFIGURATION = newEmptyConfiguration();
+    private static final Configuration CONFIGURATION = new Configuration(false);
     private static final int NUM_ROWS = 50000;
     private static final int STRIPE_ROWS = 20000;
     private static final FunctionManager functionManager = createTestingFunctionManager();
@@ -153,13 +157,7 @@ public class TestOrcPageSourceMemoryTracking
     private File tempFile;
     private TestPreparer testPreparer;
 
-    @DataProvider(name = "rowCount")
-    public static Object[][] rowCount()
-    {
-        return new Object[][] {{50_000}, {10_000}, {5_000}};
-    }
-
-    @BeforeClass
+    @BeforeAll
     public void setUp()
             throws Exception
     {
@@ -168,7 +166,7 @@ public class TestOrcPageSourceMemoryTracking
         testPreparer = new TestPreparer(tempFile.getAbsolutePath());
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         tempFile.delete();
@@ -318,8 +316,16 @@ public class TestOrcPageSourceMemoryTracking
         pageSource.close();
     }
 
-    @Test(dataProvider = "rowCount")
-    public void testMaxReadBytes(int rowCount)
+    @Test
+    public void testMaxReadBytes()
+            throws Exception
+    {
+        testMaxReadBytes(50_000);
+        testMaxReadBytes(10_000);
+        testMaxReadBytes(5_000);
+    }
+
+    private void testMaxReadBytes(int rowCount)
             throws Exception
     {
         int maxReadBytes = 1_000;
@@ -529,7 +535,7 @@ public class TestOrcPageSourceMemoryTracking
 
                 ObjectInspector inspector = testColumn.getObjectInspector();
                 HiveType hiveType = HiveType.valueOf(inspector.getTypeName());
-                Type type = hiveType.getType(TESTING_TYPE_MANAGER);
+                Type type = TESTING_TYPE_MANAGER.getType(hiveType.getTypeSignature());
 
                 columnsBuilder.add(createBaseColumn(testColumn.getName(), columnIndex, hiveType, type, testColumn.isPartitionKey() ? PARTITION_KEY : REGULAR, Optional.empty()));
                 typesBuilder.add(type);
@@ -666,7 +672,7 @@ public class TestOrcPageSourceMemoryTracking
 
         serializer.initialize(CONFIGURATION, tableProperties);
 
-        JobConf jobConf = new JobConf(newEmptyConfiguration());
+        JobConf jobConf = new JobConf(new Configuration(false));
         if (compressionCodec != null) {
             CompressionCodec codec = new CompressionCodecFactory(CONFIGURATION).getCodecByName(compressionCodec);
             jobConf.set(COMPRESS_CODEC, codec.getClass().getName());

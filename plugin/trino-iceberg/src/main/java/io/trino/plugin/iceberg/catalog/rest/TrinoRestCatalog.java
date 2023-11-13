@@ -237,15 +237,35 @@ public class TrinoRestCatalog
     }
 
     @Override
+    public Transaction newCreateOrReplaceTableTransaction(
+            ConnectorSession session,
+            SchemaTableName schemaTableName,
+            Schema schema,
+            PartitionSpec partitionSpec,
+            SortOrder sortOrder,
+            String location,
+            Map<String, String> properties)
+    {
+        return restSessionCatalog.buildTable(convert(session), toIdentifier(schemaTableName), schema)
+                .withPartitionSpec(partitionSpec)
+                .withSortOrder(sortOrder)
+                .withLocation(location)
+                .withProperties(properties)
+                .createOrReplaceTransaction();
+    }
+
+    @Override
     public void registerTable(ConnectorSession session, SchemaTableName tableName, TableMetadata tableMetadata)
     {
-        throw new TrinoException(NOT_SUPPORTED, "registerTable is not supported for Iceberg REST catalog");
+        restSessionCatalog.registerTable(convert(session), toIdentifier(tableName), tableMetadata.metadataFileLocation());
     }
 
     @Override
     public void unregisterTable(ConnectorSession session, SchemaTableName tableName)
     {
-        throw new TrinoException(NOT_SUPPORTED, "unregisterTable is not supported for Iceberg REST catalogs");
+        if (!restSessionCatalog.dropTable(convert(session), toIdentifier(tableName))) {
+            throw new TableNotFoundException(tableName);
+        }
     }
 
     @Override
@@ -413,6 +433,12 @@ public class TrinoRestCatalog
     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         return Optional.empty();
+    }
+
+    @Override
+    public Optional<BaseTable> getMaterializedViewStorageTable(ConnectorSession session, SchemaTableName viewName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "The Iceberg REST catalog does not support materialized views");
     }
 
     @Override

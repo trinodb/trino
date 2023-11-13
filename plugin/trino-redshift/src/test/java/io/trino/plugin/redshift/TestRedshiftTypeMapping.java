@@ -27,9 +27,7 @@ import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.sql.SQLException;
 import java.time.LocalDate;
@@ -103,8 +101,7 @@ public class TestRedshiftTypeMapping
     private final LocalDate dayOfMidnightGapInVilnius = LocalDate.of(1983, 4, 1);
     private final LocalDate dayAfterMidnightSetBackInVilnius = LocalDate.of(1983, 10, 1);
 
-    @BeforeClass
-    public void checkRanges()
+    public TestRedshiftTypeMapping()
     {
         // Timestamps
         checkIsGap(jvmZone, timeGapInJvmZone);
@@ -373,8 +370,17 @@ public class TestRedshiftTypeMapping
                 "Unsupported column type: json");
     }
 
-    @Test(dataProvider = "datetime_test_parameters")
-    public void testDate(ZoneId sessionZone)
+    @Test
+    public void testDate()
+    {
+        testDate(UTC);
+        testDate(jvmZone);
+        testDate(vilnius);
+        testDate(kathmandu);
+        testDate(testZone);
+    }
+
+    private void testDate(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
@@ -403,8 +409,17 @@ public class TestRedshiftTypeMapping
                 .execute(getQueryRunner(), session, redshiftCreateAndInsert("test_date"));
     }
 
-    @Test(dataProvider = "datetime_test_parameters")
-    public void testTime(ZoneId sessionZone)
+    @Test
+    public void testTime()
+    {
+        testTime(UTC);
+        testTime(jvmZone);
+        testTime(vilnius);
+        testTime(kathmandu);
+        testTime(testZone);
+    }
+
+    private void testTime(ZoneId sessionZone)
     {
         // Redshift gets bizarre errors if you try to insert after
         // specifying precision for a time column.
@@ -437,7 +452,17 @@ public class TestRedshiftTypeMapping
                 .addRoundTrip(inputType, "TIME '23:59:59.999999'", createTimeType(6), "TIME '23:59:59.999999'");
     }
 
-    @Test(dataProvider = "datetime_test_parameters")
+    @Test
+    public void testTimestamp()
+    {
+        testTimestamp(UTC);
+        testTimestamp(jvmZone);
+        testTimestamp(vilnius);
+        testTimestamp(kathmandu);
+        testTimestamp(testZone);
+    }
+
+    @Test
     public void testTimestamp(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
@@ -476,8 +501,17 @@ public class TestRedshiftTypeMapping
                 .addRoundTrip(inputType, "TIMESTAMP '1970-01-01 00:00:00.999999'", createTimestampType(6), "TIMESTAMP '1970-01-01 00:00:00.999999'");
     }
 
-    @Test(dataProvider = "datetime_test_parameters")
-    public void testTimestampWithTimeZone(ZoneId sessionZone)
+    @Test
+    public void testTimestampWithTimeZone()
+    {
+        testTimestampWithTimeZone(UTC);
+        testTimestampWithTimeZone(jvmZone);
+        testTimestampWithTimeZone(vilnius);
+        testTimestampWithTimeZone(kathmandu);
+        testTimestampWithTimeZone(testZone);
+    }
+
+    private void testTimestampWithTimeZone(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
@@ -628,18 +662,6 @@ public class TestRedshiftTypeMapping
             assertThatThrownBy(() -> query("SELECT * FROM " + table.getName()))
                     .hasMessage("Millis overflow: 9224318015999000");
         }
-    }
-
-    @DataProvider(name = "datetime_test_parameters")
-    public Object[][] dataProviderForDatetimeTests()
-    {
-        return new Object[][] {
-                {UTC},
-                {jvmZone},
-                {vilnius},
-                {kathmandu},
-                {testZone},
-        };
     }
 
     @Test

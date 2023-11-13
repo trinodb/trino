@@ -28,10 +28,12 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 
+/**
+ * Test the expected behavior of the Hive AcidUtils class from the Hive codebase.
+ */
 public class TestHiveAcidUtils
 {
     @Test
@@ -44,7 +46,7 @@ public class TestHiveAcidUtils
     public void testOriginal()
             throws Exception
     {
-        Configuration conf = newEmptyConfiguration();
+        Configuration conf = new Configuration(false);
         MockFileSystem fs = new MockFileSystem(conf,
                 new MockFile("mock:/tbl/part1/000000_0", 500, new byte[0]),
                 new MockFile("mock:/tbl/part1/000000_0" + Utilities.COPY_KEYWORD + "1", 500, new byte[0]),
@@ -78,7 +80,7 @@ public class TestHiveAcidUtils
     public void testOriginalDeltas()
             throws Exception
     {
-        Configuration conf = newEmptyConfiguration();
+        Configuration conf = new Configuration(false);
         MockFileSystem fs = new MockFileSystem(conf,
                 new MockFile("mock:/tbl/part1/000000_0", 500, new byte[0]),
                 new MockFile("mock:/tbl/part1/000001_1", 500, new byte[0]),
@@ -125,7 +127,7 @@ public class TestHiveAcidUtils
     public void testBaseDeltas()
             throws Exception
     {
-        Configuration conf = newEmptyConfiguration();
+        Configuration conf = new Configuration(false);
         MockFileSystem fs = new MockFileSystem(conf,
                 new MockFile("mock:/tbl/part1/_tmp/bucket_0", 0, new byte[0]),
                 new MockFile("mock:/tbl/part1/_tmp/base_5/bucket_0", 0, new byte[0]),
@@ -160,7 +162,7 @@ public class TestHiveAcidUtils
     public void testObsoleteOriginals()
             throws Exception
     {
-        Configuration conf = newEmptyConfiguration();
+        Configuration conf = new Configuration(false);
         MockFileSystem fs = new MockFileSystem(conf,
                 new MockFile("mock:/tbl/part1/base_10/bucket_0", 500, new byte[0]),
                 new MockFile("mock:/tbl/part1/base_5/bucket_0", 500, new byte[0]),
@@ -179,7 +181,7 @@ public class TestHiveAcidUtils
     public void testOverlapingDelta()
             throws Exception
     {
-        Configuration conf = newEmptyConfiguration();
+        Configuration conf = new Configuration(false);
         MockFileSystem fs = new MockFileSystem(conf,
                 new MockFile("mock:/tbl/part1/delta_0000063_63/bucket_0", 500, new byte[0]),
                 new MockFile("mock:/tbl/part1/delta_000062_62/bucket_0", 500, new byte[0]),
@@ -207,7 +209,7 @@ public class TestHiveAcidUtils
     public void testOverlapingDelta2()
             throws Exception
     {
-        Configuration conf = newEmptyConfiguration();
+        Configuration conf = new Configuration(false);
         MockFileSystem fs = new MockFileSystem(conf,
                 new MockFile("mock:/tbl/part1/delta_0000063_63_0/bucket_0", 500, new byte[0]),
                 new MockFile("mock:/tbl/part1/delta_000062_62_0/bucket_0", 500, new byte[0]),
@@ -243,7 +245,7 @@ public class TestHiveAcidUtils
     public void deltasWithOpenTxnInRead()
             throws Exception
     {
-        Configuration conf = newEmptyConfiguration();
+        Configuration conf = new Configuration(false);
         MockFileSystem fs = new MockFileSystem(conf,
                 new MockFile("mock:/tbl/part1/delta_1_1/bucket_0", 500, new byte[0]),
                 new MockFile("mock:/tbl/part1/delta_2_5/bucket_0", 500, new byte[0]));
@@ -259,7 +261,7 @@ public class TestHiveAcidUtils
     public void deltasWithOpenTxnInRead2()
             throws Exception
     {
-        Configuration conf = newEmptyConfiguration();
+        Configuration conf = new Configuration(false);
         MockFileSystem fs = new MockFileSystem(conf,
                 new MockFile("mock:/tbl/part1/delta_1_1/bucket_0", 500, new byte[0]),
                 new MockFile("mock:/tbl/part1/delta_2_5/bucket_0", 500, new byte[0]),
@@ -278,7 +280,7 @@ public class TestHiveAcidUtils
     public void deltasWithOpenTxnsNotInCompact()
             throws Exception
     {
-        Configuration conf = newEmptyConfiguration();
+        Configuration conf = new Configuration(false);
         MockFileSystem fs = new MockFileSystem(conf,
                 new MockFile("mock:/tbl/part1/delta_1_1/bucket_0", 500, new byte[0]),
                 new MockFile("mock:/tbl/part1/delta_2_5/bucket_0", 500, new byte[0]));
@@ -293,7 +295,7 @@ public class TestHiveAcidUtils
     public void deltasWithOpenTxnsNotInCompact2()
             throws Exception
     {
-        Configuration conf = newEmptyConfiguration();
+        Configuration conf = new Configuration(false);
         MockFileSystem fs = new MockFileSystem(conf,
                 new MockFile("mock:/tbl/part1/delta_1_1/bucket_0", 500, new byte[0]),
                 new MockFile("mock:/tbl/part1/delta_2_5/bucket_0", 500, new byte[0]),
@@ -310,7 +312,7 @@ public class TestHiveAcidUtils
     public void testBaseWithDeleteDeltas()
             throws Exception
     {
-        Configuration conf = newEmptyConfiguration();
+        Configuration conf = new Configuration(false);
         MockFileSystem fs = new MockFileSystem(conf,
                 new MockFile("mock:/tbl/part1/base_5/bucket_0", 500, new byte[0]),
                 new MockFile("mock:/tbl/part1/base_10/bucket_0", 500, new byte[0]),
@@ -347,7 +349,7 @@ public class TestHiveAcidUtils
     public void testOverlapingDeltaAndDeleteDelta()
             throws Exception
     {
-        Configuration conf = newEmptyConfiguration();
+        Configuration conf = new Configuration(false);
         MockFileSystem fs = new MockFileSystem(conf,
                 new MockFile("mock:/tbl/part1/delta_0000063_63/bucket_0", 500, new byte[0]),
                 new MockFile("mock:/tbl/part1/delta_000062_62/bucket_0", 500, new byte[0]),
@@ -383,7 +385,7 @@ public class TestHiveAcidUtils
     {
         // This test checks that if we have a minor compacted delta for the txn range [40,60]
         // then it will make any delete delta in that range as obsolete.
-        Configuration conf = newEmptyConfiguration();
+        Configuration conf = new Configuration(false);
         MockFileSystem fs = new MockFileSystem(conf,
                 new MockFile("mock:/tbl/part1/delta_40_60/bucket_0", 500, new byte[0]),
                 new MockFile("mock:/tbl/part1/delete_delta_50_50/bucket_0", 500, new byte[0]));
@@ -403,7 +405,7 @@ public class TestHiveAcidUtils
     {
         // This tests checks that appropriate delta and delete_deltas are included when minor
         // compactions specifies a valid open txn range.
-        Configuration conf = newEmptyConfiguration();
+        Configuration conf = new Configuration(false);
         MockFileSystem fs = new MockFileSystem(conf,
                 new MockFile("mock:/tbl/part1/delta_1_1/bucket_0", 500, new byte[0]),
                 new MockFile("mock:/tbl/part1/delete_delta_2_2/bucket_0", 500, new byte[0]),
@@ -424,7 +426,7 @@ public class TestHiveAcidUtils
     public void deleteDeltasWithOpenTxnInRead()
             throws Exception
     {
-        Configuration conf = newEmptyConfiguration();
+        Configuration conf = new Configuration(false);
         MockFileSystem fs = new MockFileSystem(conf,
                 new MockFile("mock:/tbl/part1/delta_1_1/bucket_0", 500, new byte[0]),
                 new MockFile("mock:/tbl/part1/delta_2_5/bucket_0", 500, new byte[0]),

@@ -313,7 +313,7 @@ public class TestHudiSparkCompatibility
             assertThat(onTrino().executeQuery(format("SELECT action, state FROM hive.default.\"%s$timeline\"", tableName)))
                     .containsOnly(row("commit", "COMPLETED"));
             assertQueryFailure(() -> onTrino().executeQuery(format("SELECT * FROM hive.default.\"%s$timeline\"", nonExistingTableName)))
-                    .hasMessageMatching(".*Table 'hive.default.test_hudi_timeline_system_table_redirect_.*_non_existing\\$timeline' does not exist");
+                    .hasMessageMatching(".*Table 'hive.default.\"test_hudi_timeline_system_table_redirect_.*_non_existing\\$timeline\"' does not exist");
         }
         finally {
             onHudi().executeQuery("DROP TABLE " + tableName);

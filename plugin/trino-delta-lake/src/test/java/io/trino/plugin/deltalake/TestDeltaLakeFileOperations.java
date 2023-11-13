@@ -26,8 +26,9 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import java.io.File;
 import java.net.URI;
@@ -66,7 +67,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
 
 // single-threaded AccessTrackingFileSystemFactory is shared mutable state
-@Test(singleThreaded = true)
+@Execution(ExecutionMode.SAME_THREAD)
 public class TestDeltaLakeFileOperations
         extends AbstractTestQueryFramework
 {
@@ -387,6 +388,7 @@ public class TestDeltaLakeFileOperations
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", INPUT_FILE_EXISTS))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", INPUT_FILE_NEW_STREAM))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_EXISTS))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", OUTPUT_FILE_CREATE_OR_OVERWRITE))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_NEW_STREAM))
                         .build());
 
@@ -414,6 +416,7 @@ public class TestDeltaLakeFileOperations
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", INPUT_FILE_EXISTS))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", INPUT_FILE_NEW_STREAM))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_EXISTS))
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", OUTPUT_FILE_CREATE_OR_OVERWRITE))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_NEW_STREAM))
                         .build());
 
@@ -441,6 +444,7 @@ public class TestDeltaLakeFileOperations
                         .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_EXISTS), 2)
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_NEW_STREAM))
                         .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000004.json", INPUT_FILE_EXISTS), 2)
+                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000004.json", OUTPUT_FILE_CREATE_OR_OVERWRITE))
                         .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000004.json", INPUT_FILE_NEW_STREAM))
                         .addCopies(new FileOperation(DATA, "key=domain1/", INPUT_FILE_NEW_STREAM), 2)
                         .addCopies(new FileOperation(DATA, "key=domain1/", INPUT_FILE_GET_LENGTH), 2)
@@ -562,142 +566,136 @@ public class TestDeltaLakeFileOperations
                         .build());
     }
 
-    @Test(dataProvider = "metadataQueriesTestTableCountDataProvider")
-    public void testInformationSchemaColumns(int tables)
+    @Test
+    public void testInformationSchemaColumns()
     {
-        String schemaName = "test_i_s_columns_schema" + randomNameSuffix();
-        assertUpdate("CREATE SCHEMA " + schemaName);
-        Session session = Session.builder(getSession())
-                .setSchema(schemaName)
-                .build();
+        for (int tables : Arrays.asList(3, MAX_PREFIXES_COUNT, MAX_PREFIXES_COUNT + 3)) {
+            String schemaName = "test_i_s_columns_schema" + randomNameSuffix();
+            assertUpdate("CREATE SCHEMA " + schemaName);
+            Session session = Session.builder(getSession())
+                    .setSchema(schemaName)
+                    .build();
 
-        for (int i = 0; i < tables; i++) {
-            assertUpdate(session, "CREATE TABLE test_select_i_s_columns" + i + "(id varchar, age integer)");
-            // Produce multiple snapshots and metadata files
-            assertUpdate(session, "INSERT INTO test_select_i_s_columns" + i + " VALUES ('abc', 11)", 1);
-            assertUpdate(session, "INSERT INTO test_select_i_s_columns" + i + " VALUES ('xyz', 12)", 1);
+            for (int i = 0; i < tables; i++) {
+                assertUpdate(session, "CREATE TABLE test_select_i_s_columns" + i + "(id varchar, age integer)");
+                // Produce multiple snapshots and metadata files
+                assertUpdate(session, "INSERT INTO test_select_i_s_columns" + i + " VALUES ('abc', 11)", 1);
+                assertUpdate(session, "INSERT INTO test_select_i_s_columns" + i + " VALUES ('xyz', 12)", 1);
 
-            assertUpdate(session, "CREATE TABLE test_other_select_i_s_columns" + i + "(id varchar, age integer)"); // won't match the filter
-        }
+                assertUpdate(session, "CREATE TABLE test_other_select_i_s_columns" + i + "(id varchar, age integer)"); // won't match the filter
+            }
 
-        // Bulk retrieval
-        assertFileSystemAccesses(session, "SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name LIKE 'test_select_i_s_columns%'",
-                ImmutableMultiset.<FileOperation>builder()
-                        .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM), tables * 2)
-                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", INPUT_FILE_NEW_STREAM), tables * 2)
-                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", INPUT_FILE_NEW_STREAM), tables * 2)
-                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", INPUT_FILE_NEW_STREAM), tables)
-                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_NEW_STREAM), tables)
-                        .build());
+            // Bulk retrieval
+            assertFileSystemAccesses(session, "SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name LIKE 'test_select_i_s_columns%'",
+                    ImmutableMultiset.<FileOperation>builder()
+                            .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM), tables * 2)
+                            .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", INPUT_FILE_NEW_STREAM), tables * 2)
+                            .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", INPUT_FILE_NEW_STREAM), tables * 2)
+                            .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", INPUT_FILE_NEW_STREAM), tables)
+                            .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_NEW_STREAM), tables)
+                            .build());
 
-        // Pointed lookup
-        assertFileSystemAccesses(session, "SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name = 'test_select_i_s_columns0'",
-                ImmutableMultiset.<FileOperation>builder()
-                        .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_NEW_STREAM))
-                        .build());
+            // Pointed lookup
+            assertFileSystemAccesses(session, "SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name = 'test_select_i_s_columns0'",
+                    ImmutableMultiset.<FileOperation>builder()
+                            .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", INPUT_FILE_NEW_STREAM))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", INPUT_FILE_NEW_STREAM))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", INPUT_FILE_NEW_STREAM))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_NEW_STREAM))
+                            .build());
 
-        // Pointed lookup with LIKE predicate (as if unintentional)
-        assertFileSystemAccesses(session, "SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name LIKE 'test_select_i_s_columns0'",
-                ImmutableMultiset.<FileOperation>builder()
-                        .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM), tables * 2)
-                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", INPUT_FILE_NEW_STREAM), tables * 2)
-                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", INPUT_FILE_NEW_STREAM), tables * 2)
-                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", INPUT_FILE_NEW_STREAM), tables)
-                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_NEW_STREAM), tables)
-                        .build());
+            // Pointed lookup with LIKE predicate (as if unintentional)
+            assertFileSystemAccesses(session, "SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name LIKE 'test_select_i_s_columns0'",
+                    ImmutableMultiset.<FileOperation>builder()
+                            .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM), tables * 2)
+                            .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", INPUT_FILE_NEW_STREAM), tables * 2)
+                            .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", INPUT_FILE_NEW_STREAM), tables * 2)
+                            .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", INPUT_FILE_NEW_STREAM), tables)
+                            .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_NEW_STREAM), tables)
+                            .build());
 
-        // Pointed lookup via DESCRIBE (which does some additional things before delegating to information_schema.columns)
-        assertFileSystemAccesses(session, "DESCRIBE test_select_i_s_columns0",
-                ImmutableMultiset.<FileOperation>builder()
-                        .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_NEW_STREAM))
-                        .build());
+            // Pointed lookup via DESCRIBE (which does some additional things before delegating to information_schema.columns)
+            assertFileSystemAccesses(session, "DESCRIBE test_select_i_s_columns0",
+                    ImmutableMultiset.<FileOperation>builder()
+                            .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", INPUT_FILE_NEW_STREAM))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", INPUT_FILE_NEW_STREAM))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", INPUT_FILE_NEW_STREAM))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_NEW_STREAM))
+                            .build());
 
-        for (int i = 0; i < tables; i++) {
-            assertUpdate(session, "DROP TABLE test_select_i_s_columns" + i);
-            assertUpdate(session, "DROP TABLE test_other_select_i_s_columns" + i);
+            for (int i = 0; i < tables; i++) {
+                assertUpdate(session, "DROP TABLE test_select_i_s_columns" + i);
+                assertUpdate(session, "DROP TABLE test_other_select_i_s_columns" + i);
+            }
         }
     }
 
-    @Test(dataProvider = "metadataQueriesTestTableCountDataProvider")
-    public void testSystemMetadataTableComments(int tables)
+    @Test
+    public void testSystemMetadataTableComments()
     {
-        String schemaName = "test_s_m_table_comments" + randomNameSuffix();
-        assertUpdate("CREATE SCHEMA " + schemaName);
-        Session session = Session.builder(getSession())
-                .setSchema(schemaName)
-                .build();
+        for (int tables : Arrays.asList(3, MAX_PREFIXES_COUNT, MAX_PREFIXES_COUNT + 3)) {
+            String schemaName = "test_s_m_table_comments" + randomNameSuffix();
+            assertUpdate("CREATE SCHEMA " + schemaName);
+            Session session = Session.builder(getSession())
+                    .setSchema(schemaName)
+                    .build();
 
-        for (int i = 0; i < tables; i++) {
-            assertUpdate(session, "CREATE TABLE test_select_s_m_t_comments" + i + "(id varchar, age integer)");
-            // Produce multiple snapshots and metadata files
-            assertUpdate(session, "INSERT INTO test_select_s_m_t_comments" + i + " VALUES ('abc', 11)", 1);
-            assertUpdate(session, "INSERT INTO test_select_s_m_t_comments" + i + " VALUES ('xyz', 12)", 1);
+            for (int i = 0; i < tables; i++) {
+                assertUpdate(session, "CREATE TABLE test_select_s_m_t_comments" + i + "(id varchar, age integer)");
+                // Produce multiple snapshots and metadata files
+                assertUpdate(session, "INSERT INTO test_select_s_m_t_comments" + i + " VALUES ('abc', 11)", 1);
+                assertUpdate(session, "INSERT INTO test_select_s_m_t_comments" + i + " VALUES ('xyz', 12)", 1);
 
-            assertUpdate(session, "CREATE TABLE test_other_select_s_m_t_comments" + i + "(id varchar, age integer)"); // won't match the filter
+                assertUpdate(session, "CREATE TABLE test_other_select_s_m_t_comments" + i + "(id varchar, age integer)"); // won't match the filter
+            }
+
+            // Bulk retrieval
+            assertFileSystemAccesses(session, "SELECT * FROM system.metadata.table_comments WHERE schema_name = CURRENT_SCHEMA AND table_name LIKE 'test_select_s_m_t_comments%'",
+                    ImmutableMultiset.<FileOperation>builder()
+                            .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM), tables * 2)
+                            .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", INPUT_FILE_NEW_STREAM), tables * 2)
+                            .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", INPUT_FILE_NEW_STREAM), tables * 2)
+                            .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", INPUT_FILE_NEW_STREAM), tables)
+                            .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_NEW_STREAM), tables)
+                            .build());
+
+            // Bulk retrieval for two schemas
+            assertFileSystemAccesses(session, "SELECT * FROM system.metadata.table_comments WHERE schema_name IN (CURRENT_SCHEMA, 'non_existent') AND table_name LIKE 'test_select_s_m_t_comments%'",
+                    ImmutableMultiset.<FileOperation>builder()
+                            .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM), tables * 2)
+                            .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", INPUT_FILE_NEW_STREAM), tables * 2)
+                            .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", INPUT_FILE_NEW_STREAM), tables * 2)
+                            .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", INPUT_FILE_NEW_STREAM), tables)
+                            .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_NEW_STREAM), tables)
+                            .build());
+
+            // Pointed lookup
+            assertFileSystemAccesses(session, "SELECT * FROM system.metadata.table_comments WHERE schema_name = CURRENT_SCHEMA AND table_name = 'test_select_s_m_t_comments0'",
+                    ImmutableMultiset.<FileOperation>builder()
+                            .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", INPUT_FILE_NEW_STREAM))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", INPUT_FILE_NEW_STREAM))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", INPUT_FILE_NEW_STREAM))
+                            .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_NEW_STREAM))
+                            .build());
+
+            // Pointed lookup with LIKE predicate (as if unintentional)
+            assertFileSystemAccesses(session, "SELECT * FROM system.metadata.table_comments WHERE schema_name = CURRENT_SCHEMA AND table_name LIKE 'test_select_s_m_t_comments0'",
+                    ImmutableMultiset.<FileOperation>builder()
+                            .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM), tables * 2)
+                            .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", INPUT_FILE_NEW_STREAM), tables * 2)
+                            .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", INPUT_FILE_NEW_STREAM), tables * 2)
+                            .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", INPUT_FILE_NEW_STREAM), tables)
+                            .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_NEW_STREAM), tables)
+                            .build());
+
+            for (int i = 0; i < tables; i++) {
+                assertUpdate(session, "DROP TABLE test_select_s_m_t_comments" + i);
+                assertUpdate(session, "DROP TABLE test_other_select_s_m_t_comments" + i);
+            }
         }
-
-        // Bulk retrieval
-        assertFileSystemAccesses(session, "SELECT * FROM system.metadata.table_comments WHERE schema_name = CURRENT_SCHEMA AND table_name LIKE 'test_select_s_m_t_comments%'",
-                ImmutableMultiset.<FileOperation>builder()
-                        .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM), tables * 2)
-                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", INPUT_FILE_NEW_STREAM), tables * 2)
-                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", INPUT_FILE_NEW_STREAM), tables * 2)
-                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", INPUT_FILE_NEW_STREAM), tables)
-                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_NEW_STREAM), tables)
-                        .build());
-
-        // Bulk retrieval for two schemas
-        assertFileSystemAccesses(session, "SELECT * FROM system.metadata.table_comments WHERE schema_name IN (CURRENT_SCHEMA, 'non_existent') AND table_name LIKE 'test_select_s_m_t_comments%'",
-                ImmutableMultiset.<FileOperation>builder()
-                        .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM), tables * 2)
-                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", INPUT_FILE_NEW_STREAM), tables * 2)
-                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", INPUT_FILE_NEW_STREAM), tables * 2)
-                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", INPUT_FILE_NEW_STREAM), tables)
-                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_NEW_STREAM), tables)
-                        .build());
-
-        // Pointed lookup
-        assertFileSystemAccesses(session, "SELECT * FROM system.metadata.table_comments WHERE schema_name = CURRENT_SCHEMA AND table_name = 'test_select_s_m_t_comments0'",
-                ImmutableMultiset.<FileOperation>builder()
-                        .add(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", INPUT_FILE_NEW_STREAM))
-                        .add(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_NEW_STREAM))
-                        .build());
-
-        // Pointed lookup with LIKE predicate (as if unintentional)
-        assertFileSystemAccesses(session, "SELECT * FROM system.metadata.table_comments WHERE schema_name = CURRENT_SCHEMA AND table_name LIKE 'test_select_s_m_t_comments0'",
-                ImmutableMultiset.<FileOperation>builder()
-                        .addCopies(new FileOperation(LAST_CHECKPOINT, "_last_checkpoint", INPUT_FILE_NEW_STREAM), tables * 2)
-                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000000.json", INPUT_FILE_NEW_STREAM), tables * 2)
-                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000001.json", INPUT_FILE_NEW_STREAM), tables * 2)
-                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000002.json", INPUT_FILE_NEW_STREAM), tables)
-                        .addCopies(new FileOperation(TRANSACTION_LOG_JSON, "00000000000000000003.json", INPUT_FILE_NEW_STREAM), tables)
-                        .build());
-
-        for (int i = 0; i < tables; i++) {
-            assertUpdate(session, "DROP TABLE test_select_s_m_t_comments" + i);
-            assertUpdate(session, "DROP TABLE test_other_select_s_m_t_comments" + i);
-        }
-    }
-
-    @DataProvider
-    public Object[][] metadataQueriesTestTableCountDataProvider()
-    {
-        return new Object[][] {
-                {3},
-                {MAX_PREFIXES_COUNT},
-                {MAX_PREFIXES_COUNT + 3},
-        };
     }
 
     @Test

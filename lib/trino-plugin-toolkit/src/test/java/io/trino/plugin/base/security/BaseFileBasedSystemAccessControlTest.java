@@ -21,6 +21,7 @@ import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.SchemaRoutineName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.AccessDeniedException;
@@ -31,19 +32,16 @@ import io.trino.spi.security.SystemSecurityContext;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import javax.security.auth.kerberos.KerberosPrincipal;
 
 import java.io.File;
 import java.time.Instant;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Stream;
 
 import static com.google.common.io.Files.copy;
 import static io.trino.spi.security.PrincipalType.ROLE;
@@ -127,6 +125,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
     private static final String SET_CATALOG_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE = "Cannot set catalog session property .*";
     private static final String EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE = "Cannot execute function .*";
     private static final String GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE = ".* cannot grant .*";
+    private static final String EXECUTE_PROCEDURE_ACCESS_DENIED_MESSAGE = "Cannot execute procedure .*";
 
     protected abstract SystemAccessControl newFileBasedSystemAccessControl(File configFile, Map<String, String> properties);
 
@@ -313,8 +312,16 @@ public abstract class BaseFileBasedSystemAccessControlTest
         assertAccessDenied(() -> accessControl.checkCanShowCreateSchema(CHARLIE, new CatalogSchemaName("some-catalog", "test")), SHOW_CREATE_SCHEMA_ACCESS_DENIED_MESSAGE);
     }
 
-    @Test(dataProvider = "privilegeGrantOption")
-    public void testGrantSchemaPrivilege(Privilege privilege, boolean grantOption)
+    @Test
+    public void testGrantSchemaPrivilege()
+    {
+        for (Privilege privilege : Privilege.values()) {
+            testGrantSchemaPrivilege(privilege, false);
+            testGrantSchemaPrivilege(privilege, true);
+        }
+    }
+
+    private void testGrantSchemaPrivilege(Privilege privilege, boolean grantOption)
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-schema.json");
         TrinoPrincipal grantee = new TrinoPrincipal(USER, "alice");
@@ -373,8 +380,16 @@ public abstract class BaseFileBasedSystemAccessControlTest
                 format(DENY_SCHEMA_ACCESS_DENIED_MESSAGE, UPDATE, "some-catalog.test", ""));
     }
 
-    @Test(dataProvider = "privilegeGrantOption")
-    public void testRevokeSchemaPrivilege(Privilege privilege, boolean grantOption)
+    @Test
+    public void testRevokeSchemaPrivilege()
+    {
+        for (Privilege privilege : Privilege.values()) {
+            testRevokeSchemaPrivilege(privilege, false);
+            testRevokeSchemaPrivilege(privilege, true);
+        }
+    }
+
+    private void testRevokeSchemaPrivilege(Privilege privilege, boolean grantOption)
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-schema.json");
         TrinoPrincipal grantee = new TrinoPrincipal(USER, "alice");
@@ -401,15 +416,6 @@ public abstract class BaseFileBasedSystemAccessControlTest
         assertAccessDenied(
                 () -> accessControl.checkCanRevokeSchemaPrivilege(CHARLIE, privilege, new CatalogSchemaName("some-catalog", "test"), grantee, grantOption),
                 format(REVOKE_SCHEMA_ACCESS_DENIED_MESSAGE, privilege, "some-catalog.test", ""));
-    }
-
-    @DataProvider(name = "privilegeGrantOption")
-    public Object[][] privilegeGrantOption()
-    {
-        return EnumSet.allOf(Privilege.class)
-                .stream()
-                .flatMap(privilege -> Stream.of(true, false).map(grantOption -> new Object[] {privilege, grantOption}))
-                .toArray(Object[][]::new);
     }
 
     @Test
@@ -1405,6 +1411,28 @@ public abstract class BaseFileBasedSystemAccessControlTest
         assertEquals(actual.getSchema(), expected.getSchema(), "Schema");
         assertEquals(actual.getExpression(), expected.getExpression(), "Expression");
         assertEquals(actual.getPath(), expected.getPath(), "Path");
+    }
+
+    @Test
+    public void testProcedureRulesForCheckCanExecute()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-visibility.json");
+
+        accessControl.checkCanExecuteProcedure(BOB, new CatalogSchemaRoutineName("alice-catalog", new SchemaRoutineName("procedure-schema", "some_procedure")));
+        assertAccessDenied(
+                () -> accessControl.checkCanExecuteProcedure(BOB, new CatalogSchemaRoutineName("alice-catalog", new SchemaRoutineName("some-schema", "some_procedure"))),
+                EXECUTE_PROCEDURE_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(
+                () -> accessControl.checkCanExecuteProcedure(BOB, new CatalogSchemaRoutineName("alice-catalog", new SchemaRoutineName("procedure-schema", "another_procedure"))),
+                EXECUTE_PROCEDURE_ACCESS_DENIED_MESSAGE);
+
+        assertAccessDenied(
+                () -> accessControl.checkCanExecuteProcedure(CHARLIE, new CatalogSchemaRoutineName("open-to-all", new SchemaRoutineName("some-schema", "some_procedure"))),
+                EXECUTE_PROCEDURE_ACCESS_DENIED_MESSAGE);
+
+        assertAccessDenied(
+                () -> accessControl.checkCanExecuteProcedure(ALICE, new CatalogSchemaRoutineName("alice-catalog", new SchemaRoutineName("procedure-schema", "some_procedure"))),
+                EXECUTE_PROCEDURE_ACCESS_DENIED_MESSAGE);
     }
 
     @Test

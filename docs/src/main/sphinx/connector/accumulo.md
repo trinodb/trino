@@ -674,104 +674,89 @@ the following sections for type mapping in each direction.
 The connector maps Accumulo types to the corresponding Trino types following
 this table:
 
-```{eval-rst}
-.. list-table:: Accumulo type to Trino type mapping
-  :widths: 30, 20, 50
-  :header-rows: 1
+:::{list-table} Accumulo type to Trino type mapping
+:widths: 50, 50
+:header-rows: 1
 
-  * - Accumulo type
-    - Trino type
-    - Notes
-  * - ``BOOLEAN``
-    - ``BOOLEAN``
-    -
-  * - ``TINYINT``
-    - ``TINYINT``
-    -
-  * - ``SMALLINT``
-    - ``SMALLINT``
-    -
-  * - ``INTEGER``
-    - ``INTEGER``
-    -
-  * - ``BIGINT``
-    - ``BIGINT``
-    -
-  * - ``REAL``
-    - ``REAL``
-    -
-  * - ``DOUBLE``
-    - ``DOUBLE``
-    -
-  * - ``VARCHAR(n)``
-    - ``VARCHAR(n)``
-    -
-  * - ``VARBINARY``
-    - ``VARBINARY``
-    -
-  * - ``DATE``
-    - ``DATE``
-    -
-  * - ``TIME(n)``
-    - ``TIME(n)``
-    -
-  * - ``TIMESTAMP(n)``
-    - ``TIMESTAMP(n)``
-    -
-```
+* - Accumulo type
+  - Trino type
+* - `BOOLEAN`
+  - `BOOLEAN`
+* - `TINYINT`
+  - `TINYINT`
+* - `SMALLINT`
+  - `SMALLINT`
+* - `INTEGER`
+  - `INTEGER`
+* - `BIGINT`
+  - `BIGINT`
+* - `REAL`
+  - `REAL`
+* - `DOUBLE`
+  - `DOUBLE`
+* - `VARCHAR(n)`
+  - `VARCHAR(n)`
+* - `VARBINARY`
+  - `VARBINARY`
+* - `DATE`
+  - `DATE`
+* - `TIME(n)`
+  - `TIME(n)`
+* - `TIMESTAMP(n)`
+  - `TIMESTAMP(n)`
+:::
 
-No other types are supported
+No other types are supported.
 
 ### Trino type to Accumulo type mapping
 
 The connector maps Trino types to the corresponding Trino type to Accumulo type
 mapping types following this table:
 
-```{eval-rst}
-.. list-table:: Trino type to Accumulo type mapping
-  :widths: 30, 20, 50
-  :header-rows: 1
+:::{list-table} Trino type to Accumulo type mapping
+:widths: 25, 25, 50
+:header-rows: 1
 
-  * - Trino type
-    - Accumulo type
-    - Notes
-  * - ``BOOLEAN``
-    - ``BOOLEAN``
-    -
-  * - ``TINYINT``
-    - ``TINYINT``
-    - Trino only supports writing values belonging to ``[0, 127]``
-  * - ``SMALLINT``
-    - ``SMALLINT``
-    -
-  * - ``INTEGER``
-    - ``INTEGER``
-    -
-  * - ``BIGINT``
-    - ``BIGINT``
-    -
-  * - ``REAL``
-    - ``REAL``
-    -
-  * - ``DOUBLE``
-    - ``DOUBLE``
-    -
-  * - ``VARCHAR(n)``
-    - ``VARCHAR(n)``
-    -
-  * - ``VARBINARY``
-    - ``VARBINARY``
-    -
-  * - ``DATE``
-    - ``DATE``
-    -
-  * - ``TIME(n)``
-    - ``TIME(n)``
-    -
-  * - ``TIMESTAMP(n)``
-    - ``TIMESTAMP(n)``
-    -
-```
+* - Trino type
+  - Accumulo type
+  - Notes
+* - `BOOLEAN`
+  - `BOOLEAN`
+  -
+* - `TINYINT`
+  - `TINYINT`
+  - Trino only supports writing values belonging to `[0, 127]`
+* - `SMALLINT`
+  - `SMALLINT`
+  -
+* - `INTEGER`
+  - `INTEGER`
+  -
+* - `BIGINT`
+  - `BIGINT`
+  -
+* - `REAL`
+  - `REAL`
+  -
+* - `DOUBLE`
+  - `DOUBLE`
+  -
+* - `VARCHAR(n)`
+  - `VARCHAR(n)`
+  -
+* - `VARBINARY`
+  - `VARBINARY`
+  -
+* - `DATE`
+  - `DATE`
+  -
+* - `TIME(n)`
+  - `TIME(n)`
+  -
+* - `TIMESTAMP(n)`
+  - `TIMESTAMP(n)`
+  -
+:::
 
 No other types are supported
 

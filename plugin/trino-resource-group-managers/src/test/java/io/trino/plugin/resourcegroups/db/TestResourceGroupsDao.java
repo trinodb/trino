@@ -22,7 +22,7 @@ import io.trino.plugin.resourcegroups.SelectorResourceEstimate;
 import io.trino.plugin.resourcegroups.SelectorResourceEstimate.Range;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
 import java.util.List;

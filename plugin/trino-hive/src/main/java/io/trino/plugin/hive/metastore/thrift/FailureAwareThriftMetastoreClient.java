@@ -18,6 +18,7 @@ import io.trino.hive.thrift.metastore.ColumnStatisticsObj;
 import io.trino.hive.thrift.metastore.Database;
 import io.trino.hive.thrift.metastore.EnvironmentContext;
 import io.trino.hive.thrift.metastore.FieldSchema;
+import io.trino.hive.thrift.metastore.Function;
 import io.trino.hive.thrift.metastore.HiveObjectPrivilege;
 import io.trino.hive.thrift.metastore.HiveObjectRef;
 import io.trino.hive.thrift.metastore.LockRequest;
@@ -33,6 +34,7 @@ import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.spi.connector.SchemaTableName;
 import org.apache.thrift.TException;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -330,13 +332,6 @@ public class FailureAwareThriftMetastoreClient
     }
 
     @Override
-    public List<RolePrincipalGrant> listGrantedPrincipals(String role)
-            throws TException
-    {
-        return runWithHandle(() -> delegate.listGrantedPrincipals(role));
-    }
-
-    @Override
     public List<RolePrincipalGrant> listRoleGrants(String name, PrincipalType principalType)
             throws TException
     {
@@ -446,6 +441,41 @@ public class FailureAwareThriftMetastoreClient
             throws TException
     {
         runWithHandle(() -> delegate.alterTransactionalTable(table, transactionId, writeId, context));
+    }
+
+    @Override
+    public Function getFunction(String databaseName, String functionName)
+            throws TException
+    {
+        return runWithHandle(() -> delegate.getFunction(databaseName, functionName));
+    }
+
+    @Override
+    public Collection<String> getFunctions(String databaseName, String functionNamePattern)
+            throws TException
+    {
+        return runWithHandle(() -> delegate.getFunctions(databaseName, functionNamePattern));
+    }
+
+    @Override
+    public void createFunction(Function function)
+            throws TException
+    {
+        runWithHandle(() -> delegate.createFunction(function));
+    }
+
+    @Override
+    public void alterFunction(Function function)
+            throws TException
+    {
+        runWithHandle(() -> delegate.alterFunction(function));
+    }
+
+    @Override
+    public void dropFunction(String databaseName, String functionName)
+            throws TException
+    {
+        runWithHandle(() -> delegate.dropFunction(databaseName, functionName));
     }
 
     private <T> T runWithHandle(ThrowingSupplier<T> supplier)

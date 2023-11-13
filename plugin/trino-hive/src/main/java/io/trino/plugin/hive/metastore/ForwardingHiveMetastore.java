@@ -22,10 +22,12 @@ import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.type.Type;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -314,12 +316,6 @@ public abstract class ForwardingHiveMetastore
     }
 
     @Override
-    public Set<RoleGrant> listGrantedPrincipals(String role)
-    {
-        return delegate.listGrantedPrincipals(role);
-    }
-
-    @Override
     public Set<RoleGrant> listRoleGrants(HivePrincipal principal)
     {
         return delegate.listRoleGrants(principal);
@@ -435,16 +431,6 @@ public abstract class ForwardingHiveMetastore
     }
 
     @Override
-    public void alterPartitions(
-            String dbName,
-            String tableName,
-            List<Partition> partitions,
-            long writeId)
-    {
-        delegate.alterPartitions(dbName, tableName, partitions, writeId);
-    }
-
-    @Override
     public void addDynamicPartitions(
             String dbName,
             String tableName,
@@ -464,5 +450,41 @@ public abstract class ForwardingHiveMetastore
             PrincipalPrivileges principalPrivileges)
     {
         delegate.alterTransactionalTable(table, transactionId, writeId, principalPrivileges);
+    }
+
+    @Override
+    public boolean functionExists(String databaseName, String functionName, String signatureToken)
+    {
+        return delegate.functionExists(databaseName, functionName, signatureToken);
+    }
+
+    @Override
+    public Collection<LanguageFunction> getFunctions(String databaseName)
+    {
+        return delegate.getFunctions(databaseName);
+    }
+
+    @Override
+    public Collection<LanguageFunction> getFunctions(String databaseName, String functionName)
+    {
+        return delegate.getFunctions(databaseName, functionName);
+    }
+
+    @Override
+    public void createFunction(String databaseName, String functionName, LanguageFunction function)
+    {
+        delegate.createFunction(databaseName, functionName, function);
+    }
+
+    @Override
+    public void replaceFunction(String databaseName, String functionName, LanguageFunction function)
+    {
+        delegate.replaceFunction(databaseName, functionName, function);
+    }
+
+    @Override
+    public void dropFunction(String databaseName, String functionName, String signatureToken)
+    {
+        delegate.dropFunction(databaseName, functionName, signatureToken);
     }
 }

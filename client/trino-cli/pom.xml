@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>431-SNAPSHOT</version>
+        <version>434-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -15,7 +15,7 @@
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <project.build.targetJdk>8</project.build.targetJdk>
         <main-class>io.trino.cli.Trino</main-class>
-        <dep.jline.version>3.21.0</dep.jline.version>
+        <dep.jline.version>3.24.1</dep.jline.version>
     </properties>
 
     <dependencies>

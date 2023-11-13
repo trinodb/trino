@@ -449,6 +449,16 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanCreateFunction(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName functionName)
+    {
+    }
+
+    @Override
+    public void checkCanDropFunction(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName functionName)
+    {
+    }
+
+    @Override
     public Iterable<EventListener> getEventListeners()
     {
         return ImmutableSet.of();

@@ -18,7 +18,7 @@ import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotNull;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;

@@ -208,12 +208,14 @@ public class TableWriterNode
         private final String catalog;
         private final ConnectorTableMetadata tableMetadata;
         private final Optional<TableLayout> layout;
+        private final boolean replace;
 
-        public CreateReference(String catalog, ConnectorTableMetadata tableMetadata, Optional<TableLayout> layout)
+        public CreateReference(String catalog, ConnectorTableMetadata tableMetadata, Optional<TableLayout> layout, boolean replace)
         {
             this.catalog = requireNonNull(catalog, "catalog is null");
             this.tableMetadata = requireNonNull(tableMetadata, "tableMetadata is null");
             this.layout = requireNonNull(layout, "layout is null");
+            this.replace = replace;
         }
 
         public String getCatalog()
@@ -253,6 +255,11 @@ public class TableWriterNode
             return tableMetadata;
         }
 
+        public boolean isReplace()
+        {
+            return replace;
+        }
+
         @Override
         public String toString()
         {
@@ -268,6 +275,7 @@ public class TableWriterNode
         private final boolean multipleWritersPerPartitionSupported;
         private final OptionalInt maxWriterTasks;
         private final WriterScalingOptions writerScalingOptions;
+        private final boolean replace;
 
         @JsonCreator
         public CreateTarget(
@@ -275,13 +283,15 @@ public class TableWriterNode
                 @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
                 @JsonProperty("multipleWritersPerPartitionSupported") boolean multipleWritersPerPartitionSupported,
                 @JsonProperty("maxWriterTasks") OptionalInt maxWriterTasks,
-                @JsonProperty("writerScalingOptions") WriterScalingOptions writerScalingOptions)
+                @JsonProperty("writerScalingOptions") WriterScalingOptions writerScalingOptions,
+                @JsonProperty("replace") boolean replace)
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
             this.multipleWritersPerPartitionSupported = multipleWritersPerPartitionSupported;
             this.maxWriterTasks = requireNonNull(maxWriterTasks, "maxWriterTasks is null");
             this.writerScalingOptions = requireNonNull(writerScalingOptions, "writerScalingOptions is null");
+            this.replace = replace;
         }
 
         @JsonProperty
@@ -306,6 +316,12 @@ public class TableWriterNode
         public WriterScalingOptions getWriterScalingOptions()
         {
             return writerScalingOptions;
+        }
+
+        @JsonProperty
+        public boolean isReplace()
+        {
+            return replace;
         }
 
         @Override

@@ -18,7 +18,7 @@ import io.airlift.bootstrap.ApplicationConfigurationException;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.collect.Streams.stream;
@@ -37,7 +37,11 @@ public class TestSingleStoreJdbcConfig
                 .filter(connectorFactory -> connectorFactory.getName().equals("singlestore"))
                 .collect(toOptional())
                 .orElseThrow();
-        assertThatThrownBy(() -> factory.create("test", ImmutableMap.of("connection-url", "jdbc:mariadb:test"), new TestingConnectorContext()))
+        assertThatThrownBy(() -> factory.create(
+                "test", ImmutableMap.of(
+                        "connection-url", "jdbc:mariadb:test",
+                        "bootstrap.quiet", "true"),
+                new TestingConnectorContext()))
                 .isInstanceOf(ApplicationConfigurationException.class)
                 .hasMessageContaining(DRIVER_PROTOCOL_ERROR);
     }

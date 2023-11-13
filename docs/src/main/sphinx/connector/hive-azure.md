@@ -28,33 +28,31 @@ To connect to ABFS storage, you may either use the storage account's access
 key, or a service principal. Do not use both sets of properties at the
 same time.
 
-```{eval-rst}
-.. list-table:: ABFS Access Key
-  :widths: 30, 70
-  :header-rows: 1
+:::{list-table} ABFS Access Key
+:widths: 30, 70
+:header-rows: 1
 
-  * - Property name
-    - Description
-  * - ``hive.azure.abfs-storage-account``
-    - The name of the ADLS Gen2 storage account
-  * - ``hive.azure.abfs-access-key``
-    - The decrypted access key for the ADLS Gen2 storage account
-```
+* - Property name
+  - Description
+* - `hive.azure.abfs-storage-account`
+  - The name of the ADLS Gen2 storage account
+* - `hive.azure.abfs-access-key`
+  - The decrypted access key for the ADLS Gen2 storage account
+:::
 
-```{eval-rst}
-.. list-table:: ABFS Service Principal OAuth
-  :widths: 30, 70
-  :header-rows: 1
+:::{list-table} ABFS Service Principal OAuth
+:widths: 30, 70
+:header-rows: 1
 
-  * - Property name
-    - Description
-  * - ``hive.azure.abfs.oauth.endpoint``
-    - The service principal / application's OAuth 2.0 token endpoint (v1).
-  * - ``hive.azure.abfs.oauth.client-id``
-    - The service principal's client/application ID.
-  * - ``hive.azure.abfs.oauth.secret``
-    - A client secret for the service principal.
-```
+* - Property name
+  - Description
+* - `hive.azure.abfs.oauth.endpoint`
+  - The service principal / application's OAuth 2.0 token endpoint (v1).
+* - `hive.azure.abfs.oauth.client-id`
+  - The service principal's client/application ID.
+* - `hive.azure.abfs.oauth.secret`
+  - A client secret for the service principal.
+:::
 
 When using a service principal, it must have the Storage Blob Data Owner,
 Contributor, or Reader role on the storage account you are using, depending on
@@ -75,39 +73,37 @@ because you won't able to retrieve the key later. Refer to the Azure
 for details.
 :::
 
-```{eval-rst}
-.. list-table:: ADLS properties
-  :widths: 30, 70
-  :header-rows: 1
+:::{list-table} ADLS properties
+:widths: 30, 70
+:header-rows: 1
 
-  * - Property name
-    - Description
-  * - ``hive.azure.adl-client-id``
-    - Client (Application) ID from the App Registrations for your storage
-      account
-  * - ``hive.azure.adl-credential``
-    - Value of the new client (application) secret created
-  * - ``hive.azure.adl-refresh-url``
-    - OAuth 2.0 token endpoint url
-  * - ``hive.azure.adl-proxy-host``
-    - Proxy host and port in ``host:port`` format. Use this property to connect
-      to an ADLS endpoint via a SOCKS proxy.
-```
+* - Property name
+  - Description
+* - `hive.azure.adl-client-id`
+  - Client (Application) ID from the App Registrations for your storage
+    account
+* - `hive.azure.adl-credential`
+  - Value of the new client (application) secret created
+* - `hive.azure.adl-refresh-url`
+  - OAuth 2.0 token endpoint url
+* - `hive.azure.adl-proxy-host`
+  - Proxy host and port in `host:port` format. Use this property to connect
+    to an ADLS endpoint via a SOCKS proxy.
+:::
 
 ### WASB storage (legacy)
 
-```{eval-rst}
-.. list-table:: WASB properties
-  :widths: 30, 70
-  :header-rows: 1
+:::{list-table} WASB properties
+:widths: 30, 70
+:header-rows: 1
 
-  * - Property name
-    - Description
-  * - ``hive.azure.wasb-storage-account``
-    - Storage account name of Azure Blob Storage
-  * - ``hive.azure.wasb-access-key``
-    - The decrypted access key for the Azure Blob Storage
-```
+* - Property name
+  - Description
+* - `hive.azure.wasb-storage-account`
+  - Storage account name of Azure Blob Storage
+* - `hive.azure.wasb-access-key`
+  - The decrypted access key for the Azure Blob Storage
+:::
 
 (hive-azure-advanced-config)=
 

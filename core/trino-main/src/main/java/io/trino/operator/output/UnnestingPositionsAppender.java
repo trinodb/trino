@@ -180,13 +180,19 @@ public class UnnestingPositionsAppender
             case UNINITIALIZED, DIRECT -> delegate.build();
         };
 
+        reset();
+
+        return result;
+    }
+
+    public void reset()
+    {
         state = State.UNINITIALIZED;
         dictionary = null;
         dictionaryIdsBuilder = dictionaryIdsBuilder.newBuilderLike();
         rleValue = null;
         rlePositionCount = 0;
-
-        return result;
+        delegate.reset();
     }
 
     public long getRetainedSizeInBytes()

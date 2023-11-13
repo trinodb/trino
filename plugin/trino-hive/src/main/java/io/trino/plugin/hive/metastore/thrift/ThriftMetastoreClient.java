@@ -17,6 +17,7 @@ import io.trino.hive.thrift.metastore.ColumnStatisticsObj;
 import io.trino.hive.thrift.metastore.Database;
 import io.trino.hive.thrift.metastore.EnvironmentContext;
 import io.trino.hive.thrift.metastore.FieldSchema;
+import io.trino.hive.thrift.metastore.Function;
 import io.trino.hive.thrift.metastore.HiveObjectPrivilege;
 import io.trino.hive.thrift.metastore.HiveObjectRef;
 import io.trino.hive.thrift.metastore.LockRequest;
@@ -33,6 +34,7 @@ import io.trino.spi.connector.SchemaTableName;
 import org.apache.thrift.TException;
 
 import java.io.Closeable;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -154,9 +156,6 @@ public interface ThriftMetastoreClient
     void revokeRole(String role, String granteeName, PrincipalType granteeType, boolean grantOption)
             throws TException;
 
-    List<RolePrincipalGrant> listGrantedPrincipals(String role)
-            throws TException;
-
     List<RolePrincipalGrant> listRoleGrants(String name, PrincipalType principalType)
             throws TException;
 
@@ -209,5 +208,20 @@ public interface ThriftMetastoreClient
             throws TException;
 
     void alterTransactionalTable(Table table, long transactionId, long writeId, EnvironmentContext context)
+            throws TException;
+
+    Function getFunction(String databaseName, String functionName)
+            throws TException;
+
+    Collection<String> getFunctions(String databaseName, String functionNamePattern)
+            throws TException;
+
+    void createFunction(Function function)
+            throws TException;
+
+    void alterFunction(Function function)
+            throws TException;
+
+    void dropFunction(String databaseName, String functionName)
             throws TException;
 }

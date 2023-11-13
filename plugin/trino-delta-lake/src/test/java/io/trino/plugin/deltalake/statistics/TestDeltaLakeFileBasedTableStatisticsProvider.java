@@ -104,13 +104,12 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
         SchemaTableName schemaTableName = new SchemaTableName("db_name", tableName);
         TableSnapshot tableSnapshot;
         try {
-            tableSnapshot = transactionLogAccess.getSnapshot(SESSION, schemaTableName, tableLocation, Optional.empty());
+            tableSnapshot = transactionLogAccess.loadSnapshot(SESSION, schemaTableName, tableLocation);
         }
         catch (IOException e) {
             throw new RuntimeException(e);
         }
         MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(tableSnapshot, SESSION);
-        transactionLogAccess.cleanupQuery(SESSION);
         return new DeltaLakeTableHandle(
                 schemaTableName.getSchemaName(),
                 schemaTableName.getTableName(),
@@ -450,13 +449,12 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
     {
         TableSnapshot tableSnapshot;
         try {
-            tableSnapshot = transactionLogAccess.getSnapshot(SESSION, tableHandle.getSchemaTableName(), tableHandle.getLocation(), Optional.empty());
+            tableSnapshot = transactionLogAccess.loadSnapshot(SESSION, tableHandle.getSchemaTableName(), tableHandle.getLocation());
         }
         catch (IOException e) {
             throw new RuntimeException(e);
         }
         TableStatistics tableStatistics = tableStatisticsProvider.getTableStatistics(session, tableHandle, tableSnapshot);
-        transactionLogAccess.cleanupQuery(SESSION);
         return tableStatistics;
     }
 

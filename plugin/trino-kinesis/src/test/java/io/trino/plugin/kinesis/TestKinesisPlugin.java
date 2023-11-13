@@ -20,7 +20,7 @@ import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.ConnectorMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.testing.TestingConnectorContext;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.transaction.IsolationLevel.READ_COMMITTED;
@@ -49,6 +49,7 @@ public class TestKinesisPlugin
                 .put("kinesis.hide-internal-columns", "false")
                 .put("kinesis.access-key", TestUtils.noneToBlank(accessKey))
                 .put("kinesis.secret-key", TestUtils.noneToBlank(secretKey))
+                .put("bootstrap.quiet", "true")
                 .buildOrThrow(), new TestingConnectorContext());
         assertNotNull(c);
 

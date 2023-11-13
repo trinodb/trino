@@ -15,6 +15,7 @@ package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.plugin.base.util.UncheckedCloseable;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
 import io.trino.testing.DistributedQueryRunner;
@@ -30,8 +31,9 @@ import java.util.regex.Pattern;
 import static io.trino.plugin.hive.BaseS3AndGlueMetastoreTest.LocationPattern.DOUBLE_SLASH;
 import static io.trino.plugin.hive.BaseS3AndGlueMetastoreTest.LocationPattern.TRIPLE_SLASH;
 import static io.trino.plugin.hive.BaseS3AndGlueMetastoreTest.LocationPattern.TWO_TRAILING_SLASHES;
-import static io.trino.plugin.hive.metastore.glue.GlueHiveMetastore.createTestingGlueHiveMetastore;
+import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
+import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
@@ -54,12 +56,16 @@ public class TestHiveS3AndGlueMetastoreTest
 
         Session session = createSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin"))));
         DistributedQueryRunner queryRunner = HiveQueryRunner.builder(session)
+                .addExtraProperty("sql.path", "hive.functions")
+                .addExtraProperty("sql.default-function-catalog", "hive")
+                .addExtraProperty("sql.default-function-schema", "functions")
                 .setCreateTpchSchemas(false)
                 .addHiveProperty("hive.security", "allow-all")
                 .addHiveProperty("hive.non-managed-table-writes-enabled", "true")
                 .setMetastore(runner -> metastore)
                 .build();
         queryRunner.execute("CREATE SCHEMA " + schemaName + " WITH (location = '" + schemaPath() + "')");
+        queryRunner.execute("CREATE SCHEMA IF NOT EXISTS functions");
         return queryRunner;
     }
 
@@ -187,12 +193,10 @@ public class TestHiveS3AndGlueMetastoreTest
 
             assertUpdate("CREATE TABLE " + qualifiedTableName + "(col_str varchar, col_int int)" + partitionQueryPart);
             try (UncheckedCloseable ignoredDropTable = onClose("DROP TABLE " + qualifiedTableName)) {
-                String expectedTableLocation = Pattern.quote((schemaLocation.endsWith("/") ? schemaLocation : schemaLocation + "/") + tableName)
-                        // Hive normalizes repeated slashes
-                        .replaceAll("(?<!(s3:))/+", "/");
+                String expectedTableLocation = (schemaLocation.endsWith("/") ? schemaLocation : schemaLocation + "/") + tableName;
 
                 actualTableLocation = metastore.getTable(schemaName, tableName).orElseThrow().getStorage().getLocation();
-                assertThat(actualTableLocation).matches(expectedTableLocation);
+                assertThat(actualTableLocation).isEqualTo(expectedTableLocation);
 
                 assertUpdate("INSERT INTO " + qualifiedTableName + "  VALUES ('str1', 1), ('str2', 2), ('str3', 3)", 3);
                 assertQuery("SELECT * FROM " + qualifiedTableName, "VALUES ('str1', 1), ('str2', 2), ('str3', 3)");
@@ -288,7 +292,64 @@ public class TestHiveS3AndGlueMetastoreTest
 
         assertUpdate("CREATE SCHEMA \"%2$s\" WITH (location = 's3://%1$s/%2$s')".formatted(bucketName, schemaName));
         try (UncheckedCloseable ignored = onClose("DROP SCHEMA \"" + schemaName + "\"")) {
-            assertQueryFails("CREATE TABLE \"" + schemaName + "\"." + tableName + " (col) AS VALUES 1", "Failed checking path: .*");
+            assertThatThrownBy(() -> computeActual("CREATE TABLE \"" + schemaName + "\"." + tableName + " (col) AS VALUES 1"))
+                    .hasMessage("Error committing write to Hive")
+                    .hasStackTraceContaining("Invalid URI (Service: Amazon S3; Status Code: 400");
         }
+    }
+
+    @Test
+    public void testCreateFunction()
+    {
+        String name = "test_" + randomNameSuffix();
+        String name2 = "test_" + randomNameSuffix();
+
+        assertUpdate("CREATE FUNCTION " + name + "(x integer) RETURNS bigint COMMENT 't42' RETURN x * 42");
+
+        assertQuery("SELECT " + name + "(99)", "SELECT 4158");
+        assertQueryFails("SELECT " + name + "(2.9)", ".*Unexpected parameters.*");
+
+        assertUpdate("CREATE FUNCTION " + name + "(x double) RETURNS double COMMENT 't88' RETURN x * 8.8");
+
+        assertThat(query("SHOW FUNCTIONS"))
+                .skippingTypesCheck()
+                .containsAll(resultBuilder(getSession())
+                        .row(name, "bigint", "integer", "scalar", true, "t42")
+                        .row(name, "double", "double", "scalar", true, "t88")
+                        .build());
+
+        assertQuery("SELECT " + name + "(99)", "SELECT 4158");
+        assertQuery("SELECT " + name + "(2.9)", "SELECT 25.52");
+
+        assertQueryFails("CREATE FUNCTION " + name + "(x int) RETURNS bigint RETURN x", "line 1:1: Function already exists");
+
+        assertQuery("SELECT " + name + "(99)", "SELECT 4158");
+        assertQuery("SELECT " + name + "(2.9)", "SELECT 25.52");
+
+        assertUpdate("CREATE OR REPLACE FUNCTION " + name + "(x bigint) RETURNS bigint RETURN x * 23");
+        assertUpdate("CREATE FUNCTION " + name2 + "(s varchar) RETURNS varchar RETURN 'Hello ' || s");
+
+        assertThat(query("SHOW FUNCTIONS"))
+                .skippingTypesCheck()
+                .containsAll(resultBuilder(getSession())
+                        .row(name, "bigint", "integer", "scalar", true, "t42")
+                        .row(name, "bigint", "bigint", "scalar", true, "")
+                        .row(name, "double", "double", "scalar", true, "t88")
+                        .row(name2, "varchar", "varchar", "scalar", true, "")
+                        .build());
+
+        assertQuery("SELECT " + name + "(99)", "SELECT 4158");
+        assertQuery("SELECT " + name + "(cast(99 as bigint))", "SELECT 2277");
+        assertQuery("SELECT " + name + "(2.9)", "SELECT 25.52");
+        assertQuery("SELECT " + name2 + "('world')", "SELECT 'Hello world'");
+
+        assertQueryFails("DROP FUNCTION " + name + "(varchar)", "line 1:1: Function not found");
+        assertUpdate("DROP FUNCTION " + name + "(z bigint)");
+        assertUpdate("DROP FUNCTION " + name + "(double)");
+        assertUpdate("DROP FUNCTION " + name + "(int)");
+        assertQueryFails("DROP FUNCTION " + name + "(bigint)", "line 1:1: Function not found");
+        assertUpdate("DROP FUNCTION IF EXISTS " + name + "(bigint)");
+        assertUpdate("DROP FUNCTION " + name2 + "(varchar)");
+        assertQueryFails("DROP FUNCTION " + name2 + "(varchar)", "line 1:1: Function not found");
     }
 }

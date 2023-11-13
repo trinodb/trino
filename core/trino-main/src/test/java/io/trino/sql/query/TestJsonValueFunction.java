@@ -18,9 +18,9 @@ import io.trino.operator.scalar.json.JsonInputConversionError;
 import io.trino.operator.scalar.json.JsonValueFunction.JsonValueResultError;
 import io.trino.sql.parser.ParsingException;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.nio.charset.Charset;
 
@@ -30,25 +30,20 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestJsonValueFunction
 {
     private static final String INPUT = "[\"a\", \"b\", \"c\"]";
     private static final String INCORRECT_INPUT = "[...";
-    private QueryAssertions assertions;
-
-    @BeforeAll
-    public void init()
-    {
-        assertions = new QueryAssertions();
-    }
+    private final QueryAssertions assertions = new QueryAssertions();
 
     @AfterAll
     public void teardown()
     {
         assertions.close();
-        assertions = null;
     }
 
     @Test

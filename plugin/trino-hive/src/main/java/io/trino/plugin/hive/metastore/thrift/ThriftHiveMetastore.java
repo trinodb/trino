@@ -90,6 +90,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -107,6 +108,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -810,27 +812,6 @@ public class ThriftHiveMetastore
                         try (ThriftMetastoreClient client = createMetastoreClient()) {
                             client.revokeRole(role, granteeName, granteeType, grantOption);
                             return null;
-                        }
-                    }));
-        }
-        catch (TException e) {
-            throw new TrinoException(HIVE_METASTORE_ERROR, e);
-        }
-        catch (Exception e) {
-            throw propagate(e);
-        }
-    }
-
-    @Override
-    public Set<RoleGrant> listGrantedPrincipals(String role)
-    {
-        try {
-            return retry()
-                    .stopOn(MetaException.class)
-                    .stopOnIllegalExceptions()
-                    .run("listPrincipals", stats.getListGrantedPrincipals().wrap(() -> {
-                        try (ThriftMetastoreClient client = createMetastoreClient()) {
-                            return fromRolePrincipalGrants(client.listGrantedPrincipals(role));
                         }
                     }));
         }
@@ -1974,28 +1955,6 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
-    {
-        checkArgument(writeId > 0, "writeId should be a positive integer, but was %s", writeId);
-        try {
-            retry()
-                    .stopOnIllegalExceptions()
-                    .run("alterPartitions", stats.getAlterPartitions().wrap(() -> {
-                        try (ThriftMetastoreClient metastoreClient = createMetastoreClient()) {
-                            metastoreClient.alterPartitions(dbName, tableName, partitions, writeId);
-                        }
-                        return null;
-                    }));
-        }
-        catch (TException e) {
-            throw new TrinoException(HIVE_METASTORE_ERROR, e);
-        }
-        catch (Exception e) {
-            throw propagate(e);
-        }
-    }
-
-    @Override
     public void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
     {
         checkArgument(writeId > 0, "writeId should be a positive integer, but was %s", writeId);
@@ -2009,6 +1968,123 @@ public class ThriftHiveMetastore
                             metastoreClient.addDynamicPartitions(dbName, tableName, partitionNames, transactionId, writeId, operation);
                         }
                         return null;
+                    }));
+        }
+        catch (TException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    @Override
+    public Optional<io.trino.hive.thrift.metastore.Function> getFunction(String databaseName, String functionName)
+    {
+        try {
+            return retry()
+                    .stopOn(MetaException.class, NoSuchObjectException.class)
+                    .stopOnIllegalExceptions()
+                    .run("getFunction", stats.getGetFunction().wrap(() -> {
+                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                            return Optional.of(client.getFunction(databaseName, functionName));
+                        }
+                    }));
+        }
+        catch (NoSuchObjectException e) {
+            return Optional.empty();
+        }
+        catch (TException e) {
+            // Hive 2.x throws the wrong exception type
+            if ((e instanceof MetaException) && nullToEmpty(e.getMessage()).startsWith("NoSuchObjectException(")) {
+                return Optional.empty();
+            }
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    @Override
+    public Collection<String> getFunctions(String databaseName, String functionNamePattern)
+    {
+        try {
+            return retry()
+                    .stopOnIllegalExceptions()
+                    .run("getFunctions", stats.getGetFunctions().wrap(() -> {
+                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                            return client.getFunctions(databaseName, functionNamePattern);
+                        }
+                    }));
+        }
+        catch (TException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    @Override
+    public void createFunction(io.trino.hive.thrift.metastore.Function function)
+    {
+        try {
+            retry()
+                    .stopOn(AlreadyExistsException.class, InvalidObjectException.class, NoSuchObjectException.class)
+                    .stopOnIllegalExceptions()
+                    .run("createFunction", stats.getCreateFunction().wrap(() -> {
+                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                            client.createFunction(function);
+                            return null;
+                        }
+                    }));
+        }
+        catch (NoSuchObjectException e) {
+            throw new SchemaNotFoundException(function.getDbName());
+        }
+        catch (TException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    @Override
+    public void alterFunction(io.trino.hive.thrift.metastore.Function function)
+    {
+        try {
+            retry()
+                    .stopOn(InvalidOperationException.class)
+                    .stopOnIllegalExceptions()
+                    .run("alterFunction", stats.getAlterFunction().wrap(() -> {
+                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                            client.alterFunction(function);
+                            return null;
+                        }
+                    }));
+        }
+        catch (TException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+        catch (Exception e) {
+            throw propagate(e);
+        }
+    }
+
+    @Override
+    public void dropFunction(String databaseName, String functionName)
+    {
+        try {
+            retry()
+                    .stopOn(NoSuchObjectException.class)
+                    .stopOnIllegalExceptions()
+                    .run("dropFunction", stats.getDropFunction().wrap(() -> {
+                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                            client.dropFunction(databaseName, functionName);
+                            return null;
+                        }
                     }));
         }
         catch (TException e) {

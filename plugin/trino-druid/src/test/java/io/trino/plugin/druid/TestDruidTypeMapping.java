@@ -24,6 +24,7 @@ import io.trino.testing.datatype.SqlDataTypeTest;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;
@@ -44,6 +45,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
+@Isolated
 public class TestDruidTypeMapping
         extends AbstractTestQueryFramework
 {

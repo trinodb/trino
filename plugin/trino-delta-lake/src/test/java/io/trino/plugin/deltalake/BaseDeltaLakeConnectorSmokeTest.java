@@ -481,20 +481,25 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testHiveViewsCannotBeAccessed()
     {
+        String schemaName = "test_schema" + randomNameSuffix();
         String viewName = "dummy_view";
-        hiveHadoop.runOnHive(format("CREATE VIEW %1$s.%2$s AS SELECT * FROM %1$s.customer", SCHEMA, viewName));
-        assertThatThrownBy(() -> computeActual("DESCRIBE " + viewName)).hasMessageContaining(format("%s.%s is not a Delta Lake table", SCHEMA, viewName));
-        hiveHadoop.runOnHive("DROP VIEW " + viewName);
+        hiveHadoop.runOnHive("CREATE DATABASE " + schemaName);
+        hiveHadoop.runOnHive(format("CREATE VIEW %s.%s AS SELECT * FROM %s.customer", schemaName, viewName, SCHEMA));
+        assertEquals(computeScalar(format("SHOW TABLES FROM %s LIKE '%s'", schemaName, viewName)), viewName);
+        assertThatThrownBy(() -> computeActual("DESCRIBE " + schemaName + "." + viewName)).hasMessageContaining(format("%s.%s is not a Delta Lake table", schemaName, viewName));
+        hiveHadoop.runOnHive("DROP DATABASE " + schemaName + " CASCADE");
     }
 
     @Test
     public void testNonDeltaTablesCannotBeAccessed()
     {
+        String schemaName = "test_schema" + randomNameSuffix();
         String tableName = "hive_table";
-        hiveHadoop.runOnHive(format("CREATE TABLE %s.%s (id BIGINT)", SCHEMA, tableName));
-        assertEquals(computeScalar(format("SHOW TABLES LIKE '%s'", tableName)), tableName);
-        assertThatThrownBy(() -> computeActual("DESCRIBE " + tableName)).hasMessageContaining(tableName + " is not a Delta Lake table");
-        hiveHadoop.runOnHive(format("DROP TABLE %s.%s", SCHEMA, tableName));
+        hiveHadoop.runOnHive("CREATE DATABASE " + schemaName);
+        hiveHadoop.runOnHive(format("CREATE TABLE %s.%s (id BIGINT)", schemaName, tableName));
+        assertEquals(computeScalar(format("SHOW TABLES FROM %s LIKE '%s'", schemaName, tableName)), tableName);
+        assertThatThrownBy(() -> computeActual("DESCRIBE " + schemaName + "." + tableName)).hasMessageContaining(tableName + " is not a Delta Lake table");
+        hiveHadoop.runOnHive("DROP DATABASE " + schemaName + " CASCADE");
     }
 
     @Test

@@ -14,9 +14,12 @@
 package io.trino.plugin.hive;
 
 import io.trino.hdfs.azure.HiveAzureConfig;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Parameters;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.TestInstance;
 
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+
+@TestInstance(PER_CLASS)
 public class TestHiveFileSystemAbfsOAuth
         extends AbstractTestHiveFileSystemAbfs
 {
@@ -24,33 +27,19 @@ public class TestHiveFileSystemAbfsOAuth
     private String clientId;
     private String secret;
 
-    @Parameters({
-            "hive.hadoop2.metastoreHost",
-            "hive.hadoop2.metastorePort",
-            "hive.hadoop2.databaseName",
-            "test.hive.azure.abfs.container",
-            "test.hive.azure.abfs.storage-account",
-            "test.hive.azure.abfs.test-directory",
-            "test.hive.azure.abfs.oauth.endpoint",
-            "test.hive.azure.abfs.oauth.client-id",
-            "test.hive.azure.abfs.oauth.secret",
-    })
-    @BeforeClass
-    public void setup(
-            String host,
-            int port,
-            String databaseName,
-            String container,
-            String account,
-            String testDirectory,
-            String clientEndpoint,
-            String clientId,
-            String clientSecret)
+    @BeforeAll
+    public void setup()
     {
-        this.endpoint = checkParameter(clientEndpoint, "endpoint");
-        this.clientId = checkParameter(clientId, "client ID");
-        this.secret = checkParameter(clientSecret, "secret");
-        super.setup(host, port, databaseName, container, account, testDirectory);
+        this.endpoint = checkParameter(System.getProperty("test.hive.azure.abfs.oauth.endpoint"), "endpoint");
+        this.clientId = checkParameter(System.getProperty("test.hive.azure.abfs.oauth.client-id"), "client ID");
+        this.secret = checkParameter(System.getProperty("test.hive.azure.abfs.oauth.secret"), "secret");
+        super.setup(
+                System.getProperty("hive.hadoop2.metastoreHost"),
+                Integer.getInteger("hive.hadoop2.metastorePort"),
+                System.getProperty("hive.hadoop2.databaseName"),
+                System.getProperty("test.hive.azure.abfs.container"),
+                System.getProperty("test.hive.azure.abfs.storage-account"),
+                System.getProperty("test.hive.azure.abfs.test-directory"));
     }
 
     @Override

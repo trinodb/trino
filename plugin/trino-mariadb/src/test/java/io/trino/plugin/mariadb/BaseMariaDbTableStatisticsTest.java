@@ -129,7 +129,7 @@ public abstract class BaseMariaDbTableStatisticsTest
                     .put("shippriority", 1)
                     .put("comment", varcharNdvToExpected.apply(14995))
                     .build());
-            assertThat(getTableCardinalityFromStats(statsResult)).isCloseTo(15000, withinPercentage(20));
+            assertThat(getTableCardinalityFromStats(statsResult)).isCloseTo(15000, withinPercentage(30));
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);

@@ -53,7 +53,10 @@ public class TestSheetsPlugin
     {
         Plugin plugin = new SheetsPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        ImmutableMap.Builder<String, String> propertiesMap = ImmutableMap.<String, String>builder().put("gsheets.credentials-path", getTestCredentialsPath()).put("gsheets.metadata-sheet-id", TEST_METADATA_SHEET_ID);
+        ImmutableMap.Builder<String, String> propertiesMap = ImmutableMap.<String, String>builder()
+                .put("gsheets.credentials-path", getTestCredentialsPath())
+                .put("gsheets.metadata-sheet-id", TEST_METADATA_SHEET_ID)
+                .put("bootstrap.quiet", "true");
         Connector connector = factory.create(GOOGLE_SHEETS, propertiesMap.buildOrThrow(), new TestingConnectorContext());
         assertThat(connector).isNotNull();
         connector.shutdown();

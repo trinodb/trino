@@ -16,6 +16,7 @@ package io.trino.execution.scheduler.faulttolerant;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
@@ -61,6 +62,7 @@ class HashDistributionSplitAssigner
 
     private final Set<Integer> createdTaskPartitions = new HashSet<>();
     private final Set<PlanNodeId> completedSources = new HashSet<>();
+
     private final ListMultimap<PlanNodeId, Split> replicatedSplits = ArrayListMultimap.create();
 
     private boolean allTaskPartitionsCreated;
@@ -150,7 +152,7 @@ class HashDistributionSplitAssigner
         if (replicatedSources.contains(planNodeId)) {
             replicatedSplits.putAll(planNodeId, splits.values());
             for (Integer partitionId : createdTaskPartitions) {
-                assignment.updatePartition(new PartitionUpdate(partitionId, planNodeId, false, ImmutableList.copyOf(splits.values()), noMoreSplits));
+                assignment.updatePartition(new PartitionUpdate(partitionId, planNodeId, false, replicatedSourcePartition(ImmutableList.copyOf(splits.values())), noMoreSplits));
             }
         }
         else {
@@ -167,7 +169,8 @@ class HashDistributionSplitAssigner
                 }
 
                 for (SubPartition subPartition : subPartitions) {
-                    assignment.updatePartition(new PartitionUpdate(subPartition.getId(), planNodeId, true, ImmutableList.of(split), false));
+                    // todo see if having lots of PartitionUpdates is not a problem; should we merge
+                    assignment.updatePartition(new PartitionUpdate(subPartition.getId(), planNodeId, true, ImmutableListMultimap.of(sourcePartitionId, split), false));
                 }
             });
         }
@@ -175,7 +178,7 @@ class HashDistributionSplitAssigner
         if (noMoreSplits) {
             completedSources.add(planNodeId);
             for (Integer taskPartition : createdTaskPartitions) {
-                assignment.updatePartition(new PartitionUpdate(taskPartition, planNodeId, false, ImmutableList.of(), true));
+                assignment.updatePartition(new PartitionUpdate(taskPartition, planNodeId, false, ImmutableListMultimap.of(), true));
             }
 
             if (completedSources.containsAll(allSources)) {
@@ -187,6 +190,13 @@ class HashDistributionSplitAssigner
         }
 
         return assignment.build();
+    }
+
+    public static ListMultimap<Integer, Split> replicatedSourcePartition(List<Split> splits)
+    {
+        ImmutableListMultimap.Builder<Integer, Split> builder = ImmutableListMultimap.builder();
+        builder.putAll(SINGLE_SOURCE_PARTITION_ID, splits);
+        return builder.build();
     }
 
     @Override

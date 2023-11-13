@@ -36,6 +36,7 @@ import io.trino.sql.relational.CallExpression;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -72,6 +73,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -79,6 +81,7 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestPageProcessor
 {
     private final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
@@ -152,37 +155,6 @@ public class TestPageProcessor
         List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
         assertEquals(outputPages.size(), 1);
         assertPageEquals(ImmutableList.of(BIGINT), outputPages.get(0).orElse(null), new Page(createLongSequenceBlock(0, 100)));
-    }
-
-    @Test
-    public void testSelectAllFilterLazyBlock()
-    {
-        PageProcessor pageProcessor = new PageProcessor(Optional.of(new SelectAllFilter()), ImmutableList.of(new InputPageProjection(0, BIGINT), new InputPageProjection(1, BIGINT)), OptionalInt.of(100));
-
-        LazyBlock inputFilterBlock = lazyWrapper(createLongSequenceBlock(0, 100));
-        LazyBlock inputProjectionBlock = lazyWrapper(createLongSequenceBlock(100, 200));
-        Page inputPage = new Page(inputFilterBlock, inputProjectionBlock);
-
-        Iterator<Optional<Page>> output = processAndAssertRetainedPageSize(pageProcessor, new DriverYieldSignal(), newSimpleAggregatedMemoryContext(), inputPage, true);
-        List<Optional<Page>> outputPages = ImmutableList.copyOf(output);
-
-        assertTrue(inputFilterBlock.isLoaded());
-        assertFalse(inputProjectionBlock.isLoaded());
-        assertEquals(outputPages.size(), 1);
-
-        inputFilterBlock = lazyWrapper(createLongSequenceBlock(0, 200));
-        inputProjectionBlock = lazyWrapper(createLongSequenceBlock(100, 300));
-        inputPage = new Page(inputFilterBlock, inputProjectionBlock);
-
-        // batch size should increase because filter block was materialized
-        output = processAndAssertRetainedPageSize(pageProcessor, new DriverYieldSignal(), newSimpleAggregatedMemoryContext(), inputPage, true);
-        outputPages = ImmutableList.copyOf(output);
-
-        assertEquals(outputPages.size(), 1);
-        assertTrue(inputFilterBlock.isLoaded());
-        assertFalse(inputProjectionBlock.isLoaded());
-        assertPageEquals(ImmutableList.of(BIGINT, BIGINT), outputPages.get(0).get(), new Page(createLongSequenceBlock(0, 200), createLongSequenceBlock(100, 300)));
-        assertTrue(inputProjectionBlock.isLoaded());
     }
 
     @Test
@@ -533,22 +505,11 @@ public class TestPageProcessor
 
     private Iterator<Optional<Page>> processAndAssertRetainedPageSize(PageProcessor pageProcessor, DriverYieldSignal yieldSignal, AggregatedMemoryContext memoryContext, Page inputPage)
     {
-        return processAndAssertRetainedPageSize(pageProcessor, yieldSignal, memoryContext, inputPage, false);
-    }
-
-    private Iterator<Optional<Page>> processAndAssertRetainedPageSize(
-            PageProcessor pageProcessor,
-            DriverYieldSignal yieldSignal,
-            AggregatedMemoryContext memoryContext,
-            Page inputPage,
-            boolean avoidPageMaterialization)
-    {
         Iterator<Optional<Page>> output = pageProcessor.process(
                 SESSION,
                 yieldSignal,
                 memoryContext.newLocalMemoryContext(PageProcessor.class.getSimpleName()),
-                inputPage,
-                avoidPageMaterialization);
+                inputPage);
         assertEquals(memoryContext.getBytes(), 0);
         return output;
     }

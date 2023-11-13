@@ -25,9 +25,12 @@ import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.type.TimeZoneKey;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.math.BigDecimal;
 import java.net.InetAddress;
@@ -79,6 +82,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -86,6 +91,8 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestTrinoDriver
 {
     private static final DateTimeZone ASIA_ORAL_ZONE = DateTimeZone.forID("Asia/Oral");
@@ -95,7 +102,7 @@ public class TestTrinoDriver
     private TestingTrinoServer server;
     private ExecutorService executorService;
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
             throws Exception
     {
@@ -128,7 +135,7 @@ public class TestTrinoDriver
         }
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void teardown()
             throws Exception
     {
@@ -609,16 +616,20 @@ public class TestTrinoDriver
         }
     }
 
-    @Test(expectedExceptions = SQLFeatureNotSupportedException.class, expectedExceptionsMessageRegExp = "Multiple open results not supported")
+    @Test
     public void testGetMoreResultsException()
             throws Exception
     {
-        try (Connection connection = createConnection()) {
-            try (Statement statement = connection.createStatement()) {
-                assertTrue(statement.execute("SELECT 123 x, 'foo' y"));
-                statement.getMoreResults(Statement.KEEP_CURRENT_RESULT);
+        assertThatThrownBy(() -> {
+            try (Connection connection = createConnection()) {
+                try (Statement statement = connection.createStatement()) {
+                    assertTrue(statement.execute("SELECT 123 x, 'foo' y"));
+                    statement.getMoreResults(Statement.KEEP_CURRENT_RESULT);
+                }
             }
-        }
+        })
+                .isInstanceOf(SQLFeatureNotSupportedException.class)
+                .hasMessage("Multiple open results not supported");
     }
 
     @Test
@@ -792,17 +803,21 @@ public class TestTrinoDriver
         }
     }
 
-    @Test(expectedExceptions = SQLException.class, expectedExceptionsMessageRegExp = ".* does not exist")
+    @Test
     public void testBadQuery()
             throws Exception
     {
-        try (Connection connection = createConnection(TEST_CATALOG, "tiny")) {
-            try (Statement statement = connection.createStatement()) {
-                try (ResultSet ignored = statement.executeQuery("SELECT * FROM bad_table")) {
-                    fail("expected exception");
+        assertThatThrownBy(() -> {
+            try (Connection connection = createConnection(TEST_CATALOG, "tiny")) {
+                try (Statement statement = connection.createStatement()) {
+                    try (ResultSet ignored = statement.executeQuery("SELECT * FROM bad_table")) {
+                        fail("expected exception");
+                    }
                 }
             }
-        }
+        })
+                .isInstanceOf(SQLException.class)
+                .hasMessageMatching(".* does not exist");
     }
 
     @Test
@@ -898,7 +913,8 @@ public class TestTrinoDriver
         }
     }
 
-    @Test(timeOut = 10000)
+    @Test
+    @Timeout(10)
     public void testQueryCancelByInterrupt()
             throws Exception
     {
@@ -942,7 +958,8 @@ public class TestTrinoDriver
         assertEquals(getQueryState(queryId.get()), FAILED);
     }
 
-    @Test(timeOut = 10000)
+    @Test
+    @Timeout(10)
     public void testQueryCancelExplicit()
             throws Exception
     {
@@ -983,7 +1000,8 @@ public class TestTrinoDriver
         }
     }
 
-    @Test(timeOut = 10000)
+    @Test
+    @Timeout(10)
     public void testUpdateCancelExplicit()
             throws Exception
     {
@@ -1026,7 +1044,8 @@ public class TestTrinoDriver
         }
     }
 
-    @Test(timeOut = 10000)
+    @Test
+    @Timeout(10)
     public void testQueryTimeout()
             throws Exception
     {
@@ -1074,7 +1093,8 @@ public class TestTrinoDriver
         }
     }
 
-    @Test(timeOut = 10000)
+    @Test
+    @Timeout(10)
     public void testQueryPartialCancel()
             throws Exception
     {
@@ -1087,7 +1107,8 @@ public class TestTrinoDriver
         }
     }
 
-    @Test(timeOut = 10000)
+    @Test
+    @Timeout(10)
     public void testUpdatePartialCancel()
             throws Exception
     {
@@ -1132,7 +1153,8 @@ public class TestTrinoDriver
         }
     }
 
-    @Test(timeOut = 10000)
+    @Test
+    @Timeout(10)
     public void testResetSessionAuthorization()
             throws Exception
     {
@@ -1152,7 +1174,8 @@ public class TestTrinoDriver
         }
     }
 
-    @Test(timeOut = 10000)
+    @Test
+    @Timeout(10)
     public void testSetRoleAfterSetSessionAuthorization()
             throws Exception
     {

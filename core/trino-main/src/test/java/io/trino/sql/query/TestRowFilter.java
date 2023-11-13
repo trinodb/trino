@@ -29,7 +29,6 @@ import io.trino.spi.type.VarcharType;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.TestingAccessControlManager;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
@@ -65,11 +64,10 @@ public class TestRowFilter
             .setIdentity(Identity.forUser(USER).build())
             .build();
 
-    private QueryAssertions assertions;
-    private TestingAccessControlManager accessControl;
+    private final QueryAssertions assertions;
+    private final TestingAccessControlManager accessControl;
 
-    @BeforeAll
-    public void init()
+    public TestRowFilter()
     {
         LocalQueryRunner runner = LocalQueryRunner.builder(SESSION).build();
 
@@ -145,9 +143,7 @@ public class TestRowFilter
     @AfterAll
     public void teardown()
     {
-        accessControl = null;
         assertions.close();
-        assertions = null;
     }
 
     @Test

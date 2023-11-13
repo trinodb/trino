@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.metastore.glue;
 
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.services.glue.AWSGlueAsync;
 import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
 import com.amazonaws.services.glue.model.CreateTableRequest;
@@ -27,7 +26,6 @@ import com.amazonaws.services.glue.model.TableInput;
 import com.amazonaws.services.glue.model.UpdateTableRequest;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -94,15 +92,17 @@ import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.HiveStorageFormat.TEXTFILE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
+import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
+import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.ViewReaderUtil.ICEBERG_MATERIALIZED_VIEW_COMMENT;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
 import static io.trino.plugin.hive.metastore.glue.AwsSdkUtil.getPaginatedResults;
-import static io.trino.plugin.hive.metastore.glue.GlueClientUtil.createAsyncGlueClient;
 import static io.trino.plugin.hive.metastore.glue.PartitionFilterBuilder.DECIMAL_TYPE;
 import static io.trino.plugin.hive.metastore.glue.PartitionFilterBuilder.decimalOf;
+import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingAsyncGlueClient;
 import static io.trino.plugin.hive.util.HiveUtil.DELTA_LAKE_PROVIDER;
 import static io.trino.plugin.hive.util.HiveUtil.ICEBERG_TABLE_TYPE_NAME;
 import static io.trino.plugin.hive.util.HiveUtil.ICEBERG_TABLE_TYPE_VALUE;
@@ -122,8 +122,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
-import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
-import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
@@ -232,7 +230,7 @@ public class TestHiveGlueMetastore
                 glueConfig,
                 executor,
                 new DefaultGlueColumnStatisticsProviderFactory(executor, executor),
-                createAsyncGlueClient(glueConfig, DefaultAWSCredentialsProviderChain.getInstance(), ImmutableSet.of(), stats.newRequestMetricsCollector()),
+                createTestingAsyncGlueClient(glueConfig, stats),
                 stats,
                 new DefaultGlueMetastoreTableFilterProvider(true).get());
     }
@@ -1418,6 +1416,29 @@ public class TestHiveGlueMetastore
             glueClient.deleteTable(new DeleteTableRequest()
                     .withDatabaseName(table.getSchemaName())
                     .withName(table.getTableName()));
+        }
+    }
+
+    @Test
+    public void testAlterTableComment()
+            throws Exception
+    {
+        SchemaTableName tableName = temporaryTable("test_alter_table_comment");
+        doCreateEmptyTable(tableName, ORC, ImmutableList.of(new ColumnMetadata("name", BIGINT)), ImmutableList.of());
+        try {
+            assertThat(metastore.getTable(tableName.getSchemaName(), tableName.getTableName()).orElseThrow().getParameters()).doesNotContainKey(TABLE_COMMENT);
+            metastore.commentTable(tableName.getSchemaName(), tableName.getTableName(), Optional.of("a table comment"));
+            Map<String, String> tableParameters = metastore.getTable(tableName.getSchemaName(), tableName.getTableName()).orElseThrow().getParameters();
+            assertThat(tableParameters.get(TABLE_COMMENT)).isEqualTo("a table comment");
+
+            metastore.commentTable(tableName.getSchemaName(), tableName.getTableName(), Optional.empty());
+            tableParameters = metastore.getTable(tableName.getSchemaName(), tableName.getTableName()).orElseThrow().getParameters();
+            assertThat(tableParameters.get(TABLE_COMMENT)).isNull();
+        }
+        finally {
+            glueClient.deleteTable(new DeleteTableRequest()
+                    .withDatabaseName(tableName.getSchemaName())
+                    .withName(tableName.getTableName()));
         }
     }
 

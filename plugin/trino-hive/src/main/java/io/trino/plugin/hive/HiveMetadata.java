@@ -32,8 +32,6 @@ import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.hdfs.HdfsContext;
-import io.trino.hdfs.HdfsEnvironment;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.projection.ApplyProjectionUtil;
 import io.trino.plugin.base.projection.ApplyProjectionUtil.ProjectedColumnRepresentation;
@@ -105,6 +103,8 @@ import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
+import io.trino.spi.function.LanguageFunction;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.TupleDomain;
@@ -127,7 +127,6 @@ import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.VarcharType;
 import org.apache.avro.Schema;
 import org.apache.avro.SchemaParseException;
-import org.apache.hadoop.fs.Path;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -368,7 +367,6 @@ public class HiveMetadata
     private final boolean autoCommit;
     private final Set<HiveFileWriterFactory> fileWriterFactories;
     private final TrinoFileSystemFactory fileSystemFactory;
-    private final HdfsEnvironment hdfsEnvironment;
     private final HivePartitionManager partitionManager;
     private final TypeManager typeManager;
     private final MetadataProvider metadataProvider;
@@ -397,7 +395,6 @@ public class HiveMetadata
             boolean autoCommit,
             Set<HiveFileWriterFactory> fileWriterFactories,
             TrinoFileSystemFactory fileSystemFactory,
-            HdfsEnvironment hdfsEnvironment,
             HivePartitionManager partitionManager,
             boolean writesToNonManagedTablesEnabled,
             boolean createsOfNonManagedTablesEnabled,
@@ -425,7 +422,6 @@ public class HiveMetadata
         this.autoCommit = autoCommit;
         this.fileWriterFactories = ImmutableSet.copyOf(requireNonNull(fileWriterFactories, "fileWriterFactories is null"));
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
-        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.metadataProvider = requireNonNull(metadataProvider, "metadataProvider is null");
@@ -1818,7 +1814,7 @@ public class HiveMetadata
         }
 
         Map<String, Type> columnTypes = handle.getInputColumns().stream()
-                .collect(toImmutableMap(HiveColumnHandle::getName, column -> column.getHiveType().getType(typeManager)));
+                .collect(toImmutableMap(HiveColumnHandle::getName, column -> typeManager.getType(column.getHiveType().getTypeSignature())));
         Map<List<String>, ComputedStatistics> partitionComputedStatistics = createComputedStatisticsToPartitionMap(computedStatistics, handle.getPartitionedBy(), columnTypes);
 
         PartitionStatistics tableStatistics;
@@ -1833,7 +1829,7 @@ public class HiveMetadata
             tableStatistics = new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of());
         }
 
-        Optional<Path> writePath = Optional.of(new Path(writeInfo.writePath().toString()));
+        Optional<Location> writePath = Optional.of(writeInfo.writePath());
         if (handle.getPartitionedBy().isEmpty()) {
             List<String> fileNames;
             if (partitionUpdates.isEmpty()) {
@@ -2180,7 +2176,7 @@ public class HiveMetadata
                 .map(Column::getName)
                 .collect(toImmutableList());
         Map<String, Type> columnTypes = handle.getInputColumns().stream()
-                .collect(toImmutableMap(HiveColumnHandle::getName, column -> column.getHiveType().getType(typeManager)));
+                .collect(toImmutableMap(HiveColumnHandle::getName, column -> typeManager.getType(column.getHiveType().getTypeSignature())));
         Map<List<String>, ComputedStatistics> partitionComputedStatistics = createComputedStatisticsToPartitionMap(computedStatistics, partitionedBy, columnTypes);
 
         ImmutableList.Builder<PartitionUpdateInfo> partitionUpdateInfosBuilder = ImmutableList.builder();
@@ -2208,7 +2204,7 @@ public class HiveMetadata
                             session,
                             table,
                             principalPrivileges,
-                            Optional.of(new Path(partitionUpdate.getWritePath().toString())),
+                            Optional.of(partitionUpdate.getWritePath()),
                             Optional.of(partitionUpdate.getFileNames()),
                             false,
                             partitionStatistics,
@@ -2268,8 +2264,8 @@ public class HiveMetadata
                     if (handle.getLocationHandle().getWriteMode() == DIRECT_TO_TARGET_EXISTING_DIRECTORY) {
                         removeNonCurrentQueryFiles(session, partitionUpdate.getTargetPath());
                         if (handle.isRetriesEnabled()) {
-                            HdfsContext hdfsContext = new HdfsContext(session);
-                            cleanExtraOutputFiles(hdfsEnvironment, hdfsContext, session.getQueryId(), partitionUpdate.getTargetPath(), ImmutableSet.copyOf(partitionUpdate.getFileNames()));
+                            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+                            cleanExtraOutputFiles(fileSystem, session.getQueryId(), partitionUpdate.getTargetPath(), ImmutableSet.copyOf(partitionUpdate.getFileNames()));
                         }
                     }
                     else {
@@ -2303,7 +2299,6 @@ public class HiveMetadata
         String queryId = session.getQueryId();
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         try {
-            // use TrinoFileSystem instead of Hadoop file system
             FileIterator iterator = fileSystem.listFiles(partitionLocation);
             while (iterator.hasNext()) {
                 Location location = iterator.next().location();
@@ -3132,7 +3127,7 @@ public class HiveMetadata
                         .addAll(oldHiveType.getHiveDereferenceNames(indices))
                         .build(),
                 newHiveType,
-                newHiveType.getType(typeManager));
+                typeManager.getType(newHiveType.getTypeSignature()));
 
         return new HiveColumnHandle(
                 column.getBaseColumnName(),
@@ -3491,6 +3486,41 @@ public class HiveMetadata
         return statisticTypes.stream()
                 .map(type -> type.createColumnStatisticMetadata(columnName))
                 .collect(toImmutableList());
+    }
+
+    @Override
+    public Collection<LanguageFunction> listLanguageFunctions(ConnectorSession session, String schemaName)
+    {
+        return metastore.getFunctions(schemaName);
+    }
+
+    @Override
+    public Collection<LanguageFunction> getLanguageFunctions(ConnectorSession session, SchemaFunctionName name)
+    {
+        return metastore.getFunctions(name);
+    }
+
+    @Override
+    public boolean languageFunctionExists(ConnectorSession session, SchemaFunctionName name, String signatureToken)
+    {
+        return metastore.functionExists(name, signatureToken);
+    }
+
+    @Override
+    public void createLanguageFunction(ConnectorSession session, SchemaFunctionName name, LanguageFunction function, boolean replace)
+    {
+        if (replace) {
+            metastore.replaceFunction(name, function);
+        }
+        else {
+            metastore.createFunction(name, function);
+        }
+    }
+
+    @Override
+    public void dropLanguageFunction(ConnectorSession session, SchemaFunctionName name, String signatureToken)
+    {
+        metastore.dropFunction(name, signatureToken);
     }
 
     @Override

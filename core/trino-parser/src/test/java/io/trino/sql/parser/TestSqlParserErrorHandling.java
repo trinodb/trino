@@ -42,10 +42,10 @@ public class TestSqlParserErrorHandling
         return Stream.of(
                 Arguments.of("",
                         "line 1:1: mismatched input '<EOF>'. Expecting: 'ALTER', 'ANALYZE', 'CALL', 'COMMENT', 'COMMIT', 'CREATE', 'DEALLOCATE', 'DELETE', 'DENY', 'DESC', 'DESCRIBE', 'DROP', 'EXECUTE', 'EXPLAIN', 'GRANT', " +
-                                "'INSERT', 'MERGE', 'PREPARE', 'REFRESH', 'RESET', 'REVOKE', 'ROLLBACK', 'SET', 'SHOW', 'START', 'TRUNCATE', 'UPDATE', 'USE', <query>"),
+                                "'INSERT', 'MERGE', 'PREPARE', 'REFRESH', 'RESET', 'REVOKE', 'ROLLBACK', 'SET', 'SHOW', 'START', 'TRUNCATE', 'UPDATE', 'USE', 'WITH', <query>"),
                 Arguments.of("@select",
                         "line 1:1: mismatched input '@'. Expecting: 'ALTER', 'ANALYZE', 'CALL', 'COMMENT', 'COMMIT', 'CREATE', 'DEALLOCATE', 'DELETE', 'DENY', 'DESC', 'DESCRIBE', 'DROP', 'EXECUTE', 'EXPLAIN', 'GRANT', " +
-                                "'INSERT', 'MERGE', 'PREPARE', 'REFRESH', 'RESET', 'REVOKE', 'ROLLBACK', 'SET', 'SHOW', 'START', 'TRUNCATE', 'UPDATE', 'USE', <query>"),
+                                "'INSERT', 'MERGE', 'PREPARE', 'REFRESH', 'RESET', 'REVOKE', 'ROLLBACK', 'SET', 'SHOW', 'START', 'TRUNCATE', 'UPDATE', 'USE', 'WITH', <query>"),
                 Arguments.of("select * from foo where @what",
                         "line 1:25: mismatched input '@'. Expecting: <expression>"),
                 Arguments.of("select * from 'oops",
@@ -86,7 +86,7 @@ public class TestSqlParserErrorHandling
                 Arguments.of("select foo(DISTINCT ,1)",
                         "line 1:21: mismatched input ','. Expecting: <expression>"),
                 Arguments.of("CREATE )",
-                        "line 1:8: mismatched input ')'. Expecting: 'CATALOG', 'MATERIALIZED', 'OR', 'ROLE', 'SCHEMA', 'TABLE', 'VIEW'"),
+                        "line 1:8: mismatched input ')'. Expecting: 'CATALOG', 'FUNCTION', 'MATERIALIZED', 'OR', 'ROLE', 'SCHEMA', 'TABLE', 'VIEW'"),
                 Arguments.of("CREATE TABLE ) AS (VALUES 1)",
                         "line 1:14: mismatched input ')'. Expecting: 'IF', <identifier>"),
                 Arguments.of("CREATE TABLE foo ",

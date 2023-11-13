@@ -24,7 +24,6 @@ import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoOutputFile;
-import io.trino.hadoop.ConfigurationInstantiator;
 import io.trino.hdfs.gcs.GoogleGcsConfigurationInitializer;
 import io.trino.hdfs.gcs.HiveGcsConfig;
 import io.trino.plugin.hive.containers.HiveHadoop;
@@ -32,6 +31,7 @@ import io.trino.testing.QueryRunner;
 import org.apache.hadoop.conf.Configuration;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -54,6 +54,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.regex.Matcher.quoteReplacement;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 import static org.testcontainers.containers.Network.newNetwork;
 
 /**
@@ -63,6 +64,7 @@ import static org.testcontainers.containers.Network.newNetwork;
  *   For example, `cat service-account-key.json | base64`
  */
 @TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public class TestDeltaLakeGcsConnectorSmokeTest
         extends BaseDeltaLakeConnectorSmokeTest
 {
@@ -92,7 +94,7 @@ public class TestDeltaLakeGcsConnectorSmokeTest
             gcpCredentialsFile.toFile().deleteOnExit();
             Files.write(gcpCredentialsFile, jsonKeyBytes);
             HiveGcsConfig gcsConfig = new HiveGcsConfig().setJsonKey(gcpCredentials);
-            Configuration configuration = ConfigurationInstantiator.newEmptyConfiguration();
+            Configuration configuration = new Configuration(false);
             new GoogleGcsConfigurationInitializer(gcsConfig).initializeConfiguration(configuration);
         }
         catch (IOException e) {

@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.base.mapping;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static io.trino.spi.testing.InterfaceTestUtils.assertProperForwardingMethodsAreCalled;

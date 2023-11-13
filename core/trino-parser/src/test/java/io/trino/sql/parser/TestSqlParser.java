@@ -2026,6 +2026,7 @@ public class TestSqlParser
         assertThat(statement("CREATE TABLE foo AS SELECT * FROM t"))
                 .isEqualTo(new CreateTableAsSelect(location(1, 1), qualifiedName(location(1, 14), "foo"), new Query(
                         location(1, 21),
+                        ImmutableList.of(),
                         Optional.empty(),
                         new QuerySpecification(
                                 location(1, 21),
@@ -2050,6 +2051,7 @@ public class TestSqlParser
         assertThat(statement("CREATE TABLE foo(x) AS SELECT a FROM t"))
                 .isEqualTo(new CreateTableAsSelect(location(1, 1), qualifiedName(location(1, 14), "foo"), new Query(
                         location(1, 24),
+                        ImmutableList.of(),
                         Optional.empty(),
                         new QuerySpecification(
                                 location(1, 24),
@@ -2074,6 +2076,7 @@ public class TestSqlParser
         assertThat(statement("CREATE TABLE foo(x,y) AS SELECT a,b FROM t"))
                 .isEqualTo(new CreateTableAsSelect(location(1, 1), qualifiedName(location(1, 14), "foo"), new Query(
                         location(1, 26),
+                        ImmutableList.of(),
                         Optional.empty(),
                         new QuerySpecification(
                                 location(1, 26),
@@ -2102,6 +2105,7 @@ public class TestSqlParser
         assertThat(statement("CREATE OR REPLACE TABLE foo AS SELECT * FROM t"))
                 .isEqualTo(new CreateTableAsSelect(location(1, 1), qualifiedName(location(1, 25), "foo"), new Query(
                         location(1, 32),
+                        ImmutableList.of(),
                         Optional.empty(),
                         new QuerySpecification(
                                 location(1, 32),
@@ -2126,6 +2130,7 @@ public class TestSqlParser
         assertThat(statement("CREATE OR REPLACE TABLE foo(x) AS SELECT a FROM t"))
                 .isEqualTo(new CreateTableAsSelect(location(1, 1), qualifiedName(location(1, 25), "foo"), new Query(
                         location(1, 35),
+                        ImmutableList.of(),
                         Optional.empty(),
                         new QuerySpecification(
                                 location(1, 35),
@@ -2150,6 +2155,7 @@ public class TestSqlParser
         assertThat(statement("CREATE OR REPLACE TABLE foo(x,y) AS SELECT a,b FROM t"))
                 .isEqualTo(new CreateTableAsSelect(location(1, 1), qualifiedName(location(1, 25), "foo"), new Query(
                         location(1, 37),
+                        ImmutableList.of(),
                         Optional.empty(),
                         new QuerySpecification(
                                 location(1, 37),
@@ -2178,6 +2184,7 @@ public class TestSqlParser
         assertThat(statement("CREATE TABLE IF NOT EXISTS foo AS SELECT * FROM t"))
                 .isEqualTo(new CreateTableAsSelect(location(1, 1), qualifiedName(location(1, 28), "foo"), new Query(
                         location(1, 35),
+                        ImmutableList.of(),
                         Optional.empty(),
                         new QuerySpecification(
                                 location(1, 35),
@@ -2202,6 +2209,7 @@ public class TestSqlParser
         assertThat(statement("CREATE TABLE IF NOT EXISTS foo(x) AS SELECT a FROM t"))
                 .isEqualTo(new CreateTableAsSelect(location(1, 1), qualifiedName(location(1, 28), "foo"), new Query(
                         location(1, 38),
+                        ImmutableList.of(),
                         Optional.empty(),
                         new QuerySpecification(
                                 location(1, 38),
@@ -2226,6 +2234,7 @@ public class TestSqlParser
         assertThat(statement("CREATE TABLE IF NOT EXISTS foo(x,y) AS SELECT a,b FROM t"))
                 .isEqualTo(new CreateTableAsSelect(location(1, 1), qualifiedName(location(1, 28), "foo"), new Query(
                         location(1, 40),
+                        ImmutableList.of(),
                         Optional.empty(),
                         new QuerySpecification(
                                 location(1, 40),
@@ -2254,6 +2263,7 @@ public class TestSqlParser
         assertThat(statement("CREATE TABLE foo AS SELECT * FROM t WITH NO DATA"))
                 .isEqualTo(new CreateTableAsSelect(location(1, 1), qualifiedName(location(1, 14), "foo"), new Query(
                         location(1, 21),
+                        ImmutableList.of(),
                         Optional.empty(),
                         new QuerySpecification(
                                 location(1, 21),
@@ -2278,6 +2288,7 @@ public class TestSqlParser
         assertThat(statement("CREATE TABLE foo(x) AS SELECT a FROM t WITH NO DATA"))
                 .isEqualTo(new CreateTableAsSelect(location(1, 1), qualifiedName(location(1, 14), "foo"), new Query(
                         location(1, 24),
+                        ImmutableList.of(),
                         Optional.empty(),
                         new QuerySpecification(
                                 location(1, 24),
@@ -2302,6 +2313,7 @@ public class TestSqlParser
         assertThat(statement("CREATE TABLE foo(x,y) AS SELECT a,b FROM t WITH NO DATA"))
                 .isEqualTo(new CreateTableAsSelect(location(1, 1), qualifiedName(location(1, 14), "foo"), new Query(
                         location(1, 26),
+                        ImmutableList.of(),
                         Optional.empty(),
                         new QuerySpecification(
                                 location(1, 26),
@@ -2338,6 +2350,7 @@ public class TestSqlParser
                         qualifiedName(location(1, 14), "foo"),
                         new Query(
                                 location(4, 1),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 new QuerySpecification(
                                         location(4, 1),
@@ -2380,6 +2393,7 @@ public class TestSqlParser
                         qualifiedName(location(1, 14), "foo"),
                         new Query(
                                 location(4, 1),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 new QuerySpecification(
                                         location(4, 1),
@@ -2419,6 +2433,7 @@ public class TestSqlParser
                         qualifiedName(location(1, 14), "foo"),
                         new Query(
                                 location(4, 1),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 new QuerySpecification(
                                         location(4, 1),
@@ -2459,6 +2474,7 @@ public class TestSqlParser
                         qualifiedName(location(1, 14), "foo"),
                         new Query(
                                 location(4, 1),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 new QuerySpecification(
                                         location(4, 1),
@@ -2502,6 +2518,7 @@ public class TestSqlParser
                         qualifiedName(location(1, 14), "foo"),
                         new Query(
                                 location(4, 1),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 new QuerySpecification(
                                         location(4, 1),
@@ -2542,6 +2559,7 @@ public class TestSqlParser
                         qualifiedName(location(1, 14), "foo"),
                         new Query(
                                 location(4, 1),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 new QuerySpecification(
                                         location(4, 1),
@@ -2582,6 +2600,7 @@ public class TestSqlParser
                         qualifiedName(location(1, 14), "foo"),
                         new Query(
                                 location(4, 1),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 new QuerySpecification(
                                         location(4, 1),
@@ -2625,6 +2644,7 @@ public class TestSqlParser
                         qualifiedName(location(1, 14), "foo"),
                         new Query(
                                 location(4, 1),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 new QuerySpecification(
                                         location(4, 1),
@@ -2665,6 +2685,7 @@ public class TestSqlParser
                         qualifiedName(location(1, 14), "foo"),
                         new Query(
                                 location(4, 1),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 new QuerySpecification(
                                         location(4, 1),
@@ -2705,6 +2726,7 @@ public class TestSqlParser
                         qualifiedName(location(1, 14), "foo"),
                         new Query(
                                 location(4, 1),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 new QuerySpecification(
                                         location(4, 1),
@@ -2769,6 +2791,7 @@ public class TestSqlParser
         QualifiedName table = QualifiedName.of("foo");
 
         Query query = new Query(
+                ImmutableList.of(),
                 Optional.of(new With(false, ImmutableList.of(
                         new WithQuery(
                                 identifier("t"),
@@ -3550,6 +3573,7 @@ public class TestSqlParser
     {
         assertStatement("WITH a (t, u) AS (SELECT * FROM x), b AS (SELECT * FROM y) TABLE z",
                 new Query(
+                        ImmutableList.of(),
                         Optional.of(new With(false, ImmutableList.of(
                                 new WithQuery(
                                         identifier("a"),
@@ -3570,6 +3594,7 @@ public class TestSqlParser
 
         assertStatement("WITH RECURSIVE a AS (SELECT * FROM x) TABLE y",
                 new Query(
+                        ImmutableList.of(),
                         Optional.of(new With(true, ImmutableList.of(
                                 new WithQuery(
                                         identifier("a"),
@@ -4114,6 +4139,7 @@ public class TestSqlParser
                                 new TableSubquery(
                                         new Query(
                                                 location(1, 17),
+                                                ImmutableList.of(),
                                                 Optional.empty(),
                                                 new QuerySpecification(
                                                         location(1, 17),
@@ -4143,6 +4169,7 @@ public class TestSqlParser
                                 new TableSubquery(
                                         new Query(
                                                 location(1, 17),
+                                                ImmutableList.of(),
                                                 Optional.empty(),
                                                 new QuerySpecification(
                                                         location(1, 17),
@@ -4177,6 +4204,7 @@ public class TestSqlParser
                                 new TableSubquery(
                                         new Query(
                                                 location(2, 4),
+                                                ImmutableList.of(),
                                                 Optional.of(
                                                         new With(
                                                                 location(2, 4),
@@ -4187,6 +4215,7 @@ public class TestSqlParser
                                                                                 new Identifier(location(2, 9), "t", false),
                                                                                 new Query(
                                                                                         location(2, 15),
+                                                                                        ImmutableList.of(),
                                                                                         Optional.empty(),
                                                                                         new QuerySpecification(
                                                                                                 location(2, 15),
@@ -4560,6 +4589,7 @@ public class TestSqlParser
                         QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 26), "a", false))),
                         new Query(
                                 new NodeLocation(1, 31),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 new QuerySpecification(
                                         new NodeLocation(1, 31),
@@ -4597,6 +4627,7 @@ public class TestSqlParser
                                 new Identifier(new NodeLocation(1, 52), "matview", false))),
                         new Query(
                                 new NodeLocation(1, 100),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 new QuerySpecification(
                                         new NodeLocation(1, 100),
@@ -4633,6 +4664,7 @@ public class TestSqlParser
                         QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 26), "a", false))),
                         new Query(
                                 new NodeLocation(1, 61),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 new QuerySpecification(
                                         new NodeLocation(1, 61),
@@ -4673,6 +4705,7 @@ public class TestSqlParser
                                 new Identifier(new NodeLocation(1, 52), "matview", false))),
                         new Query(
                                 new NodeLocation(3, 5),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 new QuerySpecification(
                                         new NodeLocation(3, 5),
@@ -4721,6 +4754,7 @@ public class TestSqlParser
                                 new Identifier(new NodeLocation(1, 52), "matview", false))),
                         new Query(
                                 new NodeLocation(3, 5),
+                                ImmutableList.of(),
                                 Optional.of(new With(
                                         new NodeLocation(3, 5),
                                         false,
@@ -4730,6 +4764,7 @@ public class TestSqlParser
                                                         new Identifier(new NodeLocation(3, 10), "a", false),
                                                         new Query(
                                                                 new NodeLocation(3, 23),
+                                                                ImmutableList.of(),
                                                                 Optional.empty(),
                                                                 new QuerySpecification(
                                                                         new NodeLocation(3, 23),
@@ -4758,6 +4793,7 @@ public class TestSqlParser
                                                         new Identifier(new NodeLocation(3, 41), "b", false),
                                                         new Query(
                                                                 new NodeLocation(3, 47),
+                                                                ImmutableList.of(),
                                                                 Optional.empty(),
                                                                 new QuerySpecification(
                                                                         new NodeLocation(3, 47),
@@ -5195,6 +5231,7 @@ public class TestSqlParser
                 .isEqualTo(
                         new Query(
                                 location(1, 1),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 new QuerySpecification(
                                         location(1, 1),
@@ -5225,6 +5262,7 @@ public class TestSqlParser
                 .isEqualTo(
                         new Query(
                                 location(1, 1),
+                                ImmutableList.of(),
                                 Optional.empty(),
                                 new QuerySpecification(
                                         location(1, 1),
@@ -5567,6 +5605,7 @@ public class TestSqlParser
     {
         return new Query(
                 location(1, 1),
+                ImmutableList.of(),
                 Optional.empty(),
                 new QuerySpecification(
                         location(1, 1),
@@ -5868,7 +5907,7 @@ public class TestSqlParser
                 "ordinal_number FOR ORDINALITY, " +
                 "customer_name varchar PATH 'lax $.cust_no' DEFAULT 'anonymous' ON EMPTY null ON ERROR, " +
                 "customer_countries varchar FORMAT JSON PATH 'lax.cust_ctr[*]' WITH WRAPPER KEEP QUOTES null ON EMPTY ERROR ON ERROR," +
-                "customer_regions varchar FORMAT JSON PATH 'lax.cust_reg[*]' EMPTY ARRAY ON EMPTY EMPTY OBJECT ON ERROR) " +
+                "customer_regions varchar FORMAT JSON ENCODING UTF16 PATH 'lax.cust_reg[*]' EMPTY ARRAY ON EMPTY EMPTY OBJECT ON ERROR) " +
                 "EMPTY ON ERROR)"))
                 .isEqualTo(selectAllFrom(new JsonTable(
                         location(1, 15),
@@ -5904,8 +5943,8 @@ public class TestSqlParser
                                         location(1, 281),
                                         new Identifier(location(1, 281), "customer_regions", false),
                                         new GenericDataType(location(1, 298), new Identifier(location(1, 298), "varchar", false), ImmutableList.of()),
-                                        JSON,
-                                        Optional.of(new StringLiteral(location(1, 323), "lax.cust_reg[*]")),
+                                        UTF16,
+                                        Optional.of(new StringLiteral(location(1, 338), "lax.cust_reg[*]")),
                                         JsonQuery.ArrayWrapperBehavior.WITHOUT,
                                         Optional.empty(),
                                         JsonQuery.EmptyOrErrorBehavior.EMPTY_ARRAY,

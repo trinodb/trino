@@ -29,7 +29,6 @@ import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsConfiguration;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
-import io.trino.hdfs.HdfsNamenodeStats;
 import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.operator.GroupByHashPageIndexerFactory;
@@ -79,9 +78,11 @@ import io.trino.testing.TestingNodeManager;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.azurebfs.AzureBlobFileSystem;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -133,10 +134,14 @@ import static java.util.UUID.randomUUID;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public abstract class AbstractTestHiveFileSystem
 {
     protected static final HdfsContext TESTING_CONTEXT = new HdfsContext(ConnectorIdentity.ofUser("test"));
@@ -161,14 +166,14 @@ public abstract class AbstractTestHiveFileSystem
     private HiveConfig config;
     private ScheduledExecutorService heartbeatService;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
         heartbeatService = newScheduledThreadPool(1);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         if (executor != null) {
@@ -211,7 +216,8 @@ public abstract class AbstractTestHiveFileSystem
                                 .build()),
                 getBasePath(),
                 hdfsEnvironment);
-        locationService = new HiveLocationService(hdfsEnvironment, config);
+        HdfsFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS);
+        locationService = new HiveLocationService(fileSystemFactory, config);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         metadataFactory = new HiveMetadataFactory(
                 new CatalogName("hive"),
@@ -219,8 +225,7 @@ public abstract class AbstractTestHiveFileSystem
                 new HiveMetastoreConfig(),
                 HiveMetastoreFactory.ofInstance(metastoreClient),
                 getDefaultHiveFileWriterFactories(config, hdfsEnvironment),
-                new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
-                hdfsEnvironment,
+                fileSystemFactory,
                 hivePartitionManager,
                 newDirectExecutorService(),
                 heartbeatService,
@@ -243,8 +248,7 @@ public abstract class AbstractTestHiveFileSystem
         splitManager = new HiveSplitManager(
                 transactionManager,
                 hivePartitionManager,
-                new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
-                new HdfsNamenodeStats(),
+                fileSystemFactory,
                 new BoundedExecutor(executor, config.getMaxSplitIteratorThreads()),
                 new CounterStat(),
                 config.getMaxOutstandingSplits(),
@@ -259,7 +263,7 @@ public abstract class AbstractTestHiveFileSystem
                 config.getMaxPartitionsPerScan());
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(config, hdfsEnvironment),
-                new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
+                fileSystemFactory,
                 PAGE_SORTER,
                 HiveMetastoreFactory.ofInstance(metastoreClient),
                 new GroupByHashPageIndexerFactory(new JoinCompiler(new TypeOperators())),
@@ -475,7 +479,6 @@ public abstract class AbstractTestHiveFileSystem
                 Location.of(basePath.toString()),
                 trinoFileSystem,
                 new FileSystemDirectoryLister(),
-                new HdfsNamenodeStats(),
                 HiveFileIterator.NestedDirectoryPolicy.RECURSE);
 
         List<Path> recursiveListing = Streams.stream(recursiveIterator)
@@ -490,7 +493,6 @@ public abstract class AbstractTestHiveFileSystem
                 Location.of(basePath.toString()),
                 trinoFileSystem,
                 new FileSystemDirectoryLister(),
-                new HdfsNamenodeStats(),
                 HiveFileIterator.NestedDirectoryPolicy.IGNORED);
         List<Path> shallowListing = Streams.stream(shallowIterator)
                 .map(TrinoFileStatus::getPath)
@@ -591,7 +593,6 @@ public abstract class AbstractTestHiveFileSystem
                 Location.of(basePath.toString()),
                 trinoFileSystem,
                 new FileSystemDirectoryLister(),
-                new HdfsNamenodeStats(),
                 HiveFileIterator.NestedDirectoryPolicy.RECURSE);
 
         List<Path> recursiveListing = Streams.stream(recursiveIterator)
@@ -614,7 +615,6 @@ public abstract class AbstractTestHiveFileSystem
                 Location.of(basePath.toString()),
                 trinoFileSystem,
                 new FileSystemDirectoryLister(),
-                new HdfsNamenodeStats(),
                 HiveFileIterator.NestedDirectoryPolicy.IGNORED);
         List<Path> shallowListing = Streams.stream(shallowIterator)
                 .map(TrinoFileStatus::getPath)

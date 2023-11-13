@@ -31,6 +31,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -48,9 +49,11 @@ import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static jakarta.servlet.http.HttpServletResponse.SC_OK;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestGenerateTokenFilter
 {
     private JettyHttpClient httpClient;

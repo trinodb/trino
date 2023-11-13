@@ -27,12 +27,6 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.manager.FileSystemModule;
-import io.trino.hdfs.HdfsModule;
-import io.trino.hdfs.authentication.HdfsAuthenticationModule;
-import io.trino.hdfs.cos.HiveCosModule;
-import io.trino.hdfs.gcs.HiveGcsModule;
-import io.trino.hdfs.rubix.RubixEnabledConfig;
-import io.trino.hdfs.rubix.RubixModule;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.CatalogNameModule;
 import io.trino.plugin.base.TypeDeserializerModule;
@@ -77,7 +71,6 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static java.util.Objects.requireNonNull;
 
 public final class InternalHiveConnectorFactory
@@ -113,13 +106,8 @@ public final class InternalHiveConnectorFactory
                     new HiveModule(),
                     new PartitionProjectionModule(),
                     new CachingDirectoryListerModule(directoryLister),
-                    new HdfsModule(),
-                    new HiveGcsModule(),
-                    new HiveCosModule(),
-                    conditionalModule(RubixEnabledConfig.class, RubixEnabledConfig::isCacheEnabled, new RubixModule()),
                     new HiveMetastoreModule(metastore),
                     new HiveSecurityModule(),
-                    new HdfsAuthenticationModule(),
                     fileSystemFactory
                             .map(factory -> (Module) binder -> binder.bind(TrinoFileSystemFactory.class).toInstance(factory))
                             .orElseGet(FileSystemModule::new),

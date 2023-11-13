@@ -19,7 +19,6 @@ import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
@@ -30,11 +29,11 @@ public class TestTrinoFileSystemCacheStats
             throws Exception
     {
         TrinoFileSystemCache trinoFileSystemCache = new TrinoFileSystemCache();
-        TrinoFileSystemCacheStats trinoFileSystemCacheStats = trinoFileSystemCache.getFileSystemCacheStats();
+        TrinoFileSystemCacheStats trinoFileSystemCacheStats = trinoFileSystemCache.getStats();
         assertEquals(trinoFileSystemCacheStats.getCacheSize(), 0);
         assertEquals(trinoFileSystemCache.getCacheSize(), 0);
 
-        Configuration configuration = newEmptyConfiguration();
+        Configuration configuration = new Configuration(false);
         trinoFileSystemCache.get(new URI("file:///tmp/path/"), configuration);
         assertEquals(trinoFileSystemCacheStats.getGetCalls().getTotalCount(), 1);
         assertEquals(trinoFileSystemCacheStats.getCacheSize(), 1);
@@ -66,8 +65,8 @@ public class TestTrinoFileSystemCacheStats
     public void testFailedCallsCountIsCorrect()
     {
         TrinoFileSystemCache trinoFileSystemCache = new TrinoFileSystemCache();
-        TrinoFileSystemCacheStats trinoFileSystemCacheStats = trinoFileSystemCache.getFileSystemCacheStats();
-        Configuration configuration = newEmptyConfiguration();
+        TrinoFileSystemCacheStats trinoFileSystemCacheStats = trinoFileSystemCache.getStats();
+        Configuration configuration = new Configuration(false);
         configuration.setInt("fs.cache.max-size", 0);
         assertThatThrownBy(() -> trinoFileSystemCache.get(new URI("file:///tmp/path/"), configuration))
                 .hasMessageMatching("FileSystem max cache size has been reached: 0");

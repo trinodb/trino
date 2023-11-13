@@ -19,7 +19,8 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.kafka.TestingKafka;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.plugin.kafka.util.TestUtils.createDescription;
 import static io.trino.plugin.kafka.util.TestUtils.createOneFieldDescription;
@@ -27,8 +28,9 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@Execution(SAME_THREAD)
 public class TestInternalFieldConflict
         extends AbstractTestQueryFramework
 {

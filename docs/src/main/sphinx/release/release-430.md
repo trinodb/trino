@@ -37,10 +37,6 @@
 * Fix incorrect results when a query contains several `<>` or `NOT IN`
   predicates. ({issue}`19404`)
 
-## Oracle connector
-
-* Improve reliability of connecting to the source database. ({issue}`19191`)
-
 ## SPI
 
 * Change the Java stack type for a `map` value to `SqlMap` and a `row` value to

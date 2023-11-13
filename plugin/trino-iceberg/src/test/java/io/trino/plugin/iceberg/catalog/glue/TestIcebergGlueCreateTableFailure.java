@@ -46,7 +46,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.common.reflect.Reflection.newProxy;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
-import static io.trino.plugin.hive.metastore.glue.GlueHiveMetastore.createTestingGlueHiveMetastore;
+import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingGlueHiveMetastore;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;

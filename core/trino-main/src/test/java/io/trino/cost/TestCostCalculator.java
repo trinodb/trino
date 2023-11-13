@@ -53,6 +53,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -79,10 +80,12 @@ import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestCostCalculator
 {
     private static final int NUMBER_OF_NODES = 10;
@@ -105,6 +108,7 @@ public class TestCostCalculator
         session = testSessionBuilder().setCatalog(TEST_CATALOG_NAME).build();
 
         localQueryRunner = LocalQueryRunner.create(session);
+        localQueryRunner.getLanguageFunctionManager().registerQuery(session);
         localQueryRunner.createCatalog(TEST_CATALOG_NAME, new TpchConnectorFactory(), ImmutableMap.of());
 
         planFragmenter = new PlanFragmenter(
@@ -112,6 +116,7 @@ public class TestCostCalculator
                 localQueryRunner.getFunctionManager(),
                 localQueryRunner.getTransactionManager(),
                 localQueryRunner.getCatalogManager(),
+                localQueryRunner.getLanguageFunctionManager(),
                 new QueryManagerConfig());
     }
 

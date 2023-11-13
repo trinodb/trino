@@ -55,6 +55,7 @@ import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SampleApplicationResult;
 import io.trino.spi.connector.SampleType;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SortItem;
@@ -71,6 +72,7 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.TupleDomain;
@@ -432,6 +434,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, SaveMode saveMode)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.createTable(session, tableMetadata, saveMode);
+        }
+    }
+
+    @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
@@ -540,6 +550,14 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.beginCreateTable(session, tableMetadata, layout, retryMode);
+        }
+    }
+
+    @Override
+    public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode, boolean replace)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.beginCreateTable(session, tableMetadata, layout, retryMode, replace);
         }
     }
 
@@ -776,6 +794,46 @@ public class ClassLoaderSafeConnectorMetadata
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.getFunctionDependencies(session, functionId, boundSignature);
+        }
+    }
+
+    @Override
+    public Collection<LanguageFunction> listLanguageFunctions(ConnectorSession session, String schemaName)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.listLanguageFunctions(session, schemaName);
+        }
+    }
+
+    @Override
+    public Collection<LanguageFunction> getLanguageFunctions(ConnectorSession session, SchemaFunctionName name)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getLanguageFunctions(session, name);
+        }
+    }
+
+    @Override
+    public boolean languageFunctionExists(ConnectorSession session, SchemaFunctionName name, String signatureToken)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.languageFunctionExists(session, name, signatureToken);
+        }
+    }
+
+    @Override
+    public void createLanguageFunction(ConnectorSession session, SchemaFunctionName name, LanguageFunction function, boolean replace)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.createLanguageFunction(session, name, function, replace);
+        }
+    }
+
+    @Override
+    public void dropLanguageFunction(ConnectorSession session, SchemaFunctionName name, String signatureToken)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.dropLanguageFunction(session, name, signatureToken);
         }
     }
 

@@ -26,6 +26,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.spi.StandardErrorCode.GENERIC_USER_ERROR;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
+import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -59,7 +60,7 @@ public class TestRenameViewTask
     public void testRenameViewOnTable()
     {
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
-        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), false);
+        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), FAIL);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameView(asQualifiedName(tableName), qualifiedName("existing_table_new"))))
                 .hasErrorCode(TABLE_NOT_FOUND)
@@ -74,7 +75,7 @@ public class TestRenameViewTask
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameView(viewName, qualifiedName("existing_materialized_view_new"))))
                 .hasErrorCode(TABLE_NOT_FOUND)
-                .hasMessage("View '%s' does not exist, but a materialized view with that name exists. Did you mean ALTER MATERIALIZED VIEW test-catalog.schema.existing_materialized_view RENAME TO ...?", viewName);
+                .hasMessage("View '%s' does not exist, but a materialized view with that name exists. Did you mean ALTER MATERIALIZED VIEW test_catalog.schema.existing_materialized_view RENAME TO ...?", viewName);
     }
 
     @Test
@@ -83,7 +84,7 @@ public class TestRenameViewTask
         QualifiedName viewName = qualifiedName("existing_view");
         metadata.createView(testSession, QualifiedObjectName.valueOf(viewName.toString()), someView(), false);
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
-        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), false);
+        metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), FAIL);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeRenameView(viewName, asQualifiedName(tableName))))
                 .hasErrorCode(TABLE_ALREADY_EXISTS)

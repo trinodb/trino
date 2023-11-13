@@ -19,11 +19,12 @@ import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.resourcegroups.SelectionContext;
 import io.trino.spi.resourcegroups.SelectionCriteria;
 import io.trino.spi.session.ResourceEstimates;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.regex.Pattern;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
@@ -78,23 +79,31 @@ public class TestResourceGroupIdTemplate
         assertFalse(selector.match(context).isPresent());
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "unresolved variables \\[user\\] in resource group ID.*")
+    @Test
     public void testUnresolvedVariableLoadTime()
     {
-        ResourceGroupIdTemplate template = new ResourceGroupIdTemplate("test.pipeline.${pipeline}.${user}");
-        Pattern sourcePattern = Pattern.compile("scheduler.important.(?<pipeline>[^\\[]*).*");
-        StaticSelector selector = new StaticSelector(Optional.empty(), Optional.empty(), Optional.of(sourcePattern), Optional.empty(), Optional.empty(), Optional.empty(), template);
-        SelectionCriteria context = new SelectionCriteria(true, "user", ImmutableSet.of(), Optional.of("scheduler.important.testpipeline[5]"), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty());
-        selector.match(context);
+        assertThatThrownBy(() -> {
+            ResourceGroupIdTemplate template = new ResourceGroupIdTemplate("test.pipeline.${pipeline}.${user}");
+            Pattern sourcePattern = Pattern.compile("scheduler.important.(?<pipeline>[^\\[]*).*");
+            StaticSelector selector = new StaticSelector(Optional.empty(), Optional.empty(), Optional.of(sourcePattern), Optional.empty(), Optional.empty(), Optional.empty(), template);
+            SelectionCriteria context = new SelectionCriteria(true, "user", ImmutableSet.of(), Optional.of("scheduler.important.testpipeline[5]"), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty());
+            selector.match(context);
+        })
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("unresolved variables \\[user\\] in resource group ID.*");
     }
 
-    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "unresolved variable 'pipeline' in resource group '\\$\\{pipeline\\}', available.*")
+    @Test
     public void testUnresolvedVariableRunTime()
     {
-        ResourceGroupIdTemplate template = new ResourceGroupIdTemplate("test.pipeline.${pipeline}.${USER}");
-        Pattern sourcePattern = Pattern.compile("scheduler.important.(testpipeline\\[|(?<pipeline>[^\\[]*)).*");
-        StaticSelector selector = new StaticSelector(Optional.empty(), Optional.empty(), Optional.of(sourcePattern), Optional.empty(), Optional.empty(), Optional.empty(), template);
-        SelectionCriteria context = new SelectionCriteria(true, "user", ImmutableSet.of(), Optional.of("scheduler.important.testpipeline[5]"), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty());
-        selector.match(context);
+        assertThatThrownBy(() -> {
+            ResourceGroupIdTemplate template = new ResourceGroupIdTemplate("test.pipeline.${pipeline}.${USER}");
+            Pattern sourcePattern = Pattern.compile("scheduler.important.(testpipeline\\[|(?<pipeline>[^\\[]*)).*");
+            StaticSelector selector = new StaticSelector(Optional.empty(), Optional.empty(), Optional.of(sourcePattern), Optional.empty(), Optional.empty(), Optional.empty(), template);
+            SelectionCriteria context = new SelectionCriteria(true, "user", ImmutableSet.of(), Optional.of("scheduler.important.testpipeline[5]"), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty());
+            selector.match(context);
+        })
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageMatching("unresolved variable 'pipeline' in resource group '\\$\\{pipeline\\}', available.*");
     }
 }

@@ -28,18 +28,29 @@ public class NessieContainer
 {
     private static final Logger log = Logger.get(NessieContainer.class);
 
-    public static final String DEFAULT_IMAGE = "projectnessie/nessie:0.59.0";
+    public static final String DEFAULT_IMAGE = "projectnessie/nessie:0.71.0";
     public static final String DEFAULT_HOST_NAME = "nessie";
     public static final String VERSION_STORE_TYPE = "INMEMORY";
 
     public static final int PORT = 19121;
+
+    public static final Map<String, String> DEFAULT_ENV_VARS = ImmutableMap.of(
+            "QUARKUS_HTTP_PORT", String.valueOf(PORT),
+            "NESSIE_VERSION_STORE_TYPE", VERSION_STORE_TYPE);
 
     public static Builder builder()
     {
         return new Builder();
     }
 
-    private NessieContainer(String image, String hostName, Set<Integer> exposePorts, Map<String, String> filesToMount, Map<String, String> envVars, Optional<Network> network, int retryLimit)
+    private NessieContainer(
+            String image,
+            String hostName,
+            Set<Integer> exposePorts,
+            Map<String, String> filesToMount,
+            Map<String, String> envVars,
+            Optional<Network> network,
+            int retryLimit)
     {
         super(image, hostName, exposePorts, filesToMount, envVars, network, retryLimit);
     }
@@ -64,7 +75,7 @@ public class NessieContainer
             this.image = DEFAULT_IMAGE;
             this.hostName = DEFAULT_HOST_NAME;
             this.exposePorts = ImmutableSet.of(PORT);
-            this.envVars = ImmutableMap.of("QUARKUS_HTTP_PORT", String.valueOf(PORT), "NESSIE_VERSION_STORE_TYPE", VERSION_STORE_TYPE);
+            this.envVars = DEFAULT_ENV_VARS;
         }
 
         @Override

@@ -19,30 +19,33 @@ import io.trino.plugin.base.ldap.JdkLdapClient;
 import io.trino.plugin.base.ldap.LdapClientConfig;
 import io.trino.plugin.password.ldap.TestingOpenLdapServer.DisposableSubContext;
 import io.trino.spi.security.BasicPrincipal;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.ToxiproxyContainer;
 import org.testcontainers.containers.ToxiproxyContainer.ContainerProxy;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+
+import java.io.IOException;
 
 import static eu.rekawek.toxiproxy.model.ToxicDirection.DOWNSTREAM;
 import static io.trino.plugin.password.ldap.TestingOpenLdapServer.LDAP_PORT;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 
+@TestInstance(PER_CLASS)
 public class TestLdapAuthenticatorWithTimeouts
 {
-    private Closer closer;
+    private final Closer closer;
 
-    private TestingOpenLdapServer openLdapServer;
-    private String proxyLdapUrl;
+    private final TestingOpenLdapServer openLdapServer;
+    private final String proxyLdapUrl;
 
-    @BeforeClass
-    public void setup()
-            throws Exception
+    public TestLdapAuthenticatorWithTimeouts()
+            throws IOException
     {
         closer = Closer.create();
         Network network = Network.newNetwork();
@@ -62,14 +65,11 @@ public class TestLdapAuthenticatorWithTimeouts
         proxyLdapUrl = format("ldap://%s:%s", proxy.getContainerIpAddress(), proxy.getProxyPort());
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void close()
             throws Exception
     {
         closer.close();
-        closer = null;
-        openLdapServer = null;
-        proxyLdapUrl = null;
     }
 
     @Test

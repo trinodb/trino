@@ -65,6 +65,11 @@ public class ParserAssert
         return createAssertion(new SqlParser()::createRowPattern, sql);
     }
 
+    public static AssertProvider<ParserAssert> functionSpecification(String sql)
+    {
+        return createAssertion(new SqlParser()::createFunctionSpecification, sql);
+    }
+
     private static Expression createExpression(String expression)
     {
         return new SqlParser().createExpression(expression);

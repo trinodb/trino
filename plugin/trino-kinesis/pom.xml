@@ -4,7 +4,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>431-SNAPSHOT</version>
+        <version>434-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -155,6 +155,12 @@
         </dependency>
 
         <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>junit-extensions</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-main</artifactId>
             <scope>test</scope>
@@ -176,6 +182,18 @@
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -214,11 +232,6 @@
                         <groupId>org.apache.maven.surefire</groupId>
                         <artifactId>surefire-testng</artifactId>
                         <version>${dep.plugin.surefire.version}</version>
-                    </dependency>
-                    <dependency>
-                        <groupId>org.junit.jupiter</groupId>
-                        <artifactId>junit-jupiter-engine</artifactId>
-                        <version>${dep.junit.version}</version>
                     </dependency>
                 </dependencies>
             </plugin>

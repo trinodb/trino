@@ -330,7 +330,7 @@ public class TaskDescriptorStorage
                             entry -> getDebugInfo(entry.getValue())));
 
             List<String> biggestSplits = descriptorsByStageId.entries().stream()
-                    .flatMap(entry -> entry.getValue().getSplits().entries().stream().map(splitEntry -> Map.entry("%s/%s".formatted(entry.getKey(), splitEntry.getKey()), splitEntry.getValue())))
+                    .flatMap(entry -> entry.getValue().getSplits().getSplitsFlat().entries().stream().map(splitEntry -> Map.entry("%s/%s".formatted(entry.getKey(), splitEntry.getKey()), splitEntry.getValue())))
                     .sorted(Comparator.<Map.Entry<String, Split>>comparingLong(entry -> entry.getValue().getRetainedSizeInBytes()).reversed())
                     .limit(3)
                     .map(entry -> "{nodeId=%s, size=%s, split=%s}".formatted(entry.getKey(), entry.getValue().getRetainedSizeInBytes(), splitJsonCodec.toJson(entry.getValue())))
@@ -344,11 +344,11 @@ public class TaskDescriptorStorage
             int taskDescriptorsCount = taskDescriptors.size();
             Stats taskDescriptorsRetainedSizeStats = Stats.of(taskDescriptors.stream().mapToLong(TaskDescriptor::getRetainedSizeInBytes));
 
-            Set<PlanNodeId> planNodeIds = taskDescriptors.stream().flatMap(taskDescriptor -> taskDescriptor.getSplits().keySet().stream()).collect(toImmutableSet());
+            Set<PlanNodeId> planNodeIds = taskDescriptors.stream().flatMap(taskDescriptor -> taskDescriptor.getSplits().getSplitsFlat().keySet().stream()).collect(toImmutableSet());
             Map<PlanNodeId, String> splitsDebugInfo = new HashMap<>();
             for (PlanNodeId planNodeId : planNodeIds) {
-                Stats splitCountStats = Stats.of(taskDescriptors.stream().mapToLong(taskDescriptor -> taskDescriptor.getSplits().asMap().get(planNodeId).size()));
-                Stats splitSizeStats = Stats.of(taskDescriptors.stream().flatMap(taskDescriptor -> taskDescriptor.getSplits().get(planNodeId).stream()).mapToLong(Split::getRetainedSizeInBytes));
+                Stats splitCountStats = Stats.of(taskDescriptors.stream().mapToLong(taskDescriptor -> taskDescriptor.getSplits().getSplitsFlat().asMap().get(planNodeId).size()));
+                Stats splitSizeStats = Stats.of(taskDescriptors.stream().flatMap(taskDescriptor -> taskDescriptor.getSplits().getSplitsFlat().get(planNodeId).stream()).mapToLong(Split::getRetainedSizeInBytes));
                 splitsDebugInfo.put(
                         planNodeId,
                         "{splitCountMean=%s, splitCountStdDev=%s, splitSizeMean=%s, splitSizeStdDev=%s}".formatted(

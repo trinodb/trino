@@ -16,6 +16,7 @@ package io.trino.hdfs;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.Path;
@@ -32,7 +33,6 @@ import java.nio.file.Files;
 import java.util.Arrays;
 
 import static io.airlift.testing.Closeables.closeAll;
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertSame;
@@ -50,7 +50,7 @@ public class TestFSDataInputStreamTail
             throws Exception
     {
         fs = new RawLocalFileSystem();
-        fs.initialize(fs.getUri(), newEmptyConfiguration());
+        fs.initialize(fs.getUri(), new Configuration(false));
         tempRoot = Files.createTempDirectory("test_fsdatainputstream_tail").toFile();
         tempFile = new Path(Files.createTempFile(tempRoot.toPath(), "tempfile", "txt").toUri());
     }

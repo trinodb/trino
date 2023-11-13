@@ -32,8 +32,7 @@ import io.trino.hive.thrift.metastore.CommitTxnRequest;
 import io.trino.hive.thrift.metastore.Database;
 import io.trino.hive.thrift.metastore.EnvironmentContext;
 import io.trino.hive.thrift.metastore.FieldSchema;
-import io.trino.hive.thrift.metastore.GetPrincipalsInRoleRequest;
-import io.trino.hive.thrift.metastore.GetPrincipalsInRoleResponse;
+import io.trino.hive.thrift.metastore.Function;
 import io.trino.hive.thrift.metastore.GetRoleGrantsForPrincipalRequest;
 import io.trino.hive.thrift.metastore.GetRoleGrantsForPrincipalResponse;
 import io.trino.hive.thrift.metastore.GetTableRequest;
@@ -73,6 +72,7 @@ import org.apache.thrift.transport.TTransport;
 import org.apache.thrift.transport.TTransportException;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -611,15 +611,6 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
-    public List<RolePrincipalGrant> listGrantedPrincipals(String role)
-            throws TException
-    {
-        GetPrincipalsInRoleRequest request = new GetPrincipalsInRoleRequest(role);
-        GetPrincipalsInRoleResponse response = client.getPrincipalsInRole(request);
-        return ImmutableList.copyOf(response.getPrincipalGrants());
-    }
-
-    @Override
     public List<RolePrincipalGrant> listRoleGrants(String principalName, PrincipalType principalType)
             throws TException
     {
@@ -774,6 +765,41 @@ public class ThriftHiveMetastoreClient
                     client.alterTableWithEnvironmentContext(table.getDbName(), table.getTableName(), table, environmentContext);
                     return null;
                 });
+    }
+
+    @Override
+    public Function getFunction(String databaseName, String functionName)
+            throws TException
+    {
+        return client.getFunction(databaseName, functionName);
+    }
+
+    @Override
+    public Collection<String> getFunctions(String databaseName, String functionNamePattern)
+            throws TException
+    {
+        return client.getFunctions(databaseName, functionNamePattern);
+    }
+
+    @Override
+    public void createFunction(Function function)
+            throws TException
+    {
+        client.createFunction(function);
+    }
+
+    @Override
+    public void alterFunction(Function function)
+            throws TException
+    {
+        client.alterFunction(function.getDbName(), function.getFunctionName(), function);
+    }
+
+    @Override
+    public void dropFunction(String databaseName, String functionName)
+            throws TException
+    {
+        client.dropFunction(databaseName, functionName);
     }
 
     // Method needs to be final for @SafeVarargs to work

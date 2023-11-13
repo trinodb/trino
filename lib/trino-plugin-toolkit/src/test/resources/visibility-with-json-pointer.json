@@ -66,6 +66,23 @@
                     "GRANT_EXECUTE"
                 ]
             }
+        ],
+        "procedures": [
+            {
+                "user": "bob",
+                "schema": "procedure-schema",
+                "procedure": "some_procedure",
+                "privileges": [
+                    "EXECUTE"
+                ]
+            },
+            {
+                "user": "charlie",
+                "schema": "procedure-schema",
+                "procedure": "some_procedure",
+                "privileges": [
+                ]
+            }
         ]
     }
 }

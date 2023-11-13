@@ -31,17 +31,14 @@ import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.security.ViewExpression;
+import org.junit.jupiter.api.Test;
 import org.testng.Assert.ThrowingRunnable;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
 
 import java.io.File;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Stream;
 
 import static com.google.common.io.Files.copy;
 import static io.trino.spi.security.PrincipalType.ROLE;
@@ -201,8 +198,16 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         assertDenied(() -> accessControl.checkCanShowCreateSchema(CHARLIE, "test"));
     }
 
-    @Test(dataProvider = "privilegeGrantOption")
-    public void testGrantSchemaPrivilege(Privilege privilege, boolean grantOption)
+    @Test
+    public void testGrantSchemaPrivilege()
+    {
+        for (Privilege privilege : Privilege.values()) {
+            testGrantSchemaPrivilege(privilege, false);
+            testGrantSchemaPrivilege(privilege, true);
+        }
+    }
+
+    private void testGrantSchemaPrivilege(Privilege privilege, boolean grantOption)
     {
         ConnectorAccessControl accessControl = createAccessControl("schema.json");
         TrinoPrincipal grantee = new TrinoPrincipal(USER, "alice");
@@ -245,8 +250,16 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         assertDenied(() -> accessControl.checkCanDenySchemaPrivilege(CHARLIE, UPDATE, "test", grantee));
     }
 
-    @Test(dataProvider = "privilegeGrantOption")
-    public void testRevokeSchemaPrivilege(Privilege privilege, boolean grantOption)
+    @Test
+    public void testRevokeSchemaPrivilege()
+    {
+        for (Privilege privilege : Privilege.values()) {
+            testRevokeSchemaPrivilege(privilege, false);
+            testRevokeSchemaPrivilege(privilege, true);
+        }
+    }
+
+    private void testRevokeSchemaPrivilege(Privilege privilege, boolean grantOption)
     {
         ConnectorAccessControl accessControl = createAccessControl("schema.json");
         TrinoPrincipal grantee = new TrinoPrincipal(USER, "alice");
@@ -265,15 +278,6 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         assertDenied(() -> accessControl.checkCanRevokeSchemaPrivilege(CHARLIE, privilege, "staff", grantee, grantOption));
         accessControl.checkCanRevokeSchemaPrivilege(CHARLIE, privilege, "authenticated", grantee, grantOption);
         assertDenied(() -> accessControl.checkCanRevokeSchemaPrivilege(CHARLIE, privilege, "test", grantee, grantOption));
-    }
-
-    @DataProvider(name = "privilegeGrantOption")
-    public Object[][] privilegeGrantOption()
-    {
-        return EnumSet.allOf(Privilege.class)
-                .stream()
-                .flatMap(privilege -> Stream.of(true, false).map(grantOption -> new Object[] {privilege, grantOption}))
-                .toArray(Object[][]::new);
     }
 
     @Test
@@ -551,10 +555,10 @@ public abstract class BaseFileBasedConnectorAccessControlTest
 
     private static void assertFilterSchemas(ConnectorAccessControl accessControl)
     {
-        ImmutableSet<String> allSchemas = ImmutableSet.of("specific-schema", "alice-schema", "bob-schema", "unknown", "ptf_schema");
+        ImmutableSet<String> allSchemas = ImmutableSet.of("specific-schema", "alice-schema", "bob-schema", "unknown", "ptf_schema", "procedure-schema");
         assertEquals(accessControl.filterSchemas(ADMIN, allSchemas), allSchemas);
         assertEquals(accessControl.filterSchemas(ALICE, allSchemas), ImmutableSet.of("specific-schema", "alice-schema", "ptf_schema"));
-        assertEquals(accessControl.filterSchemas(BOB, allSchemas), ImmutableSet.of("specific-schema", "bob-schema"));
+        assertEquals(accessControl.filterSchemas(BOB, allSchemas), ImmutableSet.of("specific-schema", "bob-schema", "procedure-schema"));
         assertEquals(accessControl.filterSchemas(CHARLIE, allSchemas), ImmutableSet.of("specific-schema"));
     }
 
@@ -633,6 +637,20 @@ public abstract class BaseFileBasedConnectorAccessControlTest
         assertThat(accessControl.canExecuteFunction(CHARLIE, new SchemaRoutineName("any", "some_function"))).isFalse();
         assertThat(accessControl.canExecuteFunction(CHARLIE, new SchemaRoutineName("any", "some_function"))).isFalse();
         assertThat(accessControl.canExecuteFunction(CHARLIE, new SchemaRoutineName("any", "some_function"))).isFalse();
+    }
+
+    @Test
+    public void testProcedureRulesForCheckCanExecute()
+    {
+        ConnectorAccessControl accessControl = createAccessControl("visibility.json");
+
+        accessControl.checkCanExecuteProcedure(BOB, new SchemaRoutineName("procedure-schema", "some_procedure"));
+        assertDenied(() -> accessControl.checkCanExecuteProcedure(BOB, new SchemaRoutineName("some-schema", "some_procedure")));
+        assertDenied(() -> accessControl.checkCanExecuteProcedure(BOB, new SchemaRoutineName("procedure-schema", "another_procedure")));
+
+        assertDenied(() -> accessControl.checkCanExecuteProcedure(CHARLIE, new SchemaRoutineName("procedure-schema", "some_procedure")));
+
+        assertDenied(() -> accessControl.checkCanExecuteProcedure(ALICE, new SchemaRoutineName("procedure-schema", "some_procedure")));
     }
 
     @Test
@@ -793,6 +811,7 @@ public abstract class BaseFileBasedConnectorAccessControlTest
 
         Injector injector = bootstrap
                 .doNotInitializeLogging()
+                .quiet()
                 .setRequiredConfigurationProperties(configProperties)
                 .initialize();
 

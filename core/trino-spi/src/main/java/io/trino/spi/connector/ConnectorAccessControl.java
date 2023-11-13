@@ -31,6 +31,7 @@ import static io.trino.spi.security.AccessDeniedException.denyAlterColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.trino.spi.security.AccessDeniedException.denyCommentTable;
 import static io.trino.spi.security.AccessDeniedException.denyCommentView;
+import static io.trino.spi.security.AccessDeniedException.denyCreateFunction;
 import static io.trino.spi.security.AccessDeniedException.denyCreateMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyCreateRole;
 import static io.trino.spi.security.AccessDeniedException.denyCreateSchema;
@@ -41,6 +42,7 @@ import static io.trino.spi.security.AccessDeniedException.denyDeleteTable;
 import static io.trino.spi.security.AccessDeniedException.denyDenySchemaPrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyDenyTablePrivilege;
 import static io.trino.spi.security.AccessDeniedException.denyDropColumn;
+import static io.trino.spi.security.AccessDeniedException.denyDropFunction;
 import static io.trino.spi.security.AccessDeniedException.denyDropMaterializedView;
 import static io.trino.spi.security.AccessDeniedException.denyDropRole;
 import static io.trino.spi.security.AccessDeniedException.denyDropSchema;
@@ -661,6 +663,26 @@ public interface ConnectorAccessControl
     default Set<SchemaFunctionName> filterFunctions(ConnectorSecurityContext context, Set<SchemaFunctionName> functionNames)
     {
         return emptySet();
+    }
+
+    /**
+     * Check if identity is allowed to create the specified function.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanCreateFunction(ConnectorSecurityContext context, SchemaRoutineName function)
+    {
+        denyCreateFunction(function.toString());
+    }
+
+    /**
+     * Check if identity is allowed to drop the specified function.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanDropFunction(ConnectorSecurityContext context, SchemaRoutineName function)
+    {
+        denyDropFunction(function.toString());
     }
 
     /**

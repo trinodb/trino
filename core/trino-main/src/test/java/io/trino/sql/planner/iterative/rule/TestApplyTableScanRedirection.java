@@ -184,7 +184,7 @@ public class TestApplyTableScanRedirection
                                 WarningCollector.NOOP,
                                 createPlanOptimizersStatsCollector()))
                         .isInstanceOf(TrinoException.class)
-                        .hasMessageMatching("Cast not possible from redirected column test-catalog.target_schema.target_table.destination_col_d with type Bogus to source column .*test-catalog.test_schema.test_table.*source_col_a.* with type: varchar");
+                        .hasMessageMatching("Cast not possible from redirected column test_catalog.target_schema.target_table.destination_col_d with type Bogus to source column .*test_catalog.test_schema.test_table.*source_col_a.* with type: varchar");
                 return null;
             });
         }

@@ -19,7 +19,6 @@ import io.trino.spi.connector.ConnectorPageSource;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.spi.block.RowBlock.fromFieldBlocks;
@@ -122,7 +121,7 @@ public class PhoenixPageSource
             for (int i = 0; i < mergeRowIdBlocks.length; i++) {
                 mergeRowIdBlocks[i] = page.getBlock(mergeRowIdSourceChannels.get(i));
             }
-            return fromFieldBlocks(page.getPositionCount(), Optional.empty(), mergeRowIdBlocks);
+            return fromFieldBlocks(page.getPositionCount(), mergeRowIdBlocks);
         }
     }
 

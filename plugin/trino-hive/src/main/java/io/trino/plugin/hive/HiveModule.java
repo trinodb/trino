@@ -21,9 +21,6 @@ import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.google.inject.multibindings.Multibinder;
 import io.airlift.event.client.EventClient;
-import io.trino.hdfs.HdfsNamenodeStats;
-import io.trino.hdfs.TrinoFileSystemCache;
-import io.trino.hdfs.TrinoFileSystemCacheStats;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.avro.AvroFileWriterFactory;
 import io.trino.plugin.hive.avro.AvroPageSourceFactory;
@@ -116,14 +113,6 @@ public class HiveModule
 
         binder.bind(FileFormatDataSourceStats.class).in(Scopes.SINGLETON);
         newExporter(binder).export(FileFormatDataSourceStats.class).withGeneratedName();
-
-        binder.bind(TrinoFileSystemCacheStats.class).toInstance(TrinoFileSystemCache.INSTANCE.getFileSystemCacheStats());
-        newExporter(binder).export(TrinoFileSystemCacheStats.class)
-                .as(generator -> generator.generatedNameOf(io.trino.plugin.hive.fs.TrinoFileSystemCache.class));
-
-        binder.bind(HdfsNamenodeStats.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(HdfsNamenodeStats.class)
-                .as(generator -> generator.generatedNameOf(NamenodeStats.class));
 
         Multibinder<HivePageSourceFactory> pageSourceFactoryBinder = newSetBinder(binder, HivePageSourceFactory.class);
         pageSourceFactoryBinder.addBinding().to(CsvPageSourceFactory.class).in(Scopes.SINGLETON);

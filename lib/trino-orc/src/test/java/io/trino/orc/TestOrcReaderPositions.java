@@ -35,7 +35,7 @@ import org.apache.hadoop.hive.serde2.Serializer;
 import org.apache.hadoop.hive.serde2.objectinspector.SettableStructObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.io.Writable;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
@@ -43,7 +43,6 @@ import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 import java.util.Map;
 
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.orc.OrcReader.BATCH_SIZE_GROWTH_FACTOR;
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.trino.orc.OrcReader.MAX_BATCH_SIZE;
@@ -413,7 +412,7 @@ public class TestOrcReaderPositions
     private static void createFileWithOnlyUserMetadata(File file, Map<String, String> metadata)
             throws IOException
     {
-        Configuration conf = newEmptyConfiguration();
+        Configuration conf = new Configuration(false);
         OrcFile.WriterOptions writerOptions = OrcFile.writerOptions(conf)
                 .memory(new NullMemoryManager())
                 .inspector(createSettableStructObjectInspector("test", BIGINT))

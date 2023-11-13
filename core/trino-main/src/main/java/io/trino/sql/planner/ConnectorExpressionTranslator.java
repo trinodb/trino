@@ -79,6 +79,7 @@ import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.trino.SystemSessionProperties.isComplexExpressionPushdown;
 import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.GlobalFunctionCatalog.isBuiltinFunctionName;
+import static io.trino.metadata.LanguageFunctionManager.isInlineFunction;
 import static io.trino.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.ADD_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
@@ -699,6 +700,9 @@ public final class ConnectorExpressionTranslator
             }
 
             FunctionName name;
+            if (isInlineFunction(functionName)) {
+                return Optional.empty();
+            }
             if (isBuiltinFunctionName(functionName)) {
                 name = new FunctionName(functionName.getFunctionName());
             }

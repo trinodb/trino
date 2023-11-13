@@ -31,6 +31,7 @@ import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -52,6 +53,7 @@ import static io.trino.plugin.iceberg.TableType.DATA;
 import static io.trino.plugin.iceberg.TableType.FILES;
 import static io.trino.plugin.iceberg.TableType.HISTORY;
 import static io.trino.plugin.iceberg.TableType.MANIFESTS;
+import static io.trino.plugin.iceberg.TableType.MATERIALIZED_VIEW_STORAGE;
 import static io.trino.plugin.iceberg.TableType.PARTITIONS;
 import static io.trino.plugin.iceberg.TableType.PROPERTIES;
 import static io.trino.plugin.iceberg.TableType.REFS;
@@ -70,12 +72,14 @@ import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 /*
  * The test currently uses AWS Default Credential Provider Chain,
  * See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
  * on ways to set your AWS credentials which will be needed to run this test.
  */
+@Execution(SAME_THREAD)
 public class TestIcebergGlueCatalogAccessOperations
         extends AbstractTestQueryFramework
 {
@@ -265,7 +269,7 @@ public class TestIcebergGlueCatalogAccessOperations
 
             assertGlueMetastoreApiInvocations("SELECT * FROM test_select_mview_view",
                     ImmutableMultiset.builder()
-                            .addCopies(GET_TABLE, 3)
+                            .addCopies(GET_TABLE, 2)
                             .build());
         }
         finally {
@@ -283,7 +287,7 @@ public class TestIcebergGlueCatalogAccessOperations
 
             assertGlueMetastoreApiInvocations("SELECT * FROM test_select_mview_where_view WHERE age = 2",
                     ImmutableMultiset.builder()
-                            .addCopies(GET_TABLE, 3)
+                            .addCopies(GET_TABLE, 2)
                             .build());
         }
         finally {
@@ -301,7 +305,7 @@ public class TestIcebergGlueCatalogAccessOperations
 
             assertGlueMetastoreApiInvocations("REFRESH MATERIALIZED VIEW test_refresh_mview_view",
                     ImmutableMultiset.builder()
-                            .addCopies(GET_TABLE, 5)
+                            .addCopies(GET_TABLE, 4)
                             .addCopies(UPDATE_TABLE, 1)
                             .build());
         }
@@ -441,9 +445,12 @@ public class TestIcebergGlueCatalogAccessOperations
                             .addCopies(GET_TABLE, 1)
                             .build());
 
+            assertQueryFails("SELECT * FROM \"test_select_snapshots$materialized_view_storage\"",
+                    "Table '" + testSchema + ".test_select_snapshots\\$materialized_view_storage' not found");
+
             // This test should get updated if a new system table is added.
             assertThat(TableType.values())
-                    .containsExactly(DATA, HISTORY, SNAPSHOTS, MANIFESTS, PARTITIONS, FILES, PROPERTIES, REFS);
+                    .containsExactly(DATA, HISTORY, SNAPSHOTS, MANIFESTS, PARTITIONS, FILES, PROPERTIES, REFS, MATERIALIZED_VIEW_STORAGE);
         }
         finally {
             getQueryRunner().execute("DROP TABLE IF EXISTS test_select_snapshots");

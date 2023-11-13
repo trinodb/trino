@@ -68,6 +68,7 @@ import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SampleApplicationResult;
 import io.trino.spi.connector.SampleType;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
@@ -84,6 +85,7 @@ import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.GrantInfo;
@@ -388,11 +390,11 @@ public class TracingMetadata
     }
 
     @Override
-    public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
+    public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, SaveMode saveMode)
     {
         Span span = startSpan("createTable", catalogName, tableMetadata);
         try (var ignored = scopedSpan(span)) {
-            delegate.createTable(session, catalogName, tableMetadata, ignoreExisting);
+            delegate.createTable(session, catalogName, tableMetadata, saveMode);
         }
     }
 
@@ -568,11 +570,11 @@ public class TracingMetadata
     }
 
     @Override
-    public OutputTableHandle beginCreateTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, Optional<TableLayout> layout)
+    public OutputTableHandle beginCreateTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, Optional<TableLayout> layout, boolean replace)
     {
         Span span = startSpan("beginCreateTable", catalogName, tableMetadata);
         try (var ignored = scopedSpan(span)) {
-            return delegate.beginCreateTable(session, catalogName, tableMetadata, layout);
+            return delegate.beginCreateTable(session, catalogName, tableMetadata, layout, replace);
         }
     }
 
@@ -1260,6 +1262,33 @@ public class TracingMetadata
                 .setAttribute(TrinoAttributes.FUNCTION, functionId.toString());
         try (var ignored = scopedSpan(span)) {
             return delegate.getFunctionDependencies(session, catalogHandle, functionId, boundSignature);
+        }
+    }
+
+    @Override
+    public boolean languageFunctionExists(Session session, QualifiedObjectName name, String signatureToken)
+    {
+        Span span = startSpan("languageFunctionExists", name);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.languageFunctionExists(session, name, signatureToken);
+        }
+    }
+
+    @Override
+    public void createLanguageFunction(Session session, QualifiedObjectName name, LanguageFunction function, boolean replace)
+    {
+        Span span = startSpan("createLanguageFunction", name);
+        try (var ignored = scopedSpan(span)) {
+            delegate.createLanguageFunction(session, name, function, replace);
+        }
+    }
+
+    @Override
+    public void dropLanguageFunction(Session session, QualifiedObjectName name, String signatureToken)
+    {
+        Span span = startSpan("dropLanguageFunction", name);
+        try (var ignored = scopedSpan(span)) {
+            delegate.dropLanguageFunction(session, name, signatureToken);
         }
     }
 

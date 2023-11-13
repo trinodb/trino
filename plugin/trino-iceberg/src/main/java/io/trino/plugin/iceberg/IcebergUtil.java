@@ -629,7 +629,7 @@ public final class IcebergUtil
         return new Schema(icebergSchema.asStructType().fields());
     }
 
-    public static Transaction newCreateTableTransaction(TrinoCatalog catalog, ConnectorTableMetadata tableMetadata, ConnectorSession session)
+    public static Transaction newCreateTableTransaction(TrinoCatalog catalog, ConnectorTableMetadata tableMetadata, ConnectorSession session, boolean replace)
     {
         SchemaTableName schemaTableName = tableMetadata.getTable();
         Schema schema = schemaFromMetadata(tableMetadata.getColumns());
@@ -638,6 +638,14 @@ public final class IcebergUtil
         String targetPath = getTableLocation(tableMetadata.getProperties())
                 .orElseGet(() -> catalog.defaultTableLocation(session, schemaTableName));
 
+        if (replace) {
+            return catalog.newCreateOrReplaceTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, targetPath, createTableProperties(tableMetadata));
+        }
+        return catalog.newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, targetPath, createTableProperties(tableMetadata));
+    }
+
+    public static Map<String, String> createTableProperties(ConnectorTableMetadata tableMetadata)
+    {
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builder();
         IcebergFileFormat fileFormat = IcebergTableProperties.getFileFormat(tableMetadata.getProperties());
         propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toIceberg().toString());
@@ -655,8 +663,7 @@ public final class IcebergUtil
         if (tableMetadata.getComment().isPresent()) {
             propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
         }
-
-        return catalog.newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, targetPath, propertiesBuilder.buildOrThrow());
+        return propertiesBuilder.buildOrThrow();
     }
 
     /**

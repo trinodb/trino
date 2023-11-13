@@ -14,7 +14,6 @@
 package io.trino.execution.scheduler.faulttolerant;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.trino.exchange.SpoolingExchangeInput;
@@ -199,9 +198,9 @@ public class TestTaskDescriptorStorage
     {
         return new TaskDescriptor(
                 partitionId,
-                ImmutableListMultimap.of(
-                        new PlanNodeId("1"),
-                        new Split(REMOTE_CATALOG_HANDLE, new RemoteSplit(new SpoolingExchangeInput(ImmutableList.of(new TestingExchangeSourceHandle(retainedSize.toBytes())), Optional.empty())))),
+                SplitsMapping.builder()
+                        .addSplit(new PlanNodeId("1"), 1, new Split(REMOTE_CATALOG_HANDLE, new RemoteSplit(new SpoolingExchangeInput(ImmutableList.of(new TestingExchangeSourceHandle(retainedSize.toBytes())), Optional.empty()))))
+                        .build(),
                 new NodeRequirements(catalog, ImmutableSet.of()));
     }
 

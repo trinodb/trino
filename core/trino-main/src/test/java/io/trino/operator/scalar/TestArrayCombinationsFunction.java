@@ -21,6 +21,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static com.google.common.math.LongMath.factorial;
 import static io.trino.operator.scalar.ArrayCombinationsFunction.combinationCount;
@@ -35,8 +36,10 @@ import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestArrayCombinationsFunction
 {
     private QueryAssertions assertions;

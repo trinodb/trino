@@ -472,11 +472,6 @@ public class MaterializedResult
         return new MaterializedRow(trinoRow.getPrecision(), convertedValues);
     }
 
-    public static MaterializedResult materializeSourceDataStream(Session session, ConnectorPageSource pageSource, List<Type> types)
-    {
-        return materializeSourceDataStream(session.toConnectorSession(), pageSource, types);
-    }
-
     public static MaterializedResult materializeSourceDataStream(ConnectorSession session, ConnectorPageSource pageSource, List<Type> types)
     {
         MaterializedResult.Builder builder = resultBuilder(session, types);

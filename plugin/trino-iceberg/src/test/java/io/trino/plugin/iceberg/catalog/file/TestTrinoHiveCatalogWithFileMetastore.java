@@ -18,12 +18,15 @@ import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
+import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
 import io.trino.spi.type.TestingTypeManager;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.io.IOException;
@@ -33,16 +36,20 @@ import java.nio.file.Path;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
-import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
+import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestTrinoHiveCatalogWithFileMetastore
         extends BaseTrinoCatalogTest
 {
     private HiveMetastore metastore;
     private Path tempDir;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
             throws Exception
     {
@@ -51,7 +58,7 @@ public class TestTrinoHiveCatalogWithFileMetastore
         metastore = createTestingFileHiveMetastore(metastoreDir);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
             throws IOException
     {
@@ -62,7 +69,7 @@ public class TestTrinoHiveCatalogWithFileMetastore
     protected TrinoCatalog createTrinoCatalog(boolean useUniqueTableLocations)
     {
         TrinoFileSystemFactory fileSystemFactory = HDFS_FILE_SYSTEM_FACTORY;
-        CachingHiveMetastore cachingHiveMetastore = memoizeMetastore(metastore, 1000);
+        CachingHiveMetastore cachingHiveMetastore = createPerTransactionCache(metastore, 1000);
         return new TrinoHiveCatalog(
                 new CatalogName("catalog"),
                 cachingHiveMetastore,
@@ -72,6 +79,7 @@ public class TestTrinoHiveCatalogWithFileMetastore
                 new FileMetastoreTableOperationsProvider(fileSystemFactory),
                 useUniqueTableLocations,
                 false,
-                false);
+                false,
+                new IcebergConfig().isHideMaterializedViewStorageTable());
     }
 }

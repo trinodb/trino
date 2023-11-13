@@ -102,6 +102,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -648,6 +649,13 @@ public class Analysis
                                 columnMaskScopes.isEmpty()));
     }
 
+    public Set<ResolvedFunction> getResolvedFunctions()
+    {
+        return resolvedFunctions.values().stream()
+                .map(RoutineEntry::getFunction)
+                .collect(toImmutableSet());
+    }
+
     public ResolvedFunction getResolvedFunction(Expression node)
     {
         return resolvedFunctions.get(NodeRef.of(node)).getFunction();
@@ -678,6 +686,11 @@ public class Analysis
     {
         requireNonNull(expression, "expression is null");
         return columnReferences.containsKey(NodeRef.of(expression));
+    }
+
+    public void addType(Expression expression, Type type)
+    {
+        this.types.put(NodeRef.of(expression), type);
     }
 
     public void addTypes(Map<NodeRef<Expression>, Type> types)
@@ -1316,19 +1329,22 @@ public class Analysis
         private final Optional<TableLayout> layout;
         private final boolean createTableAsSelectWithData;
         private final boolean createTableAsSelectNoOp;
+        private final boolean replace;
 
         public Create(
                 Optional<QualifiedObjectName> destination,
                 Optional<ConnectorTableMetadata> metadata,
                 Optional<TableLayout> layout,
                 boolean createTableAsSelectWithData,
-                boolean createTableAsSelectNoOp)
+                boolean createTableAsSelectNoOp,
+                boolean replace)
         {
             this.destination = requireNonNull(destination, "destination is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.layout = requireNonNull(layout, "layout is null");
             this.createTableAsSelectWithData = createTableAsSelectWithData;
             this.createTableAsSelectNoOp = createTableAsSelectNoOp;
+            this.replace = replace;
         }
 
         public Optional<QualifiedObjectName> getDestination()
@@ -1354,6 +1370,11 @@ public class Analysis
         public boolean isCreateTableAsSelectNoOp()
         {
             return createTableAsSelectNoOp;
+        }
+
+        public boolean isReplace()
+        {
+            return replace;
         }
     }
 
@@ -2037,6 +2058,15 @@ public class Analysis
             SourceColumn entry = (SourceColumn) obj;
             return Objects.equals(tableName, entry.tableName) &&
                     Objects.equals(columnName, entry.columnName);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("tableName", tableName)
+                    .add("columnName", columnName)
+                    .toString();
         }
     }
 

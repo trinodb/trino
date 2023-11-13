@@ -494,6 +494,18 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanCreateFunction(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName functionName)
+    {
+        delegate().checkCanCreateFunction(systemSecurityContext, functionName);
+    }
+
+    @Override
+    public void checkCanDropFunction(SystemSecurityContext systemSecurityContext, CatalogSchemaRoutineName functionName)
+    {
+        delegate().checkCanDropFunction(systemSecurityContext, functionName);
+    }
+
+    @Override
     public Iterable<EventListener> getEventListeners()
     {
         return delegate().getEventListeners();

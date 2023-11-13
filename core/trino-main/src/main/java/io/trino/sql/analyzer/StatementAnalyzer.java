@@ -160,6 +160,7 @@ import io.trino.sql.tree.FetchFirst;
 import io.trino.sql.tree.FieldReference;
 import io.trino.sql.tree.FrameBound;
 import io.trino.sql.tree.FunctionCall;
+import io.trino.sql.tree.FunctionSpecification;
 import io.trino.sql.tree.Grant;
 import io.trino.sql.tree.GroupBy;
 import io.trino.sql.tree.GroupingElement;
@@ -209,6 +210,7 @@ import io.trino.sql.tree.Rollback;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.RowPattern;
 import io.trino.sql.tree.SampledRelation;
+import io.trino.sql.tree.SecurityCharacteristic;
 import io.trino.sql.tree.Select;
 import io.trino.sql.tree.SelectItem;
 import io.trino.sql.tree.SetColumnType;
@@ -330,6 +332,7 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.NULL_TREATMENT_NOT_ALLOWED;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.TABLE_HAS_NO_COLUMNS;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
@@ -355,6 +358,7 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.sql.NodeUtils.getSortItemsFromOrderBy;
+import static io.trino.sql.SqlFormatter.formatSql;
 import static io.trino.sql.analyzer.AggregationAnalyzer.verifyOrderByAggregations;
 import static io.trino.sql.analyzer.AggregationAnalyzer.verifySourceAggregations;
 import static io.trino.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
@@ -880,23 +884,19 @@ class StatementAnalyzer
         @Override
         protected Scope visitCreateTableAsSelect(CreateTableAsSelect node, Optional<Scope> scope)
         {
-            // TODO: Remove when engine is supporting table replacement
-            if (node.getSaveMode() == REPLACE) {
-                throw semanticException(NOT_SUPPORTED, node, "Replace table is not supported");
-            }
-
             // turn this into a query that has a new table writer node on top.
             QualifiedObjectName targetTable = createQualifiedObjectName(session, node, node.getName());
 
             Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
-            if (targetTableHandle.isPresent()) {
+            if (targetTableHandle.isPresent() && node.getSaveMode() != REPLACE) {
                 if (node.getSaveMode() == IGNORE) {
                     analysis.setCreate(new Analysis.Create(
                             Optional.of(targetTable),
                             Optional.empty(),
                             Optional.empty(),
                             node.isWithData(),
-                            true));
+                            true,
+                            false));
                     analysis.setUpdateType("CREATE TABLE");
                     analysis.setUpdateTarget(targetTableHandle.get().getCatalogHandle().getVersion(), targetTable, Optional.empty(), Optional.of(ImmutableList.of()));
                     return createAndAssignScope(node, scope, Field.newUnqualified("rows", BIGINT));
@@ -928,7 +928,7 @@ class StatementAnalyzer
             accessControl.checkCanCreateTable(session.toSecurityContext(), targetTable, explicitlySetProperties);
 
             // analyze the query that creates the table
-            Scope queryScope = analyze(node.getQuery());
+            Scope queryScope = analyze(node.getQuery(), Optional.empty(), false);
 
             ImmutableList.Builder<ColumnMetadata> columnsBuilder = ImmutableList.builder();
 
@@ -985,7 +985,8 @@ class StatementAnalyzer
                     Optional.of(tableMetadata),
                     newTableLayout,
                     node.isWithData(),
-                    false));
+                    false,
+                    node.getSaveMode() == REPLACE));
 
             analysis.setUpdateType("CREATE TABLE");
             analysis.setUpdateTarget(
@@ -1001,6 +1002,10 @@ class StatementAnalyzer
         protected Scope visitCreateView(CreateView node, Optional<Scope> scope)
         {
             QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
+
+            node.getQuery().getFunctions().stream().findFirst().ifPresent(function -> {
+                throw semanticException(NOT_SUPPORTED, function, "Views cannot contain inline functions");
+            });
 
             // analyze the query that creates the view
             StatementAnalyzer analyzer = statementAnalyzerFactory.createStatementAnalyzer(analysis, session, warningCollector, CorrelationSupport.ALLOWED);
@@ -1118,11 +1123,6 @@ class StatementAnalyzer
         @Override
         protected Scope visitCreateTable(CreateTable node, Optional<Scope> scope)
         {
-            // TODO: Remove when engine is supporting table replacement
-            if (node.getSaveMode() == REPLACE) {
-                throw semanticException(NOT_SUPPORTED, node, "Replace table is not supported");
-            }
-
             validateProperties(node.getProperties(), scope);
             return createAndAssignScope(node, scope);
         }
@@ -1517,6 +1517,19 @@ class StatementAnalyzer
         @Override
         protected Scope visitQuery(Query node, Optional<Scope> scope)
         {
+            for (FunctionSpecification function : node.getFunctions()) {
+                if (function.getName().getPrefix().isPresent()) {
+                    throw semanticException(SYNTAX_ERROR, function, "Inline function names cannot be qualified: " + function.getName());
+                }
+                function.getRoutineCharacteristics().stream()
+                        .filter(SecurityCharacteristic.class::isInstance)
+                        .findFirst()
+                        .ifPresent(security -> {
+                            throw semanticException(NOT_SUPPORTED, security, "Security mode not supported for inline functions");
+                        });
+                plannerContext.getLanguageFunctionManager().addInlineFunction(session, formatSql(function), accessControl);
+            }
+
             Scope withScope = analyzeWith(node, scope);
             Scope queryBodyScope = process(node.getQueryBody(), withScope);
 
@@ -2485,6 +2498,11 @@ class StatementAnalyzer
             }
 
             Query query = parseView(originalSql, name, table);
+
+            if (!query.getFunctions().isEmpty()) {
+                throw semanticException(NOT_SUPPORTED, table, "View contains inline function: " + name);
+            }
+
             analysis.registerTableForView(table);
             RelationType descriptor = analyzeView(query, name, catalog, schema, owner, path, table);
             analysis.unregisterTableForView();

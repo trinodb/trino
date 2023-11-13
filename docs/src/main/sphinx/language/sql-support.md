@@ -95,6 +95,13 @@ connector to connector:
 - {doc}`/sql/drop-materialized-view`
 - {doc}`/sql/refresh-materialized-view`
 
+(sql-catalog-management)=
+
+### Catalog management
+
+- {doc}`/sql/create-catalog`
+- {doc}`/sql/drop-catalog`
+
 (sql-schema-table-management)=
 
 ### Schema and table management
@@ -115,6 +122,15 @@ connector to connector:
 - {doc}`/sql/create-view`
 - {doc}`/sql/drop-view`
 - {doc}`/sql/alter-view`
+
+(sql-routine-management)=
+### Routine management
+
+The following statements are used to manage [catalog routines](routine-catalog):
+
+- [](/sql/create-function)
+- [](/sql/drop-function)
+- [](/sql/show-functions)
 
 (sql-security-operations)=
 

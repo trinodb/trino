@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>431-SNAPSHOT</version>
+        <version>434-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -124,11 +124,6 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-filesystem</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
-            <artifactId>trino-hadoop-toolkit</artifactId>
         </dependency>
 
         <dependency>
@@ -305,12 +300,14 @@
                         <configuration>
                             <excludes>
                                 <exclude>${isolatedJvmTests}</exclude>
+                                <exclude>**/TestTrinoS3FileSystemAwsS3.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
                 </plugins>
             </build>
         </profile>
+
         <profile>
             <id>test-isolated-jvm-suites</id>
             <build>
@@ -324,6 +321,23 @@
                             </includes>
                             <reuseForks>false</reuseForks>
                             <forkCount>1</forkCount>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <profile>
+            <id>cloud-tests</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/TestTrinoS3FileSystemAwsS3.java</include>
+                            </includes>
                         </configuration>
                     </plugin>
                 </plugins>

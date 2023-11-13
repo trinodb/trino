@@ -30,12 +30,13 @@ import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.RequestPayer;
 import software.amazon.awssdk.services.s3.model.S3Error;
-import software.amazon.awssdk.services.s3.paginators.ListObjectsV2Iterable;
+import software.amazon.awssdk.services.s3.model.S3Object;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -181,8 +182,10 @@ final class S3FileSystem
                 .build();
 
         try {
-            ListObjectsV2Iterable iterable = client.listObjectsV2Paginator(request);
-            return new S3FileIterator(s3Location, iterable.contents().iterator());
+            Iterator<S3Object> iterator = client.listObjectsV2Paginator(request).contents().stream()
+                    .filter(object -> !object.key().endsWith("/"))
+                    .iterator();
+            return new S3FileIterator(s3Location, iterator);
         }
         catch (SdkException e) {
             throw new IOException("Failed to list location: " + location, e);
@@ -242,6 +245,14 @@ final class S3FileSystem
         catch (SdkException e) {
             throw new IOException("Failed to list location: " + location, e);
         }
+    }
+
+    @Override
+    public Optional<Location> createTemporaryDirectory(Location targetPath, String temporaryPrefix, String relativePrefix)
+    {
+        validateS3Location(targetPath);
+        // S3 does not have directories
+        return Optional.empty();
     }
 
     @SuppressWarnings("ResultOfObjectAllocationIgnored")

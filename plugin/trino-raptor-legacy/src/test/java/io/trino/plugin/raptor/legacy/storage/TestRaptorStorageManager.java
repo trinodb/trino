@@ -49,9 +49,11 @@ import org.jdbi.v3.core.Jdbi;
 import org.joda.time.DateTime;
 import org.joda.time.Days;
 import org.joda.time.chrono.ISOChronology;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.io.IOException;
@@ -96,6 +98,8 @@ import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.joda.time.DateTimeZone.UTC;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
@@ -106,7 +110,8 @@ import static org.testng.Assert.fail;
 import static org.testng.FileAssert.assertDirectory;
 import static org.testng.FileAssert.assertFile;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestRaptorStorageManager
 {
     private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstanceUTC();
@@ -134,7 +139,7 @@ public class TestRaptorStorageManager
     private Optional<BackupStore> backupStore;
     private InMemoryShardRecorder shardRecorder;
 
-    @BeforeMethod
+    @BeforeEach
     public void setup()
             throws IOException
     {
@@ -159,7 +164,7 @@ public class TestRaptorStorageManager
         shardRecorder = new InMemoryShardRecorder();
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
             throws Exception
     {

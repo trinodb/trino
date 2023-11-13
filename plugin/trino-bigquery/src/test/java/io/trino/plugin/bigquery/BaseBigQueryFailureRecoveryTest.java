@@ -19,10 +19,12 @@ import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.testing.BaseFailureRecoveryTest;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
-import org.testng.SkipException;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public abstract class BaseBigQueryFailureRecoveryTest
         extends BaseFailureRecoveryTest
@@ -52,58 +54,66 @@ public abstract class BaseBigQueryFailureRecoveryTest
                 });
     }
 
+    @Test
     @Override
     protected boolean areWriteRetriesSupported()
     {
         return true;
     }
 
+    @Test
     @Override
     protected void testAnalyzeTable()
     {
         // This connector does not support analyze
-        throw new SkipException("skipped");
+        abort("skipped");
     }
 
+    @Test
     @Override
     protected void testDelete()
     {
         // This connector does not support modifying table rows
-        throw new SkipException("skipped");
+        abort("skipped");
     }
 
+    @Test
     @Override
     protected void testDeleteWithSubquery()
     {
         // This connector does not support modifying table rows
-        throw new SkipException("skipped");
+        abort("skipped");
     }
 
+    @Test
     @Override
     protected void testMerge()
     {
         // This connector does not support modifying table rows
-        throw new SkipException("skipped");
+        abort("skipped");
     }
 
+    @Test
     @Override
     protected void testRefreshMaterializedView()
     {
         // This connector does not support creating materialized views
-        throw new SkipException("skipped");
+        abort("skipped");
     }
 
+    @Test
     @Override
     protected void testUpdate()
     {
         // This connector does not support modifying table rows
-        throw new SkipException("skipped");
+        abort("skipped");
     }
 
+    @Test
     @Override
     protected void testUpdateWithSubquery()
     {
         // This connector does not support modifying table rows
-        throw new SkipException("skipped");
+        abort("skipped");
     }
 }

@@ -18,6 +18,7 @@ import io.airlift.concurrent.MoreFutures;
 import io.trino.hdfs.authentication.ImpersonatingHdfsAuthentication;
 import io.trino.hdfs.authentication.SimpleHadoopAuthentication;
 import io.trino.spi.security.ConnectorIdentity;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
@@ -34,7 +35,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.base.security.UserNameProvider.SIMPLE_USER_NAME_PROVIDER;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -90,10 +90,10 @@ public class TestFileSystemCache
 
         int maxCacheSize = 1000;
         for (int i = 0; i < maxCacheSize; i++) {
-            assertEquals(TrinoFileSystemCache.INSTANCE.getFileSystemCacheStats().getCacheSize(), i);
+            assertEquals(TrinoFileSystemCacheStats.instance().getCacheSize(), i);
             getFileSystem(environment, ConnectorIdentity.ofUser("user" + i));
         }
-        assertEquals(TrinoFileSystemCache.INSTANCE.getFileSystemCacheStats().getCacheSize(), maxCacheSize);
+        assertEquals(TrinoFileSystemCacheStats.instance().getCacheSize(), maxCacheSize);
         assertThatThrownBy(() -> getFileSystem(environment, ConnectorIdentity.ofUser("user" + maxCacheSize)))
                 .isInstanceOf(IOException.class)
                 .hasMessage("FileSystem max cache size has been reached: " + maxCacheSize);
@@ -115,16 +115,16 @@ public class TestFileSystemCache
         }
         ExecutorService executor = Executors.newFixedThreadPool(numThreads);
 
-        assertEquals(TrinoFileSystemCache.INSTANCE.getFileSystemCacheStats().getCacheSize(), 0);
+        assertEquals(TrinoFileSystemCacheStats.instance().getCacheSize(), 0);
         executor.invokeAll(callableTasks).forEach(MoreFutures::getFutureValue);
         executor.shutdown();
-        assertEquals(TrinoFileSystemCache.INSTANCE.getFileSystemCacheStats().getCacheSize(), 0, "Cache size is non zero");
+        assertEquals(TrinoFileSystemCacheStats.instance().getCacheSize(), 0, "Cache size is non zero");
     }
 
     private static FileSystem getFileSystem(HdfsEnvironment environment, ConnectorIdentity identity)
             throws IOException
     {
-        return environment.getFileSystem(identity, new Path("/"), newEmptyConfiguration());
+        return environment.getFileSystem(identity, new Path("/"), new Configuration(false));
     }
 
     @FunctionalInterface

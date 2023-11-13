@@ -6,7 +6,7 @@ set -euo pipefail -x
 
 abort_if_not_gib_impacted
 
-check_vars S3_BUCKET S3_BUCKET_ENDPOINT \
+check_vars S3_BUCKET S3_BUCKET_ENDPOINT AWS_REGION \
     AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
 
 cleanup_hadoop_docker_containers
@@ -61,6 +61,7 @@ set +e
     -Dhive.hadoop2.metastorePort=9083 \
     -Dhive.hadoop2.databaseName=default \
     -Dhive.hadoop2.s3.endpoint="${S3_BUCKET_ENDPOINT}" \
+    -Dhive.hadoop2.s3.region="${AWS_REGION}" \
     -Dhive.hadoop2.s3.awsAccessKey="${AWS_ACCESS_KEY_ID}" \
     -Dhive.hadoop2.s3.awsSecretKey="${AWS_SECRET_ACCESS_KEY}" \
     -Dhive.hadoop2.s3.writableBucket="${S3_BUCKET}" \

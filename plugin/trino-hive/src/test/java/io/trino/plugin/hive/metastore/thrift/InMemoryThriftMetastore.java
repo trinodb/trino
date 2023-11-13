@@ -27,6 +27,7 @@ import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
+import io.trino.plugin.hive.TableType;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
@@ -40,12 +41,12 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.type.Type;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.metastore.TableType;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
+import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
@@ -62,6 +63,9 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.HiveBasicStatistics.createEmptyStatistics;
+import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
+import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
+import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.partitionKeyFilterToStringList;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiPartition;
 import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
@@ -69,9 +73,6 @@ import static io.trino.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static java.util.Locale.US;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
-import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
-import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
-import static org.apache.hadoop.hive.metastore.TableType.VIRTUAL_VIEW;
 
 public class InMemoryThriftMetastore
         implements ThriftMetastore
@@ -534,12 +535,6 @@ public class InMemoryThriftMetastore
     }
 
     @Override
-    public Set<RoleGrant> listGrantedPrincipals(String role)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public Set<RoleGrant> listRoleGrants(HivePrincipal principal)
     {
         throw new UnsupportedOperationException();
@@ -559,6 +554,36 @@ public class InMemoryThriftMetastore
 
     @Override
     public void revokeTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<io.trino.hive.thrift.metastore.Function> getFunction(String databaseName, String functionName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Collection<String> getFunctions(String databaseName, String functionName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void createFunction(io.trino.hive.thrift.metastore.Function function)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void alterFunction(io.trino.hive.thrift.metastore.Function function)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void dropFunction(String databaseName, String functionName)
     {
         throw new UnsupportedOperationException();
     }

@@ -109,6 +109,7 @@ public class TrinoPreparedStatement
     private final String statementName;
     private final String originalSql;
     private boolean isBatch;
+    private boolean prepareStatementExecuted;
 
     TrinoPreparedStatement(TrinoConnection connection, Consumer<TrinoStatement> onClose, String statementName, String sql)
             throws SQLException
@@ -116,7 +117,10 @@ public class TrinoPreparedStatement
         super(connection, onClose);
         this.statementName = requireNonNull(statementName, "statementName is null");
         this.originalSql = requireNonNull(sql, "sql is null");
-        super.execute(format("PREPARE %s FROM %s", statementName, sql));
+        if (connection().useExplicitPrepare()) {
+            super.execute(format("PREPARE %s FROM %s", statementName, sql));
+            prepareStatementExecuted = true;
+        }
     }
 
     @Override
@@ -683,6 +687,8 @@ public class TrinoPreparedStatement
     public ResultSetMetaData getMetaData()
             throws SQLException
     {
+        prepareStatementIfNecessary();
+
         try (Statement statement = connection().createStatement(); ResultSet resultSet = statement.executeQuery("DESCRIBE OUTPUT " + statementName)) {
             return new TrinoResultSetMetaData(getDescribeOutputColumnInfoList(resultSet));
         }
@@ -720,6 +726,8 @@ public class TrinoPreparedStatement
     public ParameterMetaData getParameterMetaData()
             throws SQLException
     {
+        prepareStatementIfNecessary();
+
         try (Statement statement = connection().createStatement(); ResultSet resultSet = statement.executeQuery("DESCRIBE INPUT " + statementName)) {
             return new TrinoParameterMetaData(getParamerters(resultSet));
         }
@@ -986,7 +994,19 @@ public class TrinoPreparedStatement
         }
     }
 
-    private static String getExecuteSql(String statementName, List<String> values)
+    private String getExecuteImmediateSql(List<String> values)
+    {
+        StringBuilder sql = new StringBuilder();
+        sql.append("EXECUTE IMMEDIATE ");
+        sql.append(formatStringLiteral(originalSql));
+        if (!values.isEmpty()) {
+            sql.append(" USING ");
+            Joiner.on(", ").appendTo(sql, values);
+        }
+        return sql.toString();
+    }
+
+    private String getLegacySql(String statementName, List<String> values)
     {
         StringBuilder sql = new StringBuilder();
         sql.append("EXECUTE ").append(statementName);
@@ -995,6 +1015,14 @@ public class TrinoPreparedStatement
             Joiner.on(", ").appendTo(sql, values);
         }
         return sql.toString();
+    }
+
+    private String getExecuteSql(String statementName, List<String> values)
+            throws SQLException
+    {
+        return connection().useExplicitPrepare()
+                ? getLegacySql(statementName, values)
+                : getExecuteImmediateSql(values);
     }
 
     private static String formatLiteral(String type, String x)
@@ -1116,6 +1144,22 @@ public class TrinoPreparedStatement
             list.add(builder.build());
         }
         return list.build();
+    }
+
+    /*
+    When explicitPrepare is disabled, the PREPARE statement won't be executed unless needed
+    e.g. when getMetadata() or getParameterMetadata() are called.
+    When needed, just make sure it is executed only once, even if the metadata methods are called many times
+     */
+    private void prepareStatementIfNecessary()
+            throws SQLException
+    {
+        if (prepareStatementExecuted) {
+            return;
+        }
+
+        super.execute(format("PREPARE %s FROM %s", statementName, originalSql));
+        prepareStatementExecuted = true;
     }
 
     @VisibleForTesting

@@ -290,7 +290,7 @@ public abstract class BaseBigQueryConnectorTest
                         "Expecting message:\n" +
                         "  \"Cannot read partition information from a table that is not partitioned: \\E\\S+\\Q:tpch.nation$data\"\n" +
                         "to match regex:\n" +
-                        "  \"line 1:1: Table '\\w+.\\w+.nation\\$data' does not exist\"\n" +
+                        "  \"line 1:1: Table '\\w+.\\w+.\"nation\\$data\"' does not exist\"\n" +
                         "but did not.");
         throw new SkipException("TODO");
     }
@@ -576,7 +576,7 @@ public abstract class BaseBigQueryConnectorTest
         // Override because the connector throws an exception instead of an empty result when the value is out of supported range
         assertQuery("SELECT orderdate FROM orders WHERE orderdate = DATE '1997-09-14'", "VALUES DATE '1997-09-14'");
         assertThatThrownBy(() -> query("SELECT * FROM orders WHERE orderdate = DATE '-1996-09-14'"))
-                .hasMessageMatching(".*Row filter for .* is invalid\\. Filter is '\\(`orderdate` = '-1996-09-14'\\)'");
+                .hasMessageMatching(".*Could not cast literal \"-1996-09-14\" to type DATE.*");
     }
 
     @Test
@@ -801,6 +801,18 @@ public abstract class BaseBigQueryConnectorTest
         assertQuery(
                 "SELECT * FROM TABLE(bigquery.system.query(query => 'SELECT 1'))",
                 "VALUES 1");
+    }
+
+    @Test
+    public void testNativeQuerySimpleWithProjectedColumns()
+    {
+        assertQuery(
+                "SELECT z, y, x FROM (SELECT y, z, x FROM TABLE(bigquery.system.query(query => 'SELECT 1 x, 2 y, 3 z')))",
+                "VALUES (3, 2, 1)");
+
+        assertQuery(
+                "SELECT z FROM (SELECT x, y, z FROM TABLE(bigquery.system.query(query => 'SELECT 1 x, 2 y, 3 z')))",
+                "VALUES 3");
     }
 
     @Test

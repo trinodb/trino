@@ -127,6 +127,7 @@ public final class RuntimeAdaptivePartitioningRewriter
                     sourceFragment.getOutputPartitioningScheme().withPartitionCount(Optional.of(newPartitionCount)),
                     sourceFragment.getStatsAndCosts(),
                     sourceFragment.getActiveCatalogs(),
+                    sourceFragment.getLanguageFunctions(),
                     sourceFragment.getJsonRepresentation());
             SubPlan newSource = new SubPlan(
                     runtimeAdaptivePlanFragment,

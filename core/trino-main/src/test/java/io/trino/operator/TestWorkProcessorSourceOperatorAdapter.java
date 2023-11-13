@@ -18,7 +18,6 @@ import com.google.common.util.concurrent.MoreExecutors;
 import io.airlift.units.Duration;
 import io.trino.memory.context.MemoryTrackingContext;
 import io.trino.metadata.Split;
-import io.trino.operator.WorkProcessorSourceOperatorAdapter.AdapterWorkProcessorSourceOperatorFactory;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.spi.Page;
 import io.trino.spi.metrics.Metrics;
@@ -28,6 +27,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -37,8 +37,10 @@ import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestWorkProcessorSourceOperatorAdapter
 {
     private ScheduledExecutorService scheduledExecutor;
@@ -91,7 +93,7 @@ public class TestWorkProcessorSourceOperatorAdapter
     }
 
     private static class TestWorkProcessorOperatorFactory
-            implements AdapterWorkProcessorSourceOperatorFactory
+            implements WorkProcessorSourceOperatorFactory
     {
         @Override
         public WorkProcessorSourceOperator create(

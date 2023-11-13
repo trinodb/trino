@@ -14,7 +14,7 @@
 package io.trino.plugin.prometheus;
 
 import io.airlift.testing.EquivalenceTester;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.prometheus.MetadataUtil.COLUMN_CODEC;
 import static io.trino.spi.type.BigintType.BIGINT;

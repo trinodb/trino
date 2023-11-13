@@ -17,7 +17,7 @@ import io.trino.plugin.kafka.encoder.json.format.JsonDateTimeFormatter;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.TimeZoneKey;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 

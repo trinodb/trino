@@ -643,7 +643,7 @@ public class AddExchanges
 
             PlanWithProperties child = planChild(node, PreferredProperties.any());
 
-            if (!child.getProperties().isSingleNode()) {
+            if (!node.isPartial() && !child.getProperties().isSingleNode()) {
                 child = withDerivedProperties(
                         new LimitNode(idAllocator.getNextId(), child.getNode(), node.getCount(), true),
                         child.getProperties());

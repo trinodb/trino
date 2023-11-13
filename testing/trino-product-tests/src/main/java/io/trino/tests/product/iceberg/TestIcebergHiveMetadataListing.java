@@ -22,7 +22,6 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.google.common.collect.Iterators.getOnlyElement;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tests.product.TestGroups.HMS_ONLY;
 import static io.trino.tests.product.TestGroups.ICEBERG;
@@ -34,7 +33,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class TestIcebergHiveMetadataListing
         extends ProductTest
 {
-    private String storageTable;
     private List<QueryAssert.Row> preexistingTables;
     private List<QueryAssert.Row> preexistingColumns;
 
@@ -55,11 +53,6 @@ public class TestIcebergHiveMetadataListing
         onTrino().executeQuery("CREATE TABLE iceberg.default.iceberg_table1 (_string VARCHAR, _integer INTEGER)");
         onTrino().executeQuery("CREATE MATERIALIZED VIEW iceberg.default.iceberg_materialized_view AS " +
                 "SELECT * FROM iceberg.default.iceberg_table1");
-        storageTable = getOnlyElement(onTrino().executeQuery("SHOW TABLES FROM iceberg.default")
-                .column(1).stream()
-                .map(String.class::cast)
-                .filter(name -> name.startsWith("st_"))
-                .iterator());
 
         onTrino().executeQuery("CREATE TABLE hive.default.hive_table (_double DOUBLE)");
         onTrino().executeQuery("CREATE VIEW hive.default.hive_view AS SELECT * FROM hive.default.hive_table");
@@ -84,7 +77,6 @@ public class TestIcebergHiveMetadataListing
                             .addAll(preexistingTables)
                             .add(row("iceberg_table1"))
                             .add(row("iceberg_materialized_view"))
-                            .add(row(storageTable))
                             .add(row("iceberg_view"))
                             .add(row("hive_table"))
                             // Iceberg connector supports Trino views created via Hive connector
@@ -104,8 +96,6 @@ public class TestIcebergHiveMetadataListing
                         .add(row("iceberg_table1", "_integer"))
                         .add(row("iceberg_materialized_view", "_string"))
                         .add(row("iceberg_materialized_view", "_integer"))
-                        .add(row(storageTable, "_string"))
-                        .add(row(storageTable, "_integer"))
                         .add(row("iceberg_view", "_string"))
                         .add(row("iceberg_view", "_integer"))
                         .add(row("hive_view", "_double"))

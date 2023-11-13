@@ -70,6 +70,7 @@ import static io.trino.client.uri.ConnectionProperties.CLIENT_TAGS;
 import static io.trino.client.uri.ConnectionProperties.DISABLE_COMPRESSION;
 import static io.trino.client.uri.ConnectionProperties.DNS_RESOLVER;
 import static io.trino.client.uri.ConnectionProperties.DNS_RESOLVER_CONTEXT;
+import static io.trino.client.uri.ConnectionProperties.EXPLICIT_PREPARE;
 import static io.trino.client.uri.ConnectionProperties.EXTERNAL_AUTHENTICATION;
 import static io.trino.client.uri.ConnectionProperties.EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS;
 import static io.trino.client.uri.ConnectionProperties.EXTERNAL_AUTHENTICATION_TIMEOUT;
@@ -167,6 +168,7 @@ public class TrinoUri
     private Optional<String> traceToken;
     private Optional<Map<String, String>> sessionProperties;
     private Optional<String> source;
+    private Optional<Boolean> explicitPrepare;
 
     private Optional<String> catalog = Optional.empty();
     private Optional<String> schema = Optional.empty();
@@ -219,7 +221,8 @@ public class TrinoUri
             Optional<String> clientTags,
             Optional<String> traceToken,
             Optional<Map<String, String>> sessionProperties,
-            Optional<String> source)
+            Optional<String> source,
+            Optional<Boolean> explicitPrepare)
             throws SQLException
     {
         this.uri = requireNonNull(uri, "uri is null");
@@ -272,6 +275,7 @@ public class TrinoUri
         this.traceToken = TRACE_TOKEN.getValueOrDefault(urlProperties, traceToken);
         this.sessionProperties = SESSION_PROPERTIES.getValueOrDefault(urlProperties, sessionProperties);
         this.source = SOURCE.getValueOrDefault(urlProperties, source);
+        this.explicitPrepare = EXPLICIT_PREPARE.getValueOrDefault(urlProperties, explicitPrepare);
 
         properties = buildProperties();
 
@@ -357,6 +361,7 @@ public class TrinoUri
         clientTags.ifPresent(value -> properties.setProperty(PropertyName.CLIENT_TAGS.toString(), value));
         traceToken.ifPresent(value -> properties.setProperty(PropertyName.TRACE_TOKEN.toString(), value));
         source.ifPresent(value -> properties.setProperty(PropertyName.SOURCE.toString(), value));
+        explicitPrepare.ifPresent(value -> properties.setProperty(PropertyName.EXPLICIT_PREPARE.toString(), value.toString()));
         return properties;
     }
 
@@ -416,6 +421,7 @@ public class TrinoUri
         this.traceToken = TRACE_TOKEN.getValue(properties);
         this.sessionProperties = SESSION_PROPERTIES.getValue(properties);
         this.source = SOURCE.getValue(properties);
+        this.explicitPrepare = EXPLICIT_PREPARE.getValue(properties);
 
         // enable SSL by default for the trino schema and the standard port
         useSecureConnection = ssl.orElse(uri.getScheme().equals("https") || (uri.getScheme().equals("trino") && uri.getPort() == 443));
@@ -521,6 +527,11 @@ public class TrinoUri
     public Optional<String> getSource()
     {
         return source;
+    }
+
+    public Optional<Boolean> getExplicitPrepare()
+    {
+        return explicitPrepare;
     }
 
     public boolean isCompressionDisabled()
@@ -927,6 +938,7 @@ public class TrinoUri
         private String traceToken;
         private Map<String, String> sessionProperties;
         private String source;
+        private Boolean explicitPrepare;
 
         private Builder() {}
 
@@ -1215,6 +1227,12 @@ public class TrinoUri
             return this;
         }
 
+        public Builder setExplicitPrepare(Boolean explicitPrepare)
+        {
+            this.explicitPrepare = requireNonNull(explicitPrepare, "explicitPrepare is null");
+            return this;
+        }
+
         public TrinoUri build()
                 throws SQLException
         {
@@ -1263,7 +1281,8 @@ public class TrinoUri
                     Optional.ofNullable(clientTags),
                     Optional.ofNullable(traceToken),
                     Optional.ofNullable(sessionProperties),
-                    Optional.ofNullable(source));
+                    Optional.ofNullable(source),
+                    Optional.ofNullable(explicitPrepare));
         }
     }
 }

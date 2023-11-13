@@ -34,7 +34,6 @@ import io.trino.type.SqlIntervalDayTime;
 import io.trino.type.SqlIntervalYearMonth;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -55,14 +54,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.IGNORE_DOWNSTREAM_PREFERENCES;
-import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static io.trino.SystemSessionProperties.LATE_MATERIALIZATION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
-import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.NONE;
 import static io.trino.sql.tree.ExplainType.Type.DISTRIBUTED;
 import static io.trino.sql.tree.ExplainType.Type.IO;
 import static io.trino.sql.tree.ExplainType.Type.LOGICAL;
@@ -77,6 +71,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
@@ -3701,7 +3696,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQuery("SELECT * FROM region r, LATERAL (SELECT r.*)", "SELECT *, * FROM region");
         assertQuery("SELECT * FROM region r, LATERAL (SELECT r.* LIMIT 2)", "SELECT *, * FROM region");
         assertQuery("SELECT r.name, t.a FROM region r, LATERAL (SELECT r.* LIMIT 2) t(a, b, c)", "SELECT name, regionkey FROM region");
-        assertQueryFails("SELECT * FROM region r, LATERAL (SELECT r.* LIMIT 0)", UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+        assertQuery("SELECT * FROM region r, LATERAL (SELECT r.* LIMIT 0)", "SELECT *, * FROM region LIMIT 0");
         assertQuery("SELECT * FROM region r, LATERAL (SELECT r.* WHERE true)", "SELECT *, * FROM region");
         assertQuery("SELECT region.* FROM region, LATERAL (SELECT region.*) region", "SELECT *, * FROM region");
         assertQueryFails("SELECT * FROM region r, LATERAL (SELECT r.* WHERE false)", UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
@@ -6228,18 +6223,6 @@ public abstract class AbstractTestEngineOnlyQueries
         return format("SELECT * FROM (SELECT %s FROM region LIMIT 1) a(%s) INNER JOIN unnest(ARRAY[%s], ARRAY[%2$s]) b(b1, b2) ON true", fields, columns, literals);
     }
 
-    @Test
-    @Timeout(30)
-    public void testLateMaterializationOuterJoin()
-    {
-        Session session = Session.builder(getSession())
-                .setSystemProperty(LATE_MATERIALIZATION, "true")
-                .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.toString())
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.toString())
-                .build();
-        assertQuery(session, "SELECT * FROM (SELECT * FROM nation WHERE nationkey < -1) a RIGHT JOIN nation b ON a.nationkey = b.nationkey");
-    }
-
     /**
      * Regression test for https://github.com/trinodb/trino/pull/7723.
      */
@@ -6610,6 +6593,99 @@ public abstract class AbstractTestEngineOnlyQueries
 
         MaterializedResult showCreateTableResult = computeActual("SHOW CREATE TABLE nation");
         assertEquals(showCreateTableResult.getColumnNames(), ImmutableList.of("Create Table"));
+    }
+
+    @Test
+    public void testInlineSqlFunctions()
+    {
+        assertThat(query("""
+                WITH FUNCTION abc(x integer) RETURNS integer RETURN x * 2
+                SELECT abc(21)
+                """))
+                .matches("VALUES 42");
+        assertThat(query("""
+                WITH FUNCTION abc(x integer) RETURNS integer RETURN abs(x)
+                SELECT abc(-21)
+                """))
+                .matches("VALUES 21");
+
+        assertThat(query("""
+                WITH
+                  FUNCTION abc(x integer) RETURNS integer RETURN x * 2,
+                  FUNCTION xyz(x integer) RETURNS integer RETURN abc(x) + 1
+                SELECT xyz(21)
+                """))
+                .matches("VALUES 43");
+
+        assertThat(query("""
+                WITH
+                  FUNCTION my_pow(n int, p int)
+                  RETURNS int
+                  BEGIN
+                    DECLARE r int DEFAULT n;
+                    top: LOOP
+                      IF p <= 1 THEN
+                        LEAVE top;
+                      END IF;
+                      SET r = r * n;
+                      SET p = p - 1;
+                    END LOOP;
+                    RETURN r;
+                  END
+                SELECT my_pow(2, 8)
+                """))
+                .matches("VALUES 256");
+
+        // validations for inline functions
+        assertQueryFails("WITH FUNCTION a.b() RETURNS int RETURN 42 SELECT a.b()",
+                "line 1:6: Inline function names cannot be qualified: a.b");
+
+        assertQueryFails("WITH FUNCTION x() RETURNS int SECURITY INVOKER RETURN 42 SELECT x()",
+                "line 1:31: Security mode not supported for inline functions");
+
+        assertQueryFails("WITH FUNCTION x() RETURNS bigint SECURITY DEFINER RETURN 42 SELECT x()",
+                "line 1:34: Security mode not supported for inline functions");
+
+        // Verify the current restrictions on inline functions are enforced
+
+        // inline function can mask a global function
+        assertThat(query("""
+                WITH FUNCTION abs(x integer) RETURNS integer RETURN x * 2
+                SELECT abs(-10)
+                """))
+                .matches("VALUES -20");
+        assertThat(query("""
+                WITH
+                  FUNCTION abs(x integer) RETURNS integer RETURN x * 2,
+                  FUNCTION wrap_abs(x integer) RETURNS integer RETURN abs(x)
+                SELECT wrap_abs(-10)
+                """))
+                .matches("VALUES -20");
+
+        // inline function can have the same name as a global function with a different signature
+        assertThat(query("""
+                WITH FUNCTION abs(x varchar) RETURNS varchar RETURN reverse(x)
+                SELECT abs('abc')
+                """))
+                .skippingTypesCheck()
+                .matches("VALUES 'cba'");
+
+        // inline functions must be declared before they are used
+        assertThatThrownBy(() -> query("""
+                WITH
+                  FUNCTION a(x integer) RETURNS integer RETURN b(x),
+                  FUNCTION b(x integer) RETURNS integer RETURN x * 2
+                SELECT a(10)
+                """))
+                .hasMessage("line 3:8: Function 'b' not registered");
+
+        // inline function cannot be recursive
+        // note: mutual recursion is not supported either, but it is not tested due to the forward declaration limitation above
+        assertThatThrownBy(() -> query("""
+                WITH FUNCTION a(x integer) RETURNS integer RETURN a(x)
+                SELECT a(10)
+                """))
+                .hasMessage("line 3:8: Recursive language functions are not supported: a(integer):integer");
     }
 
     private static ZonedDateTime zonedDateTime(String value)

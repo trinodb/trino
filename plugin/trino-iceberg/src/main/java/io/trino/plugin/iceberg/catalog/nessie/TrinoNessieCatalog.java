@@ -81,7 +81,7 @@ public class TrinoNessieCatalog
             String warehouseLocation,
             boolean useUniqueTableLocation)
     {
-        super(catalogName, typeManager, tableOperationsProvider, useUniqueTableLocation);
+        super(catalogName, typeManager, tableOperationsProvider, fileSystemFactory, useUniqueTableLocation);
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.warehouseLocation = requireNonNull(warehouseLocation, "warehouseLocation is null");
         this.nessieClient = requireNonNull(nessieClient, "nessieClient is null");
@@ -254,6 +254,27 @@ public class TrinoNessieCatalog
     }
 
     @Override
+    public Transaction newCreateOrReplaceTableTransaction(
+            ConnectorSession session,
+            SchemaTableName schemaTableName,
+            Schema schema,
+            PartitionSpec partitionSpec,
+            SortOrder sortOrder,
+            String location,
+            Map<String, String> properties)
+    {
+        return newCreateOrReplaceTableTransaction(
+                session,
+                schemaTableName,
+                schema,
+                partitionSpec,
+                sortOrder,
+                location,
+                properties,
+                Optional.of(session.getUser()));
+    }
+
+    @Override
     public void registerTable(ConnectorSession session, SchemaTableName tableName, TableMetadata tableMetadata)
     {
         throw new TrinoException(NOT_SUPPORTED, "registerTable is not supported for Iceberg Nessie catalogs");
@@ -373,6 +394,12 @@ public class TrinoNessieCatalog
     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName schemaViewName)
     {
         return Optional.empty();
+    }
+
+    @Override
+    public Optional<BaseTable> getMaterializedViewStorageTable(ConnectorSession session, SchemaTableName viewName)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "The Iceberg Nessie catalog does not support materialized views");
     }
 
     @Override

@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>431-SNAPSHOT</version>
+        <version>434-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -125,6 +125,12 @@
         </dependency>
 
         <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.openjdk.jmh</groupId>
             <artifactId>jmh-core</artifactId>
             <scope>test</scope>
@@ -157,17 +163,6 @@
         </resources>
 
         <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <dependencies>
-                    <dependency>
-                        <groupId>org.junit.jupiter</groupId>
-                        <artifactId>junit-jupiter-engine</artifactId>
-                        <version>${dep.junit.version}</version>
-                    </dependency>
-                </dependencies>
-            </plugin>
             <plugin>
                 <groupId>org.revapi</groupId>
                 <artifactId>revapi-maven-plugin</artifactId>
@@ -218,181 +213,15 @@
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <!-- Any exclusions below can be deleted after each release -->
                                 <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.removed</code>
-                                    <old>method java.util.Optional&lt;io.trino.spi.type.Type&gt; io.trino.spi.connector.ConnectorMetadata::getSupportedType(io.trino.spi.connector.ConnectorSession, io.trino.spi.type.Type)</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method void io.trino.spi.connector.ConnectorAccessControl::checkCanExecuteFunction(io.trino.spi.connector.ConnectorSecurityContext, io.trino.spi.function.FunctionKind, io.trino.spi.connector.SchemaRoutineName)</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method void io.trino.spi.security.SystemAccessControl::checkCanExecuteFunction(io.trino.spi.security.SystemSecurityContext, io.trino.spi.function.FunctionKind, io.trino.spi.connector.CatalogSchemaRoutineName)</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method void io.trino.spi.security.SystemAccessControl::checkCanExecuteFunction(io.trino.spi.security.SystemSecurityContext, java.lang.String)</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method void io.trino.spi.security.SystemAccessControl::checkCanGrantExecuteFunctionPrivilege(io.trino.spi.security.SystemSecurityContext, java.lang.String, io.trino.spi.security.TrinoPrincipal, boolean)</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method void io.trino.spi.security.SystemAccessControl::checkCanAccessCatalog(io.trino.spi.security.SystemSecurityContext, java.lang.String)</old>
-                                </item>
-                                <item>
-                                    <code>java.method.parameterTypeChanged</code>
-                                    <old>parameter void io.trino.spi.security.AccessDeniedException::denyGrantExecuteFunctionPrivilege(java.lang.String, io.trino.spi.security.Identity, ===io.trino.spi.security.Identity===)</old>
-                                    <new>parameter void io.trino.spi.security.AccessDeniedException::denyGrantExecuteFunctionPrivilege(java.lang.String, io.trino.spi.security.Identity, ===io.trino.spi.security.TrinoPrincipal===)</new>
-                                    <parameterIndex>2</parameterIndex>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method void io.trino.spi.security.AccessDeniedException::denyGrantExecuteFunctionPrivilege(java.lang.String, io.trino.spi.security.Identity, java.lang.String)</old>
-                                </item>
-                                <item>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method void io.trino.spi.connector.ConnectorMaterializedViewDefinition::&lt;init&gt;(java.lang.String, java.util.Optional&lt;io.trino.spi.connector.CatalogSchemaTableName&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.List&lt;io.trino.spi.connector.ConnectorMaterializedViewDefinition.Column&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Map&lt;java.lang.String, java.lang.Object&gt;)</old>
-                                    <new>method void io.trino.spi.connector.ConnectorMaterializedViewDefinition::&lt;init&gt;(java.lang.String, java.util.Optional&lt;io.trino.spi.connector.CatalogSchemaTableName&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.List&lt;io.trino.spi.connector.ConnectorMaterializedViewDefinition.Column&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.List&lt;io.trino.spi.connector.CatalogSchemaName&gt;, java.util.Map&lt;java.lang.String, java.lang.Object&gt;)</new>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method void io.trino.spi.connector.ConnectorMaterializedViewDefinition::&lt;init&gt;(java.lang.String, java.util.Optional&lt;io.trino.spi.connector.CatalogSchemaTableName&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.List&lt;io.trino.spi.connector.ConnectorMaterializedViewDefinition.Column&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Map&lt;java.lang.String, java.lang.Object&gt;)</old>
-                                </item>
-                                <item>
-                                    <code>java.method.numberOfParametersChanged</code>
-                                    <old>method void io.trino.spi.connector.ConnectorViewDefinition::&lt;init&gt;(java.lang.String, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.List&lt;io.trino.spi.connector.ConnectorViewDefinition.ViewColumn&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, boolean)</old>
-                                    <new>method void io.trino.spi.connector.ConnectorViewDefinition::&lt;init&gt;(java.lang.String, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.List&lt;io.trino.spi.connector.ConnectorViewDefinition.ViewColumn&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, boolean, java.util.List&lt;io.trino.spi.connector.CatalogSchemaName&gt;)</new>
-                                </item>
-                                <item>
-                                    <code>java.method.visibilityReduced</code>
-                                    <old>method void io.trino.spi.security.ViewExpression::&lt;init&gt;(java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.lang.String)</old>
-                                    <new>method void io.trino.spi.security.ViewExpression::&lt;init&gt;(java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.lang.String, java.util.List&lt;io.trino.spi.connector.CatalogSchemaName&gt;)</new>
-                                    <oldVisibility>public</oldVisibility>
-                                    <newVisibility>private</newVisibility>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method void io.trino.spi.connector.ConnectorAccessControl::checkCanGrantExecuteFunctionPrivilege(io.trino.spi.connector.ConnectorSecurityContext, io.trino.spi.function.FunctionKind, io.trino.spi.connector.SchemaRoutineName, io.trino.spi.security.TrinoPrincipal, boolean)</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method void io.trino.spi.security.SystemAccessControl::checkCanGrantExecuteFunctionPrivilege(io.trino.spi.security.SystemSecurityContext, io.trino.spi.function.FunctionKind, io.trino.spi.connector.CatalogSchemaRoutineName, io.trino.spi.security.TrinoPrincipal, boolean)</old>
-                                </item>
-                                <item>
-                                    <code>java.class.removed</code>
-                                    <old>class io.trino.spi.block.AbstractSingleArrayBlock</old>
-                                </item>
-                                <item>
-                                    <code>java.class.removed</code>
-                                    <old>class io.trino.spi.block.AbstractArrayBlock</old>
-                                </item>
-                                <item>
-                                    <code>java.method.parameterTypeChanged</code>
-                                    <old>parameter &lt;T&gt; T io.trino.spi.block.AbstractArrayBlock::apply(===io.trino.spi.block.AbstractArrayBlock.ArrayBlockFunction&lt;T&gt;===, int) @ io.trino.spi.block.ArrayBlock</old>
-                                    <new>parameter &lt;T&gt; T io.trino.spi.block.ArrayBlock::apply(===io.trino.spi.block.ArrayBlock.ArrayBlockFunction&lt;T&gt;===, int)</new>
-                                    <parameterIndex>0</parameterIndex>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method boolean[] io.trino.spi.block.ArrayBlock::getValueIsNull()</old>
-                                </item>
-                                <item>
-                                    <code>java.class.noLongerInheritsFromClass</code>
-                                    <old>class io.trino.spi.block.ArrayBlock</old>
-                                    <new>class io.trino.spi.block.ArrayBlock</new>
-                                </item>
-                                <item>
-                                    <code>java.class.removed</code>
-                                    <old>class io.trino.spi.block.AbstractMapBlock</old>
-                                </item>
-                                <item>
-                                    <code>java.class.removed</code>
-                                    <old>class io.trino.spi.block.AbstractSingleMapBlock</old>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method boolean[] io.trino.spi.block.MapBlock::getMapIsNull()</old>
-                                </item>
-                                <item>
-                                    <code>java.class.noLongerInheritsFromClass</code>
-                                    <old>class io.trino.spi.block.MapBlock</old>
-                                    <new>class io.trino.spi.block.MapBlock</new>
-                                </item>
-                                <item>
                                     <code>java.class.nonPublicPartOfAPI</code>
-                                    <new>class io.trino.spi.block.SingleMapBlock.HashTableSupplier</new>
-                                </item>
-                                <item>
-                                    <code>java.method.visibilityIncreased</code>
-                                    <old>method void io.trino.spi.block.SingleMapBlock::&lt;init&gt;(int, int, io.trino.spi.block.AbstractMapBlock)</old>
-                                    <new>method void io.trino.spi.block.SingleMapBlock::&lt;init&gt;(io.trino.spi.type.MapType, io.trino.spi.block.Block, io.trino.spi.block.Block, io.trino.spi.block.SingleMapBlock.HashTableSupplier, int, int)</new>
-                                    <oldVisibility>package</oldVisibility>
-                                    <newVisibility>public</newVisibility>
-                                </item>
-                                <item>
-                                    <code>java.method.visibilityReduced</code>
-                                    <old>method int io.trino.spi.block.SingleMapBlock::getOffset()</old>
-                                    <new>method int io.trino.spi.block.SingleMapBlock::getOffset()</new>
-                                    <oldVisibility>public</oldVisibility>
-                                    <newVisibility>package</newVisibility>
-                                </item>
-                                <item>
-                                    <code>java.class.noLongerInheritsFromClass</code>
-                                    <old>class io.trino.spi.block.SingleMapBlock</old>
-                                    <new>class io.trino.spi.block.SingleMapBlock</new>
-                                </item>
-                                <item>
-                                    <code>java.class.removed</code>
-                                    <old>class io.trino.spi.block.AbstractRowBlock</old>
-                                </item>
-                                <item>
-                                    <code>java.class.removed</code>
-                                    <old>class io.trino.spi.block.AbstractSingleRowBlock</old>
-                                </item>
-                                <item>
-                                    <code>java.field.visibilityReduced</code>
-                                    <old>field io.trino.spi.block.AbstractRowBlock.numFields @ io.trino.spi.block.RowBlock</old>
-                                    <new>field io.trino.spi.block.RowBlock.numFields</new>
-                                    <oldVisibility>protected</oldVisibility>
-                                    <newVisibility>private</newVisibility>
-                                </item>
-                                <item>
-                                    <code>java.method.returnTypeChanged</code>
-                                    <old>method io.trino.spi.block.Block[] io.trino.spi.block.RowBlock::getRawFieldBlocks()</old>
-                                    <new>method java.util.List&lt;io.trino.spi.block.Block&gt; io.trino.spi.block.RowBlock::getRawFieldBlocks()</new>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method boolean[] io.trino.spi.block.RowBlock::getRowIsNull()</old>
-                                </item>
-                                <item>
-                                    <code>java.class.noLongerInheritsFromClass</code>
-                                    <old>class io.trino.spi.block.RowBlock</old>
-                                    <new>class io.trino.spi.block.RowBlock</new>
-                                </item>
-                                <item>
-                                    <code>java.method.removed</code>
-                                    <old>method io.trino.spi.block.Block io.trino.spi.block.SingleRowBlock::getRawFieldBlock(int)</old>
-                                </item>
-                                <item>
-                                    <code>java.class.noLongerInheritsFromClass</code>
-                                    <old>class io.trino.spi.block.SingleRowBlock</old>
-                                    <new>class io.trino.spi.block.SingleRowBlock</new>
-                                </item>
-                                <item>
-                                    <code>java.class.removed</code>
-                                    <old>class io.trino.spi.block.SingleMapBlock</old>
-                                </item>
-                                <item>
-                                    <code>java.class.removed</code>
-                                    <old>class io.trino.spi.block.SingleMapBlockEncoding</old>
-                                </item>
-                                <item>
-                                    <code>java.class.nonPublicPartOfAPI</code>
+                                    <old>class io.trino.spi.block.SqlMap.HashTableSupplier</old>
                                     <new>class io.trino.spi.block.SqlMap.HashTableSupplier</new>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method void io.trino.spi.block.SqlMap::&lt;init&gt;(io.trino.spi.type.MapType, io.trino.spi.block.Block, io.trino.spi.block.Block, io.trino.spi.block.SqlMap.HashTableSupplier, int, int)</old>
+                                    <new>method void io.trino.spi.block.SqlMap::&lt;init&gt;(io.trino.spi.type.MapType, io.trino.spi.block.Block, io.trino.spi.block.Block, io.trino.spi.block.SqlMap.HashTableSupplier, int, int)</new>
+                                    <oldVisibility>public</oldVisibility>
                                 </item>
                                 <item>
                                     <code>java.method.returnTypeChangedCovariantly</code>
@@ -785,11 +614,6 @@
                                     <code>java.method.returnTypeChangedCovariantly</code>
                                     <old>method io.trino.spi.block.Block io.trino.spi.block.ArrayBlock::fromElementBlock(int, java.util.Optional&lt;boolean[]&gt;, int[], io.trino.spi.block.Block)</old>
                                     <new>method io.trino.spi.block.ArrayBlock io.trino.spi.block.ArrayBlock::fromElementBlock(int, java.util.Optional&lt;boolean[]&gt;, int[], io.trino.spi.block.Block)</new>
-                                </item>
-                                <item>
-                                    <code>java.method.returnTypeChangedCovariantly</code>
-                                    <old>method io.trino.spi.block.Block io.trino.spi.block.RowBlock::fromFieldBlocks(int, java.util.Optional&lt;boolean[]&gt;, io.trino.spi.block.Block[])</old>
-                                    <new>method io.trino.spi.block.RowBlock io.trino.spi.block.RowBlock::fromFieldBlocks(int, java.util.Optional&lt;boolean[]&gt;, io.trino.spi.block.Block[])</new>
                                 </item>
                                 <item>
                                     <code>java.method.returnTypeChangedCovariantly</code>
@@ -1198,6 +1022,43 @@
                                     <new>method int io.trino.spi.block.VariableWidthBlock::getPositionOffset(int)</new>
                                     <oldVisibility>protected</oldVisibility>
                                     <newVisibility>package</newVisibility>
+                                </item>
+                                <item>
+                                    <code>java.class.removed</code>
+                                    <old>class io.trino.spi.block.ColumnarRow</old>
+                                </item>
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method io.trino.spi.block.RowBlock io.trino.spi.block.RowBlock::fromFieldBlocks(int, java.util.Optional&lt;boolean[]&gt;, io.trino.spi.block.Block[])</old>
+                                    <new>method io.trino.spi.block.RowBlock io.trino.spi.block.RowBlock::fromFieldBlocks(int, io.trino.spi.block.Block[])</new>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method int[] io.trino.spi.block.RowBlock::getFieldBlockOffsets()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.block.RowBlock::getOffsetBase()</old>
+                                </item>
+                                <item>
+                                    <code>java.method.removed</code>
+                                    <old>method int io.trino.spi.block.RowBlock::getFieldBlockOffset(int)</old>
+                                </item>
+                                <item>
+                                    <code>java.method.returnTypeChanged</code>
+                                    <old>method java.util.List&lt;io.trino.spi.block.Block&gt; io.trino.spi.block.RowBlock::getRawFieldBlocks()</old>
+                                    <new>method io.trino.spi.block.Block[] io.trino.spi.block.RowBlock::getRawFieldBlocks()</new>
+                                </item>
+                                <item>
+                                    <code>java.method.visibilityReduced</code>
+                                    <old>method java.util.List&lt;io.trino.spi.block.Block&gt; io.trino.spi.block.RowBlock::getRawFieldBlocks()</old>
+                                    <new>method io.trino.spi.block.Block[] io.trino.spi.block.RowBlock::getRawFieldBlocks()</new>
+                                    <oldVisibility>protected</oldVisibility>
+                                    <newVisibility>package</newVisibility>
+                                </item>
+                                <item>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method java.lang.String io.trino.spi.security.SystemAccessControlFactory.SystemAccessControlContext::getVersion()</new>
                                 </item>
                             </differences>
                         </revapi.differences>
