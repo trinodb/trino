@@ -51,6 +51,7 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantFalse;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantLong;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
+import static io.airlift.bytecode.expression.BytecodeExpressions.equal;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.lessThan;
@@ -378,6 +379,8 @@ public final class FlatHashStrategyCompiler
         BytecodeBlock body = methodDefinition.getBody();
         body.append(invokeStatic(Objects.class, "checkFromIndexSize", int.class, constantInt(0), length, hashes.length()).pop());
 
+        BytecodeBlock nonEmptyLength = new BytecodeBlock();
+
         Map<Type, MethodDefinition> typeMethods = new HashMap<>();
         for (KeyField keyField : keyFields) {
             MethodDefinition method;
@@ -393,9 +396,13 @@ public final class FlatHashStrategyCompiler
                     typeMethods.put(keyField.type(), method);
                 }
             }
-            body.append(invokeStatic(method, blocks.getElement(keyField.index()), hashes, offset, length));
+            nonEmptyLength.append(invokeStatic(method, blocks.getElement(keyField.index()), hashes, offset, length));
         }
-        body.ret();
+
+        body.append(new IfStatement("if (length != 0)")
+                .condition(equal(length, constantInt(0)))
+                .ifFalse(nonEmptyLength))
+                .ret();
     }
 
     private static MethodDefinition generateHashBlockVectorized(ClassDefinition definition, KeyField field, CallSiteBinder callSiteBinder)
