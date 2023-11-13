@@ -25,6 +25,10 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
+import io.trino.parquet.ParquetDataSource;
+import io.trino.parquet.ParquetReaderOptions;
+import io.trino.parquet.reader.MetadataReader;
+import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -33,6 +37,7 @@ import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.Storage;
+import io.trino.plugin.hive.parquet.TrinoParquetDataSource;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergFileFormat;
 import io.trino.plugin.iceberg.IcebergSecurityConfig;
@@ -69,8 +74,10 @@ import org.apache.iceberg.mapping.NameMapping;
 import org.apache.iceberg.parquet.ParquetUtil;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
+import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -78,6 +85,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -387,10 +395,21 @@ public class MigrateProcedure
     {
         return switch (storageFormat) {
             case ORC -> OrcMetrics.fileMetrics(file, METRICS_CONFIG, schema);
-            case PARQUET -> ParquetUtil.fileMetrics(new ForwardingInputFile(file), METRICS_CONFIG, MappingUtil.create(schema));
+            case PARQUET -> parquetMetrics(file, METRICS_CONFIG, MappingUtil.create(schema));
             case AVRO -> new Metrics(Avro.rowCount(new ForwardingInputFile(file)), null, null, null, null);
             default -> throw new TrinoException(NOT_SUPPORTED, "Unsupported storage format: " + storageFormat);
         };
+    }
+
+    private static Metrics parquetMetrics(TrinoInputFile file, MetricsConfig metricsConfig, NameMapping nameMapping)
+    {
+        try (ParquetDataSource dataSource = new TrinoParquetDataSource(file, new ParquetReaderOptions(), new FileFormatDataSourceStats())) {
+            ParquetMetadata metadata = MetadataReader.readFooter(dataSource, Optional.empty());
+            return ParquetUtil.footerMetrics(metadata, Stream.empty(), metricsConfig, nameMapping);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException("Failed to read file footer: " + file.location(), e);
+        }
     }
 
     private static List<String> toPartitionFields(io.trino.plugin.hive.metastore.Table table)
