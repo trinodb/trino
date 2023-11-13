@@ -31,9 +31,9 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import org.intellij.lang.annotations.Language;
-import org.testng.SkipException;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
@@ -56,8 +56,11 @@ import static io.trino.tpch.TpchTable.REGION;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertFalse;
 
+@TestInstance(PER_CLASS)
 public class TestDruidConnectorTest
         extends BaseJdbcConnectorTest
 {
@@ -75,7 +78,7 @@ public class TestDruidConnectorTest
                 ImmutableList.of(ORDERS, LINE_ITEM, NATION, REGION, PART, CUSTOMER));
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void destroy()
     {
         druidServer = null; // closed by closeAfterClass
@@ -126,7 +129,7 @@ public class TestDruidConnectorTest
                 .build();
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     @Override
     public void testShowColumns()
     {
@@ -302,30 +305,33 @@ public class TestDruidConnectorTest
     @Override
     public void testInsertNegativeDate()
     {
-        throw new SkipException("Druid connector does not map 'orderdate' column to date type and INSERT statement");
+        abort("Druid connector does not map 'orderdate' column to date type and INSERT statement");
     }
 
     @Test
     @Override
     public void testDateYearOfEraPredicate()
     {
-        throw new SkipException("Druid connector does not map 'orderdate' column to date type");
+        abort("Druid connector does not map 'orderdate' column to date type");
     }
 
+    @Test
     @Override
     public void testCharTrailingSpace()
     {
         assertThatThrownBy(super::testCharTrailingSpace)
                 .hasMessageContaining("Error while executing SQL \"CREATE TABLE druid.char_trailing_space");
-        throw new SkipException("Implement test for Druid");
+        abort("Implement test for Druid");
     }
 
+    @Test
     @Override
     public void testNativeQuerySelectFromTestTable()
     {
-        throw new SkipException("cannot create test table for Druid");
+        abort("cannot create test table for Druid");
     }
 
+    @Test
     @Override
     public void testNativeQueryCreateStatement()
     {
@@ -336,10 +342,11 @@ public class TestDruidConnectorTest
         assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
     }
 
+    @Test
     @Override
     public void testNativeQueryInsertStatementTableExists()
     {
-        throw new SkipException("cannot create test table for Druid");
+        abort("cannot create test table for Druid");
     }
 
     @Test

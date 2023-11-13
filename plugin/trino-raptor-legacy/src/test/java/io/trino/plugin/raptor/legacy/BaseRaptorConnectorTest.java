@@ -25,8 +25,7 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.testng.services.Flaky;
 import org.intellij.lang.annotations.Language;
-import org.testng.SkipException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -59,6 +58,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
@@ -90,7 +90,7 @@ public abstract class BaseRaptorConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        throw new SkipException("Raptor connector does not support column default values");
+        return abort("Raptor connector does not support column default values");
     }
 
     @Override
@@ -256,11 +256,15 @@ public abstract class BaseRaptorConnectorTest
         assertEquals(actual, IntStream.range(0, 50).boxed().collect(toSet()));
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Column '\\$bucket_number' cannot be resolved")
+    @Test
     public void testNoBucketNumberHiddenColumn()
     {
-        assertUpdate("CREATE TABLE test_no_bucket_number (test bigint)");
-        computeActual("SELECT DISTINCT \"$bucket_number\" FROM test_no_bucket_number");
+        assertThatThrownBy(() -> {
+            assertUpdate("CREATE TABLE test_no_bucket_number (test bigint)");
+            computeActual("SELECT DISTINCT \"$bucket_number\" FROM test_no_bucket_number");
+        })
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageMatching(".*Column '\\$bucket_number' cannot be resolved");
     }
 
     @Test

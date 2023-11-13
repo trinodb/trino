@@ -21,7 +21,6 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
-import org.testng.SkipException;
 
 import java.util.Optional;
 
@@ -29,6 +28,7 @@ import static io.trino.plugin.accumulo.AccumuloQueryRunner.createAccumuloQueryRu
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -78,9 +78,10 @@ public class TestAccumuloConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        throw new SkipException("Accumulo connector does not support column default values");
+        return abort("Accumulo connector does not support column default values");
     }
 
+    @Test
     @Override
     public void testCreateTableAsSelect()
     {
@@ -115,6 +116,7 @@ public class TestAccumuloConnectorTest
                 "SELECT 0");
     }
 
+    @Test
     @Override
     public void testInsert()
     {
@@ -151,6 +153,7 @@ public class TestAccumuloConnectorTest
         assertUpdate("DROP TABLE test_insert");
     }
 
+    @Test
     @Override // Overridden because we currently do not support arrays with null elements
     public void testInsertArray()
     {
@@ -297,6 +300,7 @@ public class TestAccumuloConnectorTest
         return Optional.of(dataMappingTestSetup);
     }
 
+    @Test
     @Override
     public void testCharVarcharComparison()
     {

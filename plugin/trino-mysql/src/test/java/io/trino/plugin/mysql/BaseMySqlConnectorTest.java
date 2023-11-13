@@ -23,7 +23,7 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -102,7 +102,7 @@ public abstract class BaseMySqlConnectorTest
                 "(one bigint, two decimal(50,0), three varchar(10))");
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     @Override
     public void testShowColumns()
     {
@@ -164,6 +164,7 @@ public abstract class BaseMySqlConnectorTest
                 .build();
     }
 
+    @Test
     @Override
     public void testShowCreateTable()
     {
@@ -181,6 +182,7 @@ public abstract class BaseMySqlConnectorTest
                         ")");
     }
 
+    @Test
     @Override
     public void testDeleteWithLike()
     {
@@ -261,6 +263,7 @@ public abstract class BaseMySqlConnectorTest
         assertUpdate("DROP TABLE test_column_comment");
     }
 
+    @Test
     @Override
     public void testAddNotNullColumn()
     {
@@ -509,6 +512,7 @@ public abstract class BaseMySqlConnectorTest
         onRemoteDatabase().execute("SELECT count(*) FROM tpch.orders WHERE " + longInClauses);
     }
 
+    @Test
     @Override
     public void testNativeQueryInsertStatementTableDoesNotExist()
     {
@@ -518,6 +522,7 @@ public abstract class BaseMySqlConnectorTest
                 .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: INSERT INTO non_existent_table VALUES (1)");
     }
 
+    @Test
     @Override
     public void testNativeQueryIncorrectSyntax()
     {

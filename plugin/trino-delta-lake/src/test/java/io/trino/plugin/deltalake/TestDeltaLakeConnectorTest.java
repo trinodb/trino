@@ -38,9 +38,7 @@ import io.trino.testing.minio.MinioClient;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import org.intellij.lang.annotations.Language;
-import org.testng.SkipException;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
 import java.time.ZonedDateTime;
@@ -85,6 +83,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -141,12 +140,6 @@ public class TestDeltaLakeConnectorTest
         }
 
         return queryRunner;
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        minioClient = null; // closed by closeAfterClass
     }
 
     @Override
@@ -239,7 +232,7 @@ public class TestDeltaLakeConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        throw new SkipException("Delta Lake does not support columns with a default value");
+        return abort("Delta Lake does not support columns with a default value");
     }
 
     @Override
@@ -362,6 +355,7 @@ public class TestDeltaLakeConnectorTest
                 "Using array, map or row type on partitioned columns is unsupported");
     }
 
+    @Test
     @Override
     public void testShowCreateSchema()
     {
@@ -373,6 +367,7 @@ public class TestDeltaLakeConnectorTest
                         ")", getSession().getCatalog().orElseThrow(), schemaName, bucketName));
     }
 
+    @Test
     @Override
     public void testDropNonEmptySchemaWithTable()
     {
@@ -388,6 +383,7 @@ public class TestDeltaLakeConnectorTest
         assertUpdate("DROP SCHEMA " + schemaName);
     }
 
+    @Test
     @Override
     public void testDropColumn()
     {
@@ -397,6 +393,7 @@ public class TestDeltaLakeConnectorTest
                 .hasMessageContaining("Cannot drop column from table using column mapping mode NONE");
     }
 
+    @Test
     @Override
     public void testAddAndDropColumnName()
     {
@@ -408,6 +405,7 @@ public class TestDeltaLakeConnectorTest
         }
     }
 
+    @Test
     @Override
     public void testDropAndAddColumnWithSameName()
     {
@@ -445,6 +443,7 @@ public class TestDeltaLakeConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
     @Override
     public void testRenameColumn()
     {
@@ -454,6 +453,7 @@ public class TestDeltaLakeConnectorTest
                 .hasMessageContaining("Cannot rename column in table using column mapping mode NONE");
     }
 
+    @Test
     @Override
     public void testRenameColumnWithComment()
     {
@@ -490,6 +490,7 @@ public class TestDeltaLakeConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
     @Override
     public void testAlterTableRenameColumnToLongName()
     {
@@ -499,6 +500,7 @@ public class TestDeltaLakeConnectorTest
                 .hasMessageContaining("Cannot rename column in table using column mapping mode NONE");
     }
 
+    @Test
     @Override
     public void testRenameColumnName()
     {
@@ -510,6 +512,7 @@ public class TestDeltaLakeConnectorTest
         }
     }
 
+    @Test
     @Override
     public void testCharVarcharComparison()
     {
@@ -878,6 +881,7 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    @Override
     public void testMergeMultipleOperations()
     {
         testMergeMultipleOperations("");
@@ -970,6 +974,7 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    @Override
     public void testMergeMultipleRowsMatchFails()
     {
         testMergeMultipleRowsMatchFails("CREATE TABLE %s (customer VARCHAR, purchases INT, address VARCHAR) WITH (location = 's3://%s/%s')");

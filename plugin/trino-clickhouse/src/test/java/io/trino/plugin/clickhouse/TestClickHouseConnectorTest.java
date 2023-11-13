@@ -22,8 +22,8 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
-import org.testng.SkipException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -49,6 +49,7 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -105,13 +106,15 @@ public class TestClickHouseConnectorTest
         assertUpdate("ALTER TABLE test SET PROPERTIES sample_by = 'p2'");
     }
 
+    @Test
     @Override
     public void testRenameColumn()
     {
         // ClickHouse need resets all data in a column for specified column which to be renamed
-        throw new SkipException("TODO: test not implemented yet");
+        abort("TODO: test not implemented yet");
     }
 
+    @Test
     @Override
     public void testRenameColumnWithComment()
     {
@@ -136,6 +139,7 @@ public class TestClickHouseConnectorTest
         }
     }
 
+    @Test
     @Override
     public void testDropAndAddColumnWithSameName()
     {
@@ -154,7 +158,8 @@ public class TestClickHouseConnectorTest
         return format("CREATE TABLE %s(%s varchar(50), value varchar(50) NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['value'])", tableName, columnNameInSql);
     }
 
-    @Test(enabled = false)
+    @Test
+    @Disabled
     @Override
     public void testRenameColumnName()
     {
@@ -170,6 +175,7 @@ public class TestClickHouseConnectorTest
         return Optional.of(columnName);
     }
 
+    @Test
     @Override
     public void testDropColumn()
     {
@@ -207,6 +213,7 @@ public class TestClickHouseConnectorTest
         return "(x VARCHAR NOT NULL) WITH (engine = 'MergeTree', order_by = ARRAY['x'])";
     }
 
+    @Test
     @Override // Overridden because the default storage type doesn't support adding columns
     public void testAddNotNullColumnToEmptyTable()
     {
@@ -222,6 +229,7 @@ public class TestClickHouseConnectorTest
         }
     }
 
+    @Test
     @Override // Overridden because (a) the default storage type doesn't support adding columns and (b) ClickHouse has implicit default value for new NON NULL column
     public void testAddNotNullColumn()
     {
@@ -256,18 +264,20 @@ public class TestClickHouseConnectorTest
         }
     }
 
+    @Test
     @Override
     public void testAlterTableAddLongColumnName()
     {
         // TODO: Find the maximum column name length in ClickHouse and enable this test.
-        throw new SkipException("TODO");
+        abort("TODO");
     }
 
+    @Test
     @Override
     public void testAlterTableRenameColumnToLongName()
     {
         // TODO: Find the maximum column name length in ClickHouse and enable this test.
-        throw new SkipException("TODO");
+        abort("TODO");
     }
 
     @Test
@@ -320,6 +330,7 @@ public class TestClickHouseConnectorTest
                         "col_required2 Int64) ENGINE=Log");
     }
 
+    @Test
     @Override
     public void testCharVarcharComparison()
     {
@@ -329,7 +340,7 @@ public class TestClickHouseConnectorTest
                 .hasMessageContaining("Expected rows");
 
         // TODO run the test with clickhouse.map-string-as-varchar
-        throw new SkipException("");
+        abort("");
     }
 
     @Test
@@ -594,6 +605,7 @@ public class TestClickHouseConnectorTest
     }
 
     // TODO: Remove override once decimal predicate pushdown is implemented (https://github.com/trinodb/trino/issues/7100)
+    @Test
     @Override
     public void testNumericAggregationPushdown()
     {
@@ -676,12 +688,13 @@ public class TestClickHouseConnectorTest
         return "Date must be between 1970-01-01 and 2149-06-06 in ClickHouse: " + date;
     }
 
+    @Test
     @Override
     public void testCharTrailingSpace()
     {
         assertThatThrownBy(super::testCharTrailingSpace)
                 .hasMessageStartingWith("Failed to execute statement: CREATE TABLE tpch.char_trailing_space");
-        throw new SkipException("Implement test for ClickHouse");
+        abort("Implement test for ClickHouse");
     }
 
     @Override
@@ -691,6 +704,7 @@ public class TestClickHouseConnectorTest
         return new TestTable(onRemoteDatabase(), "tpch.simple_table", "(col BIGINT) Engine=Log", ImmutableList.of("1", "2"));
     }
 
+    @Test
     @Override
     public void testCreateTableWithLongTableName()
     {
@@ -710,6 +724,7 @@ public class TestClickHouseConnectorTest
         assertTrue(getQueryRunner().tableExists(getSession(), validTableName));
     }
 
+    @Test
     @Override
     public void testRenameSchemaToLongName()
     {
@@ -747,6 +762,7 @@ public class TestClickHouseConnectorTest
         assertThat(e).hasMessageContaining("File name too long");
     }
 
+    @Test
     @Override
     public void testRenameTableToLongTableName()
     {

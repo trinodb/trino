@@ -22,7 +22,7 @@ import io.trino.testing.sql.TestTable;
 import io.trino.testng.services.Flaky;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
 import java.sql.SQLException;

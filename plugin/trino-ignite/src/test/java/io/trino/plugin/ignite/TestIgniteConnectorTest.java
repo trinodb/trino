@@ -24,8 +24,7 @@ import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testng.services.Flaky;
 import org.intellij.lang.annotations.Language;
-import org.testng.SkipException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Locale;
@@ -38,6 +37,7 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestIgniteConnectorTest
         extends BaseJdbcConnectorTest
@@ -245,6 +245,7 @@ public class TestIgniteConnectorTest
                         "dummy_id varchar NOT NULL primary key)");
     }
 
+    @Test
     @Override
     public void testShowCreateTable()
     {
@@ -388,11 +389,12 @@ public class TestIgniteConnectorTest
         return new TestTable(onRemoteDatabase(), format("%s.simple_table", getSession().getSchema().orElseThrow()), "(col BIGINT, id bigint primary key)", ImmutableList.of("1, 1", "2, 2"));
     }
 
+    @Test
     @Override
     public void testCharVarcharComparison()
     {
         // Ignite will map char to varchar, skip
-        throw new SkipException("Ignite map char to varchar, skip test");
+        abort("Ignite map char to varchar, skip test");
     }
 
     @Override
@@ -401,10 +403,11 @@ public class TestIgniteConnectorTest
         return format("Failed to insert data: Null value is not allowed for column '%s'", columnName.toUpperCase(Locale.ENGLISH));
     }
 
+    @Test
     @Override
     public void testCharTrailingSpace()
     {
-        throw new SkipException("Ignite not support char trailing space");
+        abort("Ignite not support char trailing space");
     }
 
     @Override
@@ -430,6 +433,7 @@ public class TestIgniteConnectorTest
         return Optional.of(dataMappingTestSetup);
     }
 
+    @Test
     @Override
     public void testDateYearOfEraPredicate()
     {

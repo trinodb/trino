@@ -15,7 +15,7 @@ package io.trino.plugin.iceberg;
 
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.sql.TestTable;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -80,6 +80,7 @@ public class TestIcebergParquetConnectorTest
         return super.filterSetColumnTypesDataProvider(setup);
     }
 
+    @Test
     @Override
     public void testDropAmbiguousRowFieldCaseSensitivity()
     {

@@ -23,9 +23,9 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
-import org.testng.SkipException;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -40,10 +40,13 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+@TestInstance(PER_CLASS)
 public class TestSingleStoreConnectorTest
         extends BaseJdbcConnectorTest
 {
@@ -57,7 +60,7 @@ public class TestSingleStoreConnectorTest
         return createSingleStoreQueryRunner(singleStoreServer, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public final void destroy()
     {
         singleStoreServer.close();
@@ -144,20 +147,23 @@ public class TestSingleStoreConnectorTest
         return Optional.of(dataMappingTestSetup);
     }
 
+    @Test
     @Override
     public void testInsertUnicode()
     {
         // SingleStore's utf8 encoding is 3 bytes and truncates strings upon encountering a 4 byte sequence
-        throw new SkipException("SingleStore doesn't support utf8mb4");
+        abort("SingleStore doesn't support utf8mb4");
     }
 
+    @Test
     @Override
     public void testInsertHighestUnicodeCharacter()
     {
         // SingleStore's utf8 encoding is 3 bytes and truncates strings upon encountering a 4 byte sequence
-        throw new SkipException("SingleStore doesn't support utf8mb4");
+        abort("SingleStore doesn't support utf8mb4");
     }
 
+    @Test
     @Override
     public void testDeleteWithLike()
     {
@@ -209,6 +215,7 @@ public class TestSingleStoreConnectorTest
     }
 
     // Overridden because the method from BaseConnectorTest fails on one of the assertions, see TODO below
+    @Test
     @Override
     public void testInsertIntoNotNullColumn()
     {
@@ -253,6 +260,7 @@ public class TestSingleStoreConnectorTest
         assertUpdate("DROP TABLE test_column_comment");
     }
 
+    @Test
     @Override
     public void testAddNotNullColumn()
     {
@@ -316,6 +324,7 @@ public class TestSingleStoreConnectorTest
                 .isNotFullyPushedDown(AggregationNode.class);
     }
 
+    @Test
     @Override
     public void testCreateTableAsSelectNegativeDate()
     {
@@ -333,6 +342,7 @@ public class TestSingleStoreConnectorTest
                 .hasStackTraceContaining("TrinoException: Driver returned null LocalDate for a non-null value");
     }
 
+    @Test
     @Override
     public void testNativeQueryCreateStatement()
     {
@@ -346,6 +356,7 @@ public class TestSingleStoreConnectorTest
         assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
     }
 
+    @Test
     @Override
     public void testNativeQueryInsertStatementTableExists()
     {

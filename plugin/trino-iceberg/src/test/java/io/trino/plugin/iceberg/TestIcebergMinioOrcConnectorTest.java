@@ -19,7 +19,7 @@ import io.trino.filesystem.Location;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.containers.Minio;
 import io.trino.testing.sql.TestTable;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.OutputStream;
@@ -163,6 +163,7 @@ public class TestIcebergMinioOrcConnectorTest
         }
     }
 
+    @Test
     @Override
     public void testDropAmbiguousRowFieldCaseSensitivity()
     {

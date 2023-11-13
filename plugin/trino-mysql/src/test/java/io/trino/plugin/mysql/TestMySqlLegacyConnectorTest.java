@@ -158,6 +158,7 @@ public class TestMySqlLegacyConnectorTest
                 .hasStackTraceContaining("RENAME COLUMN x TO before_y");
     }
 
+    @Test
     @Override
     public void testRenameColumnName()
     {
@@ -168,6 +169,7 @@ public class TestMySqlLegacyConnectorTest
         }
     }
 
+    @Test
     @Override
     public void testAlterTableRenameColumnToLongName()
     {
@@ -193,6 +195,7 @@ public class TestMySqlLegacyConnectorTest
         assertThat(e).hasMessageMatching("Identifier name .* is too long");
     }
 
+    @Test
     @Override
     public void testNativeQueryWithClause()
     {

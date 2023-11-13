@@ -13,9 +13,10 @@
  */
 package io.trino.plugin.iceberg;
 
-import org.testng.SkipException;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestIcebergAvroConnectorTest
         extends BaseIcebergConnectorTest
@@ -37,16 +38,17 @@ public class TestIcebergAvroConnectorTest
         return false;
     }
 
+    @Test
     @Override
     public void testIncorrectIcebergFileSizes()
     {
-        throw new SkipException("Avro does not do tail reads");
+        abort("Avro does not do tail reads");
     }
 
     @Override
     protected boolean isFileSorted(String path, String sortColumnName)
     {
-        throw new SkipException("Unimplemented");
+        return abort("Unimplemented");
     }
 
     @Override

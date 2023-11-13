@@ -28,7 +28,7 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.type.TypeDeserializer;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -162,6 +162,7 @@ public class TestTpchConnectorTest
         assertQueryFails("SHOW TABLES FROM sf0", "line 1:1: Schema 'sf0' does not exist");
     }
 
+    @Test
     @Override
     public void testShowCreateTable()
     {
@@ -179,6 +180,7 @@ public class TestTpchConnectorTest
                         ")");
     }
 
+    @Test
     @Override
     public void testPredicateReflectedInExplain()
     {

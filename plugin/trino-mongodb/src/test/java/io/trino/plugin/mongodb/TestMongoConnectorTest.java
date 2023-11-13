@@ -35,10 +35,10 @@ import io.trino.testing.sql.TestTable;
 import org.bson.Document;
 import org.bson.types.Decimal128;
 import org.bson.types.ObjectId;
-import org.testng.SkipException;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -60,10 +60,13 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 
+@TestInstance(PER_CLASS)
 public class TestMongoConnectorTest
         extends BaseConnectorTest
 {
@@ -79,13 +82,13 @@ public class TestMongoConnectorTest
         return createMongoQueryRunner(server, ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 
-    @BeforeClass
+    @BeforeAll
     public void initTestSchema()
     {
         assertUpdate("CREATE SCHEMA IF NOT EXISTS test");
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public final void destroy()
     {
         server.close();
@@ -116,7 +119,7 @@ public class TestMongoConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        throw new SkipException("MongoDB connector does not support column default values");
+        return abort("MongoDB connector does not support column default values");
     }
 
     @Test
@@ -128,7 +131,7 @@ public class TestMongoConnectorTest
                 assertThatThrownBy(() -> testColumnName(columnName, requiresDelimiting(columnName)))
                         .isInstanceOf(RuntimeException.class)
                         .hasMessage("Column name must not contain '$' or '.' for INSERT: " + columnName);
-                throw new SkipException("Insert would fail");
+                abort("Insert would fail");
             }
 
             testColumnName(columnName, requiresDelimiting(columnName));
@@ -274,6 +277,7 @@ public class TestMongoConnectorTest
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
     }
 
+    @Test
     @Override
     public void testDeleteWithComplexPredicate()
     {
@@ -281,6 +285,7 @@ public class TestMongoConnectorTest
                 .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
     }
 
+    @Test
     @Override
     public void testDeleteWithLike()
     {
@@ -288,6 +293,7 @@ public class TestMongoConnectorTest
                 .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
     }
 
+    @Test
     @Override
     public void testDeleteWithSemiJoin()
     {
@@ -295,6 +301,7 @@ public class TestMongoConnectorTest
                 .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
     }
 
+    @Test
     @Override
     public void testDeleteWithSubquery()
     {
@@ -302,6 +309,7 @@ public class TestMongoConnectorTest
                 .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
     }
 
+    @Test
     @Override
     public void testExplainAnalyzeWithDeleteWithSubquery()
     {
@@ -948,11 +956,12 @@ public class TestMongoConnectorTest
         assertUpdate("DROP TABLE test." + tableName);
     }
 
+    @Test
     @Override
     public void testAddColumnConcurrently()
     {
         // TODO: Enable after supporting multi-document transaction https://www.mongodb.com/docs/manual/core/transactions/
-        throw new SkipException("TODO");
+        abort("TODO");
     }
 
     @Test
@@ -1321,7 +1330,7 @@ public class TestMongoConnectorTest
     private void testFiltersOnDereferenceColumnReadsLessData(String expectedValue, String expectedType)
     {
         if (!isPushdownSupportedType(getQueryRunner().getTypeManager().fromSqlType(expectedType))) {
-            throw new SkipException("Type doesn't support filter pushdown");
+            abort("Type doesn't support filter pushdown");
         }
 
         Session sessionWithoutPushdown = Session.builder(getSession())
@@ -1772,20 +1781,20 @@ public class TestMongoConnectorTest
         assertUpdate("DROP TABLE test." + tableName);
     }
 
-    @Override
     @Test
+    @Override
     public void testProjectionPushdownReadsLessData()
     {
         // TODO https://github.com/trinodb/trino/issues/17713
-        throw new SkipException("MongoDB connector does not calculate physical data input size");
+        abort("MongoDB connector does not calculate physical data input size");
     }
 
-    @Override
     @Test
+    @Override
     public void testProjectionPushdownPhysicalInputSize()
     {
         // TODO https://github.com/trinodb/trino/issues/17713
-        throw new SkipException("MongoDB connector does not calculate physical data input size");
+        abort("MongoDB connector does not calculate physical data input size");
     }
 
     @Override

@@ -32,8 +32,10 @@ import org.apache.http.nio.entity.NStringEntity;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -49,10 +51,12 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+@TestInstance(PER_CLASS)
 public abstract class BaseElasticsearchConnectorTest
         extends BaseConnectorTest
 {
@@ -85,7 +89,7 @@ public abstract class BaseElasticsearchConnectorTest
                 catalogName);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public final void destroy()
             throws IOException
     {
@@ -195,6 +199,7 @@ public abstract class BaseElasticsearchConnectorTest
                 "TopNPartial\\[count = 5, orderBy = \\[nationkey DESC");
     }
 
+    @Test
     @Override
     public void testShowCreateTable()
     {
@@ -212,7 +217,7 @@ public abstract class BaseElasticsearchConnectorTest
                         ")");
     }
 
-    @org.junit.jupiter.api.Test
+    @Test
     @Override
     public void testShowColumns()
     {
@@ -1771,7 +1776,8 @@ public abstract class BaseElasticsearchConnectorTest
         testSelectInformationSchemaColumns();
     }
 
-    @Test(enabled = false) // TODO (https://github.com/trinodb/trino/issues/2428)
+    @Test // TODO (https://github.com/trinodb/trino/issues/2428)
+    @Disabled
     public void testMultiIndexAlias()
             throws IOException
     {

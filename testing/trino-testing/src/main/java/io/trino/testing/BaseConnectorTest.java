@@ -47,10 +47,12 @@ import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Isolated;
-import org.testng.SkipException;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
 
 import java.time.Instant;
 import java.time.ZonedDateTime;
@@ -174,6 +176,8 @@ import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.InstanceOfAssertFactories.ZONED_DATE_TIME;
+import static org.junit.jupiter.api.Assumptions.abort;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -184,6 +188,7 @@ import static org.testng.Assert.fail;
  * Generic test for connectors.
  */
 @Isolated
+@TestInstance(PER_CLASS)
 public abstract class BaseConnectorTest
         extends AbstractTestQueries
 {
@@ -196,7 +201,7 @@ public abstract class BaseConnectorTest
 
     private final ConcurrentMap<String, Function<ConnectorSession, List<String>>> mockTableListings = new ConcurrentHashMap<>();
 
-    @BeforeClass
+    @BeforeAll
     public void initMockCatalog()
     {
         QueryRunner queryRunner = getQueryRunner();
@@ -1969,12 +1974,13 @@ public abstract class BaseConnectorTest
      * Test that reading table, column metadata, like {@code SHOW TABLES} or reading from {@code information_schema.views}
      * does not fail when relations are concurrently created or dropped.
      */
-    @Test(timeOut = 180_000)
+    @Test
+    @Timeout(180)
     public void testReadMetadataWithRelationsConcurrentModifications()
             throws Exception
     {
         if (!hasBehavior(SUPPORTS_CREATE_TABLE) && !hasBehavior(SUPPORTS_CREATE_VIEW) && !hasBehavior(SUPPORTS_CREATE_MATERIALIZED_VIEW)) {
-            throw new SkipException("Cannot test");
+            abort("Cannot test");
         }
 
         int readIterations = 5;
@@ -2394,7 +2400,7 @@ public abstract class BaseConnectorTest
         }
 
         if (!hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
-            throw new SkipException("Skipping as connector does not support CREATE SCHEMA");
+            abort("Skipping as connector does not support CREATE SCHEMA");
         }
 
         String schemaName = "test_rename_schema_" + randomNameSuffix();
@@ -2942,7 +2948,8 @@ public abstract class BaseConnectorTest
             }
             catch (Exception e) {
                 verifyUnsupportedTypeException(e, setup.sourceColumnType);
-                throw new SkipException("Unsupported column type: " + setup.sourceColumnType);
+                abort("Unsupported column type: " + setup.sourceColumnType);
+                return;
             }
             try (table) {
                 Runnable setColumnType = () -> assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col SET DATA TYPE " + setup.newColumnType);
@@ -3151,7 +3158,8 @@ public abstract class BaseConnectorTest
             }
             catch (Exception e) {
                 verifyUnsupportedTypeException(e, setup.sourceColumnType);
-                throw new SkipException("Unsupported column type: " + setup.sourceColumnType);
+                abort("Unsupported column type: " + setup.sourceColumnType);
+                return;
             }
             try (table) {
                 Runnable setFieldType = () -> assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col.field SET DATA TYPE " + setup.newColumnType);
@@ -3966,7 +3974,7 @@ public abstract class BaseConnectorTest
     {
         if (!hasBehavior(SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS)) {
             if (!hasBehavior(SUPPORTS_RENAME_TABLE)) {
-                throw new SkipException("Skipping since rename table is not supported at all");
+                abort("Skipping since rename table is not supported at all");
             }
             assertQueryFails("ALTER TABLE nation RENAME TO other_schema.yyyy", "This connector does not support renaming tables across schemas");
             return;
@@ -4097,7 +4105,7 @@ public abstract class BaseConnectorTest
                 }
                 return;
             }
-            throw new SkipException("Skipping as connector does not support CREATE VIEW");
+            abort("Skipping as connector does not support CREATE VIEW");
         }
 
         String catalogName = getSession().getCatalog().orElseThrow();
@@ -4198,7 +4206,7 @@ public abstract class BaseConnectorTest
                 }
                 return;
             }
-            throw new SkipException("Skipping as connector does not support CREATE VIEW");
+            abort("Skipping as connector does not support CREATE VIEW");
         }
 
         String viewColumnName = "regionkey";
@@ -4359,7 +4367,7 @@ public abstract class BaseConnectorTest
             assertThatThrownBy(() -> query("CREATE TABLE " + tableName + " (a array(bigint))"))
                     // TODO Unify failure message across connectors
                     .hasMessageMatching("[Uu]nsupported (column )?type: \\Qarray(bigint)");
-            throw new SkipException("not supported");
+            abort("not supported");
         }
 
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_array_", "(a ARRAY<DOUBLE>, b ARRAY<BIGINT>)")) {
@@ -4828,7 +4836,8 @@ public abstract class BaseConnectorTest
     }
 
     // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
-    @Test(timeOut = 60_000, invocationCount = 4)
+    @RepeatedTest(4)
+    @Timeout(60)
     public void testUpdateRowConcurrently()
             throws Exception
     {
@@ -4894,7 +4903,8 @@ public abstract class BaseConnectorTest
     }
 
     // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
-    @Test(timeOut = 60_000, invocationCount = 4)
+    @RepeatedTest(4)
+    @Timeout(60)
     public void testInsertRowConcurrently()
             throws Exception
     {
@@ -4962,7 +4972,8 @@ public abstract class BaseConnectorTest
     }
 
     // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
-    @Test(timeOut = 60_000, invocationCount = 4)
+    @RepeatedTest(4)
+    @Timeout(60)
     public void testAddColumnConcurrently()
             throws Exception
     {
@@ -5027,7 +5038,8 @@ public abstract class BaseConnectorTest
     }
 
     // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
-    @Test(timeOut = 60_000, invocationCount = 4)
+    @RepeatedTest(4)
+    @Timeout(60)
     public void testCreateOrReplaceTableConcurrently()
             throws Exception
     {
@@ -6874,7 +6886,7 @@ public abstract class BaseConnectorTest
     protected static void skipTestUnless(boolean requirement)
     {
         if (!requirement) {
-            throw new SkipException("requirement not met");
+            abort("requirement not met");
         }
     }
 
