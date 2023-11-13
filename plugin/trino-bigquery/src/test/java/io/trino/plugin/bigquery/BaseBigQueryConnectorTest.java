@@ -182,14 +182,6 @@ public abstract class BaseBigQueryConnectorTest
     }
 
     @Test
-    public void testCreateTableIfNotExists()
-    {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_table_if_not_exists", "(col1 int)")) {
-            assertUpdate("CREATE TABLE IF NOT EXISTS " + table.getName() + "(col1 int)");
-        }
-    }
-
-    @Test
     public void testEmptyProjectionTable()
     {
         testEmptyProjection(
