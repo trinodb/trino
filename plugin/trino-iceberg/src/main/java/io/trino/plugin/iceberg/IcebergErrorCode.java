@@ -40,6 +40,7 @@ public enum IcebergErrorCode
     ICEBERG_CATALOG_ERROR(13, EXTERNAL),
     ICEBERG_WRITER_CLOSE_ERROR(14, EXTERNAL),
     ICEBERG_MISSING_METADATA(15, EXTERNAL),
+    ICEBERG_WRITER_DATA_ERROR(16, EXTERNAL),
     /**/;
 
     private final ErrorCode errorCode;
