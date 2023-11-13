@@ -182,7 +182,7 @@ public final class OrcFileWriter
     {
         try {
             if (transaction.isAcidTransactionRunning() && useAcidSchema) {
-                updateUserMetadata();
+                updateAcidUserMetadata();
             }
             orcWriter.close();
         }
@@ -213,28 +213,26 @@ public final class OrcFileWriter
         return rollbackAction;
     }
 
-    private void updateUserMetadata()
+    private void updateAcidUserMetadata()
     {
         int bucketValue = computeBucketValue(bucketNumber.orElse(0), 0);
         long writeId = maxWriteId.isPresent() ? maxWriteId.getAsLong() : transaction.getWriteId();
-        if (transaction.isAcidTransactionRunning()) {
-            int stripeRowCount = orcWriter.getStripeRowCount();
-            Map<String, String> userMetadata = new HashMap<>();
-            switch (writerKind) {
-                case INSERT:
-                    userMetadata.put("hive.acid.stats", format("%s,0,0", stripeRowCount));
-                    break;
-                case DELETE:
-                    userMetadata.put("hive.acid.stats", format("0,0,%s", stripeRowCount));
-                    break;
-                default:
-                    throw new IllegalStateException("In updateUserMetadata, unknown writerKind " + writerKind);
-            }
-            userMetadata.put("hive.acid.key.index", format("%s,%s,%s;", writeId, bucketValue, stripeRowCount - 1));
-            userMetadata.put("hive.acid.version", "2");
-
-            orcWriter.updateUserMetadata(userMetadata);
+        int stripeRowCount = orcWriter.getStripeRowCount();
+        Map<String, String> userMetadata = new HashMap<>();
+        switch (writerKind) {
+            case INSERT:
+                userMetadata.put("hive.acid.stats", format("%s,0,0", stripeRowCount));
+                break;
+            case DELETE:
+                userMetadata.put("hive.acid.stats", format("0,0,%s", stripeRowCount));
+                break;
+            default:
+                throw new IllegalStateException("In updateUserMetadata, unknown writerKind " + writerKind);
         }
+        userMetadata.put("hive.acid.key.index", format("%s,%s,%s;", writeId, bucketValue, stripeRowCount - 1));
+        userMetadata.put("hive.acid.version", "2");
+
+        orcWriter.updateUserMetadata(userMetadata);
     }
 
     @Override
