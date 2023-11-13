@@ -32,8 +32,8 @@ import io.trino.testing.sql.TestTable;
 import io.trino.testng.services.Flaky;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
-import org.testng.SkipException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.List;
 
@@ -44,6 +44,7 @@ import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -107,7 +108,7 @@ public class TestMemoryConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        throw new SkipException("Memory connector does not support column default values");
+        return abort("Memory connector does not support column default values");
     }
 
     @Test
@@ -187,7 +188,8 @@ public class TestMemoryConnectorTest
                 .reduce(Metrics.EMPTY, Metrics::mergeWith);
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testPhysicalInputPositions()
     {
         MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
@@ -202,7 +204,8 @@ public class TestMemoryConnectorTest
         assertEquals(probeStats.getPhysicalInputPositions(), LINEITEM_COUNT);
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testJoinDynamicFilteringNone()
     {
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
@@ -215,7 +218,8 @@ public class TestMemoryConnectorTest
         }
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testJoinLargeBuildSideDynamicFiltering()
     {
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
@@ -236,7 +240,8 @@ public class TestMemoryConnectorTest
         }
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testJoinDynamicFilteringSingleValue()
     {
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
@@ -274,7 +279,8 @@ public class TestMemoryConnectorTest
                 6, ORDERS_COUNT);
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testJoinDynamicFilteringBlockProbeSide()
     {
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
@@ -290,7 +296,8 @@ public class TestMemoryConnectorTest
         }
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testSemiJoinDynamicFilteringNone()
     {
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
@@ -303,7 +310,8 @@ public class TestMemoryConnectorTest
         }
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testSemiJoinLargeBuildSideDynamicFiltering()
     {
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
@@ -326,7 +334,8 @@ public class TestMemoryConnectorTest
         }
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testSemiJoinDynamicFilteringSingleValue()
     {
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
@@ -346,7 +355,8 @@ public class TestMemoryConnectorTest
         }
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testSemiJoinDynamicFilteringBlockProbeSide()
     {
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
@@ -438,7 +448,8 @@ public class TestMemoryConnectorTest
                 ORDERS_COUNT, CUSTOMER_COUNT);
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testJoinDynamicFilteringMultiJoin()
     {
         for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {

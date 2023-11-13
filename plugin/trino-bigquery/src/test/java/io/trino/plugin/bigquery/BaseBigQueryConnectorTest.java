@@ -22,10 +22,9 @@ import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
-import org.testng.SkipException;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Parameters;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.List;
 import java.util.Optional;
@@ -44,22 +43,24 @@ import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
+@TestInstance(PER_CLASS)
 public abstract class BaseBigQueryConnectorTest
         extends BaseConnectorTest
 {
     protected BigQuerySqlExecutor bigQuerySqlExecutor;
     private String gcpStorageBucket;
 
-    @BeforeClass(alwaysRun = true)
-    @Parameters("testing.gcp-storage-bucket")
-    public void initBigQueryExecutor(String gcpStorageBucket)
+    @BeforeAll
+    public void initBigQueryExecutor()
     {
         this.bigQuerySqlExecutor = new BigQuerySqlExecutor();
         // Prerequisite: upload region.csv in resources directory to gs://{testing.gcp-storage-bucket}/tpch/tiny/region.csv
-        this.gcpStorageBucket = gcpStorageBucket;
+        this.gcpStorageBucket = System.getProperty("testing.gcp-storage-bucket");
     }
 
     @Override
@@ -86,7 +87,7 @@ public abstract class BaseBigQueryConnectorTest
     }
 
     @Override
-    @org.junit.jupiter.api.Test
+    @Test
     public void testShowColumns()
     {
         assertThat(query("SHOW COLUMNS FROM orders")).matches(getDescribeOrdersResult());
@@ -277,7 +278,7 @@ public abstract class BaseBigQueryConnectorTest
                         "to match regex:\n" +
                         "  \"line 1:1: Table '\\w+.\\w+.\"nation\\$data\"' does not exist\"\n" +
                         "but did not.");
-        throw new SkipException("TODO");
+        abort("TODO");
     }
 
     @Override
@@ -418,7 +419,7 @@ public abstract class BaseBigQueryConnectorTest
         }
     }
 
-    @Test(description = "regression test for https://github.com/trinodb/trino/issues/7784")
+    @Test // regression test for https://github.com/trinodb/trino/issues/7784"
     public void testSelectWithSingleQuoteInWhereClause()
     {
         try (TestTable table = new TestTable(
@@ -430,7 +431,7 @@ public abstract class BaseBigQueryConnectorTest
         }
     }
 
-    @Test(description = "regression test for https://github.com/trinodb/trino/issues/5618")
+    @Test // "regression test for https://github.com/trinodb/trino/issues/5618"
     public void testPredicatePushdownPrunnedColumns()
     {
         try (TestTable table = new TestTable(
@@ -530,11 +531,12 @@ public abstract class BaseBigQueryConnectorTest
                         ")");
     }
 
+    @Test
     @Override
     public void testReadMetadataWithRelationsConcurrentModifications()
     {
         // TODO: Enable this test after fixing "Task did not completed before timeout" (https://github.com/trinodb/trino/issues/14230)
-        throw new SkipException("Test fails with a timeout sometimes and is flaky");
+        abort("Test fails with a timeout sometimes and is flaky");
     }
 
     @Test
@@ -945,7 +947,7 @@ public abstract class BaseBigQueryConnectorTest
     public void testInsertRowConcurrently()
     {
         // TODO https://github.com/trinodb/trino/issues/15158 Enable this test after switching to storage write API
-        throw new SkipException("Test fails with a timeout sometimes and is flaky");
+        abort("Test fails with a timeout sometimes and is flaky");
     }
 
     @Override
