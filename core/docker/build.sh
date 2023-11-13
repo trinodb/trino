@@ -39,8 +39,8 @@ shift $((OPTIND - 1))
 SOURCE_DIR="../.."
 
 function temurin_jdk_link() {
-  JDK_VERSION="${1}"
-  ARCH="${2}"
+  local JDK_VERSION="${1}"
+  local ARCH="${2}"
 
   versionsUrl="https://api.adoptium.net/v3/info/release_names?heap_size=normal&image_type=jdk&lts=true&os=linux&page=0&page_size=20&project=jdk&release_type=ga&semver=false&sort_method=DEFAULT&sort_order=ASC&vendor=eclipse&version=%28${JDK_VERSION}%2C%5D"
   if ! result=$(curl -fLs "$versionsUrl" -H 'accept: application/json'); then
