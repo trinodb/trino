@@ -16,7 +16,13 @@ package io.trino.plugin.iceberg.util;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
+import io.trino.filesystem.TrinoInputFile;
+import io.trino.orc.OrcColumn;
+import io.trino.orc.OrcDataSource;
+import io.trino.orc.OrcReader;
+import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.metadata.ColumnMetadata;
+import io.trino.orc.metadata.Footer;
 import io.trino.orc.metadata.OrcColumnId;
 import io.trino.orc.metadata.OrcType;
 import io.trino.orc.metadata.statistics.BooleanStatistics;
@@ -27,12 +33,16 @@ import io.trino.orc.metadata.statistics.DoubleStatistics;
 import io.trino.orc.metadata.statistics.IntegerStatistics;
 import io.trino.orc.metadata.statistics.StringStatistics;
 import io.trino.orc.metadata.statistics.TimestampStatistics;
+import io.trino.plugin.hive.FileFormatDataSourceStats;
+import io.trino.plugin.iceberg.TrinoOrcDataSource;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.MetricsModes;
 import org.apache.iceberg.MetricsUtil;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.expressions.Literal;
+import org.apache.iceberg.mapping.MappingUtil;
+import org.apache.iceberg.mapping.NameMapping;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Type.TypeID;
@@ -40,21 +50,77 @@ import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.BinaryUtil;
 import org.apache.iceberg.util.UnicodeUtil;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.orc.OrcReader.createOrcReader;
 import static io.trino.orc.metadata.OrcColumnId.ROOT_COLUMN;
+import static io.trino.plugin.iceberg.util.OrcIcebergIds.fileColumnsByIcebergId;
 import static io.trino.plugin.iceberg.util.OrcTypeConverter.ORC_ICEBERG_ID_KEY;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static java.lang.Math.toIntExact;
+import static java.util.function.Function.identity;
 
 public final class OrcMetrics
 {
     private OrcMetrics() {}
+
+    public static Metrics fileMetrics(TrinoInputFile file, MetricsConfig metricsConfig, Schema schema)
+    {
+        OrcReaderOptions options = new OrcReaderOptions();
+        try (OrcDataSource dataSource = new TrinoOrcDataSource(file, options, new FileFormatDataSourceStats())) {
+            Optional<OrcReader> reader = createOrcReader(dataSource, options);
+            if (reader.isEmpty()) {
+                return new Metrics(0L, null, null, null, null);
+            }
+            Footer footer = reader.get().getFooter();
+
+            // use name mapping to compute missing Iceberg field IDs
+            Optional<NameMapping> nameMapping = Optional.of(MappingUtil.create(schema));
+            Map<OrcColumnId, OrcColumn> mappedColumns = fileColumnsByIcebergId(reader.get(), nameMapping)
+                    .values().stream()
+                    .collect(toImmutableMap(OrcColumn::getColumnId, identity()));
+
+            // rebuild type list with mapped columns
+            List<OrcType> mappedTypes = new ArrayList<>();
+            ColumnMetadata<OrcType> types = footer.getTypes();
+            for (int i = 0; i < types.size(); i++) {
+                OrcColumnId id = new OrcColumnId(i);
+                mappedTypes.add(Optional.ofNullable(mappedColumns.get(id))
+                        .map(OrcMetrics::toBasicOrcType)
+                        .orElseGet(() -> types.get(id)));
+            }
+
+            return computeMetrics(metricsConfig, schema, new ColumnMetadata<>(mappedTypes), footer.getNumberOfRows(), footer.getFileStats());
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException("Failed to read file footer: " + file.location(), e);
+        }
+    }
+
+    private static OrcType toBasicOrcType(OrcColumn column)
+    {
+        return new OrcType(
+                column.getColumnType(),
+                column.getNestedColumns().stream()
+                        .map(OrcColumn::getColumnId)
+                        .collect(toImmutableList()),
+                null,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                column.getAttributes());
+    }
 
     public static Metrics computeMetrics(
             MetricsConfig metricsConfig,
