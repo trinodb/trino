@@ -1585,6 +1585,8 @@ public class HiveMetadata
     @Override
     public void finishStatisticsCollection(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<ComputedStatistics> computedStatistics)
     {
+        verify(isStatisticsEnabled(session), "statistics not enabled");
+
         HiveTableHandle handle = (HiveTableHandle) tableHandle;
         SchemaTableName tableName = handle.getSchemaTableName();
         Table table = metastore.getTable(tableName.getSchemaName(), tableName.getTableName())
@@ -3452,6 +3454,9 @@ public class HiveMetadata
     {
         if (!isCollectColumnStatisticsOnWrite(session)) {
             return TableStatisticsMetadata.empty();
+        }
+        if (!isStatisticsEnabled(session)) {
+            throw new TrinoException(NOT_SUPPORTED, "Table statistics must be enabled when column statistics collection on write is enabled");
         }
         if (isTransactional(tableMetadata.getProperties()).orElse(false)) {
             // TODO(https://github.com/trinodb/trino/issues/1956) updating table statistics for transactional not supported right now.
