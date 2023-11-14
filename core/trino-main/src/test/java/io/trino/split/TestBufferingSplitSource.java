@@ -17,9 +17,14 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.BoundedExecutor;
 import io.trino.split.SplitSource.SplitBatch;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
@@ -29,13 +34,22 @@ import static io.trino.split.MockSplitSource.Action.FINISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@Execution(ExecutionMode.CONCURRENT)
 public class TestBufferingSplitSource
 {
-    private static final Executor executor = new BoundedExecutor(newCachedThreadPool(daemonThreadsNamed(TestBufferingSplitSource.class.getSimpleName() + "-%s")), 10);
+    private final ExecutorService executorService = newCachedThreadPool(daemonThreadsNamed(TestBufferingSplitSource.class.getSimpleName() + "-%s"));
+    private final Executor executor = new BoundedExecutor(executorService, 10);
+
+    @AfterAll
+    public void cleanup()
+    {
+        executorService.shutdown();
+    }
 
     @Test
     public void testSlowSource()
