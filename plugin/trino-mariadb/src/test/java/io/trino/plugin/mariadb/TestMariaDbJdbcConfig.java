@@ -15,18 +15,17 @@ package io.trino.plugin.mariadb;
 
 import org.junit.jupiter.api.Test;
 
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMariaDbJdbcConfig
 {
     @Test
     public void testIsUrlValid()
     {
-        assertTrue(isUrlValid("jdbc:mariadb://example.net:3306"));
-        assertTrue(isUrlValid("jdbc:mariadb://example.net:3306/"));
-        assertFalse(isUrlValid("jdbc:notmariadb://example.net:3306"));
-        assertFalse(isUrlValid("jdbc:notmariadb://example.net:3306/"));
+        assertThat(isUrlValid("jdbc:mariadb://example.net:3306")).isTrue();
+        assertThat(isUrlValid("jdbc:mariadb://example.net:3306/")).isTrue();
+        assertThat(isUrlValid("jdbc:notmariadb://example.net:3306")).isFalse();
+        assertThat(isUrlValid("jdbc:notmariadb://example.net:3306/")).isFalse();
     }
 
     private static boolean isUrlValid(String url)
@@ -39,9 +38,9 @@ public class TestMariaDbJdbcConfig
     @Test
     public void testIsUrlWithoutDatabase()
     {
-        assertTrue(isUrlWithoutDatabase("jdbc:mariadb://example.net:3306"));
-        assertTrue(isUrlWithoutDatabase("jdbc:mariadb://example.net:3306/"));
-        assertFalse(isUrlWithoutDatabase("jdbc:mariadb://example.net:3306/somedatabase"));
+        assertThat(isUrlWithoutDatabase("jdbc:mariadb://example.net:3306")).isTrue();
+        assertThat(isUrlWithoutDatabase("jdbc:mariadb://example.net:3306/")).isTrue();
+        assertThat(isUrlWithoutDatabase("jdbc:mariadb://example.net:3306/somedatabase")).isFalse();
     }
 
     private static boolean isUrlWithoutDatabase(String url)
