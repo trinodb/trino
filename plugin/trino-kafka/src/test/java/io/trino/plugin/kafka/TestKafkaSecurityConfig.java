@@ -14,8 +14,6 @@
 package io.trino.plugin.kafka;
 
 import com.google.common.collect.ImmutableMap;
-import org.apache.kafka.common.security.auth.SecurityProtocol;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -49,33 +47,31 @@ public class TestKafkaSecurityConfig
         assertFullMapping(properties, expected);
     }
 
-    @Test(dataProvider = "validSecurityProtocols")
-    public void testValidSecurityProtocols(SecurityProtocol securityProtocol)
+    @Test
+    public void testValidSecurityProtocols()
     {
         new KafkaSecurityConfig()
-                .setSecurityProtocol(securityProtocol)
+                .setSecurityProtocol(PLAINTEXT)
+                .validate();
+
+        new KafkaSecurityConfig()
+                .setSecurityProtocol(SSL)
                 .validate();
     }
 
-    @DataProvider(name = "validSecurityProtocols")
-    public Object[][] validSecurityProtocols()
-    {
-        return new Object[][] {{PLAINTEXT}, {SSL}};
-    }
-
-    @Test(dataProvider = "invalidSecurityProtocols")
-    public void testInvalidSecurityProtocol(SecurityProtocol securityProtocol)
+    @Test
+    public void testInvalidSecurityProtocol()
     {
         assertThatThrownBy(() -> new KafkaSecurityConfig()
-                .setSecurityProtocol(securityProtocol)
+                .setSecurityProtocol(SASL_PLAINTEXT)
                 .validate())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Only PLAINTEXT and SSL security protocols are supported. See 'kafka.config.resources' if other security protocols are needed");
-    }
 
-    @DataProvider(name = "invalidSecurityProtocols")
-    public Object[][] invalidSecurityProtocols()
-    {
-        return new Object[][] {{SASL_PLAINTEXT}, {SASL_SSL}};
+        assertThatThrownBy(() -> new KafkaSecurityConfig()
+                .setSecurityProtocol(SASL_SSL)
+                .validate())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Only PLAINTEXT and SSL security protocols are supported. See 'kafka.config.resources' if other security protocols are needed");
     }
 }
