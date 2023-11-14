@@ -30,7 +30,6 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertFalse;
 
 public abstract class BaseMariaDbConnectorTest
         extends BaseJdbcConnectorTest
@@ -294,10 +293,10 @@ public abstract class BaseMariaDbConnectorTest
     public void testNativeQueryCreateStatement()
     {
         // Override because MariaDB returns a ResultSet metadata with no columns for CREATE statement.
-        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+        assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
         assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE tpch.numbers(n INTEGER)'))"))
                 .hasMessageContaining("descriptor has no fields");
-        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+        assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
     }
 
     @Test

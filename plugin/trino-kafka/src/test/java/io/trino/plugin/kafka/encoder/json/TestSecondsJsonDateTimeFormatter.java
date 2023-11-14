@@ -16,7 +16,7 @@ package io.trino.plugin.kafka.encoder.json;
 import io.trino.plugin.kafka.encoder.json.format.JsonDateTimeFormatter;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.TimeZoneKey;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -28,7 +28,7 @@ import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimeOf;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static java.time.ZoneOffset.UTC;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSecondsJsonDateTimeFormatter
 {
@@ -48,7 +48,7 @@ public class TestSecondsJsonDateTimeFormatter
     private void testTime(LocalTime time)
     {
         String formatted = getFormatter().formatTime(sqlTimeOf(3, time), 3);
-        assertEquals(Long.parseLong(formatted), time.toSecondOfDay());
+        assertThat(Long.parseLong(formatted)).isEqualTo(time.toSecondOfDay());
     }
 
     @Test
@@ -62,7 +62,7 @@ public class TestSecondsJsonDateTimeFormatter
     private void testTimestamp(LocalDateTime dateTime)
     {
         String formatted = getFormatter().formatTimestamp(sqlTimestampOf(3, dateTime));
-        assertEquals(Long.parseLong(formatted), dateTime.toEpochSecond(UTC));
+        assertThat(Long.parseLong(formatted)).isEqualTo(dateTime.toEpochSecond(UTC));
     }
 
     @Test
@@ -79,6 +79,6 @@ public class TestSecondsJsonDateTimeFormatter
     private void testTimestampWithTimeZone(ZonedDateTime zonedDateTime)
     {
         String formattedStr = getFormatter().formatTimestampWithZone(SqlTimestampWithTimeZone.fromInstant(3, zonedDateTime.toInstant(), zonedDateTime.getZone()));
-        assertEquals(Long.parseLong(formattedStr), zonedDateTime.toEpochSecond());
+        assertThat(Long.parseLong(formattedStr)).isEqualTo(zonedDateTime.toEpochSecond());
     }
 }

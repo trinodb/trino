@@ -27,7 +27,7 @@ import java.util.Map;
 import java.util.Properties;
 
 import static io.trino.plugin.kafka.utils.PropertiesUtils.readProperties;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPropertiesUtils
 {
@@ -57,7 +57,7 @@ public class TestPropertiesUtils
 
         Map<String, String> result = readProperties(Arrays.asList(firstFile, secondFile));
 
-        assertEquals(result, expected);
+        assertThat(result).isEqualTo(expected);
     }
 
     private File writePropertiesToFile(Properties properties)
