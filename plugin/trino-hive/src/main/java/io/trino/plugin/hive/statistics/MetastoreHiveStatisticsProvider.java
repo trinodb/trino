@@ -29,6 +29,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.hive.HivePartition.UNPARTITIONED_ID;
+import static io.trino.plugin.hive.HiveSessionProperties.isStatisticsEnabled;
 import static java.util.Objects.requireNonNull;
 
 public class MetastoreHiveStatisticsProvider
@@ -44,6 +45,9 @@ public class MetastoreHiveStatisticsProvider
     @Override
     protected Map<String, PartitionStatistics> getPartitionsStatistics(ConnectorSession session, SchemaTableName table, List<HivePartition> hivePartitions, Set<String> columns)
     {
+        if (!isStatisticsEnabled(session)) {
+            return ImmutableMap.of();
+        }
         if (hivePartitions.isEmpty()) {
             return ImmutableMap.of();
         }
