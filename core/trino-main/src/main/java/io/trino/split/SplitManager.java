@@ -30,9 +30,11 @@ import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.tracing.TrinoAttributes;
+import jakarta.annotation.PreDestroy;
 
 import java.util.Optional;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
@@ -44,6 +46,7 @@ public class SplitManager
     private final CatalogServiceProvider<ConnectorSplitManager> splitManagerProvider;
     private final Tracer tracer;
     private final int minScheduleSplitBatchSize;
+    private final ExecutorService executorService;
     private final Executor executor;
 
     @Inject
@@ -52,7 +55,14 @@ public class SplitManager
         this.splitManagerProvider = requireNonNull(splitManagerProvider, "splitManagerProvider is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.minScheduleSplitBatchSize = config.getMinScheduleSplitBatchSize();
-        this.executor = new BoundedExecutor(newCachedThreadPool(daemonThreadsNamed("splits-manager-callback-%s")), config.getMaxSplitManagerCallbackThreads());
+        this.executorService = newCachedThreadPool(daemonThreadsNamed("splits-manager-callback-%s"));
+        this.executor = new BoundedExecutor(executorService, config.getMaxSplitManagerCallbackThreads());
+    }
+
+    @PreDestroy
+    public void shutdown()
+    {
+        executorService.shutdown();
     }
 
     public SplitSource getSplits(
