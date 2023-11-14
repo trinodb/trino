@@ -83,6 +83,8 @@ Null elements will be omitted in the result.
 :::
 
 :::{function} array_join(x, delimiter, null_replacement) -> varchar
+:noindex: true
+
 Concatenates the elements of the given array using the delimiter and an optional string to replace nulls.
 :::
 
