@@ -21,6 +21,7 @@ import io.trino.cost.StatsCalculator;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.iterative.IterativeOptimizer;
 import io.trino.sql.planner.iterative.Rule;
+import io.trino.sql.planner.iterative.rule.PruneFilterColumns;
 import io.trino.sql.planner.iterative.rule.PruneTableScanColumns;
 import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjectionsInOrder;
@@ -61,6 +62,7 @@ public class AlternativesOptimizers
                         // more rules will be added in the future
                         .add(new PruneTableScanColumns(plannerContext.getMetadata()))
                         .add(new RemoveRedundantIdentityProjectionsInOrder())   // output symbols of all alternatives must be in the same order
+                        .add(new PruneFilterColumns())
                         .build());
 
         optimizers = List.of(alternativesOptimizer, iterativeOptimizer);

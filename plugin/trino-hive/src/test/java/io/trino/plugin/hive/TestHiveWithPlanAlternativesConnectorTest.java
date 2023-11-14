@@ -141,4 +141,14 @@ public class TestHiveWithPlanAlternativesConnectorTest
     {
         // There's no clean way to access HiveMetastoreFactory and this test doesn't exercise plan alternatives anyway
     }
+
+    @Test
+    public void testFilterColumnPruning()
+    {
+        assertExplainAnalyze(
+                "EXPLAIN ANALYZE SELECT count(*) FROM nation WHERE nationkey = 8 AND regionkey = 2 LIMIT 1",
+                "ChooseAlternativeNode",
+                "ScanFilterProject",
+                "Input: 1 row \\(9B\\), Filter");  // 9B - only one of the columns is collected
+    }
 }
