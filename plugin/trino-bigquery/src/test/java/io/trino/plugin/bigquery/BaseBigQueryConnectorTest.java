@@ -267,6 +267,7 @@ public abstract class BaseBigQueryConnectorTest
         return Optional.of(dataMappingTestSetup);
     }
 
+    @Test
     @Override
     public void testNoDataSystemTable()
     {
@@ -287,6 +288,7 @@ public abstract class BaseBigQueryConnectorTest
         return nullToEmpty(exception.getMessage()).matches(".*Invalid field name \"%s\". Fields must contain the allowed characters, and be at most 300 characters long..*".formatted(columnName.replace("\\", "\\\\")));
     }
 
+    @Test
     @Override // Override because the base test exceeds rate limits per a table
     public void testCommentColumn()
     {
@@ -514,6 +516,7 @@ public abstract class BaseBigQueryConnectorTest
         onBigQuery(format("DROP VIEW %s.%s", schemaName, viewName));
     }
 
+    @Test
     @Override
     public void testShowCreateTable()
     {
@@ -933,6 +936,7 @@ public abstract class BaseBigQueryConnectorTest
                 .hasMessageContaining("Failed to get schema for query");
     }
 
+    @Test
     @Override
     public void testInsertArray()
     {
@@ -943,6 +947,7 @@ public abstract class BaseBigQueryConnectorTest
         }
     }
 
+    @Test
     @Override
     public void testInsertRowConcurrently()
     {
@@ -975,6 +980,7 @@ public abstract class BaseBigQueryConnectorTest
                         "col_required2 INT64 NOT NULL)");
     }
 
+    @Test
     @Override
     public void testCharVarcharComparison()
     {
