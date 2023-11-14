@@ -23,6 +23,7 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.parquet.BloomFilterStore;
+import io.trino.parquet.Column;
 import io.trino.parquet.Field;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
@@ -473,7 +474,7 @@ public class ParquetPageSourceFactory
 
     public interface ParquetReaderProvider
     {
-        ParquetReader createParquetReader(List<Field> fields)
+        ParquetReader createParquetReader(List<Column> fields)
                 throws IOException;
     }
 
@@ -486,7 +487,7 @@ public class ParquetPageSourceFactory
             throws IOException
     {
         ParquetPageSource.Builder pageSourceBuilder = ParquetPageSource.builder();
-        ImmutableList.Builder<Field> parquetColumnFieldsBuilder = ImmutableList.builder();
+        ImmutableList.Builder<Column> parquetColumnFieldsBuilder = ImmutableList.builder();
         int sourceChannel = 0;
         for (HiveColumnHandle column : baseColumns) {
             if (column == PARQUET_ROW_INDEX_COLUMN) {
@@ -505,7 +506,7 @@ public class ParquetPageSourceFactory
                 pageSourceBuilder.addNullColumn(column.getBaseType());
                 continue;
             }
-            parquetColumnFieldsBuilder.add(field.get());
+            parquetColumnFieldsBuilder.add(new Column(columnName, field.get()));
             pageSourceBuilder.addSourceColumn(sourceChannel);
             sourceChannel++;
         }
