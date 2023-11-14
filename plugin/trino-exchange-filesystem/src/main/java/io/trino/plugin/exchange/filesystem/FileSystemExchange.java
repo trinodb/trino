@@ -183,7 +183,6 @@ public class FileSystemExchange
                 return;
             }
             verify(noMoreSinks, "noMoreSinks is expected to be set");
-            verify(finishedSinks.keySet().containsAll(allSinks), "all sinks are expected to be finished");
             // input is ready, create exchange source handles
             exchangeSourceHandlesCreationStarted = true;
             exchangeSourceHandlesCreationFuture = stats.getCreateExchangeSourceHandles().record(this::createExchangeSourceHandles);
