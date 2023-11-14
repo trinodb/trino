@@ -36,16 +36,13 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.containers.Minio;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.util.Arrays;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
-import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
@@ -111,63 +108,67 @@ public class TestTrinoS3FileSystemAccessOperations
         minio = null;
     }
 
-    @Test(dataProvider = "storageFormats")
-    public void testSelectWithFilter(StorageFormat format)
+    @Test
+    public void testSelectWithFilter()
     {
-        assertUpdate("DROP TABLE IF EXISTS test_select_from_where");
-        String tableLocation = randomTableLocation("test_select_from_where");
+        for (StorageFormat format : StorageFormat.values()) {
+            assertUpdate("DROP TABLE IF EXISTS test_select_from_where");
+            String tableLocation = randomTableLocation("test_select_from_where");
 
-        assertUpdate("CREATE TABLE test_select_from_where WITH (format = '" + format + "', external_location = '" + tableLocation + "') AS SELECT 2 AS age", 1);
+            assertUpdate("CREATE TABLE test_select_from_where WITH (format = '" + format + "', external_location = '" + tableLocation + "') AS SELECT 2 AS age", 1);
 
-        assertFileSystemAccesses(
-                withSmallFileThreshold(getSession(), DataSize.valueOf("1MB")), // large enough threshold for single request of small file
-                "SELECT * FROM test_select_from_where WHERE age = 2",
-                ImmutableMultiset.<String>builder()
-                        .add("S3.GetObject")
-                        .add("S3.ListObjectsV2")
-                        .build());
+            assertFileSystemAccesses(
+                    withSmallFileThreshold(getSession(), DataSize.valueOf("1MB")), // large enough threshold for single request of small file
+                    "SELECT * FROM test_select_from_where WHERE age = 2",
+                    ImmutableMultiset.<String>builder()
+                            .add("S3.GetObject")
+                            .add("S3.ListObjectsV2")
+                            .build());
 
-        assertFileSystemAccesses(
-                withSmallFileThreshold(getSession(), DataSize.valueOf("10B")), // disables single request for small file
-                "SELECT * FROM test_select_from_where WHERE age = 2",
-                ImmutableMultiset.<String>builder()
-                        .addCopies("S3.GetObject", occurrences(format, 3, 2))
-                        .add("S3.ListObjectsV2")
-                        .build());
+            assertFileSystemAccesses(
+                    withSmallFileThreshold(getSession(), DataSize.valueOf("10B")), // disables single request for small file
+                    "SELECT * FROM test_select_from_where WHERE age = 2",
+                    ImmutableMultiset.<String>builder()
+                            .addCopies("S3.GetObject", occurrences(format, 3, 2))
+                            .add("S3.ListObjectsV2")
+                            .build());
 
-        assertUpdate("DROP TABLE test_select_from_where");
+            assertUpdate("DROP TABLE test_select_from_where");
+        }
     }
 
-    @Test(dataProvider = "storageFormats")
-    public void testSelectPartitionTable(StorageFormat format)
+    @Test
+    public void testSelectPartitionTable()
     {
-        assertUpdate("DROP TABLE IF EXISTS test_select_from_partition");
-        String tableLocation = randomTableLocation("test_select_from_partition");
+        for (StorageFormat format : StorageFormat.values()) {
+            assertUpdate("DROP TABLE IF EXISTS test_select_from_partition");
+            String tableLocation = randomTableLocation("test_select_from_partition");
 
-        assertUpdate("CREATE TABLE test_select_from_partition (data int, key varchar)" +
-                "WITH (partitioned_by = ARRAY['key'], format = '" + format + "', external_location = '" + tableLocation + "')");
-        assertUpdate("INSERT INTO test_select_from_partition VALUES (1, 'part1'), (2, 'part2')", 2);
+            assertUpdate("CREATE TABLE test_select_from_partition (data int, key varchar)" +
+                    "WITH (partitioned_by = ARRAY['key'], format = '" + format + "', external_location = '" + tableLocation + "')");
+            assertUpdate("INSERT INTO test_select_from_partition VALUES (1, 'part1'), (2, 'part2')", 2);
 
-        assertFileSystemAccesses("SELECT * FROM test_select_from_partition",
-                ImmutableMultiset.<String>builder()
-                        .addCopies("S3.GetObject", 2)
-                        .addCopies("S3.ListObjectsV2", 2)
-                        .build());
+            assertFileSystemAccesses("SELECT * FROM test_select_from_partition",
+                    ImmutableMultiset.<String>builder()
+                            .addCopies("S3.GetObject", 2)
+                            .addCopies("S3.ListObjectsV2", 2)
+                            .build());
 
-        assertFileSystemAccesses("SELECT * FROM test_select_from_partition WHERE key = 'part1'",
-                ImmutableMultiset.<String>builder()
-                        .add("S3.GetObject")
-                        .add("S3.ListObjectsV2")
-                        .build());
+            assertFileSystemAccesses("SELECT * FROM test_select_from_partition WHERE key = 'part1'",
+                    ImmutableMultiset.<String>builder()
+                            .add("S3.GetObject")
+                            .add("S3.ListObjectsV2")
+                            .build());
 
-        assertUpdate("INSERT INTO test_select_from_partition VALUES (11, 'part1')", 1);
-        assertFileSystemAccesses("SELECT * FROM test_select_from_partition WHERE key = 'part1'",
-                ImmutableMultiset.<String>builder()
-                        .addCopies("S3.GetObject", 2)
-                        .addCopies("S3.ListObjectsV2", 1)
-                        .build());
+            assertUpdate("INSERT INTO test_select_from_partition VALUES (11, 'part1')", 1);
+            assertFileSystemAccesses("SELECT * FROM test_select_from_partition WHERE key = 'part1'",
+                    ImmutableMultiset.<String>builder()
+                            .addCopies("S3.GetObject", 2)
+                            .addCopies("S3.ListObjectsV2", 1)
+                            .build());
 
-        assertUpdate("DROP TABLE test_select_from_partition");
+            assertUpdate("DROP TABLE test_select_from_partition");
+        }
     }
 
     private static String randomTableLocation(String tableName)
@@ -193,13 +194,6 @@ public class TestTrinoS3FileSystemAccessOperations
         return spanExporter.getFinishedSpanItems().stream()
                 .map(SpanData::getName)
                 .collect(toCollection(HashMultiset::create));
-    }
-
-    @DataProvider
-    public static Object[][] storageFormats()
-    {
-        return Arrays.stream(StorageFormat.values())
-                .collect(toDataProvider());
     }
 
     private static int occurrences(StorageFormat tableType, int orcValue, int parquetValue)

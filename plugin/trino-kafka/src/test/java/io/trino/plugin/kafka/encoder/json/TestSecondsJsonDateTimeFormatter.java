@@ -16,7 +16,6 @@ package io.trino.plugin.kafka.encoder.json;
 import io.trino.plugin.kafka.encoder.json.format.JsonDateTimeFormatter;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.TimeZoneKey;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.time.LocalDateTime;
@@ -38,57 +37,48 @@ public class TestSecondsJsonDateTimeFormatter
         return SECONDS_SINCE_EPOCH.getFormatter(Optional.empty());
     }
 
-    @Test(dataProvider = "testTimeProvider")
-    public void testTime(LocalTime time)
+    @Test
+    public void testTime()
+    {
+        testTime(LocalTime.of(15, 36, 25, 0));
+        testTime(LocalTime.of(0, 0, 0, 0));
+        testTime(LocalTime.of(23, 59, 59, 0));
+    }
+
+    private void testTime(LocalTime time)
     {
         String formatted = getFormatter().formatTime(sqlTimeOf(3, time), 3);
         assertEquals(Long.parseLong(formatted), time.toSecondOfDay());
     }
 
-    @DataProvider
-    public Object[][] testTimeProvider()
+    @Test
+    public void testTimestamp()
     {
-        return new Object[][] {
-                {LocalTime.of(15, 36, 25, 0)},
-                {LocalTime.of(0, 0, 0, 0)},
-                {LocalTime.of(23, 59, 59, 0)},
-        };
+        testTimestamp(LocalDateTime.of(2020, 8, 18, 12, 38, 29, 0));
+        testTimestamp(LocalDateTime.of(1970, 1, 1, 0, 0, 0, 0));
+        testTimestamp(LocalDateTime.of(1800, 8, 18, 12, 38, 29, 0));
     }
 
-    @Test(dataProvider = "testTimestampProvider")
-    public void testTimestamp(LocalDateTime dateTime)
+    private void testTimestamp(LocalDateTime dateTime)
     {
         String formatted = getFormatter().formatTimestamp(sqlTimestampOf(3, dateTime));
         assertEquals(Long.parseLong(formatted), dateTime.toEpochSecond(UTC));
     }
 
-    @DataProvider
-    public Object[][] testTimestampProvider()
+    @Test
+    public void testTimestampWithTimeZone()
     {
-        return new Object[][] {
-                {LocalDateTime.of(2020, 8, 18, 12, 38, 29, 0)},
-                {LocalDateTime.of(1970, 1, 1, 0, 0, 0, 0)},
-                {LocalDateTime.of(1800, 8, 18, 12, 38, 29, 0)},
-        };
+        testTimestampWithTimeZone(ZonedDateTime.of(2020, 8, 18, 12, 38, 29, 123000000, UTC_KEY.getZoneId()));
+        testTimestampWithTimeZone(ZonedDateTime.of(2020, 8, 18, 12, 38, 29, 123000000, TimeZoneKey.getTimeZoneKey("America/New_York").getZoneId()));
+        testTimestampWithTimeZone(ZonedDateTime.of(1800, 8, 18, 12, 38, 29, 123000000, UTC_KEY.getZoneId()));
+        testTimestampWithTimeZone(ZonedDateTime.of(2020, 8, 19, 12, 23, 41, 123000000, TimeZoneKey.getTimeZoneKey("Asia/Hong_Kong").getZoneId()));
+        testTimestampWithTimeZone(ZonedDateTime.of(2020, 8, 19, 12, 23, 41, 123000000, TimeZoneKey.getTimeZoneKey("Africa/Mogadishu").getZoneId()));
+        testTimestampWithTimeZone(ZonedDateTime.of(1970, 1, 1, 0, 0, 0, 0, UTC_KEY.getZoneId()));
     }
 
-    @Test(dataProvider = "testTimestampWithTimeZoneProvider")
-    public void testTimestampWithTimeZone(ZonedDateTime zonedDateTime)
+    private void testTimestampWithTimeZone(ZonedDateTime zonedDateTime)
     {
         String formattedStr = getFormatter().formatTimestampWithZone(SqlTimestampWithTimeZone.fromInstant(3, zonedDateTime.toInstant(), zonedDateTime.getZone()));
         assertEquals(Long.parseLong(formattedStr), zonedDateTime.toEpochSecond());
-    }
-
-    @DataProvider
-    public Object[][] testTimestampWithTimeZoneProvider()
-    {
-        return new Object[][] {
-                {ZonedDateTime.of(2020, 8, 18, 12, 38, 29, 123000000, UTC_KEY.getZoneId())},
-                {ZonedDateTime.of(2020, 8, 18, 12, 38, 29, 123000000, TimeZoneKey.getTimeZoneKey("America/New_York").getZoneId())},
-                {ZonedDateTime.of(1800, 8, 18, 12, 38, 29, 123000000, UTC_KEY.getZoneId())},
-                {ZonedDateTime.of(2020, 8, 19, 12, 23, 41, 123000000, TimeZoneKey.getTimeZoneKey("Asia/Hong_Kong").getZoneId())},
-                {ZonedDateTime.of(2020, 8, 19, 12, 23, 41, 123000000, TimeZoneKey.getTimeZoneKey("Africa/Mogadishu").getZoneId())},
-                {ZonedDateTime.of(1970, 1, 1, 0, 0, 0, 0, UTC_KEY.getZoneId())},
-        };
     }
 }

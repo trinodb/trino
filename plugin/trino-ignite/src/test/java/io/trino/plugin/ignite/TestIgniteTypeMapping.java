@@ -29,7 +29,6 @@ import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
@@ -289,8 +288,18 @@ public class TestIgniteTypeMapping
                 .addRoundTrip(inputType, "X'000000000000'", VARBINARY, "X'000000000000'");
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testDate(ZoneId sessionZone)
+    @Test
+    public void testDate()
+    {
+        testDate(UTC);
+        testDate(jvmZone);
+        // using two non-JVM zones so that we don't need to worry what Ignite system zone is
+        testDate(vilnius);
+        testDate(kathmandu);
+        testDate(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testDate(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
@@ -314,8 +323,18 @@ public class TestIgniteTypeMapping
                 .execute(getQueryRunner(), session, igniteCreateAndInsert("test_date"));
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testUnsupportedDateRange(ZoneId sessionZone)
+    @Test
+    public void testUnsupportedDateRange()
+    {
+        testUnsupportedDateRange(UTC);
+        testUnsupportedDateRange(jvmZone);
+        // using two non-JVM zones so that we don't need to worry what Ignite system zone is
+        testUnsupportedDateRange(vilnius);
+        testUnsupportedDateRange(kathmandu);
+        testUnsupportedDateRange(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testUnsupportedDateRange(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
@@ -402,19 +421,6 @@ public class TestIgniteTypeMapping
                 .execute(getQueryRunner(), igniteCreateAndInsert("test_unbounded_varchar"))
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_unbounded_varchar"))
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_unbounded_varchar"));
-    }
-
-    @DataProvider
-    public Object[][] sessionZonesDataProvider()
-    {
-        return new Object[][] {
-                {UTC},
-                {jvmZone},
-                // using two non-JVM zones so that we don't need to worry what Ignite system zone is
-                {vilnius},
-                {kathmandu},
-                {TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId()},
-        };
     }
 
     private DataSetup trinoCreateAndInsert(String tableNamePrefix)

@@ -29,7 +29,6 @@ import io.trino.testing.MaterializedRow;
 import io.trino.testing.StandaloneQueryRunner;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -183,8 +182,15 @@ public class TestRecordAccess
         log.info("Completed second test (select counts)");
     }
 
-    @Test(dataProvider = "testJsonStreamProvider")
-    public void testJsonStream(int uncompressedMessages, int compressedMessages, String streamName)
+    @Test
+    public void testJsonStream()
+    {
+        testJsonStream(4, 0, jsonStreamName);
+        testJsonStream(0, 4, jsonGzipCompressStreamName);
+        testJsonStream(2, 2, jsonAutomaticCompressStreamName);
+    }
+
+    private void testJsonStream(int uncompressedMessages, int compressedMessages, String streamName)
     {
         // Simple case: add a few specific items, query object and internal fields:
         if (uncompressedMessages > 0) {
@@ -209,15 +215,5 @@ public class TestRecordAccess
             assertTrue((long) row.getFields().get(0) >= 100);
             log.info("ROW: %s", row);
         }
-    }
-
-    @DataProvider
-    public Object[][] testJsonStreamProvider()
-    {
-        return new Object[][] {
-                {4, 0, jsonStreamName},
-                {0, 4, jsonGzipCompressStreamName},
-                {2, 2, jsonAutomaticCompressStreamName},
-        };
     }
 }

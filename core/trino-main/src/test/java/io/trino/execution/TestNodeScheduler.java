@@ -49,7 +49,6 @@ import io.trino.testing.TestingSession;
 import io.trino.util.FinalizerService;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.net.InetAddress;
@@ -652,27 +651,27 @@ public class TestNodeScheduler
         assertEquals(assignment.get(node4).size(), 4);
     }
 
-    @DataProvider
-    public static Object[][] equateDistributionTestParameters()
+    @Test
+    public void testEquateDistributionConsistentHashing()
     {
-        return new Object[][] {
-                {5, 10, 0.00},
-                {5, 20, 0.055},
-                {10, 50, 0.00},
-                {10, 100, 0.045},
-                {10, 200, 0.090},
-                {50, 550, 0.045},
-                {50, 600, 0.047},
-                {50, 700, 0.045},
-                {100, 550, 0.036},
-                {100, 600, 0.054},
-                {100, 1000, 0.039},
-                {100, 1500, 0.045}};
+        testEquateDistributionConsistentHashing(5, 10, 0.00);
+        testEquateDistributionConsistentHashing(5, 20, 0.055);
+        testEquateDistributionConsistentHashing(10, 50, 0.00);
+        testEquateDistributionConsistentHashing(10, 100, 0.045);
+        testEquateDistributionConsistentHashing(10, 200, 0.090);
+        testEquateDistributionConsistentHashing(50, 550, 0.045);
+        testEquateDistributionConsistentHashing(50, 600, 0.047);
+        testEquateDistributionConsistentHashing(50, 700, 0.045);
+        testEquateDistributionConsistentHashing(100, 550, 0.036);
+        testEquateDistributionConsistentHashing(100, 600, 0.054);
+        testEquateDistributionConsistentHashing(100, 1000, 0.039);
+        testEquateDistributionConsistentHashing(100, 1500, 0.045);
     }
 
-    @Test(dataProvider = "equateDistributionTestParameters")
-    public void testEquateDistributionConsistentHashing(int numberOfNodes, int numberOfSplits, double misassignedSplitsRatio)
+    private void testEquateDistributionConsistentHashing(int numberOfNodes, int numberOfSplits, double misassignedSplitsRatio)
     {
+        setUp();
+
         ImmutableList.Builder<InternalNode> nodesBuilder = ImmutableList.builder();
         for (int i = 0; i < numberOfNodes; ++i) {
             InternalNode node = new InternalNode("node" + i, URI.create("http://10.0.0.1:" + (i + 10)), NodeVersion.UNKNOWN, false);
