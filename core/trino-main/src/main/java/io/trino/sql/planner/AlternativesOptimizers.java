@@ -23,6 +23,7 @@ import io.trino.sql.planner.iterative.IterativeOptimizer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.rule.PruneTableScanColumns;
 import io.trino.sql.planner.iterative.rule.PushPredicateIntoTableScan;
+import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjectionsInOrder;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 
 import java.util.List;
@@ -59,6 +60,7 @@ public class AlternativesOptimizers
                 ImmutableSet.<Rule<?>>builder()
                         // more rules will be added in the future
                         .add(new PruneTableScanColumns(plannerContext.getMetadata()))
+                        .add(new RemoveRedundantIdentityProjectionsInOrder())   // output symbols of all alternatives must be in the same order
                         .build());
 
         optimizers = List.of(alternativesOptimizer, iterativeOptimizer);
