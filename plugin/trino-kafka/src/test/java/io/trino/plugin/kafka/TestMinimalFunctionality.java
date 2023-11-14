@@ -27,8 +27,8 @@ import java.util.stream.LongStream;
 
 import static io.trino.plugin.kafka.util.TestUtils.createEmptyTopicDescription;
 import static java.util.UUID.randomUUID;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
-import static org.testng.Assert.assertTrue;
 
 @Execution(SAME_THREAD)
 public class TestMinimalFunctionality
@@ -54,7 +54,7 @@ public class TestMinimalFunctionality
     @Test
     public void testTopicExists()
     {
-        assertTrue(getQueryRunner().listTables(getSession(), "kafka", "default").contains(QualifiedObjectName.valueOf("kafka.default." + topicName)));
+        assertThat(getQueryRunner().listTables(getSession(), "kafka", "default").contains(QualifiedObjectName.valueOf("kafka.default." + topicName))).isTrue();
     }
 
     @Test

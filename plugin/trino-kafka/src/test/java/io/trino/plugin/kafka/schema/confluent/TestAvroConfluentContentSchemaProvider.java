@@ -32,7 +32,6 @@ import java.util.Optional;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestAvroConfluentContentSchemaProvider
 {
@@ -48,8 +47,8 @@ public class TestAvroConfluentContentSchemaProvider
         mockSchemaRegistryClient.register(SUBJECT_NAME, schema);
         AvroConfluentContentSchemaProvider avroConfluentSchemaProvider = new AvroConfluentContentSchemaProvider(mockSchemaRegistryClient);
         KafkaTableHandle tableHandle = new KafkaTableHandle("default", TOPIC, TOPIC, AvroRowDecoderFactory.NAME, AvroRowDecoderFactory.NAME, Optional.empty(), Optional.empty(), Optional.empty(), Optional.of(SUBJECT_NAME), ImmutableList.of(), TupleDomain.all());
-        assertEquals(avroConfluentSchemaProvider.getMessage(tableHandle), Optional.of(schema).map(Schema::toString));
-        assertEquals(avroConfluentSchemaProvider.getKey(tableHandle), Optional.empty());
+        assertThat(avroConfluentSchemaProvider.getMessage(tableHandle)).isEqualTo(Optional.of(schema).map(Schema::toString));
+        assertThat(avroConfluentSchemaProvider.getKey(tableHandle)).isEqualTo(Optional.empty());
         KafkaTableHandle invalidTableHandle = new KafkaTableHandle("default", TOPIC, TOPIC, AvroRowDecoderFactory.NAME, AvroRowDecoderFactory.NAME, Optional.empty(), Optional.empty(), Optional.empty(), Optional.of("another-schema"), ImmutableList.of(), TupleDomain.all());
         assertThatThrownBy(() -> avroConfluentSchemaProvider.getMessage(invalidTableHandle))
                 .isInstanceOf(TrinoException.class)

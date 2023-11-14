@@ -66,7 +66,6 @@ import static org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CL
 import static org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
-import static org.testng.Assert.assertTrue;
 
 @Execution(SAME_THREAD)
 public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
@@ -433,13 +432,13 @@ public class TestKafkaProtobufWithSchemaRegistryMinimalFunctionality
                                 .withMaxAttempts(10)
                                 .withDelay(Duration.ofMillis(100))
                                 .build())
-                .run(() -> assertTrue(schemaExists()));
+                .run(() -> assertThat(schemaExists()).isTrue());
         Failsafe.with(
                         RetryPolicy.builder()
                                 .withMaxAttempts(10)
                                 .withDelay(Duration.ofMillis(100))
                                 .build())
-                .run(() -> assertTrue(tableExists(tableName)));
+                .run(() -> assertThat(tableExists(tableName)).isTrue());
     }
 
     private boolean schemaExists()

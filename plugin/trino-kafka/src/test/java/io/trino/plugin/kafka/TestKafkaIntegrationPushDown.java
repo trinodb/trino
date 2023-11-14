@@ -40,8 +40,8 @@ import static io.trino.plugin.kafka.util.TestUtils.createEmptyTopicDescription;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
-import static org.testng.Assert.assertEquals;
 
 @Execution(SAME_THREAD)
 public class TestKafkaIntegrationPushDown
@@ -92,7 +92,7 @@ public class TestKafkaIntegrationPushDown
 
         assertEventually(() -> {
             MaterializedResultWithQueryId queryResult = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
-            assertEquals(getQueryInfo(getDistributedQueryRunner(), queryResult).getQueryStats().getProcessedInputPositions(), MESSAGE_NUM / 2);
+            assertThat(getQueryInfo(getDistributedQueryRunner(), queryResult).getQueryStats().getProcessedInputPositions()).isEqualTo(MESSAGE_NUM / 2);
         });
     }
 
@@ -155,7 +155,7 @@ public class TestKafkaIntegrationPushDown
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
         assertEventually(() -> {
             MaterializedResultWithQueryId queryResult = queryRunner.executeWithQueryId(session, sql);
-            assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputPositions(), expectedProcessedInputPositions);
+            assertThat(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputPositions()).isEqualTo(expectedProcessedInputPositions);
         });
     }
 

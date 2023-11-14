@@ -47,9 +47,12 @@ import io.trino.spi.connector.ConnectorSplit;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingSession;
 import io.trino.util.FinalizerService;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.net.InetAddress;
 import java.net.URI;
@@ -84,11 +87,14 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestNodeScheduler
 {
     private FinalizerService finalizerService;
@@ -102,7 +108,7 @@ public class TestNodeScheduler
     private ScheduledExecutorService remoteTaskScheduledExecutor;
     private Session session;
 
-    @BeforeMethod
+    @BeforeEach
     public void setUp()
     {
         session = TestingSession.testSessionBuilder().build();
@@ -134,7 +140,7 @@ public class TestNodeScheduler
                 new InternalNode("other3", URI.create("http://10.0.0.1:13"), NodeVersion.UNKNOWN, false));
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
     {
         remoteTaskExecutor.shutdown();
@@ -172,7 +178,8 @@ public class TestNodeScheduler
         assertEquals(assignment.getValue(), split);
     }
 
-    @Test(timeOut = 60 * 1000)
+    @Test
+    @Timeout(60)
     public void testTopologyAwareScheduling()
     {
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);

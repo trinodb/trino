@@ -41,7 +41,6 @@ import static java.util.Locale.ENGLISH;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertTrue;
 
 public class TestConfluentSchemaRegistryTableDescriptionSupplier
 {
@@ -58,7 +57,7 @@ public class TestConfluentSchemaRegistryTableDescriptionSupplier
         String subject = topicName + "-value";
         SCHEMA_REGISTRY_CLIENT.register(subject, getAvroSchema(schemaTableName.getTableName(), ""));
 
-        assertTrue(tableDescriptionSupplier.listTables().contains(schemaTableName));
+        assertThat(tableDescriptionSupplier.listTables().contains(schemaTableName)).isTrue();
 
         assertThat(getKafkaTopicDescription(tableDescriptionSupplier, schemaTableName))
                 .isEqualTo(
@@ -83,7 +82,7 @@ public class TestConfluentSchemaRegistryTableDescriptionSupplier
 
         SCHEMA_REGISTRY_CLIENT.register(subject, getAvroSchema(schemaTableName.getTableName(), ""));
 
-        assertTrue(tableDescriptionSupplier.listTables().contains(schemaTableName));
+        assertThat(tableDescriptionSupplier.listTables().contains(schemaTableName)).isTrue();
 
         assertThat(getKafkaTopicDescription(tableDescriptionSupplier, schemaTableName))
                 .isEqualTo(
@@ -108,7 +107,7 @@ public class TestConfluentSchemaRegistryTableDescriptionSupplier
         SCHEMA_REGISTRY_CLIENT.register(topicName + "-key", getAvroSchema(schemaTableName.getTableName(), ""));
         SCHEMA_REGISTRY_CLIENT.register(topicName.toUpperCase(ENGLISH) + "-key", getAvroSchema(schemaTableName.getTableName(), ""));
 
-        assertTrue(tableDescriptionSupplier.listTables().contains(schemaTableName));
+        assertThat(tableDescriptionSupplier.listTables().contains(schemaTableName)).isTrue();
 
         assertThatThrownBy(() ->
                 tableDescriptionSupplier.getTopicDescription(
@@ -132,7 +131,7 @@ public class TestConfluentSchemaRegistryTableDescriptionSupplier
         String overriddenSubject = "overriddenSubject";
         SCHEMA_REGISTRY_CLIENT.register(overriddenSubject, getAvroSchema(schemaTableName.getTableName(), "overridden_"));
 
-        assertTrue(tableDescriptionSupplier.listTables().contains(schemaTableName));
+        assertThat(tableDescriptionSupplier.listTables().contains(schemaTableName)).isTrue();
 
         assertThat(getKafkaTopicDescription(tableDescriptionSupplier, schemaTableName))
                 .isEqualTo(

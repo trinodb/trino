@@ -31,7 +31,7 @@ import static io.trino.testing.DateTimeTestingUtils.sqlTimeOf;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimeWithTimeZoneOf;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampWithTimeZoneOf;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestISO8601JsonDateTimeFormatter
 {
@@ -43,31 +43,31 @@ public class TestISO8601JsonDateTimeFormatter
     private static void testDate(SqlDate value, String expectedLiteral)
     {
         String actualLiteral = getFormatter().formatDate(value);
-        assertEquals(actualLiteral, expectedLiteral);
+        assertThat(actualLiteral).isEqualTo(expectedLiteral);
     }
 
     private static void testTime(SqlTime value, int precision, String expectedLiteral)
     {
         String actualLiteral = getFormatter().formatTime(value, precision);
-        assertEquals(actualLiteral, expectedLiteral);
+        assertThat(actualLiteral).isEqualTo(expectedLiteral);
     }
 
     private static void testTimeWithTZ(SqlTimeWithTimeZone value, String expectedLiteral)
     {
         String actualLiteral = getFormatter().formatTimeWithZone(value);
-        assertEquals(actualLiteral, expectedLiteral);
+        assertThat(actualLiteral).isEqualTo(expectedLiteral);
     }
 
     private static void testTimestamp(SqlTimestamp value, String expectedLiteral)
     {
         String actualLiteral = getFormatter().formatTimestamp(value);
-        assertEquals(actualLiteral, expectedLiteral);
+        assertThat(actualLiteral).isEqualTo(expectedLiteral);
     }
 
     private static void testTimestampWithTZ(SqlTimestampWithTimeZone value, String expectedLiteral)
     {
         String actualLiteral = getFormatter().formatTimestampWithZone(value);
-        assertEquals(actualLiteral, expectedLiteral);
+        assertThat(actualLiteral).isEqualTo(expectedLiteral);
     }
 
     @Test

@@ -72,7 +72,7 @@ import static java.lang.Math.floorMod;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestProtobufEncoder
 {
@@ -158,7 +158,7 @@ public class TestProtobufEncoder
         rowEncoder.appendColumnValue(nativeValueToBlock(createTimestampType(6), sqlTimestamp.getEpochMicros()), 0);
         rowEncoder.appendColumnValue(nativeValueToBlock(VARBINARY, wrappedBuffer(bytesData)), 0);
 
-        assertEquals(messageBuilder.build().toByteArray(), rowEncoder.toByteArray());
+        assertThat(messageBuilder.build().toByteArray()).isEqualTo(rowEncoder.toByteArray());
     }
 
     @Test
@@ -278,7 +278,7 @@ public class TestProtobufEncoder
         });
         rowEncoder.appendColumnValue(rowBlockBuilder.build(), 0);
 
-        assertEquals(messageBuilder.build().toByteArray(), rowEncoder.toByteArray());
+        assertThat(messageBuilder.build().toByteArray()).isEqualTo(rowEncoder.toByteArray());
     }
 
     @Test
@@ -419,7 +419,7 @@ public class TestProtobufEncoder
 
         rowEncoder.appendColumnValue(nestedBlockBuilder.build(), 0);
 
-        assertEquals(messageBuilder.build().toByteArray(), rowEncoder.toByteArray());
+        assertThat(messageBuilder.build().toByteArray()).isEqualTo(rowEncoder.toByteArray());
     }
 
     @Test
@@ -506,7 +506,7 @@ public class TestProtobufEncoder
         rowEncoder.appendColumnValue(nativeValueToBlock(createTimestampType(6), sqlTimestamp.getEpochMicros()), 0);
         rowEncoder.appendColumnValue(nativeValueToBlock(VARBINARY, wrappedBuffer(bytesData)), 0);
 
-        assertEquals(messageBuilder.build().toByteArray(), rowEncoder.toByteArray());
+        assertThat(messageBuilder.build().toByteArray()).isEqualTo(rowEncoder.toByteArray());
     }
 
     private Timestamp getTimestamp(SqlTimestamp sqlTimestamp)

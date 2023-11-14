@@ -55,7 +55,6 @@ import static org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
-import static org.testng.Assert.assertTrue;
 
 @Execution(SAME_THREAD)
 public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
@@ -244,7 +243,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                         .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaJsonSchemaSerializer.class.getName())
                         .buildOrThrow());
 
-        assertTrue(tableExists(topicName));
+        assertThat(tableExists(topicName)).isTrue();
 
         String errorMessage = "Not supported schema: JSON";
         assertThatThrownBy(() -> getQueryRunner().execute("SHOW COLUMNS FROM " + toDoubleQuoted(topicName)))
@@ -368,13 +367,13 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                         .withMaxAttempts(10)
                         .withDelay(Duration.ofMillis(100))
                         .build())
-                .run(() -> assertTrue(schemaExists()));
+                .run(() -> assertThat(schemaExists()).isTrue());
         Failsafe.with(
                 RetryPolicy.builder()
                         .withMaxAttempts(10)
                         .withDelay(Duration.ofMillis(100))
                         .build())
-                .run(() -> assertTrue(tableExists(tableName)));
+                .run(() -> assertThat(tableExists(tableName)).isTrue());
     }
 
     private boolean schemaExists()
