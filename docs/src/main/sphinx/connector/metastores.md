@@ -295,7 +295,7 @@ described with the following additional property:
   - Skip archiving an old table version when creating a new version in a commit.
     See [AWS Glue Skip
     Archive](https://iceberg.apache.org/docs/latest/aws/#skip-archive).
-  - `false`
+  - `true`
 :::
 
 ## Iceberg-specific metastores
