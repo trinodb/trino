@@ -19,7 +19,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.OutputStreamSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.parquet.Field;
+import io.trino.parquet.Column;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetReaderOptions;
@@ -242,12 +242,14 @@ public class ParquetWriter
     {
         org.apache.parquet.hadoop.metadata.FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
         MessageColumnIO messageColumnIO = getColumnIO(fileMetaData.getSchema(), fileMetaData.getSchema());
-        ImmutableList.Builder<Field> columnFields = ImmutableList.builder();
+        ImmutableList.Builder<Column> columnFields = ImmutableList.builder();
         for (int i = 0; i < writeValidation.getTypes().size(); i++) {
-            columnFields.add(constructField(
-                    writeValidation.getTypes().get(i),
-                    lookupColumnByName(messageColumnIO, writeValidation.getColumnNames().get(i)))
-                    .orElseThrow());
+            columnFields.add(new Column(
+                    messageColumnIO.getName(),
+                    constructField(
+                            writeValidation.getTypes().get(i),
+                            lookupColumnByName(messageColumnIO, writeValidation.getColumnNames().get(i)))
+                            .orElseThrow()));
         }
         long nextStart = 0;
         ImmutableList.Builder<Long> blockStartsBuilder = ImmutableList.builder();

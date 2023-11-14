@@ -21,6 +21,7 @@ import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.log.Logger;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.parquet.ChunkKey;
+import io.trino.parquet.Column;
 import io.trino.parquet.DiskRange;
 import io.trino.parquet.Field;
 import io.trino.parquet.GroupField;
@@ -66,6 +67,7 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.parquet.ParquetValidationUtils.validateParquet;
 import static io.trino.parquet.ParquetWriteValidation.StatisticsValidation;
@@ -94,7 +96,7 @@ public class ParquetReader
     private final Optional<String> fileCreatedBy;
     private final List<BlockMetaData> blocks;
     private final List<Long> firstRowsOfBlocks;
-    private final List<Field> columnFields;
+    private final List<Column> columnFields;
     private final List<PrimitiveField> primitiveFields;
     private final ParquetDataSource dataSource;
     private final ColumnReaderFactory columnReaderFactory;
@@ -133,7 +135,7 @@ public class ParquetReader
 
     public ParquetReader(
             Optional<String> fileCreatedBy,
-            List<Field> columnFields,
+            List<Column> columnFields,
             List<BlockMetaData> blocks,
             List<Long> firstRowsOfBlocks,
             ParquetDataSource dataSource,
@@ -148,7 +150,7 @@ public class ParquetReader
 
     public ParquetReader(
             Optional<String> fileCreatedBy,
-            List<Field> columnFields,
+            List<Column> columnFields,
             List<BlockMetaData> blocks,
             List<Long> firstRowsOfBlocks,
             ParquetDataSource dataSource,
@@ -164,7 +166,7 @@ public class ParquetReader
         this.fileCreatedBy = requireNonNull(fileCreatedBy, "fileCreatedBy is null");
         requireNonNull(columnFields, "columnFields is null");
         this.columnFields = ImmutableList.copyOf(columnFields);
-        this.primitiveFields = getPrimitiveFields(columnFields);
+        this.primitiveFields = getPrimitiveFields(columnFields.stream().map(Column::field).collect(toImmutableList()));
         this.blocks = requireNonNull(blocks, "blocks is null");
         this.firstRowsOfBlocks = requireNonNull(firstRowsOfBlocks, "firstRowsOfBlocks is null");
         this.dataSource = requireNonNull(dataSource, "dataSource is null");
@@ -269,7 +271,7 @@ public class ParquetReader
         blockFactory.nextPage();
         Block[] blocks = new Block[columnFields.size()];
         for (int channel = 0; channel < columnFields.size(); channel++) {
-            Field field = columnFields.get(channel);
+            Field field = columnFields.get(channel).field();
             blocks[channel] = blockFactory.createBlock(batchSize, () -> readBlock(field));
         }
         Page page = new Page(batchSize, blocks);
@@ -491,6 +493,11 @@ public class ParquetReader
             maxBytesPerCell.put(fieldId, bytesPerCell);
         }
         return columnChunk;
+    }
+
+    public List<Column> getColumnFields()
+    {
+        return columnFields;
     }
 
     public Metrics getMetrics()
