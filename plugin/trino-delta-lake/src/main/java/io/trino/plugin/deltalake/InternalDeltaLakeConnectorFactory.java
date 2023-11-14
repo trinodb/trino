@@ -38,6 +38,7 @@ import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastoreModule;
+import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.spi.NodeManager;
 import io.trino.spi.PageIndexerFactory;
@@ -61,6 +62,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 
@@ -134,6 +136,8 @@ public final class InternalDeltaLakeConnectorFactory
 
             Set<ConnectorTableFunction> connectorTableFunctions = injector.getInstance(Key.get(new TypeLiteral<Set<ConnectorTableFunction>>() {}));
             FunctionProvider functionProvider = injector.getInstance(FunctionProvider.class);
+
+            checkState(!injector.getBindings().containsKey(Key.get(HiveConfig.class)), "HiveConfig should not be bound");
 
             return new DeltaLakeConnector(
                     injector,
