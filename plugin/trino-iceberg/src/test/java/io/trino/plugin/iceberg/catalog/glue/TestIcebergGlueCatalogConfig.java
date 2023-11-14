@@ -29,7 +29,7 @@ public class TestIcebergGlueCatalogConfig
     {
         assertRecordedDefaults(recordDefaults(IcebergGlueCatalogConfig.class)
                 .setCacheTableMetadata(true)
-                .setSkipArchive(false));
+                .setSkipArchive(true));
     }
 
     @Test
@@ -37,12 +37,12 @@ public class TestIcebergGlueCatalogConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("iceberg.glue.cache-table-metadata", "false")
-                .put("iceberg.glue.skip-archive", "true")
+                .put("iceberg.glue.skip-archive", "false")
                 .buildOrThrow();
 
         IcebergGlueCatalogConfig expected = new IcebergGlueCatalogConfig()
                 .setCacheTableMetadata(false)
-                .setSkipArchive(true);
+                .setSkipArchive(false);
 
         assertFullMapping(properties, expected);
     }
