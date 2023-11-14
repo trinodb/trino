@@ -28,8 +28,8 @@ import java.nio.file.Path;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.apache.kafka.common.security.auth.SecurityProtocol.SSL;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertNotNull;
 
 public class TestKafkaPlugin
 {
@@ -52,7 +52,7 @@ public class TestKafkaPlugin
                         .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
                 new TestingConnectorContext());
-        assertNotNull(connector);
+        assertThat(connector).isNotNull();
         connector.shutdown();
     }
 
@@ -89,7 +89,7 @@ public class TestKafkaPlugin
                         .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
                 new TestingConnectorContext());
-        assertNotNull(connector);
+        assertThat(connector).isNotNull();
         connector.shutdown();
     }
 
@@ -198,7 +198,7 @@ public class TestKafkaPlugin
                         .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
                 new TestingConnectorContext());
-        assertNotNull(connector);
+        assertThat(connector).isNotNull();
         connector.shutdown();
     }
 

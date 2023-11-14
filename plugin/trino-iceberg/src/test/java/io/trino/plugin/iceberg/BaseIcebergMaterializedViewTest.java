@@ -26,8 +26,10 @@ import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableMetadataParser;
 import org.assertj.core.api.Condition;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.nio.file.Path;
 import java.util.Optional;
@@ -46,8 +48,12 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.anyOf;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 import static org.testng.Assert.assertEquals;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public abstract class BaseIcebergMaterializedViewTest
         extends AbstractTestQueryFramework
 {
@@ -55,7 +61,7 @@ public abstract class BaseIcebergMaterializedViewTest
 
     protected abstract String getStorageMetadataLocation(String materializedViewName);
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         assertUpdate("CREATE TABLE base_table1(_bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_date'])");

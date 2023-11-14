@@ -28,8 +28,10 @@ import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -64,10 +66,14 @@ import static java.math.RoundingMode.HALF_UP;
 import static java.math.RoundingMode.UNNECESSARY;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Arrays.asList;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 /**
  * @see <a href="https://mariadb.com/kb/en/data-types/">MariaDB data types</a>
  */
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestMariaDbTypeMapping
         extends AbstractTestQueryFramework
 {
@@ -79,7 +85,7 @@ public class TestMariaDbTypeMapping
     // minutes offset change since 1970-01-01, no DST
     private final ZoneId kathmandu = ZoneId.of("Asia/Kathmandu");
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");

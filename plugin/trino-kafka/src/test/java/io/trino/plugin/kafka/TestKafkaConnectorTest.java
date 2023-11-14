@@ -67,8 +67,6 @@ import static org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 
 public class TestKafkaConnectorTest
         extends BaseConnectorTest
@@ -380,7 +378,7 @@ public class TestKafkaConnectorTest
     public void testInsert()
     {
         // Override because the base test uses CREATE TABLE AS SELECT statement that is unsupported in Kafka connector
-        assertFalse(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+        assertThat(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA)).isFalse();
 
         String query = "SELECT phone, custkey, acctbal FROM customer";
 
@@ -504,7 +502,9 @@ public class TestKafkaConnectorTest
                 Object actual = computeScalar("SELECT " + field.getFieldName() + " FROM write_test." + testCase.getTopicName());
                 Object expected = computeScalar("SELECT " + field.getFieldValue());
                 try {
-                    assertEquals(actual, expected, "Equality assertion failed for field: " + field.getFieldName());
+                    assertThat(actual)
+                            .describedAs("Equality assertion failed for field: " + field.getFieldName())
+                            .isEqualTo(expected);
                 }
                 catch (AssertionError e) {
                     throw new AssertionError(format("Equality assertion failed for field '%s'\n%s", field.getFieldName(), e.getMessage()), e);

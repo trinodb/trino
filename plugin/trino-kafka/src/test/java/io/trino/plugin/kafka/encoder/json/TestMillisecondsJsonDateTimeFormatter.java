@@ -16,7 +16,7 @@ package io.trino.plugin.kafka.encoder.json;
 import io.trino.plugin.kafka.encoder.json.format.JsonDateTimeFormatter;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.TimeZoneKey;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -32,7 +32,7 @@ import static java.time.temporal.ChronoField.EPOCH_DAY;
 import static java.time.temporal.ChronoField.MILLI_OF_DAY;
 import static java.time.temporal.ChronoField.NANO_OF_DAY;
 import static java.util.concurrent.TimeUnit.DAYS;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMillisecondsJsonDateTimeFormatter
 {
@@ -51,7 +51,7 @@ public class TestMillisecondsJsonDateTimeFormatter
     private void testTime(LocalTime time)
     {
         String formatted = getFormatter().formatTime(sqlTimeOf(3, time), 3);
-        assertEquals(Long.parseLong(formatted), time.getLong(MILLI_OF_DAY));
+        assertThat(Long.parseLong(formatted)).isEqualTo(time.getLong(MILLI_OF_DAY));
     }
 
     @Test
@@ -65,7 +65,7 @@ public class TestMillisecondsJsonDateTimeFormatter
     private void testTimestamp(LocalDateTime dateTime)
     {
         String formattedStr = getFormatter().formatTimestamp(sqlTimestampOf(3, dateTime));
-        assertEquals(Long.parseLong(formattedStr), DAYS.toMillis(dateTime.getLong(EPOCH_DAY)) + scaleNanosToMillis(dateTime.getLong(NANO_OF_DAY)));
+        assertThat(Long.parseLong(formattedStr)).isEqualTo(DAYS.toMillis(dateTime.getLong(EPOCH_DAY)) + scaleNanosToMillis(dateTime.getLong(NANO_OF_DAY)));
     }
 
     @Test
@@ -82,6 +82,6 @@ public class TestMillisecondsJsonDateTimeFormatter
     private void testTimestampWithTimeZone(ZonedDateTime zonedDateTime)
     {
         String formattedStr = getFormatter().formatTimestampWithZone(SqlTimestampWithTimeZone.fromInstant(3, zonedDateTime.toInstant(), zonedDateTime.getZone()));
-        assertEquals(Long.parseLong(formattedStr), zonedDateTime.toInstant().toEpochMilli());
+        assertThat(Long.parseLong(formattedStr)).isEqualTo(zonedDateTime.toInstant().toEpochMilli());
     }
 }

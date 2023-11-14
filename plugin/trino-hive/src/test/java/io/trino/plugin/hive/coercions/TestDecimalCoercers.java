@@ -17,7 +17,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.DecimalParseResult;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Type;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.hive.HiveTimestampPrecision.NANOSECONDS;
 import static io.trino.plugin.hive.HiveType.toHiveType;
