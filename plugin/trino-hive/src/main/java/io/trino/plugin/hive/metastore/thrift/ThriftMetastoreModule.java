@@ -64,6 +64,7 @@ public class ThriftMetastoreModule
         binder.bind(Key.get(boolean.class, AllowHiveTableRename.class)).toInstance(true);
 
         install(new ThriftMetastoreAuthenticationModule());
+        install(new ThriftMetastoreSslModule());
     }
 
     @Provides

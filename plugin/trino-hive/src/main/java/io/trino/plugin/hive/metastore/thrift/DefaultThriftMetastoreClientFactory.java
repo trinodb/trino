@@ -16,6 +16,7 @@ package io.trino.plugin.hive.metastore.thrift;
 import com.google.common.net.HostAndPort;
 import com.google.inject.Inject;
 import io.airlift.units.Duration;
+import io.trino.plugin.hive.ForHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastoreClient.TransportSupplier;
 import io.trino.spi.NodeManager;
 import org.apache.thrift.transport.TTransport;
@@ -23,13 +24,9 @@ import org.apache.thrift.transport.TTransportException;
 
 import javax.net.ssl.SSLContext;
 
-import java.io.File;
-import java.io.IOException;
-import java.security.GeneralSecurityException;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static io.trino.plugin.base.ssl.SslUtils.createSSLContext;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -71,16 +68,12 @@ public class DefaultThriftMetastoreClientFactory
     @Inject
     public DefaultThriftMetastoreClientFactory(
             ThriftMetastoreConfig config,
+            @ForHiveMetastore Optional<SSLContext> sslContext,
             HiveMetastoreAuthentication metastoreAuthentication,
             NodeManager nodeManager)
     {
         this(
-                buildSslContext(
-                        config.isTlsEnabled(),
-                        Optional.ofNullable(config.getKeystorePath()),
-                        Optional.ofNullable(config.getKeystorePassword()),
-                        Optional.ofNullable(config.getTruststorePath()),
-                        Optional.ofNullable(config.getTruststorePassword())),
+                sslContext,
                 Optional.ofNullable(config.getSocksProxy()),
                 config.getConnectTimeout(),
                 config.getReadTimeout(),
@@ -115,24 +108,5 @@ public class DefaultThriftMetastoreClientFactory
             throws TTransportException
     {
         return Transport.create(address, sslContext, socksProxy, connectTimeoutMillis, readTimeoutMillis, metastoreAuthentication, delegationToken);
-    }
-
-    private static Optional<SSLContext> buildSslContext(
-            boolean tlsEnabled,
-            Optional<File> keyStorePath,
-            Optional<String> keyStorePassword,
-            Optional<File> trustStorePath,
-            Optional<String> trustStorePassword)
-    {
-        if (!tlsEnabled) {
-            return Optional.empty();
-        }
-
-        try {
-            return Optional.of(createSSLContext(keyStorePath, keyStorePassword, trustStorePath, trustStorePassword));
-        }
-        catch (GeneralSecurityException | IOException e) {
-            throw new RuntimeException(e);
-        }
     }
 }

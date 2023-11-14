@@ -16,17 +16,13 @@ package io.trino.plugin.hive.metastore.thrift;
 import com.google.common.net.HostAndPort;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
-import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.LegacyConfig;
-import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 import io.trino.plugin.hive.util.RetryDriver;
-import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
-import java.io.File;
 import java.util.concurrent.TimeUnit;
 
 public class ThriftMetastoreConfig
@@ -47,10 +43,6 @@ public class ThriftMetastoreConfig
     private Duration maxWaitForTransactionLock = new Duration(10, TimeUnit.MINUTES);
 
     private boolean tlsEnabled;
-    private File keystorePath;
-    private String keystorePassword;
-    private File truststorePath;
-    private String trustStorePassword;
     private boolean assumeCanonicalPartitionKeys;
     private int writeStatisticsThreads = 20;
     private boolean batchMetadataFetchEnabled = true;
@@ -258,68 +250,6 @@ public class ThriftMetastoreConfig
     {
         this.tlsEnabled = tlsEnabled;
         return this;
-    }
-
-    @FileExists
-    public File getKeystorePath()
-    {
-        return keystorePath;
-    }
-
-    @Config("hive.metastore.thrift.client.ssl.key")
-    @ConfigDescription("Path to the key store")
-    public ThriftMetastoreConfig setKeystorePath(File keystorePath)
-    {
-        this.keystorePath = keystorePath;
-        return this;
-    }
-
-    public String getKeystorePassword()
-    {
-        return keystorePassword;
-    }
-
-    @Config("hive.metastore.thrift.client.ssl.key-password")
-    @ConfigDescription("Password for the key store")
-    @ConfigSecuritySensitive
-    public ThriftMetastoreConfig setKeystorePassword(String keystorePassword)
-    {
-        this.keystorePassword = keystorePassword;
-        return this;
-    }
-
-    @FileExists
-    public File getTruststorePath()
-    {
-        return truststorePath;
-    }
-
-    @Config("hive.metastore.thrift.client.ssl.trust-certificate")
-    @ConfigDescription("Path to the trust store")
-    public ThriftMetastoreConfig setTruststorePath(File truststorePath)
-    {
-        this.truststorePath = truststorePath;
-        return this;
-    }
-
-    public String getTruststorePassword()
-    {
-        return trustStorePassword;
-    }
-
-    @Config("hive.metastore.thrift.client.ssl.trust-certificate-password")
-    @ConfigDescription("Password for the trust store")
-    @ConfigSecuritySensitive
-    public ThriftMetastoreConfig setTruststorePassword(String trustStorePassword)
-    {
-        this.trustStorePassword = trustStorePassword;
-        return this;
-    }
-
-    @AssertTrue(message = "Trust store must be provided when TLS is enabled")
-    public boolean isTruststorePathValid()
-    {
-        return !tlsEnabled || getTruststorePath() != null;
     }
 
     public boolean isAssumeCanonicalPartitionKeys()
