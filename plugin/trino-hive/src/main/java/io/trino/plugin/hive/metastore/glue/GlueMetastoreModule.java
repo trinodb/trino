@@ -85,11 +85,11 @@ public class GlueMetastoreModule
                 getGlueStatisticsModule(DisabledGlueColumnStatisticsProviderFactory.class)));
     }
 
-    private Module getGlueStatisticsModule(Class<? extends GlueColumnStatisticsProviderFactory> statisticsPrividerFactoryClass)
+    private Module getGlueStatisticsModule(Class<? extends GlueColumnStatisticsProviderFactory> statisticsProviderFactoryClass)
     {
         return internalBinder -> newOptionalBinder(internalBinder, GlueColumnStatisticsProviderFactory.class)
                 .setDefault()
-                .to(statisticsPrividerFactoryClass)
+                .to(statisticsProviderFactoryClass)
                 .in(Scopes.SINGLETON);
     }
 
