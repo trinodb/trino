@@ -104,12 +104,14 @@ public class ParquetTestUtils
     {
         org.apache.parquet.hadoop.metadata.FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
         MessageColumnIO messageColumnIO = getColumnIO(fileMetaData.getSchema(), fileMetaData.getSchema());
-        ImmutableList.Builder<Field> columnFields = ImmutableList.builder();
+        ImmutableList.Builder<Column> columnFields = ImmutableList.builder();
         for (int i = 0; i < types.size(); i++) {
-            columnFields.add(constructField(
-                    types.get(i),
-                    lookupColumnByName(messageColumnIO, columnNames.get(i)))
-                    .orElseThrow());
+            columnFields.add(new Column(
+                    messageColumnIO.getName(),
+                    constructField(
+                            types.get(i),
+                            lookupColumnByName(messageColumnIO, columnNames.get(i)))
+                            .orElseThrow()));
         }
         long nextStart = 0;
         ImmutableList.Builder<Long> blockStartsBuilder = ImmutableList.builder();
