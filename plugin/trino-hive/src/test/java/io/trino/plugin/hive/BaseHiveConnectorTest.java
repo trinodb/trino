@@ -5914,6 +5914,43 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
+    public void testParquetIgnoreStatistics()
+    {
+        for (boolean ignoreStatistics : ImmutableList.of(true, false)) {
+            Session session = Session.builder(getSession())
+                    .setCatalogSessionProperty(catalog, "parquet_ignore_statistics", String.valueOf(ignoreStatistics))
+                    .build();
+
+            String tableName = "test_parquet_ignore_statistics";
+
+            assertUpdate(session, format(
+                    "CREATE TABLE %s(" +
+                            "  a varchar, " +
+                            "  b varchar) " +
+                            "WITH (format='PARQUET', partitioned_by=ARRAY['b'])",
+                    tableName));
+            assertUpdate(session, "INSERT INTO " + tableName + " VALUES ('a', 'b')", 1);
+
+            assertQuery(
+                    session,
+                    "SELECT a, b FROM " + tableName,
+                    "VALUES ('a', 'b')");
+
+            assertQuery(
+                    session,
+                    "SELECT a, b FROM " + tableName + " WHERE b = 'b'",
+                    "VALUES ('a', 'b')");
+
+            assertQuery(
+                    session,
+                    "SELECT a, b FROM " + tableName + " WHERE a = 'a'",
+                    "VALUES ('a', 'b')");
+
+            assertUpdate(session, "DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
     public void testNestedColumnWithDuplicateName()
     {
         String tableName = "test_nested_column_with_duplicate_name";
