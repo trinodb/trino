@@ -21,10 +21,12 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RawLocalFileSystem;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.io.IOException;
@@ -33,18 +35,21 @@ import java.util.Arrays;
 
 import static io.airlift.testing.Closeables.closeAll;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true) // e.g. test methods operate on shared, mutated tempFile
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD) // e.g. test methods operate on shared, mutated tempFile
 public class TestFSDataInputStreamTail
 {
     private File tempRoot;
     private Path tempFile;
     private RawLocalFileSystem fs;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
             throws Exception
     {
@@ -54,7 +59,7 @@ public class TestFSDataInputStreamTail
         tempFile = new Path(Files.createTempFile(tempRoot.toPath(), "tempfile", "txt").toUri());
     }
 
-    @BeforeMethod
+    @BeforeEach
     public void truncateTempFile()
             throws Exception
     {
@@ -62,7 +67,7 @@ public class TestFSDataInputStreamTail
         fs.truncate(tempFile, 0);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
             throws Exception
     {

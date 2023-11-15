@@ -26,12 +26,12 @@ import io.trino.spi.QueryId;
 import io.trino.spi.security.Identity;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.StandaloneQueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Parameters;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.nio.ByteBuffer;
@@ -49,7 +49,8 @@ import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 /**
  * Note: this is an integration test that connects to AWS Kinesis.
@@ -58,7 +59,8 @@ import static org.testng.Assert.assertTrue;
  * You may incur AWS charges if you run this test.  You probably want to setup an IAM
  * user for your CI server to use.
  */
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public class TestMinimalFunctionality
 {
     public static final Session SESSION = Session.builder(new SessionPropertyManager())
@@ -70,35 +72,29 @@ public class TestMinimalFunctionality
             .setLocale(ENGLISH)
             .setQueryId(new QueryId("dummy"))
             .build();
+    private final String accessKey;
+    private final String secretKey;
 
-    private EmbeddedKinesisStream embeddedKinesisStream;
+    private final EmbeddedKinesisStream embeddedKinesisStream;
     private String streamName;
     private StandaloneQueryRunner queryRunner;
     private QueryAssertions assertions;
 
-    @Parameters({
-            "kinesis.awsAccessKey",
-            "kinesis.awsSecretKey"
-    })
-    @BeforeClass
-    public void start(String accessKey, String secretKey)
+    public TestMinimalFunctionality()
     {
+        accessKey = System.getProperty("kinesis.awsAccessKey");
+        secretKey = System.getProperty("kinesis.awsSecretKey");
         embeddedKinesisStream = new EmbeddedKinesisStream(TestUtils.noneToBlank(accessKey), TestUtils.noneToBlank(secretKey));
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void stop()
     {
         embeddedKinesisStream.close();
-        embeddedKinesisStream = null;
     }
 
-    @Parameters({
-            "kinesis.awsAccessKey",
-            "kinesis.awsSecretKey"
-    })
-    @BeforeMethod
-    public void spinUp(String accessKey, String secretKey)
+    @BeforeEach
+    public void spinUp()
             throws Exception
     {
         streamName = "test_" + UUID.randomUUID().toString().replaceAll("-", "_");
@@ -146,7 +142,7 @@ public class TestMinimalFunctionality
                 .singleStatement()
                 .execute(SESSION, session -> {
                     Optional<TableHandle> handle = queryRunner.getServer().getMetadata().getTableHandle(session, name);
-                    assertTrue(handle.isPresent());
+                    assertThat(handle.isPresent()).isTrue();
                 });
     }
 
@@ -163,7 +159,7 @@ public class TestMinimalFunctionality
                 .matches("VALUES %s".formatted(count));
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
     {
         embeddedKinesisStream.deleteStream(streamName);
