@@ -97,7 +97,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.UnaryOperator;
 
-import static io.airlift.tracing.Tracing.attribute;
 import static io.trino.tracing.ScopedSpan.scopedSpan;
 import static java.util.Objects.requireNonNull;
 
@@ -1378,7 +1377,7 @@ public class TracingConnectorMetadata
     private Span startSpan(String methodName, Optional<String> schemaName)
     {
         return startSpan(methodName)
-                .setAllAttributes(attribute(TrinoAttributes.SCHEMA, schemaName));
+                .setAttribute(TrinoAttributes.SCHEMA, schemaName.orElse(null));
     }
 
     private Span startSpan(String methodName, SchemaTableName table)
@@ -1391,8 +1390,8 @@ public class TracingConnectorMetadata
     private Span startSpan(String methodName, SchemaTablePrefix prefix)
     {
         return startSpan(methodName)
-                .setAllAttributes(attribute(TrinoAttributes.SCHEMA, prefix.getSchema()))
-                .setAllAttributes(attribute(TrinoAttributes.TABLE, prefix.getTable()));
+                .setAttribute(TrinoAttributes.SCHEMA, prefix.getSchema().orElse(null))
+                .setAttribute(TrinoAttributes.TABLE, prefix.getTable().orElse(null));
     }
 
     private Span startSpan(String methodName, ConnectorTableHandle handle)

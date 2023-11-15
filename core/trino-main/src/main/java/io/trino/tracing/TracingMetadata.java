@@ -111,7 +111,6 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.function.UnaryOperator;
 
-import static io.airlift.tracing.Tracing.attribute;
 import static io.trino.tracing.ScopedSpan.scopedSpan;
 import static java.util.Objects.requireNonNull;
 
@@ -1031,7 +1030,7 @@ public class TracingMetadata
     @Override
     public boolean roleExists(Session session, String role, Optional<String> catalog)
     {
-        Span span = getStartSpan("roleExists", catalog);
+        Span span = startSpan("roleExists", catalog);
         try (var ignored = scopedSpan(span)) {
             return delegate.roleExists(session, role, catalog);
         }
@@ -1040,7 +1039,7 @@ public class TracingMetadata
     @Override
     public void createRole(Session session, String role, Optional<TrinoPrincipal> grantor, Optional<String> catalog)
     {
-        Span span = getStartSpan("createRole", catalog);
+        Span span = startSpan("createRole", catalog);
         try (var ignored = scopedSpan(span)) {
             delegate.createRole(session, role, grantor, catalog);
         }
@@ -1049,7 +1048,7 @@ public class TracingMetadata
     @Override
     public void dropRole(Session session, String role, Optional<String> catalog)
     {
-        Span span = getStartSpan("dropRole", catalog);
+        Span span = startSpan("dropRole", catalog);
         try (var ignored = scopedSpan(span)) {
             delegate.dropRole(session, role, catalog);
         }
@@ -1058,7 +1057,7 @@ public class TracingMetadata
     @Override
     public Set<String> listRoles(Session session, Optional<String> catalog)
     {
-        Span span = getStartSpan("listRoles", catalog);
+        Span span = startSpan("listRoles", catalog);
         try (var ignored = scopedSpan(span)) {
             return delegate.listRoles(session, catalog);
         }
@@ -1067,7 +1066,7 @@ public class TracingMetadata
     @Override
     public Set<RoleGrant> listRoleGrants(Session session, Optional<String> catalog, TrinoPrincipal principal)
     {
-        Span span = getStartSpan("listRoleGrants", catalog);
+        Span span = startSpan("listRoleGrants", catalog);
         try (var ignored = scopedSpan(span)) {
             return delegate.listRoleGrants(session, catalog, principal);
         }
@@ -1076,7 +1075,7 @@ public class TracingMetadata
     @Override
     public void grantRoles(Session session, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, Optional<String> catalog)
     {
-        Span span = getStartSpan("grantRoles", catalog);
+        Span span = startSpan("grantRoles", catalog);
         try (var ignored = scopedSpan(span)) {
             delegate.grantRoles(session, roles, grantees, adminOption, grantor, catalog);
         }
@@ -1085,7 +1084,7 @@ public class TracingMetadata
     @Override
     public void revokeRoles(Session session, Set<String> roles, Set<TrinoPrincipal> grantees, boolean adminOption, Optional<TrinoPrincipal> grantor, Optional<String> catalog)
     {
-        Span span = getStartSpan("revokeRoles", catalog);
+        Span span = startSpan("revokeRoles", catalog);
         try (var ignored = scopedSpan(span)) {
             delegate.revokeRoles(session, roles, grantees, adminOption, grantor, catalog);
         }
@@ -1094,7 +1093,7 @@ public class TracingMetadata
     @Override
     public Set<RoleGrant> listApplicableRoles(Session session, TrinoPrincipal principal, Optional<String> catalog)
     {
-        Span span = getStartSpan("listApplicableRoles", catalog);
+        Span span = startSpan("listApplicableRoles", catalog);
         try (var ignored = scopedSpan(span)) {
             return delegate.listApplicableRoles(session, principal, catalog);
         }
@@ -1219,7 +1218,7 @@ public class TracingMetadata
     public ResolvedFunction resolveBuiltinFunction(String name, List<TypeSignatureProvider> parameterTypes)
     {
         Span span = startSpan("resolveBuiltinFunction")
-                .setAllAttributes(attribute(TrinoAttributes.FUNCTION, name));
+                .setAttribute(TrinoAttributes.FUNCTION, name);
         try (var ignored = scopedSpan(span)) {
             return delegate.resolveBuiltinFunction(name, parameterTypes);
         }
@@ -1467,10 +1466,9 @@ public class TracingMetadata
                 .setAttribute(TrinoAttributes.CATALOG, catalogName);
     }
 
-    private Span getStartSpan(String methodName, Optional<String> catalog)
+    private Span startSpan(String methodName, Optional<String> catalog)
     {
-        return startSpan(methodName)
-                .setAllAttributes(attribute(TrinoAttributes.CATALOG, catalog));
+        return startSpan(methodName, catalog.orElse(null));
     }
 
     private Span startSpan(String methodName, CatalogSchemaName schema)
@@ -1500,8 +1498,8 @@ public class TracingMetadata
     {
         return startSpan(methodName)
                 .setAttribute(TrinoAttributes.CATALOG, prefix.getCatalogName())
-                .setAllAttributes(attribute(TrinoAttributes.SCHEMA, prefix.getSchemaName()))
-                .setAllAttributes(attribute(TrinoAttributes.TABLE, prefix.getTableName()));
+                .setAttribute(TrinoAttributes.SCHEMA, prefix.getSchemaName().orElse(null))
+                .setAttribute(TrinoAttributes.TABLE, prefix.getTableName().orElse(null));
     }
 
     private Span startSpan(String methodName, String catalogName, ConnectorTableMetadata tableMetadata)
