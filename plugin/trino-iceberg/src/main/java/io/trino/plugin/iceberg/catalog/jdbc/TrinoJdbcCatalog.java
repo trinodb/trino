@@ -273,6 +273,7 @@ public class TrinoJdbcCatalog
             LOG.warn(e, "Failed to delete table data referenced by metadata");
         }
         deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, table.location());
+        invalidateTableCache(schemaTableName);
     }
 
     @Override
@@ -287,6 +288,7 @@ public class TrinoJdbcCatalog
         }
         String tableLocation = metadataLocation.get().replaceFirst("/metadata/[^/]*$", "");
         deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, tableLocation);
+        invalidateTableCache(schemaTableName);
     }
 
     @Override
@@ -298,6 +300,7 @@ public class TrinoJdbcCatalog
         catch (RuntimeException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, "Failed to rename table from %s to %s".formatted(from, to), e);
         }
+        invalidateTableCache(from);
     }
 
     @Override
@@ -445,6 +448,12 @@ public class TrinoJdbcCatalog
     public Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName, String hiveCatalogName)
     {
         return Optional.empty();
+    }
+
+    @Override
+    protected void invalidateTableCache(SchemaTableName schemaTableName)
+    {
+        tableMetadataCache.remove(schemaTableName);
     }
 
     private static TableIdentifier toIdentifier(SchemaTableName table)

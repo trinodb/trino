@@ -266,6 +266,7 @@ public class TrinoRestCatalog
         if (!restSessionCatalog.dropTable(convert(session), toIdentifier(tableName))) {
             throw new TableNotFoundException(tableName);
         }
+        invalidateTableCache(tableName);
     }
 
     @Override
@@ -274,6 +275,7 @@ public class TrinoRestCatalog
         if (!restSessionCatalog.purgeTable(convert(session), toIdentifier(schemaTableName))) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, format("Failed to drop table: %s", schemaTableName));
         }
+        invalidateTableCache(schemaTableName);
     }
 
     @Override
@@ -293,6 +295,7 @@ public class TrinoRestCatalog
         catch (RESTException e) {
             throw new TrinoException(ICEBERG_CATALOG_ERROR, format("Failed to rename table %s to %s", from, to), e);
         }
+        invalidateTableCache(from);
     }
 
     @Override
@@ -331,6 +334,7 @@ public class TrinoRestCatalog
         else {
             icebergTable.updateProperties().set(TABLE_COMMENT, comment.get()).commit();
         }
+        invalidateTableCache(schemaTableName);
     }
 
     @Override
@@ -506,6 +510,11 @@ public class TrinoRestCatalog
                 yield new SessionCatalog.SessionContext(sessionId, session.getUser(), credentials, properties, session.getIdentity());
             }
         };
+    }
+
+    private void invalidateTableCache(SchemaTableName schemaTableName)
+    {
+        tableCache.remove(schemaTableName);
     }
 
     private static TableIdentifier toIdentifier(SchemaTableName schemaTableName)

@@ -149,6 +149,7 @@ public abstract class AbstractTrinoCatalog
         else {
             icebergTable.updateProperties().set(TABLE_COMMENT, comment.get()).commit();
         }
+        invalidateTableCache(schemaTableName);
     }
 
     @Override
@@ -156,6 +157,7 @@ public abstract class AbstractTrinoCatalog
     {
         Table icebergTable = loadTable(session, schemaTableName);
         icebergTable.updateSchema().updateColumnDoc(columnIdentity.getName(), comment.orElse(null)).commit();
+        invalidateTableCache(schemaTableName);
     }
 
     @Override
@@ -470,6 +472,8 @@ public abstract class AbstractTrinoCatalog
                 .put(TABLE_COMMENT, ICEBERG_MATERIALIZED_VIEW_COMMENT)
                 .buildOrThrow();
     }
+
+    protected abstract void invalidateTableCache(SchemaTableName schemaTableName);
 
     protected static class MaterializedViewMayBeBeingRemovedException
             extends RuntimeException

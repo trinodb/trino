@@ -677,6 +677,7 @@ public class TrinoGlueCatalog
             LOG.warn(e, "Failed to delete table data referenced by metadata");
         }
         deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, table.location());
+        invalidateTableCache(schemaTableName);
     }
 
     @Override
@@ -689,6 +690,7 @@ public class TrinoGlueCatalog
         }
         String tableLocation = metadataLocation.replaceFirst("/metadata/[^/]*$", "");
         deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, tableLocation);
+        invalidateTableCache(schemaTableName);
     }
 
     @Override
@@ -752,6 +754,7 @@ public class TrinoGlueCatalog
     public void unregisterTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
         dropTableFromMetastore(session, schemaTableName);
+        invalidateTableCache(schemaTableName);
     }
 
     private com.amazonaws.services.glue.model.Table dropTableFromMetastore(ConnectorSession session, SchemaTableName schemaTableName)
@@ -796,6 +799,7 @@ public class TrinoGlueCatalog
             createTable(to.getSchemaName(), tableInput);
             newTableCreated = true;
             deleteTable(from.getSchemaName(), from.getTableName());
+            invalidateTableCache(from);
         }
         catch (RuntimeException e) {
             if (newTableCreated) {
@@ -1484,6 +1488,12 @@ public class TrinoGlueCatalog
             return Optional.of(new CatalogSchemaTableName(hiveCatalogName, tableName));
         }
         return Optional.empty();
+    }
+
+    @Override
+    protected void invalidateTableCache(SchemaTableName schemaTableName)
+    {
+        tableMetadataCache.remove(schemaTableName);
     }
 
     com.amazonaws.services.glue.model.Table getTable(SchemaTableName tableName, boolean invalidateCaches)
