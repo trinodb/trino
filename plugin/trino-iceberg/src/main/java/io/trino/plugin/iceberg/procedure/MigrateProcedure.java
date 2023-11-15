@@ -292,7 +292,6 @@ public class MigrateProcedure
         icebergTableProperties.put("migrated", "true");
         icebergTableProperties.putIfAbsent("location", location);
         icebergTableProperties.put(PROVIDER_PROPERTY_KEY, PROVIDER_PROPERTY_VALUE);
-        icebergTableProperties.put(METADATA_LOCATION_PROP, location);
         icebergTableProperties.put(DEFAULT_NAME_MAPPING, toJson(nameMapping));
         icebergTableProperties.put(DEFAULT_FILE_FORMAT, fileFormat.name());
         icebergTableProperties.put(FORMAT_VERSION, String.valueOf(formatVersion));
