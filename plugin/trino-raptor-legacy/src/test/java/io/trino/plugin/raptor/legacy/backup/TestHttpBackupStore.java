@@ -28,9 +28,11 @@ import io.airlift.json.JsonModule;
 import io.airlift.node.testing.TestingNodeModule;
 import io.trino.spi.NodeManager;
 import io.trino.testing.TestingNodeManager;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import java.io.IOException;
 import java.net.URI;
@@ -43,13 +45,14 @@ import static com.google.inject.util.Modules.override;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static java.nio.file.Files.createTempDirectory;
 
-@Test(singleThreaded = true)
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@Execution(ExecutionMode.SAME_THREAD)
 public class TestHttpBackupStore
         extends AbstractTestBackupStore<BackupStore>
 {
     private LifeCycleManager lifeCycleManager;
 
-    @BeforeMethod
+    @BeforeEach
     public void setup()
             throws IOException
     {
@@ -77,7 +80,7 @@ public class TestHttpBackupStore
         store = injector.getInstance(BackupStore.class);
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void teardown()
             throws IOException
     {

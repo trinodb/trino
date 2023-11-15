@@ -29,7 +29,6 @@ import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.Testing
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_TICKS_COW;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_TICKS_MOR;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestHudiSmokeTest
         extends AbstractTestQueryFramework
@@ -144,7 +143,7 @@ public class TestHudiSmokeTest
     {
         String path = (String) computeScalar("SELECT \"$path\" FROM " + HUDI_COW_PT_TBL + " WHERE id = 1");
         long fileSize = (long) computeScalar("SELECT \"$file_size\" FROM " + HUDI_COW_PT_TBL + " WHERE id = 1");
-        assertEquals(fileSize, Files.size(toPath(path)));
+        assertThat(fileSize).isEqualTo(Files.size(toPath(path)));
     }
 
     @Test
@@ -153,7 +152,8 @@ public class TestHudiSmokeTest
     {
         String path = (String) computeScalar("SELECT \"$path\" FROM " + HUDI_COW_PT_TBL + " WHERE id = 1");
         ZonedDateTime fileModifiedTime = (ZonedDateTime) computeScalar("SELECT \"$file_modified_time\" FROM " + HUDI_COW_PT_TBL + " WHERE id = 1");
-        assertEquals(fileModifiedTime.toInstant().toEpochMilli(), Files.getLastModifiedTime(toPath(path)).toInstant().toEpochMilli());
+        assertThat(fileModifiedTime.toInstant().toEpochMilli())
+                .isEqualTo(Files.getLastModifiedTime(toPath(path)).toInstant().toEpochMilli());
     }
 
     @Test

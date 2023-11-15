@@ -60,8 +60,7 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Isolated
 public class TestDeltaLakeDynamicFiltering
@@ -127,7 +126,7 @@ public class TestDeltaLakeDynamicFiltering
                 .beginTransactionId(transactionId, transactionManager, new AllowAllAccessControl());
         QualifiedObjectName tableName = new QualifiedObjectName(DELTA_CATALOG, "default", "orders");
         Optional<TableHandle> tableHandle = runner.getMetadata().getTableHandle(session, tableName);
-        assertTrue(tableHandle.isPresent());
+        assertThat(tableHandle.isPresent()).isTrue();
         SplitSource splitSource = runner.getSplitManager()
                 .getSplits(session, Span.getInvalid(), tableHandle.get(), new IncompleteDynamicFilter(), alwaysTrue());
         List<Split> splits = new ArrayList<>();
@@ -135,7 +134,7 @@ public class TestDeltaLakeDynamicFiltering
             splits.addAll(splitSource.getNextBatch(1000).get().getSplits());
         }
         splitSource.close();
-        assertFalse(splits.isEmpty());
+        assertThat(splits.isEmpty()).isFalse();
     }
 
     private Session sessionWithDynamicFiltering(boolean enabled, JoinDistributionType joinDistributionType)

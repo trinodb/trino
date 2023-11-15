@@ -82,7 +82,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.entry;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
-import static org.testng.Assert.assertFalse;
 
 @TestInstance(PER_CLASS)
 @Execution(SAME_THREAD)
@@ -980,7 +979,7 @@ public class TestDeltaLakeBasic
 
         // DROP TABLE should succeed so that users can remove their corrupted table
         getQueryRunner().execute("DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
         if (isManaged) {
             assertThat(tableLocation.toFile()).doesNotExist().as("Table location should not exist");
         }
