@@ -25,7 +25,6 @@ import java.util.Optional;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertTrue;
 
 public class TestMinimalFunctionality
         extends AbstractTestMinimalFunctionality
@@ -44,7 +43,7 @@ public class TestMinimalFunctionality
                 .singleStatement()
                 .execute(SESSION, session -> {
                     Optional<TableHandle> handle = queryRunner.getServer().getMetadata().getTableHandle(session, name);
-                    assertTrue(handle.isPresent());
+                    assertThat(handle).isPresent();
                 });
     }
 

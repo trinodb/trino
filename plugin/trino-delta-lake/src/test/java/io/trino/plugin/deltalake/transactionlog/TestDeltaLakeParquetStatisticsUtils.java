@@ -37,7 +37,7 @@ import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.ZoneOffset.UTC;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeParquetStatisticsUtils
 {
@@ -53,12 +53,8 @@ public class TestDeltaLakeParquetStatisticsUtils
                 .withNumNulls(10)
                 .build();
 
-        assertEquals(
-                DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, IntegerType.INTEGER)),
-                ImmutableMap.of(columnName, -100));
-        assertEquals(
-                DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, IntegerType.INTEGER)),
-                ImmutableMap.of(columnName, 150));
+        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, IntegerType.INTEGER))).isEqualTo(ImmutableMap.of(columnName, -100));
+        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, IntegerType.INTEGER))).isEqualTo(ImmutableMap.of(columnName, 150));
     }
 
     @Test
@@ -72,12 +68,8 @@ public class TestDeltaLakeParquetStatisticsUtils
                 .withNumNulls(1)
                 .build();
 
-        assertEquals(
-                DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, createUnboundedVarcharType())),
-                ImmutableMap.of(columnName, "abc"));
-        assertEquals(
-                DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, createUnboundedVarcharType())),
-                ImmutableMap.of(columnName, "bac"));
+        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, createUnboundedVarcharType()))).isEqualTo(ImmutableMap.of(columnName, "abc"));
+        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, createUnboundedVarcharType()))).isEqualTo(ImmutableMap.of(columnName, "bac"));
     }
 
     @Test
@@ -91,12 +83,8 @@ public class TestDeltaLakeParquetStatisticsUtils
                 .withNumNulls(2)
                 .build();
 
-        assertEquals(
-                DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, REAL)),
-                ImmutableMap.of(columnName, 100.0f));
-        assertEquals(
-                DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, REAL)),
-                ImmutableMap.of(columnName, 1000.001f));
+        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, REAL))).isEqualTo(ImmutableMap.of(columnName, 100.0f));
+        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, REAL))).isEqualTo(ImmutableMap.of(columnName, 1000.001f));
 
         columnName = "t_double";
         type = new PrimitiveType(Type.Repetition.REQUIRED, PrimitiveType.PrimitiveTypeName.DOUBLE, columnName);
@@ -106,12 +94,8 @@ public class TestDeltaLakeParquetStatisticsUtils
                 .withNumNulls(2)
                 .build();
 
-        assertEquals(
-                DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, DoubleType.DOUBLE)),
-                ImmutableMap.of(columnName, 100.0));
-        assertEquals(
-                DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, DoubleType.DOUBLE)),
-                ImmutableMap.of(columnName, 1000.001));
+        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, DoubleType.DOUBLE))).isEqualTo(ImmutableMap.of(columnName, 100.0));
+        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, DoubleType.DOUBLE))).isEqualTo(ImmutableMap.of(columnName, 1000.001));
     }
 
     @Test
@@ -125,12 +109,8 @@ public class TestDeltaLakeParquetStatisticsUtils
                 .withNumNulls(2)
                 .build();
 
-        assertEquals(
-                DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, DATE)),
-                ImmutableMap.of(columnName, "2020-08-26"));
-        assertEquals(
-                DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, DATE)),
-                ImmutableMap.of(columnName, "2020-09-17"));
+        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, DATE))).isEqualTo(ImmutableMap.of(columnName, "2020-08-26"));
+        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, DATE))).isEqualTo(ImmutableMap.of(columnName, "2020-09-17"));
     }
 
     @Test
@@ -144,12 +124,8 @@ public class TestDeltaLakeParquetStatisticsUtils
                 .withNumNulls(2)
                 .build();
 
-        assertEquals(
-                DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MILLIS)),
-                ImmutableMap.of(columnName, "2020-08-26T01:02:03.123Z"));
-        assertEquals(
-                DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MILLIS)),
-                ImmutableMap.of(columnName, "2020-08-26T01:02:03.124Z"));
+        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MILLIS))).isEqualTo(ImmutableMap.of(columnName, "2020-08-26T01:02:03.123Z"));
+        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MILLIS))).isEqualTo(ImmutableMap.of(columnName, "2020-08-26T01:02:03.124Z"));
     }
 
     @Test
@@ -163,12 +139,8 @@ public class TestDeltaLakeParquetStatisticsUtils
                 .withNumNulls(2)
                 .build();
 
-        assertEquals(
-                DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MILLIS)),
-                ImmutableMap.of(columnName, "2020-08-26T01:02:03.123Z"));
-        assertEquals(
-                DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MILLIS)),
-                ImmutableMap.of(columnName, "2020-08-26T01:02:03.123Z"));
+        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMin(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MILLIS))).isEqualTo(ImmutableMap.of(columnName, "2020-08-26T01:02:03.123Z"));
+        assertThat(DeltaLakeParquetStatisticsUtils.jsonEncodeMax(ImmutableMap.of(columnName, Optional.of(stats)), ImmutableMap.of(columnName, TIMESTAMP_TZ_MILLIS))).isEqualTo(ImmutableMap.of(columnName, "2020-08-26T01:02:03.123Z"));
     }
 
     private static byte[] toParquetEncoding(LocalDateTime time)

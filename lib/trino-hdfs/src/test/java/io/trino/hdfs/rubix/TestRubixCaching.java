@@ -49,11 +49,13 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FilterFileSystem;
 import org.apache.hadoop.fs.Path;
 import org.gaul.modernizer_maven_annotations.SuppressModernizer;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import javax.management.MBeanServer;
 import javax.management.ObjectName;
@@ -91,9 +93,12 @@ import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 import static org.testng.Assert.assertEquals;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public class TestRubixCaching
 {
     private static final DataSize SMALL_FILE_SIZE = DataSize.of(1, MEGABYTE);
@@ -109,7 +114,7 @@ public class TestRubixCaching
     private FileSystem nonCachingFileSystem;
     private FileSystem cachingFileSystem;
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
             throws IOException
     {
@@ -121,8 +126,8 @@ public class TestRubixCaching
         nonCachingFileSystem = getNonCachingFileSystem();
     }
 
-    @AfterMethod(alwaysRun = true)
-    @BeforeMethod
+    @AfterEach
+    @BeforeEach
     public void deinitializeRubix()
     {
         // revert static rubix initialization done by other tests
@@ -223,7 +228,7 @@ public class TestRubixCaching
         return environment.getFileSystem(context, path);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
             throws IOException
     {
@@ -232,7 +237,7 @@ public class TestRubixCaching
         mBeanServer = null;
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void closeRubix()
             throws IOException
     {
