@@ -27,6 +27,7 @@ import io.trino.plugin.jdbc.logging.RemoteQueryModifierModule;
 import io.trino.plugin.jdbc.procedure.FlushJdbcMetadataCacheProcedure;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
+import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorRecordSetProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.function.table.ConnectorTableFunction;
@@ -63,6 +64,7 @@ public class JdbcModule
         newOptionalBinder(binder, ConnectorSplitManager.class).setDefault().to(JdbcDynamicFilteringSplitManager.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, ConnectorRecordSetProvider.class).setDefault().to(JdbcRecordSetProvider.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, ConnectorPageSinkProvider.class).setDefault().to(JdbcPageSinkProvider.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, ConnectorPageSourceProvider.class).setDefault().to(JdbcPageSourceProvider.class).in(Scopes.SINGLETON);
 
         binder.bind(JdbcTransactionManager.class).in(Scopes.SINGLETON);
         binder.bind(JdbcConnector.class).in(Scopes.SINGLETON);

@@ -18,6 +18,7 @@ import io.trino.testing.TestingConnectorBehavior;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseOracleConnectorSmokeTest
@@ -27,6 +28,9 @@ public abstract class BaseOracleConnectorSmokeTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
+            case SUPPORTS_UPDATE,
+                    SUPPORTS_ROW_LEVEL_UPDATE,
+                    SUPPORTS_MERGE -> true;
             case SUPPORTS_CREATE_SCHEMA,
                     SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS -> false;
             default -> super.hasBehavior(connectorBehavior);
@@ -46,5 +50,11 @@ public abstract class BaseOracleConnectorSmokeTest
         assertThat((String) computeActual("SHOW CREATE TABLE " + tableName).getOnlyValue()).doesNotContain("COMMENT 'new comment'");
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Override
+    protected String expectedValues(String values)
+    {
+        return format("SELECT CAST(a AS DECIMAL(19,0)), CAST(b AS double) FROM (VALUES %s) AS t (a, b)", values);
     }
 }

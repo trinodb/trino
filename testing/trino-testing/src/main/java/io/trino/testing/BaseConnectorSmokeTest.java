@@ -192,7 +192,7 @@ public abstract class BaseConnectorSmokeTest
 
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_", getCreateTableDefaultDefinition())) {
             assertUpdate("INSERT INTO " + table.getName() + " (a, b) VALUES (42, -38.5), (13, 99.9)", 2);
-            assertThat(query("SELECT CAST(a AS bigint), b FROM " + table.getName()))
+            assertThat(query("SELECT a, b FROM " + table.getName()))
                     .matches(expectedValues("(42, -38.5), (13, 99.9)"));
         }
     }

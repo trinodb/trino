@@ -19,6 +19,7 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.jdbc.DefaultJdbcMetadata;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcMergeTableHandle;
 import io.trino.plugin.jdbc.JdbcNamedRelationHandle;
 import io.trino.plugin.jdbc.JdbcQueryEventListener;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -28,6 +29,7 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -37,11 +39,13 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.expression.Constant;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.type.Type;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -93,6 +97,9 @@ public class IgniteMetadata
         ImmutableList.Builder<JdbcTypeHandle> columnJdbcTypeHandles = ImmutableList.builder();
         for (ColumnHandle column : columns) {
             JdbcColumnHandle columnHandle = (JdbcColumnHandle) column;
+            if (columnHandle.getColumnName().equalsIgnoreCase(IGNITE_DUMMY_ID)) {
+                continue;
+            }
             columnNames.add(columnHandle.getColumnName());
             columnTypes.add(columnHandle.getColumnType());
             columnJdbcTypeHandles.add(columnHandle.getJdbcTypeHandle());
@@ -109,9 +116,28 @@ public class IgniteMetadata
     }
 
     @Override
+    public Optional<ConnectorTableHandle> applyUpdate(ConnectorSession session, ConnectorTableHandle handle, Map<ColumnHandle, Constant> assignments)
+    {
+        // Ignite support row level update, so we should reject this path, earlier than in JDBC client
+        return Optional.empty();
+    }
+
+    @Override
+    public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+    }
+
+    @Override
     public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         return Optional.empty();
+    }
+
+    @Override
+    public IgniteMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
+    {
+        JdbcMergeTableHandle mergeTableHandle = (JdbcMergeTableHandle) super.beginMerge(session, tableHandle, retryMode);
+        return new IgniteMergeTableHandle(mergeTableHandle.getTableHandle(), (IgniteOutputTableHandle) mergeTableHandle.getOutputTableHandle(), mergeTableHandle.mergeRowIdColumnHandle());
     }
 
     @Override

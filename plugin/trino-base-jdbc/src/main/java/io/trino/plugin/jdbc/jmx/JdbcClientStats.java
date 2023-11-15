@@ -22,6 +22,7 @@ public final class JdbcClientStats
     private final JdbcApiStats addColumn = new JdbcApiStats();
     private final JdbcApiStats beginCreateTable = new JdbcApiStats();
     private final JdbcApiStats beginInsertTable = new JdbcApiStats();
+    private final JdbcApiStats beginDeleteTableForMerge = new JdbcApiStats();
     private final JdbcApiStats buildInsertSql = new JdbcApiStats();
     private final JdbcApiStats prepareQuery = new JdbcApiStats();
     private final JdbcApiStats buildSql = new JdbcApiStats();
@@ -38,7 +39,10 @@ public final class JdbcClientStats
     private final JdbcApiStats renameSchema = new JdbcApiStats();
     private final JdbcApiStats dropTable = new JdbcApiStats();
     private final JdbcApiStats finishInsertTable = new JdbcApiStats();
+    private final JdbcApiStats finishDeleteTableForMerge = new JdbcApiStats();
     private final JdbcApiStats getColumns = new JdbcApiStats();
+
+    private final JdbcApiStats getPrimaryKeys = new JdbcApiStats();
     private final JdbcApiStats getConnectionWithHandle = new JdbcApiStats();
     private final JdbcApiStats getConnectionWithSplit = new JdbcApiStats();
     private final JdbcApiStats getConnectionWithProcedure = new JdbcApiStats();
@@ -93,6 +97,13 @@ public final class JdbcClientStats
     public JdbcApiStats getBeginInsertTable()
     {
         return beginInsertTable;
+    }
+
+    @Managed
+    @Nested
+    public JdbcApiStats getBeginDeleteTableForMerge()
+    {
+        return beginDeleteTableForMerge;
     }
 
     @Managed
@@ -209,9 +220,23 @@ public final class JdbcClientStats
 
     @Managed
     @Nested
+    public JdbcApiStats getFinishDeleteTableForMerge()
+    {
+        return finishDeleteTableForMerge;
+    }
+
+    @Managed
+    @Nested
     public JdbcApiStats getGetColumns()
     {
         return getColumns;
+    }
+
+    @Managed
+    @Nested
+    public JdbcApiStats getGetPrimaryKeys()
+    {
+        return getPrimaryKeys;
     }
 
     @Managed

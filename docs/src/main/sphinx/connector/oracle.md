@@ -410,6 +410,7 @@ supports the following statements:
 
 - {doc}`/sql/insert`
 - {doc}`/sql/update`
+- {doc}`/sql/merge`
 - {doc}`/sql/delete`
 - {doc}`/sql/truncate`
 - {doc}`/sql/create-table`

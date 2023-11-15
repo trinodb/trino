@@ -532,13 +532,6 @@ public class TestPhoenixConnectorTest
     }
 
     @Test
-    @Override
-    public void testUpdateRowConcurrently()
-    {
-        abort("Phoenix doesn't support concurrent update of different columns in a row");
-    }
-
-    @Test
     public void testSchemaOperations()
     {
         assertUpdate("CREATE SCHEMA new_schema");

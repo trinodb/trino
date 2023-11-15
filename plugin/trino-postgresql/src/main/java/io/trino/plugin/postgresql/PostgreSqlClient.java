@@ -33,6 +33,7 @@ import io.trino.plugin.jdbc.DoubleReadFunction;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
+import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcSortItem;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTableHandle;
@@ -79,6 +80,7 @@ import io.trino.spi.block.MapBlock;
 import io.trino.spi.block.SqlMap;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
@@ -142,6 +144,7 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.base.TemporaryTables.generateTemporaryTableName;
 import static io.trino.plugin.base.util.JsonTypeUtil.jsonParse;
 import static io.trino.plugin.base.util.JsonTypeUtil.toJsonValue;
 import static io.trino.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
@@ -251,6 +254,7 @@ public class PostgreSqlClient
     private static final int PRECISION_OF_UNSPECIFIED_DECIMAL = 0;
 
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss.SSSSSS");
+    private static final String TEMPORARY_TABLE_CTID_NAME = "ctid_for_delete_merge";
 
     private static final PredicatePushdownController POSTGRESQL_STRING_COLLATION_AWARE_PUSHDOWN = (session, domain) -> {
         if (domain.isOnlyNull()) {
@@ -1520,6 +1524,41 @@ public class PostgreSqlClient
                 },
                 (statement, index, value) -> { throw new TrinoException(NOT_SUPPORTED, "Money type is not supported for INSERT"); },
                 DISABLE_PUSHDOWN);
+    }
+
+    @Override
+    public String buildMergeRowIdConjuncts(ConnectorSession session, List<String> mergeRowIdFieldNames, List<Type> mergeRowIdFieldTypes)
+    {
+        return "ctid = ?::tid";
+    }
+
+    @Override
+    public JdbcOutputTableHandle beginDeleteTableForMerge(ConnectorSession session, JdbcTableHandle tableHandle)
+    {
+        try {
+            return createTable(
+                    session,
+                    new ConnectorTableMetadata(tableHandle.asPlainTable().getSchemaTableName(), ImmutableList.of(new ColumnMetadata(TEMPORARY_TABLE_CTID_NAME, VARCHAR))),
+                    generateTemporaryTableName(session),
+                    Optional.of(getPageSinkIdColumn(ImmutableList.of(TEMPORARY_TABLE_CTID_NAME))));
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    protected String getConjunctsBetweenTargetAndTemporaryTable(JdbcOutputTableHandle handle)
+    {
+        return "merge_target.ctid = temp.%s::tid".formatted(TEMPORARY_TABLE_CTID_NAME);
+    }
+
+    @Override
+    public List<JdbcColumnHandle> getPrimaryKeys(ConnectorSession session, JdbcTableHandle handle)
+    {
+        return ImmutableList.of(new JdbcColumnHandle("ctid",
+                new JdbcTypeHandle(Types.VARCHAR, Optional.of("varchar"), Optional.of(Integer.MAX_VALUE), Optional.empty(), Optional.empty(), Optional.empty()),
+                VARCHAR));
     }
 
     private static SliceWriteFunction uuidWriteFunction()

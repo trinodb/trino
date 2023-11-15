@@ -180,6 +180,7 @@ statements, the connector supports the following features:
 
 - {doc}`/sql/insert`
 - {doc}`/sql/update`
+- {doc}`/sql/merge`
 - {doc}`/sql/delete`
 - {doc}`/sql/create-table`
 - {doc}`/sql/create-table-as`

@@ -30,6 +30,7 @@ import io.trino.plugin.jdbc.DoubleWriteFunction;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcJoinCondition;
+import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.LongReadFunction;
@@ -59,6 +60,7 @@ import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
@@ -98,6 +100,7 @@ import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedBuffer;
+import static io.trino.plugin.base.TemporaryTables.generateTemporaryTableName;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.trino.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
@@ -141,6 +144,8 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.trino.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
+import static io.trino.spi.type.VarcharType.MAX_LENGTH;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Float.floatToRawIntBits;
@@ -182,6 +187,7 @@ public class OracleClient
             .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
             .optionalEnd()
             .toFormatter();
+    private static final String TEMPORARY_TABLE_ROWID_NAME = "rowid_for_delete_merge";
 
     private static final Set<String> INTERNAL_SCHEMAS = ImmutableSet.<String>builder()
             .add("ctxsys")
@@ -844,5 +850,40 @@ public class OracleClient
     public void setColumnType(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Type type)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column types");
+    }
+
+    @Override
+    protected String getConjunctsBetweenTargetAndTemporaryTable(JdbcOutputTableHandle handle)
+    {
+        return "CAST(merge_target.ROWID AS VARCHAR(128)) = CAST(temp.%s AS VARCHAR(128))".formatted(TEMPORARY_TABLE_ROWID_NAME);
+    }
+
+    @Override
+    public JdbcOutputTableHandle beginDeleteTableForMerge(ConnectorSession session, JdbcTableHandle tableHandle)
+    {
+        try {
+            return createTable(
+                    session,
+                    new ConnectorTableMetadata(tableHandle.asPlainTable().getSchemaTableName(), ImmutableList.of(new ColumnMetadata(TEMPORARY_TABLE_ROWID_NAME, VARCHAR))),
+                    generateTemporaryTableName(session),
+                    Optional.of(getPageSinkIdColumn(ImmutableList.of(TEMPORARY_TABLE_ROWID_NAME))));
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
+    public String buildMergeRowIdConjuncts(ConnectorSession session, List<String> mergeRowIdFieldNames, List<Type> mergeRowIdFieldTypes)
+    {
+        return "ROWID = CAST(? AS ROWID)";
+    }
+
+    @Override
+    public List<JdbcColumnHandle> getPrimaryKeys(ConnectorSession session, JdbcTableHandle handle)
+    {
+        return ImmutableList.of(new JdbcColumnHandle("ROWID",
+                new JdbcTypeHandle(OracleTypes.VARCHAR, Optional.of("varchar"), Optional.of(MAX_LENGTH), Optional.empty(), Optional.empty(), Optional.empty()),
+                createVarcharType(MAX_LENGTH)));
     }
 }

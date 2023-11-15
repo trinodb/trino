@@ -35,6 +35,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
@@ -125,6 +126,12 @@ public final class StatisticsAwareJdbcClient
     public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
     {
         return stats.getGetColumns().wrap(() -> delegate().getColumns(session, tableHandle));
+    }
+
+    @Override
+    public List<JdbcColumnHandle> getPrimaryKeys(ConnectorSession session, JdbcTableHandle tableHandle)
+    {
+        return stats.getGetPrimaryKeys().wrap(() -> delegate().getPrimaryKeys(session, tableHandle));
     }
 
     @Override
@@ -326,6 +333,18 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
+    public JdbcOutputTableHandle beginDeleteTableForMerge(ConnectorSession session, JdbcTableHandle tableHandle)
+    {
+        return stats.getBeginDeleteTableForMerge().wrap(() -> delegate().beginDeleteTableForMerge(session, tableHandle));
+    }
+
+    @Override
+    public void finishDeleteTableForMerge(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds)
+    {
+        stats.getFinishDeleteTableForMerge().wrap(() -> delegate().finishDeleteTableForMerge(session, handle, pageSinkIds));
+    }
+
+    @Override
     public void dropTable(ConnectorSession session, JdbcTableHandle jdbcTableHandle)
     {
         stats.getDropTable().wrap(() -> delegate().dropTable(session, jdbcTableHandle));
@@ -347,6 +366,12 @@ public final class StatisticsAwareJdbcClient
     public String buildInsertSql(JdbcOutputTableHandle handle, List<WriteFunction> columnWriters)
     {
         return stats.getBuildInsertSql().wrap(() -> delegate().buildInsertSql(handle, columnWriters));
+    }
+
+    @Override
+    public String buildMergeRowIdConjuncts(ConnectorSession session, List<String> mergeRowIdFieldNames, List<Type> mergeRowIdFieldTypes)
+    {
+        return delegate.buildMergeRowIdConjuncts(session, mergeRowIdFieldNames, mergeRowIdFieldTypes);
     }
 
     @Override
@@ -475,5 +500,11 @@ public final class StatisticsAwareJdbcClient
     public OptionalInt getMaxColumnNameLength(ConnectorSession session)
     {
         return delegate().getMaxColumnNameLength(session);
+    }
+
+    @Override
+    public JdbcTableHandle updatedScanColumnsForMerge(ConnectorSession session, ConnectorTableHandle table, Optional<List<JdbcColumnHandle>> originalColumns, JdbcColumnHandle mergeRowIdColumnHandle)
+    {
+        return delegate().updatedScanColumnsForMerge(session, table, originalColumns, mergeRowIdColumnHandle);
     }
 }

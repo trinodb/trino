@@ -30,7 +30,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 
 import static io.trino.plugin.oracle.TestingOracleServer.TEST_USER;
-import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -46,7 +45,10 @@ public abstract class BaseOracleConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_JOIN_PUSHDOWN -> true;
+            case SUPPORTS_JOIN_PUSHDOWN,
+                    SUPPORTS_UPDATE,
+                    SUPPORTS_ROW_LEVEL_UPDATE,
+                    SUPPORTS_MERGE -> true;
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT,
                     SUPPORTS_AGGREGATION_PUSHDOWN_CORRELATION,
                     SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
@@ -270,10 +272,26 @@ public abstract class BaseOracleConnectorTest
 
     @Test
     @Override
-    public void testDeleteWithLike()
+    public void testUpdate()
     {
-        assertThatThrownBy(super::testDeleteWithLike)
-                .hasStackTraceContaining("TrinoException: " + MODIFYING_ROWS_MESSAGE);
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_update", "AS TABLE tpch.tiny.nation")) {
+            String tableName = table.getName();
+            assertUpdate("UPDATE " + tableName + " SET nationkey = 100 + nationkey WHERE regionkey = 2", 5);
+            assertThat(query("SELECT * FROM " + tableName))
+                    .matches("SELECT CAST(IF(regionkey=2, nationkey + 100, nationkey) AS DECIMAL(19, 0)) nationkey, name, CAST(regionkey AS DECIMAL(19,0)), comment FROM tpch.tiny.nation");
+
+            // UPDATE after UPDATE
+            assertUpdate("UPDATE " + tableName + " SET nationkey = nationkey * 2 WHERE regionkey IN (2,3)", 10);
+            assertThat(query("SELECT * FROM " + tableName))
+                    .matches("SELECT CAST(CASE regionkey WHEN 2 THEN 2*(nationkey+100) WHEN 3 THEN 2*nationkey ELSE nationkey END AS DECIMAL(19, 0)) nationkey, name, CAST(regionkey AS DECIMAL(19, 0)), comment FROM tpch.tiny.nation");
+        }
+    }
+
+    @Test
+    @Override
+    public void testRowLevelUpdate()
+    {
+        // Covered by testUpdate
     }
 
     @Test
