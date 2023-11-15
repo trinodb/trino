@@ -218,6 +218,7 @@ public class TrinoNessieCatalog
         validateTableCanBeDropped(table);
         nessieClient.dropTable(toIdentifier(schemaTableName), true);
         deleteTableDirectory(fileSystemFactory.create(session), schemaTableName, table.location());
+        invalidateTableCache(schemaTableName);
     }
 
     @Override
@@ -230,6 +231,7 @@ public class TrinoNessieCatalog
     public void renameTable(ConnectorSession session, SchemaTableName from, SchemaTableName to)
     {
         nessieClient.renameTable(toIdentifier(from), toIdentifier(to));
+        invalidateTableCache(from);
     }
 
     @Override
@@ -418,5 +420,11 @@ public class TrinoNessieCatalog
     public Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName, String hiveCatalogName)
     {
         return Optional.empty();
+    }
+
+    @Override
+    protected void invalidateTableCache(SchemaTableName schemaTableName)
+    {
+        tableMetadataCache.remove(schemaTableName);
     }
 }
