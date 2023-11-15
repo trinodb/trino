@@ -62,7 +62,6 @@ import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
-import io.trino.type.JoniRegexp;
 import io.trino.type.LikePattern;
 import io.trino.type.Re2JRegexp;
 import io.trino.type.Re2JRegexpType;
@@ -807,8 +806,7 @@ public final class ConnectorExpressionTranslator
                     ImmutableMap.of());
 
             if (type == JONI_REGEXP) {
-                Slice pattern = ((JoniRegexp) value).pattern();
-                return new Constant(pattern, createVarcharType(countCodePoints(pattern)));
+                return new Constant(value, type);
             }
             if (type instanceof Re2JRegexpType) {
                 Slice pattern = Slices.utf8Slice(((Re2JRegexp) value).pattern());
