@@ -33,7 +33,7 @@ import java.util.Set;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMongoTableHandle
 {
@@ -56,7 +56,8 @@ public class TestMongoTableHandle
         String json = codec.toJson(expected);
         MongoTableHandle actual = codec.fromJson(json);
 
-        assertEquals(actual.getSchemaTableName(), expected.getSchemaTableName());
+        assertThat(actual.getSchemaTableName())
+                .isEqualTo(expected.getSchemaTableName());
     }
 
     @Test
@@ -69,7 +70,8 @@ public class TestMongoTableHandle
         String json = codec.toJson(expected);
         MongoTableHandle actual = codec.fromJson(json);
 
-        assertEquals(actual.getSchemaTableName(), expected.getSchemaTableName());
+        assertThat(actual.getSchemaTableName())
+                .isEqualTo(expected.getSchemaTableName());
     }
 
     @Test
@@ -82,7 +84,8 @@ public class TestMongoTableHandle
         String json = codec.toJson(expected);
         MongoTableHandle actual = codec.fromJson(json);
 
-        assertEquals(actual.getSchemaTableName(), expected.getSchemaTableName());
+        assertThat(actual.getSchemaTableName())
+                .isEqualTo(expected.getSchemaTableName());
     }
 
     @Test
@@ -95,7 +98,8 @@ public class TestMongoTableHandle
         String json = codec.toJson(expected);
         MongoTableHandle actual = codec.fromJson(json);
 
-        assertEquals(actual.getSchemaTableName(), expected.getSchemaTableName());
+        assertThat(actual.getSchemaTableName())
+                .isEqualTo(expected.getSchemaTableName());
     }
 
     @Test
@@ -126,6 +130,7 @@ public class TestMongoTableHandle
         String json = codec.toJson(expected);
         MongoTableHandle actual = codec.fromJson(json);
 
-        assertEquals(actual, expected);
+        assertThat(actual)
+                .isEqualTo(expected);
     }
 }

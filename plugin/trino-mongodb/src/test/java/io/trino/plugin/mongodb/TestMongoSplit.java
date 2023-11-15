@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import org.junit.jupiter.api.Test;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMongoSplit
 {
@@ -31,6 +31,7 @@ public class TestMongoSplit
         String json = codec.toJson(expected);
         MongoSplit actual = codec.fromJson(json);
 
-        assertEquals(actual.getAddresses(), ImmutableList.of());
+        assertThat(actual.getAddresses())
+                .isEqualTo(ImmutableList.of());
     }
 }
