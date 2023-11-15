@@ -31,11 +31,9 @@ import java.util.List;
 import java.util.Map;
 
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -70,55 +68,55 @@ public class TestKinesisTableDescriptionSupplier
         KinesisMetadata metadata = (KinesisMetadata) connector.getMetadata(SESSION, new ConnectorTransactionHandle() {});
         SchemaTableName tblName = new SchemaTableName("prod", "test_table");
         KinesisTableHandle tableHandle = metadata.getTableHandle(SESSION, tblName);
-        assertNotNull(metadata);
+        assertThat(metadata).isNotNull();
         SchemaTableName tableSchemaName = tableHandle.toSchemaTableName();
-        assertEquals(tableSchemaName.getSchemaName(), "prod");
-        assertEquals(tableSchemaName.getTableName(), "test_table");
-        assertEquals(tableHandle.getStreamName(), "test_kinesis_stream");
-        assertEquals(tableHandle.getMessageDataFormat(), "json");
+        assertThat(tableSchemaName.getSchemaName()).isEqualTo("prod");
+        assertThat(tableSchemaName.getTableName()).isEqualTo("test_table");
+        assertThat(tableHandle.getStreamName()).isEqualTo("test_kinesis_stream");
+        assertThat(tableHandle.getMessageDataFormat()).isEqualTo("json");
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(SESSION, tableHandle);
-        assertEquals(columnHandles.size(), 14);
-        assertEquals(columnHandles.values().stream().filter(x -> ((KinesisColumnHandle) x).isInternal()).count(), 10);
+        assertThat(columnHandles.size()).isEqualTo(14);
+        assertThat(columnHandles.values().stream().filter(x -> ((KinesisColumnHandle) x).isInternal()).count()).isEqualTo(10);
     }
 
     @Test
     public void testRelatedObjects()
     {
         KinesisMetadata metadata = (KinesisMetadata) connector.getMetadata(SESSION, new ConnectorTransactionHandle() {});
-        assertNotNull(metadata);
+        assertThat(metadata).isNotNull();
 
         SchemaTableName tblName = new SchemaTableName("prod", "test_table");
         List<String> schemas = metadata.listSchemaNames(null);
-        assertEquals(schemas.size(), 1);
-        assertEquals(schemas.get(0), "prod");
+        assertThat(schemas.size()).isEqualTo(1);
+        assertThat(schemas.get(0)).isEqualTo("prod");
 
         KinesisTableHandle tblHandle = metadata.getTableHandle(null, tblName);
-        assertNotNull(tblHandle);
-        assertEquals(tblHandle.getSchemaName(), "prod");
-        assertEquals(tblHandle.getTableName(), "test_table");
-        assertEquals(tblHandle.getStreamName(), "test_kinesis_stream");
-        assertEquals(tblHandle.getMessageDataFormat(), "json");
+        assertThat(tblHandle).isNotNull();
+        assertThat(tblHandle.getSchemaName()).isEqualTo("prod");
+        assertThat(tblHandle.getTableName()).isEqualTo("test_table");
+        assertThat(tblHandle.getStreamName()).isEqualTo("test_kinesis_stream");
+        assertThat(tblHandle.getMessageDataFormat()).isEqualTo("json");
 
         ConnectorTableMetadata tblMeta = metadata.getTableMetadata(null, tblHandle);
-        assertNotNull(tblMeta);
-        assertEquals(tblMeta.getTable().getSchemaName(), "prod");
-        assertEquals(tblMeta.getTable().getTableName(), "test_table");
+        assertThat(tblMeta).isNotNull();
+        assertThat(tblMeta.getTable().getSchemaName()).isEqualTo("prod");
+        assertThat(tblMeta.getTable().getTableName()).isEqualTo("test_table");
         List<ColumnMetadata> columnList = tblMeta.getColumns();
-        assertNotNull(columnList);
+        assertThat(columnList).isNotNull();
 
         boolean foundServiceType = false;
         boolean foundPartitionKey = false;
         for (ColumnMetadata column : columnList) {
             if (column.getName().equals("service_type")) {
                 foundServiceType = true;
-                assertEquals(column.getType().getDisplayName(), "varchar(20)");
+                assertThat(column.getType().getDisplayName()).isEqualTo("varchar(20)");
             }
             if (column.getName().equals("_partition_key")) {
                 foundPartitionKey = true;
-                assertEquals(column.getType().getDisplayName(), "varchar");
+                assertThat(column.getType().getDisplayName()).isEqualTo("varchar");
             }
         }
-        assertTrue(foundServiceType);
-        assertTrue(foundPartitionKey);
+        assertThat(foundServiceType).isTrue();
+        assertThat(foundPartitionKey).isTrue();
     }
 }
