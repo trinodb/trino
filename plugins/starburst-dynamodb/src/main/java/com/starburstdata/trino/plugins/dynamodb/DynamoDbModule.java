@@ -21,8 +21,10 @@ import io.trino.plugin.jdbc.ExtraCredentialsBasedIdentityCacheMappingModule;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.RetryingConnectionFactory;
+import io.trino.plugin.jdbc.RetryingConnectionFactory.DefaultRetryStrategy;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.credential.CredentialProviderModule;
+import io.trino.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -69,6 +71,9 @@ public class DynamoDbModule
     {
         // The CData JDBC driver will intermittently throw an exception with no error message
         // Typically, retrying the query will cause it to proceed
-        return new RetryingConnectionFactory(new DynamoDbConnectionFactory(dynamoDbConfig, credentialProvider));
+        return new RetryingConnectionFactory(
+                new StatisticsAwareConnectionFactory(
+                        new DynamoDbConnectionFactory(dynamoDbConfig, credentialProvider)),
+                new DefaultRetryStrategy());
     }
 }
