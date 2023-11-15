@@ -977,7 +977,7 @@ public class TestResourceSecurity
             server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticators(TestResourceSecurity::authenticate);
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
 
-            // Authenticated user TEST_USER_LOGIN impersonates impersonated-user by passing request header X-Trino-Authorization-User
+            // Authenticated user TEST_USER_LOGIN impersonates impersonated-user by passing request header X-Trino-User
             Request request = new Request.Builder()
                     .url(getLocation(httpServerInfo.getHttpsUri(), "/protocol/identity"))
                     .addHeader("Authorization", Credentials.basic(TEST_USER_LOGIN, TEST_PASSWORD))
