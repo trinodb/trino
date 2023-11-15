@@ -631,7 +631,7 @@ public class MongoMetadata
                 handle.getProjectedColumns(),
                 handle.getLimit());
 
-        return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, false));
+        return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, constraint.getExpression(), false));
     }
 
     @Override

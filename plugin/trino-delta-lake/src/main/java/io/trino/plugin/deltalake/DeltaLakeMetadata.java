@@ -2892,6 +2892,7 @@ public class DeltaLakeMetadata
         return Optional.of(new ConstraintApplicationResult<>(
                 newHandle,
                 newUnenforcedConstraint.transformKeys(ColumnHandle.class::cast),
+                constraint.getExpression(),
                 false));
     }
 

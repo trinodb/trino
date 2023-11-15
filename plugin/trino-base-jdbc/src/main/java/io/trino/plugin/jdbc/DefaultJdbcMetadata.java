@@ -179,11 +179,11 @@ public class DefaultJdbcMetadata
         TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
         List<ParameterizedExpression> newConstraintExpressions;
         TupleDomain<ColumnHandle> remainingFilter;
-        Optional<ConnectorExpression> remainingExpression;
+        ConnectorExpression remainingExpression;
         if (newDomain.isNone()) {
             newConstraintExpressions = ImmutableList.of();
             remainingFilter = TupleDomain.all();
-            remainingExpression = Optional.of(Constant.TRUE);
+            remainingExpression = Constant.TRUE;
         }
         else {
             Map<ColumnHandle, Domain> domains = newDomain.getDomains().orElseThrow();
@@ -225,11 +225,11 @@ public class DefaultJdbcMetadata
                         .addAll(handle.getConstraintExpressions())
                         .addAll(newExpressions)
                         .build().asList();
-                remainingExpression = Optional.of(and(remainingExpressions));
+                remainingExpression = and(remainingExpressions);
             }
             else {
                 newConstraintExpressions = ImmutableList.of();
-                remainingExpression = Optional.empty();
+                remainingExpression = constraint.getExpression();
             }
         }
 
@@ -250,10 +250,7 @@ public class DefaultJdbcMetadata
                 handle.getAuthorization(),
                 handle.getUpdateAssignments());
 
-        return Optional.of(
-                remainingExpression.isPresent()
-                        ? new ConstraintApplicationResult<>(handle, remainingFilter, remainingExpression.get(), precalculateStatisticsForPushdown)
-                        : new ConstraintApplicationResult<>(handle, remainingFilter, precalculateStatisticsForPushdown));
+        return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, remainingExpression, precalculateStatisticsForPushdown));
     }
 
     private JdbcTableHandle flushAttributesAsQuery(ConnectorSession session, JdbcTableHandle handle)

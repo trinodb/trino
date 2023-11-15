@@ -174,6 +174,7 @@ public class HudiMetadata
         return Optional.of(new ConstraintApplicationResult<>(
                 newHudiTableHandle,
                 newHudiTableHandle.getRegularPredicates().transformKeys(ColumnHandle.class::cast),
+                constraint.getExpression(),
                 false));
     }
 
