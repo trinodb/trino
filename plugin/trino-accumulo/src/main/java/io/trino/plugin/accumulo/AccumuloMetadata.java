@@ -387,7 +387,7 @@ public class AccumuloMetadata
                 handle.getSerializerClassName(),
                 handle.getScanAuthorizations());
 
-        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary(), false));
+        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary(), constraint.getExpression(), false));
     }
 
     private void checkNoRollback()

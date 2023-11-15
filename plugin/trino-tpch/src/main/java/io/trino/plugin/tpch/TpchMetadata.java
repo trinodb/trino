@@ -505,6 +505,7 @@ public class TpchMetadata
                         handle.getScaleFactor(),
                         oldDomain.intersect(predicate)),
                 unenforcedConstraint,
+                constraint.getExpression(),
                 false));
     }
 
