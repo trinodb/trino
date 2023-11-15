@@ -29,7 +29,6 @@ import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.math.RoundingMode;
@@ -636,8 +635,18 @@ public abstract class AbstractTestOracleTypeMapping
                 .execute(getQueryRunner(), oracleCreateAndInsert("test_blob"));
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testDate(ZoneId sessionZone)
+    @Test
+    public void testDate()
+    {
+        testDate(UTC);
+        testDate(jvmZone);
+        // using two non-JVM zones so that we don't need to worry what Oracle system zone is
+        testDate(vilnius);
+        testDate(kathmandu);
+        testDate(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testDate(ZoneId sessionZone)
     {
         // Note: these test cases are duplicates of those for PostgreSQL and MySQL.
 
@@ -700,8 +709,18 @@ public abstract class AbstractTestOracleTypeMapping
         }
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTimestamp(ZoneId sessionZone)
+    @Test
+    public void testTimestamp()
+    {
+        testTimestamp(UTC);
+        testTimestamp(jvmZone);
+        // using two non-JVM zones so that we don't need to worry what Oracle system zone is
+        testTimestamp(vilnius);
+        testTimestamp(kathmandu);
+        testTimestamp(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testTimestamp(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
@@ -734,8 +753,18 @@ public abstract class AbstractTestOracleTypeMapping
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp"));
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTimestampNanos(ZoneId sessionZone)
+    @Test
+    public void testTimestampNanos()
+    {
+        testTimestampNanos(UTC);
+        testTimestampNanos(jvmZone);
+        // using two non-JVM zones so that we don't need to worry what Oracle system zone is
+        testTimestampNanos(vilnius);
+        testTimestampNanos(kathmandu);
+        testTimestampNanos(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testTimestampNanos(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
@@ -769,8 +798,18 @@ public abstract class AbstractTestOracleTypeMapping
                 .execute(getQueryRunner(), session, trinoCreateAndInsert(session, "test_timestamp_nano"));
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTimestampAllPrecisions(ZoneId sessionZone)
+    @Test
+    public void testTimestampAllPrecisions()
+    {
+        testTimestampAllPrecisions(UTC);
+        testTimestampAllPrecisions(jvmZone);
+        // using two non-JVM zones so that we don't need to worry what Oracle system zone is
+        testTimestampAllPrecisions(vilnius);
+        testTimestampAllPrecisions(kathmandu);
+        testTimestampAllPrecisions(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testTimestampAllPrecisions(ZoneId sessionZone)
     {
         SqlDataTypeTest tests = SqlDataTypeTest.create()
                 // before epoch
@@ -923,19 +962,6 @@ public abstract class AbstractTestOracleTypeMapping
                     format("INSERT INTO %s VALUES (TIMESTAMP '10000-01-01 00:00:00.000')", table.getName()),
                     "\\QFailed to insert data: ORA-01862: the numeric value does not match the length of the format item\n");
         }
-    }
-
-    @DataProvider
-    public Object[][] sessionZonesDataProvider()
-    {
-        return new Object[][] {
-                {UTC},
-                {jvmZone},
-                // using two non-JVM zones so that we don't need to worry what Oracle system zone is
-                {vilnius},
-                {kathmandu},
-                {TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId()},
-        };
     }
 
     @Test

@@ -22,7 +22,6 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.bson.Document;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -34,7 +33,6 @@ import static io.trino.plugin.mongodb.AuthenticatedMongoServer.createUser;
 import static io.trino.plugin.mongodb.AuthenticatedMongoServer.privilege;
 import static io.trino.plugin.mongodb.AuthenticatedMongoServer.resource;
 import static io.trino.plugin.mongodb.AuthenticatedMongoServer.role;
-import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -71,22 +69,28 @@ public class TestMongoPrivileges
         }
     }
 
-    @Test(dataProvider = "databases")
-    public void testSchemasVisibility(String database)
+    @Test
+    public void testSchemasVisibility()
     {
-        assertQuery("SHOW SCHEMAS FROM " + getCatalogName(database), "VALUES 'information_schema','%s'".formatted(database.toLowerCase(ENGLISH)));
+        for (String database : DATABASES) {
+            assertQuery("SHOW SCHEMAS FROM " + getCatalogName(database), "VALUES 'information_schema','%s'".formatted(database.toLowerCase(ENGLISH)));
+        }
     }
 
-    @Test(dataProvider = "databases")
-    public void testTablesVisibility(String database)
+    @Test
+    public void testTablesVisibility()
     {
-        assertQuery("SHOW TABLES FROM %s.%s".formatted(getCatalogName(database), database), "VALUES '%s'".formatted(TEST_COLLECTION.toLowerCase(ENGLISH)));
+        for (String database : DATABASES) {
+            assertQuery("SHOW TABLES FROM %s.%s".formatted(getCatalogName(database), database), "VALUES '%s'".formatted(TEST_COLLECTION.toLowerCase(ENGLISH)));
+        }
     }
 
-    @Test(dataProvider = "databases")
-    public void testSelectFromTable(String database)
+    @Test
+    public void testSelectFromTable()
     {
-        assertQuery("SELECT * from %s.%s.%s".formatted(getCatalogName(database), database, TEST_COLLECTION), "VALUES ('abc', 1)");
+        for (String database : DATABASES) {
+            assertQuery("SELECT * from %s.%s.%s".formatted(getCatalogName(database), database, TEST_COLLECTION), "VALUES ('abc', 1)");
+        }
     }
 
     private static AuthenticatedMongoServer setupMongoServer()
@@ -156,11 +160,5 @@ public class TestMongoPrivileges
     private static String getPassword(String database)
     {
         return database + "pass";
-    }
-
-    @DataProvider
-    public static Object[][] databases()
-    {
-        return DATABASES.stream().collect(toDataProvider());
     }
 }

@@ -28,7 +28,6 @@ import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.time.LocalDate;
@@ -437,8 +436,20 @@ public abstract class BaseSqlServerTypeMapping
                 .execute(getQueryRunner(), sqlServerCreateAndInsert("test_varbinary"));
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testDate(ZoneId sessionZone)
+    @Test
+    public void testDate()
+    {
+        testDate(UTC);
+        testDate(ZoneId.systemDefault());
+        // using two non-JVM zones so that we don't need to worry what SQL Server system zone is
+        // no DST in 1970, but has DST in later years (e.g. 2018)
+        testDate(ZoneId.of("Europe/Vilnius"));
+        // minutes offset change since 1970-01-01, no DST
+        testDate(ZoneId.of("Asia/Kathmandu"));
+        testDate(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testDate(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
@@ -578,8 +589,20 @@ public abstract class BaseSqlServerTypeMapping
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_time"));
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTimestamp(ZoneId sessionZone)
+    @Test
+    public void testTimestamp()
+    {
+        testTimestamp(UTC);
+        testTimestamp(ZoneId.systemDefault());
+        // using two non-JVM zones so that we don't need to worry what SQL Server system zone is
+        // no DST in 1970, but has DST in later years (e.g. 2018)
+        testTimestamp(ZoneId.of("Europe/Vilnius"));
+        // minutes offset change since 1970-01-01, no DST
+        testTimestamp(ZoneId.of("Asia/Kathmandu"));
+        testTimestamp(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testTimestamp(ZoneId sessionZone)
     {
         SqlDataTypeTest tests = SqlDataTypeTest.create()
 
@@ -719,8 +742,20 @@ public abstract class BaseSqlServerTypeMapping
                 .execute(getQueryRunner(), sqlServerCreateAndInsert("test_sqlserver_timestamp"));
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testSqlServerDatetimeOffset(ZoneId sessionZone)
+    @Test
+    public void testSqlServerDatetimeOffset()
+    {
+        testSqlServerDatetimeOffset(UTC);
+        testSqlServerDatetimeOffset(ZoneId.systemDefault());
+        // using two non-JVM zones so that we don't need to worry what SQL Server system zone is
+        // no DST in 1970, but has DST in later years (e.g. 2018)
+        testSqlServerDatetimeOffset(ZoneId.of("Europe/Vilnius"));
+        // minutes offset change since 1970-01-01, no DST
+        testSqlServerDatetimeOffset(ZoneId.of("Asia/Kathmandu"));
+        testSqlServerDatetimeOffset(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testSqlServerDatetimeOffset(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
@@ -802,21 +837,6 @@ public abstract class BaseSqlServerTypeMapping
                 .addRoundTrip("DATETIMEOFFSET(6)", "'1969-12-31 23:59:59.9999994'", createTimestampWithTimeZoneType(6), "TIMESTAMP '1969-12-31 23:59:59.999999+00:00'")
 
                 .execute(getQueryRunner(), session, sqlServerCreateAndInsert("test_sqlserver_datetimeoffset"));
-    }
-
-    @DataProvider
-    public Object[][] sessionZonesDataProvider()
-    {
-        return new Object[][] {
-                {UTC},
-                {ZoneId.systemDefault()},
-                // using two non-JVM zones so that we don't need to worry what SQL Server system zone is
-                // no DST in 1970, but has DST in later years (e.g. 2018)
-                {ZoneId.of("Europe/Vilnius")},
-                // minutes offset change since 1970-01-01, no DST
-                {ZoneId.of("Asia/Kathmandu")},
-                {TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId()},
-        };
     }
 
     protected DataSetup trinoCreateAsSelect(String tableNamePrefix)
