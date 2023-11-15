@@ -60,7 +60,6 @@ import static io.trino.spi.type.TinyintType.TINYINT;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestDeltaLakeFileBasedTableStatisticsProvider
 {
@@ -132,11 +131,11 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
     {
         DeltaLakeTableHandle tableHandle = registerTable("nan");
         TableStatistics stats = getTableStatistics(SESSION, tableHandle);
-        assertEquals(stats.getRowCount(), Estimate.of(1));
-        assertEquals(stats.getColumnStatistics().size(), 1);
+        assertThat(stats.getRowCount()).isEqualTo(Estimate.of(1));
+        assertThat(stats.getColumnStatistics().size()).isEqualTo(1);
 
         ColumnStatistics columnStatistics = stats.getColumnStatistics().get(COLUMN_HANDLE);
-        assertEquals(columnStatistics.getRange(), Optional.empty());
+        assertThat(columnStatistics.getRange()).isEqualTo(Optional.empty());
     }
 
     @Test
@@ -145,8 +144,8 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
         DeltaLakeTableHandle tableHandle = registerTable("positive_infinity");
         TableStatistics stats = getTableStatistics(SESSION, tableHandle);
         ColumnStatistics columnStatistics = stats.getColumnStatistics().get(COLUMN_HANDLE);
-        assertEquals(columnStatistics.getRange().get().getMin(), POSITIVE_INFINITY);
-        assertEquals(columnStatistics.getRange().get().getMax(), POSITIVE_INFINITY);
+        assertThat(columnStatistics.getRange().get().getMin()).isEqualTo(POSITIVE_INFINITY);
+        assertThat(columnStatistics.getRange().get().getMax()).isEqualTo(POSITIVE_INFINITY);
     }
 
     @Test
@@ -155,8 +154,8 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
         DeltaLakeTableHandle tableHandle = registerTable("negative_infinity");
         TableStatistics stats = getTableStatistics(SESSION, tableHandle);
         ColumnStatistics columnStatistics = stats.getColumnStatistics().get(COLUMN_HANDLE);
-        assertEquals(columnStatistics.getRange().get().getMin(), NEGATIVE_INFINITY);
-        assertEquals(columnStatistics.getRange().get().getMax(), NEGATIVE_INFINITY);
+        assertThat(columnStatistics.getRange().get().getMin()).isEqualTo(NEGATIVE_INFINITY);
+        assertThat(columnStatistics.getRange().get().getMax()).isEqualTo(NEGATIVE_INFINITY);
     }
 
     @Test
@@ -165,8 +164,8 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
         DeltaLakeTableHandle tableHandle = registerTable("negative_zero");
         TableStatistics stats = getTableStatistics(SESSION, tableHandle);
         ColumnStatistics columnStatistics = stats.getColumnStatistics().get(COLUMN_HANDLE);
-        assertEquals(columnStatistics.getRange().get().getMin(), -0.0d);
-        assertEquals(columnStatistics.getRange().get().getMax(), -0.0d);
+        assertThat(columnStatistics.getRange().get().getMin()).isEqualTo(-0.0d);
+        assertThat(columnStatistics.getRange().get().getMax()).isEqualTo(-0.0d);
     }
 
     @Test
@@ -176,8 +175,8 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
         DeltaLakeTableHandle tableHandle = registerTable("infinity_nan");
         TableStatistics stats = getTableStatistics(SESSION, tableHandle);
         ColumnStatistics columnStatistics = stats.getColumnStatistics().get(COLUMN_HANDLE);
-        assertEquals(columnStatistics.getRange().get().getMin(), POSITIVE_INFINITY);
-        assertEquals(columnStatistics.getRange().get().getMax(), POSITIVE_INFINITY);
+        assertThat(columnStatistics.getRange().get().getMin()).isEqualTo(POSITIVE_INFINITY);
+        assertThat(columnStatistics.getRange().get().getMax()).isEqualTo(POSITIVE_INFINITY);
     }
 
     @Test
@@ -187,8 +186,8 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
         DeltaLakeTableHandle tableHandle = registerTable("negative_infinity_nan");
         TableStatistics stats = getTableStatistics(SESSION, tableHandle);
         ColumnStatistics columnStatistics = stats.getColumnStatistics().get(COLUMN_HANDLE);
-        assertEquals(columnStatistics.getRange().get().getMin(), NEGATIVE_INFINITY);
-        assertEquals(columnStatistics.getRange().get().getMax(), POSITIVE_INFINITY);
+        assertThat(columnStatistics.getRange().get().getMin()).isEqualTo(NEGATIVE_INFINITY);
+        assertThat(columnStatistics.getRange().get().getMax()).isEqualTo(POSITIVE_INFINITY);
     }
 
     @Test
@@ -198,8 +197,8 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
         DeltaLakeTableHandle tableHandle = registerTable("zero_nan");
         TableStatistics stats = getTableStatistics(SESSION, tableHandle);
         ColumnStatistics columnStatistics = stats.getColumnStatistics().get(COLUMN_HANDLE);
-        assertEquals(columnStatistics.getRange().get().getMin(), 0.0);
-        assertEquals(columnStatistics.getRange().get().getMax(), POSITIVE_INFINITY);
+        assertThat(columnStatistics.getRange().get().getMin()).isEqualTo(0.0);
+        assertThat(columnStatistics.getRange().get().getMax()).isEqualTo(POSITIVE_INFINITY);
     }
 
     @Test
@@ -208,8 +207,8 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
         DeltaLakeTableHandle tableHandle = registerTable("zero_infinity");
         TableStatistics stats = getTableStatistics(SESSION, tableHandle);
         ColumnStatistics columnStatistics = stats.getColumnStatistics().get(COLUMN_HANDLE);
-        assertEquals(columnStatistics.getRange().get().getMin(), 0.0);
-        assertEquals(columnStatistics.getRange().get().getMax(), POSITIVE_INFINITY);
+        assertThat(columnStatistics.getRange().get().getMin()).isEqualTo(0.0);
+        assertThat(columnStatistics.getRange().get().getMax()).isEqualTo(POSITIVE_INFINITY);
     }
 
     @Test
@@ -218,8 +217,8 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
         DeltaLakeTableHandle tableHandle = registerTable("zero_negative_infinity");
         TableStatistics stats = getTableStatistics(SESSION, tableHandle);
         ColumnStatistics columnStatistics = stats.getColumnStatistics().get(COLUMN_HANDLE);
-        assertEquals(columnStatistics.getRange().get().getMin(), NEGATIVE_INFINITY);
-        assertEquals(columnStatistics.getRange().get().getMax(), 0.0);
+        assertThat(columnStatistics.getRange().get().getMin()).isEqualTo(NEGATIVE_INFINITY);
+        assertThat(columnStatistics.getRange().get().getMax()).isEqualTo(0.0);
     }
 
     @Test
@@ -229,7 +228,7 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
         DeltaLakeTableHandle tableHandle = registerTable("nan_multi_file");
         TableStatistics stats = getTableStatistics(SESSION, tableHandle);
         ColumnStatistics columnStatistics = stats.getColumnStatistics().get(COLUMN_HANDLE);
-        assertEquals(columnStatistics.getRange(), Optional.empty());
+        assertThat(columnStatistics.getRange()).isEqualTo(Optional.empty());
     }
 
     @Test
@@ -238,8 +237,8 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
         DeltaLakeTableHandle tableHandle = registerTable("basic_multi_file");
         TableStatistics stats = getTableStatistics(SESSION, tableHandle);
         ColumnStatistics columnStatistics = stats.getColumnStatistics().get(COLUMN_HANDLE);
-        assertEquals(columnStatistics.getRange().get().getMin(), -42.0);
-        assertEquals(columnStatistics.getRange().get().getMax(), 42.0);
+        assertThat(columnStatistics.getRange().get().getMin()).isEqualTo(-42.0);
+        assertThat(columnStatistics.getRange().get().getMax()).isEqualTo(42.0);
 
         DeltaLakeTableHandle tableHandleWithUnenforcedConstraint = new DeltaLakeTableHandle(
                 tableHandle.getSchemaName(),
@@ -258,8 +257,8 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
                 0);
         stats = getTableStatistics(SESSION, tableHandleWithUnenforcedConstraint);
         columnStatistics = stats.getColumnStatistics().get(COLUMN_HANDLE);
-        assertEquals(columnStatistics.getRange().get().getMin(), 0.0);
-        assertEquals(columnStatistics.getRange().get().getMax(), 42.0);
+        assertThat(columnStatistics.getRange().get().getMin()).isEqualTo(0.0);
+        assertThat(columnStatistics.getRange().get().getMax()).isEqualTo(42.0);
     }
 
     @Test
@@ -303,10 +302,10 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
 
     private void assertEmptyStats(TableStatistics tableStatistics)
     {
-        assertEquals(tableStatistics.getRowCount(), Estimate.of(0));
+        assertThat(tableStatistics.getRowCount()).isEqualTo(Estimate.of(0));
         ColumnStatistics columnStatistics = tableStatistics.getColumnStatistics().get(COLUMN_HANDLE);
-        assertEquals(columnStatistics.getNullsFraction(), Estimate.of(0));
-        assertEquals(columnStatistics.getDistinctValuesCount(), Estimate.of(0));
+        assertThat(columnStatistics.getNullsFraction()).isEqualTo(Estimate.of(0));
+        assertThat(columnStatistics.getDistinctValuesCount()).isEqualTo(Estimate.of(0));
     }
 
     @Test
@@ -315,53 +314,53 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
         // The transaction log for this table was created so that the checkpoints only write struct statistics, not json statistics
         DeltaLakeTableHandle tableHandle = registerTable("parquet_struct_statistics");
         TableStatistics stats = getTableStatistics(SESSION, tableHandle);
-        assertEquals(stats.getRowCount(), Estimate.of(9));
+        assertThat(stats.getRowCount()).isEqualTo(Estimate.of(9));
 
         Map<ColumnHandle, ColumnStatistics> statisticsMap = stats.getColumnStatistics();
         ColumnStatistics columnStats = statisticsMap.get(new DeltaLakeColumnHandle("dec_short", DecimalType.createDecimalType(5, 1), OptionalInt.empty(), "dec_short", DecimalType.createDecimalType(5, 1), REGULAR, Optional.empty()));
-        assertEquals(columnStats.getNullsFraction(), Estimate.zero());
-        assertEquals(columnStats.getRange().get().getMin(), -10.1);
-        assertEquals(columnStats.getRange().get().getMax(), 10.1);
+        assertThat(columnStats.getNullsFraction()).isEqualTo(Estimate.zero());
+        assertThat(columnStats.getRange().get().getMin()).isEqualTo(-10.1);
+        assertThat(columnStats.getRange().get().getMax()).isEqualTo(10.1);
 
         columnStats = statisticsMap.get(new DeltaLakeColumnHandle("dec_long", DecimalType.createDecimalType(25, 3), OptionalInt.empty(), "dec_long", DecimalType.createDecimalType(25, 3), REGULAR, Optional.empty()));
-        assertEquals(columnStats.getNullsFraction(), Estimate.zero());
-        assertEquals(columnStats.getRange().get().getMin(), -999999999999.123);
-        assertEquals(columnStats.getRange().get().getMax(), 999999999999.123);
+        assertThat(columnStats.getNullsFraction()).isEqualTo(Estimate.zero());
+        assertThat(columnStats.getRange().get().getMin()).isEqualTo(-999999999999.123);
+        assertThat(columnStats.getRange().get().getMax()).isEqualTo(999999999999.123);
 
         columnStats = statisticsMap.get(new DeltaLakeColumnHandle("l", BIGINT, OptionalInt.empty(), "l", BIGINT, REGULAR, Optional.empty()));
-        assertEquals(columnStats.getNullsFraction(), Estimate.zero());
-        assertEquals(columnStats.getRange().get().getMin(), -10000000.0);
-        assertEquals(columnStats.getRange().get().getMax(), 10000000.0);
+        assertThat(columnStats.getNullsFraction()).isEqualTo(Estimate.zero());
+        assertThat(columnStats.getRange().get().getMin()).isEqualTo(-10000000.0);
+        assertThat(columnStats.getRange().get().getMax()).isEqualTo(10000000.0);
 
         columnStats = statisticsMap.get(new DeltaLakeColumnHandle("in", INTEGER, OptionalInt.empty(), "in", INTEGER, REGULAR, Optional.empty()));
-        assertEquals(columnStats.getNullsFraction(), Estimate.zero());
-        assertEquals(columnStats.getRange().get().getMin(), -20000000.0);
-        assertEquals(columnStats.getRange().get().getMax(), 20000000.0);
+        assertThat(columnStats.getNullsFraction()).isEqualTo(Estimate.zero());
+        assertThat(columnStats.getRange().get().getMin()).isEqualTo(-20000000.0);
+        assertThat(columnStats.getRange().get().getMax()).isEqualTo(20000000.0);
 
         columnStats = statisticsMap.get(new DeltaLakeColumnHandle("sh", SMALLINT, OptionalInt.empty(), "sh", SMALLINT, REGULAR, Optional.empty()));
-        assertEquals(columnStats.getNullsFraction(), Estimate.zero());
-        assertEquals(columnStats.getRange().get().getMin(), -123.0);
-        assertEquals(columnStats.getRange().get().getMax(), 123.0);
+        assertThat(columnStats.getNullsFraction()).isEqualTo(Estimate.zero());
+        assertThat(columnStats.getRange().get().getMin()).isEqualTo(-123.0);
+        assertThat(columnStats.getRange().get().getMax()).isEqualTo(123.0);
 
         columnStats = statisticsMap.get(new DeltaLakeColumnHandle("byt", TINYINT, OptionalInt.empty(), "byt", TINYINT, REGULAR, Optional.empty()));
-        assertEquals(columnStats.getNullsFraction(), Estimate.zero());
-        assertEquals(columnStats.getRange().get().getMin(), -42.0);
-        assertEquals(columnStats.getRange().get().getMax(), 42.0);
+        assertThat(columnStats.getNullsFraction()).isEqualTo(Estimate.zero());
+        assertThat(columnStats.getRange().get().getMin()).isEqualTo(-42.0);
+        assertThat(columnStats.getRange().get().getMax()).isEqualTo(42.0);
 
         columnStats = statisticsMap.get(new DeltaLakeColumnHandle("fl", REAL, OptionalInt.empty(), "fl", REAL, REGULAR, Optional.empty()));
-        assertEquals(columnStats.getNullsFraction(), Estimate.zero());
-        assertEquals((float) columnStats.getRange().get().getMin(), -0.123f);
-        assertEquals((float) columnStats.getRange().get().getMax(), 0.123f);
+        assertThat(columnStats.getNullsFraction()).isEqualTo(Estimate.zero());
+        assertThat((float) columnStats.getRange().get().getMin()).isEqualTo(-0.123f);
+        assertThat((float) columnStats.getRange().get().getMax()).isEqualTo(0.123f);
 
         columnStats = statisticsMap.get(new DeltaLakeColumnHandle("dou", DOUBLE, OptionalInt.empty(), "dou", DOUBLE, REGULAR, Optional.empty()));
-        assertEquals(columnStats.getNullsFraction(), Estimate.zero());
-        assertEquals(columnStats.getRange().get().getMin(), -0.321);
-        assertEquals(columnStats.getRange().get().getMax(), 0.321);
+        assertThat(columnStats.getNullsFraction()).isEqualTo(Estimate.zero());
+        assertThat(columnStats.getRange().get().getMin()).isEqualTo(-0.321);
+        assertThat(columnStats.getRange().get().getMax()).isEqualTo(0.321);
 
         columnStats = statisticsMap.get(new DeltaLakeColumnHandle("dat", DATE, OptionalInt.empty(), "dat", DATE, REGULAR, Optional.empty()));
-        assertEquals(columnStats.getNullsFraction(), Estimate.zero());
-        assertEquals(columnStats.getRange().get().getMin(), (double) LocalDate.parse("1900-01-01").toEpochDay());
-        assertEquals(columnStats.getRange().get().getMax(), (double) LocalDate.parse("5000-01-01").toEpochDay());
+        assertThat(columnStats.getNullsFraction()).isEqualTo(Estimate.zero());
+        assertThat(columnStats.getRange().get().getMin()).isEqualTo((double) LocalDate.parse("1900-01-01").toEpochDay());
+        assertThat(columnStats.getRange().get().getMax()).isEqualTo((double) LocalDate.parse("5000-01-01").toEpochDay());
     }
 
     @Test
@@ -371,15 +370,15 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
         // The table has a REAL and DOUBLE columns each with 9 values, one of them being NaN
         DeltaLakeTableHandle tableHandle = registerTable("parquet_struct_statistics_nan");
         TableStatistics stats = getTableStatistics(SESSION, tableHandle);
-        assertEquals(stats.getRowCount(), Estimate.of(9));
+        assertThat(stats.getRowCount()).isEqualTo(Estimate.of(9));
 
         Map<ColumnHandle, ColumnStatistics> statisticsMap = stats.getColumnStatistics();
         ColumnStatistics columnStats = statisticsMap.get(new DeltaLakeColumnHandle("fl", REAL, OptionalInt.empty(), "fl", REAL, REGULAR, Optional.empty()));
-        assertEquals(columnStats.getNullsFraction(), Estimate.zero());
+        assertThat(columnStats.getNullsFraction()).isEqualTo(Estimate.zero());
         assertThat(columnStats.getRange()).isEmpty();
 
         columnStats = statisticsMap.get(new DeltaLakeColumnHandle("dou", DOUBLE, OptionalInt.empty(), "dou", DOUBLE, REGULAR, Optional.empty()));
-        assertEquals(columnStats.getNullsFraction(), Estimate.zero());
+        assertThat(columnStats.getNullsFraction()).isEqualTo(Estimate.zero());
         assertThat(columnStats.getRange()).isEmpty();
     }
 
@@ -390,11 +389,11 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
         // The table has one INTEGER column 'i' where 3 of the 9 values are null
         DeltaLakeTableHandle tableHandle = registerTable("parquet_struct_statistics_null_count");
         TableStatistics stats = getTableStatistics(SESSION, tableHandle);
-        assertEquals(stats.getRowCount(), Estimate.of(9));
+        assertThat(stats.getRowCount()).isEqualTo(Estimate.of(9));
 
         Map<ColumnHandle, ColumnStatistics> statisticsMap = stats.getColumnStatistics();
         ColumnStatistics columnStats = statisticsMap.get(new DeltaLakeColumnHandle("i", INTEGER, OptionalInt.empty(), "i", INTEGER, REGULAR, Optional.empty()));
-        assertEquals(columnStats.getNullsFraction(), Estimate.of(3.0 / 9.0));
+        assertThat(columnStats.getNullsFraction()).isEqualTo(Estimate.of(3.0 / 9.0));
     }
 
     @Test
@@ -415,9 +414,9 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
         assertThat(extendedStatistics).isNotEmpty();
         Map<String, DeltaLakeColumnStatistics> columnStatistics = extendedStatistics.get().getColumnStatistics();
         assertThat(columnStatistics).hasSize(3);
-        assertEquals(columnStatistics.get("regionkey").getTotalSizeInBytes(), OptionalLong.empty());
-        assertEquals(columnStatistics.get("name").getTotalSizeInBytes(), OptionalLong.of(34));
-        assertEquals(columnStatistics.get("comment").getTotalSizeInBytes(), OptionalLong.of(330));
+        assertThat(columnStatistics.get("regionkey").getTotalSizeInBytes()).isEqualTo(OptionalLong.empty());
+        assertThat(columnStatistics.get("name").getTotalSizeInBytes()).isEqualTo(OptionalLong.of(34));
+        assertThat(columnStatistics.get("comment").getTotalSizeInBytes()).isEqualTo(OptionalLong.of(330));
     }
 
     @Test
@@ -433,16 +432,16 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
         Map<String, DeltaLakeColumnStatistics> columnStatisticsWithDataSize = statisticsWithDataSize.get().getColumnStatistics();
 
         DeltaLakeColumnStatistics mergedRegionKey = columnStatisticsWithoutDataSize.get("regionkey").update(columnStatisticsWithDataSize.get("regionkey"));
-        assertEquals(mergedRegionKey.getTotalSizeInBytes(), OptionalLong.empty());
-        assertEquals(mergedRegionKey.getNdvSummary().cardinality(), 5);
+        assertThat(mergedRegionKey.getTotalSizeInBytes()).isEqualTo(OptionalLong.empty());
+        assertThat(mergedRegionKey.getNdvSummary().cardinality()).isEqualTo(5);
 
         DeltaLakeColumnStatistics mergedName = columnStatisticsWithoutDataSize.get("name").update(columnStatisticsWithDataSize.get("name"));
-        assertEquals(mergedName.getTotalSizeInBytes(), OptionalLong.empty());
-        assertEquals(mergedName.getNdvSummary().cardinality(), 5);
+        assertThat(mergedName.getTotalSizeInBytes()).isEqualTo(OptionalLong.empty());
+        assertThat(mergedName.getNdvSummary().cardinality()).isEqualTo(5);
 
         DeltaLakeColumnStatistics mergedComment = columnStatisticsWithoutDataSize.get("comment").update(columnStatisticsWithDataSize.get("comment"));
-        assertEquals(mergedComment.getTotalSizeInBytes(), OptionalLong.empty());
-        assertEquals(mergedComment.getNdvSummary().cardinality(), 5);
+        assertThat(mergedComment.getTotalSizeInBytes()).isEqualTo(OptionalLong.empty());
+        assertThat(mergedComment.getNdvSummary().cardinality()).isEqualTo(5);
     }
 
     private TableStatistics getTableStatistics(ConnectorSession session, DeltaLakeTableHandle tableHandle)

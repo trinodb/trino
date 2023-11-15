@@ -82,9 +82,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 @Execution(SAME_THREAD) // e.g. TrackingFileSystemFactory is shared mutable state
 public class TestTransactionLogAccess
@@ -171,16 +168,16 @@ public class TestTransactionLogAccess
 
         MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(tableSnapshot, SESSION);
 
-        assertEquals(metadataEntry.getCreatedTime(), 1579190100722L);
-        assertEquals(metadataEntry.getId(), "b6aeffad-da73-4dde-b68e-937e468b1fdf");
+        assertThat(metadataEntry.getCreatedTime()).isEqualTo(1579190100722L);
+        assertThat(metadataEntry.getId()).isEqualTo("b6aeffad-da73-4dde-b68e-937e468b1fdf");
         assertThat(metadataEntry.getOriginalPartitionColumns()).containsOnly("age");
         assertThat(metadataEntry.getLowercasePartitionColumns()).containsOnly("age");
 
         MetadataEntry.Format format = metadataEntry.getFormat();
-        assertEquals(format.getOptions().keySet().size(), 0);
-        assertEquals(format.getProvider(), "parquet");
+        assertThat(format.getOptions().keySet().size()).isEqualTo(0);
+        assertThat(format.getProvider()).isEqualTo("parquet");
 
-        assertEquals(tableSnapshot.getCachedMetadata(), Optional.of(metadataEntry));
+        assertThat(tableSnapshot.getCachedMetadata()).isEqualTo(Optional.of(metadataEntry));
     }
 
     @Test
@@ -191,7 +188,7 @@ public class TestTransactionLogAccess
         MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(tableSnapshot, SESSION);
         assertThat(metadataEntry.getOriginalPartitionColumns()).containsOnly("ALA");
         assertThat(metadataEntry.getLowercasePartitionColumns()).containsOnly("ala");
-        assertEquals(tableSnapshot.getCachedMetadata(), Optional.of(metadataEntry));
+        assertThat(tableSnapshot.getCachedMetadata()).isEqualTo(Optional.of(metadataEntry));
     }
 
     @Test
@@ -207,7 +204,7 @@ public class TestTransactionLogAccess
                 .stream()
                 .map(AddFileEntry::getPath)
                 .collect(Collectors.toSet());
-        assertEquals(paths, EXPECTED_ADD_FILE_PATHS);
+        assertThat(paths).isEqualTo(EXPECTED_ADD_FILE_PATHS);
 
         AddFileEntry addFileEntry = addFileEntries
                 .stream()
@@ -221,9 +218,9 @@ public class TestTransactionLogAccess
                 .hasSize(1)
                 .containsEntry("age", Optional.of("42"));
 
-        assertEquals(addFileEntry.getSize(), 2687);
-        assertEquals(addFileEntry.getModificationTime(), 1579190188000L);
-        assertFalse(addFileEntry.isDataChange());
+        assertThat(addFileEntry.getSize()).isEqualTo(2687);
+        assertThat(addFileEntry.getModificationTime()).isEqualTo(1579190188000L);
+        assertThat(addFileEntry.isDataChange()).isFalse();
     }
 
     @Test
@@ -264,8 +261,8 @@ public class TestTransactionLogAccess
                 .map(AddFileEntry::getPath)
                 .collect(Collectors.toSet());
 
-        assertFalse(paths.contains("age=25/part-00001-aceaf062-1cd1-45cb-8f83-277ffebe995c.c000.snappy.parquet"));
-        assertFalse(paths.contains("age=29/part-00000-3794c463-cb0c-4beb-8d07-7cc1e3b5920f.c000.snappy.parquet"));
+        assertThat(paths.contains("age=25/part-00001-aceaf062-1cd1-45cb-8f83-277ffebe995c.c000.snappy.parquet")).isFalse();
+        assertThat(paths.contains("age=29/part-00000-3794c463-cb0c-4beb-8d07-7cc1e3b5920f.c000.snappy.parquet")).isFalse();
     }
 
     @Test
@@ -286,8 +283,8 @@ public class TestTransactionLogAccess
             List<AddFileEntry> activeEntries = addFileEntries.stream()
                     .filter(addFileEntry -> addFileEntry.getPath().equals(path))
                     .toList();
-            assertEquals(activeEntries.size(), 1);
-            assertEquals(activeEntries.get(0).getModificationTime(), 9999999L);
+            assertThat(activeEntries.size()).isEqualTo(1);
+            assertThat(activeEntries.get(0).getModificationTime()).isEqualTo(9999999L);
         }
     }
 
@@ -305,8 +302,8 @@ public class TestTransactionLogAccess
                 .filter(addFileEntry -> addFileEntry.getPath().equals("age=30/part-00002-5800be2e-2373-47d8-8b86-776a8ea9d69f.c000.snappy.parquet"))
                 .toList();
 
-        assertEquals(activeEntries.size(), 1);
-        assertEquals(activeEntries.get(0).getModificationTime(), 9999999L);
+        assertThat(activeEntries.size()).isEqualTo(1);
+        assertThat(activeEntries.get(0).getModificationTime()).isEqualTo(9999999L);
     }
 
     @Test
@@ -317,7 +314,7 @@ public class TestTransactionLogAccess
 
         try (Stream<RemoveFileEntry> removeEntries = transactionLogAccess.getRemoveEntries(tableSnapshot, SESSION)) {
             Set<RemoveFileEntry> removedEntries = removeEntries.collect(Collectors.toSet());
-            assertEquals(removedEntries, EXPECTED_REMOVE_ENTRIES);
+            assertThat(removedEntries).isEqualTo(EXPECTED_REMOVE_ENTRIES);
         }
     }
 
@@ -328,18 +325,16 @@ public class TestTransactionLogAccess
         setupTransactionLogAccessFromResources("person", "databricks73/person");
         try (Stream<CommitInfoEntry> commitInfoEntries = transactionLogAccess.getCommitInfoEntries(tableSnapshot, SESSION)) {
             Set<CommitInfoEntry> entrySet = commitInfoEntries.collect(Collectors.toSet());
-            assertEquals(
-                    entrySet,
-                    ImmutableSet.of(
-                            new CommitInfoEntry(11, 1579190200860L, "671960514434781", "michal.slizak@starburstdata.com", "WRITE",
-                                    ImmutableMap.of("mode", "Append", "partitionBy", "[\"age\"]"), null, new CommitInfoEntry.Notebook("3040849856940931"),
-                                    "0116-154224-guppy476", 10L, "WriteSerializable", Optional.of(true)),
-                            new CommitInfoEntry(12, 1579190206644L, "671960514434781", "michal.slizak@starburstdata.com", "WRITE",
-                                    ImmutableMap.of("mode", "Append", "partitionBy", "[\"age\"]"), null, new CommitInfoEntry.Notebook("3040849856940931"),
-                                    "0116-154224-guppy476", 11L, "WriteSerializable", Optional.of(true)),
-                            new CommitInfoEntry(13, 1579190210571L, "671960514434781", "michal.slizak@starburstdata.com", "WRITE",
-                                    ImmutableMap.of("mode", "Append", "partitionBy", "[\"age\"]"), null, new CommitInfoEntry.Notebook("3040849856940931"),
-                                    "0116-154224-guppy476", 12L, "WriteSerializable", Optional.of(true))));
+            assertThat(entrySet).isEqualTo(ImmutableSet.of(
+                    new CommitInfoEntry(11, 1579190200860L, "671960514434781", "michal.slizak@starburstdata.com", "WRITE",
+                            ImmutableMap.of("mode", "Append", "partitionBy", "[\"age\"]"), null, new CommitInfoEntry.Notebook("3040849856940931"),
+                            "0116-154224-guppy476", 10L, "WriteSerializable", Optional.of(true)),
+                    new CommitInfoEntry(12, 1579190206644L, "671960514434781", "michal.slizak@starburstdata.com", "WRITE",
+                            ImmutableMap.of("mode", "Append", "partitionBy", "[\"age\"]"), null, new CommitInfoEntry.Notebook("3040849856940931"),
+                            "0116-154224-guppy476", 11L, "WriteSerializable", Optional.of(true)),
+                    new CommitInfoEntry(13, 1579190210571L, "671960514434781", "michal.slizak@starburstdata.com", "WRITE",
+                            ImmutableMap.of("mode", "Append", "partitionBy", "[\"age\"]"), null, new CommitInfoEntry.Notebook("3040849856940931"),
+                            "0116-154224-guppy476", 12L, "WriteSerializable", Optional.of(true))));
         }
     }
 
@@ -364,8 +359,8 @@ public class TestTransactionLogAccess
         assertThat(metadataEntry.getOriginalPartitionColumns()).containsOnly("age");
 
         MetadataEntry.Format format = metadataEntry.getFormat();
-        assertEquals(format.getOptions().keySet().size(), 0);
-        assertEquals(format.getProvider(), "parquet");
+        assertThat(format.getOptions().keySet().size()).isEqualTo(0);
+        assertThat(format.getProvider()).isEqualTo("parquet");
     }
 
     @Test
@@ -390,7 +385,7 @@ public class TestTransactionLogAccess
                 .map(AddFileEntry::getPath)
                 .collect(Collectors.toSet());
 
-        assertEquals(paths, EXPECTED_ADD_FILE_PATHS);
+        assertThat(paths).isEqualTo(EXPECTED_ADD_FILE_PATHS);
     }
 
     @Test
@@ -412,7 +407,7 @@ public class TestTransactionLogAccess
             Set<String> removedPaths = removeEntries.map(RemoveFileEntry::getPath).collect(Collectors.toSet());
             Set<String> expectedPaths = EXPECTED_REMOVE_ENTRIES.stream().map(RemoveFileEntry::getPath).collect(Collectors.toSet());
 
-            assertEquals(removedPaths, expectedPaths);
+            assertThat(removedPaths).isEqualTo(expectedPaths);
         }
     }
 
@@ -433,9 +428,9 @@ public class TestTransactionLogAccess
 
         try (Stream<ProtocolEntry> protocolEntryStream = transactionLogAccess.getProtocolEntries(tableSnapshot, SESSION)) {
             List<ProtocolEntry> protocolEntries = protocolEntryStream.toList();
-            assertEquals(protocolEntries.size(), 1);
-            assertEquals(protocolEntries.get(0).getMinReaderVersion(), 1);
-            assertEquals(protocolEntries.get(0).getMinWriterVersion(), 2);
+            assertThat(protocolEntries.size()).isEqualTo(1);
+            assertThat(protocolEntries.get(0).getMinReaderVersion()).isEqualTo(1);
+            assertThat(protocolEntries.get(0).getMinWriterVersion()).isEqualTo(2);
         }
     }
 
@@ -458,12 +453,12 @@ public class TestTransactionLogAccess
         Files.copy(resourceDir.resolve(LAST_CHECKPOINT_FILENAME), new File(transactionLogDir, LAST_CHECKPOINT_FILENAME).toPath());
 
         setupTransactionLogAccess(tableName, tableDir.toURI().toString());
-        assertEquals(tableSnapshot.getVersion(), 11L);
+        assertThat(tableSnapshot.getVersion()).isEqualTo(11L);
 
         String lastTransactionName = format("%020d.json", 12);
         Files.copy(resourceDir.resolve(lastTransactionName), new File(transactionLogDir, lastTransactionName).toPath());
         TableSnapshot updatedSnapshot = transactionLogAccess.loadSnapshot(SESSION, new SchemaTableName("schema", tableName), tableDir.toURI().toString());
-        assertEquals(updatedSnapshot.getVersion(), 12);
+        assertThat(updatedSnapshot.getVersion()).isEqualTo(12);
     }
 
     @Test
@@ -646,32 +641,32 @@ public class TestTransactionLogAccess
         List<AddFileEntry> allDataFiles = transactionLogAccess.getActiveFiles(updatedTableSnapshot, metadataEntry, protocolEntry, SESSION);
         List<AddFileEntry> dataFilesWithFixedVersion = transactionLogAccess.getActiveFiles(tableSnapshot, metadataEntry, protocolEntry, SESSION);
         for (String newFilePath : newDataFiles) {
-            assertTrue(allDataFiles.stream().anyMatch(entry -> entry.getPath().equals(newFilePath)));
-            assertTrue(dataFilesWithFixedVersion.stream().noneMatch(entry -> entry.getPath().equals(newFilePath)));
+            assertThat(allDataFiles.stream().anyMatch(entry -> entry.getPath().equals(newFilePath))).isTrue();
+            assertThat(dataFilesWithFixedVersion.stream().noneMatch(entry -> entry.getPath().equals(newFilePath))).isTrue();
         }
 
-        assertEquals(expectedDataFiles.size(), dataFilesWithFixedVersion.size());
+        assertThat(expectedDataFiles.size()).isEqualTo(dataFilesWithFixedVersion.size());
         List<ColumnMetadata> columns = extractColumnMetadata(transactionLogAccess.getMetadataEntry(tableSnapshot, SESSION), transactionLogAccess.getProtocolEntry(SESSION, tableSnapshot), TESTING_TYPE_MANAGER);
         for (int i = 0; i < expectedDataFiles.size(); i++) {
             AddFileEntry expected = expectedDataFiles.get(i);
             AddFileEntry actual = dataFilesWithFixedVersion.get(i);
 
-            assertEquals(expected.getPath(), actual.getPath());
-            assertEquals(expected.getPartitionValues(), actual.getPartitionValues());
-            assertEquals(expected.getSize(), actual.getSize());
-            assertEquals(expected.getModificationTime(), actual.getModificationTime());
-            assertEquals(expected.isDataChange(), actual.isDataChange());
-            assertEquals(expected.getTags(), actual.getTags());
+            assertThat(expected.getPath()).isEqualTo(actual.getPath());
+            assertThat(expected.getPartitionValues()).isEqualTo(actual.getPartitionValues());
+            assertThat(expected.getSize()).isEqualTo(actual.getSize());
+            assertThat(expected.getModificationTime()).isEqualTo(actual.getModificationTime());
+            assertThat(expected.isDataChange()).isEqualTo(actual.isDataChange());
+            assertThat(expected.getTags()).isEqualTo(actual.getTags());
 
-            assertTrue(expected.getStats().isPresent());
-            assertTrue(actual.getStats().isPresent());
+            assertThat(expected.getStats().isPresent()).isTrue();
+            assertThat(actual.getStats().isPresent()).isTrue();
 
             for (ColumnMetadata column : columns) {
                 DeltaLakeColumnHandle columnHandle = new DeltaLakeColumnHandle(column.getName(), column.getType(), OptionalInt.empty(), column.getName(), column.getType(), REGULAR, Optional.empty());
-                assertEquals(expected.getStats().get().getMinColumnValue(columnHandle), actual.getStats().get().getMinColumnValue(columnHandle));
-                assertEquals(expected.getStats().get().getMaxColumnValue(columnHandle), actual.getStats().get().getMaxColumnValue(columnHandle));
-                assertEquals(expected.getStats().get().getNullCount(columnHandle.getBaseColumnName()), actual.getStats().get().getNullCount(columnHandle.getBaseColumnName()));
-                assertEquals(expected.getStats().get().getNumRecords(), actual.getStats().get().getNumRecords());
+                assertThat(expected.getStats().get().getMinColumnValue(columnHandle)).isEqualTo(actual.getStats().get().getMinColumnValue(columnHandle));
+                assertThat(expected.getStats().get().getMaxColumnValue(columnHandle)).isEqualTo(actual.getStats().get().getMaxColumnValue(columnHandle));
+                assertThat(expected.getStats().get().getNullCount(columnHandle.getBaseColumnName())).isEqualTo(actual.getStats().get().getNullCount(columnHandle.getBaseColumnName()));
+                assertThat(expected.getStats().get().getNumRecords()).isEqualTo(actual.getStats().get().getNumRecords());
             }
         }
     }
@@ -693,15 +688,15 @@ public class TestTransactionLogAccess
         copyTransactionLogEntry(0, 1, resourceDir, transactionLogDir);
 
         setupTransactionLogAccess(tableName, tableLocation);
-        assertEquals(tableSnapshot.getVersion(), 0L);
+        assertThat(tableSnapshot.getVersion()).isEqualTo(0L);
 
         copyTransactionLogEntry(1, 2, resourceDir, transactionLogDir);
         TableSnapshot firstUpdate = transactionLogAccess.loadSnapshot(SESSION, schemaTableName, tableLocation);
-        assertEquals(firstUpdate.getVersion(), 1L);
+        assertThat(firstUpdate.getVersion()).isEqualTo(1L);
 
         copyTransactionLogEntry(2, 3, resourceDir, transactionLogDir);
         TableSnapshot secondUpdate = transactionLogAccess.loadSnapshot(SESSION, schemaTableName, tableLocation);
-        assertEquals(secondUpdate.getVersion(), 2L);
+        assertThat(secondUpdate.getVersion()).isEqualTo(2L);
     }
 
     @Test
@@ -741,13 +736,9 @@ public class TestTransactionLogAccess
         for (String columnName : statsValues.keySet()) {
             // Types would need to be specified properly if stats were being read from JSON but are not can be ignored when reading parsed stats from parquet,
             // so it is safe to use INTEGER as a placeholder
-            assertEquals(
-                    fileStats.getMinColumnValue(new DeltaLakeColumnHandle(columnName, IntegerType.INTEGER, OptionalInt.empty(), columnName, IntegerType.INTEGER, REGULAR, Optional.empty())),
-                    Optional.of(statsValues.get(columnName)));
+            assertThat(fileStats.getMinColumnValue(new DeltaLakeColumnHandle(columnName, IntegerType.INTEGER, OptionalInt.empty(), columnName, IntegerType.INTEGER, REGULAR, Optional.empty()))).isEqualTo(Optional.of(statsValues.get(columnName)));
 
-            assertEquals(
-                    fileStats.getMaxColumnValue(new DeltaLakeColumnHandle(columnName, IntegerType.INTEGER, OptionalInt.empty(), columnName, IntegerType.INTEGER, REGULAR, Optional.empty())),
-                    Optional.of(statsValues.get(columnName)));
+            assertThat(fileStats.getMaxColumnValue(new DeltaLakeColumnHandle(columnName, IntegerType.INTEGER, OptionalInt.empty(), columnName, IntegerType.INTEGER, REGULAR, Optional.empty()))).isEqualTo(Optional.of(statsValues.get(columnName)));
         }
     }
 
@@ -803,7 +794,7 @@ public class TestTransactionLogAccess
                 () -> {
                     setupTransactionLogAccess(tableName, tableDir, shortLivedActiveDataFilesCacheConfig);
                     List<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, metadataEntry, protocolEntry, SESSION);
-                    assertEquals(addFileEntries.size(), 12);
+                    assertThat(addFileEntries.size()).isEqualTo(12);
                 },
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation("_last_checkpoint", INPUT_FILE_NEW_STREAM))
@@ -819,7 +810,7 @@ public class TestTransactionLogAccess
         assertFileSystemAccesses(
                 () -> {
                     List<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, metadataEntry, protocolEntry, SESSION);
-                    assertEquals(addFileEntries.size(), 12);
+                    assertThat(addFileEntries.size()).isEqualTo(12);
                 },
                 ImmutableMultiset.of());
     }
@@ -841,7 +832,7 @@ public class TestTransactionLogAccess
                 () -> {
                     setupTransactionLogAccess(tableName, tableDir, shortLivedActiveDataFilesCacheConfig);
                     List<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, metadataEntry, protocolEntry, SESSION);
-                    assertEquals(addFileEntries.size(), 12);
+                    assertThat(addFileEntries.size()).isEqualTo(12);
                 },
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation("_last_checkpoint", INPUT_FILE_NEW_STREAM))
@@ -859,7 +850,7 @@ public class TestTransactionLogAccess
                 () -> {
                     transactionLogAccess.loadSnapshot(SESSION, new SchemaTableName("schema", tableName), tableDir);
                     List<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, metadataEntry, protocolEntry, SESSION);
-                    assertEquals(addFileEntries.size(), 12);
+                    assertThat(addFileEntries.size()).isEqualTo(12);
                 },
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation("_last_checkpoint", INPUT_FILE_NEW_STREAM))
@@ -889,7 +880,7 @@ public class TestTransactionLogAccess
                 () -> {
                     setupTransactionLogAccess(tableName, tableDir, shortLivedActiveDataFilesCacheConfig);
                     List<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, metadataEntry, protocolEntry, SESSION);
-                    assertEquals(addFileEntries.size(), 12);
+                    assertThat(addFileEntries.size()).isEqualTo(12);
                 },
                 ImmutableMultiset.<FileOperation>builder()
                         .add(new FileOperation("_last_checkpoint", INPUT_FILE_NEW_STREAM))
@@ -906,7 +897,7 @@ public class TestTransactionLogAccess
         assertFileSystemAccesses(
                 () -> {
                     List<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, metadataEntry, protocolEntry, SESSION);
-                    assertEquals(addFileEntries.size(), 12);
+                    assertThat(addFileEntries.size()).isEqualTo(12);
                 },
                 ImmutableMultiset.<FileOperation>builder()
                         .addCopies(new FileOperation("00000000000000000010.checkpoint.parquet", INPUT_FILE_GET_LENGTH), 2) // TODO (https://github.com/trinodb/trino/issues/16775) why not e.g. once?

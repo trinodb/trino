@@ -58,8 +58,6 @@ import static java.util.Collections.emptyMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.from;
 import static org.assertj.core.api.Assertions.withinPercentage;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
 
 public class TestRedshiftTableStatisticsReader
         extends AbstractTestQueryFramework
@@ -147,7 +145,7 @@ public class TestRedshiftTableStatisticsReader
         TableStatistics stats = collectStats(
                 "SELECT CASE custkey % 3 WHEN 0 THEN NULL ELSE custkey END FROM " + TEST_SCHEMA + ".customer",
                 ImmutableList.of(custkeyColumnHandle));
-        assertEquals(stats.getRowCount(), Estimate.of(1500));
+        assertThat(stats.getRowCount()).isEqualTo(Estimate.of(1500));
 
         ColumnStatistics columnStatistics = stats.getColumnStatistics().get(custkeyColumnHandle);
         assertThat(columnStatistics.getNullsFraction().getValue()).isCloseTo(1.0 / 3, withinPercentage(1));
@@ -187,7 +185,7 @@ public class TestRedshiftTableStatisticsReader
                 .hasEntrySatisfying(columns.get(3), statsCloseTo(1.0, 0.99, 14))
                 .hasEntrySatisfying(columns.get(4), statsCloseTo(1.0, 0.5, 700))
                 .hasEntrySatisfying(columns.get(5), statsCloseTo(51, 0.5, 800))
-                .satisfies(stats -> assertNull(stats.get(columns.get(6))));
+                .satisfies(stats -> assertThat(stats.get(columns.get(6))).isNull());
     }
 
     @Test

@@ -34,7 +34,7 @@ import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hudi.model.HudiTableType.COPY_ON_WRITE;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHudiPartitionManager
 {
@@ -82,6 +82,6 @@ public class TestHudiPartitionManager
         List<String> actualPartitions = hudiPartitionManager.getEffectivePartitions(
                 tableHandle,
                 metastore);
-        assertEquals(actualPartitions, PARTITIONS);
+        assertThat(actualPartitions).isEqualTo(PARTITIONS);
     }
 }

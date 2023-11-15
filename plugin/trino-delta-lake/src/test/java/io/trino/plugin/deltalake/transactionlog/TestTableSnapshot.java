@@ -59,7 +59,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toCollection;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_METHOD) // e.g. TrackingFileSystemFactory is shared mutable state
 public class TestTableSnapshot
@@ -240,7 +239,7 @@ public class TestTableSnapshot
                 parquetReaderOptions,
                 true,
                 domainCompactionThreshold);
-        assertEquals(tableSnapshot.getVersion(), 13L);
+        assertThat(tableSnapshot.getVersion()).isEqualTo(13L);
     }
 
     private void assertFileSystemAccesses(ThrowingRunnable callback, Multiset<FileOperation> expectedAccesses)

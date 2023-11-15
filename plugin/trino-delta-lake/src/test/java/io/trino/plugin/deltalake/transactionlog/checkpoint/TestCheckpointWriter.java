@@ -67,7 +67,6 @@ import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.DateTimeUtils.parseDate;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestCheckpointWriter
 {
@@ -193,13 +192,11 @@ public class TestCheckpointWriter
         writer.write(entries, createOutputFile(targetPath));
 
         CheckpointEntries readEntries = readCheckpoint(targetPath, metadataEntry, protocolEntry, true);
-        assertEquals(readEntries.getTransactionEntries(), entries.getTransactionEntries());
-        assertEquals(readEntries.getRemoveFileEntries(), entries.getRemoveFileEntries());
-        assertEquals(readEntries.getMetadataEntry(), entries.getMetadataEntry());
-        assertEquals(readEntries.getProtocolEntry(), entries.getProtocolEntry());
-        assertEquals(
-                readEntries.getAddFileEntries().stream().map(this::makeComparable).collect(toImmutableSet()),
-                entries.getAddFileEntries().stream().map(this::makeComparable).collect(toImmutableSet()));
+        assertThat(readEntries.getTransactionEntries()).isEqualTo(entries.getTransactionEntries());
+        assertThat(readEntries.getRemoveFileEntries()).isEqualTo(entries.getRemoveFileEntries());
+        assertThat(readEntries.getMetadataEntry()).isEqualTo(entries.getMetadataEntry());
+        assertThat(readEntries.getProtocolEntry()).isEqualTo(entries.getProtocolEntry());
+        assertThat(readEntries.getAddFileEntries().stream().map(this::makeComparable).collect(toImmutableSet())).isEqualTo(entries.getAddFileEntries().stream().map(this::makeComparable).collect(toImmutableSet()));
     }
 
     @Test
@@ -330,13 +327,11 @@ public class TestCheckpointWriter
         writer.write(entries, createOutputFile(targetPath));
 
         CheckpointEntries readEntries = readCheckpoint(targetPath, metadataEntry, protocolEntry, true);
-        assertEquals(readEntries.getTransactionEntries(), entries.getTransactionEntries());
-        assertEquals(readEntries.getRemoveFileEntries(), entries.getRemoveFileEntries());
-        assertEquals(readEntries.getMetadataEntry(), entries.getMetadataEntry());
-        assertEquals(readEntries.getProtocolEntry(), entries.getProtocolEntry());
-        assertEquals(
-                readEntries.getAddFileEntries().stream().map(this::makeComparable).collect(toImmutableSet()),
-                entries.getAddFileEntries().stream().map(this::makeComparable).collect(toImmutableSet()));
+        assertThat(readEntries.getTransactionEntries()).isEqualTo(entries.getTransactionEntries());
+        assertThat(readEntries.getRemoveFileEntries()).isEqualTo(entries.getRemoveFileEntries());
+        assertThat(readEntries.getMetadataEntry()).isEqualTo(entries.getMetadataEntry());
+        assertThat(readEntries.getProtocolEntry()).isEqualTo(entries.getProtocolEntry());
+        assertThat(readEntries.getAddFileEntries().stream().map(this::makeComparable).collect(toImmutableSet())).isEqualTo(entries.getAddFileEntries().stream().map(this::makeComparable).collect(toImmutableSet()));
     }
 
     @Test

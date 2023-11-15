@@ -58,7 +58,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertFalse;
 
 @TestInstance(PER_CLASS)
 public class TestDruidConnectorTest
@@ -336,10 +335,10 @@ public class TestDruidConnectorTest
     public void testNativeQueryCreateStatement()
     {
         // override because Druid fails to prepare statement, while other connectors succeed in preparing statement and then fail because of no metadata available
-        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+        assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
         assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE numbers(n INTEGER)'))"))
                 .hasMessageContaining("Failed to get table handle for prepared query");
-        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+        assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
     }
 
     @Test

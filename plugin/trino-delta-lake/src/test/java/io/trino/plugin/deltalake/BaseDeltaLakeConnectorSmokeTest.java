@@ -46,7 +46,6 @@ import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
-import org.testng.SkipException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -97,10 +96,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 public abstract class BaseDeltaLakeConnectorSmokeTest
@@ -470,9 +467,9 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                         getLocationForTable(bucketName, "foo")));
 
         MaterializedResultWithQueryId deltaResult = queryRunner.executeWithQueryId(broadcastJoinDistribution(true), "SELECT * FROM foo");
-        assertEquals(deltaResult.getResult().getRowCount(), 2);
+        assertThat(deltaResult.getResult().getRowCount()).isEqualTo(2);
         MaterializedResultWithQueryId hiveResult = queryRunner.executeWithQueryId(broadcastJoinDistribution(true), format("SELECT * FROM %s.%s.%s", "hive", SCHEMA, hiveTableName));
-        assertEquals(hiveResult.getResult().getRowCount(), 2);
+        assertThat(hiveResult.getResult().getRowCount()).isEqualTo(2);
 
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
         assertThat(queryManager.getFullQueryInfo(deltaResult.getQueryId()).getQueryStats().getProcessedInputDataSize()).as("delta processed input data size")
@@ -498,7 +495,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         String viewName = "dummy_view";
         hiveHadoop.runOnHive("CREATE DATABASE " + schemaName);
         hiveHadoop.runOnHive(format("CREATE VIEW %s.%s AS SELECT * FROM %s.customer", schemaName, viewName, SCHEMA));
-        assertEquals(computeScalar(format("SHOW TABLES FROM %s LIKE '%s'", schemaName, viewName)), viewName);
+        assertThat(computeScalar(format("SHOW TABLES FROM %s LIKE '%s'", schemaName, viewName))).isEqualTo(viewName);
         assertThatThrownBy(() -> computeActual("DESCRIBE " + schemaName + "." + viewName)).hasMessageContaining(format("%s.%s is not a Delta Lake table", schemaName, viewName));
         hiveHadoop.runOnHive("DROP DATABASE " + schemaName + " CASCADE");
     }
@@ -510,7 +507,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         String tableName = "hive_table";
         hiveHadoop.runOnHive("CREATE DATABASE " + schemaName);
         hiveHadoop.runOnHive(format("CREATE TABLE %s.%s (id BIGINT)", schemaName, tableName));
-        assertEquals(computeScalar(format("SHOW TABLES FROM %s LIKE '%s'", schemaName, tableName)), tableName);
+        assertThat(computeScalar(format("SHOW TABLES FROM %s LIKE '%s'", schemaName, tableName))).isEqualTo(tableName);
         assertThatThrownBy(() -> computeActual("DESCRIBE " + schemaName + "." + tableName)).hasMessageContaining(tableName + " is not a Delta Lake table");
         hiveHadoop.runOnHive("DROP DATABASE " + schemaName + " CASCADE");
     }
@@ -534,9 +531,9 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     private void testDropTable(String tableName, String resourcePath)
     {
         registerTableFromResources(tableName, resourcePath, getQueryRunner());
-        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
         assertUpdate("DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
         assertThat(getTableFiles(tableName)).hasSizeGreaterThan(1); // the data should not be deleted
     }
 
@@ -869,7 +866,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                 "SELECT count(*) FROM nation");
         int fileCount = getTableFiles(tableName).size();
         assertUpdate(format("DROP TABLE %s.%s", schemaName, tableName));
-        assertEquals(getTableFiles(tableName).size(), fileCount);
+        assertThat(getTableFiles(tableName).size()).isEqualTo(fileCount);
     }
 
     @Test
@@ -1932,7 +1929,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     private void testCountQuery(@Language("SQL") String sql, long expectedRowCount, long expectedSplitCount)
     {
         MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
-        assertEquals(result.getResult().getOnlyColumnAsSet(), ImmutableSet.of(expectedRowCount));
+        assertThat(result.getResult().getOnlyColumnAsSet()).isEqualTo(ImmutableSet.of(expectedRowCount));
         verifySplitCount(result.getQueryId(), expectedSplitCount);
     }
 
@@ -1958,7 +1955,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     public void testDelete()
     {
         if (!hasBehavior(SUPPORTS_DELETE)) {
-            throw new SkipException("testDelete requires DELETE support");
+            abort("testDelete requires DELETE support");
         }
 
         String tableName = "test_delete_" + randomNameSuffix();
@@ -2284,7 +2281,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             assertThat(query("SELECT CAST(a AS bigint), b FROM " + table.getName()))
                     .matches("VALUES (BIGINT '-53', 496e-1)");
 
-            assertEquals(1L, getTableVersion(table.getName()));
+            assertThat(getTableVersion(table.getName())).isEqualTo(1L);
             assertTableOperation(table.getName(), 1, CREATE_OR_REPLACE_TABLE_AS_OPERATION);
         }
     }
@@ -2300,7 +2297,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             assertThat(query("SELECT c, d FROM " + table.getName()))
                     .matches("VALUES (VARCHAR 'test', VARCHAR 'test2')");
 
-            assertEquals(1L, getTableVersion(table.getName()));
+            assertThat(getTableVersion(table.getName())).isEqualTo(1L);
             assertTableOperation(table.getName(), 1, CREATE_OR_REPLACE_TABLE_AS_OPERATION);
         }
     }

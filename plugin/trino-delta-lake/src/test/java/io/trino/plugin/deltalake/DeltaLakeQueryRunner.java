@@ -44,7 +44,7 @@ import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.testng.util.Strings.isNullOrEmpty;
+import static org.assertj.core.util.Strings.isNullOrEmpty;
 
 public final class DeltaLakeQueryRunner
 {

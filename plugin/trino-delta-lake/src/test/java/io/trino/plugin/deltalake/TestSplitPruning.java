@@ -37,7 +37,6 @@ import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQuer
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
 public class TestSplitPruning
@@ -139,7 +138,7 @@ public class TestSplitPruning
             MaterializedResult result = getDistributedQueryRunner().execute(
                     getSession(),
                     format("SELECT name FROM %s WHERE val IS NOT NULL", tableName));
-            assertEquals(result.getOnlyColumnAsSet(), Set.of("a5", "b5", "a6", "b6"));
+            assertThat(result.getOnlyColumnAsSet()).isEqualTo(Set.of("a5", "b5", "a6", "b6"));
         }
     }
 

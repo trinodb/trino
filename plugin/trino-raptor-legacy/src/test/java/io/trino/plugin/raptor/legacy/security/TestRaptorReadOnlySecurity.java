@@ -16,7 +16,7 @@ package io.trino.plugin.raptor.legacy.security;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.raptor.legacy.RaptorQueryRunner.createRaptorQueryRunner;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

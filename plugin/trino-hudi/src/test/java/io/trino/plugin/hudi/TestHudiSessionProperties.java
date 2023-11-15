@@ -19,10 +19,8 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.testing.TestingConnectorSession;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-
 import static io.trino.plugin.hudi.HudiSessionProperties.getColumnsToHide;
-import static org.testng.Assert.assertEqualsNoOrder;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHudiSessionProperties
 {
@@ -35,8 +33,7 @@ public class TestHudiSessionProperties
         ConnectorSession session = TestingConnectorSession.builder()
                 .setPropertyMetadata(sessionProperties.getSessionProperties())
                 .build();
-        List<String> expectedColumnsToHide = ImmutableList.of("col1", "col2");
-        List<String> actualColumnsToHide = getColumnsToHide(session);
-        assertEqualsNoOrder(expectedColumnsToHide.toArray(), actualColumnsToHide.toArray());
+        assertThat(getColumnsToHide(session))
+                .containsExactlyInAnyOrderElementsOf(ImmutableList.of("col1", "col2"));
     }
 }

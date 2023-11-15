@@ -68,7 +68,6 @@ import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.trino.type.IntervalYearMonthType.INTERVAL_YEAR_MONTH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
-import static org.testng.Assert.assertEquals;
 
 public class TestDeltaLakeSchemaSupport
 {
@@ -114,8 +113,8 @@ public class TestDeltaLakeSchemaSupport
         List<ColumnMetadata> schema = DeltaLakeSchemaSupport.getColumnMetadata(json, typeManager, ColumnMappingMode.NONE).stream()
                 .map(DeltaLakeColumnMetadata::getColumnMetadata)
                 .collect(toImmutableList());
-        assertEquals(schema.size(), 1);
-        assertEquals(schema.get(0), metadata);
+        assertThat(schema.size()).isEqualTo(1);
+        assertThat(schema.get(0)).isEqualTo(metadata);
     }
 
     // |-- a: integer (nullable = false)
@@ -144,26 +143,25 @@ public class TestDeltaLakeSchemaSupport
         List<ColumnMetadata> schema = DeltaLakeSchemaSupport.getColumnMetadata(json, typeManager, ColumnMappingMode.NONE).stream()
                 .map(DeltaLakeColumnMetadata::getColumnMetadata)
                 .collect(toImmutableList());
-        assertEquals(schema.size(), 5);
+        assertThat(schema.size()).isEqualTo(5);
         // asserting on the string representations, since they're more readable
-        assertEquals(schema.get(0).toString(), "ColumnMetadata{name='a', type=integer, nullable}");
-        assertEquals(schema.get(1).toString(), "ColumnMetadata{name='b', type=row(b1 integer, b2 row(b21 varchar, b22 boolean)), nullable}");
-        assertEquals(schema.get(2).toString(), "ColumnMetadata{name='c', type=array(integer), nullable}");
-        assertEquals(schema.get(3).toString(), "ColumnMetadata{name='d', type=array(row(d1 integer)), nullable}");
-        assertEquals(schema.get(4).toString(), "ColumnMetadata{name='e', type=map(varchar, row(e1 date, e2 timestamp(3) with time zone)), nullable}");
+        assertThat(schema.get(0).toString()).isEqualTo("ColumnMetadata{name='a', type=integer, nullable}");
+        assertThat(schema.get(1).toString()).isEqualTo("ColumnMetadata{name='b', type=row(b1 integer, b2 row(b21 varchar, b22 boolean)), nullable}");
+        assertThat(schema.get(2).toString()).isEqualTo("ColumnMetadata{name='c', type=array(integer), nullable}");
+        assertThat(schema.get(3).toString()).isEqualTo("ColumnMetadata{name='d', type=array(row(d1 integer)), nullable}");
+        assertThat(schema.get(4).toString()).isEqualTo("ColumnMetadata{name='e', type=map(varchar, row(e1 date, e2 timestamp(3) with time zone)), nullable}");
     }
 
     @Test
     public void testSerializeStatisticsAsJson()
             throws JsonProcessingException
     {
-        assertEquals(serializeStatsAsJson(
+        assertThat(serializeStatsAsJson(
                 new DeltaLakeJsonFileStatistics(
                         Optional.of(100L),
                         Optional.of(ImmutableMap.of("c", 42)),
                         Optional.of(ImmutableMap.of("c", 51)),
-                        Optional.of(ImmutableMap.of("c", 1L)))),
-                "{\"numRecords\":100,\"minValues\":{\"c\":42},\"maxValues\":{\"c\":51},\"nullCount\":{\"c\":1}}");
+                        Optional.of(ImmutableMap.of("c", 1L))))).isEqualTo("{\"numRecords\":100,\"minValues\":{\"c\":42},\"maxValues\":{\"c\":51},\"nullCount\":{\"c\":1}}");
     }
 
     @Test
@@ -179,13 +177,12 @@ public class TestDeltaLakeSchemaSupport
         minValues.put("c2", 10);
         maxValues.put("c2", 26);
 
-        assertEquals(serializeStatsAsJson(
-                        new DeltaLakeJsonFileStatistics(
-                                Optional.of(1L),
-                                Optional.of(minValues),
-                                Optional.of(maxValues),
-                                Optional.of(ImmutableMap.of("c1", 1L, "c2", 0L)))),
-                "{\"numRecords\":1,\"minValues\":{\"c2\":10},\"maxValues\":{\"c2\":26},\"nullCount\":{\"c1\":1,\"c2\":0}}");
+        assertThat(serializeStatsAsJson(
+                new DeltaLakeJsonFileStatistics(
+                        Optional.of(1L),
+                        Optional.of(minValues),
+                        Optional.of(maxValues),
+                        Optional.of(ImmutableMap.of("c1", 1L, "c2", 0L))))).isEqualTo("{\"numRecords\":1,\"minValues\":{\"c2\":10},\"maxValues\":{\"c2\":26},\"nullCount\":{\"c1\":1,\"c2\":0}}");
     }
 
     @Test
