@@ -196,7 +196,7 @@ public class InformationSchemaMetadata
         }
 
         table = new InformationSchemaTableHandle(table.getCatalogName(), table.getTable(), prefixes, table.getLimit());
-        return Optional.of(new ConstraintApplicationResult<>(table, constraint.getSummary(), false));
+        return Optional.of(new ConstraintApplicationResult<>(table, constraint.getSummary(), constraint.getExpression(), false));
     }
 
     public static Set<QualifiedTablePrefix> defaultPrefixes(String catalogName)
