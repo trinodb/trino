@@ -13,9 +13,12 @@
  */
 package io.trino.operator.scalar;
 
+import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.type.StandardTypes;
+
+import static java.util.Objects.checkFromToIndex;
 
 public final class CombineHashFunction
 {
@@ -26,5 +29,15 @@ public final class CombineHashFunction
     public static long getHash(@SqlType(StandardTypes.BIGINT) long previousHashValue, @SqlType(StandardTypes.BIGINT) long value)
     {
         return (31 * previousHashValue + value);
+    }
+
+    @UsedByGeneratedCode
+    public static void combineAllHashesWithConstant(long[] hashes, int fromIndex, int toIndex, long value)
+    {
+        checkFromToIndex(fromIndex, toIndex, hashes.length);
+
+        for (int i = 0; i < toIndex; i++) {
+            hashes[i] = (31 * hashes[i]) + value;
+        }
     }
 }

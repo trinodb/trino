@@ -443,16 +443,6 @@ public final class FlatHashStrategyCompiler
                 block,
                 position);
 
-        BytecodeExpression setHashExpression;
-        if (field.index() == 0) {
-            // hashes[index] = hash;
-            setHashExpression = hashes.setElement(index, hash);
-        }
-        else {
-            // hashes[index] = CombineHashFunction.getHash(hashes[index], hash);
-            setHashExpression = hashes.setElement(index, invokeStatic(CombineHashFunction.class, "getHash", long.class, hashes.getElement(index), hash));
-        }
-
         BytecodeBlock rleHandling = new BytecodeBlock()
                 .append(new IfStatement("hash = block.isNull(position) ? NULL_HASH_CODE : hash(block, position)")
                         .condition(block.invoke("isNull", boolean.class, position))
@@ -463,11 +453,18 @@ public final class FlatHashStrategyCompiler
             rleHandling.append(invokeStatic(Arrays.class, "fill", void.class, hashes, constantInt(0), length, hash));
         }
         else {
-            rleHandling.append(new ForLoop("for (int index = 0; index < length; index++) { hashes[index] = CombineHashFunction.getHash(hashes[index], hash); }")
-                    .initialize(index.set(constantInt(0)))
-                    .condition(lessThan(index, length))
-                    .update(index.increment())
-                    .body(setHashExpression));
+            // CombineHashFunction.combineAllHashesWithConstant(hashes, 0, length, hash)
+            rleHandling.append(invokeStatic(CombineHashFunction.class, "combineAllHashesWithConstant", void.class, hashes, constantInt(0), length, hash));
+        }
+
+        BytecodeExpression setHashExpression;
+        if (field.index() == 0) {
+            // hashes[index] = hash;
+            setHashExpression = hashes.setElement(index, hash);
+        }
+        else {
+            // hashes[index] = CombineHashFunction.getHash(hashes[index], hash);
+            setHashExpression = hashes.setElement(index, invokeStatic(CombineHashFunction.class, "getHash", long.class, hashes.getElement(index), hash));
         }
 
         BytecodeBlock computeHashLoop = new BytecodeBlock()
