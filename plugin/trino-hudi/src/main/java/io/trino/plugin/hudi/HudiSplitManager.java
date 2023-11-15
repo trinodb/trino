@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hudi;
 
+import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
@@ -29,6 +30,7 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.security.ConnectorIdentity;
+import io.trino.spi.type.TypeManager;
 import jakarta.annotation.PreDestroy;
 
 import java.util.List;
@@ -36,8 +38,11 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.BiFunction;
+import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.plugin.hive.metastore.MetastoreUtil.computePartitionKeyFilter;
+import static io.trino.plugin.hive.util.HiveUtil.getPartitionKeyColumnHandles;
 import static io.trino.plugin.hudi.HudiSessionProperties.getMaxOutstandingSplits;
 import static io.trino.plugin.hudi.HudiSessionProperties.getMaxSplitsPerSecond;
 import static io.trino.spi.connector.SchemaTableName.schemaTableName;
@@ -47,8 +52,7 @@ import static java.util.function.Function.identity;
 public class HudiSplitManager
         implements ConnectorSplitManager
 {
-    private final HudiTransactionManager transactionManager;
-    private final HudiPartitionManager partitionManager;
+    private final TypeManager typeManager;
     private final BiFunction<ConnectorIdentity, HiveTransactionHandle, HiveMetastore> metastoreProvider;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final ExecutorService executor;
@@ -56,15 +60,13 @@ public class HudiSplitManager
 
     @Inject
     public HudiSplitManager(
-            HudiTransactionManager transactionManager,
-            HudiPartitionManager partitionManager,
+            TypeManager typeManager,
             BiFunction<ConnectorIdentity, HiveTransactionHandle, HiveMetastore> metastoreProvider,
             @ForHudiSplitManager ExecutorService executor,
             TrinoFileSystemFactory fileSystemFactory,
             @ForHudiSplitSource ScheduledExecutorService splitLoaderExecutorService)
     {
-        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
-        this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.metastoreProvider = requireNonNull(metastoreProvider, "metastoreProvider is null");
         this.executor = requireNonNull(executor, "executor is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
@@ -86,15 +88,14 @@ public class HudiSplitManager
             Constraint constraint)
     {
         HudiTableHandle hudiTableHandle = (HudiTableHandle) tableHandle;
-        HudiMetadata hudiMetadata = transactionManager.get(transaction, session.getIdentity());
-        Map<String, HiveColumnHandle> partitionColumnHandles = hudiMetadata.getColumnHandles(session, tableHandle)
-                .values().stream().map(HiveColumnHandle.class::cast)
-                .filter(HiveColumnHandle::isPartitionKey)
-                .collect(toImmutableMap(HiveColumnHandle::getName, identity()));
         HiveMetastore metastore = metastoreProvider.apply(session.getIdentity(), (HiveTransactionHandle) transaction);
         Table table = metastore.getTable(hudiTableHandle.getSchemaName(), hudiTableHandle.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(schemaTableName(hudiTableHandle.getSchemaName(), hudiTableHandle.getTableName())));
-        List<String> partitions = partitionManager.getEffectivePartitions(hudiTableHandle, metastore);
+
+        List<HiveColumnHandle> partitionColumns = getPartitionKeyColumnHandles(table, typeManager);
+        Map<String, HiveColumnHandle> partitionColumnHandles = partitionColumns.stream()
+                .collect(toImmutableMap(HiveColumnHandle::getName, identity()));
+        List<String> partitions = getPartitions(metastore, hudiTableHandle, partitionColumns);
 
         HudiSplitSource splitSource = new HudiSplitSource(
                 session,
@@ -109,5 +110,19 @@ public class HudiSplitManager
                 getMaxOutstandingSplits(session),
                 partitions);
         return new ClassLoaderSafeConnectorSplitSource(splitSource, HudiSplitManager.class.getClassLoader());
+    }
+
+    private static List<String> getPartitions(HiveMetastore metastore, HudiTableHandle table, List<HiveColumnHandle> partitionColumns)
+    {
+        if (partitionColumns.isEmpty()) {
+            return ImmutableList.of("");
+        }
+
+        return metastore.getPartitionNamesByFilter(
+                        table.getSchemaName(),
+                        table.getTableName(),
+                        partitionColumns.stream().map(HiveColumnHandle::getName).collect(Collectors.toList()),
+                        computePartitionKeyFilter(partitionColumns, table.getPartitionPredicates()))
+                .orElseThrow(() -> new TableNotFoundException(table.getSchemaTableName()));
     }
 }
