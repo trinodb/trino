@@ -13,6 +13,8 @@
  */
 package io.trino.operator.output;
 
+import com.google.common.annotations.VisibleForTesting;
+import io.trino.operator.project.PageProcessor;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
@@ -26,6 +28,9 @@ import static java.util.Objects.requireNonNull;
 public class PositionsAppenderPageBuilder
 {
     private static final int DEFAULT_INITIAL_EXPECTED_ENTRIES = 8;
+    @VisibleForTesting
+    static final int MAX_POSITION_COUNT = PageProcessor.MAX_BATCH_SIZE * 4;
+
     private final UnnestingPositionsAppender[] channelAppenders;
     private final int maxPageSizeInBytes;
     private int declaredPositions;
@@ -98,7 +103,7 @@ public class PositionsAppenderPageBuilder
 
     public boolean isFull()
     {
-        return declaredPositions == Integer.MAX_VALUE || getSizeInBytes() >= maxPageSizeInBytes;
+        return declaredPositions >= MAX_POSITION_COUNT || getSizeInBytes() >= maxPageSizeInBytes;
     }
 
     public boolean isEmpty()
