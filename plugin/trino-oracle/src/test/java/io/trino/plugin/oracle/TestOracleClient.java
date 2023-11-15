@@ -24,7 +24,6 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.Type;
 import io.trino.testing.TestingConnectorSession;
 import oracle.jdbc.OracleTypes;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.sql.PreparedStatement;
@@ -66,8 +65,32 @@ public class TestOracleClient
 
     private static final ConnectorSession SESSION = TestingConnectorSession.SESSION;
 
-    @Test(dataProvider = "writeMappingsProvider")
-    public void testTypedNullWriteMapping(Type type, String bindExpression, int nullJdbcType)
+    @Test
+    public void testTypedNullWriteMapping()
+            throws SQLException
+    {
+        testTypedNullWriteMapping(BOOLEAN, "?", Types.TINYINT);
+        testTypedNullWriteMapping(TINYINT, "?", Types.TINYINT);
+        testTypedNullWriteMapping(SMALLINT, "?", Types.SMALLINT);
+        testTypedNullWriteMapping(INTEGER, "?", Types.INTEGER);
+        testTypedNullWriteMapping(BIGINT, "?", Types.BIGINT);
+        testTypedNullWriteMapping(REAL, "?", Types.REAL);
+        testTypedNullWriteMapping(DOUBLE, "?", Types.DOUBLE);
+        testTypedNullWriteMapping(VARBINARY, "?", Types.VARBINARY);
+        testTypedNullWriteMapping(createCharType(25), "?", Types.NCHAR);
+        testTypedNullWriteMapping(createDecimalType(16, 6), "?", Types.DECIMAL);
+        testTypedNullWriteMapping(createDecimalType(36, 12), "?", Types.DECIMAL);
+        testTypedNullWriteMapping(createUnboundedVarcharType(), "?", Types.VARCHAR);
+        testTypedNullWriteMapping(createVarcharType(123), "?", Types.VARCHAR);
+        testTypedNullWriteMapping(TIMESTAMP_SECONDS, "TO_DATE(?, 'SYYYY-MM-DD HH24:MI:SS')", Types.VARCHAR);
+        testTypedNullWriteMapping(TIMESTAMP_MILLIS, "TO_TIMESTAMP(?, 'SYYYY-MM-DD HH24:MI:SS.FF3')", Types.VARCHAR);
+        testTypedNullWriteMapping(TIMESTAMP_MICROS, "TO_TIMESTAMP(?, 'SYYYY-MM-DD HH24:MI:SS.FF6')", Types.VARCHAR);
+        testTypedNullWriteMapping(TIMESTAMP_NANOS, "TO_TIMESTAMP(?, 'SYYYY-MM-DD HH24:MI:SS.FF9')", Types.VARCHAR);
+        testTypedNullWriteMapping(TIMESTAMP_TZ_MILLIS, "?", OracleTypes.TIMESTAMPTZ);
+        testTypedNullWriteMapping(DATE, "TO_DATE(?, 'SYYYY-MM-DD')", Types.VARCHAR);
+    }
+
+    private void testTypedNullWriteMapping(Type type, String bindExpression, int nullJdbcType)
             throws SQLException
     {
         WriteMapping writeMapping = CLIENT.toWriteMapping(SESSION, type);
@@ -94,31 +117,5 @@ public class TestOracleClient
         });
 
         writeFunction.setNull(statementProxy, 1325);
-    }
-
-    @DataProvider
-    public Object[][] writeMappingsProvider()
-    {
-        return new Object[][]{
-                {BOOLEAN, "?", Types.TINYINT},
-                {TINYINT, "?", Types.TINYINT},
-                {SMALLINT, "?", Types.SMALLINT},
-                {INTEGER, "?", Types.INTEGER},
-                {BIGINT, "?", Types.BIGINT},
-                {REAL, "?", Types.REAL},
-                {DOUBLE, "?", Types.DOUBLE},
-                {VARBINARY, "?", Types.VARBINARY},
-                {createCharType(25), "?", Types.NCHAR},
-                {createDecimalType(16, 6), "?", Types.DECIMAL},
-                {createDecimalType(36, 12), "?", Types.DECIMAL},
-                {createUnboundedVarcharType(), "?", Types.VARCHAR},
-                {createVarcharType(123), "?", Types.VARCHAR},
-                {TIMESTAMP_SECONDS, "TO_DATE(?, 'SYYYY-MM-DD HH24:MI:SS')", Types.VARCHAR},
-                {TIMESTAMP_MILLIS, "TO_TIMESTAMP(?, 'SYYYY-MM-DD HH24:MI:SS.FF3')", Types.VARCHAR},
-                {TIMESTAMP_MICROS, "TO_TIMESTAMP(?, 'SYYYY-MM-DD HH24:MI:SS.FF6')", Types.VARCHAR},
-                {TIMESTAMP_NANOS, "TO_TIMESTAMP(?, 'SYYYY-MM-DD HH24:MI:SS.FF9')", Types.VARCHAR},
-                {TIMESTAMP_TZ_MILLIS, "?", OracleTypes.TIMESTAMPTZ},
-                {DATE, "TO_DATE(?, 'SYYYY-MM-DD')", Types.VARCHAR},
-        };
     }
 }

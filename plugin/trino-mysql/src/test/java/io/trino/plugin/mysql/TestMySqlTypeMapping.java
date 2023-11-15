@@ -31,7 +31,6 @@ import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.math.RoundingMode;
@@ -431,8 +430,14 @@ public class TestMySqlTypeMapping
         }
     }
 
-    @Test(dataProvider = "testDecimalExceedingPrecisionMaxProvider")
-    public void testDecimalExceedingPrecisionMaxWithSupportedValues(int typePrecision, int typeScale)
+    @Test
+    public void testDecimalExceedingPrecisionMaxWithSupportedValues()
+    {
+        testDecimalExceedingPrecisionMaxWithSupportedValues(40, 8);
+        testDecimalExceedingPrecisionMaxWithSupportedValues(50, 10);
+    }
+
+    private void testDecimalExceedingPrecisionMaxWithSupportedValues(int typePrecision, int typeScale)
     {
         try (TestTable testTable = new TestTable(
                 mySqlServer::execute,
@@ -480,15 +485,6 @@ public class TestMySqlTypeMapping
                     "SELECT d_col FROM " + testTable.getName(),
                     "VALUES (12.01), (-12.01), (123), (-123), (1.12345678), (-1.12345678)");
         }
-    }
-
-    @DataProvider
-    public Object[][] testDecimalExceedingPrecisionMaxProvider()
-    {
-        return new Object[][] {
-                {40, 8},
-                {50, 10},
-        };
     }
 
     private Session sessionWithDecimalMappingAllowOverflow(RoundingMode roundingMode, int scale)
@@ -556,8 +552,19 @@ public class TestMySqlTypeMapping
                 .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.test_binary"));
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testDate(ZoneId sessionZone)
+    @Test
+    public void testDate()
+    {
+        testDate(UTC);
+        testDate(ZoneId.systemDefault());
+        // no DST in 1970, but has DST in later years (e.g. 2018)
+        testDate(ZoneId.of("Europe/Vilnius"));
+        // minutes offset change since 1970-01-01, no DST
+        testDate(ZoneId.of("Asia/Kathmandu"));
+        testDate(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testDate(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
@@ -583,8 +590,19 @@ public class TestMySqlTypeMapping
                 .execute(getQueryRunner(), session, trinoCreateAndInsert("test_date"));
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTimeFromMySql(ZoneId sessionZone)
+    @Test
+    public void testTimeFromMySql()
+    {
+        testTimestampFromMySql(UTC);
+        testTimestampFromMySql(ZoneId.systemDefault());
+        // no DST in 1970, but has DST in later years (e.g. 2018)
+        testTimestampFromMySql(ZoneId.of("Europe/Vilnius"));
+        // minutes offset change since 1970-01-01, no DST
+        testTimestampFromMySql(ZoneId.of("Asia/Kathmandu"));
+        testTimestampFromMySql(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testTimeFromMySql(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
@@ -608,8 +626,19 @@ public class TestMySqlTypeMapping
                 .execute(getQueryRunner(), session, mysqlCreateAndInsert("tpch.test_time"));
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTimeFromTrino(ZoneId sessionZone)
+    @Test
+    public void testTimeFromTrino()
+    {
+        testTimeFromTrino(UTC);
+        testTimeFromTrino(ZoneId.systemDefault());
+        // no DST in 1970, but has DST in later years (e.g. 2018)
+        testTimeFromTrino(ZoneId.of("Europe/Vilnius"));
+        // minutes offset change since 1970-01-01, no DST
+        testTimeFromTrino(ZoneId.of("Asia/Kathmandu"));
+        testTimeFromTrino(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testTimeFromTrino(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
@@ -703,8 +732,19 @@ public class TestMySqlTypeMapping
     /**
      * Read {@code DATETIME}s inserted by MySQL as Trino {@code TIMESTAMP}s
      */
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testMySqlDatetimeType(ZoneId sessionZone)
+    @Test
+    public void testMySqlDatetimeType()
+    {
+        testMySqlDatetimeType(UTC);
+        testMySqlDatetimeType(ZoneId.systemDefault());
+        // no DST in 1970, but has DST in later years (e.g. 2018)
+        testMySqlDatetimeType(ZoneId.of("Europe/Vilnius"));
+        // minutes offset change since 1970-01-01, no DST
+        testMySqlDatetimeType(ZoneId.of("Asia/Kathmandu"));
+        testMySqlDatetimeType(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testMySqlDatetimeType(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
@@ -768,8 +808,19 @@ public class TestMySqlTypeMapping
     /**
      * Read {@code TIMESTAMP}s inserted by MySQL as Trino {@code TIMESTAMP WITH TIME ZONE}s
      */
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTimestampFromMySql(ZoneId sessionZone)
+    @Test
+    public void testTimestampFromMySql()
+    {
+        testTimestampFromMySql(UTC);
+        testTimestampFromMySql(ZoneId.systemDefault());
+        // no DST in 1970, but has DST in later years (e.g. 2018)
+        testTimestampFromMySql(ZoneId.of("Europe/Vilnius"));
+        // minutes offset change since 1970-01-01, no DST
+        testTimestampFromMySql(ZoneId.of("Asia/Kathmandu"));
+        testTimestampFromMySql(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testTimestampFromMySql(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
@@ -817,8 +868,19 @@ public class TestMySqlTypeMapping
                 .execute(getQueryRunner(), session, mysqlCreateAndInsert("tpch.test_timestamp"));
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTimestampFromTrino(ZoneId sessionZone)
+    @Test
+    public void testTimestampFromTrino()
+    {
+        testTimestampFromTrino(UTC);
+        testTimestampFromTrino(ZoneId.systemDefault());
+        // no DST in 1970, but has DST in later years (e.g. 2018)
+        testTimestampFromTrino(ZoneId.of("Europe/Vilnius"));
+        // minutes offset change since 1970-01-01, no DST
+        testTimestampFromTrino(ZoneId.of("Asia/Kathmandu"));
+        testTimestampFromTrino(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testTimestampFromTrino(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
@@ -1103,20 +1165,6 @@ public class TestMySqlTypeMapping
                 .execute(getQueryRunner(), trinoCreateAsSelect("test_timestamp_with_time_zone_coercion"))
                 // INSERT with Trino, where the coercion is done by the engine
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_timestamp_with_time_zone_coercion"));
-    }
-
-    @DataProvider
-    public Object[][] sessionZonesDataProvider()
-    {
-        return new Object[][] {
-                {UTC},
-                {ZoneId.systemDefault()},
-                // no DST in 1970, but has DST in later years (e.g. 2018)
-                {ZoneId.of("Europe/Vilnius")},
-                // minutes offset change since 1970-01-01, no DST
-                {ZoneId.of("Asia/Kathmandu")},
-                {TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId()},
-        };
     }
 
     @Test

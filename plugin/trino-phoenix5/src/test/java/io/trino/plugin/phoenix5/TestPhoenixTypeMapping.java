@@ -30,7 +30,6 @@ import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.math.RoundingMode;
@@ -519,8 +518,18 @@ public class TestPhoenixTypeMapping
         }
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testDate(ZoneId sessionZone)
+    @Test
+    public void testDate()
+    {
+        testDate(UTC);
+        testDate(jvmZone);
+        // using two non-JVM zones so that we don't need to worry what Phoenix system zone is
+        testDate(vilnius);
+        testDate(kathmandu);
+        testDate(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testDate(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
@@ -575,8 +584,18 @@ public class TestPhoenixTypeMapping
                 .execute(getQueryRunner(), session, phoenixCreateAndInsert("tpch.test_date"));
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testUnsignedDate(ZoneId sessionZone)
+    @Test
+    public void testUnsignedDate()
+    {
+        testUnsignedDate(UTC);
+        testUnsignedDate(jvmZone);
+        // using two non-JVM zones so that we don't need to worry what Phoenix system zone is
+        testUnsignedDate(vilnius);
+        testUnsignedDate(kathmandu);
+        testUnsignedDate(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+    }
+
+    private void testUnsignedDate(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
@@ -696,19 +715,6 @@ public class TestPhoenixTypeMapping
             assertThat(query("SELECT c2 FROM " + table.getName())).matches("VALUES CAST(ARRAY[NULL] AS ARRAY(varchar))");
             assertThat(query("SELECT c3 FROM " + table.getName())).matches("VALUES CAST(ARRAY['foo', NULL, 'bar', NULL] AS ARRAY(varchar))");
         }
-    }
-
-    @DataProvider
-    public Object[][] sessionZonesDataProvider()
-    {
-        return new Object[][] {
-                {UTC},
-                {jvmZone},
-                // using two non-JVM zones so that we don't need to worry what Phoenix system zone is
-                {vilnius},
-                {kathmandu},
-                {TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId()},
-        };
     }
 
     private static void checkIsGap(ZoneId zone, LocalDateTime dateTime)
