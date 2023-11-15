@@ -79,9 +79,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestDeltaLakeConnectorTest
         extends BaseConnectorTest
@@ -476,10 +473,10 @@ public class TestDeltaLakeConnectorTest
                 "column_mapping_mode = '" + mode + "')");
 
         assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN col TO new_col");
-        assertEquals(getColumnComment(tableName, "new_col"), "test column comment");
+        assertThat(getColumnComment(tableName, "new_col")).isEqualTo("test column comment");
 
         assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN part TO new_part");
-        assertEquals(getColumnComment(tableName, "new_part"), "test partition comment");
+        assertThat(getColumnComment(tableName, "new_part")).isEqualTo("test partition comment");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -538,12 +535,12 @@ public class TestDeltaLakeConnectorTest
         MaterializedResultWithQueryId queryResult = queryRunner.executeWithQueryId(
                 getSession(),
                 "SELECT * FROM " + tableName + " WHERE t < TIMESTAMP '" + value + "'");
-        assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
+        assertThat(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes()).isEqualTo(0);
 
         queryResult = queryRunner.executeWithQueryId(
                 getSession(),
                 "SELECT * FROM " + tableName + " WHERE t > TIMESTAMP '" + value + "'");
-        assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
+        assertThat(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes()).isEqualTo(0);
 
         assertQueryStats(
                 getSession(),
@@ -1110,12 +1107,12 @@ public class TestDeltaLakeConnectorTest
             assertQueryFails(
                     "CREATE TABLE " + tableName + "(" + columnName + " int) WITH (change_data_feed_enabled = true)",
                     "\\QUnable to use [%s] when change data feed is enabled\\E".formatted(columnName));
-            assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+            assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
 
             assertQueryFails(
                     "CREATE TABLE " + tableName + " WITH (change_data_feed_enabled = true) AS SELECT 1 AS " + columnName,
                     "\\QUnable to use [%s] when change data feed is enabled\\E".formatted(columnName));
-            assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+            assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
         }
     }
 
@@ -1826,7 +1823,7 @@ public class TestDeltaLakeConnectorTest
         assertQueryFails("CREATE TABLE " + tableName + " WITH (column_mapping_mode = 'unknown') AS SELECT 1 a",
                 ".* \\QInvalid value [unknown]. Valid values: [ID, NAME, NONE]");
 
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
     }
 
     @Test
@@ -2661,13 +2658,17 @@ public class TestDeltaLakeConnectorTest
                 plan -> {
                     if (pushDownDelete) {
                         boolean tableDelete = searchFrom(plan.getRoot()).where(node -> node instanceof TableDeleteNode).matches();
-                        assertTrue(tableDelete, "A TableDeleteNode should be present");
+                        assertThat(tableDelete)
+                                .describedAs("A TableDeleteNode should be present")
+                                .isTrue();
                     }
                     else {
                         TableFinishNode finishNode = searchFrom(plan.getRoot())
                                 .where(TableFinishNode.class::isInstance)
                                 .findOnlyElement();
-                        assertTrue(finishNode.getTarget() instanceof TableWriterNode.MergeTarget, "Delete operation should be performed through MERGE mechanism");
+                        assertThat(finishNode.getTarget() instanceof TableWriterNode.MergeTarget)
+                                .describedAs("Delete operation should be performed through MERGE mechanism")
+                                .isTrue();
                     }
                 });
         assertQuery("SELECT customer, purchases, address FROM " + table, "VALUES ('Mary', 10, 'Adelphi'), ('Aaron', 3, 'Dallas')");

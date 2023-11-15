@@ -62,7 +62,7 @@ import java.util.stream.Collectors;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeSplitManager
 {
@@ -115,7 +115,7 @@ public class TestDeltaLakeSplitManager
                 makeSplit(10_000, 5_000, fileSize, minimumAssignedSplitWeight),
                 makeSplit(15_000, 5_000, fileSize, minimumAssignedSplitWeight));
 
-        assertEquals(splits, expected);
+        assertThat(splits).isEqualTo(expected);
     }
 
     @Test
@@ -142,7 +142,7 @@ public class TestDeltaLakeSplitManager
                 makeSplit(25_000, 20_000, fileSize, minimumAssignedSplitWeight),
                 makeSplit(45_000, 5_000, fileSize, minimumAssignedSplitWeight));
 
-        assertEquals(splits, expected);
+        assertThat(splits).isEqualTo(expected);
     }
 
     @Test
@@ -167,7 +167,7 @@ public class TestDeltaLakeSplitManager
                 makeSplit(2_000, 2_000, secondFileSize, minimumAssignedSplitWeight),
                 makeSplit(4_000, 10_000, secondFileSize, minimumAssignedSplitWeight),
                 makeSplit(14_000, 6_000, secondFileSize, minimumAssignedSplitWeight));
-        assertEquals(splits, expected);
+        assertThat(splits).isEqualTo(expected);
     }
 
     private DeltaLakeSplitManager setupSplitManager(List<AddFileEntry> addFileEntries, DeltaLakeConfig deltaLakeConfig)

@@ -32,7 +32,7 @@ import static io.trino.plugin.deltalake.DeltaLakeParquetSchemas.createParquetSch
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeParquetSchemas
 {
@@ -350,7 +350,7 @@ public class TestDeltaLakeParquetSchemas
             Map<List<String>, Type> expectedPrimitiveTypes)
     {
         DeltaLakeParquetSchemaMapping parquetSchemaMapping = createParquetSchemaMapping(jsonSchema, typeManager, columnMappingMode, partitionColumnNames);
-        assertEquals(parquetSchemaMapping.messageType(), expectedMessageType);
-        assertEquals(parquetSchemaMapping.primitiveTypes(), expectedPrimitiveTypes);
+        assertThat(parquetSchemaMapping.messageType()).isEqualTo(expectedMessageType);
+        assertThat(parquetSchemaMapping.primitiveTypes()).isEqualTo(expectedPrimitiveTypes);
     }
 }

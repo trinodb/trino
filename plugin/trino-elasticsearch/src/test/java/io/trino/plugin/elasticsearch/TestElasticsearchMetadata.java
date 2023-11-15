@@ -18,26 +18,26 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestElasticsearchMetadata
 {
     @Test
     public void testLikeToRegexp()
     {
-        assertEquals(likeToRegexp("a_b_c", Optional.empty()), "a.b.c");
-        assertEquals(likeToRegexp("a%b%c", Optional.empty()), "a.*b.*c");
-        assertEquals(likeToRegexp("a%b_c", Optional.empty()), "a.*b.c");
-        assertEquals(likeToRegexp("a[b", Optional.empty()), "a\\[b");
-        assertEquals(likeToRegexp("a_\\_b", Optional.of("\\")), "a._b");
-        assertEquals(likeToRegexp("a$_b", Optional.of("$")), "a_b");
-        assertEquals(likeToRegexp("s_.m%ex\\t", Optional.of("$")), "s.\\.m.*ex\\\\t");
-        assertEquals(likeToRegexp("\000%", Optional.empty()), "\000.*");
-        assertEquals(likeToRegexp("\000%", Optional.of("\000")), "%");
-        assertEquals(likeToRegexp("中文%", Optional.empty()), "中文.*");
-        assertEquals(likeToRegexp("こんにちは%", Optional.empty()), "こんにちは.*");
-        assertEquals(likeToRegexp("안녕하세요%", Optional.empty()), "안녕하세요.*");
-        assertEquals(likeToRegexp("Привет%", Optional.empty()), "Привет.*");
+        assertThat(likeToRegexp("a_b_c", Optional.empty())).isEqualTo("a.b.c");
+        assertThat(likeToRegexp("a%b%c", Optional.empty())).isEqualTo("a.*b.*c");
+        assertThat(likeToRegexp("a%b_c", Optional.empty())).isEqualTo("a.*b.c");
+        assertThat(likeToRegexp("a[b", Optional.empty())).isEqualTo("a\\[b");
+        assertThat(likeToRegexp("a_\\_b", Optional.of("\\"))).isEqualTo("a._b");
+        assertThat(likeToRegexp("a$_b", Optional.of("$"))).isEqualTo("a_b");
+        assertThat(likeToRegexp("s_.m%ex\\t", Optional.of("$"))).isEqualTo("s.\\.m.*ex\\\\t");
+        assertThat(likeToRegexp("\000%", Optional.empty())).isEqualTo("\000.*");
+        assertThat(likeToRegexp("\000%", Optional.of("\000"))).isEqualTo("%");
+        assertThat(likeToRegexp("中文%", Optional.empty())).isEqualTo("中文.*");
+        assertThat(likeToRegexp("こんにちは%", Optional.empty())).isEqualTo("こんにちは.*");
+        assertThat(likeToRegexp("안녕하세요%", Optional.empty())).isEqualTo("안녕하세요.*");
+        assertThat(likeToRegexp("Привет%", Optional.empty())).isEqualTo("Привет.*");
     }
 
     private static String likeToRegexp(String pattern, Optional<String> escapeChar)
