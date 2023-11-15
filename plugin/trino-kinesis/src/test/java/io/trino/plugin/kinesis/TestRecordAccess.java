@@ -46,10 +46,9 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 /**
  * Test record access and querying along with all associated setup.
@@ -159,7 +158,7 @@ public class TestRecordAccess
                 .singleStatement()
                 .execute(SESSION, session -> {
                     Optional<TableHandle> handle = queryRunner.getServer().getMetadata().getTableHandle(session, name);
-                    assertTrue(handle.isPresent());
+                    assertThat(handle.isPresent()).isTrue();
                 });
         log.info("Completed first test (access table handle)");
     }
@@ -172,7 +171,7 @@ public class TestRecordAccess
                 .row(0)
                 .build();
 
-        assertEquals(result.getRowCount(), expected.getRowCount());
+        assertThat(result.getRowCount()).isEqualTo(expected.getRowCount());
 
         int count = 500;
         createDummyMessages(dummyStreamName, count);
@@ -183,7 +182,7 @@ public class TestRecordAccess
                 .row(count)
                 .build();
 
-        assertEquals(result.getRowCount(), expected.getRowCount());
+        assertThat(result.getRowCount()).isEqualTo(expected.getRowCount());
         log.info("Completed second test (select counts)");
     }
 
@@ -205,19 +204,19 @@ public class TestRecordAccess
             createJsonMessages(streamName, compressedMessages, 100 + uncompressedMessages, true);
         }
         MaterializedResult result = queryRunner.execute("Select id, name, _shard_id, _message_length, _message from " + streamName + " where _message_length >= 1");
-        assertEquals(result.getRowCount(), uncompressedMessages + compressedMessages);
+        assertThat(result.getRowCount()).isEqualTo(uncompressedMessages + compressedMessages);
 
         List<Type> types = result.getTypes();
-        assertEquals(types.size(), 5);
-        assertEquals(types.get(0).toString(), "bigint");
-        assertEquals(types.get(1).toString(), "varchar");
+        assertThat(types.size()).isEqualTo(5);
+        assertThat(types.get(0).toString()).isEqualTo("bigint");
+        assertThat(types.get(1).toString()).isEqualTo("varchar");
         log.info("Types : %s", types);
 
         List<MaterializedRow> rows = result.getMaterializedRows();
-        assertEquals(rows.size(), uncompressedMessages + compressedMessages);
+        assertThat(rows.size()).isEqualTo(uncompressedMessages + compressedMessages);
         for (MaterializedRow row : rows) {
-            assertEquals(row.getFieldCount(), 5);
-            assertTrue((long) row.getFields().get(0) >= 100);
+            assertThat(row.getFieldCount()).isEqualTo(5);
+            assertThat((long) row.getFields().get(0) >= 100).isTrue();
             log.info("ROW: %s", row);
         }
     }

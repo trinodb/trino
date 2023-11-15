@@ -26,7 +26,7 @@ import io.trino.testing.TestingConnectorContext;
 import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
-import static org.testng.Assert.assertNotNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public final class TestUtils
 {
@@ -39,7 +39,7 @@ public final class TestUtils
         requireNonNull(plugin, "Plugin instance should not be null");
         requireNonNull(properties, "Properties map should not be null (can be empty)");
         ConnectorFactory factory = plugin.getConnectorFactories().iterator().next();
-        assertNotNull(factory);
+        assertThat(factory).isNotNull();
 
         Connector connector = factory.create("kinesis", properties, new TestingConnectorContext());
         return (KinesisConnector) connector;
