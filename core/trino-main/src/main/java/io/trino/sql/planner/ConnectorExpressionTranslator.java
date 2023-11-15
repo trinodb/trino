@@ -807,8 +807,7 @@ public final class ConnectorExpressionTranslator
                     ImmutableMap.of());
 
             if (type == JONI_REGEXP) {
-                Slice pattern = ((JoniRegexp) value).pattern();
-                return new Constant(pattern, createVarcharType(countCodePoints(pattern)));
+                return new Constant(value, type);
             }
             if (type instanceof Re2JRegexpType) {
                 Slice pattern = Slices.utf8Slice(((Re2JRegexp) value).pattern());
