@@ -234,7 +234,8 @@ public class SnowflakeJdbcClientModule
         }
     }
 
-    private static class SnowflakeDefaultConnectionPropertiesProvider
+    // public for use in galaxy-trino
+    public static class SnowflakeDefaultConnectionPropertiesProvider
             implements Provider<Properties>
     {
         private static final String TIMESTAMP_FORMAT = "YYYY-MM-DD\"T\"HH24:MI:SS.FF9TZH:TZM";
