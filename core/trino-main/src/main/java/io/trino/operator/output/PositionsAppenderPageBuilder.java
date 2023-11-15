@@ -22,6 +22,7 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Objects.requireNonNull;
 
@@ -30,26 +31,41 @@ public class PositionsAppenderPageBuilder
     private static final int DEFAULT_INITIAL_EXPECTED_ENTRIES = 8;
     @VisibleForTesting
     static final int MAX_POSITION_COUNT = PageProcessor.MAX_BATCH_SIZE * 4;
+    // Maximum page size before being considered full based on current direct appender size and if RLE channels were converted to direct. Currently,
+    // dictionary mode appenders still under-report because computing their equivalent size if converted to direct is prohibitively expensive.
+    private static final int MAXIMUM_DIRECT_SIZE_MULTIPLIER = 8;
 
     private final UnnestingPositionsAppender[] channelAppenders;
     private final int maxPageSizeInBytes;
+    private final int maxDirectPageSizeInBytes;
     private int declaredPositions;
 
     public static PositionsAppenderPageBuilder withMaxPageSize(int maxPageBytes, List<Type> sourceTypes, PositionsAppenderFactory positionsAppenderFactory)
     {
-        return new PositionsAppenderPageBuilder(DEFAULT_INITIAL_EXPECTED_ENTRIES, maxPageBytes, sourceTypes, positionsAppenderFactory);
+        return withMaxPageSize(maxPageBytes, maxPageBytes * MAXIMUM_DIRECT_SIZE_MULTIPLIER, sourceTypes, positionsAppenderFactory);
+    }
+
+    @VisibleForTesting
+    static PositionsAppenderPageBuilder withMaxPageSize(int maxPageBytes, int maxDirectSizeInBytes, List<Type> sourceTypes, PositionsAppenderFactory positionsAppenderFactory)
+    {
+        return new PositionsAppenderPageBuilder(DEFAULT_INITIAL_EXPECTED_ENTRIES, maxPageBytes, maxDirectSizeInBytes, sourceTypes, positionsAppenderFactory);
     }
 
     private PositionsAppenderPageBuilder(
             int initialExpectedEntries,
             int maxPageSizeInBytes,
+            int maxDirectPageSizeInBytes,
             List<? extends Type> types,
             PositionsAppenderFactory positionsAppenderFactory)
     {
         requireNonNull(types, "types is null");
         requireNonNull(positionsAppenderFactory, "positionsAppenderFactory is null");
+        checkArgument(maxPageSizeInBytes > 0, "maxPageSizeInBytes is negative: %s", maxPageSizeInBytes);
+        checkArgument(maxDirectPageSizeInBytes > 0, "maxDirectPageSizeInBytes is negative: %s", maxDirectPageSizeInBytes);
+        checkArgument(maxDirectPageSizeInBytes >= maxPageSizeInBytes, "maxDirectPageSizeInBytes (%s) must be >= maxPageSizeInBytes (%s)", maxDirectPageSizeInBytes, maxPageSizeInBytes);
 
         this.maxPageSizeInBytes = maxPageSizeInBytes;
+        this.maxDirectPageSizeInBytes = maxDirectPageSizeInBytes;
         channelAppenders = new UnnestingPositionsAppender[types.size()];
         for (int i = 0; i < channelAppenders.length; i++) {
             channelAppenders[i] = positionsAppenderFactory.create(types.get(i), initialExpectedEntries, maxPageSizeInBytes);
@@ -103,7 +119,24 @@ public class PositionsAppenderPageBuilder
 
     public boolean isFull()
     {
-        return declaredPositions >= MAX_POSITION_COUNT || getSizeInBytes() >= maxPageSizeInBytes;
+        if (declaredPositions == 0) {
+            return false;
+        }
+        if (declaredPositions >= MAX_POSITION_COUNT) {
+            return true;
+        }
+        PositionsAppenderSizeAccumulator accumulator = computeAppenderSizes();
+        return accumulator.getSizeInBytes() >= maxPageSizeInBytes || accumulator.getDirectSizeInBytes() >= maxDirectPageSizeInBytes;
+    }
+
+    @VisibleForTesting
+    PositionsAppenderSizeAccumulator computeAppenderSizes()
+    {
+        PositionsAppenderSizeAccumulator accumulator = new PositionsAppenderSizeAccumulator();
+        for (UnnestingPositionsAppender positionsAppender : channelAppenders) {
+            positionsAppender.addSizesToAccumulator(accumulator);
+        }
+        return accumulator;
     }
 
     public boolean isEmpty()
