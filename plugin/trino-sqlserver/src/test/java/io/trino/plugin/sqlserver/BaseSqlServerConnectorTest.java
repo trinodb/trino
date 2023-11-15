@@ -42,8 +42,6 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assumptions.abort;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public abstract class BaseSqlServerConnectorTest
         extends BaseJdbcConnectorTest
@@ -122,7 +120,7 @@ public abstract class BaseSqlServerConnectorTest
     public void testReadFromView()
     {
         onRemoteDatabase().execute("CREATE VIEW test_view AS SELECT * FROM orders");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_view"));
+        assertThat(getQueryRunner().tableExists(getSession(), "test_view")).isTrue();
         assertQuery("SELECT orderkey FROM test_view", "SELECT orderkey FROM orders");
         onRemoteDatabase().execute("DROP VIEW IF EXISTS test_view");
     }
@@ -489,7 +487,8 @@ public abstract class BaseSqlServerConnectorTest
                 dataCompression);
         assertUpdate(createQuery);
 
-        assertEquals(getQueryRunner().execute("SHOW CREATE TABLE " + tableName).getOnlyValue(), createQuery);
+        assertThat(getQueryRunner().execute("SHOW CREATE TABLE " + tableName).getOnlyValue())
+                .isEqualTo(createQuery);
 
         assertUpdate("DROP TABLE " + tableName);
     }
