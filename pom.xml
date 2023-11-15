@@ -178,7 +178,7 @@
         <dep.antlr.version>4.13.1</dep.antlr.version>
         <dep.arrow.version>14.0.0</dep.arrow.version>
         <dep.avro.version>1.11.3</dep.avro.version>
-        <dep.aws-sdk.version>1.12.581</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.12.590</dep.aws-sdk.version>
         <dep.casandra.version>4.17.0</dep.casandra.version>
         <dep.confluent.version>7.4.1</dep.confluent.version>
         <dep.docker.images.version>87</dep.docker.images.version>
