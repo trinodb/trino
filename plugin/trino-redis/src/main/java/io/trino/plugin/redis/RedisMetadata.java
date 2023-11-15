@@ -240,7 +240,7 @@ public class RedisMetadata
                 handle.getKeyName(),
                 newDomain);
 
-        return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, false));
+        return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, constraint.getExpression(), false));
     }
 
     @Override

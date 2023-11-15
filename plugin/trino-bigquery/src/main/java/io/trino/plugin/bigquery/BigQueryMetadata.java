@@ -788,7 +788,7 @@ public class BigQueryMetadata
 
         BigQueryTableHandle updatedHandle = bigQueryTableHandle.withConstraint(newDomain);
 
-        return Optional.of(new ConstraintApplicationResult<>(updatedHandle, constraint.getSummary(), false));
+        return Optional.of(new ConstraintApplicationResult<>(updatedHandle, constraint.getSummary(), constraint.getExpression(), false));
     }
 
     @Override

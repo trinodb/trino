@@ -148,6 +148,7 @@ public class TestRemoveEmptyUnionBranches
                                         new MockConnectorTableHandle(handle.getTableName(), TupleDomain.none(), Optional.empty()),
                                         constraint.getSummary()
                                                 .filter((ch, domain) -> !shouldPushdown.test(ch)),
+                                        constraint.getExpression(),
                                         false));
                     }
 
@@ -160,6 +161,7 @@ public class TestRemoveEmptyUnionBranches
                                     new MockConnectorTableHandle(handle.getTableName(), newDomain, Optional.empty()),
                                     constraint.getSummary()
                                             .filter((columnHandle, domain) -> !shouldPushdown.test(columnHandle)),
+                                    constraint.getExpression(),
                                     false));
                 }
             }

@@ -273,6 +273,7 @@ public class CassandraMetadata
                         // TODO this should probably be AND-ed with handle.getClusteringKeyPredicates()
                         clusteringKeyPredicates)),
                         unenforcedConstraint,
+                        constraint.getExpression(),
                         false));
     }
 
