@@ -234,8 +234,8 @@ public class ParquetPageSourceFactory
             List<TupleDomain<ColumnDescriptor>> parquetTupleDomains;
             List<TupleDomainParquetPredicate> parquetPredicates;
             if (options.isIgnoreStatistics()) {
-                parquetTupleDomains = ImmutableList.of();
-                parquetPredicates = ImmutableList.of();
+                parquetTupleDomains = ImmutableList.of(TupleDomain.all());
+                parquetPredicates = ImmutableList.of(buildPredicate(requestedSchema, TupleDomain.all(), descriptorsByPath, timeZone));
             }
             else {
                 ImmutableList.Builder<TupleDomain<ColumnDescriptor>> parquetTupleDomainsBuilder = ImmutableList.builderWithExpectedSize(disjunctTupleDomains.size());
@@ -255,7 +255,7 @@ public class ParquetPageSourceFactory
             ImmutableList.Builder<Optional<ColumnIndexStore>> columnIndexes = ImmutableList.builder();
             for (BlockMetaData block : parquetMetadata.getBlocks()) {
                 long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
-                for (int i = 0; i < disjunctTupleDomains.size(); i++) {
+                for (int i = 0; i < parquetTupleDomains.size(); i++) {
                     TupleDomain<ColumnDescriptor> parquetTupleDomain = parquetTupleDomains.get(i);
                     TupleDomainParquetPredicate parquetPredicate = parquetPredicates.get(i);
                     Optional<ColumnIndexStore> columnIndex = getColumnIndexStore(dataSource, block, descriptorsByPath, parquetTupleDomain, options);
