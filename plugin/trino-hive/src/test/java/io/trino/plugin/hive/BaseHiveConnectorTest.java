@@ -9007,6 +9007,26 @@ public abstract class BaseHiveConnectorTest
         }
     }
 
+    @Test
+    public void testOrcUseColumnNames()
+    {
+        Session useOrcColumnNamesSession = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "orc_use_column_names", "true")
+                .build();
+
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_orc_use_column_names_",
+                "(id INT, name VARCHAR) WITH (format = 'ORC')")) {
+            assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (1, 'Mary')", 1);
+            assertUpdate("INSERT INTO " + testTable.getName() + " VALUES (2, 'John')", 1);
+
+            assertQuery("SELECT * FROM " + testTable.getName(), "VALUES (1, 'Mary'), (2, 'John')");
+            assertQuery(useOrcColumnNamesSession, "SELECT * FROM " + testTable.getName(), "VALUES (1, 'Mary'), (2, 'John')");
+            assertQuery(useOrcColumnNamesSession, "SELECT id, name FROM " + testTable.getName(), "VALUES (1, 'Mary'), (2, 'John')");
+        }
+    }
+
     private static final Set<HiveStorageFormat> NAMED_COLUMN_ONLY_FORMATS = ImmutableSet.of(HiveStorageFormat.AVRO, HiveStorageFormat.JSON);
 
     private Session getParallelWriteSession(Session baseSession)
