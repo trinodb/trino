@@ -82,7 +82,7 @@ public class TrinoRestCatalog
     private final String trinoVersion;
     private final boolean useUniqueTableLocation;
 
-    private final Map<String, Table> tableCache = new ConcurrentHashMap<>();
+    private final Map<SchemaTableName, Table> tableCache = new ConcurrentHashMap<>();
 
     public TrinoRestCatalog(
             RESTSessionCatalog restSessionCatalog,
@@ -300,7 +300,7 @@ public class TrinoRestCatalog
     {
         try {
             return tableCache.computeIfAbsent(
-                    schemaTableName.toString(),
+                    schemaTableName,
                     key -> {
                         BaseTable baseTable = (BaseTable) restSessionCatalog.loadTable(convert(session), toIdentifier(schemaTableName));
                         // Creating a new base table is necessary to adhere to Trino's expectations for quoted table names
