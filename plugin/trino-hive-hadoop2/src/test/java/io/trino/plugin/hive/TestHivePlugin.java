@@ -19,11 +19,13 @@ import io.trino.spi.Plugin;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.io.IOException;
@@ -41,28 +43,31 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createTempDirectory;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true) // see @BeforeMethod
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD) // see @BeforeEach
 public class TestHivePlugin
 {
     private Path tempDirectory;
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
             throws IOException
     {
         tempDirectory = createTempDirectory(getClass().getSimpleName());
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
             throws IOException
     {
         deleteRecursively(tempDirectory, ALLOW_INSECURE);
     }
 
-    @AfterMethod(alwaysRun = true)
-    @BeforeMethod
+    @AfterEach
+    @BeforeEach
     public void deinitializeRubix()
     {
         // revert static rubix initialization done by other tests
