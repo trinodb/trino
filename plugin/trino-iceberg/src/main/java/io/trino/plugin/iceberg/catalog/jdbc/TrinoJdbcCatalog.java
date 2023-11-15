@@ -13,10 +13,13 @@
  */
 package io.trino.plugin.iceberg.catalog.jdbc;
 
+import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.log.Logger;
+import io.trino.cache.EvictableCacheBuilder;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
@@ -50,13 +53,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.transformValues;
+import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
@@ -75,11 +79,16 @@ public class TrinoJdbcCatalog
 {
     private static final Logger LOG = Logger.get(TrinoJdbcCatalog.class);
 
+    private static final int PER_QUERY_CACHE_SIZE = 1000;
+
     private final JdbcCatalog jdbcCatalog;
     private final IcebergJdbcClient jdbcClient;
     private final TrinoFileSystemFactory fileSystemFactory;
     private final String defaultWarehouseDir;
-    private final Map<SchemaTableName, TableMetadata> tableMetadataCache = new ConcurrentHashMap<>();
+
+    private final Cache<SchemaTableName, TableMetadata> tableMetadataCache = EvictableCacheBuilder.newBuilder()
+            .maximumSize(PER_QUERY_CACHE_SIZE)
+            .build();
 
     public TrinoJdbcCatalog(
             CatalogName catalogName,
@@ -306,9 +315,17 @@ public class TrinoJdbcCatalog
     @Override
     public Table loadTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        TableMetadata metadata = tableMetadataCache.computeIfAbsent(
-                schemaTableName,
-                ignore -> ((BaseTable) loadIcebergTable(this, tableOperationsProvider, session, schemaTableName)).operations().current());
+        TableMetadata metadata;
+        try {
+            metadata = uncheckedCacheGet(
+                    tableMetadataCache,
+                    schemaTableName,
+                    () -> ((BaseTable) loadIcebergTable(this, tableOperationsProvider, session, schemaTableName)).operations().current());
+        }
+        catch (UncheckedExecutionException e) {
+            throwIfUnchecked(e.getCause());
+            throw e;
+        }
 
         return getIcebergTableWithMetadata(this, tableOperationsProvider, session, schemaTableName, metadata);
     }
@@ -453,7 +470,7 @@ public class TrinoJdbcCatalog
     @Override
     protected void invalidateTableCache(SchemaTableName schemaTableName)
     {
-        tableMetadataCache.remove(schemaTableName);
+        tableMetadataCache.invalidate(schemaTableName);
     }
 
     private static TableIdentifier toIdentifier(SchemaTableName table)

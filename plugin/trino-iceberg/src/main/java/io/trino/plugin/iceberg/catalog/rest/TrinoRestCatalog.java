@@ -13,11 +13,14 @@
  */
 package io.trino.plugin.iceberg.catalog.rest;
 
+import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.jsonwebtoken.impl.DefaultJwtBuilder;
 import io.jsonwebtoken.jackson.io.JacksonSerializer;
+import io.trino.cache.EvictableCacheBuilder;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.IcebergSchemaProperties;
@@ -58,12 +61,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
@@ -76,13 +79,17 @@ import static java.util.UUID.randomUUID;
 public class TrinoRestCatalog
         implements TrinoCatalog
 {
+    private static final int PER_QUERY_CACHE_SIZE = 1000;
+
     private final RESTSessionCatalog restSessionCatalog;
     private final CatalogName catalogName;
     private final SessionType sessionType;
     private final String trinoVersion;
     private final boolean useUniqueTableLocation;
 
-    private final Map<SchemaTableName, Table> tableCache = new ConcurrentHashMap<>();
+    private final Cache<SchemaTableName, Table> tableCache = EvictableCacheBuilder.newBuilder()
+            .maximumSize(PER_QUERY_CACHE_SIZE)
+            .build();
 
     public TrinoRestCatalog(
             RESTSessionCatalog restSessionCatalog,
@@ -302,19 +309,20 @@ public class TrinoRestCatalog
     public Table loadTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
         try {
-            return tableCache.computeIfAbsent(
+            return uncheckedCacheGet(
+                    tableCache,
                     schemaTableName,
-                    key -> {
+                    () -> {
                         BaseTable baseTable = (BaseTable) restSessionCatalog.loadTable(convert(session), toIdentifier(schemaTableName));
                         // Creating a new base table is necessary to adhere to Trino's expectations for quoted table names
                         return new BaseTable(baseTable.operations(), quotedTableName(schemaTableName));
                     });
         }
-        catch (NoSuchTableException e) {
-            throw new TableNotFoundException(schemaTableName, e);
-        }
-        catch (RuntimeException e) {
-            throw new TrinoException(ICEBERG_CATALOG_ERROR, format("Failed to load table: %s", schemaTableName), e);
+        catch (UncheckedExecutionException e) {
+            if (e.getCause() instanceof NoSuchTableException) {
+                throw new TableNotFoundException(schemaTableName, e.getCause());
+            }
+            throw new TrinoException(ICEBERG_CATALOG_ERROR, format("Failed to load table: %s", schemaTableName), e.getCause());
         }
     }
 
@@ -514,7 +522,7 @@ public class TrinoRestCatalog
 
     private void invalidateTableCache(SchemaTableName schemaTableName)
     {
-        tableCache.remove(schemaTableName);
+        tableCache.invalidate(schemaTableName);
     }
 
     private static TableIdentifier toIdentifier(SchemaTableName schemaTableName)

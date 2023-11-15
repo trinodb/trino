@@ -13,9 +13,12 @@
  */
 package io.trino.plugin.iceberg.catalog.nessie;
 
+import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.UncheckedExecutionException;
+import io.trino.cache.EvictableCacheBuilder;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog;
@@ -49,11 +52,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 
+import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.plugin.iceberg.IcebergSchemaProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
@@ -67,10 +71,15 @@ import static java.util.Objects.requireNonNull;
 public class TrinoNessieCatalog
         extends AbstractTrinoCatalog
 {
+    private static final int PER_QUERY_CACHE_SIZE = 1000;
+
     private final String warehouseLocation;
     private final NessieIcebergClient nessieClient;
-    private final Map<SchemaTableName, TableMetadata> tableMetadataCache = new ConcurrentHashMap<>();
     private final TrinoFileSystemFactory fileSystemFactory;
+
+    private final Cache<SchemaTableName, TableMetadata> tableMetadataCache = EvictableCacheBuilder.newBuilder()
+            .maximumSize(PER_QUERY_CACHE_SIZE)
+            .build();
 
     public TrinoNessieCatalog(
             CatalogName catalogName,
@@ -184,18 +193,26 @@ public class TrinoNessieCatalog
     @Override
     public Table loadTable(ConnectorSession session, SchemaTableName table)
     {
-        TableMetadata metadata = tableMetadataCache.computeIfAbsent(
-                table,
-                ignore -> {
-                    TableOperations operations = tableOperationsProvider.createTableOperations(
-                            this,
-                            session,
-                            table.getSchemaName(),
-                            table.getTableName(),
-                            Optional.empty(),
-                            Optional.empty());
-                    return new BaseTable(operations, quotedTableName(table)).operations().current();
-                });
+        TableMetadata metadata;
+        try {
+            metadata = uncheckedCacheGet(
+                    tableMetadataCache,
+                    table,
+                    () -> {
+                        TableOperations operations = tableOperationsProvider.createTableOperations(
+                                this,
+                                session,
+                                table.getSchemaName(),
+                                table.getTableName(),
+                                Optional.empty(),
+                                Optional.empty());
+                        return new BaseTable(operations, quotedTableName(table)).operations().current();
+                    });
+        }
+        catch (UncheckedExecutionException e) {
+            throwIfUnchecked(e.getCause());
+            throw e;
+        }
 
         return getIcebergTableWithMetadata(
                 this,
@@ -425,6 +442,6 @@ public class TrinoNessieCatalog
     @Override
     protected void invalidateTableCache(SchemaTableName schemaTableName)
     {
-        tableMetadataCache.remove(schemaTableName);
+        tableMetadataCache.invalidate(schemaTableName);
     }
 }
