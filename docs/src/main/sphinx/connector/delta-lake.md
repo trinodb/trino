@@ -1055,13 +1055,13 @@ keep a backup of the original values if you change them.
     starts issuing reads of the `max-split-size` size.
   - `200`
 * - `delta.max-initial-split-size`
-  - Sets the initial :ref:`prop-type-data-size` for a single read section
+  - Sets the initial [](prop-type-data-size) for a single read section
     assigned to a worker until `max-initial-splits` have been processed. You can
     also use the corresponding catalog session property
     `<catalog-name>.max_initial_split_size`.
   - `32MB`
 * - `delta.max-split-size`
-  - Sets the largest :ref:`prop-type-data-size` for a single read section
+  - Sets the largest [](prop-type-data-size) for a single read section
     assigned to a worker after `max-initial-splits` have been processed. You can
     also use the corresponding catalog session property
     `<catalog-name>.max_split_size`.
