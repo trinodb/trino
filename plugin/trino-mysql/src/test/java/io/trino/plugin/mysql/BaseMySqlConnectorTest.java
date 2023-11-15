@@ -45,9 +45,6 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public abstract class BaseMySqlConnectorTest
         extends BaseJdbcConnectorTest
@@ -206,15 +203,15 @@ public abstract class BaseMySqlConnectorTest
                 .setSchema(getSession().getSchema())
                 .build();
 
-        assertFalse(getQueryRunner().tableExists(session, "test_table"));
+        assertThat(getQueryRunner().tableExists(session, "test_table")).isFalse();
 
         assertUpdate(session, "CREATE TABLE test_table AS SELECT 123 x", 1);
-        assertTrue(getQueryRunner().tableExists(session, "test_table"));
+        assertThat(getQueryRunner().tableExists(session, "test_table")).isTrue();
 
         assertQuery(session, "SELECT * FROM test_table", "SELECT 123");
 
         assertUpdate(session, "DROP TABLE test_table");
-        assertFalse(getQueryRunner().tableExists(session, "test_table"));
+        assertThat(getQueryRunner().tableExists(session, "test_table")).isFalse();
     }
 
     @Test
@@ -226,7 +223,8 @@ public abstract class BaseMySqlConnectorTest
 
         onRemoteDatabase().execute("INSERT INTO tpch.mysql_test_tinyint1 VALUES (127), (-128)");
         MaterializedResult materializedRows = computeActual("SELECT * FROM tpch.mysql_test_tinyint1 WHERE c_tinyint = 127");
-        assertEquals(materializedRows.getOnlyValue(), (byte) 127);
+        assertThat(materializedRows.getOnlyValue())
+                .isEqualTo((byte) 127);
 
         assertUpdate("DROP TABLE mysql_test_tinyint1");
     }
@@ -517,7 +515,7 @@ public abstract class BaseMySqlConnectorTest
     public void testNativeQueryInsertStatementTableDoesNotExist()
     {
         // override because MySQL succeeds in preparing query, and then fails because of no metadata available
-        assertFalse(getQueryRunner().tableExists(getSession(), "non_existent_table"));
+        assertThat(getQueryRunner().tableExists(getSession(), "non_existent_table")).isFalse();
         assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
                 .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: INSERT INTO non_existent_table VALUES (1)");
     }

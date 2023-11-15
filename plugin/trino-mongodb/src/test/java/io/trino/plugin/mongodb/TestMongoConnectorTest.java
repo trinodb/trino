@@ -62,9 +62,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
 
 @TestInstance(PER_CLASS)
 public class TestMongoConnectorTest
@@ -213,20 +210,30 @@ public class TestMongoConnectorTest
         assertUpdate(query, 1);
 
         MaterializedResult results = getQueryRunner().execute(getSession(), "SELECT * FROM " + tableName).toTestTypes();
-        assertEquals(results.getRowCount(), 1);
+        assertThat(results.getRowCount())
+                .isEqualTo(1);
         MaterializedRow row = results.getMaterializedRows().get(0);
-        assertEquals(row.getField(0), "foo");
-        assertEquals(row.getField(1), "bar".getBytes(UTF_8));
-        assertEquals(row.getField(2), 1L);
-        assertEquals(row.getField(3), 3.14);
-        assertEquals(row.getField(4), true);
-        assertEquals(row.getField(5), LocalDate.of(1980, 5, 7));
-        assertEquals(row.getField(6), LocalDateTime.of(1980, 5, 7, 11, 22, 33, 456_000_000));
-        assertEquals(row.getField(8), "{\"name\":\"alice\"}");
-        assertEquals(row.getField(9), new BigDecimal("12.30000"));
+        assertThat(row.getField(0))
+                .isEqualTo("foo");
+        assertThat(row.getField(1))
+                .isEqualTo("bar".getBytes(UTF_8));
+        assertThat(row.getField(2))
+                .isEqualTo(1L);
+        assertThat(row.getField(3))
+                .isEqualTo(3.14);
+        assertThat(row.getField(4))
+                .isEqualTo(true);
+        assertThat(row.getField(5))
+                .isEqualTo(LocalDate.of(1980, 5, 7));
+        assertThat(row.getField(6))
+                .isEqualTo(LocalDateTime.of(1980, 5, 7, 11, 22, 33, 456_000_000));
+        assertThat(row.getField(8))
+                .isEqualTo("{\"name\":\"alice\"}");
+        assertThat(row.getField(9))
+                .isEqualTo(new BigDecimal("12.30000"));
         assertUpdate("DROP TABLE " + tableName);
 
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
     }
 
     @Test
@@ -263,18 +270,27 @@ public class TestMongoConnectorTest
         getQueryRunner().execute(getSession(), insertSql);
 
         MaterializedResult results = getQueryRunner().execute(getSession(), "SELECT * FROM " + tableName).toTestTypes();
-        assertEquals(results.getRowCount(), 1);
+        assertThat(results.getRowCount())
+                .isEqualTo(1);
         MaterializedRow row = results.getMaterializedRows().get(0);
-        assertEquals(row.getField(0), "foo");
-        assertEquals(row.getField(1), "bar".getBytes(UTF_8));
-        assertEquals(row.getField(2), 1L);
-        assertEquals(row.getField(3), 3.14);
-        assertEquals(row.getField(4), true);
-        assertEquals(row.getField(5), LocalDate.of(1980, 5, 7));
-        assertEquals(row.getField(6), LocalDateTime.of(1980, 5, 7, 11, 22, 33, 456_000_000));
-        assertEquals(row.getField(8), "{\"name\":\"alice\"}");
+        assertThat(row.getField(0))
+                .isEqualTo("foo");
+        assertThat(row.getField(1))
+                .isEqualTo("bar".getBytes(UTF_8));
+        assertThat(row.getField(2))
+                .isEqualTo(1L);
+        assertThat(row.getField(3))
+                .isEqualTo(3.14);
+        assertThat(row.getField(4))
+                .isEqualTo(true);
+        assertThat(row.getField(5))
+                .isEqualTo(LocalDate.of(1980, 5, 7));
+        assertThat(row.getField(6))
+                .isEqualTo(LocalDateTime.of(1980, 5, 7, 11, 22, 33, 456_000_000));
+        assertThat(row.getField(8))
+                .isEqualTo("{\"name\":\"alice\"}");
         assertUpdate("DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
     }
 
     @Test
@@ -1356,13 +1372,17 @@ public class TestMongoConnectorTest
                                 sessionWithoutPushdown,
                                 format("SELECT 1 FROM %s WHERE col_0.col_1 = %s", table.getName(), expectedValue),
                                 statsWithoutPushdown -> {
-                                    assertEquals(statsWithoutPushdown.getProcessedInputPositions(), 3);
-                                    assertEquals(processedInputPositionWithPushdown, 2);
+                                    assertThat(statsWithoutPushdown.getProcessedInputPositions())
+                                            .isEqualTo(3);
+                                    assertThat(processedInputPositionWithPushdown)
+                                            .isEqualTo(2);
                                     assertThat(statsWithoutPushdown.getProcessedInputPositions()).isGreaterThan(processedInputPositionWithPushdown);
                                 },
-                                results -> assertEquals(results.getOnlyColumnAsSet(), expected));
+                                results -> assertThat(results.getOnlyColumnAsSet())
+                                        .isEqualTo(expected));
                     },
-                    results -> assertEquals(results.getOnlyColumnAsSet(), expected));
+                    results -> assertThat(results.getOnlyColumnAsSet())
+                            .isEqualTo(expected));
 
             assertQueryStats(
                     getSession(),
@@ -1373,13 +1393,17 @@ public class TestMongoConnectorTest
                                 sessionWithoutPushdown,
                                 format("SELECT 1 FROM %s WHERE col_0.col_2.col_3 = %s", table.getName(), expectedValue),
                                 statsWithoutPushdown -> {
-                                    assertEquals(statsWithoutPushdown.getProcessedInputPositions(), 3);
-                                    assertEquals(processedInputPositionWithPushdown, 1);
+                                    assertThat(statsWithoutPushdown.getProcessedInputPositions())
+                                            .isEqualTo(3);
+                                    assertThat(processedInputPositionWithPushdown)
+                                            .isEqualTo(1);
                                     assertThat(statsWithoutPushdown.getProcessedInputPositions()).isGreaterThan(processedInputPositionWithPushdown);
                                 },
-                                results -> assertEquals(results.getOnlyColumnAsSet(), expected));
+                                results -> assertThat(results.getOnlyColumnAsSet())
+                                        .isEqualTo(expected));
                     },
-                    results -> assertEquals(results.getOnlyColumnAsSet(), expected));
+                    results -> assertThat(results.getOnlyColumnAsSet())
+                            .isEqualTo(expected));
 
             assertQueryStats(
                     getSession(),
@@ -1390,13 +1414,17 @@ public class TestMongoConnectorTest
                                 sessionWithoutPushdown,
                                 format("SELECT 1 FROM %s WHERE col_0.col_2.col_4.col_5 = %s", table.getName(), expectedValue),
                                 statsWithoutPushdown -> {
-                                    assertEquals(statsWithoutPushdown.getProcessedInputPositions(), 3);
-                                    assertEquals(processedInputPositionWithPushdown, 2);
+                                    assertThat(statsWithoutPushdown.getProcessedInputPositions())
+                                            .isEqualTo(3);
+                                    assertThat(processedInputPositionWithPushdown)
+                                            .isEqualTo(2);
                                     assertThat(statsWithoutPushdown.getProcessedInputPositions()).isGreaterThan(processedInputPositionWithPushdown);
                                 },
-                                results -> assertEquals(results.getOnlyColumnAsSet(), expected));
+                                results -> assertThat(results.getOnlyColumnAsSet())
+                                        .isEqualTo(expected));
                     },
-                    results -> assertEquals(results.getOnlyColumnAsSet(), expected));
+                    results -> assertThat(results.getOnlyColumnAsSet())
+                            .isEqualTo(expected));
         }
     }
 
@@ -1413,8 +1441,10 @@ public class TestMongoConnectorTest
         assertQueryStats(
                 getSession(),
                 "SELECT row_field.first.second FROM TABLE(mongodb.system.query(database => 'test', collection => '" + tableName + "', filter => '{ \"row_field.first.second\": 1 }'))",
-                stats -> assertEquals(stats.getProcessedInputPositions(), 1L),
-                results -> assertEquals(results.getOnlyColumnAsSet(), ImmutableSet.of(1L)));
+                stats -> assertThat(stats.getProcessedInputPositions())
+                        .isEqualTo(1L),
+                results -> assertThat(results.getOnlyColumnAsSet())
+                        .isEqualTo(ImmutableSet.of(1L)));
 
         assertUpdate("DROP TABLE test." + tableName);
     }
@@ -1847,8 +1877,10 @@ public class TestMongoConnectorTest
     private void assertOneNotNullResult(String query)
     {
         MaterializedResult results = getQueryRunner().execute(getSession(), query).toTestTypes();
-        assertEquals(results.getRowCount(), 1);
-        assertEquals(results.getMaterializedRows().get(0).getFieldCount(), 1);
-        assertNotNull(results.getMaterializedRows().get(0).getField(0));
+        assertThat(results.getRowCount())
+                .isEqualTo(1);
+        assertThat(results.getMaterializedRows().get(0).getFieldCount())
+                .isEqualTo(1);
+        assertThat(results.getMaterializedRows().get(0).getField(0)).isNotNull();
     }
 }
