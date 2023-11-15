@@ -38,8 +38,6 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestSqlServerConnectorTest
         extends BaseSqlServerConnectorTest
@@ -197,11 +195,11 @@ public class TestSqlServerConnectorTest
             // Until https://github.com/trinodb/trino/issues/17 the table name is effectively lowercase
             tableName = tableName.toLowerCase(ENGLISH);
             assertUpdate("CREATE TABLE " + tableNameInSql + " (a bigint, b double, c varchar(50))");
-            assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+            assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
             assertTableColumnNames(tableNameInSql, "a", "b", "c");
 
             assertUpdate("DROP TABLE " + tableNameInSql);
-            assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+            assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
         }
     }
 

@@ -15,17 +15,16 @@ package io.trino.plugin.mysql;
 
 import org.junit.jupiter.api.Test;
 
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMySqlJdbcConfig
 {
     @Test
     public void testIsUrlWithoutDatabase()
     {
-        assertTrue(isUrlWithoutDatabase("jdbc:mysql://example.net:3306"));
-        assertTrue(isUrlWithoutDatabase("jdbc:mysql://example.net:3306/"));
-        assertFalse(isUrlWithoutDatabase("jdbc:mysql://example.net:3306/somedatabase"));
+        assertThat(isUrlWithoutDatabase("jdbc:mysql://example.net:3306")).isTrue();
+        assertThat(isUrlWithoutDatabase("jdbc:mysql://example.net:3306/")).isTrue();
+        assertThat(isUrlWithoutDatabase("jdbc:mysql://example.net:3306/somedatabase")).isFalse();
     }
 
     private static boolean isUrlWithoutDatabase(String url)

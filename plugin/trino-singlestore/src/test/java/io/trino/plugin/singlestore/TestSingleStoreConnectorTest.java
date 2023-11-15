@@ -42,9 +42,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 public class TestSingleStoreConnectorTest
@@ -182,15 +179,15 @@ public class TestSingleStoreConnectorTest
     @Test
     public void testNameEscaping()
     {
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_table"));
+        assertThat(getQueryRunner().tableExists(getSession(), "test_table")).isFalse();
 
         assertUpdate(getSession(), "CREATE TABLE test_table AS SELECT 123 x", 1);
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_table"));
+        assertThat(getQueryRunner().tableExists(getSession(), "test_table")).isTrue();
 
         assertQuery(getSession(), "SELECT * FROM test_table", "SELECT 123");
 
         assertUpdate(getSession(), "DROP TABLE test_table");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_table"));
+        assertThat(getQueryRunner().tableExists(getSession(), "test_table")).isFalse();
     }
 
     @Test
@@ -205,11 +202,14 @@ public class TestSingleStoreConnectorTest
 
         onRemoteDatabase().execute("INSERT INTO tpch.mysql_test_tinyint1 VALUES (127), (-128)");
         MaterializedResult materializedRows = computeActual("SELECT * FROM tpch.mysql_test_tinyint1 WHERE c_tinyint = 127");
-        assertEquals(materializedRows.getRowCount(), 1);
+        assertThat(materializedRows.getRowCount())
+                .isEqualTo(1);
         MaterializedRow row = getOnlyElement(materializedRows);
 
-        assertEquals(row.getFields().size(), 1);
-        assertEquals(row.getField(0), (byte) 127);
+        assertThat(row.getFields().size())
+                .isEqualTo(1);
+        assertThat(row.getField(0))
+                .isEqualTo((byte) 127);
 
         assertUpdate("DROP TABLE mysql_test_tinyint1");
     }
@@ -350,10 +350,10 @@ public class TestSingleStoreConnectorTest
         // This is unusual, because other connectors don't produce a ResultSet metadata for CREATE TABLE at all.
         // The query fails because there are no columns, but even if columns were not required, the query would fail
         // to execute in SingleStore because the connector wraps it in additional syntax, which causes syntax error.
-        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+        assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
         assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE numbers(n INTEGER)'))"))
                 .hasMessageContaining("descriptor has no fields");
-        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+        assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
     }
 
     @Test

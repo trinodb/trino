@@ -23,9 +23,8 @@ import org.junit.jupiter.api.Test;
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.singlestore.SingleStoreJdbcConfig.DRIVER_PROTOCOL_ERROR;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestSingleStoreJdbcConfig
 {
@@ -49,10 +48,10 @@ public class TestSingleStoreJdbcConfig
     @Test
     public void testLegacyConnectionUrl()
     {
-        assertTrue(isLegacyDriverSubprotocol("jdbc:mariadb:"));
-        assertTrue(isLegacyDriverSubprotocol("JDBC:MARIADB:"));
-        assertTrue(isLegacyDriverSubprotocol("jdbc:mariadb:test"));
-        assertFalse(isLegacyDriverSubprotocol("jdbc:singlestore:test"));
+        assertThat(isLegacyDriverSubprotocol("jdbc:mariadb:")).isTrue();
+        assertThat(isLegacyDriverSubprotocol("JDBC:MARIADB:")).isTrue();
+        assertThat(isLegacyDriverSubprotocol("jdbc:mariadb:test")).isTrue();
+        assertThat(isLegacyDriverSubprotocol("jdbc:singlestore:test")).isFalse();
     }
 
     private static boolean isLegacyDriverSubprotocol(String url)

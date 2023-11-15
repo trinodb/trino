@@ -65,7 +65,6 @@ import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
-import static org.testng.Assert.assertTrue;
 
 public class TestPhoenixConnectorTest
         extends BaseJdbcConnectorTest
@@ -600,7 +599,7 @@ public class TestPhoenixConnectorTest
     public void testCreateTableWithProperties()
     {
         assertUpdate("CREATE TABLE test_create_table_with_properties (created_date date, a bigint, b double, c varchar(10), d varchar(10)) WITH(rowkeys = 'created_date row_timestamp, a,b,c', salt_buckets=10)");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_with_properties"));
+        assertThat(getQueryRunner().tableExists(getSession(), "test_create_table_with_properties")).isTrue();
         assertTableColumnNames("test_create_table_with_properties", "created_date", "a", "b", "c", "d");
         assertThat(computeActual("SHOW CREATE TABLE test_create_table_with_properties").getOnlyValue())
                 .isEqualTo("CREATE TABLE phoenix.tpch.test_create_table_with_properties (\n" +
@@ -624,7 +623,7 @@ public class TestPhoenixConnectorTest
     public void testCreateTableWithPresplits()
     {
         assertUpdate("CREATE TABLE test_create_table_with_presplits (rid varchar(10), val1 varchar(10)) with(rowkeys = 'rid', SPLIT_ON='\"1\",\"2\",\"3\"')");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_with_presplits"));
+        assertThat(getQueryRunner().tableExists(getSession(), "test_create_table_with_presplits")).isTrue();
         assertTableColumnNames("test_create_table_with_presplits", "rid", "val1");
         assertUpdate("DROP TABLE test_create_table_with_presplits");
     }

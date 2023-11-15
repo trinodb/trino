@@ -38,8 +38,6 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 
 public abstract class BaseOracleConnectorTest
         extends BaseJdbcConnectorTest
@@ -186,7 +184,8 @@ public abstract class BaseOracleConnectorTest
 
         assertUpdate("CREATE TABLE " + tableName + " (t timestamp(12))");
 
-        assertEquals(getColumnType(tableName, "t"), "timestamp(9)");
+        assertThat(getColumnType(tableName, "t"))
+                .isEqualTo("timestamp(9)");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -402,7 +401,7 @@ public abstract class BaseOracleConnectorTest
     public void testNativeQueryInsertStatementTableDoesNotExist()
     {
         // override because Oracle succeeds in preparing query, and then fails because of no metadata available
-        assertFalse(getQueryRunner().tableExists(getSession(), "non_existent_table"));
+        assertThat(getQueryRunner().tableExists(getSession(), "non_existent_table")).isFalse();
         assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
                 .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: INSERT INTO non_existent_table VALUES (1)");
     }

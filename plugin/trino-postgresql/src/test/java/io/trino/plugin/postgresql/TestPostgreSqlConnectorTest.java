@@ -75,8 +75,6 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 public class TestPostgreSqlConnectorTest
@@ -170,7 +168,7 @@ public class TestPostgreSqlConnectorTest
                 getQueryRunner()::execute,
                 "test_coercion_show_create_table",
                 format("(a %s)", inputType))) {
-            assertEquals(getColumnType(testTable.getName(), "a"), expectedType);
+            assertThat(getColumnType(testTable.getName(), "a")).isEqualTo(expectedType);
         }
     }
 
@@ -210,7 +208,7 @@ public class TestPostgreSqlConnectorTest
                 getQueryRunner()::execute,
                 "test_coercion_show_create_table",
                 format("AS SELECT %s a", inputType))) {
-            assertEquals(getColumnType(testTable.getName(), "a"), tableType);
+            assertThat(getColumnType(testTable.getName(), "a")).isEqualTo(tableType);
             assertQuery(
                     format("SELECT * FROM %s", testTable.getName()),
                     format("VALUES (%s)", tableValue));
@@ -253,7 +251,7 @@ public class TestPostgreSqlConnectorTest
                 getQueryRunner()::execute,
                 "test_coercion_show_create_table",
                 format("AS SELECT %s a WITH NO DATA", inputType))) {
-            assertEquals(getColumnType(testTable.getName(), "a"), tableType);
+            assertThat(getColumnType(testTable.getName(), "a")).isEqualTo(tableType);
         }
     }
 
@@ -267,7 +265,7 @@ public class TestPostgreSqlConnectorTest
     public void testViews()
     {
         onRemoteDatabase().execute("CREATE OR REPLACE VIEW test_view AS SELECT * FROM orders");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_view"));
+        assertThat(getQueryRunner().tableExists(getSession(), "test_view")).isTrue();
         assertQuery("SELECT orderkey FROM test_view", "SELECT orderkey FROM orders");
         onRemoteDatabase().execute("DROP VIEW IF EXISTS test_view");
     }
@@ -276,7 +274,7 @@ public class TestPostgreSqlConnectorTest
     public void testPostgreSqlMaterializedView()
     {
         onRemoteDatabase().execute("CREATE MATERIALIZED VIEW test_mv as SELECT * FROM orders");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_mv"));
+        assertThat(getQueryRunner().tableExists(getSession(), "test_mv")).isTrue();
         assertQuery("SELECT orderkey FROM test_mv", "SELECT orderkey FROM orders");
         onRemoteDatabase().execute("DROP MATERIALIZED VIEW test_mv");
     }
@@ -286,7 +284,7 @@ public class TestPostgreSqlConnectorTest
     {
         onRemoteDatabase().execute("CREATE SERVER devnull FOREIGN DATA WRAPPER file_fdw");
         onRemoteDatabase().execute("CREATE FOREIGN TABLE test_ft (x bigint) SERVER devnull OPTIONS (filename '/dev/null')");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_ft"));
+        assertThat(getQueryRunner().tableExists(getSession(), "test_ft")).isTrue();
         computeActual("SELECT * FROM test_ft");
         onRemoteDatabase().execute("DROP FOREIGN TABLE test_ft");
         onRemoteDatabase().execute("DROP SERVER devnull");
@@ -296,13 +294,13 @@ public class TestPostgreSqlConnectorTest
     public void testErrorDuringInsert()
     {
         onRemoteDatabase().execute("CREATE TABLE test_with_constraint (x bigint primary key)");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_with_constraint"));
+        assertThat(getQueryRunner().tableExists(getSession(), "test_with_constraint")).isTrue();
         Session nonTransactional = Session.builder(getSession())
                 .setCatalogSessionProperty("postgresql", "non_transactional_insert", "true")
                 .build();
         assertUpdate(nonTransactional, "INSERT INTO test_with_constraint VALUES (1)", 1);
         assertQueryFails(nonTransactional, "INSERT INTO test_with_constraint VALUES (1)", "[\\s\\S]*ERROR: duplicate key value[\\s\\S]*");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_with_constraint"));
+        assertThat(getQueryRunner().tableExists(getSession(), "test_with_constraint")).isTrue();
         onRemoteDatabase().execute("DROP TABLE test_with_constraint");
     }
 

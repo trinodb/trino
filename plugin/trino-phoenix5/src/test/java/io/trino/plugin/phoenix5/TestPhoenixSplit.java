@@ -24,8 +24,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPhoenixSplit
 {
@@ -42,11 +41,11 @@ public class TestPhoenixSplit
                 addresses,
                 SerializedPhoenixInputSplit.serialize(phoenixInputSplit));
 
-        assertTrue(objectMapper.canSerialize(PhoenixSplit.class));
+        assertThat(objectMapper.canSerialize(PhoenixSplit.class)).isTrue();
 
         String json = objectMapper.writeValueAsString(expected);
         PhoenixSplit actual = objectMapper.readValue(json, PhoenixSplit.class);
-        assertEquals(actual.getPhoenixInputSplit(), expected.getPhoenixInputSplit());
-        assertEquals(actual.getAddresses(), expected.getAddresses());
+        assertThat(actual.getPhoenixInputSplit()).isEqualTo(expected.getPhoenixInputSplit());
+        assertThat(actual.getAddresses()).isEqualTo(expected.getAddresses());
     }
 }
