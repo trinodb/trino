@@ -19,30 +19,29 @@ types.
 The following table lists Trino data types, which can be used in `type` and
 matching field decoders, and specified via `dataFormat` attribute:
 
-```{eval-rst}
-.. list-table::
-  :widths: 40, 60
-  :header-rows: 1
+:::{list-table}
+:widths: 40, 60
+:header-rows: 1
 
-  * - Trino data type
-    - Allowed ``dataFormat`` values
-  * - ``BIGINT``, ``INTEGER``, ``SMALLINT``, ``TINYINT``, ``DOUBLE``,
-      ``BOOLEAN``, ``VARCHAR``, ``VARCHAR(x)``
-    - Default field decoder (omitted ``dataFormat`` attribute)
-  * - ``DATE``
-    - ``custom-date-time``, ``iso8601``
-  * - ``TIME``
-    - ``custom-date-time``, ``iso8601``, ``milliseconds-since-epoch``,
-      ``seconds-since-epoch``
-  * - ``TIME WITH TIME ZONE``
-    - ``custom-date-time``, ``iso8601``
-  * - ``TIMESTAMP``
-    - ``custom-date-time``, ``iso8601``, ``rfc2822``,
-      ``milliseconds-since-epoch``, ``seconds-since-epoch``
-  * - ``TIMESTAMP WITH TIME ZONE``
-    - ``custom-date-time``, ``iso8601``, ``rfc2822``,
-      ``milliseconds-since-epoch``, ``seconds-since-epoch``
-```
+* - Trino data type
+  - Allowed `dataFormat` values
+* - `BIGINT`, `INTEGER`, `SMALLINT`, `TINYINT`, `DOUBLE`, `BOOLEAN`,
+    `VARCHAR`, `VARCHAR(x)`
+  - Default field decoder (omitted `dataFormat` attribute)
+* - `DATE`
+  - `custom-date-time`, `iso8601`
+* - `TIME`
+  - `custom-date-time`, `iso8601`, `milliseconds-since-epoch`,
+    `seconds-since-epoch`
+* - `TIME WITH TIME ZONE`
+  - `custom-date-time`, `iso8601`
+* - `TIMESTAMP`
+  - `custom-date-time`, `iso8601`, `rfc2822`, `milliseconds-since-epoch`,
+    `seconds-since-epoch`
+* - `TIMESTAMP WITH TIME ZONE`
+  - `custom-date-time`, `iso8601`, `rfc2822`,
+    `milliseconds-since-epoch`, `seconds-since-epoch`
+:::
 
 No other types are supported.
 

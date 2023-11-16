@@ -28,26 +28,25 @@ The `type` attribute defines the Trino data type on which the value is mapped.
 Depending on the Trino type assigned to a column, different values of dataFormat
 can be used:
 
-```{eval-rst}
-.. list-table::
-  :widths: 40, 60
-  :header-rows: 1
+:::{list-table}
+:widths: 40, 60
+:header-rows: 1
 
-  * - Trino data type
-    - Allowed ``dataFormat`` values
-  * - ``BIGINT``
-    - ``BYTE``, ``SHORT``, ``INT``, ``LONG``
-  * - ``INTEGER``
-    - ``BYTE``, ``SHORT``, ``INT``
-  * - ``SMALLINT``
-    - ``BYTE``, ``SHORT``
-  * - ``DOUBLE``
-    - ``DOUBLE``, ``FLOAT``
-  * - ``BOOLEAN``
-    - ``BYTE``, ``SHORT``, ``INT``, ``LONG``
-  * - ``VARCHAR`` / ``VARCHAR(x)``
-    - ``BYTE``
-```
+* - Trino data type
+  - Allowed `dataFormat` values
+* - `BIGINT`
+  - `BYTE`, `SHORT`, `INT`, `LONG`
+* - `INTEGER`
+  - `BYTE`, `SHORT`, `INT`
+* - `SMALLINT`
+  - `BYTE`, `SHORT`
+* - `DOUBLE`
+  - `DOUBLE`, `FLOAT`
+* - `BOOLEAN`
+  - `BYTE`, `SHORT`, `INT`, `LONG`
+* - `VARCHAR` / `VARCHAR(x)`
+  - `BYTE`
+:::
 
 No other types are supported.
 
