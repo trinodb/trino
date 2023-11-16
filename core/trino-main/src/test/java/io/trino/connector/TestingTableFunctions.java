@@ -610,7 +610,7 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionDataProcessor getDataProcessor(ConnectorTableFunctionHandle handle)
+            public TableFunctionDataProcessor getDataProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle)
             {
                 return input -> {
                     if (input == null) {
@@ -659,7 +659,7 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionDataProcessor getDataProcessor(ConnectorTableFunctionHandle handle)
+            public TableFunctionDataProcessor getDataProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle)
             {
                 return new IdentityPassThroughFunctionProcessor();
             }
@@ -750,7 +750,7 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionDataProcessor getDataProcessor(ConnectorTableFunctionHandle handle)
+            public TableFunctionDataProcessor getDataProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle)
             {
                 return new RepeatFunctionProcessor(((RepeatFunctionHandle) handle).getCount());
             }
@@ -848,7 +848,7 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionDataProcessor getDataProcessor(ConnectorTableFunctionHandle handle)
+            public TableFunctionDataProcessor getDataProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle)
             {
                 return new EmptyOutputProcessor();
             }
@@ -906,7 +906,7 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionDataProcessor getDataProcessor(ConnectorTableFunctionHandle handle)
+            public TableFunctionDataProcessor getDataProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle)
             {
                 return new EmptyOutputWithPassThroughProcessor();
             }
@@ -982,7 +982,7 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionDataProcessor getDataProcessor(ConnectorTableFunctionHandle handle)
+            public TableFunctionDataProcessor getDataProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle)
             {
                 BlockBuilder resultBuilder = BOOLEAN.createBlockBuilder(null, 1);
                 BOOLEAN.writeBoolean(resultBuilder, true);
@@ -1043,7 +1043,7 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionDataProcessor getDataProcessor(ConnectorTableFunctionHandle handle)
+            public TableFunctionDataProcessor getDataProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle)
             {
                 return new PassThroughInputProcessor();
             }
@@ -1142,7 +1142,7 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionDataProcessor getDataProcessor(ConnectorTableFunctionHandle handle)
+            public TableFunctionDataProcessor getDataProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle)
             {
                 return new TestInputProcessor();
             }
@@ -1206,7 +1206,7 @@ public class TestingTableFunctions
                 implements TableFunctionProcessorProvider
         {
             @Override
-            public TableFunctionDataProcessor getDataProcessor(ConnectorTableFunctionHandle handle)
+            public TableFunctionDataProcessor getDataProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle)
             {
                 BlockBuilder builder = BOOLEAN.createBlockBuilder(null, 1);
                 BOOLEAN.writeBoolean(builder, true);

@@ -36,10 +36,10 @@ public final class ClassLoaderSafeTableFunctionProcessorProvider
     }
 
     @Override
-    public TableFunctionDataProcessor getDataProcessor(ConnectorTableFunctionHandle handle)
+    public TableFunctionDataProcessor getDataProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.getDataProcessor(handle);
+            return delegate.getDataProcessor(session, handle);
         }
     }
 
