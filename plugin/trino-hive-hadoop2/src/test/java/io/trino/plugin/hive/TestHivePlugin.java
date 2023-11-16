@@ -142,32 +142,6 @@ public class TestHivePlugin
     }
 
     @Test
-    public void testRecordingMetastore()
-    {
-        ConnectorFactory factory = getHiveConnectorFactory();
-
-        factory.create(
-                "test",
-                ImmutableMap.of(
-                        "hive.metastore", "thrift",
-                        "hive.metastore.uri", "thrift://foo:1234",
-                        "hive.metastore-recording-path", "/tmp",
-                        "bootstrap.quiet", "true"),
-                new TestingConnectorContext())
-                .shutdown();
-
-        factory.create(
-                "test",
-                ImmutableMap.of(
-                        "hive.metastore", "glue",
-                        "hive.metastore.glue.region", "us-east-2",
-                        "hive.metastore-recording-path", "/tmp",
-                        "bootstrap.quiet", "true"),
-                new TestingConnectorContext())
-                .shutdown();
-    }
-
-    @Test
     public void testS3SecurityMappingAndHiveCachingMutuallyExclusive()
             throws IOException
     {

@@ -132,45 +132,6 @@ public class TestIcebergPlugin
     }
 
     @Test
-    public void testRecordingMetastore()
-    {
-        ConnectorFactory factory = getConnectorFactory();
-
-        // recording with thrift
-        factory.create(
-                        "test",
-                        Map.of(
-                                "iceberg.catalog.type", "HIVE_METASTORE",
-                                "hive.metastore.uri", "thrift://foo:1234",
-                                "hive.metastore-recording-path", "/tmp",
-                                "bootstrap.quiet", "true"),
-                        new TestingConnectorContext())
-                .shutdown();
-
-        // recording with glue
-        assertThatThrownBy(() -> factory.create(
-                "test",
-                Map.of(
-                        "iceberg.catalog.type", "glue",
-                        "hive.metastore.glue.region", "us-east-2",
-                        "hive.metastore-recording-path", "/tmp",
-                        "bootstrap.quiet", "true"),
-                new TestingConnectorContext()))
-                .hasMessageContaining("Configuration property 'hive.metastore-recording-path' was not used");
-
-        // recording with nessie
-        assertThatThrownBy(() -> factory.create(
-                "test",
-                Map.of(
-                        "iceberg.catalog.type", "nessie",
-                        "hive.metastore.nessie.region", "us-east-2",
-                        "hive.metastore-recording-path", "/tmp",
-                        "bootstrap.quiet", "true"),
-                new TestingConnectorContext()))
-                .hasMessageContaining("Configuration property 'hive.metastore-recording-path' was not used");
-    }
-
-    @Test
     public void testAllowAllAccessControl()
     {
         ConnectorFactory connectorFactory = getConnectorFactory();
