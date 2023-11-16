@@ -137,12 +137,12 @@ idle time, initialization parameters, and accessed catalogs.
 
 ## System connector procedures
 
-```{eval-rst}
-.. function:: runtime.kill_query(query_id, message)
+:::{function} runtime.kill_query(query_id, message)
 
-    Kill the query identified by ``query_id``. The query failure message
-    includes the specified ``message``. ``message`` is optional.
-```
+Kill the query identified by `query_id`. The query failure message includes the
+specified `message`. `message` is optional.
+
+:::
 
 (system-type-mapping)=
 

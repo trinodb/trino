@@ -102,10 +102,6 @@ highlight_language = 'sql'
 
 default_role = 'backquote'
 
-rst_epilog = """
-.. |trino_server_release| replace:: ``trino-server-{release}``
-""".replace('{release}', release)
-
 # Any replace that is inside of a code block should be added here
 # https://stackoverflow.com/questions/8821511/substitutions-inside-sphinx-code-blocks-arent-replaced
 
