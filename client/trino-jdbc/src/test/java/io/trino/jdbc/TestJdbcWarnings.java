@@ -36,7 +36,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
-import java.time.Duration;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -80,7 +79,6 @@ public class TestJdbcWarnings
                 .build();
         server.installPlugin(new BlackHolePlugin());
         server.createCatalog("blackhole", "blackhole");
-        server.waitForNodeRefresh(Duration.ofSeconds(10));
 
         try (Connection connection = createConnection();
                 Statement statement = connection.createStatement()) {

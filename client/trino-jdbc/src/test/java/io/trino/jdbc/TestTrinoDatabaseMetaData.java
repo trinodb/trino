@@ -55,7 +55,6 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Types;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -128,7 +127,6 @@ public class TestTrinoDatabaseMetaData
         countingMockConnector = new CountingMockConnector();
         server.installPlugin(countingMockConnector.getPlugin());
         server.createCatalog(COUNTING_CATALOG, "mock", ImmutableMap.of());
-        server.waitForNodeRefresh(Duration.ofSeconds(10));
 
         try (Connection connection = createConnection();
                 Statement statement = connection.createStatement()) {
