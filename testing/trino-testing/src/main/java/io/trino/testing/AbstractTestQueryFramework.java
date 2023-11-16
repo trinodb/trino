@@ -16,6 +16,8 @@ package io.trino.testing;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.MoreCollectors;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import io.airlift.log.Level;
+import io.airlift.log.Logging;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.execution.QueryInfo;
@@ -107,6 +109,9 @@ public abstract class AbstractTestQueryFramework
     public void init()
             throws Exception
     {
+        Logging logging = Logging.initialize();
+        logging.setLevel("org.testcontainers", Level.WARN);
+
         afterClassCloser = AutoCloseableCloser.create();
         queryRunner = afterClassCloser.register(createQueryRunner());
         h2QueryRunner = afterClassCloser.register(new H2QueryRunner());

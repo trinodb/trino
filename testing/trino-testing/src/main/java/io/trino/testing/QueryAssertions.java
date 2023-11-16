@@ -511,12 +511,9 @@ public final class QueryAssertions
             Session session,
             Iterable<TpchTable<?>> tables)
     {
-        log.info("Loading data from %s.%s...", sourceCatalog, sourceSchema);
-        long startTime = System.nanoTime();
         for (TpchTable<?> table : tables) {
             copyTable(queryRunner, sourceCatalog, sourceSchema, table.getTableName().toLowerCase(ENGLISH), session);
         }
-        log.info("Loading from %s.%s complete in %s", sourceCatalog, sourceSchema, nanosSince(startTime).toString(SECONDS));
     }
 
     public static void copyTable(QueryRunner queryRunner, String sourceCatalog, String sourceSchema, String sourceTable, Session session)
@@ -528,10 +525,9 @@ public final class QueryAssertions
     public static void copyTable(QueryRunner queryRunner, QualifiedObjectName table, Session session)
     {
         long start = System.nanoTime();
-        log.info("Running import for %s", table.getObjectName());
         @Language("SQL") String sql = format("CREATE TABLE IF NOT EXISTS %s AS SELECT * FROM %s", table.getObjectName(), table);
         long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);
-        log.info("Imported %s rows for %s in %s", rows, table.getObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
+        log.info("Imported %s rows from %s in %s", rows, table, nanosSince(start));
 
         assertThat(queryRunner.execute(session, "SELECT count(*) FROM " + table.getObjectName()).getOnlyValue())
                 .as("Table is not loaded properly: %s", table.getObjectName())
