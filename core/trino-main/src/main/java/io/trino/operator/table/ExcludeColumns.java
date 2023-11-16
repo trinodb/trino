@@ -154,7 +154,7 @@ public class ExcludeColumns
         return new TableFunctionProcessorProvider()
         {
             @Override
-            public TableFunctionDataProcessor getDataProcessor(ConnectorTableFunctionHandle handle)
+            public TableFunctionDataProcessor getDataProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle)
             {
                 return input -> {
                     if (input == null) {
