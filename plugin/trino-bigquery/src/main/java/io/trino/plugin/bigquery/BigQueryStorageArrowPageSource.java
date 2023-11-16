@@ -58,6 +58,7 @@ public class BigQueryStorageArrowPageSource
     private final PageBuilder pageBuilder;
 
     public BigQueryStorageArrowPageSource(
+            BigQueryTypeManager typeManager,
             BigQueryReadClient bigQueryReadClient,
             int maxReadRowsRetries,
             BigQuerySplit split,
@@ -70,7 +71,7 @@ public class BigQueryStorageArrowPageSource
         log.debug("Starting to read from %s", split.getStreamName());
         responses = new ReadRowsHelper(bigQueryReadClient, split.getStreamName(), maxReadRowsRetries).readRows();
         this.streamBufferAllocator = allocator.newChildAllocator(split.getStreamName(), 1024, Long.MAX_VALUE);
-        this.bigQueryArrowToPageConverter = new BigQueryArrowToPageConverter(streamBufferAllocator, schema, columns);
+        this.bigQueryArrowToPageConverter = new BigQueryArrowToPageConverter(typeManager, streamBufferAllocator, schema, columns);
         this.pageBuilder = new PageBuilder(columns.stream()
                 .map(BigQueryColumnHandle::getTrinoType)
                 .collect(toImmutableList()));

@@ -82,14 +82,16 @@ import static org.apache.arrow.vector.types.Types.MinorType.DECIMAL256;
 public class BigQueryArrowToPageConverter
         implements AutoCloseable
 {
+    private final BigQueryTypeManager typeManager;
     private final VectorSchemaRoot root;
     private final VectorLoader loader;
     private final BufferAllocator allocator;
     private final List<Type> columnTypes;
     private final List<String> columnNames;
 
-    public BigQueryArrowToPageConverter(BufferAllocator allocator, Schema schema, List<BigQueryColumnHandle> columns)
+    public BigQueryArrowToPageConverter(BigQueryTypeManager typeManager, BufferAllocator allocator, Schema schema, List<BigQueryColumnHandle> columns)
     {
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.allocator = requireNonNull(allocator, "allocator is null");
         this.columnTypes = requireNonNull(columns, "columns is null").stream()
                 .map(BigQueryColumnHandle::getTrinoType)
@@ -192,7 +194,7 @@ public class BigQueryArrowToPageConverter
 
     private void writeSlice(BlockBuilder output, Type type, FieldVector vector, int index)
     {
-        if (type instanceof VarcharType) {
+        if (type instanceof VarcharType || typeManager.isJsonType(type)) {
             byte[] slice = ((VarCharVector) vector).get(index);
             type.writeSlice(output, wrappedBuffer(slice));
         }

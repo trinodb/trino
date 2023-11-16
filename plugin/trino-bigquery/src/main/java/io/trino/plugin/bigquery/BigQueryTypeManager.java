@@ -19,6 +19,7 @@ import com.google.cloud.bigquery.LegacySQLTypeName;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
@@ -38,6 +39,8 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.TinyintType;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
+import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import jakarta.annotation.Nullable;
@@ -62,6 +65,7 @@ import static io.trino.plugin.bigquery.BigQueryMetadata.DEFAULT_NUMERIC_TYPE_PRE
 import static io.trino.plugin.bigquery.BigQueryMetadata.DEFAULT_NUMERIC_TYPE_SCALE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.TimeWithTimeZoneType.DEFAULT_PRECISION;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
@@ -78,6 +82,7 @@ import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public final class BigQueryTypeManager
@@ -96,6 +101,14 @@ public final class BigQueryTypeManager
     };
     private static final DateTimeFormatter TIME_FORMATTER = DateTimeFormatter.ofPattern("''HH:mm:ss.SSSSSS''");
     private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss.SSSSSS").withZone(UTC);
+
+    private final Type jsonType;
+
+    @Inject
+    public BigQueryTypeManager(TypeManager typeManager)
+    {
+        jsonType = requireNonNull(typeManager, "typeManager is null").getType(new TypeSignature(JSON));
+    }
 
     private RowType.Field toRawTypeField(String name, Field field)
     {
@@ -353,6 +366,8 @@ public final class BigQueryTypeManager
                 return Optional.of(new ColumnMapping(TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS, true));
             case GEOGRAPHY:
                 return Optional.of(new ColumnMapping(VarcharType.VARCHAR, false));
+            case JSON:
+                return Optional.of(new ColumnMapping(jsonType, false));
             case STRUCT:
                 // create the row
                 FieldList subTypes = field.getSubFields();
@@ -400,6 +415,11 @@ public final class BigQueryTypeManager
         }
 
         return toTrinoType(field).isPresent();
+    }
+
+    public boolean isJsonType(Type type)
+    {
+        return type.equals(jsonType);
     }
 
     private static Field.Mode getMode(Field field)

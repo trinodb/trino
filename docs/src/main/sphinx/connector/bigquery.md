@@ -212,6 +212,9 @@ to the following table:
   - In [Well-known text
     (WKT)](https://wikipedia.org/wiki/Well-known_text_representation_of_geometry)
     format
+* - `JSON`
+  - `JSON`
+  -
 * - `ARRAY`
   - `ARRAY`
   -

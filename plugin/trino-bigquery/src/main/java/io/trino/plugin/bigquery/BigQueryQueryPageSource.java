@@ -74,6 +74,7 @@ public class BigQueryQueryPageSource
             .optionalEnd()
             .toFormatter();
 
+    private final BigQueryTypeManager typeManager;
     private final List<String> columnNames;
     private final List<Type> columnTypes;
     private final PageBuilder pageBuilder;
@@ -83,6 +84,7 @@ public class BigQueryQueryPageSource
 
     public BigQueryQueryPageSource(
             ConnectorSession session,
+            BigQueryTypeManager typeManager,
             BigQueryClient client,
             BigQueryTableHandle table,
             List<String> columnNames,
@@ -94,6 +96,7 @@ public class BigQueryQueryPageSource
         requireNonNull(columnNames, "columnNames is null");
         requireNonNull(columnTypes, "columnTypes is null");
         requireNonNull(filter, "filter is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         checkArgument(columnNames.size() == columnTypes.size(), "columnNames and columnTypes sizes don't match");
         this.columnNames = ImmutableList.copyOf(columnNames);
         this.columnTypes = ImmutableList.copyOf(columnTypes);
@@ -235,9 +238,9 @@ public class BigQueryQueryPageSource
         }
     }
 
-    private static void writeSlice(BlockBuilder output, Type type, FieldValue value)
+    private void writeSlice(BlockBuilder output, Type type, FieldValue value)
     {
-        if (type instanceof VarcharType) {
+        if (type instanceof VarcharType || typeManager.isJsonType(type)) {
             type.writeSlice(output, utf8Slice(value.getStringValue()));
         }
         else if (type instanceof VarbinaryType) {
