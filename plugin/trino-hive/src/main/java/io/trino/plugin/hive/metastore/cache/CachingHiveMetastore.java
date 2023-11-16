@@ -48,8 +48,6 @@ import io.trino.plugin.hive.metastore.PartitionFilter;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.plugin.hive.metastore.TablesWithParameterCacheKey;
-import io.trino.plugin.hive.metastore.UserTableKey;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.LanguageFunction;
@@ -209,7 +207,7 @@ public final class CachingHiveMetastore
         tableCache = cacheFactory.buildCache(this::loadTable);
         viewNamesCache = cacheFactory.buildCache(this::loadAllViews);
         allViewNamesCache = cacheFactory.buildCache(ignore -> loadAllViews());
-        tablePrivilegesCache = cacheFactory.buildCache(key -> loadTablePrivileges(key.getDatabase(), key.getTable(), key.getOwner(), key.getPrincipal()));
+        tablePrivilegesCache = cacheFactory.buildCache(key -> loadTablePrivileges(key.database(), key.table(), key.owner(), key.principal()));
         rolesCache = cacheFactory.buildCache(ignored -> loadRoles());
         roleGrantsCache = cacheFactory.buildCache(this::loadRoleGrants);
         configValuesCache = cacheFactory.buildCache(this::loadConfigValue);
@@ -602,7 +600,7 @@ public final class CachingHiveMetastore
 
     private List<String> loadTablesMatchingParameter(TablesWithParameterCacheKey key)
     {
-        return delegate.getTablesWithParameter(key.getDatabaseName(), key.getParameterKey(), key.getParameterValue());
+        return delegate.getTablesWithParameter(key.databaseName(), key.parameterKey(), key.parameterValue());
     }
 
     @Override
@@ -807,7 +805,7 @@ public final class CachingHiveMetastore
     private void invalidateTablesWithParameterCache(String databaseName, String tableName)
     {
         tablesWithParameterCache.asMap().keySet().stream()
-                .filter(cacheKey -> cacheKey.getDatabaseName().equals(databaseName))
+                .filter(cacheKey -> cacheKey.databaseName().equals(databaseName))
                 .filter(cacheKey -> {
                     List<String> cacheValue = tablesWithParameterCache.getIfPresent(cacheKey);
                     return cacheValue != null && cacheValue.contains(tableName);
@@ -1233,6 +1231,24 @@ public final class CachingHiveMetastore
     private enum SingletonCacheKey
     {
         INSTANCE
+    }
+
+    record TablesWithParameterCacheKey(String databaseName, String parameterKey, String parameterValue) {}
+
+    record UserTableKey(Optional<HivePrincipal> principal, String database, String table, Optional<String> owner)
+    {
+        UserTableKey
+        {
+            requireNonNull(principal, "principal is null");
+            requireNonNull(database, "database is null");
+            requireNonNull(table, "table is null");
+            requireNonNull(owner, "owner is null");
+        }
+
+        public boolean matches(String databaseName, String tableName)
+        {
+            return this.database.equals(databaseName) && this.table.equals(tableName);
+        }
     }
 
     //
