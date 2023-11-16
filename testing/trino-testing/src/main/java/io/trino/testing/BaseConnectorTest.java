@@ -6553,7 +6553,14 @@ public abstract class BaseConnectorTest
     @Test
     public void testCreateFunction()
     {
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_FUNCTION));
+        if (!hasBehavior(SUPPORTS_CREATE_FUNCTION)) {
+            String catalog = getQueryRunner().getDefaultSession().getCatalog().orElseThrow();
+            String schema = getQueryRunner().getDefaultSession().getSchema().orElseThrow();
+            assertQueryFails(
+                    "CREATE FUNCTION " + catalog + "." + schema + ".test_create_function" + randomNameSuffix() + "(x integer) RETURNS bigint COMMENT 't42' RETURN x * 42",
+                    "This connector does not support creating functions");
+            return;
+        }
 
         String name = "test_" + randomNameSuffix();
         String name2 = "test_" + randomNameSuffix();
