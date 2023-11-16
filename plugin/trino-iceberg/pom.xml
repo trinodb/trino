@@ -24,7 +24,6 @@
           TODO (https://github.com/trinodb/trino/issues/11294) remove when we upgrade to surefire with https://issues.apache.org/jira/browse/SUREFIRE-1967
           -->
         <air.test.parallel>instances</air.test.parallel>
-        <dep.keycloak.version>21.1.2</dep.keycloak.version>
         <!-- Nessie version (matching to Iceberg release) must be bumped along with Iceberg version bump to avoid compatibility issues -->
         <dep.nessie.version>0.71.0</dep.nessie.version>
     </properties>
@@ -571,7 +570,7 @@
         <dependency>
             <groupId>org.keycloak</groupId>
             <artifactId>keycloak-admin-client-jakarta</artifactId>
-            <version>${dep.keycloak.version}</version>
+            <version>21.1.2</version>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -588,7 +587,7 @@
         <dependency>
             <groupId>org.keycloak</groupId>
             <artifactId>keycloak-core</artifactId>
-            <version>${dep.keycloak.version}</version>
+            <version>22.0.5</version>
             <scope>test</scope>
         </dependency>
 
