@@ -63,7 +63,6 @@ import static java.lang.String.format;
 import static java.nio.file.Files.createDirectories;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public final class HiveQueryRunner
@@ -360,18 +359,14 @@ public final class HiveQueryRunner
             Iterable<TpchTable<?>> tables,
             ColumnNaming columnNaming)
     {
-        log.info("Loading data from %s.%s...", sourceCatalog, sourceSchema);
-        long startTime = System.nanoTime();
         for (TpchTable<?> table : tables) {
             copyTableBucketed(queryRunner, new QualifiedObjectName(sourceCatalog, sourceSchema, table.getTableName().toLowerCase(ENGLISH)), table, session, columnNaming);
         }
-        log.info("Loading from %s.%s complete in %s", sourceCatalog, sourceSchema, nanosSince(startTime).toString(SECONDS));
     }
 
     private static void copyTableBucketed(QueryRunner queryRunner, QualifiedObjectName tableName, TpchTable<?> table, Session session, ColumnNaming columnNaming)
     {
         long start = System.nanoTime();
-        log.info("Running import for %s", tableName.getObjectName());
         @Language("SQL") String sql;
         switch (tableName.getObjectName()) {
             case "part":
@@ -400,7 +395,7 @@ public final class HiveQueryRunner
                 throw new UnsupportedOperationException();
         }
         long rows = (Long) queryRunner.execute(session, sql).getMaterializedRows().get(0).getField(0);
-        log.info("Imported %s rows for %s in %s", rows, tableName.getObjectName(), nanosSince(start).convertToMostSuccinctTimeUnit());
+        log.info("Imported %s rows from %s in %s", rows, tableName, nanosSince(start));
     }
 
     public static void main(String[] args)
