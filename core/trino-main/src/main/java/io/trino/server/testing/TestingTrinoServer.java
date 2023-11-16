@@ -120,15 +120,12 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.file.Path;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeoutException;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -265,6 +262,7 @@ public class TestingTrinoServer
 
         if (coordinator) {
             serverProperties.put("catalog.store", "memory");
+            serverProperties.put("failure-detector.enabled", "false");
 
             // Reduce memory footprint in tests
             serverProperties.put("query.min-expire-age", "5s");
@@ -681,18 +679,6 @@ public class TestingTrinoServer
         serviceSelectorManager.forceRefresh();
         nodeManager.refreshNodes();
         return nodeManager.getAllNodes();
-    }
-
-    public void waitForNodeRefresh(Duration timeout)
-            throws InterruptedException, TimeoutException
-    {
-        Instant start = Instant.now();
-        while (refreshNodes().getActiveNodes().size() < 1) {
-            if (Duration.between(start, Instant.now()).compareTo(timeout) > 0) {
-                throw new TimeoutException("Timed out while waiting for the node to refresh");
-            }
-            MILLISECONDS.sleep(10);
-        }
     }
 
     public <T> T getInstance(Key<T> key)

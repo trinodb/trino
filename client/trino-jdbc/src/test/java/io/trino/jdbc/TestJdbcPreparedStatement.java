@@ -44,7 +44,6 @@ import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
-import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -101,7 +100,6 @@ public class TestJdbcPreparedStatement
         server.installPlugin(new MemoryPlugin());
         server.createCatalog("blackhole", "blackhole");
         server.createCatalog("memory", "memory");
-        server.waitForNodeRefresh(Duration.ofSeconds(10));
 
         try (Connection connection = createConnection(false);
                 Statement statement = connection.createStatement()) {

@@ -36,7 +36,6 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
@@ -91,7 +90,6 @@ public class TestTrinoDriverAuth
                 .build();
         server.installPlugin(new TpchPlugin());
         server.createCatalog(TEST_CATALOG, "tpch");
-        server.waitForNodeRefresh(Duration.ofSeconds(10));
     }
 
     @AfterAll

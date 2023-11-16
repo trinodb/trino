@@ -110,7 +110,6 @@ public class TestOAuth2WebUiAuthenticationFilterWithRefreshTokens
                         .buildOrThrow())
                 .build();
         server.getInstance(Key.get(OAuth2Client.class)).load();
-        server.waitForNodeRefresh(Duration.ofSeconds(10));
         serverUri = server.getHttpsBaseUrl();
         uiUri = serverUri.resolve("/ui/");
 

@@ -112,7 +112,6 @@ public class TestTrinoDriver
         server.createCatalog(TEST_CATALOG, "tpch");
         server.installPlugin(new BlackHolePlugin());
         server.createCatalog("blackhole", "blackhole");
-        server.waitForNodeRefresh(java.time.Duration.ofSeconds(10));
         setupTestTables();
         executorService = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
     }
