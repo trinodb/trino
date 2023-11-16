@@ -12,25 +12,24 @@ performance.
 The following table describes catalog configuration properties for
 join pushdown:
 
-```{eval-rst}
-.. list-table::
-  :widths: 30, 40, 30
-  :header-rows: 1
+:::{list-table}
+:widths: 30, 40, 30
+:header-rows: 1
 
-  * - Property name
-    - Description
-    - Default value
-  * - ``join-pushdown.enabled``
-    - Enable :ref:`join pushdown <join-pushdown>`. Equivalent :ref:`catalog
-      session property <session-properties-definition>` is
-      ``join_pushdown_enabled``.
-    - ``true``
-  * - ``join-pushdown.strategy``
-    - Strategy used to evaluate whether join operations are pushed down. Set to
-      ``AUTOMATIC`` to enable cost-based join pushdown, or ``EAGER`` to
-      push down joins whenever possible. Note that ``EAGER`` can push down joins
-      even when table statistics are unavailable, which may result in degraded
-      query performance. Because of this, ``EAGER`` is only recommended for
-      testing and troubleshooting purposes.
-    - ``AUTOMATIC``
-```
+* - Property name
+  - Description
+  - Default value
+* - `join-pushdown.enabled`
+  - Enable [join pushdown](join-pushdown). Equivalent [catalog
+    session property](session-properties-definition) is
+    `join_pushdown_enabled`.
+  - `true`
+* - `join-pushdown.strategy`
+  - Strategy used to evaluate whether join operations are pushed down. Set to
+    `AUTOMATIC` to enable cost-based join pushdown, or `EAGER` to
+    push down joins whenever possible. Note that `EAGER` can push down joins
+    even when table statistics are unavailable, which may result in degraded
+    query performance. Because of this, `EAGER` is only recommended for
+    testing and troubleshooting purposes.
+  - `AUTOMATIC`
+:::

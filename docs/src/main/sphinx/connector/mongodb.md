@@ -315,23 +315,23 @@ SELECT CAST(_id AS VARCHAR), * FROM orders WHERE _id = ObjectId('55b151633864d64
 The first four bytes of each [ObjectId](https://docs.mongodb.com/manual/reference/method/ObjectId) represent
 an embedded timestamp of its creation time. Trino provides a couple of functions to take advantage of this MongoDB feature.
 
-```{eval-rst}
-.. function:: objectid_timestamp(ObjectId) -> timestamp
+:::{function} objectid_timestamp(ObjectId) -> timestamp
+Extracts the TIMESTAMP WITH TIME ZONE from a given ObjectId:
 
-    Extracts the TIMESTAMP WITH TIME ZONE from a given ObjectId::
-
-        SELECT objectid_timestamp(ObjectId('507f191e810c19729de860ea'));
-        -- 2012-10-17 20:46:22.000 UTC
+```sql
+SELECT objectid_timestamp(ObjectId('507f191e810c19729de860ea'));
+-- 2012-10-17 20:46:22.000 UTC
 ```
+:::
 
-```{eval-rst}
-.. function:: timestamp_objectid(timestamp) -> ObjectId
+:::{function} timestamp_objectid(timestamp) -> ObjectId
+Creates an ObjectId from a TIMESTAMP WITH TIME ZONE:
 
-    Creates an ObjectId from a TIMESTAMP WITH TIME ZONE::
-
-        SELECT timestamp_objectid(TIMESTAMP '2021-08-07 17:51:36 +00:00');
-        -- 61 0e c8 28 00 00 00 00 00 00 00 00
+```sql
+SELECT timestamp_objectid(TIMESTAMP '2021-08-07 17:51:36 +00:00');
+-- 61 0e c8 28 00 00 00 00 00 00 00 00
 ```
+:::
 
 In MongoDB, you can filter all the documents created after `2021-08-07 17:51:36`
 with a query like this:

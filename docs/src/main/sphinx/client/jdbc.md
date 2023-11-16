@@ -23,14 +23,12 @@ Download {maven_download}`jdbc` and add it to the classpath of your Java applica
 
 The driver is also available from Maven Central:
 
-```{eval-rst}
-.. parsed-literal::
-
-    <dependency>
-        <groupId>io.trino</groupId>
-        <artifactId>trino-jdbc</artifactId>
-        <version>\ |version|\ </version>
-    </dependency>
+```xml
+<dependency>
+    <groupId>io.trino</groupId>
+    <artifactId>trino-jdbc</artifactId>
+    <version>|trino_version|</version>
+</dependency>
 ```
 
 We recommend using the latest version of the JDBC driver. A list of all
