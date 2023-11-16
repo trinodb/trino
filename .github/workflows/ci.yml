@@ -578,7 +578,7 @@ jobs:
             - { modules: lib/trino-filesystem-gcs, profile: cloud-tests }
             - { modules: plugin/trino-accumulo }
             - { modules: plugin/trino-bigquery }
-            - { modules: plugin/trino-bigquery, profile: cloud-tests-arrow }
+            - { modules: plugin/trino-bigquery, profile: cloud-tests-arrow-and-fte }
             - { modules: plugin/trino-cassandra }
             - { modules: plugin/trino-clickhouse }
             - { modules: plugin/trino-delta-lake }
@@ -655,7 +655,7 @@ jobs:
           matrix.modules != 'plugin/trino-singlestore'
           && ! (contains(matrix.modules, 'trino-delta-lake') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests'))
-          && ! (contains(matrix.modules, 'trino-bigquery') && contains(matrix.profile, 'cloud-tests-arrow'))
+          && ! (contains(matrix.modules, 'trino-bigquery') && contains(matrix.profile, 'cloud-tests-arrow-and-fte'))
           && ! (contains(matrix.modules, 'trino-redshift') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-redshift') && contains(matrix.profile, 'fte-tests'))
           && ! (contains(matrix.modules, 'trino-filesystem-s3') && contains(matrix.profile, 'cloud-tests'))
@@ -758,25 +758,25 @@ jobs:
         env:
           BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CREDENTIALS_KEY }}
           GCP_STORAGE_BUCKET: ${{ vars.GCP_STORAGE_BUCKET }}
-        if: matrix.modules == 'plugin/trino-bigquery' && !contains(matrix.profile, 'cloud-tests-arrow') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.BIGQUERY_CREDENTIALS_KEY != '')
+        if: matrix.modules == 'plugin/trino-bigquery' && !contains(matrix.profile, 'cloud-tests-arrow-and-fte') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.BIGQUERY_CREDENTIALS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests \
             -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}" \
             -Dtesting.gcp-storage-bucket="${GCP_STORAGE_BUCKET}" \
             -Dtesting.alternate-bq-project-id=bigquery-cicd-alternate
-      - name: Cloud BigQuery Arrow Serialization Tests
+      - name: Cloud BigQuery Arrow and FTE Tests
         env:
           BIGQUERY_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CREDENTIALS_KEY }}
           GCP_STORAGE_BUCKET: ${{ vars.GCP_STORAGE_BUCKET }}
-        if: matrix.modules == 'plugin/trino-bigquery' && contains(matrix.profile, 'cloud-tests-arrow') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.BIGQUERY_CREDENTIALS_KEY != '')
+        if: matrix.modules == 'plugin/trino-bigquery' && contains(matrix.profile, 'cloud-tests-arrow-and-fte') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.BIGQUERY_CREDENTIALS_KEY != '')
         run: |
-          $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-arrow \
+          $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-arrow-and-fte \
             -Dbigquery.credentials-key="${BIGQUERY_CREDENTIALS_KEY}" \
             -Dtesting.gcp-storage-bucket="${GCP_STORAGE_BUCKET}"
       - name: Cloud BigQuery Case Insensitive Mapping Tests
         env:
           BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY: ${{ secrets.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY }}
-        if: matrix.modules == 'plugin/trino-bigquery' && !contains(matrix.profile, 'cloud-tests-arrow') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY != '')
+        if: matrix.modules == 'plugin/trino-bigquery' && !contains(matrix.profile, 'cloud-tests-arrow-and-fte') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-case-insensitive-mapping -Dbigquery.credentials-key="${BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY}"
       - name: Iceberg Cloud Tests
