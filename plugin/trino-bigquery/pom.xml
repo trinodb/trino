@@ -551,7 +551,6 @@
                                 <include>**/TestBigQueryAvroTypeMapping.java</include>
                                 <include>**/TestBigQueryMetadata.java</include>
                                 <include>**/TestBigQueryInstanceCleaner.java</include>
-                                <include>**/TestBigQuery*FailureRecoveryTest.java</include>
                                 <include>**/TestBigQueryWithProxyConnectorSmokeTest.java</include>
                             </includes>
                         </configuration>
@@ -585,7 +584,7 @@
 
         <!-- Separate profile for Arrow related tests since they require extra JVM args -->
         <profile>
-            <id>cloud-tests-arrow</id>
+            <id>cloud-tests-arrow-and-fte</id>
             <activation>
                 <activeByDefault>false</activeByDefault>
             </activation>
@@ -601,6 +600,7 @@
                             <includes>
                                 <include>**/TestBigQueryArrowConnectorSmokeTest.java</include>
                                 <include>**/TestBigQueryArrowTypeMapping.java</include>
+                                <include>**/TestBigQuery*FailureRecoveryTest.java</include>
                             </includes>
                         </configuration>
                     </plugin>
