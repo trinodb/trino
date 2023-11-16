@@ -48,7 +48,6 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
-import io.trino.testing.DataProviders;
 import org.apache.thrift.TException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeMethod;
@@ -928,8 +927,15 @@ public class TestCachingHiveMetastore
         assertEquals(metastore.getDatabaseNamesStats().getRequestCount(), 0);
     }
 
-    @Test(timeOut = 60_000, dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
-    public void testLoadAfterInvalidate(boolean invalidateAll)
+    @Test(timeOut = 60_000)
+    public void testLoadAfterInvalidate()
+            throws Exception
+    {
+        testLoadAfterInvalidate(true);
+        testLoadAfterInvalidate(false);
+    }
+
+    private void testLoadAfterInvalidate(boolean invalidateAll)
             throws Exception
     {
         // State

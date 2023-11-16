@@ -20,7 +20,6 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -41,8 +40,16 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTimestampMicros
 {
-    @Test(dataProvider = "testTimestampMicrosDataProvider")
-    public void testTimestampMicros(HiveTimestampPrecision timestampPrecision, LocalDateTime expected)
+    @Test
+    public void testTimestampMicros()
+            throws Exception
+    {
+        testTimestampMicros(HiveTimestampPrecision.MILLISECONDS, LocalDateTime.parse("2020-10-12T16:26:02.907"));
+        testTimestampMicros(HiveTimestampPrecision.MICROSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668"));
+        testTimestampMicros(HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668"));
+    }
+
+    private void testTimestampMicros(HiveTimestampPrecision timestampPrecision, LocalDateTime expected)
             throws Exception
     {
         File parquetFile = new File(Resources.getResource("issue-5483.parquet").toURI());
@@ -55,8 +62,16 @@ public class TestTimestampMicros
         }
     }
 
-    @Test(dataProvider = "testTimestampMicrosDataProvider")
-    public void testTimestampMicrosAsTimestampWithTimeZone(HiveTimestampPrecision timestampPrecision, LocalDateTime expected)
+    @Test
+    public void testTimestampMicrosAsTimestampWithTimeZone()
+            throws Exception
+    {
+        testTimestampMicrosAsTimestampWithTimeZone(HiveTimestampPrecision.MILLISECONDS, LocalDateTime.parse("2020-10-12T16:26:02.907"));
+        testTimestampMicrosAsTimestampWithTimeZone(HiveTimestampPrecision.MICROSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668"));
+        testTimestampMicrosAsTimestampWithTimeZone(HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668"));
+    }
+
+    private void testTimestampMicrosAsTimestampWithTimeZone(HiveTimestampPrecision timestampPrecision, LocalDateTime expected)
             throws Exception
     {
         File parquetFile = new File(Resources.getResource("issue-5483.parquet").toURI());
@@ -67,14 +82,5 @@ public class TestTimestampMicros
             assertThat(result.getMaterializedRows())
                     .containsOnly(new MaterializedRow(List.of(expected.atZone(ZoneId.of("UTC")))));
         }
-    }
-
-    @DataProvider
-    public static Object[][] testTimestampMicrosDataProvider()
-    {
-        return new Object[][] {
-                {HiveTimestampPrecision.MILLISECONDS, LocalDateTime.parse("2020-10-12T16:26:02.907")},
-                {HiveTimestampPrecision.MICROSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668")},
-                {HiveTimestampPrecision.NANOSECONDS, LocalDateTime.parse("2020-10-12T16:26:02.906668")}};
     }
 }
