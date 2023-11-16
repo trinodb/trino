@@ -135,6 +135,7 @@ public abstract class BaseBigQueryConnectorTest
         testPredicatePushdown("DATETIME '2018-04-01 02:13:55.123'", "TIMESTAMP '2018-04-01 02:13:55.123'", true);
 
         testPredicatePushdown("ST_GeogPoint(0, 0)", "'POINT(0 0)'", false);
+        testPredicatePushdown("JSON '{\"age\": 30}'", "JSON '{\"age\": 30}'", false);
         testPredicatePushdown("[true]", "ARRAY[true]", false);
         testPredicatePushdown("STRUCT('nested' AS x)", "ROW('nested')", false);
     }

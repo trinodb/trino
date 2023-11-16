@@ -83,6 +83,7 @@ public class BigQueryStorageAvroPageSource
     private static final AvroDecimalConverter DECIMAL_CONVERTER = new AvroDecimalConverter();
 
     private final BigQueryReadClient bigQueryReadClient;
+    private final BigQueryTypeManager typeManager;
     private final BigQuerySplit split;
     private final List<String> columnNames;
     private final List<Type> columnTypes;
@@ -92,11 +93,13 @@ public class BigQueryStorageAvroPageSource
 
     public BigQueryStorageAvroPageSource(
             BigQueryReadClient bigQueryReadClient,
+            BigQueryTypeManager typeManager,
             int maxReadRowsRetries,
             BigQuerySplit split,
             List<BigQueryColumnHandle> columns)
     {
         this.bigQueryReadClient = requireNonNull(bigQueryReadClient, "bigQueryReadClient is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.split = requireNonNull(split, "split is null");
         this.readBytes = new AtomicLong();
         requireNonNull(columns, "columns is null");
@@ -220,7 +223,7 @@ public class BigQueryStorageAvroPageSource
         }
     }
 
-    private static void writeSlice(BlockBuilder output, Type type, Object value)
+    private void writeSlice(BlockBuilder output, Type type, Object value)
     {
         if (type instanceof VarcharType) {
             type.writeSlice(output, utf8Slice(((Utf8) value).toString()));
@@ -232,6 +235,9 @@ public class BigQueryStorageAvroPageSource
             else {
                 output.appendNull();
             }
+        }
+        else if (typeManager.isJsonType(type)) {
+            type.writeSlice(output, utf8Slice(((Utf8) value).toString()));
         }
         else {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Slice: " + type.getTypeSignature());
