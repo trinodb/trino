@@ -1723,6 +1723,7 @@ public class LocalExecutionPlanner
                     context.getNextOperatorId(),
                     node.getId(),
                     processorProvider,
+                    node.getHandle().getCatalogHandle(),
                     node.getHandle().getFunctionHandle(),
                     properChannelsCount,
                     toIntExact(passThroughSourcesCount),

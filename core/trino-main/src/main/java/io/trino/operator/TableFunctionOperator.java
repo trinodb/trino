@@ -22,6 +22,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.RegularTableFunctionPartition.PassThroughColumnSpecification;
 import io.trino.spi.Page;
+import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SortOrder;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.function.table.TableFunctionProcessorProvider;
@@ -54,6 +56,7 @@ public class TableFunctionOperator
 
         // a provider of table function processor to be called once per partition
         private final TableFunctionProcessorProvider tableFunctionProvider;
+        private final CatalogHandle catalogHandle;
 
         // all information necessary to execute the table function collected during analysis
         private final ConnectorTableFunctionHandle functionHandle;
@@ -106,6 +109,7 @@ public class TableFunctionOperator
                 int operatorId,
                 PlanNodeId planNodeId,
                 TableFunctionProcessorProvider tableFunctionProvider,
+                CatalogHandle catalogHandle,
                 ConnectorTableFunctionHandle functionHandle,
                 int properChannelsCount,
                 int passThroughSourcesCount,
@@ -124,6 +128,7 @@ public class TableFunctionOperator
         {
             requireNonNull(planNodeId, "planNodeId is null");
             requireNonNull(tableFunctionProvider, "tableFunctionProvider is null");
+            requireNonNull(catalogHandle, "catalogHandle is null");
             requireNonNull(functionHandle, "functionHandle is null");
             requireNonNull(requiredChannels, "requiredChannels is null");
             requireNonNull(markerChannels, "markerChannels is null");
@@ -142,6 +147,7 @@ public class TableFunctionOperator
             this.operatorId = operatorId;
             this.planNodeId = planNodeId;
             this.tableFunctionProvider = tableFunctionProvider;
+            this.catalogHandle = catalogHandle;
             this.functionHandle = functionHandle;
             this.properChannelsCount = properChannelsCount;
             this.passThroughSourcesCount = passThroughSourcesCount;
@@ -170,6 +176,7 @@ public class TableFunctionOperator
             return new TableFunctionOperator(
                     operatorContext,
                     tableFunctionProvider,
+                    catalogHandle,
                     functionHandle,
                     properChannelsCount,
                     passThroughSourcesCount,
@@ -200,6 +207,7 @@ public class TableFunctionOperator
                     operatorId,
                     planNodeId,
                     tableFunctionProvider,
+                    catalogHandle,
                     functionHandle,
                     properChannelsCount,
                     passThroughSourcesCount,
@@ -219,7 +227,7 @@ public class TableFunctionOperator
     }
 
     private final OperatorContext operatorContext;
-
+    private final ConnectorSession session;
     private final PageBuffer pageBuffer = new PageBuffer();
     private final WorkProcessor<Page> outputPages;
     private final boolean processEmptyInput;
@@ -227,6 +235,7 @@ public class TableFunctionOperator
     public TableFunctionOperator(
             OperatorContext operatorContext,
             TableFunctionProcessorProvider tableFunctionProvider,
+            CatalogHandle catalogHandle,
             ConnectorTableFunctionHandle functionHandle,
             int properChannelsCount,
             int passThroughSourcesCount,
@@ -245,6 +254,7 @@ public class TableFunctionOperator
     {
         requireNonNull(operatorContext, "operatorContext is null");
         requireNonNull(tableFunctionProvider, "tableFunctionProvider is null");
+        requireNonNull(catalogHandle, "catalogHandle is null");
         requireNonNull(functionHandle, "functionHandle is null");
         requireNonNull(requiredChannels, "requiredChannels is null");
         requireNonNull(markerChannels, "markerChannels is null");
@@ -261,7 +271,7 @@ public class TableFunctionOperator
         requireNonNull(pagesIndexFactory, "pagesIndexFactory is null");
 
         this.operatorContext = operatorContext;
-
+        this.session = operatorContext.getSession().toConnectorSession(catalogHandle);
         this.processEmptyInput = !pruneWhenEmpty;
 
         PagesIndex pagesIndex = pagesIndexFactory.newPagesIndex(sourceTypes, expectedPositions);
@@ -273,6 +283,7 @@ public class TableFunctionOperator
                         groupPagesIndex,
                         hashStrategies,
                         tableFunctionProvider,
+                        session,
                         functionHandle,
                         properChannelsCount,
                         passThroughSourcesCount,
@@ -517,6 +528,7 @@ public class TableFunctionOperator
             PagesIndex pagesIndex,
             HashStrategies hashStrategies,
             TableFunctionProcessorProvider tableFunctionProvider,
+            ConnectorSession session,
             ConnectorTableFunctionHandle functionHandle,
             int properChannelsCount,
             int passThroughSourcesCount,
@@ -542,7 +554,7 @@ public class TableFunctionOperator
                         // empty PagesIndex can only be passed once as the result of PartitionAndSort. Neither this nor any future instance of Process will ever get an empty PagesIndex again.
                         processEmpty = false;
                         return WorkProcessor.ProcessState.ofResult(new EmptyTableFunctionPartition(
-                                tableFunctionProvider.getDataProcessor(functionHandle),
+                                tableFunctionProvider.getDataProcessor(session, functionHandle),
                                 properChannelsCount,
                                 passThroughSourcesCount,
                                 passThroughSpecifications.stream()
@@ -562,7 +574,7 @@ public class TableFunctionOperator
                         pagesIndex,
                         partitionStart,
                         partitionEnd,
-                        tableFunctionProvider.getDataProcessor(functionHandle),
+                        tableFunctionProvider.getDataProcessor(session, functionHandle),
                         properChannelsCount,
                         passThroughSourcesCount,
                         requiredChannels,
