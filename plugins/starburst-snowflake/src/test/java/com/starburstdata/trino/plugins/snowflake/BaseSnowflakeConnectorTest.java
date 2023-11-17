@@ -49,6 +49,7 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.testng.Assert.assertTrue;
 
 public abstract class BaseSnowflakeConnectorTest
@@ -157,6 +158,7 @@ public abstract class BaseSnowflakeConnectorTest
     }
 
     @Override
+    @org.junit.jupiter.api.Test
     public void testShowColumns()
     {
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
@@ -225,8 +227,8 @@ public abstract class BaseSnowflakeConnectorTest
         assertEqualsIgnoreOrder(actual, expected);
     }
 
-    @Test
     @Override
+    @org.junit.jupiter.api.Test
     public void testInformationSchemaFiltering()
     {
         assertQuery(
@@ -238,9 +240,10 @@ public abstract class BaseSnowflakeConnectorTest
     }
 
     @Override
+    @org.junit.jupiter.api.Test
     public void testTableSampleBernoulli()
     {
-        throw new SkipException("This test takes more than 10 minutes to finish.");
+        abort("This test takes more than 10 minutes to finish.");
     }
 
     @Override

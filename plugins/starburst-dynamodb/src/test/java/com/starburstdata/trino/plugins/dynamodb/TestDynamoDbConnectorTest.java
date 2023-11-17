@@ -14,6 +14,7 @@ import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -142,6 +143,7 @@ public class TestDynamoDbConnectorTest
     }
 
     @Override
+    @Test
     public void testShowColumns()
     {
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
