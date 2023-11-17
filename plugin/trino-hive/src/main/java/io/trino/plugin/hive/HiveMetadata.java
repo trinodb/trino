@@ -39,7 +39,6 @@ import io.trino.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavi
 import io.trino.plugin.hive.LocationService.WriteInfo;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
-import io.trino.plugin.hive.aws.athena.PartitionProjectionService;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
@@ -258,6 +257,9 @@ import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoView;
 import static io.trino.plugin.hive.acid.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.trino.plugin.hive.acid.AcidTransaction.forCreateTable;
+import static io.trino.plugin.hive.aws.athena.PartitionProjectionService.arePartitionProjectionPropertiesSet;
+import static io.trino.plugin.hive.aws.athena.PartitionProjectionService.getPartitionProjectionHiveTableProperties;
+import static io.trino.plugin.hive.aws.athena.PartitionProjectionService.getPartitionProjectionTrinoTableProperties;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.buildInitialPrivilegeSet;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getProtectMode;
@@ -301,6 +303,7 @@ import static io.trino.plugin.hive.util.Statistics.fromComputedStatistics;
 import static io.trino.plugin.hive.util.Statistics.reduce;
 import static io.trino.plugin.hive.util.SystemTables.getSourceTableNameFromSystemTable;
 import static io.trino.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
+import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -383,7 +386,7 @@ public class HiveMetadata
     private final HiveMaterializedViewMetadata hiveMaterializedViewMetadata;
     private final AccessControlMetadata accessControlMetadata;
     private final DirectoryLister directoryLister;
-    private final PartitionProjectionService partitionProjectionService;
+    private final boolean partitionProjectionEnabled;
     private final boolean allowTableRename;
     private final long maxPartitionDropsPerQuery;
     private final HiveTimestampPrecision hiveViewsTimestampPrecision;
@@ -411,7 +414,7 @@ public class HiveMetadata
             HiveMaterializedViewMetadata hiveMaterializedViewMetadata,
             AccessControlMetadata accessControlMetadata,
             DirectoryLister directoryLister,
-            PartitionProjectionService partitionProjectionService,
+            boolean partitionProjectionEnabled,
             boolean allowTableRename,
             long maxPartitionDropsPerQuery,
             HiveTimestampPrecision hiveViewsTimestampPrecision)
@@ -438,7 +441,7 @@ public class HiveMetadata
         this.hiveMaterializedViewMetadata = requireNonNull(hiveMaterializedViewMetadata, "hiveMaterializedViewMetadata is null");
         this.accessControlMetadata = requireNonNull(accessControlMetadata, "accessControlMetadata is null");
         this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
-        this.partitionProjectionService = requireNonNull(partitionProjectionService, "partitionProjectionService is null");
+        this.partitionProjectionEnabled = partitionProjectionEnabled;
         this.allowTableRename = allowTableRename;
         this.maxPartitionDropsPerQuery = maxPartitionDropsPerQuery;
         this.hiveViewsTimestampPrecision = requireNonNull(hiveViewsTimestampPrecision, "hiveViewsTimestampPrecision is null");
@@ -741,7 +744,7 @@ public class HiveMetadata
         }
 
         // Partition Projection specific properties
-        properties.putAll(PartitionProjectionService.getPartitionProjectionTrinoTableProperties(table));
+        properties.putAll(getPartitionProjectionTrinoTableProperties(table));
 
         return new ConnectorTableMetadata(tableName, columns, properties.buildOrThrow(), comment);
     }
@@ -1219,7 +1222,14 @@ public class HiveMetadata
         tableMetadata.getComment().ifPresent(value -> tableProperties.put(TABLE_COMMENT, value));
 
         // Partition Projection specific properties
-        tableProperties.putAll(partitionProjectionService.getPartitionProjectionHiveTableProperties(tableMetadata));
+        if (partitionProjectionEnabled) {
+            tableProperties.putAll(getPartitionProjectionHiveTableProperties(tableMetadata));
+        }
+        else if (arePartitionProjectionPropertiesSet(tableMetadata)) {
+            throw new TrinoException(
+                    INVALID_COLUMN_PROPERTY,
+                    "Partition projection is disabled. Enable it in configuration by setting " + HiveConfig.CONFIGURATION_HIVE_PARTITION_PROJECTION_ENABLED + "=true");
+        }
 
         Map<String, String> baseProperties = tableProperties.buildOrThrow();
 

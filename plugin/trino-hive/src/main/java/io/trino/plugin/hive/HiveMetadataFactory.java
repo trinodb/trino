@@ -20,7 +20,6 @@ import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
-import io.trino.plugin.hive.aws.athena.PartitionProjectionService;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.fs.TransactionScopeCachingDirectoryListerFactory;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
@@ -77,7 +76,7 @@ public class HiveMetadataFactory
     private final ScheduledExecutorService heartbeatService;
     private final DirectoryLister directoryLister;
     private final TransactionScopeCachingDirectoryListerFactory transactionScopeCachingDirectoryListerFactory;
-    private final PartitionProjectionService partitionProjectionService;
+    private final boolean partitionProjectionEnabled;
     private final boolean allowTableRename;
     private final HiveTimestampPrecision hiveViewsTimestampPrecision;
 
@@ -103,7 +102,6 @@ public class HiveMetadataFactory
             AccessControlMetadataFactory accessControlMetadataFactory,
             DirectoryLister directoryLister,
             TransactionScopeCachingDirectoryListerFactory transactionScopeCachingDirectoryListerFactory,
-            PartitionProjectionService partitionProjectionService,
             @AllowHiveTableRename boolean allowTableRename)
     {
         this(
@@ -139,7 +137,7 @@ public class HiveMetadataFactory
                 accessControlMetadataFactory,
                 directoryLister,
                 transactionScopeCachingDirectoryListerFactory,
-                partitionProjectionService,
+                hiveConfig.isPartitionProjectionEnabled(),
                 allowTableRename,
                 hiveConfig.getTimestampPrecision());
     }
@@ -177,7 +175,7 @@ public class HiveMetadataFactory
             AccessControlMetadataFactory accessControlMetadataFactory,
             DirectoryLister directoryLister,
             TransactionScopeCachingDirectoryListerFactory transactionScopeCachingDirectoryListerFactory,
-            PartitionProjectionService partitionProjectionService,
+            boolean partitionProjectionEnabled,
             boolean allowTableRename,
             HiveTimestampPrecision hiveViewsTimestampPrecision)
     {
@@ -220,7 +218,7 @@ public class HiveMetadataFactory
         this.heartbeatService = requireNonNull(heartbeatService, "heartbeatService is null");
         this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
         this.transactionScopeCachingDirectoryListerFactory = requireNonNull(transactionScopeCachingDirectoryListerFactory, "transactionScopeCachingDirectoryListerFactory is null");
-        this.partitionProjectionService = requireNonNull(partitionProjectionService, "partitionProjectionService is null");
+        this.partitionProjectionEnabled = partitionProjectionEnabled;
         this.allowTableRename = allowTableRename;
         this.hiveViewsTimestampPrecision = requireNonNull(hiveViewsTimestampPrecision, "hiveViewsTimestampPrecision is null");
     }
@@ -268,7 +266,7 @@ public class HiveMetadataFactory
                 hiveMaterializedViewMetadataFactory.create(hiveMetastoreClosure),
                 accessControlMetadataFactory.create(metastore),
                 directoryLister,
-                partitionProjectionService,
+                partitionProjectionEnabled,
                 allowTableRename,
                 maxPartitionDropsPerQuery,
                 hiveViewsTimestampPrecision);
