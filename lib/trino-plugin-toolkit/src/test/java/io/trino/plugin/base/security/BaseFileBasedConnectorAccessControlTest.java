@@ -294,13 +294,13 @@ public abstract class BaseFileBasedConnectorAccessControlTest
 
         accessControl.checkCanShowColumns(ALICE, bobTable);
         assertEquals(
-                accessControl.filterColumns(ALICE, bobTable, ImmutableSet.of("a")),
-                ImmutableSet.of("a"));
+                accessControl.filterColumns(ALICE, Map.of(bobTable, ImmutableSet.of("a"))),
+                Map.of(bobTable, ImmutableSet.of("a")));
         accessControl.checkCanSelectFromColumns(BOB, bobTable, ImmutableSet.of());
         accessControl.checkCanShowColumns(BOB, bobTable);
         assertEquals(
-                accessControl.filterColumns(BOB, bobTable, ImmutableSet.of("a")),
-                ImmutableSet.of("a"));
+                accessControl.filterColumns(BOB, Map.of(bobTable, ImmutableSet.of("a"))),
+                Map.of(bobTable, ImmutableSet.of("a")));
 
         accessControl.checkCanInsertIntoTable(BOB, bobTable);
         accessControl.checkCanDeleteFromTable(BOB, bobTable);
@@ -491,11 +491,12 @@ public abstract class BaseFileBasedConnectorAccessControlTest
     public void testNoTableRules()
     {
         ConnectorAccessControl accessControl = createAccessControl("no-access.json");
-        assertDenied(() -> accessControl.checkCanShowColumns(BOB, new SchemaTableName("bobschema", "bobtable")));
+        SchemaTableName bobTable = new SchemaTableName("bobschema", "bobtable");
+        assertDenied(() -> accessControl.checkCanShowColumns(BOB, bobTable));
         assertDenied(() -> accessControl.checkCanShowTables(BOB, "bobschema"));
         assertEquals(
-                accessControl.filterColumns(BOB, new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of("a")),
-                ImmutableSet.of());
+                accessControl.filterColumns(BOB, Map.of(bobTable, ImmutableSet.of("a"))),
+                Map.of(bobTable, ImmutableSet.of()));
 
         Set<SchemaTableName> tables = ImmutableSet.<SchemaTableName>builder()
                 .add(new SchemaTableName("restricted", "any"))
