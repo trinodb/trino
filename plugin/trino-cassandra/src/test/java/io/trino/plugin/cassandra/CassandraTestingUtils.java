@@ -34,7 +34,7 @@ import java.util.UUID;
 import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.literal;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public final class CassandraTestingUtils
 {
@@ -101,7 +101,7 @@ public final class CassandraTestingUtils
         session.execute(format("INSERT INTO %s (key, typetuple) VALUES (1, (1, 'text-1', 1.11))", table));
         session.execute(format("INSERT INTO %s (key, typetuple) VALUES (2, (2, 'text-2', 2.22))", table));
 
-        assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), 2);
+        assertThat(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0)).isEqualTo(2);
     }
 
     private static void createTableUserDefinedType(CassandraSession session, SchemaTableName table)
@@ -167,7 +167,7 @@ public final class CassandraTestingUtils
                 "}" +
                 ");", table));
 
-        assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), 1);
+        assertThat(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0)).isEqualTo(1);
     }
 
     private static void insertTestData(CassandraSession session, SchemaTableName table, Date date, int rowsCount)
@@ -199,7 +199,7 @@ public final class CassandraTestingUtils
 
             session.execute(insert);
         }
-        assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), rowsCount);
+        assertThat(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0)).isEqualTo(rowsCount);
     }
 
     private static void createTableDeleteData(CassandraSession session, SchemaTableName table)
@@ -259,6 +259,6 @@ public final class CassandraTestingUtils
         session.execute(QueryBuilder.insertInto(table.getSchemaName(), table.getTableName())
                 .value("partition_one", literal(2L)).value("partition_two", literal(2)).value("clust_one", literal("clust_one_" + 1)).build());
 
-        assertEquals(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0), 15);
+        assertThat(session.execute("SELECT COUNT(*) FROM " + table).all().get(0).getLong(0)).isEqualTo(15);
     }
 }

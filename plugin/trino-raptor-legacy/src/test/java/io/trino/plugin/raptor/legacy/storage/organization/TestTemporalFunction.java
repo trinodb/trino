@@ -23,8 +23,8 @@ import java.time.Duration;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.joda.time.DateTimeZone.UTC;
-import static org.testng.Assert.assertEquals;
 
 public class TestTemporalFunction
 {
@@ -38,8 +38,8 @@ public class TestTemporalFunction
         DATE.writeLong(blockBuilder, 42);
         Block block = blockBuilder.build();
 
-        assertEquals(TemporalFunction.getDay(DATE, block, 0), 13);
-        assertEquals(TemporalFunction.getDay(DATE, block, 1), 42);
+        assertThat(TemporalFunction.getDay(DATE, block, 0)).isEqualTo(13);
+        assertThat(TemporalFunction.getDay(DATE, block, 1)).isEqualTo(42);
     }
 
     @Test
@@ -53,18 +53,18 @@ public class TestTemporalFunction
 
         Block block = blockBuilder.build();
 
-        assertEquals(TemporalFunction.getDay(TIMESTAMP_MILLIS, block, 0), 1);
-        assertEquals(TemporalFunction.getDay(TIMESTAMP_MILLIS, block, 1), 1);
+        assertThat(TemporalFunction.getDay(TIMESTAMP_MILLIS, block, 0)).isEqualTo(1);
+        assertThat(TemporalFunction.getDay(TIMESTAMP_MILLIS, block, 1)).isEqualTo(1);
     }
 
     @Test
     public void testDateShardRange()
     {
-        assertEquals(TemporalFunction.getDayFromRange(dateRange(2, 2)), 2);
-        assertEquals(TemporalFunction.getDayFromRange(dateRange(13, 13)), 13);
+        assertThat(TemporalFunction.getDayFromRange(dateRange(2, 2))).isEqualTo(2);
+        assertThat(TemporalFunction.getDayFromRange(dateRange(13, 13))).isEqualTo(13);
 
         // date is determined from lowest shard
-        assertEquals(TemporalFunction.getDayFromRange(dateRange(2, 5)), 2);
+        assertThat(TemporalFunction.getDayFromRange(dateRange(2, 5))).isEqualTo(2);
     }
 
     @Test
@@ -73,13 +73,13 @@ public class TestTemporalFunction
         // The time frame should be look like following:
 
         // time range covers full day of day 1
-        assertEquals(TemporalFunction.getDayFromRange(timeRange(DATE_TIME.getMillis(), Duration.ofDays(1))), 1);
+        assertThat(TemporalFunction.getDayFromRange(timeRange(DATE_TIME.getMillis(), Duration.ofDays(1)))).isEqualTo(1);
         // time range covers full day of day 1 and 2
-        assertEquals(TemporalFunction.getDayFromRange(timeRange(DATE_TIME.getMillis(), Duration.ofDays(2))), 2);
+        assertThat(TemporalFunction.getDayFromRange(timeRange(DATE_TIME.getMillis(), Duration.ofDays(2)))).isEqualTo(2);
         // time range covers 13 hours of day 1 and 11 hours of day 2
-        assertEquals(TemporalFunction.getDayFromRange(timeRange(DATE_TIME.getMillis() + Duration.ofHours(11).toMillis(), Duration.ofHours(24))), 1);
+        assertThat(TemporalFunction.getDayFromRange(timeRange(DATE_TIME.getMillis() + Duration.ofHours(11).toMillis(), Duration.ofHours(24)))).isEqualTo(1);
         // time range covers 11 hours of day 0 and 13 hours of day 1
-        assertEquals(TemporalFunction.getDayFromRange(timeRange(DATE_TIME.getMillis() + Duration.ofHours(13).toMillis(), Duration.ofHours(24))), 2);
+        assertThat(TemporalFunction.getDayFromRange(timeRange(DATE_TIME.getMillis() + Duration.ofHours(13).toMillis(), Duration.ofHours(24)))).isEqualTo(2);
     }
 
     private static ShardRange dateRange(int start, int end)

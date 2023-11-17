@@ -49,7 +49,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestBeginQuery
         extends AbstractTestQueryFramework
@@ -124,8 +124,8 @@ public class TestBeginQuery
     {
         metadata.resetCounters();
         computeActual(query);
-        assertEquals(metadata.begin.get(), 1);
-        assertEquals(metadata.end.get(), 1);
+        assertThat(metadata.begin.get()).isEqualTo(1);
+        assertThat(metadata.end.get()).isEqualTo(1);
         metadata.resetCounters();
     }
 

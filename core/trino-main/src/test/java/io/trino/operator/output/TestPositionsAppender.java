@@ -77,9 +77,7 @@ import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPositionsAppender
 {
@@ -190,7 +188,7 @@ public class TestPositionsAppender
         positionsAppender.append(allPositions(2), rleBlock(value, 2));
 
         Block actual = positionsAppender.build();
-        assertEquals(actual.getPositionCount(), 5);
+        assertThat(actual.getPositionCount()).isEqualTo(5);
         assertInstanceOf(actual, RunLengthEncodedBlock.class);
     }
 
@@ -204,7 +202,7 @@ public class TestPositionsAppender
         positionsAppender.append(allPositions(2), rleBlock(value, 2));
 
         Block actual = positionsAppender.build();
-        assertEquals(actual.getPositionCount(), 5);
+        assertThat(actual.getPositionCount()).isEqualTo(5);
         assertInstanceOf(actual, RunLengthEncodedBlock.class);
         assertBlockEquals(type.getType(), actual, RunLengthEncodedBlock.create(value, 5));
     }
@@ -220,8 +218,10 @@ public class TestPositionsAppender
         positionsAppender.append(0, rleBlock(value, 2));
 
         Block actual = positionsAppender.build();
-        assertEquals(actual.getPositionCount(), 6);
-        assertFalse(actual instanceof RunLengthEncodedBlock, actual.getClass().getSimpleName());
+        assertThat(actual.getPositionCount()).isEqualTo(6);
+        assertThat(actual instanceof RunLengthEncodedBlock)
+                .describedAs(actual.getClass().getSimpleName())
+                .isFalse();
     }
 
     @Test(dataProvider = "types")
@@ -241,9 +241,9 @@ public class TestPositionsAppender
         positionsAppender.append(allPositions(2), createRandomDictionaryBlock(dictionary, 2));
 
         Block actual = positionsAppender.build();
-        assertEquals(actual.getPositionCount(), 5);
+        assertThat(actual.getPositionCount()).isEqualTo(5);
         assertInstanceOf(actual, DictionaryBlock.class);
-        assertEquals(((DictionaryBlock) actual).getDictionary(), dictionary);
+        assertThat(((DictionaryBlock) actual).getDictionary()).isEqualTo(dictionary);
     }
 
     @Test(dataProvider = "types")
@@ -294,15 +294,15 @@ public class TestPositionsAppender
 
         // empty block
         positionsAppender.append(positions(), emptyBlock(type));
-        assertEquals(positionsAppender.build().getPositionCount(), 0);
+        assertThat(positionsAppender.build().getPositionCount()).isEqualTo(0);
 
         Block block = createRandomBlockForType(type, 2, 0.5f);
         // append only null position
         int nullPosition = block.isNull(0) ? 0 : 1;
         positionsAppender.append(positions(nullPosition), block);
         Block actualNullBlock = positionsAppender.build();
-        assertEquals(actualNullBlock.getPositionCount(), 1);
-        assertTrue(actualNullBlock.isNull(0));
+        assertThat(actualNullBlock.getPositionCount()).isEqualTo(1);
+        assertThat(actualNullBlock.isNull(0)).isTrue();
 
         // append null and not null position
         positionsAppender.append(allPositions(2), block);
@@ -324,7 +324,7 @@ public class TestPositionsAppender
         assertBlockEquals(type.getType(), positionsAppender.build(), dictionaryBlock);
 
         // just build to confirm appender was reset
-        assertEquals(positionsAppender.build().getPositionCount(), 0);
+        assertThat(positionsAppender.build().getPositionCount()).isEqualTo(0);
     }
 
     // testcase for jit bug described https://github.com/trinodb/trino/issues/12821.
@@ -489,8 +489,8 @@ public class TestPositionsAppender
         positionsAppender.append(positions, source);
         positionsAppender.append(positions, source);
         Block actual = positionsAppender.build();
-        assertTrue(actual.isNull(0));
-        assertEquals(actual.getPositionCount(), positions.size() * 2);
+        assertThat(actual.isNull(0)).isTrue();
+        assertThat(actual.getPositionCount()).isEqualTo(positions.size() * 2);
         assertInstanceOf(actual, RunLengthEncodedBlock.class);
     }
 
@@ -517,10 +517,10 @@ public class TestPositionsAppender
 
         assertBlockIsValid(actual, sizeInBytes, type.getType(), inputs);
         // verify positionsAppender reset
-        assertEquals(positionsAppender.getSizeInBytes(), 0);
-        assertEquals(positionsAppender.getRetainedSizeInBytes(), initialRetainedSize);
+        assertThat(positionsAppender.getSizeInBytes()).isEqualTo(0);
+        assertThat(positionsAppender.getRetainedSizeInBytes()).isEqualTo(initialRetainedSize);
         Block secondBlock = positionsAppender.build();
-        assertEquals(secondBlock.getPositionCount(), 0);
+        assertThat(secondBlock.getPositionCount()).isEqualTo(0);
     }
 
     private static void testAppendSingle(TestType type, List<BlockView> inputs)
@@ -535,10 +535,10 @@ public class TestPositionsAppender
 
         assertBlockIsValid(actual, sizeInBytes, type.getType(), inputs);
         // verify positionsAppender reset
-        assertEquals(positionsAppender.getSizeInBytes(), 0);
-        assertEquals(positionsAppender.getRetainedSizeInBytes(), initialRetainedSize);
+        assertThat(positionsAppender.getSizeInBytes()).isEqualTo(0);
+        assertThat(positionsAppender.getRetainedSizeInBytes()).isEqualTo(initialRetainedSize);
         Block secondBlock = positionsAppender.build();
-        assertEquals(secondBlock.getPositionCount(), 0);
+        assertThat(secondBlock.getPositionCount()).isEqualTo(0);
     }
 
     private static void assertBlockIsValid(Block actual, long sizeInBytes, Type type, List<BlockView> inputs)
@@ -548,7 +548,7 @@ public class TestPositionsAppender
         Block expected = buildBlock(type, inputs, blockBuilderStatus);
 
         assertBlockEquals(type, actual, expected);
-        assertEquals(sizeInBytes, pageBuilderStatus.getSizeInBytes());
+        assertThat(sizeInBytes).isEqualTo(pageBuilderStatus.getSizeInBytes());
     }
 
     private static Block buildBlock(Type type, List<BlockView> inputs, BlockBuilderStatus blockBuilderStatus)

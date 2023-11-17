@@ -95,9 +95,6 @@ import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_METHOD)
 public class TestCreateTableTask
@@ -176,7 +173,7 @@ public class TestCreateTableTask
 
         CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
         getFutureValue(createTableTask.internalExecute(statement, testSession, emptyList(), output -> {}));
-        assertEquals(metadata.getCreateTableCallCount(), 1);
+        assertThat(metadata.getCreateTableCallCount()).isEqualTo(1);
     }
 
     @Test
@@ -193,7 +190,7 @@ public class TestCreateTableTask
                 .hasErrorCode(ALREADY_EXISTS)
                 .hasMessage("Table already exists");
 
-        assertEquals(metadata.getCreateTableCallCount(), 1);
+        assertThat(metadata.getCreateTableCallCount()).isEqualTo(1);
     }
 
     @Test
@@ -207,7 +204,7 @@ public class TestCreateTableTask
 
         CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
         getFutureValue(createTableTask.internalExecute(statement, testSession, emptyList(), output -> {}));
-        assertEquals(metadata.getCreateTableCallCount(), 1);
+        assertThat(metadata.getCreateTableCallCount()).isEqualTo(1);
         assertThat(metadata.getReceivedTableMetadata().get(0).getColumns())
                 .isEqualTo(ImmutableList.of(new ColumnMetadata("a", BIGINT)));
     }
@@ -226,7 +223,7 @@ public class TestCreateTableTask
                 .hasErrorCode(INVALID_TABLE_PROPERTY)
                 .hasMessage("Catalog 'test_catalog' table property 'foo' does not exist");
 
-        assertEquals(metadata.getCreateTableCallCount(), 0);
+        assertThat(metadata.getCreateTableCallCount()).isEqualTo(0);
     }
 
     @Test
@@ -241,21 +238,21 @@ public class TestCreateTableTask
 
         CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
         getFutureValue(createTableTask.internalExecute(statement, testSession, emptyList(), output -> {}));
-        assertEquals(metadata.getCreateTableCallCount(), 1);
+        assertThat(metadata.getCreateTableCallCount()).isEqualTo(1);
         List<ColumnMetadata> columns = metadata.getReceivedTableMetadata().get(0).getColumns();
-        assertEquals(columns.size(), 3);
+        assertThat(columns.size()).isEqualTo(3);
 
-        assertEquals(columns.get(0).getName(), "a");
-        assertEquals(columns.get(0).getType().getDisplayName().toUpperCase(ENGLISH), "DATE");
-        assertTrue(columns.get(0).isNullable());
+        assertThat(columns.get(0).getName()).isEqualTo("a");
+        assertThat(columns.get(0).getType().getDisplayName().toUpperCase(ENGLISH)).isEqualTo("DATE");
+        assertThat(columns.get(0).isNullable()).isTrue();
 
-        assertEquals(columns.get(1).getName(), "b");
-        assertEquals(columns.get(1).getType().getDisplayName().toUpperCase(ENGLISH), "VARCHAR");
-        assertFalse(columns.get(1).isNullable());
+        assertThat(columns.get(1).getName()).isEqualTo("b");
+        assertThat(columns.get(1).getType().getDisplayName().toUpperCase(ENGLISH)).isEqualTo("VARCHAR");
+        assertThat(columns.get(1).isNullable()).isFalse();
 
-        assertEquals(columns.get(2).getName(), "c");
-        assertEquals(columns.get(2).getType().getDisplayName().toUpperCase(ENGLISH), "VARBINARY");
-        assertFalse(columns.get(2).isNullable());
+        assertThat(columns.get(2).getName()).isEqualTo("c");
+        assertThat(columns.get(2).getType().getDisplayName().toUpperCase(ENGLISH)).isEqualTo("VARBINARY");
+        assertThat(columns.get(2).isNullable()).isFalse();
     }
 
     @Test
@@ -286,7 +283,7 @@ public class TestCreateTableTask
 
         CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
         getFutureValue(createTableTask.internalExecute(statement, testSession, List.of(), output -> {}));
-        assertEquals(metadata.getCreateTableCallCount(), 1);
+        assertThat(metadata.getCreateTableCallCount()).isEqualTo(1);
 
         assertThat(metadata.getReceivedTableMetadata().get(0).getColumns())
                 .isEqualTo(PARENT_TABLE.getColumns());
@@ -300,7 +297,7 @@ public class TestCreateTableTask
 
         CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
         getFutureValue(createTableTask.internalExecute(statement, testSession, List.of(), output -> {}));
-        assertEquals(metadata.getCreateTableCallCount(), 1);
+        assertThat(metadata.getCreateTableCallCount()).isEqualTo(1);
 
         assertThat(metadata.getReceivedTableMetadata().get(0).getColumns())
                 .isEqualTo(PARENT_TABLE.getColumns());
@@ -315,7 +312,7 @@ public class TestCreateTableTask
 
         CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
         getFutureValue(createTableTask.internalExecute(statement, testSession, List.of(), output -> {}));
-        assertEquals(metadata.getCreateTableCallCount(), 1);
+        assertThat(metadata.getCreateTableCallCount()).isEqualTo(1);
 
         assertThat(metadata.getReceivedTableMetadata().get(0).getColumns())
                 .isEqualTo(PARENT_TABLE.getColumns());
@@ -411,7 +408,7 @@ public class TestCreateTableTask
 
         CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
         getFutureValue(createTableTask.internalExecute(statement, testSession, List.of(), output -> {}));
-        assertEquals(metadata.getCreateTableCallCount(), 1);
+        assertThat(metadata.getCreateTableCallCount()).isEqualTo(1);
 
         assertThat(metadata.getReceivedTableMetadata().get(0).getColumns())
                 .isEqualTo(ImmutableList.of(new ColumnMetadata("a", TIMESTAMP_MILLIS)));

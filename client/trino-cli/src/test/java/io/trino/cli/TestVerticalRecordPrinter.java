@@ -22,7 +22,7 @@ import java.util.List;
 import static io.trino.cli.TestAlignedTablePrinter.bytes;
 import static io.trino.cli.TestAlignedTablePrinter.row;
 import static io.trino.cli.TestAlignedTablePrinter.rows;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestVerticalRecordPrinter
 {
@@ -65,7 +65,7 @@ public class TestVerticalRecordPrinter
                 "last     | done\n" +
                 "quantity | -15\n";
 
-        assertEquals(writer.getBuffer().toString(), expected);
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 
     @Test
@@ -83,7 +83,7 @@ public class TestVerticalRecordPrinter
                 "-[ RECORD 1 ]\n" +
                 "a | x\n";
 
-        assertEquals(writer.getBuffer().toString(), expected);
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 
     @Test
@@ -101,7 +101,7 @@ public class TestVerticalRecordPrinter
                 "-[ RECORD 1 ]+------\n" +
                 "shippriority | hello\n";
 
-        assertEquals(writer.getBuffer().toString(), expected);
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 
     @Test
@@ -119,7 +119,7 @@ public class TestVerticalRecordPrinter
                 "-[ RECORD 1 ]--+------\n" +
                 "order_priority | hello\n";
 
-        assertEquals(writer.getBuffer().toString(), expected);
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 
     @Test
@@ -137,7 +137,7 @@ public class TestVerticalRecordPrinter
                 "-[ RECORD 1 ]----+------\n" +
                 "order_priority\u7f51 | hello\n";
 
-        assertEquals(writer.getBuffer().toString(), expected);
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 
     @Test
@@ -155,7 +155,7 @@ public class TestVerticalRecordPrinter
                 "-[ RECORD 1 ]-----\n" +
                 "name | hello\u7f51 bye\n";
 
-        assertEquals(writer.getBuffer().toString(), expected);
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 
     @Test
@@ -168,7 +168,7 @@ public class TestVerticalRecordPrinter
 
         printer.finish();
 
-        assertEquals(writer.getBuffer().toString(), "(no rows)\n");
+        assertThat(writer.getBuffer().toString()).isEqualTo("(no rows)\n");
     }
 
     @Test
@@ -202,6 +202,6 @@ public class TestVerticalRecordPrinter
                 "binary | \n" +
                 "last   | dog\n";
 
-        assertEquals(writer.getBuffer().toString(), expected);
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 }

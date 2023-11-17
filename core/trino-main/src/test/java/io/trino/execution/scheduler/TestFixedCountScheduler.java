@@ -38,10 +38,9 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -76,10 +75,10 @@ public class TestFixedCountScheduler
                 generateRandomNodes(1));
 
         ScheduleResult result = nodeScheduler.schedule();
-        assertTrue(result.isFinished());
-        assertTrue(result.getBlocked().isDone());
-        assertEquals(result.getNewTasks().size(), 1);
-        assertTrue(result.getNewTasks().iterator().next().getNodeId().equals("other 0"));
+        assertThat(result.isFinished()).isTrue();
+        assertThat(result.getBlocked().isDone()).isTrue();
+        assertThat(result.getNewTasks().size()).isEqualTo(1);
+        assertThat(result.getNewTasks().iterator().next().getNodeId().equals("other 0")).isTrue();
     }
 
     @Test
@@ -93,10 +92,10 @@ public class TestFixedCountScheduler
                 generateRandomNodes(5));
 
         ScheduleResult result = nodeScheduler.schedule();
-        assertTrue(result.isFinished());
-        assertTrue(result.getBlocked().isDone());
-        assertEquals(result.getNewTasks().size(), 5);
-        assertEquals(result.getNewTasks().stream().map(RemoteTask::getNodeId).collect(toImmutableSet()).size(), 5);
+        assertThat(result.isFinished()).isTrue();
+        assertThat(result.getBlocked().isDone()).isTrue();
+        assertThat(result.getNewTasks().size()).isEqualTo(5);
+        assertThat(result.getNewTasks().stream().map(RemoteTask::getNodeId).collect(toImmutableSet()).size()).isEqualTo(5);
     }
 
     private static List<InternalNode> generateRandomNodes(int count)

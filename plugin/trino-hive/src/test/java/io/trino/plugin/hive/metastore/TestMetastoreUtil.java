@@ -50,7 +50,6 @@ import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestMetastoreUtil
 {
@@ -167,7 +166,7 @@ public class TestMetastoreUtil
     {
         Table table = ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE, TEST_SCHEMA);
         io.trino.hive.thrift.metastore.Table metastoreApiTable = ThriftMetastoreUtil.toMetastoreApiTable(table, NO_PRIVILEGES);
-        assertEquals(metastoreApiTable, TEST_TABLE);
+        assertThat(metastoreApiTable).isEqualTo(TEST_TABLE);
     }
 
     @Test
@@ -175,21 +174,21 @@ public class TestMetastoreUtil
     {
         Partition partition = ThriftMetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION);
         io.trino.hive.thrift.metastore.Partition metastoreApiPartition = ThriftMetastoreUtil.toMetastoreApiPartition(partition);
-        assertEquals(metastoreApiPartition, TEST_PARTITION);
+        assertThat(metastoreApiPartition).isEqualTo(TEST_PARTITION);
     }
 
     @Test
     public void testHiveSchemaTable()
     {
         Map<String, String> actual = MetastoreUtil.getHiveSchema(ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, TEST_SCHEMA));
-        assertEquals(actual, TEST_TABLE_METADATA);
+        assertThat(actual).isEqualTo(TEST_TABLE_METADATA);
     }
 
     @Test
     public void testHiveSchemaPartition()
     {
         Map<String, String> actual = MetastoreUtil.getHiveSchema(ThriftMetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION_WITH_UNSUPPORTED_FIELDS), ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, TEST_SCHEMA));
-        assertEquals(actual, TEST_TABLE_METADATA);
+        assertThat(actual).isEqualTo(TEST_TABLE_METADATA);
     }
 
     @Test
@@ -199,10 +198,10 @@ public class TestMetastoreUtil
                 .map(fieldSchema -> new FieldSchema(fieldSchema.getName(), fieldSchema.getType().toUpperCase(Locale.ENGLISH), fieldSchema.getComment()))
                 .toList();
         Map<String, String> actualTable = MetastoreUtil.getHiveSchema(ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, testSchema));
-        assertEquals(actualTable, TEST_TABLE_METADATA);
+        assertThat(actualTable).isEqualTo(TEST_TABLE_METADATA);
 
         Map<String, String> actualPartition = MetastoreUtil.getHiveSchema(ThriftMetastoreUtil.fromMetastoreApiPartition(TEST_PARTITION_WITH_UNSUPPORTED_FIELDS), ThriftMetastoreUtil.fromMetastoreApiTable(TEST_TABLE_WITH_UNSUPPORTED_FIELDS, testSchema));
-        assertEquals(actualPartition, TEST_TABLE_METADATA);
+        assertThat(actualPartition).isEqualTo(TEST_TABLE_METADATA);
     }
 
     @Test

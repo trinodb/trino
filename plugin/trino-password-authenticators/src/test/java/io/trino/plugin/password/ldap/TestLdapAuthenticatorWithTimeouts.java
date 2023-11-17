@@ -32,9 +32,9 @@ import static eu.rekawek.toxiproxy.model.ToxicDirection.DOWNSTREAM;
 import static io.trino.plugin.password.ldap.TestingOpenLdapServer.LDAP_PORT;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
 public class TestLdapAuthenticatorWithTimeouts
@@ -93,10 +93,8 @@ public class TestLdapAuthenticatorWithTimeouts
                     .hasMessageMatching(".*Authentication error.*");
 
             LdapClientConfig withIncreasedTimeout = ldapConfig.setLdapConnectionTimeout(new Duration(30, SECONDS));
-            assertEquals(
-                    new LdapAuthenticator(new LdapAuthenticatorClient(new JdkLdapClient(withIncreasedTimeout)), ldapAuthenticatorConfig)
-                            .createAuthenticatedPrincipal("alice", "alice-pass"),
-                    new BasicPrincipal("alice"));
+            assertThat(new LdapAuthenticator(new LdapAuthenticatorClient(new JdkLdapClient(withIncreasedTimeout)), ldapAuthenticatorConfig)
+                    .createAuthenticatedPrincipal("alice", "alice-pass")).isEqualTo(new BasicPrincipal("alice"));
         }
     }
 
@@ -127,13 +125,11 @@ public class TestLdapAuthenticatorWithTimeouts
                     .hasMessageMatching(".*Authentication error.*");
 
             LdapClientConfig withIncreasedTimeout = ldapConfig.setLdapReadTimeout(new Duration(30, SECONDS));
-            assertEquals(
-                    new LdapAuthenticator(
-                            new LdapAuthenticatorClient(
-                                    new JdkLdapClient(withIncreasedTimeout)),
-                            ldapAuthenticatorConfig)
-                            .createAuthenticatedPrincipal("alice", "alice-pass"),
-                    new BasicPrincipal("alice"));
+            assertThat(new LdapAuthenticator(
+                    new LdapAuthenticatorClient(
+                            new JdkLdapClient(withIncreasedTimeout)),
+                    ldapAuthenticatorConfig)
+                    .createAuthenticatedPrincipal("alice", "alice-pass")).isEqualTo(new BasicPrincipal("alice"));
         }
     }
 }

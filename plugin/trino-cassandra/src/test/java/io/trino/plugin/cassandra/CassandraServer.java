@@ -52,8 +52,8 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testcontainers.utility.MountableFile.forHostPath;
-import static org.testng.Assert.assertEquals;
 
 public class CassandraServer
         implements Closeable
@@ -159,7 +159,7 @@ public class CassandraServer
     {
         ResultSet result = session.execute("SELECT release_version FROM system.local");
         List<Row> rows = result.all();
-        assertEquals(rows.size(), 1);
+        assertThat(rows.size()).isEqualTo(1);
         String version = rows.get(0).getString(0);
         log.debug("Cassandra version: %s", version);
     }

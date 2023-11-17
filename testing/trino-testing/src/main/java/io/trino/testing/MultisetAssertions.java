@@ -22,7 +22,7 @@ import java.util.stream.Stream;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.lang.String.join;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Fail.fail;
 
 public final class MultisetAssertions
 {

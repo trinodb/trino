@@ -23,8 +23,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 
 import static io.trino.spi.block.Fixed12Block.FIXED12_BYTES;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestFixed12Block
         extends AbstractTestBlock
@@ -52,16 +51,16 @@ public class TestFixed12Block
         Fixed12BlockBuilder emptyBlockBuilder = new Fixed12BlockBuilder(null, 0);
 
         Fixed12BlockBuilder blockBuilder = new Fixed12BlockBuilder(null, expectedValues.length);
-        assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
-        assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
+        assertThat(blockBuilder.getSizeInBytes()).isEqualTo(emptyBlockBuilder.getSizeInBytes());
+        assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(emptyBlockBuilder.getRetainedSizeInBytes());
 
         writeValues(expectedValues, blockBuilder);
-        assertTrue(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes());
-        assertTrue(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes());
+        assertThat(blockBuilder.getSizeInBytes() > emptyBlockBuilder.getSizeInBytes()).isTrue();
+        assertThat(blockBuilder.getRetainedSizeInBytes() > emptyBlockBuilder.getRetainedSizeInBytes()).isTrue();
 
         blockBuilder = (Fixed12BlockBuilder) blockBuilder.newBlockBuilderLike(null);
-        assertEquals(blockBuilder.getSizeInBytes(), emptyBlockBuilder.getSizeInBytes());
-        assertEquals(blockBuilder.getRetainedSizeInBytes(), emptyBlockBuilder.getRetainedSizeInBytes());
+        assertThat(blockBuilder.getSizeInBytes()).isEqualTo(emptyBlockBuilder.getSizeInBytes());
+        assertThat(blockBuilder.getRetainedSizeInBytes()).isEqualTo(emptyBlockBuilder.getRetainedSizeInBytes());
     }
 
     @Test
@@ -127,8 +126,8 @@ public class TestFixed12Block
     @Override
     protected void assertPositionEquals(Block block, int position, Slice expectedBytes)
     {
-        assertEquals(block.getLong(position, 0), expectedBytes.getLong(0));
-        assertEquals(block.getInt(position, 8), expectedBytes.getInt(8));
+        assertThat(block.getLong(position, 0)).isEqualTo(expectedBytes.getLong(0));
+        assertThat(block.getInt(position, 8)).isEqualTo(expectedBytes.getInt(8));
     }
 
     @Override

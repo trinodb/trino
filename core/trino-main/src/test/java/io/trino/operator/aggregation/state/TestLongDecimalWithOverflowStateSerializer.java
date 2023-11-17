@@ -19,9 +19,7 @@ import io.trino.spi.block.VariableWidthBlockBuilder;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLongDecimalWithOverflowStateSerializer
 {
@@ -38,10 +36,10 @@ public class TestLongDecimalWithOverflowStateSerializer
 
         LongDecimalWithOverflowState outState = roundTrip(state, expectedLength);
 
-        assertTrue(outState.isNotNull());
-        assertEquals(outState.getDecimalArray()[0], high);
-        assertEquals(outState.getDecimalArray()[1], low);
-        assertEquals(outState.getOverflow(), overflow);
+        assertThat(outState.isNotNull()).isTrue();
+        assertThat(outState.getDecimalArray()[0]).isEqualTo(high);
+        assertThat(outState.getDecimalArray()[1]).isEqualTo(low);
+        assertThat(outState.getOverflow()).isEqualTo(overflow);
     }
 
     @Test
@@ -52,7 +50,7 @@ public class TestLongDecimalWithOverflowStateSerializer
 
         LongDecimalWithOverflowState outState = roundTrip(state, 0);
 
-        assertFalse(outState.isNotNull());
+        assertThat(outState.isNotNull()).isFalse();
     }
 
     private LongDecimalWithOverflowState roundTrip(LongDecimalWithOverflowState state, int expectedLength)
@@ -63,7 +61,7 @@ public class TestLongDecimalWithOverflowStateSerializer
         serializer.serialize(state, out);
 
         Block serialized = out.build();
-        assertEquals(serialized.getSliceLength(0), expectedLength * Long.BYTES);
+        assertThat(serialized.getSliceLength(0)).isEqualTo(expectedLength * Long.BYTES);
         LongDecimalWithOverflowState outState = STATE_FACTORY.createSingleState();
         serializer.deserialize(serialized, 0, outState);
         return outState;

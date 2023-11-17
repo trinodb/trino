@@ -27,8 +27,7 @@ import static io.trino.orc.metadata.statistics.DecimalStatistics.DECIMAL_VALUE_B
 import static io.trino.orc.metadata.statistics.ShortDecimalStatisticsBuilder.SHORT_DECIMAL_VALUE_BYTES;
 import static java.lang.Long.MAX_VALUE;
 import static java.lang.Long.MIN_VALUE;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestShortDecimalStatisticsBuilder
         extends AbstractStatisticsBuilderTest<ShortDecimalStatisticsBuilder, Long>
@@ -74,8 +73,8 @@ public class TestShortDecimalStatisticsBuilder
     @Override
     void assertRangeStatistics(RangeStatistics<?> rangeStatistics, Long expectedMin, Long expectedMax)
     {
-        assertNotNull(rangeStatistics);
-        assertEquals(rangeStatistics.getMin(), new BigDecimal(BigInteger.valueOf(expectedMin), SCALE));
-        assertEquals(rangeStatistics.getMax(), new BigDecimal(BigInteger.valueOf(expectedMax), SCALE));
+        assertThat(rangeStatistics).isNotNull();
+        assertThat(rangeStatistics.getMin()).isEqualTo(new BigDecimal(BigInteger.valueOf(expectedMin), SCALE));
+        assertThat(rangeStatistics.getMax()).isEqualTo(new BigDecimal(BigInteger.valueOf(expectedMax), SCALE));
     }
 }

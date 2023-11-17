@@ -49,8 +49,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Float.floatToIntBits;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestReadBloomFilter
 {
@@ -89,7 +88,7 @@ public class TestReadBloomFilter
 
             // without predicate a normal block will be created
             try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, OrcPredicate.TRUE, type, MAX_BATCH_SIZE)) {
-                assertEquals(recordReader.nextPage().getLoadedPage().getPositionCount(), MAX_BATCH_SIZE);
+                assertThat(recordReader.nextPage().getLoadedPage().getPositionCount()).isEqualTo(MAX_BATCH_SIZE);
             }
 
             // predicate for specific value within the min/max range without bloom filter being enabled
@@ -98,7 +97,7 @@ public class TestReadBloomFilter
                     .build();
 
             try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, noBloomFilterPredicate, type, MAX_BATCH_SIZE)) {
-                assertEquals(recordReader.nextPage().getLoadedPage().getPositionCount(), MAX_BATCH_SIZE);
+                assertThat(recordReader.nextPage().getLoadedPage().getPositionCount()).isEqualTo(MAX_BATCH_SIZE);
             }
 
             // predicate for specific value within the min/max range with bloom filter enabled, but a value not in the bloom filter
@@ -108,7 +107,7 @@ public class TestReadBloomFilter
                     .build();
 
             try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, notMatchBloomFilterPredicate, type, MAX_BATCH_SIZE)) {
-                assertNull(recordReader.nextPage());
+                assertThat(recordReader.nextPage()).isNull();
             }
 
             // predicate for specific value within the min/max range with bloom filter enabled, and a value in the bloom filter
@@ -118,7 +117,7 @@ public class TestReadBloomFilter
                     .build();
 
             try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, matchBloomFilterPredicate, type, MAX_BATCH_SIZE)) {
-                assertEquals(recordReader.nextPage().getLoadedPage().getPositionCount(), MAX_BATCH_SIZE);
+                assertThat(recordReader.nextPage().getLoadedPage().getPositionCount()).isEqualTo(MAX_BATCH_SIZE);
             }
         }
     }
@@ -130,8 +129,8 @@ public class TestReadBloomFilter
         OrcReader orcReader = OrcReader.createOrcReader(orcDataSource, READER_OPTIONS)
                 .orElseThrow(() -> new RuntimeException("File is empty"));
 
-        assertEquals(orcReader.getColumnNames(), ImmutableList.of("test"));
-        assertEquals(orcReader.getFooter().getRowsInRowGroup().orElse(0), 10_000);
+        assertThat(orcReader.getColumnNames()).isEqualTo(ImmutableList.of("test"));
+        assertThat(orcReader.getFooter().getRowsInRowGroup().orElse(0)).isEqualTo(10_000);
 
         return orcReader.createRecordReader(
                 orcReader.getRootColumn().getNestedColumns(),

@@ -29,7 +29,7 @@ import static com.google.common.base.Strings.nullToEmpty;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Fail.fail;
 
 class EventsAwaitingQueries
 {

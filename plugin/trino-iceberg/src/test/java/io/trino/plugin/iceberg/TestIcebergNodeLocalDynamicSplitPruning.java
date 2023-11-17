@@ -76,9 +76,7 @@ import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.iceberg.types.Types.NestedField.optional;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIcebergNodeLocalDynamicSplitPruning
 {
@@ -114,16 +112,16 @@ public class TestIcebergNodeLocalDynamicSplitPruning
             writeOrcContent(outputFile);
 
             try (ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, icebergConfig, inputFile, getDynamicFilter(getTupleDomainForSplitPruning()))) {
-                assertNull(emptyPageSource.getNextPage());
+                assertThat(emptyPageSource.getNextPage()).isNull();
             }
 
             try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, icebergConfig, inputFile, getDynamicFilter(getNonSelectiveTupleDomain()))) {
                 Page page = nonEmptyPageSource.getNextPage();
-                assertNotNull(page);
-                assertEquals(page.getBlock(0).getPositionCount(), 1);
-                assertEquals(page.getBlock(0).getInt(0, 0), KEY_COLUMN_VALUE);
-                assertEquals(page.getBlock(1).getPositionCount(), 1);
-                assertEquals(page.getBlock(1).getSlice(0, 0, page.getBlock(1).getSliceLength(0)).toStringUtf8(), DATA_COLUMN_VALUE);
+                assertThat(page).isNotNull();
+                assertThat(page.getBlock(0).getPositionCount()).isEqualTo(1);
+                assertThat(page.getBlock(0).getInt(0, 0)).isEqualTo(KEY_COLUMN_VALUE);
+                assertThat(page.getBlock(1).getPositionCount()).isEqualTo(1);
+                assertThat(page.getBlock(1).getSlice(0, 0, page.getBlock(1).getSliceLength(0)).toStringUtf8()).isEqualTo(DATA_COLUMN_VALUE);
             }
         }
     }

@@ -31,11 +31,9 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Fail.fail;
 
 // run single threaded to avoid creating multiple query runners at once
 @Test(singleThreaded = true)
@@ -108,10 +106,10 @@ public class TestMinWorkerRequirement
                 .setNodeCount(4)
                 .build()) {
             queryRunner.execute("SELECT COUNT(*) from lineitem");
-            assertEquals(queryRunner.getCoordinator().refreshNodes().getActiveNodes().size(), 4);
+            assertThat(queryRunner.getCoordinator().refreshNodes().getActiveNodes().size()).isEqualTo(4);
 
             queryRunner.getServers().get(0).close();
-            assertEquals(queryRunner.getCoordinator().refreshNodes().getActiveNodes().size(), 3);
+            assertThat(queryRunner.getCoordinator().refreshNodes().getActiveNodes().size()).isEqualTo(3);
             assertThatThrownBy(() -> queryRunner.execute("SELECT COUNT(*) from lineitem"))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessage("Insufficient active worker nodes. Waited 1.00ns for at least 4 workers, but only 3 workers are active");
@@ -169,7 +167,7 @@ public class TestMinWorkerRequirement
 
             // After adding 2 nodes, query should run
             queryRunner.addServers(2);
-            assertEquals(queryRunner.getCoordinator().refreshNodes().getActiveNodes().size(), 6);
+            assertThat(queryRunner.getCoordinator().refreshNodes().getActiveNodes().size()).isEqualTo(6);
             queryRunner.execute(require6Workers, "SELECT COUNT(*) from lineitem");
         }
     }
@@ -199,32 +197,32 @@ public class TestMinWorkerRequirement
 
             MILLISECONDS.sleep(1000);
             // None of the queries should run
-            assertFalse(queryFuture1.isDone());
-            assertFalse(queryFuture2.isDone());
-            assertFalse(queryFuture3.isDone());
+            assertThat(queryFuture1.isDone()).isFalse();
+            assertThat(queryFuture2.isDone()).isFalse();
+            assertThat(queryFuture3.isDone()).isFalse();
 
             queryRunner.addServers(1);
-            assertEquals(queryRunner.getCoordinator().refreshNodes().getActiveNodes().size(), 2);
+            assertThat(queryRunner.getCoordinator().refreshNodes().getActiveNodes().size()).isEqualTo(2);
             // After adding 1 node, only 1st query should run
             MILLISECONDS.sleep(1000);
-            assertTrue(queryFuture1.get().getResult().getRowCount() > 0);
+            assertThat(queryFuture1.get().getResult().getRowCount() > 0).isTrue();
             QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
             QueryInfo completedQueryInfo = queryManager.getFullQueryInfo(queryFuture1.get().getQueryId());
-            assertTrue(completedQueryInfo.getQueryStats().getResourceWaitingTime().roundTo(SECONDS) >= 1);
+            assertThat(completedQueryInfo.getQueryStats().getResourceWaitingTime().roundTo(SECONDS) >= 1).isTrue();
 
-            assertFalse(queryFuture2.isDone());
-            assertFalse(queryFuture3.isDone());
+            assertThat(queryFuture2.isDone()).isFalse();
+            assertThat(queryFuture3.isDone()).isFalse();
 
             // After adding 2 nodes, 2nd and 3rd query should also run
             queryRunner.addServers(2);
-            assertEquals(queryRunner.getCoordinator().refreshNodes().getActiveNodes().size(), 4);
-            assertTrue(queryFuture2.get().getResult().getRowCount() > 0);
+            assertThat(queryRunner.getCoordinator().refreshNodes().getActiveNodes().size()).isEqualTo(4);
+            assertThat(queryFuture2.get().getResult().getRowCount() > 0).isTrue();
             completedQueryInfo = queryManager.getFullQueryInfo(queryFuture2.get().getQueryId());
-            assertTrue(completedQueryInfo.getQueryStats().getResourceWaitingTime().roundTo(SECONDS) >= 2);
+            assertThat(completedQueryInfo.getQueryStats().getResourceWaitingTime().roundTo(SECONDS) >= 2).isTrue();
 
-            assertTrue(queryFuture3.get().getResult().getRowCount() > 0);
+            assertThat(queryFuture3.get().getResult().getRowCount() > 0).isTrue();
             completedQueryInfo = queryManager.getFullQueryInfo(queryFuture3.get().getQueryId());
-            assertTrue(completedQueryInfo.getQueryStats().getResourceWaitingTime().roundTo(SECONDS) >= 2);
+            assertThat(completedQueryInfo.getQueryStats().getResourceWaitingTime().roundTo(SECONDS) >= 2).isTrue();
         }
         finally {
             service.shutdown();

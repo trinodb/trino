@@ -45,9 +45,7 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Fail.fail;
 
 public final class QueryAssertions
 {
@@ -93,7 +91,9 @@ public final class QueryAssertions
             if (count.isEmpty()) {
                 fail("expected no update count, but got " + results.getUpdateCount().getAsLong());
             }
-            assertEquals(results.getUpdateCount().getAsLong(), count.getAsLong(), "update count");
+            assertThat(results.getUpdateCount().getAsLong())
+                    .describedAs("update count")
+                    .isEqualTo(count.getAsLong());
         }
         else if (count.isPresent()) {
             fail("update count is not present");
@@ -138,7 +138,9 @@ public final class QueryAssertions
             if (count.isEmpty()) {
                 fail("expected no update count, but got " + results.getUpdateCount().getAsLong() + " for query " + queryId);
             }
-            assertEquals(results.getUpdateCount().getAsLong(), count.getAsLong(), "update count for query " + queryId);
+            assertThat(results.getUpdateCount().getAsLong())
+                    .describedAs("update count for query " + queryId)
+                    .isEqualTo(count.getAsLong());
         }
         else if (count.isPresent()) {
             fail("update count is not present for query " + queryId);
@@ -243,16 +245,26 @@ public final class QueryAssertions
             if (actualResults.getUpdateCount().isEmpty()) {
                 fail("update count not present for query: \n" + actual);
             }
-            assertEquals(actualRows.size(), 1, "For query: \n " + actual + "\n:");
-            assertEquals(expectedRows.size(), 1, "For query: \n " + actual + "\n:");
+            assertThat(actualRows.size())
+                    .describedAs("For query: \n " + actual + "\n:")
+                    .isEqualTo(1);
+            assertThat(expectedRows.size())
+                    .describedAs("For query: \n " + actual + "\n:")
+                    .isEqualTo(1);
             MaterializedRow row = expectedRows.get(0);
-            assertEquals(row.getFieldCount(), 1, "For query: \n " + actual + "\n:");
-            assertEquals(row.getField(0), actualResults.getUpdateCount().getAsLong(), "For query: \n " + actual + "\n:");
+            assertThat(row.getFieldCount())
+                    .describedAs("For query: \n " + actual + "\n:")
+                    .isEqualTo(1);
+            assertThat(row.getField(0))
+                    .describedAs("For query: \n " + actual + "\n:")
+                    .isEqualTo(actualResults.getUpdateCount().getAsLong());
         }
 
         if (ensureOrdering) {
             if (!actualRows.equals(expectedRows)) {
-                assertEquals(actualRows, expectedRows, "For query: \n " + actual + "\n:");
+                assertThat(actualRows)
+                        .describedAs("For query: \n " + actual + "\n:")
+                        .isEqualTo(expectedRows);
             }
         }
         else {
@@ -332,16 +344,26 @@ public final class QueryAssertions
             if (actualResults.getUpdateCount().isEmpty()) {
                 fail("update count not present for query " + queryId + ": \n" + actual);
             }
-            assertEquals(actualRows.size(), 1, "For query " + queryId + ": \n " + actual + "\n:");
-            assertEquals(expectedRows.size(), 1, "For query " + queryId + ": \n " + actual + "\n:");
+            assertThat(actualRows.size())
+                    .describedAs("For query " + queryId + ": \n " + actual + "\n:")
+                    .isEqualTo(1);
+            assertThat(expectedRows.size())
+                    .describedAs("For query " + queryId + ": \n " + actual + "\n:")
+                    .isEqualTo(1);
             MaterializedRow row = expectedRows.get(0);
-            assertEquals(row.getFieldCount(), 1, "For query " + queryId + ": \n " + actual + "\n:");
-            assertEquals(row.getField(0), actualResults.getUpdateCount().getAsLong(), "For query " + queryId + ": \n " + actual + "\n:");
+            assertThat(row.getFieldCount())
+                    .describedAs("For query " + queryId + ": \n " + actual + "\n:")
+                    .isEqualTo(1);
+            assertThat(row.getField(0))
+                    .describedAs("For query " + queryId + ": \n " + actual + "\n:")
+                    .isEqualTo(actualResults.getUpdateCount().getAsLong());
         }
 
         if (ensureOrdering) {
             if (!actualRows.equals(expectedRows)) {
-                assertEquals(actualRows, expectedRows, "For query " + queryId + ": \n " + actual + "\n:");
+                assertThat(actualRows)
+                        .describedAs("For query " + queryId + ": \n " + actual + "\n:")
+                        .isEqualTo(expectedRows);
             }
         }
         else {
@@ -370,8 +392,12 @@ public final class QueryAssertions
 
     public static void assertEqualsIgnoreOrder(Iterable<?> actual, Iterable<?> expected, String message)
     {
-        assertNotNull(actual, "actual is null");
-        assertNotNull(expected, "expected is null");
+        assertThat(actual)
+                .describedAs("actual is null")
+                .isNotNull();
+        assertThat(expected)
+                .describedAs("expected is null")
+                .isNotNull();
 
         ImmutableMultiset<?> actualSet = ImmutableMultiset.copyOf(actual);
         ImmutableMultiset<?> expectedSet = ImmutableMultiset.copyOf(expected);
@@ -465,8 +491,8 @@ public final class QueryAssertions
             else {
                 results = queryRunner.execute(session, sql).toTestTypes();
             }
-            assertNotNull(results);
-            assertEquals(results.getRowCount(), 0);
+            assertThat(results).isNotNull();
+            assertThat(results.getRowCount()).isEqualTo(0);
         }
         catch (RuntimeException ex) {
             if (queryId == null) {

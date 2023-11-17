@@ -106,8 +106,6 @@ import static org.apache.iceberg.TableProperties.SPLIT_SIZE;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 public class TestIcebergV2
@@ -586,9 +584,9 @@ public class TestIcebergV2
     {
         String tableName = "test_upgrade_table_to_v2_from_trino_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 1) AS SELECT * FROM tpch.tiny.nation", 25);
-        assertEquals(loadTable(tableName).operations().current().formatVersion(), 1);
+        assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(1);
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 2");
-        assertEquals(loadTable(tableName).operations().current().formatVersion(), 2);
+        assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(2);
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
     }
 
@@ -597,7 +595,7 @@ public class TestIcebergV2
     {
         String tableName = "test_downgrading_v2_table_to_v1_fails_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 2) AS SELECT * FROM tpch.tiny.nation", 25);
-        assertEquals(loadTable(tableName).operations().current().formatVersion(), 2);
+        assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(2);
         assertThatThrownBy(() -> query("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 1"))
                 .hasMessage("Failed to set new property values")
                 .rootCause()
@@ -609,7 +607,7 @@ public class TestIcebergV2
     {
         String tableName = "test_upgrading_to_invalid_version_fails_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 2) AS SELECT * FROM tpch.tiny.nation", 25);
-        assertEquals(loadTable(tableName).operations().current().formatVersion(), 2);
+        assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(2);
         assertThatThrownBy(() -> query("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 42"))
                 .hasMessage("Unable to set catalog 'iceberg' table property 'format_version' to [42]: format_version must be between 1 and 2");
     }
@@ -620,23 +618,23 @@ public class TestIcebergV2
         String tableName = "test_updating_all_table_properties_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 1, format = 'ORC') AS SELECT * FROM tpch.tiny.nation", 25);
         BaseTable table = loadTable(tableName);
-        assertEquals(table.operations().current().formatVersion(), 1);
-        assertTrue(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("ORC"));
-        assertTrue(table.spec().isUnpartitioned());
+        assertThat(table.operations().current().formatVersion()).isEqualTo(1);
+        assertThat(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("ORC")).isTrue();
+        assertThat(table.spec().isUnpartitioned()).isTrue();
 
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 2, partitioning = ARRAY['regionkey'], format = 'PARQUET', sorted_by = ARRAY['comment']");
         table = loadTable(tableName);
-        assertEquals(table.operations().current().formatVersion(), 2);
-        assertTrue(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("PARQUET"));
-        assertTrue(table.spec().isPartitioned());
+        assertThat(table.operations().current().formatVersion()).isEqualTo(2);
+        assertThat(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("PARQUET")).isTrue();
+        assertThat(table.spec().isPartitioned()).isTrue();
         List<PartitionField> partitionFields = table.spec().fields();
         assertThat(partitionFields).hasSize(1);
-        assertEquals(partitionFields.get(0).name(), "regionkey");
-        assertTrue(partitionFields.get(0).transform().isIdentity());
-        assertTrue(table.sortOrder().isSorted());
+        assertThat(partitionFields.get(0).name()).isEqualTo("regionkey");
+        assertThat(partitionFields.get(0).transform().isIdentity()).isTrue();
+        assertThat(table.sortOrder().isSorted()).isTrue();
         List<SortField> sortFields = table.sortOrder().fields();
-        assertEquals(sortFields.size(), 1);
-        assertEquals(getOnlyElement(sortFields).sourceId(), table.schema().findField("comment").fieldId());
+        assertThat(sortFields.size()).isEqualTo(1);
+        assertThat(getOnlyElement(sortFields).sourceId()).isEqualTo(table.schema().findField("comment").fieldId());
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
     }
 
@@ -647,20 +645,20 @@ public class TestIcebergV2
         assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 1, format = 'PARQUET', partitioning = ARRAY['regionkey'], sorted_by = ARRAY['comment']) " +
                 "AS SELECT * FROM tpch.tiny.nation", 25);
         BaseTable table = loadTable(tableName);
-        assertEquals(table.operations().current().formatVersion(), 1);
-        assertTrue(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("PARQUET"));
-        assertTrue(table.spec().isPartitioned());
+        assertThat(table.operations().current().formatVersion()).isEqualTo(1);
+        assertThat(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("PARQUET")).isTrue();
+        assertThat(table.spec().isPartitioned()).isTrue();
         List<PartitionField> partitionFields = table.spec().fields();
         assertThat(partitionFields).hasSize(1);
-        assertEquals(partitionFields.get(0).name(), "regionkey");
-        assertTrue(partitionFields.get(0).transform().isIdentity());
+        assertThat(partitionFields.get(0).name()).isEqualTo("regionkey");
+        assertThat(partitionFields.get(0).transform().isIdentity()).isTrue();
 
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES format_version = DEFAULT, format = DEFAULT, partitioning = DEFAULT, sorted_by = DEFAULT");
         table = loadTable(tableName);
-        assertEquals(table.operations().current().formatVersion(), 2);
-        assertTrue(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("PARQUET"));
-        assertTrue(table.spec().isUnpartitioned());
-        assertTrue(table.sortOrder().isUnsorted());
+        assertThat(table.operations().current().formatVersion()).isEqualTo(2);
+        assertThat(table.properties().get(TableProperties.DEFAULT_FILE_FORMAT).equalsIgnoreCase("PARQUET")).isTrue();
+        assertThat(table.spec().isUnpartitioned()).isTrue();
+        assertThat(table.sortOrder().isUnsorted()).isTrue();
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
     }
 
@@ -721,7 +719,7 @@ public class TestIcebergV2
         long initialSnapshotId = (long) computeScalar("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES");
         assertUpdate("DELETE FROM " + tableName + " WHERE regionkey < 10", 25);
         long parentSnapshotId = (long) computeScalar("SELECT parent_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES");
-        assertEquals(initialSnapshotId, parentSnapshotId);
+        assertThat(initialSnapshotId).isEqualTo(parentSnapshotId);
         assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
         assertThat(this.loadTable(tableName).newScan().planFiles()).hasSize(1);
     }
@@ -737,7 +735,7 @@ public class TestIcebergV2
         long initialSnapshotId = (long) computeScalar("SELECT snapshot_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES");
         assertUpdate("DELETE FROM " + tableName + " WHERE regionkey % 2 = 1", "SELECT count(*) FROM nation WHERE regionkey % 2 = 1");
         long parentSnapshotId = (long) computeScalar("SELECT parent_id FROM \"" + tableName + "$snapshots\" ORDER BY committed_at DESC FETCH FIRST 1 ROW WITH TIES");
-        assertEquals(initialSnapshotId, parentSnapshotId);
+        assertThat(initialSnapshotId).isEqualTo(parentSnapshotId);
 
         assertUpdate("DELETE FROM " + tableName + " WHERE regionkey % 2 = 0", "SELECT count(*) FROM nation WHERE regionkey % 2 = 0");
         assertThat(query("SELECT * FROM " + tableName)).returnsEmptyResult();
@@ -842,7 +840,7 @@ public class TestIcebergV2
             TypeManager typeManager = new TestingTypeManager();
             Table table = loadTable(testTable.getName());
             TableStatistics withNoFilter = TableStatisticsReader.makeTableStatistics(typeManager, table, snapshotId, TupleDomain.all(), TupleDomain.all(), true);
-            assertEquals(withNoFilter.getRowCount().getValue(), 4.0);
+            assertThat(withNoFilter.getRowCount().getValue()).isEqualTo(4.0);
 
             TableStatistics withPartitionFilter = TableStatisticsReader.makeTableStatistics(
                     typeManager,
@@ -853,7 +851,7 @@ public class TestIcebergV2
                             Domain.singleValue(INTEGER, 10L))),
                     TupleDomain.all(),
                     true);
-            assertEquals(withPartitionFilter.getRowCount().getValue(), 3.0);
+            assertThat(withPartitionFilter.getRowCount().getValue()).isEqualTo(3.0);
 
             TableStatistics withUnenforcedFilter = TableStatisticsReader.makeTableStatistics(
                     typeManager,
@@ -864,7 +862,7 @@ public class TestIcebergV2
                             new IcebergColumnHandle(ColumnIdentity.primitiveColumnIdentity(0, "a"), INTEGER, ImmutableList.of(), INTEGER, Optional.empty()),
                             Domain.create(ValueSet.ofRanges(Range.greaterThan(INTEGER, 100L)), true))),
                     true);
-            assertEquals(withUnenforcedFilter.getRowCount().getValue(), 2.0);
+            assertThat(withUnenforcedFilter.getRowCount().getValue()).isEqualTo(2.0);
         }
     }
 

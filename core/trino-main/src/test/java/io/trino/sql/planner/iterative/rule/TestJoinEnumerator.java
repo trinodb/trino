@@ -49,10 +49,9 @@ import static io.trino.sql.planner.iterative.Lookup.noLookup;
 import static io.trino.sql.planner.iterative.rule.ReorderJoins.JoinEnumerator.generatePartitions;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -76,21 +75,19 @@ public class TestJoinEnumerator
     @Test
     public void testGeneratePartitions()
     {
-        assertEquals(generatePartitions(4),
-                ImmutableSet.of(
-                        ImmutableSet.of(0),
-                        ImmutableSet.of(0, 1),
-                        ImmutableSet.of(0, 2),
-                        ImmutableSet.of(0, 3),
-                        ImmutableSet.of(0, 1, 2),
-                        ImmutableSet.of(0, 1, 3),
-                        ImmutableSet.of(0, 2, 3)));
+        assertThat(generatePartitions(4)).isEqualTo(ImmutableSet.of(
+                ImmutableSet.of(0),
+                ImmutableSet.of(0, 1),
+                ImmutableSet.of(0, 2),
+                ImmutableSet.of(0, 3),
+                ImmutableSet.of(0, 1, 2),
+                ImmutableSet.of(0, 1, 3),
+                ImmutableSet.of(0, 2, 3)));
 
-        assertEquals(generatePartitions(3),
-                ImmutableSet.of(
-                        ImmutableSet.of(0),
-                        ImmutableSet.of(0, 1),
-                        ImmutableSet.of(0, 2)));
+        assertThat(generatePartitions(3)).isEqualTo(ImmutableSet.of(
+                ImmutableSet.of(0),
+                ImmutableSet.of(0, 1),
+                ImmutableSet.of(0, 2)));
     }
 
     @Test
@@ -111,8 +108,8 @@ public class TestJoinEnumerator
                 multiJoinNode.getFilter(),
                 createContext());
         JoinEnumerationResult actual = joinEnumerator.createJoinAccordingToPartitioning(multiJoinNode.getSources(), multiJoinNode.getOutputSymbols(), ImmutableSet.of(0));
-        assertFalse(actual.getPlanNode().isPresent());
-        assertEquals(actual.getCost(), PlanCostEstimate.infinite());
+        assertThat(actual.getPlanNode().isPresent()).isFalse();
+        assertThat(actual.getCost()).isEqualTo(PlanCostEstimate.infinite());
     }
 
     private Rule.Context createContext()

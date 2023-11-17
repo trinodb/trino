@@ -106,12 +106,10 @@ import static java.lang.Float.floatToIntBits;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Fail.fail;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotEquals;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -209,8 +207,8 @@ public class TestDomainTranslator
     {
         TupleDomain<Symbol> tupleDomain = TupleDomain.none();
         ExtractionResult result = fromPredicate(toPredicate(tupleDomain));
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), tupleDomain);
+        assertThat(result.getRemainingExpression()).isEqualTo(TRUE_LITERAL);
+        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain);
     }
 
     @Test
@@ -218,8 +216,8 @@ public class TestDomainTranslator
     {
         TupleDomain<Symbol> tupleDomain = TupleDomain.all();
         ExtractionResult result = fromPredicate(toPredicate(tupleDomain));
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), tupleDomain);
+        assertThat(result.getRemainingExpression()).isEqualTo(TRUE_LITERAL);
+        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain);
     }
 
     @Test
@@ -251,7 +249,7 @@ public class TestDomainTranslator
                                 Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L), Range.equal(BIGINT, 3L))), false);
 
         TupleDomain<Symbol> tupleDomain = tupleDomain(C_BIGINT, testDomain);
-        assertEquals(toPredicate(tupleDomain), not(in(C_BIGINT, ImmutableList.of(1L, 2L, 3L))));
+        assertThat(toPredicate(tupleDomain)).isEqualTo(not(in(C_BIGINT, ImmutableList.of(1L, 2L, 3L))));
 
         testDomain = Domain.create(
                 ValueSet.ofRanges(
@@ -260,7 +258,7 @@ public class TestDomainTranslator
                                 .subtract(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L), Range.equal(BIGINT, 3L)))), false);
 
         tupleDomain = tupleDomain(C_BIGINT, testDomain);
-        assertEquals(toPredicate(tupleDomain), and(lessThan(C_BIGINT, bigintLiteral(4L)), not(in(C_BIGINT, ImmutableList.of(1L, 2L, 3L)))));
+        assertThat(toPredicate(tupleDomain)).isEqualTo(and(lessThan(C_BIGINT, bigintLiteral(4L)), not(in(C_BIGINT, ImmutableList.of(1L, 2L, 3L)))));
 
         testDomain = Domain.create(ValueSet.ofRanges(
                         Range.range(BIGINT, 1L, true, 3L, true),
@@ -269,8 +267,7 @@ public class TestDomainTranslator
                 false);
 
         tupleDomain = tupleDomain(C_BIGINT, testDomain);
-        assertEquals(toPredicate(tupleDomain),
-                or(between(C_BIGINT, bigintLiteral(1L), bigintLiteral(3L)), between(C_BIGINT, bigintLiteral(5L), bigintLiteral(7L)), between(C_BIGINT, bigintLiteral(9L), bigintLiteral(11L))));
+        assertThat(toPredicate(tupleDomain)).isEqualTo(or(between(C_BIGINT, bigintLiteral(1L), bigintLiteral(3L)), between(C_BIGINT, bigintLiteral(5L), bigintLiteral(7L)), between(C_BIGINT, bigintLiteral(9L), bigintLiteral(11L))));
 
         testDomain = Domain.create(
                 ValueSet.ofRanges(
@@ -280,7 +277,7 @@ public class TestDomainTranslator
                         .union(ValueSet.ofRanges(Range.range(BIGINT, 7L, true, 9L, true))), false);
 
         tupleDomain = tupleDomain(C_BIGINT, testDomain);
-        assertEquals(toPredicate(tupleDomain), or(and(lessThan(C_BIGINT, bigintLiteral(4L)), not(in(C_BIGINT, ImmutableList.of(1L, 2L, 3L)))), between(C_BIGINT, bigintLiteral(7L), bigintLiteral(9L))));
+        assertThat(toPredicate(tupleDomain)).isEqualTo(or(and(lessThan(C_BIGINT, bigintLiteral(4L)), not(in(C_BIGINT, ImmutableList.of(1L, 2L, 3L)))), between(C_BIGINT, bigintLiteral(7L), bigintLiteral(9L))));
 
         testDomain = Domain.create(
                 ValueSet.ofRanges(Range.lessThan(BIGINT, 4L))
@@ -289,7 +286,7 @@ public class TestDomainTranslator
                         .union(ValueSet.ofRanges(Range.range(BIGINT, 7L, false, 9L, false), Range.range(BIGINT, 11L, false, 13L, false))), false);
 
         tupleDomain = tupleDomain(C_BIGINT, testDomain);
-        assertEquals(toPredicate(tupleDomain), or(
+        assertThat(toPredicate(tupleDomain)).isEqualTo(or(
                 and(lessThan(C_BIGINT, bigintLiteral(4L)), not(in(C_BIGINT, ImmutableList.of(1L, 2L, 3L)))),
                 and(greaterThan(C_BIGINT, bigintLiteral(7L)), lessThan(C_BIGINT, bigintLiteral(9L))),
                 and(greaterThan(C_BIGINT, bigintLiteral(11L)), lessThan(C_BIGINT, bigintLiteral(13L)))));
@@ -305,7 +302,7 @@ public class TestDomainTranslator
                 .put(C_BOOLEAN, Domain.none(BOOLEAN))
                 .buildOrThrow());
 
-        assertEquals(toPredicate(tupleDomain), FALSE_LITERAL);
+        assertThat(toPredicate(tupleDomain)).isEqualTo(FALSE_LITERAL);
     }
 
     @Test
@@ -319,8 +316,8 @@ public class TestDomainTranslator
                 .buildOrThrow());
 
         ExtractionResult result = fromPredicate(toPredicate(tupleDomain));
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
-        assertEquals(result.getTupleDomain(), tupleDomain(ImmutableMap.<Symbol, Domain>builder()
+        assertThat(result.getRemainingExpression()).isEqualTo(TRUE_LITERAL);
+        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(ImmutableMap.<Symbol, Domain>builder()
                 .put(C_BIGINT, Domain.singleValue(BIGINT, 1L))
                 .put(C_DOUBLE, Domain.onlyNull(DOUBLE))
                 .put(C_VARCHAR, Domain.notNull(VARCHAR))
@@ -333,52 +330,52 @@ public class TestDomainTranslator
         TupleDomain<Symbol> tupleDomain;
 
         tupleDomain = tupleDomain(C_BIGINT, Domain.notNull(BIGINT));
-        assertEquals(toPredicate(tupleDomain), isNotNull(C_BIGINT));
+        assertThat(toPredicate(tupleDomain)).isEqualTo(isNotNull(C_BIGINT));
 
         tupleDomain = tupleDomain(C_BIGINT, Domain.onlyNull(BIGINT));
-        assertEquals(toPredicate(tupleDomain), isNull(C_BIGINT));
+        assertThat(toPredicate(tupleDomain)).isEqualTo(isNull(C_BIGINT));
 
         tupleDomain = tupleDomain(C_BIGINT, Domain.none(BIGINT));
-        assertEquals(toPredicate(tupleDomain), FALSE_LITERAL);
+        assertThat(toPredicate(tupleDomain)).isEqualTo(FALSE_LITERAL);
 
         tupleDomain = tupleDomain(C_BIGINT, Domain.all(BIGINT));
-        assertEquals(toPredicate(tupleDomain), TRUE_LITERAL);
+        assertThat(toPredicate(tupleDomain)).isEqualTo(TRUE_LITERAL);
 
         tupleDomain = tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 1L)), false));
-        assertEquals(toPredicate(tupleDomain), greaterThan(C_BIGINT, bigintLiteral(1L)));
+        assertThat(toPredicate(tupleDomain)).isEqualTo(greaterThan(C_BIGINT, bigintLiteral(1L)));
 
         tupleDomain = tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(BIGINT, 1L)), false));
-        assertEquals(toPredicate(tupleDomain), greaterThanOrEqual(C_BIGINT, bigintLiteral(1L)));
+        assertThat(toPredicate(tupleDomain)).isEqualTo(greaterThanOrEqual(C_BIGINT, bigintLiteral(1L)));
 
         tupleDomain = tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 1L)), false));
-        assertEquals(toPredicate(tupleDomain), lessThan(C_BIGINT, bigintLiteral(1L)));
+        assertThat(toPredicate(tupleDomain)).isEqualTo(lessThan(C_BIGINT, bigintLiteral(1L)));
 
         tupleDomain = tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 0L, false, 1L, true)), false));
-        assertEquals(toPredicate(tupleDomain), and(greaterThan(C_BIGINT, bigintLiteral(0L)), lessThanOrEqual(C_BIGINT, bigintLiteral(1L))));
+        assertThat(toPredicate(tupleDomain)).isEqualTo(and(greaterThan(C_BIGINT, bigintLiteral(0L)), lessThanOrEqual(C_BIGINT, bigintLiteral(1L))));
 
         tupleDomain = tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(BIGINT, 1L)), false));
-        assertEquals(toPredicate(tupleDomain), lessThanOrEqual(C_BIGINT, bigintLiteral(1L)));
+        assertThat(toPredicate(tupleDomain)).isEqualTo(lessThanOrEqual(C_BIGINT, bigintLiteral(1L)));
 
         tupleDomain = tupleDomain(C_BIGINT, Domain.singleValue(BIGINT, 1L));
-        assertEquals(toPredicate(tupleDomain), equal(C_BIGINT, bigintLiteral(1L)));
+        assertThat(toPredicate(tupleDomain)).isEqualTo(equal(C_BIGINT, bigintLiteral(1L)));
 
         tupleDomain = tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L)), false));
-        assertEquals(toPredicate(tupleDomain), in(C_BIGINT, ImmutableList.of(1L, 2L)));
+        assertThat(toPredicate(tupleDomain)).isEqualTo(in(C_BIGINT, ImmutableList.of(1L, 2L)));
 
         tupleDomain = tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.lessThan(BIGINT, 1L)), true));
-        assertEquals(toPredicate(tupleDomain), or(lessThan(C_BIGINT, bigintLiteral(1L)), isNull(C_BIGINT)));
+        assertThat(toPredicate(tupleDomain)).isEqualTo(or(lessThan(C_BIGINT, bigintLiteral(1L)), isNull(C_BIGINT)));
 
         tupleDomain = tupleDomain(C_COLOR, Domain.create(ValueSet.of(COLOR, COLOR_VALUE_1), true));
-        assertEquals(toPredicate(tupleDomain), or(equal(C_COLOR, colorLiteral(COLOR_VALUE_1)), isNull(C_COLOR)));
+        assertThat(toPredicate(tupleDomain)).isEqualTo(or(equal(C_COLOR, colorLiteral(COLOR_VALUE_1)), isNull(C_COLOR)));
 
         tupleDomain = tupleDomain(C_COLOR, Domain.create(ValueSet.of(COLOR, COLOR_VALUE_1).complement(), true));
-        assertEquals(toPredicate(tupleDomain), or(not(equal(C_COLOR, colorLiteral(COLOR_VALUE_1))), isNull(C_COLOR)));
+        assertThat(toPredicate(tupleDomain)).isEqualTo(or(not(equal(C_COLOR, colorLiteral(COLOR_VALUE_1))), isNull(C_COLOR)));
 
         tupleDomain = tupleDomain(C_HYPER_LOG_LOG, Domain.onlyNull(HYPER_LOG_LOG));
-        assertEquals(toPredicate(tupleDomain), isNull(C_HYPER_LOG_LOG));
+        assertThat(toPredicate(tupleDomain)).isEqualTo(isNull(C_HYPER_LOG_LOG));
 
         tupleDomain = tupleDomain(C_HYPER_LOG_LOG, Domain.notNull(HYPER_LOG_LOG));
-        assertEquals(toPredicate(tupleDomain), isNotNull(C_HYPER_LOG_LOG));
+        assertThat(toPredicate(tupleDomain)).isEqualTo(isNotNull(C_HYPER_LOG_LOG));
     }
 
     @Test
@@ -387,7 +384,7 @@ public class TestDomainTranslator
         TupleDomain<Symbol> tupleDomain;
 
         tupleDomain = tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 1L), Range.lessThan(BIGINT, 1L)), false));
-        assertEquals(toPredicate(tupleDomain), notEqual(C_BIGINT, bigintLiteral(1L)));
+        assertThat(toPredicate(tupleDomain)).isEqualTo(notEqual(C_BIGINT, bigintLiteral(1L)));
 
         tupleDomain = tupleDomain(C_BIGINT, Domain.create(
                 ValueSet.ofRanges(
@@ -395,7 +392,7 @@ public class TestDomainTranslator
                         Range.range(BIGINT, 0L, false, 1L, false),
                         Range.greaterThan(BIGINT, 1L)),
                 false));
-        assertEquals(toPredicate(tupleDomain), not(in(C_BIGINT, ImmutableList.of(0L, 1L))));
+        assertThat(toPredicate(tupleDomain)).isEqualTo(not(in(C_BIGINT, ImmutableList.of(0L, 1L))));
 
         tupleDomain = tupleDomain(C_BIGINT, Domain.create(
                 ValueSet.ofRanges(
@@ -403,11 +400,11 @@ public class TestDomainTranslator
                         Range.range(BIGINT, 0L, false, 1L, false),
                         Range.greaterThan(BIGINT, 2L)),
                 false));
-        assertEquals(toPredicate(tupleDomain), or(and(lessThan(C_BIGINT, bigintLiteral(1L)), notEqual(C_BIGINT, bigintLiteral(0L))), greaterThan(C_BIGINT, bigintLiteral(2L))));
+        assertThat(toPredicate(tupleDomain)).isEqualTo(or(and(lessThan(C_BIGINT, bigintLiteral(1L)), notEqual(C_BIGINT, bigintLiteral(0L))), greaterThan(C_BIGINT, bigintLiteral(2L))));
 
         // floating point types: do not coalesce ranges when range "all" would be introduced
         tupleDomain = tupleDomain(C_REAL, Domain.create(ValueSet.ofRanges(Range.greaterThan(REAL, 0L), Range.lessThan(REAL, 0L)), false));
-        assertEquals(toPredicate(tupleDomain), or(lessThan(C_REAL, realLiteral("0.0")), greaterThan(C_REAL, realLiteral("0.0"))));
+        assertThat(toPredicate(tupleDomain)).isEqualTo(or(lessThan(C_REAL, realLiteral("0.0")), greaterThan(C_REAL, realLiteral("0.0"))));
 
         tupleDomain = tupleDomain(C_REAL, Domain.create(
                 ValueSet.ofRanges(
@@ -415,7 +412,7 @@ public class TestDomainTranslator
                         Range.range(REAL, 0L, false, (long) Float.floatToIntBits(1F), false),
                         Range.greaterThan(REAL, (long) Float.floatToIntBits(1F))),
                 false));
-        assertEquals(toPredicate(tupleDomain), or(
+        assertThat(toPredicate(tupleDomain)).isEqualTo(or(
                 lessThan(C_REAL, realLiteral("0.0")),
                 and(greaterThan(C_REAL, realLiteral("0.0")), lessThan(C_REAL, realLiteral("1.0"))),
                 greaterThan(C_REAL, realLiteral("1.0"))));
@@ -426,7 +423,7 @@ public class TestDomainTranslator
                         Range.range(REAL, 0L, false, (long) Float.floatToIntBits(1F), false),
                         Range.greaterThan(REAL, (long) Float.floatToIntBits(2F))),
                 false));
-        assertEquals(toPredicate(tupleDomain), or(and(lessThan(C_REAL, realLiteral("1.0")), notEqual(C_REAL, realLiteral("0.0"))), greaterThan(C_REAL, realLiteral("2.0"))));
+        assertThat(toPredicate(tupleDomain)).isEqualTo(or(and(lessThan(C_REAL, realLiteral("1.0")), notEqual(C_REAL, realLiteral("0.0"))), greaterThan(C_REAL, realLiteral("2.0"))));
 
         tupleDomain = tupleDomain(C_DOUBLE, Domain.create(
                 ValueSet.ofRanges(
@@ -435,11 +432,9 @@ public class TestDomainTranslator
                         Range.range(DOUBLE, 2.0, false, 3.0, false),
                         Range.greaterThan(DOUBLE, 3.0)),
                 false));
-        assertEquals(
-                toPredicate(tupleDomain),
-                or(
-                        and(lessThan(C_DOUBLE, doubleLiteral(1)), notEqual(C_DOUBLE, doubleLiteral(0))),
-                        and(greaterThan(C_DOUBLE, doubleLiteral(2)), notEqual(C_DOUBLE, doubleLiteral(3)))));
+        assertThat(toPredicate(tupleDomain)).isEqualTo(or(
+                and(lessThan(C_DOUBLE, doubleLiteral(1)), notEqual(C_DOUBLE, doubleLiteral(0))),
+                and(greaterThan(C_DOUBLE, doubleLiteral(2)), notEqual(C_DOUBLE, doubleLiteral(3)))));
     }
 
     @Test
@@ -456,8 +451,8 @@ public class TestDomainTranslator
                 and(greaterThan(C_BIGINT, bigintLiteral(1L)), unprocessableExpression1(C_BIGINT)),
                 and(lessThan(C_BIGINT, bigintLiteral(5L)), unprocessableExpression2(C_BIGINT)));
         ExtractionResult result = fromPredicate(originalPredicate);
-        assertEquals(result.getRemainingExpression(), and(unprocessableExpression1(C_BIGINT), unprocessableExpression2(C_BIGINT)));
-        assertEquals(result.getTupleDomain(), tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1L, false, 5L, false)), false)));
+        assertThat(result.getRemainingExpression()).isEqualTo(and(unprocessableExpression1(C_BIGINT), unprocessableExpression2(C_BIGINT)));
+        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1L, false, 5L, false)), false)));
 
         // Test complements
         assertUnsupportedPredicate(not(and(
@@ -468,8 +463,8 @@ public class TestDomainTranslator
                 not(and(greaterThan(C_BIGINT, bigintLiteral(1L)), unprocessableExpression1(C_BIGINT))),
                 not(and(lessThan(C_BIGINT, bigintLiteral(5L)), unprocessableExpression2(C_BIGINT)))));
         result = fromPredicate(originalPredicate);
-        assertEquals(result.getRemainingExpression(), originalPredicate);
-        assertEquals(result.getTupleDomain(), tupleDomain(C_BIGINT, Domain.notNull(BIGINT)));
+        assertThat(result.getRemainingExpression()).isEqualTo(originalPredicate);
+        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_BIGINT, Domain.notNull(BIGINT)));
     }
 
     @Test
@@ -479,22 +474,22 @@ public class TestDomainTranslator
                 and(greaterThan(C_BIGINT, bigintLiteral(1L)), unprocessableExpression1(C_BIGINT)),
                 and(lessThan(C_BIGINT, bigintLiteral(5L)), unprocessableExpression2(C_BIGINT)));
         ExtractionResult result = fromPredicate(originalPredicate);
-        assertEquals(result.getRemainingExpression(), originalPredicate);
-        assertEquals(result.getTupleDomain(), tupleDomain(C_BIGINT, Domain.notNull(BIGINT)));
+        assertThat(result.getRemainingExpression()).isEqualTo(originalPredicate);
+        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_BIGINT, Domain.notNull(BIGINT)));
 
         originalPredicate = or(
                 and(equal(C_BIGINT, bigintLiteral(1L)), unprocessableExpression1(C_BIGINT)),
                 and(equal(C_BIGINT, bigintLiteral(2L)), unprocessableExpression2(C_BIGINT)));
         result = fromPredicate(originalPredicate);
-        assertEquals(result.getRemainingExpression(), originalPredicate);
-        assertEquals(result.getTupleDomain(), tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L)), false)));
+        assertThat(result.getRemainingExpression()).isEqualTo(originalPredicate);
+        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L)), false)));
 
         originalPredicate = or(
                 and(lessThan(C_BIGINT, bigintLiteral(20L)), unprocessableExpression1(C_BIGINT)),
                 and(greaterThan(C_BIGINT, bigintLiteral(10L)), unprocessableExpression2(C_BIGINT)));
         result = fromPredicate(originalPredicate);
-        assertEquals(result.getRemainingExpression(), originalPredicate);
-        assertEquals(result.getTupleDomain(), tupleDomain(C_BIGINT, Domain.create(ValueSet.all(BIGINT), false)));
+        assertThat(result.getRemainingExpression()).isEqualTo(originalPredicate);
+        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_BIGINT, Domain.create(ValueSet.all(BIGINT), false)));
 
         // Same unprocessableExpression means that we can do more extraction
         // If both sides are operating on the same single symbol
@@ -502,8 +497,8 @@ public class TestDomainTranslator
                 and(equal(C_BIGINT, bigintLiteral(1L)), unprocessableExpression1(C_BIGINT)),
                 and(equal(C_BIGINT, bigintLiteral(2L)), unprocessableExpression1(C_BIGINT)));
         result = fromPredicate(originalPredicate);
-        assertEquals(result.getRemainingExpression(), unprocessableExpression1(C_BIGINT));
-        assertEquals(result.getTupleDomain(), tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L)), false)));
+        assertThat(result.getRemainingExpression()).isEqualTo(unprocessableExpression1(C_BIGINT));
+        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L)), false)));
 
         // And not if they have different symbols
         assertUnsupportedPredicate(or(
@@ -517,38 +512,38 @@ public class TestDomainTranslator
                 greaterThan(C_DOUBLE, doubleLiteral(2.0)),
                 lessThan(C_DOUBLE, doubleLiteral(5.0)));
         result = fromPredicate(originalPredicate);
-        assertEquals(result.getRemainingExpression(), originalPredicate);
-        assertEquals(result.getTupleDomain(), tupleDomain(C_DOUBLE, Domain.notNull(DOUBLE)));
+        assertThat(result.getRemainingExpression()).isEqualTo(originalPredicate);
+        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_DOUBLE, Domain.notNull(DOUBLE)));
 
         originalPredicate = or(
                 greaterThan(C_REAL, realLiteral("2.0")),
                 lessThan(C_REAL, realLiteral("5.0")),
                 isNull(C_REAL));
         result = fromPredicate(originalPredicate);
-        assertEquals(result.getRemainingExpression(), originalPredicate);
-        assertEquals(result.getTupleDomain(), TupleDomain.all());
+        assertThat(result.getRemainingExpression()).isEqualTo(originalPredicate);
+        assertThat(result.getTupleDomain()).isEqualTo(TupleDomain.all());
 
         originalPredicate = or(
                 and(greaterThan(C_DOUBLE, doubleLiteral(2.0)), unprocessableExpression1(C_DOUBLE)),
                 and(lessThan(C_DOUBLE, doubleLiteral(5.0)), unprocessableExpression1(C_DOUBLE)));
         result = fromPredicate(originalPredicate);
-        assertEquals(result.getRemainingExpression(), originalPredicate);
-        assertEquals(result.getTupleDomain(), tupleDomain(C_DOUBLE, Domain.notNull(DOUBLE)));
+        assertThat(result.getRemainingExpression()).isEqualTo(originalPredicate);
+        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_DOUBLE, Domain.notNull(DOUBLE)));
 
         originalPredicate = or(
                 and(greaterThan(C_REAL, realLiteral("2.0")), unprocessableExpression1(C_REAL)),
                 and(lessThan(C_REAL, realLiteral("5.0")), unprocessableExpression1(C_REAL)));
         result = fromPredicate(originalPredicate);
-        assertEquals(result.getRemainingExpression(), originalPredicate);
-        assertEquals(result.getTupleDomain(), tupleDomain(C_REAL, Domain.notNull(REAL)));
+        assertThat(result.getRemainingExpression()).isEqualTo(originalPredicate);
+        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_REAL, Domain.notNull(REAL)));
 
         // We can make another optimization if one side is the super set of the other side
         originalPredicate = or(
                 and(greaterThan(C_BIGINT, bigintLiteral(1L)), greaterThan(C_DOUBLE, doubleLiteral(1.0)), unprocessableExpression1(C_BIGINT)),
                 and(greaterThan(C_BIGINT, bigintLiteral(2L)), greaterThan(C_DOUBLE, doubleLiteral(2.0)), unprocessableExpression1(C_BIGINT)));
         result = fromPredicate(originalPredicate);
-        assertEquals(result.getRemainingExpression(), unprocessableExpression1(C_BIGINT));
-        assertEquals(result.getTupleDomain(), tupleDomain(
+        assertThat(result.getRemainingExpression()).isEqualTo(unprocessableExpression1(C_BIGINT));
+        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(
                 C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 1L)), false),
                 C_DOUBLE, Domain.create(ValueSet.ofRanges(Range.greaterThan(DOUBLE, 1.0)), false)));
 
@@ -557,25 +552,25 @@ public class TestDomainTranslator
                 and(equal(C_BIGINT, bigintLiteral(1L)), randPredicate(C_BIGINT, BIGINT)),
                 and(equal(C_BIGINT, bigintLiteral(2L)), randPredicate(C_BIGINT, BIGINT)));
         result = fromPredicate(originalPredicate);
-        assertEquals(result.getRemainingExpression(), originalPredicate);
-        assertEquals(result.getTupleDomain(), tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L)), false)));
+        assertThat(result.getRemainingExpression()).isEqualTo(originalPredicate);
+        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L)), false)));
 
         // Test complements
         originalPredicate = not(or(
                 and(greaterThan(C_BIGINT, bigintLiteral(1L)), unprocessableExpression1(C_BIGINT)),
                 and(lessThan(C_BIGINT, bigintLiteral(5L)), unprocessableExpression2(C_BIGINT))));
         result = fromPredicate(originalPredicate);
-        assertEquals(result.getRemainingExpression(), and(
+        assertThat(result.getRemainingExpression()).isEqualTo(and(
                 not(and(greaterThan(C_BIGINT, bigintLiteral(1L)), unprocessableExpression1(C_BIGINT))),
                 not(and(lessThan(C_BIGINT, bigintLiteral(5L)), unprocessableExpression2(C_BIGINT)))));
-        assertTrue(result.getTupleDomain().isAll());
+        assertThat(result.getTupleDomain().isAll()).isTrue();
 
         originalPredicate = not(or(
                 not(and(greaterThan(C_BIGINT, bigintLiteral(1L)), unprocessableExpression1(C_BIGINT))),
                 not(and(lessThan(C_BIGINT, bigintLiteral(5L)), unprocessableExpression2(C_BIGINT)))));
         result = fromPredicate(originalPredicate);
-        assertEquals(result.getRemainingExpression(), and(unprocessableExpression1(C_BIGINT), unprocessableExpression2(C_BIGINT)));
-        assertEquals(result.getTupleDomain(), tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1L, false, 5L, false)), false)));
+        assertThat(result.getRemainingExpression()).isEqualTo(and(unprocessableExpression1(C_BIGINT), unprocessableExpression2(C_BIGINT)));
+        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_BIGINT, Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1L, false, 5L, false)), false)));
     }
 
     @Test
@@ -583,29 +578,29 @@ public class TestDomainTranslator
     {
         Expression originalPredicate = C_BOOLEAN.toSymbolReference();
         ExtractionResult result = fromPredicate(originalPredicate);
-        assertEquals(result.getTupleDomain(), tupleDomain(C_BOOLEAN, Domain.create(ValueSet.ofRanges(Range.equal(BOOLEAN, true)), false)));
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
+        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_BOOLEAN, Domain.create(ValueSet.ofRanges(Range.equal(BOOLEAN, true)), false)));
+        assertThat(result.getRemainingExpression()).isEqualTo(TRUE_LITERAL);
 
         originalPredicate = not(C_BOOLEAN.toSymbolReference());
         result = fromPredicate(originalPredicate);
-        assertEquals(result.getTupleDomain(), tupleDomain(C_BOOLEAN, Domain.create(ValueSet.ofRanges(Range.equal(BOOLEAN, true)).complement(), false)));
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
+        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_BOOLEAN, Domain.create(ValueSet.ofRanges(Range.equal(BOOLEAN, true)).complement(), false)));
+        assertThat(result.getRemainingExpression()).isEqualTo(TRUE_LITERAL);
 
         originalPredicate = and(C_BOOLEAN.toSymbolReference(), C_BOOLEAN_1.toSymbolReference());
         result = fromPredicate(originalPredicate);
         Domain domain = Domain.create(ValueSet.ofRanges(Range.equal(BOOLEAN, true)), false);
-        assertEquals(result.getTupleDomain(), tupleDomain(C_BOOLEAN, domain, C_BOOLEAN_1, domain));
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
+        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_BOOLEAN, domain, C_BOOLEAN_1, domain));
+        assertThat(result.getRemainingExpression()).isEqualTo(TRUE_LITERAL);
 
         originalPredicate = or(C_BOOLEAN.toSymbolReference(), C_BOOLEAN_1.toSymbolReference());
         result = fromPredicate(originalPredicate);
-        assertEquals(result.getTupleDomain(), TupleDomain.all());
-        assertEquals(result.getRemainingExpression(), originalPredicate);
+        assertThat(result.getTupleDomain()).isEqualTo(TupleDomain.all());
+        assertThat(result.getRemainingExpression()).isEqualTo(originalPredicate);
 
         originalPredicate = not(and(C_BOOLEAN.toSymbolReference(), C_BOOLEAN_1.toSymbolReference()));
         result = fromPredicate(originalPredicate);
-        assertEquals(result.getTupleDomain(), TupleDomain.all());
-        assertEquals(result.getRemainingExpression(), originalPredicate);
+        assertThat(result.getTupleDomain()).isEqualTo(TupleDomain.all());
+        assertThat(result.getRemainingExpression()).isEqualTo(originalPredicate);
     }
 
     @Test
@@ -1540,12 +1535,12 @@ public class TestDomainTranslator
                 .build();
         Expression originalExpression = comparison(GREATER_THAN, C_VARBINARY.toSymbolReference(), fromHex);
         ExtractionResult result = fromPredicate(originalExpression);
-        assertEquals(result.getRemainingExpression(), TRUE_LITERAL);
+        assertThat(result.getRemainingExpression()).isEqualTo(TRUE_LITERAL);
         Slice value = Slices.wrappedBuffer(BaseEncoding.base16().decode("123456"));
-        assertEquals(result.getTupleDomain(), tupleDomain(C_VARBINARY, Domain.create(ValueSet.ofRanges(Range.greaterThan(VARBINARY, value)), false)));
+        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain(C_VARBINARY, Domain.create(ValueSet.ofRanges(Range.greaterThan(VARBINARY, value)), false)));
 
         Expression expression = toPredicate(result.getTupleDomain());
-        assertEquals(expression, comparison(GREATER_THAN, C_VARBINARY.toSymbolReference(), varbinaryLiteral(value)));
+        assertThat(expression).isEqualTo(comparison(GREATER_THAN, C_VARBINARY.toSymbolReference(), varbinaryLiteral(value)));
     }
 
     @Test
@@ -1560,11 +1555,9 @@ public class TestDomainTranslator
                         C_DOUBLE, Domain.create(ValueSet.ofRanges(Range.greaterThan(DOUBLE, .0)), false),
                         C_BIGINT, Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 0L)), false)));
 
-        assertEquals(
-                toPredicate(fromPredicate(expression).getTupleDomain()),
-                and(
-                        comparison(GREATER_THAN, C_DOUBLE.toSymbolReference(), doubleLiteral(0)),
-                        comparison(GREATER_THAN, C_BIGINT.toSymbolReference(), bigintLiteral(0))));
+        assertThat(toPredicate(fromPredicate(expression).getTupleDomain())).isEqualTo(and(
+                comparison(GREATER_THAN, C_DOUBLE.toSymbolReference(), doubleLiteral(0)),
+                comparison(GREATER_THAN, C_BIGINT.toSymbolReference(), bigintLiteral(0))));
     }
 
     @Test
@@ -2065,14 +2058,15 @@ public class TestDomainTranslator
     private void assertPredicateTranslates(Expression expression, TupleDomain<Symbol> tupleDomain, Expression remainingExpression)
     {
         ExtractionResult result = fromPredicate(expression);
-        assertEquals(result.getTupleDomain(), tupleDomain);
-        assertEquals(result.getRemainingExpression(), remainingExpression);
+        assertThat(result.getTupleDomain()).isEqualTo(tupleDomain);
+        assertThat(result.getRemainingExpression()).isEqualTo(remainingExpression);
     }
 
     private void assertNoFullPushdown(Expression expression)
     {
         ExtractionResult result = fromPredicate(expression);
-        assertNotEquals(result.getRemainingExpression(), TRUE_LITERAL);
+        assertThat(result.getRemainingExpression())
+                .isNotEqualTo(TRUE_LITERAL);
     }
 
     private ExtractionResult fromPredicate(Expression originalPredicate)
@@ -2348,7 +2342,7 @@ public class TestDomainTranslator
     private void testSimpleComparison(Expression expression, Symbol symbol, Expression expectedRemainingExpression, Domain expectedDomain)
     {
         ExtractionResult result = fromPredicate(expression);
-        assertEquals(result.getRemainingExpression(), expectedRemainingExpression);
+        assertThat(result.getRemainingExpression()).isEqualTo(expectedRemainingExpression);
         TupleDomain<Symbol> actual = result.getTupleDomain();
         TupleDomain<Symbol> expected = tupleDomain(symbol, expectedDomain);
         if (!actual.equals(expected)) {

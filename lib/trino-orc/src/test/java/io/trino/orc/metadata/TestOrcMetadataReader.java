@@ -40,8 +40,7 @@ import static java.lang.Character.MAX_SURROGATE;
 import static java.lang.Character.MIN_CODE_POINT;
 import static java.lang.Character.MIN_SUPPLEMENTARY_CODE_POINT;
 import static java.lang.Character.MIN_SURROGATE;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOrcMetadataReader
 {
@@ -58,10 +57,10 @@ public class TestOrcMetadataReader
             }
             Slice value = codePointToUtf8(codePoint);
             if (findStringStatisticTruncationPositionForOriginalOrcWriter(value) == value.length()) {
-                assertEquals(minStringTruncateToValidRange(value, ORIGINAL), value);
+                assertThat(minStringTruncateToValidRange(value, ORIGINAL)).isEqualTo(value);
             }
             else {
-                assertEquals(minStringTruncateToValidRange(value, ORIGINAL), minSlice);
+                assertThat(minStringTruncateToValidRange(value, ORIGINAL)).isEqualTo(minSlice);
             }
         }
 
@@ -73,10 +72,10 @@ public class TestOrcMetadataReader
             }
             Slice value = concatSlice(prefix, codePointToUtf8(codePoint));
             if (findStringStatisticTruncationPositionForOriginalOrcWriter(value) == value.length()) {
-                assertEquals(minStringTruncateToValidRange(value, ORIGINAL), value);
+                assertThat(minStringTruncateToValidRange(value, ORIGINAL)).isEqualTo(value);
             }
             else {
-                assertEquals(minStringTruncateToValidRange(value, ORIGINAL), prefix);
+                assertThat(minStringTruncateToValidRange(value, ORIGINAL)).isEqualTo(prefix);
             }
         }
     }
@@ -94,10 +93,10 @@ public class TestOrcMetadataReader
             }
             Slice value = codePointToUtf8(codePoint);
             if (findStringStatisticTruncationPositionForOriginalOrcWriter(value) == value.length()) {
-                assertEquals(maxStringTruncateToValidRange(value, ORIGINAL), value);
+                assertThat(maxStringTruncateToValidRange(value, ORIGINAL)).isEqualTo(value);
             }
             else {
-                assertEquals(maxStringTruncateToValidRange(value, ORIGINAL), maxByte);
+                assertThat(maxStringTruncateToValidRange(value, ORIGINAL)).isEqualTo(maxByte);
             }
         }
 
@@ -110,10 +109,10 @@ public class TestOrcMetadataReader
             }
             Slice value = concatSlice(prefix, codePointToUtf8(codePoint));
             if (findStringStatisticTruncationPositionForOriginalOrcWriter(value) == value.length()) {
-                assertEquals(maxStringTruncateToValidRange(value, ORIGINAL), value);
+                assertThat(maxStringTruncateToValidRange(value, ORIGINAL)).isEqualTo(value);
             }
             else {
-                assertEquals(maxStringTruncateToValidRange(value, ORIGINAL), maxSlice);
+                assertThat(maxStringTruncateToValidRange(value, ORIGINAL)).isEqualTo(maxSlice);
             }
         }
     }
@@ -176,65 +175,55 @@ public class TestOrcMetadataReader
     public void testToStringStatistics()
     {
         // ORIGINAL version only produces stats at the row group level
-        assertNull(OrcMetadataReader.toStringStatistics(
+        assertThat(OrcMetadataReader.toStringStatistics(
                 ORIGINAL,
                 OrcProto.StringStatistics.newBuilder()
                         .setMinimum("ant")
                         .setMaximum("cat")
                         .setSum(44)
                         .build(),
-                false));
+                false)).isNull();
 
         // having only sum should work for current version
         for (boolean isRowGroup : ImmutableList.of(true, false)) {
-            assertEquals(
-                    OrcMetadataReader.toStringStatistics(
-                            ORC_HIVE_8732,
-                            OrcProto.StringStatistics.newBuilder()
-                                    .setSum(45)
-                                    .build(),
-                            isRowGroup),
-                    new StringStatistics(null, null, 45));
+            assertThat(OrcMetadataReader.toStringStatistics(
+                    ORC_HIVE_8732,
+                    OrcProto.StringStatistics.newBuilder()
+                            .setSum(45)
+                            .build(),
+                    isRowGroup)).isEqualTo(new StringStatistics(null, null, 45));
         }
         // and the ORIGINAL version row group stats (but not rolled up stats)
-        assertEquals(
-                OrcMetadataReader.toStringStatistics(
-                        ORIGINAL,
-                        OrcProto.StringStatistics.newBuilder()
-                                .setSum(45)
-                                .build(),
-                        true),
-                new StringStatistics(null, null, 45));
+        assertThat(OrcMetadataReader.toStringStatistics(
+                ORIGINAL,
+                OrcProto.StringStatistics.newBuilder()
+                        .setSum(45)
+                        .build(),
+                true)).isEqualTo(new StringStatistics(null, null, 45));
 
         // having only a min or max should work
-        assertEquals(
-                OrcMetadataReader.toStringStatistics(
-                        ORC_HIVE_8732,
-                        OrcProto.StringStatistics.newBuilder()
-                                .setMinimum("ant")
-                                .build(),
-                        true),
-                new StringStatistics(utf8Slice("ant"), null, 0));
-        assertEquals(
-                OrcMetadataReader.toStringStatistics(
-                        ORC_HIVE_8732,
-                        OrcProto.StringStatistics.newBuilder()
-                                .setMaximum("cat")
-                                .build(),
-                        true),
-                new StringStatistics(null, utf8Slice("cat"), 0));
+        assertThat(OrcMetadataReader.toStringStatistics(
+                ORC_HIVE_8732,
+                OrcProto.StringStatistics.newBuilder()
+                        .setMinimum("ant")
+                        .build(),
+                true)).isEqualTo(new StringStatistics(utf8Slice("ant"), null, 0));
+        assertThat(OrcMetadataReader.toStringStatistics(
+                ORC_HIVE_8732,
+                OrcProto.StringStatistics.newBuilder()
+                        .setMaximum("cat")
+                        .build(),
+                true)).isEqualTo(new StringStatistics(null, utf8Slice("cat"), 0));
 
         // normal full stat
-        assertEquals(
-                OrcMetadataReader.toStringStatistics(
-                        ORC_HIVE_8732,
-                        OrcProto.StringStatistics.newBuilder()
-                                .setMinimum("ant")
-                                .setMaximum("cat")
-                                .setSum(79)
-                                .build(),
-                        true),
-                new StringStatistics(utf8Slice("ant"), utf8Slice("cat"), 79));
+        assertThat(OrcMetadataReader.toStringStatistics(
+                ORC_HIVE_8732,
+                OrcProto.StringStatistics.newBuilder()
+                        .setMinimum("ant")
+                        .setMaximum("cat")
+                        .setSum(79)
+                        .build(),
+                true)).isEqualTo(new StringStatistics(utf8Slice("ant"), utf8Slice("cat"), 79));
 
         for (Slice prefix : ALL_UTF8_SEQUENCES) {
             for (int testCodePoint : TEST_CODE_POINTS) {
@@ -250,34 +239,28 @@ public class TestOrcMetadataReader
 
     private static void testStringStatisticsTruncation(Slice testValue, HiveWriterVersion version)
     {
-        assertEquals(
-                OrcMetadataReader.toStringStatistics(
-                        version,
-                        OrcProto.StringStatistics.newBuilder()
-                                .setMinimumBytes(ByteString.copyFrom(testValue.getBytes()))
-                                .setMaximumBytes(ByteString.copyFrom(testValue.getBytes()))
-                                .setSum(79)
-                                .build(),
-                        true),
-                createExpectedStringStatistics(version, testValue, testValue, 79));
-        assertEquals(
-                OrcMetadataReader.toStringStatistics(
-                        version,
-                        OrcProto.StringStatistics.newBuilder()
-                                .setMinimumBytes(ByteString.copyFrom(testValue.getBytes()))
-                                .setSum(79)
-                                .build(),
-                        true),
-                createExpectedStringStatistics(version, testValue, null, 79));
-        assertEquals(
-                OrcMetadataReader.toStringStatistics(
-                        version,
-                        OrcProto.StringStatistics.newBuilder()
-                                .setMaximumBytes(ByteString.copyFrom(testValue.getBytes()))
-                                .setSum(79)
-                                .build(),
-                        true),
-                createExpectedStringStatistics(version, null, testValue, 79));
+        assertThat(OrcMetadataReader.toStringStatistics(
+                version,
+                OrcProto.StringStatistics.newBuilder()
+                        .setMinimumBytes(ByteString.copyFrom(testValue.getBytes()))
+                        .setMaximumBytes(ByteString.copyFrom(testValue.getBytes()))
+                        .setSum(79)
+                        .build(),
+                true)).isEqualTo(createExpectedStringStatistics(version, testValue, testValue, 79));
+        assertThat(OrcMetadataReader.toStringStatistics(
+                version,
+                OrcProto.StringStatistics.newBuilder()
+                        .setMinimumBytes(ByteString.copyFrom(testValue.getBytes()))
+                        .setSum(79)
+                        .build(),
+                true)).isEqualTo(createExpectedStringStatistics(version, testValue, null, 79));
+        assertThat(OrcMetadataReader.toStringStatistics(
+                version,
+                OrcProto.StringStatistics.newBuilder()
+                        .setMaximumBytes(ByteString.copyFrom(testValue.getBytes()))
+                        .setSum(79)
+                        .build(),
+                true)).isEqualTo(createExpectedStringStatistics(version, null, testValue, 79));
     }
 
     private static StringStatistics createExpectedStringStatistics(HiveWriterVersion version, Slice min, Slice max, int sum)
@@ -304,17 +287,17 @@ public class TestOrcMetadataReader
             Slice codePoint = codePointToUtf8(testCodePoint);
 
             Slice value = concatSlice(prefix, codePoint, suffix);
-            assertEquals(minStringTruncateToValidRange(value, ORC_HIVE_8732), value);
+            assertThat(minStringTruncateToValidRange(value, ORC_HIVE_8732)).isEqualTo(value);
 
             // For ORIGINAL, skip prefixes that truncate
             if (prefix.equals(minStringTruncateToValidRange(prefix, ORIGINAL))) {
                 if (testCodePoint == REPLACEMENT_CHARACTER_CODE_POINT || testCodePoint >= MIN_SUPPLEMENTARY_CODE_POINT) {
                     // truncate at test code point
-                    assertEquals(minStringTruncateToValidRange(value, ORIGINAL), prefix);
+                    assertThat(minStringTruncateToValidRange(value, ORIGINAL)).isEqualTo(prefix);
                 }
                 else {
                     // truncate in suffix (if at all)
-                    assertEquals(minStringTruncateToValidRange(value, ORIGINAL), concatSlice(prefix, codePoint, minStringTruncateToValidRange(suffix, ORIGINAL)));
+                    assertThat(minStringTruncateToValidRange(value, ORIGINAL)).isEqualTo(concatSlice(prefix, codePoint, minStringTruncateToValidRange(suffix, ORIGINAL)));
                 }
             }
         }
@@ -336,17 +319,17 @@ public class TestOrcMetadataReader
             Slice codePoint = codePointToUtf8(testCodePoint);
 
             Slice value = concatSlice(prefix, codePoint, suffix);
-            assertEquals(maxStringTruncateToValidRange(value, ORC_HIVE_8732), value);
+            assertThat(maxStringTruncateToValidRange(value, ORC_HIVE_8732)).isEqualTo(value);
 
             // For ORIGINAL, skip prefixes that truncate
             if (prefix.equals(maxStringTruncateToValidRange(prefix, ORIGINAL))) {
                 if (testCodePoint == REPLACEMENT_CHARACTER_CODE_POINT || testCodePoint >= MIN_SUPPLEMENTARY_CODE_POINT) {
                     // truncate at test code point
-                    assertEquals(maxStringTruncateToValidRange(value, ORIGINAL), concatSlice(prefix, wrappedBuffer((byte) 0xFF)));
+                    assertThat(maxStringTruncateToValidRange(value, ORIGINAL)).isEqualTo(concatSlice(prefix, wrappedBuffer((byte) 0xFF)));
                 }
                 else {
                     // truncate in suffix (if at all)
-                    assertEquals(maxStringTruncateToValidRange(value, ORIGINAL), concatSlice(prefix, codePoint, maxStringTruncateToValidRange(suffix, ORIGINAL)));
+                    assertThat(maxStringTruncateToValidRange(value, ORIGINAL)).isEqualTo(concatSlice(prefix, codePoint, maxStringTruncateToValidRange(suffix, ORIGINAL)));
                 }
             }
         }

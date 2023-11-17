@@ -72,10 +72,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -132,18 +128,18 @@ public class TestJdbcPreparedStatement
             statement.setString(2, "hello");
 
             try (ResultSet rs = statement.executeQuery()) {
-                assertTrue(rs.next());
-                assertEquals(rs.getInt(1), 123);
-                assertEquals(rs.getString(2), "hello");
-                assertFalse(rs.next());
+                assertThat(rs.next()).isTrue();
+                assertThat(rs.getInt(1)).isEqualTo(123);
+                assertThat(rs.getString(2)).isEqualTo("hello");
+                assertThat(rs.next()).isFalse();
             }
 
-            assertTrue(statement.execute());
+            assertThat(statement.execute()).isTrue();
             try (ResultSet rs = statement.getResultSet()) {
-                assertTrue(rs.next());
-                assertEquals(rs.getInt(1), 123);
-                assertEquals(rs.getString(2), "hello");
-                assertFalse(rs.next());
+                assertThat(rs.next()).isTrue();
+                assertThat(rs.getInt(1)).isEqualTo(123);
+                assertThat(rs.getString(2)).isEqualTo("hello");
+                assertThat(rs.next()).isFalse();
             }
         }
     }
@@ -176,36 +172,36 @@ public class TestJdbcPreparedStatement
             try (PreparedStatement statement = connection.prepareStatement(
                     "SELECT * FROM " + tableName)) {
                 ResultSetMetaData metadata = statement.getMetaData();
-                assertEquals(metadata.getColumnCount(), 8);
+                assertThat(metadata.getColumnCount()).isEqualTo(8);
                 for (int i = 1; i <= metadata.getColumnCount(); i++) {
-                    assertEquals(metadata.getCatalogName(i), "blackhole");
-                    assertEquals(metadata.getSchemaName(i), "blackhole");
-                    assertEquals(metadata.getTableName(i), tableName);
+                    assertThat(metadata.getCatalogName(i)).isEqualTo("blackhole");
+                    assertThat(metadata.getSchemaName(i)).isEqualTo("blackhole");
+                    assertThat(metadata.getTableName(i)).isEqualTo(tableName);
                 }
 
-                assertEquals(metadata.getColumnName(1), "c_boolean");
-                assertEquals(metadata.getColumnTypeName(1), "boolean");
+                assertThat(metadata.getColumnName(1)).isEqualTo("c_boolean");
+                assertThat(metadata.getColumnTypeName(1)).isEqualTo("boolean");
 
-                assertEquals(metadata.getColumnName(2), "c_decimal");
-                assertEquals(metadata.getColumnTypeName(2), "decimal(38,0)");
+                assertThat(metadata.getColumnName(2)).isEqualTo("c_decimal");
+                assertThat(metadata.getColumnTypeName(2)).isEqualTo("decimal(38,0)");
 
-                assertEquals(metadata.getColumnName(3), "c_decimal_2");
-                assertEquals(metadata.getColumnTypeName(3), "decimal(10,3)");
+                assertThat(metadata.getColumnName(3)).isEqualTo("c_decimal_2");
+                assertThat(metadata.getColumnTypeName(3)).isEqualTo("decimal(10,3)");
 
-                assertEquals(metadata.getColumnName(4), "c_varchar");
-                assertEquals(metadata.getColumnTypeName(4), "varchar");
+                assertThat(metadata.getColumnName(4)).isEqualTo("c_varchar");
+                assertThat(metadata.getColumnTypeName(4)).isEqualTo("varchar");
 
-                assertEquals(metadata.getColumnName(5), "c_varchar_2");
-                assertEquals(metadata.getColumnTypeName(5), "varchar(10)");
+                assertThat(metadata.getColumnName(5)).isEqualTo("c_varchar_2");
+                assertThat(metadata.getColumnTypeName(5)).isEqualTo("varchar(10)");
 
-                assertEquals(metadata.getColumnName(6), "c_row");
-                assertEquals(metadata.getColumnTypeName(6), "row");
+                assertThat(metadata.getColumnName(6)).isEqualTo("c_row");
+                assertThat(metadata.getColumnTypeName(6)).isEqualTo("row");
 
-                assertEquals(metadata.getColumnName(7), "c_array");
-                assertEquals(metadata.getColumnTypeName(7), "array");
+                assertThat(metadata.getColumnName(7)).isEqualTo("c_array");
+                assertThat(metadata.getColumnTypeName(7)).isEqualTo("array");
 
-                assertEquals(metadata.getColumnName(8), "c_map");
-                assertEquals(metadata.getColumnTypeName(8), "map");
+                assertThat(metadata.getColumnName(8)).isEqualTo("c_map");
+                assertThat(metadata.getColumnTypeName(8)).isEqualTo("map");
             }
 
             try (Statement statement = connection.createStatement()) {
@@ -251,115 +247,115 @@ public class TestJdbcPreparedStatement
                             "AND c_array = ? AND c_map = ? AND c_tinyint = ? AND c_integer = ? AND c_bigint = ? " +
                             "AND c_smallint = ? AND c_real = ? AND c_double = ?")) {
                 ParameterMetaData parameterMetaData = statement.getParameterMetaData();
-                assertEquals(parameterMetaData.getParameterCount(), 15);
+                assertThat(parameterMetaData.getParameterCount()).isEqualTo(15);
 
-                assertEquals(parameterMetaData.getParameterClassName(1), "unknown");
-                assertEquals(parameterMetaData.getParameterType(1), Types.NULL);
-                assertEquals(parameterMetaData.getParameterTypeName(1), "unknown");
-                assertEquals(parameterMetaData.isNullable(1), parameterNullableUnknown);
-                assertFalse(parameterMetaData.isSigned(1));
-                assertEquals(parameterMetaData.getParameterMode(1), parameterModeUnknown);
+                assertThat(parameterMetaData.getParameterClassName(1)).isEqualTo("unknown");
+                assertThat(parameterMetaData.getParameterType(1)).isEqualTo(Types.NULL);
+                assertThat(parameterMetaData.getParameterTypeName(1)).isEqualTo("unknown");
+                assertThat(parameterMetaData.isNullable(1)).isEqualTo(parameterNullableUnknown);
+                assertThat(parameterMetaData.isSigned(1)).isFalse();
+                assertThat(parameterMetaData.getParameterMode(1)).isEqualTo(parameterModeUnknown);
 
-                assertEquals(parameterMetaData.getParameterClassName(2), Boolean.class.getName());
-                assertEquals(parameterMetaData.getParameterType(2), Types.BOOLEAN);
-                assertEquals(parameterMetaData.getParameterTypeName(2), "boolean");
-                assertEquals(parameterMetaData.isNullable(2), parameterNullableUnknown);
-                assertFalse(parameterMetaData.isSigned(2));
-                assertEquals(parameterMetaData.getParameterMode(2), parameterModeUnknown);
+                assertThat(parameterMetaData.getParameterClassName(2)).isEqualTo(Boolean.class.getName());
+                assertThat(parameterMetaData.getParameterType(2)).isEqualTo(Types.BOOLEAN);
+                assertThat(parameterMetaData.getParameterTypeName(2)).isEqualTo("boolean");
+                assertThat(parameterMetaData.isNullable(2)).isEqualTo(parameterNullableUnknown);
+                assertThat(parameterMetaData.isSigned(2)).isFalse();
+                assertThat(parameterMetaData.getParameterMode(2)).isEqualTo(parameterModeUnknown);
 
-                assertEquals(parameterMetaData.getParameterClassName(3), BigDecimal.class.getName());
-                assertEquals(parameterMetaData.getParameterType(3), Types.DECIMAL);
-                assertEquals(parameterMetaData.getParameterTypeName(3), "decimal");
-                assertEquals(parameterMetaData.isNullable(3), parameterNullableUnknown);
-                assertTrue(parameterMetaData.isSigned(3));
-                assertEquals(parameterMetaData.getParameterMode(3), parameterModeUnknown);
+                assertThat(parameterMetaData.getParameterClassName(3)).isEqualTo(BigDecimal.class.getName());
+                assertThat(parameterMetaData.getParameterType(3)).isEqualTo(Types.DECIMAL);
+                assertThat(parameterMetaData.getParameterTypeName(3)).isEqualTo("decimal");
+                assertThat(parameterMetaData.isNullable(3)).isEqualTo(parameterNullableUnknown);
+                assertThat(parameterMetaData.isSigned(3)).isTrue();
+                assertThat(parameterMetaData.getParameterMode(3)).isEqualTo(parameterModeUnknown);
 
-                assertEquals(parameterMetaData.getParameterClassName(4), BigDecimal.class.getName());
-                assertEquals(parameterMetaData.getParameterType(4), Types.DECIMAL);
-                assertEquals(parameterMetaData.getParameterTypeName(4), "decimal");
-                assertEquals(parameterMetaData.getPrecision(4), 10);
-                assertEquals(parameterMetaData.getScale(4), 3);
-                assertEquals(parameterMetaData.isNullable(4), parameterNullableUnknown);
-                assertTrue(parameterMetaData.isSigned(4));
-                assertEquals(parameterMetaData.getParameterMode(4), parameterModeUnknown);
+                assertThat(parameterMetaData.getParameterClassName(4)).isEqualTo(BigDecimal.class.getName());
+                assertThat(parameterMetaData.getParameterType(4)).isEqualTo(Types.DECIMAL);
+                assertThat(parameterMetaData.getParameterTypeName(4)).isEqualTo("decimal");
+                assertThat(parameterMetaData.getPrecision(4)).isEqualTo(10);
+                assertThat(parameterMetaData.getScale(4)).isEqualTo(3);
+                assertThat(parameterMetaData.isNullable(4)).isEqualTo(parameterNullableUnknown);
+                assertThat(parameterMetaData.isSigned(4)).isTrue();
+                assertThat(parameterMetaData.getParameterMode(4)).isEqualTo(parameterModeUnknown);
 
-                assertEquals(parameterMetaData.getParameterClassName(5), String.class.getName());
-                assertEquals(parameterMetaData.getParameterType(5), Types.VARCHAR);
-                assertEquals(parameterMetaData.getParameterTypeName(5), "varchar");
-                assertEquals(parameterMetaData.isNullable(5), parameterNullableUnknown);
-                assertFalse(parameterMetaData.isSigned(5));
-                assertEquals(parameterMetaData.getParameterMode(5), parameterModeUnknown);
+                assertThat(parameterMetaData.getParameterClassName(5)).isEqualTo(String.class.getName());
+                assertThat(parameterMetaData.getParameterType(5)).isEqualTo(Types.VARCHAR);
+                assertThat(parameterMetaData.getParameterTypeName(5)).isEqualTo("varchar");
+                assertThat(parameterMetaData.isNullable(5)).isEqualTo(parameterNullableUnknown);
+                assertThat(parameterMetaData.isSigned(5)).isFalse();
+                assertThat(parameterMetaData.getParameterMode(5)).isEqualTo(parameterModeUnknown);
 
-                assertEquals(parameterMetaData.getParameterClassName(6), String.class.getName());
-                assertEquals(parameterMetaData.getParameterType(6), Types.VARCHAR);
-                assertEquals(parameterMetaData.getParameterTypeName(6), "varchar");
-                assertEquals(parameterMetaData.getPrecision(6), 5);
-                assertEquals(parameterMetaData.isNullable(6), parameterNullableUnknown);
-                assertFalse(parameterMetaData.isSigned(6));
-                assertEquals(parameterMetaData.getParameterMode(6), parameterModeUnknown);
+                assertThat(parameterMetaData.getParameterClassName(6)).isEqualTo(String.class.getName());
+                assertThat(parameterMetaData.getParameterType(6)).isEqualTo(Types.VARCHAR);
+                assertThat(parameterMetaData.getParameterTypeName(6)).isEqualTo("varchar");
+                assertThat(parameterMetaData.getPrecision(6)).isEqualTo(5);
+                assertThat(parameterMetaData.isNullable(6)).isEqualTo(parameterNullableUnknown);
+                assertThat(parameterMetaData.isSigned(6)).isFalse();
+                assertThat(parameterMetaData.getParameterMode(6)).isEqualTo(parameterModeUnknown);
 
-                assertEquals(parameterMetaData.getParameterClassName(7), String.class.getName());
-                assertEquals(parameterMetaData.getParameterType(7), Types.JAVA_OBJECT);
-                assertEquals(parameterMetaData.getParameterTypeName(7), "row");
-                assertEquals(parameterMetaData.isNullable(7), parameterNullableUnknown);
-                assertFalse(parameterMetaData.isSigned(7));
-                assertEquals(parameterMetaData.getParameterMode(7), parameterModeUnknown);
+                assertThat(parameterMetaData.getParameterClassName(7)).isEqualTo(String.class.getName());
+                assertThat(parameterMetaData.getParameterType(7)).isEqualTo(Types.JAVA_OBJECT);
+                assertThat(parameterMetaData.getParameterTypeName(7)).isEqualTo("row");
+                assertThat(parameterMetaData.isNullable(7)).isEqualTo(parameterNullableUnknown);
+                assertThat(parameterMetaData.isSigned(7)).isFalse();
+                assertThat(parameterMetaData.getParameterMode(7)).isEqualTo(parameterModeUnknown);
 
-                assertEquals(parameterMetaData.getParameterClassName(8), Array.class.getName());
-                assertEquals(parameterMetaData.getParameterType(8), Types.ARRAY);
-                assertEquals(parameterMetaData.getParameterTypeName(8), "array");
-                assertEquals(parameterMetaData.isNullable(8), parameterNullableUnknown);
-                assertFalse(parameterMetaData.isSigned(8));
-                assertEquals(parameterMetaData.getParameterMode(8), parameterModeUnknown);
+                assertThat(parameterMetaData.getParameterClassName(8)).isEqualTo(Array.class.getName());
+                assertThat(parameterMetaData.getParameterType(8)).isEqualTo(Types.ARRAY);
+                assertThat(parameterMetaData.getParameterTypeName(8)).isEqualTo("array");
+                assertThat(parameterMetaData.isNullable(8)).isEqualTo(parameterNullableUnknown);
+                assertThat(parameterMetaData.isSigned(8)).isFalse();
+                assertThat(parameterMetaData.getParameterMode(8)).isEqualTo(parameterModeUnknown);
 
-                assertEquals(parameterMetaData.getParameterClassName(9), String.class.getName());
-                assertEquals(parameterMetaData.getParameterType(9), Types.JAVA_OBJECT);
-                assertEquals(parameterMetaData.getParameterTypeName(9), "map");
-                assertEquals(parameterMetaData.isNullable(9), parameterNullableUnknown);
-                assertFalse(parameterMetaData.isSigned(9));
-                assertEquals(parameterMetaData.getParameterMode(9), parameterModeUnknown);
+                assertThat(parameterMetaData.getParameterClassName(9)).isEqualTo(String.class.getName());
+                assertThat(parameterMetaData.getParameterType(9)).isEqualTo(Types.JAVA_OBJECT);
+                assertThat(parameterMetaData.getParameterTypeName(9)).isEqualTo("map");
+                assertThat(parameterMetaData.isNullable(9)).isEqualTo(parameterNullableUnknown);
+                assertThat(parameterMetaData.isSigned(9)).isFalse();
+                assertThat(parameterMetaData.getParameterMode(9)).isEqualTo(parameterModeUnknown);
 
-                assertEquals(parameterMetaData.getParameterClassName(10), Byte.class.getName());
-                assertEquals(parameterMetaData.getParameterType(10), Types.TINYINT);
-                assertEquals(parameterMetaData.getParameterTypeName(10), "tinyint");
-                assertEquals(parameterMetaData.isNullable(10), parameterNullableUnknown);
-                assertTrue(parameterMetaData.isSigned(10));
-                assertEquals(parameterMetaData.getParameterMode(10), parameterModeUnknown);
+                assertThat(parameterMetaData.getParameterClassName(10)).isEqualTo(Byte.class.getName());
+                assertThat(parameterMetaData.getParameterType(10)).isEqualTo(Types.TINYINT);
+                assertThat(parameterMetaData.getParameterTypeName(10)).isEqualTo("tinyint");
+                assertThat(parameterMetaData.isNullable(10)).isEqualTo(parameterNullableUnknown);
+                assertThat(parameterMetaData.isSigned(10)).isTrue();
+                assertThat(parameterMetaData.getParameterMode(10)).isEqualTo(parameterModeUnknown);
 
-                assertEquals(parameterMetaData.getParameterClassName(11), Integer.class.getName());
-                assertEquals(parameterMetaData.getParameterType(11), Types.INTEGER);
-                assertEquals(parameterMetaData.getParameterTypeName(11), "integer");
-                assertEquals(parameterMetaData.isNullable(11), parameterNullableUnknown);
-                assertTrue(parameterMetaData.isSigned(11));
-                assertEquals(parameterMetaData.getParameterMode(11), parameterModeUnknown);
+                assertThat(parameterMetaData.getParameterClassName(11)).isEqualTo(Integer.class.getName());
+                assertThat(parameterMetaData.getParameterType(11)).isEqualTo(Types.INTEGER);
+                assertThat(parameterMetaData.getParameterTypeName(11)).isEqualTo("integer");
+                assertThat(parameterMetaData.isNullable(11)).isEqualTo(parameterNullableUnknown);
+                assertThat(parameterMetaData.isSigned(11)).isTrue();
+                assertThat(parameterMetaData.getParameterMode(11)).isEqualTo(parameterModeUnknown);
 
-                assertEquals(parameterMetaData.getParameterClassName(12), Long.class.getName());
-                assertEquals(parameterMetaData.getParameterType(12), Types.BIGINT);
-                assertEquals(parameterMetaData.getParameterTypeName(12), "bigint");
-                assertEquals(parameterMetaData.isNullable(12), parameterNullableUnknown);
-                assertTrue(parameterMetaData.isSigned(12));
-                assertEquals(parameterMetaData.getParameterMode(12), parameterModeUnknown);
+                assertThat(parameterMetaData.getParameterClassName(12)).isEqualTo(Long.class.getName());
+                assertThat(parameterMetaData.getParameterType(12)).isEqualTo(Types.BIGINT);
+                assertThat(parameterMetaData.getParameterTypeName(12)).isEqualTo("bigint");
+                assertThat(parameterMetaData.isNullable(12)).isEqualTo(parameterNullableUnknown);
+                assertThat(parameterMetaData.isSigned(12)).isTrue();
+                assertThat(parameterMetaData.getParameterMode(12)).isEqualTo(parameterModeUnknown);
 
-                assertEquals(parameterMetaData.getParameterClassName(13), Short.class.getName());
-                assertEquals(parameterMetaData.getParameterType(13), Types.SMALLINT);
-                assertEquals(parameterMetaData.getParameterTypeName(13), "smallint");
-                assertEquals(parameterMetaData.isNullable(13), parameterNullableUnknown);
-                assertTrue(parameterMetaData.isSigned(13));
-                assertEquals(parameterMetaData.getParameterMode(13), parameterModeUnknown);
+                assertThat(parameterMetaData.getParameterClassName(13)).isEqualTo(Short.class.getName());
+                assertThat(parameterMetaData.getParameterType(13)).isEqualTo(Types.SMALLINT);
+                assertThat(parameterMetaData.getParameterTypeName(13)).isEqualTo("smallint");
+                assertThat(parameterMetaData.isNullable(13)).isEqualTo(parameterNullableUnknown);
+                assertThat(parameterMetaData.isSigned(13)).isTrue();
+                assertThat(parameterMetaData.getParameterMode(13)).isEqualTo(parameterModeUnknown);
 
-                assertEquals(parameterMetaData.getParameterClassName(14), Float.class.getName());
-                assertEquals(parameterMetaData.getParameterType(14), Types.REAL);
-                assertEquals(parameterMetaData.getParameterTypeName(14), "real");
-                assertEquals(parameterMetaData.isNullable(14), parameterNullableUnknown);
-                assertTrue(parameterMetaData.isSigned(14));
-                assertEquals(parameterMetaData.getParameterMode(14), parameterModeUnknown);
+                assertThat(parameterMetaData.getParameterClassName(14)).isEqualTo(Float.class.getName());
+                assertThat(parameterMetaData.getParameterType(14)).isEqualTo(Types.REAL);
+                assertThat(parameterMetaData.getParameterTypeName(14)).isEqualTo("real");
+                assertThat(parameterMetaData.isNullable(14)).isEqualTo(parameterNullableUnknown);
+                assertThat(parameterMetaData.isSigned(14)).isTrue();
+                assertThat(parameterMetaData.getParameterMode(14)).isEqualTo(parameterModeUnknown);
 
-                assertEquals(parameterMetaData.getParameterClassName(15), Double.class.getName());
-                assertEquals(parameterMetaData.getParameterType(15), Types.DOUBLE);
-                assertEquals(parameterMetaData.getParameterTypeName(15), "double");
-                assertEquals(parameterMetaData.isNullable(15), parameterNullableUnknown);
-                assertTrue(parameterMetaData.isSigned(15));
-                assertEquals(parameterMetaData.getParameterMode(15), parameterModeUnknown);
+                assertThat(parameterMetaData.getParameterClassName(15)).isEqualTo(Double.class.getName());
+                assertThat(parameterMetaData.getParameterType(15)).isEqualTo(Types.DOUBLE);
+                assertThat(parameterMetaData.getParameterTypeName(15)).isEqualTo("double");
+                assertThat(parameterMetaData.isNullable(15)).isEqualTo(parameterNullableUnknown);
+                assertThat(parameterMetaData.isSigned(15)).isTrue();
+                assertThat(parameterMetaData.getParameterMode(15)).isEqualTo(parameterModeUnknown);
             }
 
             try (Statement statement = connection.createStatement()) {
@@ -373,41 +369,41 @@ public class TestJdbcPreparedStatement
     {
         ClientTypeSignature actualClientTypeSignature = TrinoPreparedStatement.getClientTypeSignatureFromTypeString("boolean");
         ClientTypeSignature expectedClientTypeSignature = new ClientTypeSignature("boolean", ImmutableList.of());
-        assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
+        assertThat(actualClientTypeSignature).isEqualTo(expectedClientTypeSignature);
 
         actualClientTypeSignature = TrinoPreparedStatement.getClientTypeSignatureFromTypeString("decimal(10,3)");
         expectedClientTypeSignature = new ClientTypeSignature("decimal", ImmutableList.of(
                 ClientTypeSignatureParameter.ofLong(10),
                 ClientTypeSignatureParameter.ofLong(3)));
-        assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
+        assertThat(actualClientTypeSignature).isEqualTo(expectedClientTypeSignature);
 
         actualClientTypeSignature = TrinoPreparedStatement.getClientTypeSignatureFromTypeString("varchar");
         expectedClientTypeSignature = new ClientTypeSignature("varchar", ImmutableList.of(ClientTypeSignatureParameter.ofLong(VARCHAR_UNBOUNDED_LENGTH)));
-        assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
+        assertThat(actualClientTypeSignature).isEqualTo(expectedClientTypeSignature);
 
         actualClientTypeSignature = TrinoPreparedStatement.getClientTypeSignatureFromTypeString("varchar(10)");
         expectedClientTypeSignature = new ClientTypeSignature("varchar", ImmutableList.of(ClientTypeSignatureParameter.ofLong(10)));
-        assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
+        assertThat(actualClientTypeSignature).isEqualTo(expectedClientTypeSignature);
 
         actualClientTypeSignature = TrinoPreparedStatement.getClientTypeSignatureFromTypeString("row(x integer, y array(integer))");
         expectedClientTypeSignature = new ClientTypeSignature("row", ImmutableList.of());
-        assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
+        assertThat(actualClientTypeSignature).isEqualTo(expectedClientTypeSignature);
 
         actualClientTypeSignature = TrinoPreparedStatement.getClientTypeSignatureFromTypeString("array(integer)");
         expectedClientTypeSignature = new ClientTypeSignature("array", ImmutableList.of());
-        assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
+        assertThat(actualClientTypeSignature).isEqualTo(expectedClientTypeSignature);
 
         actualClientTypeSignature = TrinoPreparedStatement.getClientTypeSignatureFromTypeString("map(integer, integer)");
         expectedClientTypeSignature = new ClientTypeSignature("map", ImmutableList.of());
-        assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
+        assertThat(actualClientTypeSignature).isEqualTo(expectedClientTypeSignature);
 
         actualClientTypeSignature = TrinoPreparedStatement.getClientTypeSignatureFromTypeString("timestamp(12) with time zone");
         expectedClientTypeSignature = new ClientTypeSignature("timestamp with time zone", ImmutableList.of(ClientTypeSignatureParameter.ofLong(12)));
-        assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
+        assertThat(actualClientTypeSignature).isEqualTo(expectedClientTypeSignature);
 
         actualClientTypeSignature = TrinoPreparedStatement.getClientTypeSignatureFromTypeString("time(13) with time zone");
         expectedClientTypeSignature = new ClientTypeSignature("time with time zone", ImmutableList.of(ClientTypeSignatureParameter.ofLong(13)));
-        assertEquals(actualClientTypeSignature, expectedClientTypeSignature);
+        assertThat(actualClientTypeSignature).isEqualTo(expectedClientTypeSignature);
     }
 
     @Test
@@ -509,11 +505,11 @@ public class TestJdbcPreparedStatement
                 statement.setBytes(6, "xyz".getBytes(UTF_8));
                 statement.setNull(7, Types.BIGINT);
 
-                assertEquals(statement.executeUpdate(), 1);
+                assertThat(statement.executeUpdate()).isEqualTo(1);
 
-                assertFalse(statement.execute());
-                assertEquals(statement.getUpdateCount(), 1);
-                assertEquals(statement.getLargeUpdateCount(), 1);
+                assertThat(statement.execute()).isFalse();
+                assertThat(statement.getUpdateCount()).isEqualTo(1);
+                assertThat(statement.getLargeUpdateCount()).isEqualTo(1);
             }
 
             try (Statement statement = connection.createStatement()) {
@@ -542,13 +538,13 @@ public class TestJdbcPreparedStatement
             try (PreparedStatement preparedStatement = connection.prepareStatement(
                     "INSERT INTO " + tableName + " VALUES (?)")) {
                 // Run executeBatch before addBatch
-                assertEquals(preparedStatement.executeBatch(), new int[] {});
+                assertThat(preparedStatement.executeBatch()).isEqualTo(new int[] {});
 
                 for (int i = 0; i < 3; i++) {
                     preparedStatement.setInt(1, i);
                     preparedStatement.addBatch();
                 }
-                assertEquals(preparedStatement.executeBatch(), new int[] {1, 1, 1});
+                assertThat(preparedStatement.executeBatch()).isEqualTo(new int[] {1, 1, 1});
 
                 try (Statement statement = connection.createStatement()) {
                     ResultSet resultSet = statement.executeQuery("SELECT c_int FROM " + tableName);
@@ -560,15 +556,15 @@ public class TestJdbcPreparedStatement
                 }
 
                 // Make sure the above executeBatch cleared existing batch
-                assertEquals(preparedStatement.executeBatch(), new int[] {});
+                assertThat(preparedStatement.executeBatch()).isEqualTo(new int[] {});
 
                 // clearBatch removes added batch and cancel batch mode
                 preparedStatement.setBoolean(1, true);
                 preparedStatement.clearBatch();
-                assertEquals(preparedStatement.executeBatch(), new int[] {});
+                assertThat(preparedStatement.executeBatch()).isEqualTo(new int[] {});
 
                 preparedStatement.setInt(1, 1);
-                assertEquals(preparedStatement.executeUpdate(), 1);
+                assertThat(preparedStatement.executeUpdate()).isEqualTo(1);
             }
 
             try (Statement statement = connection.createStatement()) {
@@ -635,15 +631,15 @@ public class TestJdbcPreparedStatement
                 PreparedStatement statement1 = connection.prepareStatement("SELECT 123");
                 PreparedStatement statement2 = connection.prepareStatement("SELECT 456")) {
             try (ResultSet rs = statement1.executeQuery()) {
-                assertTrue(rs.next());
-                assertEquals(rs.getLong(1), 123);
-                assertFalse(rs.next());
+                assertThat(rs.next()).isTrue();
+                assertThat(rs.getLong(1)).isEqualTo(123);
+                assertThat(rs.next()).isFalse();
             }
 
             try (ResultSet rs = statement2.executeQuery()) {
-                assertTrue(rs.next());
-                assertEquals(rs.getLong(1), 456);
-                assertFalse(rs.next());
+                assertThat(rs.next()).isTrue();
+                assertThat(rs.getLong(1)).isEqualTo(456);
+                assertThat(rs.next()).isFalse();
             }
         }
     }
@@ -663,9 +659,9 @@ public class TestJdbcPreparedStatement
         try (Connection connection = createConnection(explicitPrepare);
                 PreparedStatement statement = connection.prepareStatement(sql);
                 ResultSet rs = statement.executeQuery()) {
-            assertTrue(rs.next());
-            assertFalse(rs.getBoolean(1));
-            assertFalse(rs.next());
+            assertThat(rs.next()).isTrue();
+            assertThat(rs.getBoolean(1)).isFalse();
+            assertThat(rs.next()).isFalse();
         }
     }
 
@@ -721,12 +717,12 @@ public class TestJdbcPreparedStatement
             statement.setNull(1, sqlType);
 
             try (ResultSet rs = statement.executeQuery()) {
-                assertTrue(rs.next());
-                assertNull(rs.getObject(1));
-                assertTrue(rs.wasNull());
-                assertFalse(rs.next());
+                assertThat(rs.next()).isTrue();
+                assertThat(rs.getObject(1)).isNull();
+                assertThat(rs.wasNull()).isTrue();
+                assertThat(rs.next()).isFalse();
 
-                assertEquals(rs.getMetaData().getColumnType(1), expectedSqlType);
+                assertThat(rs.getMetaData().getColumnType(1)).isEqualTo(expectedSqlType);
             }
         }
     }
@@ -1433,7 +1429,7 @@ public class TestJdbcPreparedStatement
 
         try (Connection connection = createConnection(explicitPrepare)) {
             try (Statement statement = connection.createStatement()) {
-                assertEquals(statement.executeUpdate("CREATE TABLE blackhole.blackhole." + tableName + " (x bigint, y varchar)"), 0);
+                assertThat(statement.executeUpdate("CREATE TABLE blackhole.blackhole." + tableName + " (x bigint, y varchar)")).isEqualTo(0);
             }
 
             try (PreparedStatement ps = connection.prepareStatement(selectSql)) {
@@ -1489,7 +1485,7 @@ public class TestJdbcPreparedStatement
             }
 
             try (Statement statement = connection.createStatement()) {
-                assertEquals(statement.executeUpdate("DROP TABLE blackhole.blackhole." + tableName), 0);
+                assertThat(statement.executeUpdate("DROP TABLE blackhole.blackhole." + tableName)).isEqualTo(0);
             }
         }
     }
@@ -1500,7 +1496,9 @@ public class TestJdbcPreparedStatement
 
         try (Statement statement = connection.createStatement();
                 ResultSet resultSet = statement.executeQuery(sql)) {
-            assertTrue(resultSet.next(), "Cannot find SQL query " + expectedSql);
+            assertThat(resultSet.next())
+                    .describedAs("Cannot find SQL query " + expectedSql)
+                    .isTrue();
         }
         catch (SQLException e) {
             throw new RuntimeException(e);
@@ -1540,10 +1538,10 @@ public class TestJdbcPreparedStatement
 
                 try (ResultSet rs = statement.executeQuery()) {
                     verify(rs.next(), "no row returned");
-                    assertEquals(rs.getObject(1), expectedValue);
+                    assertThat(rs.getObject(1)).isEqualTo(expectedValue);
                     verify(!rs.next(), "unexpected second row");
 
-                    assertEquals(rs.getMetaData().getColumnType(1), expectedSqlType);
+                    assertThat(rs.getMetaData().getColumnType(1)).isEqualTo(expectedSqlType);
                 }
             }
 

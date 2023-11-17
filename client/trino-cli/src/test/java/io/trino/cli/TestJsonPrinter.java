@@ -23,7 +23,7 @@ import java.util.List;
 import static io.trino.cli.TestAlignedTablePrinter.row;
 import static io.trino.cli.TestAlignedTablePrinter.rows;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestJsonPrinter
 {
@@ -49,7 +49,7 @@ public class TestJsonPrinter
                 "{\"first\":\"some long\\ntext\\tdone\",\"last\":\"more\\ntext\",\"quantity\":4567}\n" +
                 "{\"first\":\"bye\",\"last\":\"done\",\"quantity\":-15}\n";
 
-        assertEquals(writer.getBuffer().toString(), expected);
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 
     @Test
@@ -62,7 +62,7 @@ public class TestJsonPrinter
 
         printer.finish();
 
-        assertEquals(writer.getBuffer().toString(), "");
+        assertThat(writer.getBuffer().toString()).isEqualTo("");
     }
 
     @Test
@@ -78,6 +78,6 @@ public class TestJsonPrinter
 
         String expected = "{\"first\":\"68 65 6c 6c 6f\",\"last\":null,\"quantity\":123}\n";
 
-        assertEquals(writer.getBuffer().toString(), expected);
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 }

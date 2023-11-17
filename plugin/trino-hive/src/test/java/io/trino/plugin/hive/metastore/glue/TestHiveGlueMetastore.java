@@ -126,8 +126,6 @@ import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 /*
  * GlueHiveMetastore currently uses AWS Default Credential Provider Chain,
@@ -360,8 +358,8 @@ public class TestHiveGlueMetastore
                     tableName.getSchemaName(),
                     tableName.getTableName(),
                     ImmutableList.of("ds"), TupleDomain.all());
-            assertTrue(partitionNames.isPresent());
-            assertEquals(partitionNames.get(), ImmutableList.of("ds=2016-01-01", "ds=2016-01-02"));
+            assertThat(partitionNames.isPresent()).isTrue();
+            assertThat(partitionNames.get()).isEqualTo(ImmutableList.of("ds=2016-01-01", "ds=2016-01-02"));
         }
         finally {
             dropTable(tablePartitionFormat);
@@ -405,8 +403,8 @@ public class TestHiveGlueMetastore
                     tableName.getTableName(),
                     ImmutableList.of(reservedKeywordPartitionColumnName, regularColumnPartitionName),
                     TupleDomain.withColumnDomains(ImmutableMap.of(regularColumnPartitionName, Domain.singleValue(BIGINT, 2L))));
-            assertTrue(partitionNames.isPresent());
-            assertEquals(partitionNames.get(), ImmutableList.of("key=value2/int_partition=2"));
+            assertThat(partitionNames.isPresent()).isTrue();
+            assertThat(partitionNames.get()).isEqualTo(ImmutableList.of("key=value2/int_partition=2"));
 
             // KEY is a reserved keyword in the grammar of the SQL parser used internally by Glue API
             // and therefore should not be used in the partition filter
@@ -415,8 +413,8 @@ public class TestHiveGlueMetastore
                     tableName.getTableName(),
                     ImmutableList.of(reservedKeywordPartitionColumnName, regularColumnPartitionName),
                     TupleDomain.withColumnDomains(ImmutableMap.of(reservedKeywordPartitionColumnName, Domain.singleValue(VARCHAR, utf8Slice("value1")))));
-            assertTrue(partitionNames.isPresent());
-            assertEquals(partitionNames.get(), ImmutableList.of("key=value1/int_partition=1", "key=value2/int_partition=2"));
+            assertThat(partitionNames.isPresent()).isTrue();
+            assertThat(partitionNames.get()).isEqualTo(ImmutableList.of("key=value1/int_partition=1", "key=value2/int_partition=2"));
         }
         finally {
             dropTable(tableName);
@@ -433,7 +431,7 @@ public class TestHiveGlueMetastore
         getMetastoreClient().getAllDatabases();
         assertThat(stats.getGetDatabases().getTime().getAllTime().getCount()).isGreaterThan(initialCallCount);
         assertThat(stats.getGetDatabases().getTime().getAllTime().getAvg()).isGreaterThan(0.0);
-        assertEquals(stats.getGetDatabases().getTotalFailures().getTotalCount(), initialFailureCount);
+        assertThat(stats.getGetDatabases().getTotalFailures().getTotalCount()).isEqualTo(initialFailureCount);
     }
 
     @Test
@@ -445,7 +443,7 @@ public class TestHiveGlueMetastore
         assertThatThrownBy(() -> getMetastoreClient().getDatabase(null))
                 .isInstanceOf(TrinoException.class)
                 .hasMessageStartingWith("Database name cannot be equal to null or empty");
-        assertEquals(stats.getGetDatabase().getTotalFailures().getTotalCount(), initialFailureCount + 1);
+        assertThat(stats.getGetDatabase().getTotalFailures().getTotalCount()).isEqualTo(initialFailureCount + 1);
     }
 
     @Test
@@ -1375,7 +1373,7 @@ public class TestHiveGlueMetastore
             glueClient.createTable(new CreateTableRequest()
                     .withDatabaseName(database)
                     .withTableInput(tableInput));
-            assertTrue(isIcebergTable(metastore.getTable(table.getSchemaName(), table.getTableName()).orElseThrow()));
+            assertThat(isIcebergTable(metastore.getTable(table.getSchemaName(), table.getTableName()).orElseThrow())).isTrue();
             glueClient.deleteTable(deleteTableRequest);
 
             // Delta Lake table
@@ -1383,7 +1381,7 @@ public class TestHiveGlueMetastore
             glueClient.createTable(new CreateTableRequest()
                     .withDatabaseName(database)
                     .withTableInput(tableInput));
-            assertTrue(isDeltaLakeTable(metastore.getTable(table.getSchemaName(), table.getTableName()).orElseThrow()));
+            assertThat(isDeltaLakeTable(metastore.getTable(table.getSchemaName(), table.getTableName()).orElseThrow())).isTrue();
             glueClient.deleteTable(deleteTableRequest);
 
             // Iceberg materialized view
@@ -1396,7 +1394,7 @@ public class TestHiveGlueMetastore
             glueClient.createTable(new CreateTableRequest()
                     .withDatabaseName(database)
                     .withTableInput(tableInput));
-            assertTrue(isTrinoMaterializedView(metastore.getTable(table.getSchemaName(), table.getTableName()).orElseThrow()));
+            assertThat(isTrinoMaterializedView(metastore.getTable(table.getSchemaName(), table.getTableName()).orElseThrow())).isTrue();
             materializedViews.add(table);
             try (Transaction transaction = newTransaction()) {
                 ConnectorSession session = newSession();
@@ -1529,11 +1527,10 @@ public class TestHiveGlueMetastore
                         tableName.getTableName(),
                         partitionColumnNames,
                         filter);
-                assertTrue(partitionNames.isPresent());
-                assertEquals(
-                        partitionNames.get(),
-                        expectedResults,
-                        format("lists \nactual: %s\nexpected: %s\nmismatch for filter %s (input index %d)\n", partitionNames.get(), expectedResults, filter, i));
+                assertThat(partitionNames.isPresent()).isTrue();
+                assertThat(partitionNames.get())
+                        .describedAs(format("lists \nactual: %s\nexpected: %s\nmismatch for filter %s (input index %d)\n", partitionNames.get(), expectedResults, filter, i))
+                        .isEqualTo(expectedResults);
             }
         }
     }

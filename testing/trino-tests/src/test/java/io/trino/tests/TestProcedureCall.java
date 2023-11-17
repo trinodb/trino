@@ -33,10 +33,9 @@ import java.util.List;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 
 @TestInstance(PER_CLASS)
 public class TestProcedureCall
@@ -203,8 +202,8 @@ public class TestProcedureCall
     {
         tester.reset();
         assertUpdate(sql);
-        assertEquals(tester.getCalledName(), name);
-        assertEquals(tester.getCalledArguments(), list(arguments));
+        assertThat(tester.getCalledName()).isEqualTo(name);
+        assertThat(tester.getCalledArguments()).isEqualTo(list(arguments));
     }
 
     private void assertCallThrows(@Language("SQL") String sql, String name, String message)
@@ -212,8 +211,8 @@ public class TestProcedureCall
         tester.reset();
         assertThatThrownBy(() -> assertUpdate(sql))
                 .isInstanceOfSatisfying(RuntimeException.class, e -> {
-                    assertEquals(tester.getCalledName(), name);
-                    assertEquals(tester.getCalledArguments(), list());
+                    assertThat(tester.getCalledName()).isEqualTo(name);
+                    assertThat(tester.getCalledArguments()).isEqualTo(list());
                 })
                 .hasMessage(message);
     }
@@ -222,7 +221,7 @@ public class TestProcedureCall
     {
         tester.reset();
         assertThatThrownBy(() -> assertUpdate(sql))
-                .isInstanceOfSatisfying(RuntimeException.class, e -> assertFalse(tester.wasCalled()))
+                .isInstanceOfSatisfying(RuntimeException.class, e -> assertThat(tester.wasCalled()).isFalse())
                 .hasMessage(message);
     }
 

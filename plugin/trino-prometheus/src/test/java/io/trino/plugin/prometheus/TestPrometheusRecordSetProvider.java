@@ -36,10 +36,9 @@ import static io.trino.plugin.prometheus.PrometheusRecordCursor.getMapFromSqlMap
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.time.Instant.ofEpochMilli;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -65,10 +64,14 @@ public class TestPrometheusRecordSetProvider
                         new PrometheusColumnHandle("labels", varcharMapType, 0),
                         new PrometheusColumnHandle("timestamp", TIMESTAMP_COLUMN_TYPE, 1),
                         new PrometheusColumnHandle("value", DoubleType.DOUBLE, 2)));
-        assertNotNull(recordSet, "recordSet is null");
+        assertThat(recordSet)
+                .describedAs("recordSet is null")
+                .isNotNull();
 
         RecordCursor cursor = recordSet.cursor();
-        assertNotNull(cursor, "cursor is null");
+        assertThat(cursor)
+                .describedAs("cursor is null")
+                .isNotNull();
 
         Map<Instant, Map<?, ?>> actual = new LinkedHashMap<>();
         while (cursor.advanceNextPosition()) {
@@ -88,6 +91,6 @@ public class TestPrometheusRecordSetProvider
                         "localhost:9090", "__name__", "up",
                         "job", "prometheus"))
                 .buildOrThrow();
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 }

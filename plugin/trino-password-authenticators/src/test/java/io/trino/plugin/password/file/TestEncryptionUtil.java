@@ -18,8 +18,8 @@ import org.junit.jupiter.api.Test;
 import static io.trino.plugin.password.file.EncryptionUtil.getHashingAlgorithm;
 import static io.trino.plugin.password.file.HashingAlgorithm.BCRYPT;
 import static io.trino.plugin.password.file.HashingAlgorithm.PBKDF2;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestEncryptionUtil
 {
@@ -28,14 +28,14 @@ public class TestEncryptionUtil
     public void testHashingAlgorithmBCrypt()
     {
         String password = "$2y$10$BqTb8hScP5DfcpmHo5PeyugxHz5Ky/qf3wrpD7SNm8sWuA3VlGqsa";
-        assertEquals(getHashingAlgorithm(password), BCRYPT);
+        assertThat(getHashingAlgorithm(password)).isEqualTo(BCRYPT);
     }
 
     @Test
     public void testHashingAlgorithmPBKDF2()
     {
         String password = "1000:5b4240333032306164:f38d165fce8ce42f59d366139ef5d9e1ca1247f0e06e503ee1a611dd9ec40876bb5edb8409f5abe5504aab6628e70cfb3d3a18e99d70357d295002c3d0a308a0";
-        assertEquals(getHashingAlgorithm(password), PBKDF2);
+        assertThat(getHashingAlgorithm(password)).isEqualTo(PBKDF2);
     }
 
     @Test

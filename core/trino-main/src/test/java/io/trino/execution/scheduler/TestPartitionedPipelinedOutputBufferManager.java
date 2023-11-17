@@ -20,10 +20,8 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
 
 public class TestPartitionedPipelinedOutputBufferManager
 {
@@ -55,13 +53,13 @@ public class TestPartitionedPipelinedOutputBufferManager
 
     private static void assertOutputBuffers(PipelinedOutputBuffers outputBuffers)
     {
-        assertNotNull(outputBuffers);
-        assertTrue(outputBuffers.getVersion() > 0);
-        assertTrue(outputBuffers.isNoMoreBufferIds());
+        assertThat(outputBuffers).isNotNull();
+        assertThat(outputBuffers.getVersion() > 0).isTrue();
+        assertThat(outputBuffers.isNoMoreBufferIds()).isTrue();
         Map<OutputBufferId, Integer> buffers = outputBuffers.getBuffers();
-        assertEquals(buffers.size(), 4);
+        assertThat(buffers.size()).isEqualTo(4);
         for (int partition = 0; partition < 4; partition++) {
-            assertEquals(buffers.get(new OutputBufferId(partition)), Integer.valueOf(partition));
+            assertThat(buffers.get(new OutputBufferId(partition))).isEqualTo(Integer.valueOf(partition));
         }
     }
 }

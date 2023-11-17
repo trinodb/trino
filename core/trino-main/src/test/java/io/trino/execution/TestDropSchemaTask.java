@@ -32,9 +32,8 @@ import static io.trino.spi.connector.SaveMode.FAIL;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static java.util.Collections.emptyList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestDropSchemaTask
         extends BaseDataDefinitionTaskTest
@@ -47,12 +46,12 @@ public class TestDropSchemaTask
         CreateSchemaTask createSchemaTask = getCreateSchemaTask();
         CreateSchema createSchema = new CreateSchema(QualifiedName.of(CATALOG_SCHEMA_NAME.getSchemaName()), false, ImmutableList.of());
         getFutureValue(createSchemaTask.execute(createSchema, queryStateMachine, emptyList(), NOOP));
-        assertTrue(metadata.schemaExists(testSession, CATALOG_SCHEMA_NAME));
+        assertThat(metadata.schemaExists(testSession, CATALOG_SCHEMA_NAME)).isTrue();
 
         DropSchemaTask dropSchemaTask = getDropSchemaTask();
         DropSchema dropSchema = new DropSchema(QualifiedName.of(CATALOG_SCHEMA_NAME.getSchemaName()), false, false);
         getFutureValue(dropSchemaTask.execute(dropSchema, queryStateMachine, emptyList(), NOOP));
-        assertFalse(metadata.schemaExists(testSession, CATALOG_SCHEMA_NAME));
+        assertThat(metadata.schemaExists(testSession, CATALOG_SCHEMA_NAME)).isFalse();
 
         assertThatExceptionOfType(TrinoException.class)
                 .isThrownBy(() -> getFutureValue(dropSchemaTask.execute(dropSchema, queryStateMachine, emptyList(), NOOP)))
@@ -75,7 +74,7 @@ public class TestDropSchemaTask
         assertThatExceptionOfType(TrinoException.class)
                 .isThrownBy(() -> getFutureValue(dropSchemaTask.execute(dropSchema, queryStateMachine, emptyList(), NOOP)))
                 .withMessage("Cannot drop non-empty schema 'test_db'");
-        assertTrue(metadata.schemaExists(testSession, CATALOG_SCHEMA_NAME));
+        assertThat(metadata.schemaExists(testSession, CATALOG_SCHEMA_NAME)).isTrue();
     }
 
     @Test
@@ -83,7 +82,7 @@ public class TestDropSchemaTask
     {
         CatalogSchemaName schema = new CatalogSchemaName(CATALOG_SCHEMA_NAME.getCatalogName(), "test_if_exists_restrict");
 
-        assertFalse(metadata.schemaExists(testSession, schema));
+        assertThat(metadata.schemaExists(testSession, schema)).isFalse();
         DropSchemaTask dropSchemaTask = getDropSchemaTask();
 
         DropSchema dropSchema = new DropSchema(QualifiedName.of("test_if_exists_restrict"), true, false);
@@ -96,13 +95,13 @@ public class TestDropSchemaTask
         CreateSchemaTask createSchemaTask = getCreateSchemaTask();
         CreateSchema createSchema = new CreateSchema(QualifiedName.of(CATALOG_SCHEMA_NAME.getSchemaName()), false, ImmutableList.of());
         getFutureValue(createSchemaTask.execute(createSchema, queryStateMachine, emptyList(), NOOP));
-        assertTrue(metadata.schemaExists(testSession, CATALOG_SCHEMA_NAME));
+        assertThat(metadata.schemaExists(testSession, CATALOG_SCHEMA_NAME)).isTrue();
 
         DropSchemaTask dropSchemaTask = getDropSchemaTask();
         DropSchema dropSchema = new DropSchema(QualifiedName.of(CATALOG_SCHEMA_NAME.getSchemaName()), false, true);
 
         getFutureValue(dropSchemaTask.execute(dropSchema, queryStateMachine, emptyList(), NOOP));
-        assertFalse(metadata.schemaExists(testSession, CATALOG_SCHEMA_NAME));
+        assertThat(metadata.schemaExists(testSession, CATALOG_SCHEMA_NAME)).isFalse();
     }
 
     @Test
@@ -119,7 +118,7 @@ public class TestDropSchemaTask
         metadata.createTable(testSession, CATALOG_SCHEMA_NAME.getCatalogName(), someTable(tableName), FAIL);
 
         getFutureValue(dropSchemaTask.execute(dropSchema, queryStateMachine, emptyList(), NOOP));
-        assertFalse(metadata.schemaExists(testSession, CATALOG_SCHEMA_NAME));
+        assertThat(metadata.schemaExists(testSession, CATALOG_SCHEMA_NAME)).isFalse();
     }
 
     @Test
@@ -127,7 +126,7 @@ public class TestDropSchemaTask
     {
         CatalogSchemaName schema = new CatalogSchemaName(CATALOG_SCHEMA_NAME.getCatalogName(), "test_if_exists_cascade");
 
-        assertFalse(metadata.schemaExists(testSession, schema));
+        assertThat(metadata.schemaExists(testSession, schema)).isFalse();
         DropSchemaTask dropSchemaTask = getDropSchemaTask();
 
         DropSchema dropSchema = new DropSchema(QualifiedName.of("test_if_exists_cascade"), true, false);

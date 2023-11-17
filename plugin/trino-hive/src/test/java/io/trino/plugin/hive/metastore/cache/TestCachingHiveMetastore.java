@@ -119,10 +119,6 @@ import static java.util.function.Function.identity;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 @Execution(SAME_THREAD)
@@ -214,126 +210,126 @@ public class TestCachingHiveMetastore
     @Test
     public void testGetAllDatabases()
     {
-        assertEquals(mockClient.getAccessCount(), 0);
-        assertEquals(metastore.getAllDatabases(), ImmutableList.of(TEST_DATABASE));
-        assertEquals(mockClient.getAccessCount(), 1);
-        assertEquals(metastore.getAllDatabases(), ImmutableList.of(TEST_DATABASE));
-        assertEquals(mockClient.getAccessCount(), 1);
-        assertEquals(metastore.getDatabaseNamesStats().getRequestCount(), 2);
-        assertEquals(metastore.getDatabaseNamesStats().getHitRate(), 0.5);
+        assertThat(mockClient.getAccessCount()).isEqualTo(0);
+        assertThat(metastore.getAllDatabases()).isEqualTo(ImmutableList.of(TEST_DATABASE));
+        assertThat(mockClient.getAccessCount()).isEqualTo(1);
+        assertThat(metastore.getAllDatabases()).isEqualTo(ImmutableList.of(TEST_DATABASE));
+        assertThat(mockClient.getAccessCount()).isEqualTo(1);
+        assertThat(metastore.getDatabaseNamesStats().getRequestCount()).isEqualTo(2);
+        assertThat(metastore.getDatabaseNamesStats().getHitRate()).isEqualTo(0.5);
 
         metastore.flushCache();
 
-        assertEquals(metastore.getAllDatabases(), ImmutableList.of(TEST_DATABASE));
-        assertEquals(mockClient.getAccessCount(), 2);
-        assertEquals(metastore.getDatabaseNamesStats().getRequestCount(), 3);
-        assertEquals(metastore.getDatabaseNamesStats().getHitRate(), 1.0 / 3);
+        assertThat(metastore.getAllDatabases()).isEqualTo(ImmutableList.of(TEST_DATABASE));
+        assertThat(mockClient.getAccessCount()).isEqualTo(2);
+        assertThat(metastore.getDatabaseNamesStats().getRequestCount()).isEqualTo(3);
+        assertThat(metastore.getDatabaseNamesStats().getHitRate()).isEqualTo(1.0 / 3);
     }
 
     @Test
     public void testGetAllTable()
     {
-        assertEquals(mockClient.getAccessCount(), 0);
-        assertEquals(metastore.getAllTables(TEST_DATABASE), ImmutableList.of(TEST_TABLE));
-        assertEquals(mockClient.getAccessCount(), 1);
-        assertEquals(metastore.getAllTables(TEST_DATABASE), ImmutableList.of(TEST_TABLE));
-        assertEquals(mockClient.getAccessCount(), 1);
-        assertEquals(metastore.getTableNamesStats().getRequestCount(), 2);
-        assertEquals(metastore.getTableNamesStats().getHitRate(), 0.5);
+        assertThat(mockClient.getAccessCount()).isEqualTo(0);
+        assertThat(metastore.getAllTables(TEST_DATABASE)).isEqualTo(ImmutableList.of(TEST_TABLE));
+        assertThat(mockClient.getAccessCount()).isEqualTo(1);
+        assertThat(metastore.getAllTables(TEST_DATABASE)).isEqualTo(ImmutableList.of(TEST_TABLE));
+        assertThat(mockClient.getAccessCount()).isEqualTo(1);
+        assertThat(metastore.getTableNamesStats().getRequestCount()).isEqualTo(2);
+        assertThat(metastore.getTableNamesStats().getHitRate()).isEqualTo(0.5);
 
         metastore.flushCache();
 
-        assertEquals(metastore.getAllTables(TEST_DATABASE), ImmutableList.of(TEST_TABLE));
-        assertEquals(mockClient.getAccessCount(), 2);
-        assertEquals(metastore.getTableNamesStats().getRequestCount(), 3);
-        assertEquals(metastore.getTableNamesStats().getHitRate(), 1.0 / 3);
+        assertThat(metastore.getAllTables(TEST_DATABASE)).isEqualTo(ImmutableList.of(TEST_TABLE));
+        assertThat(mockClient.getAccessCount()).isEqualTo(2);
+        assertThat(metastore.getTableNamesStats().getRequestCount()).isEqualTo(3);
+        assertThat(metastore.getTableNamesStats().getHitRate()).isEqualTo(1.0 / 3);
     }
 
     @Test
     public void testBatchGetAllTable()
     {
-        assertEquals(mockClient.getAccessCount(), 0);
-        assertEquals(metastore.getAllTables(), Optional.of(ImmutableList.of(TEST_SCHEMA_TABLE)));
-        assertEquals(mockClient.getAccessCount(), 1);
-        assertEquals(metastore.getAllTables(), Optional.of(ImmutableList.of(TEST_SCHEMA_TABLE)));
-        assertEquals(mockClient.getAccessCount(), 1);
-        assertEquals(metastore.getAllTables(TEST_DATABASE), ImmutableList.of(TEST_TABLE));
-        assertEquals(mockClient.getAccessCount(), 2);
-        assertEquals(metastore.getAllTableNamesStats().getRequestCount(), 2);
-        assertEquals(metastore.getAllTableNamesStats().getHitRate(), .5);
+        assertThat(mockClient.getAccessCount()).isEqualTo(0);
+        assertThat(metastore.getAllTables()).isEqualTo(Optional.of(ImmutableList.of(TEST_SCHEMA_TABLE)));
+        assertThat(mockClient.getAccessCount()).isEqualTo(1);
+        assertThat(metastore.getAllTables()).isEqualTo(Optional.of(ImmutableList.of(TEST_SCHEMA_TABLE)));
+        assertThat(mockClient.getAccessCount()).isEqualTo(1);
+        assertThat(metastore.getAllTables(TEST_DATABASE)).isEqualTo(ImmutableList.of(TEST_TABLE));
+        assertThat(mockClient.getAccessCount()).isEqualTo(2);
+        assertThat(metastore.getAllTableNamesStats().getRequestCount()).isEqualTo(2);
+        assertThat(metastore.getAllTableNamesStats().getHitRate()).isEqualTo(.5);
 
         metastore.flushCache();
 
-        assertEquals(metastore.getAllTables(), Optional.of(ImmutableList.of(TEST_SCHEMA_TABLE)));
-        assertEquals(mockClient.getAccessCount(), 3);
-        assertEquals(metastore.getAllTableNamesStats().getRequestCount(), 3);
-        assertEquals(metastore.getAllTableNamesStats().getHitRate(), 1. / 3);
+        assertThat(metastore.getAllTables()).isEqualTo(Optional.of(ImmutableList.of(TEST_SCHEMA_TABLE)));
+        assertThat(mockClient.getAccessCount()).isEqualTo(3);
+        assertThat(metastore.getAllTableNamesStats().getRequestCount()).isEqualTo(3);
+        assertThat(metastore.getAllTableNamesStats().getHitRate()).isEqualTo(1. / 3);
     }
 
     @Test
     public void testInvalidDbGetAllTAbles()
     {
-        assertTrue(metastore.getAllTables(BAD_DATABASE).isEmpty());
+        assertThat(metastore.getAllTables(BAD_DATABASE).isEmpty()).isTrue();
     }
 
     @Test
     public void testGetTable()
     {
-        assertEquals(mockClient.getAccessCount(), 0);
-        assertNotNull(metastore.getTable(TEST_DATABASE, TEST_TABLE));
-        assertEquals(mockClient.getAccessCount(), 1);
-        assertNotNull(metastore.getTable(TEST_DATABASE, TEST_TABLE));
-        assertEquals(mockClient.getAccessCount(), 1);
-        assertEquals(metastore.getTableStats().getRequestCount(), 2);
-        assertEquals(metastore.getTableStats().getHitRate(), 0.5);
+        assertThat(mockClient.getAccessCount()).isEqualTo(0);
+        assertThat(metastore.getTable(TEST_DATABASE, TEST_TABLE)).isNotNull();
+        assertThat(mockClient.getAccessCount()).isEqualTo(1);
+        assertThat(metastore.getTable(TEST_DATABASE, TEST_TABLE)).isNotNull();
+        assertThat(mockClient.getAccessCount()).isEqualTo(1);
+        assertThat(metastore.getTableStats().getRequestCount()).isEqualTo(2);
+        assertThat(metastore.getTableStats().getHitRate()).isEqualTo(0.5);
 
         metastore.flushCache();
 
-        assertNotNull(metastore.getTable(TEST_DATABASE, TEST_TABLE));
-        assertEquals(mockClient.getAccessCount(), 2);
-        assertEquals(metastore.getTableStats().getRequestCount(), 3);
-        assertEquals(metastore.getTableStats().getHitRate(), 1.0 / 3);
+        assertThat(metastore.getTable(TEST_DATABASE, TEST_TABLE)).isNotNull();
+        assertThat(mockClient.getAccessCount()).isEqualTo(2);
+        assertThat(metastore.getTableStats().getRequestCount()).isEqualTo(3);
+        assertThat(metastore.getTableStats().getHitRate()).isEqualTo(1.0 / 3);
     }
 
     @Test
     public void testSetTableAuthorization()
     {
-        assertEquals(mockClient.getAccessCount(), 0);
-        assertNotNull(metastore.getTable(TEST_DATABASE, TEST_TABLE));
-        assertNotNull(metastore.getDatabase(TEST_DATABASE));
-        assertEquals(mockClient.getAccessCount(), 2);
+        assertThat(mockClient.getAccessCount()).isEqualTo(0);
+        assertThat(metastore.getTable(TEST_DATABASE, TEST_TABLE)).isNotNull();
+        assertThat(metastore.getDatabase(TEST_DATABASE)).isNotNull();
+        assertThat(mockClient.getAccessCount()).isEqualTo(2);
         metastore.setTableOwner(TEST_DATABASE, TEST_TABLE, new HivePrincipal(USER, "ignore"));
-        assertEquals(mockClient.getAccessCount(), 3);
-        assertNotNull(metastore.getTable(TEST_DATABASE, TEST_TABLE));
-        assertEquals(mockClient.getAccessCount(), 4);
+        assertThat(mockClient.getAccessCount()).isEqualTo(3);
+        assertThat(metastore.getTable(TEST_DATABASE, TEST_TABLE)).isNotNull();
+        assertThat(mockClient.getAccessCount()).isEqualTo(4);
         // Assert that database cache has not been invalidated
-        assertNotNull(metastore.getDatabase(TEST_DATABASE));
-        assertEquals(mockClient.getAccessCount(), 4);
+        assertThat(metastore.getDatabase(TEST_DATABASE)).isNotNull();
+        assertThat(mockClient.getAccessCount()).isEqualTo(4);
     }
 
     @Test
     public void testInvalidDbGetTable()
     {
-        assertFalse(metastore.getTable(BAD_DATABASE, TEST_TABLE).isPresent());
+        assertThat(metastore.getTable(BAD_DATABASE, TEST_TABLE).isPresent()).isFalse();
 
-        assertEquals(stats.getGetTable().getThriftExceptions().getTotalCount(), 0);
-        assertEquals(stats.getGetTable().getTotalFailures().getTotalCount(), 0);
+        assertThat(stats.getGetTable().getThriftExceptions().getTotalCount()).isEqualTo(0);
+        assertThat(stats.getGetTable().getTotalFailures().getTotalCount()).isEqualTo(0);
     }
 
     @Test
     public void testGetPartitionNames()
     {
         ImmutableList<String> expectedPartitions = ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2, TEST_PARTITION3);
-        assertEquals(mockClient.getAccessCount(), 0);
-        assertEquals(metastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).orElseThrow(), expectedPartitions);
-        assertEquals(mockClient.getAccessCount(), 1);
-        assertEquals(metastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).orElseThrow(), expectedPartitions);
-        assertEquals(mockClient.getAccessCount(), 1);
+        assertThat(mockClient.getAccessCount()).isEqualTo(0);
+        assertThat(metastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).orElseThrow()).isEqualTo(expectedPartitions);
+        assertThat(mockClient.getAccessCount()).isEqualTo(1);
+        assertThat(metastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).orElseThrow()).isEqualTo(expectedPartitions);
+        assertThat(mockClient.getAccessCount()).isEqualTo(1);
 
         metastore.flushCache();
 
-        assertEquals(metastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).orElseThrow(), expectedPartitions);
-        assertEquals(mockClient.getAccessCount(), 2);
+        assertThat(metastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).orElseThrow()).isEqualTo(expectedPartitions);
+        assertThat(mockClient.getAccessCount()).isEqualTo(2);
     }
 
     /**
@@ -405,7 +401,7 @@ public class TestCachingHiveMetastore
     @Test
     public void testInvalidGetPartitionNamesByFilterAll()
     {
-        assertTrue(metastore.getPartitionNamesByFilter(BAD_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).isEmpty());
+        assertThat(metastore.getPartitionNamesByFilter(BAD_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).isEmpty()).isTrue();
     }
 
     @Test
@@ -413,20 +409,20 @@ public class TestCachingHiveMetastore
     {
         ImmutableList<String> expectedPartitions = ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2, TEST_PARTITION3);
 
-        assertEquals(mockClient.getAccessCount(), 0);
-        assertEquals(metastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).orElseThrow(), expectedPartitions);
-        assertEquals(mockClient.getAccessCount(), 1);
-        assertEquals(metastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).orElseThrow(), expectedPartitions);
-        assertEquals(mockClient.getAccessCount(), 1);
-        assertEquals(metastore.getPartitionFilterStats().getRequestCount(), 2);
-        assertEquals(metastore.getPartitionFilterStats().getHitRate(), 0.5);
+        assertThat(mockClient.getAccessCount()).isEqualTo(0);
+        assertThat(metastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).orElseThrow()).isEqualTo(expectedPartitions);
+        assertThat(mockClient.getAccessCount()).isEqualTo(1);
+        assertThat(metastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).orElseThrow()).isEqualTo(expectedPartitions);
+        assertThat(mockClient.getAccessCount()).isEqualTo(1);
+        assertThat(metastore.getPartitionFilterStats().getRequestCount()).isEqualTo(2);
+        assertThat(metastore.getPartitionFilterStats().getHitRate()).isEqualTo(0.5);
 
         metastore.flushCache();
 
-        assertEquals(metastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).orElseThrow(), expectedPartitions);
-        assertEquals(mockClient.getAccessCount(), 2);
-        assertEquals(metastore.getPartitionFilterStats().getRequestCount(), 3);
-        assertEquals(metastore.getPartitionFilterStats().getHitRate(), 1.0 / 3);
+        assertThat(metastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).orElseThrow()).isEqualTo(expectedPartitions);
+        assertThat(mockClient.getAccessCount()).isEqualTo(2);
+        assertThat(metastore.getPartitionFilterStats().getRequestCount()).isEqualTo(3);
+        assertThat(metastore.getPartitionFilterStats().getHitRate()).isEqualTo(1.0 / 3);
 
         List<String> partitionColumnNames = ImmutableList.of("date_key", "key");
         HiveColumnHandle dateKeyColumn = createBaseColumn(partitionColumnNames.get(0), 0, HIVE_STRING, VARCHAR, PARTITION_KEY, Optional.empty());
@@ -451,108 +447,108 @@ public class TestCachingHiveMetastore
                         .put(keyColumn, Domain.create(ValueSet.ofRanges(Range.range(VARCHAR, utf8Slice("val1"), true, utf8Slice("val2"), true)), false))
                         .buildOrThrow()));
 
-        assertEquals(stats.getGetPartitionNamesByParts().getTime().getAllTime().getCount(), 0.0);
+        assertThat(stats.getGetPartitionNamesByParts().getTime().getAllTime().getCount()).isEqualTo(0.0);
         metastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, partitionColumnNames, withNoFilter);
-        assertEquals(stats.getGetPartitionNamesByParts().getTime().getAllTime().getCount(), 0.0);
+        assertThat(stats.getGetPartitionNamesByParts().getTime().getAllTime().getCount()).isEqualTo(0.0);
         metastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, partitionColumnNames, withSingleValueFilter);
-        assertEquals(stats.getGetPartitionNamesByParts().getTime().getAllTime().getCount(), 1.0);
+        assertThat(stats.getGetPartitionNamesByParts().getTime().getAllTime().getCount()).isEqualTo(1.0);
         metastore.getPartitionNamesByFilter(TEST_DATABASE, TEST_TABLE, partitionColumnNames, withNoSingleValueFilter);
-        assertEquals(stats.getGetPartitionNamesByParts().getTime().getAllTime().getCount(), 2.0);
+        assertThat(stats.getGetPartitionNamesByParts().getTime().getAllTime().getCount()).isEqualTo(2.0);
     }
 
     @Test
     public void testInvalidGetPartitionNamesByParts()
     {
-        assertFalse(metastore.getPartitionNamesByFilter(BAD_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).isPresent());
+        assertThat(metastore.getPartitionNamesByFilter(BAD_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).isPresent()).isFalse();
     }
 
     @Test
     public void testGetPartitionsByNames()
     {
-        assertEquals(mockClient.getAccessCount(), 0);
+        assertThat(mockClient.getAccessCount()).isEqualTo(0);
         Table table = metastore.getTable(TEST_DATABASE, TEST_TABLE).orElseThrow();
-        assertEquals(mockClient.getAccessCount(), 1);
+        assertThat(mockClient.getAccessCount()).isEqualTo(1);
 
         // Select half of the available partitions and load them into the cache
-        assertEquals(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION1)).size(), 1);
-        assertEquals(mockClient.getAccessCount(), 2);
+        assertThat(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION1)).size()).isEqualTo(1);
+        assertThat(mockClient.getAccessCount()).isEqualTo(2);
 
         // Now select all the partitions
-        assertEquals(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2)).size(), 2);
+        assertThat(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2)).size()).isEqualTo(2);
         // There should be one more access to fetch the remaining partition
-        assertEquals(mockClient.getAccessCount(), 3);
+        assertThat(mockClient.getAccessCount()).isEqualTo(3);
 
         // Now if we fetch any or both of them, they should not hit the client
-        assertEquals(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION1)).size(), 1);
-        assertEquals(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION2)).size(), 1);
-        assertEquals(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2)).size(), 2);
-        assertEquals(mockClient.getAccessCount(), 3);
+        assertThat(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION1)).size()).isEqualTo(1);
+        assertThat(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION2)).size()).isEqualTo(1);
+        assertThat(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2)).size()).isEqualTo(2);
+        assertThat(mockClient.getAccessCount()).isEqualTo(3);
 
         metastore.flushCache();
 
         // Fetching both should only result in one batched access
-        assertEquals(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2)).size(), 2);
-        assertEquals(mockClient.getAccessCount(), 4);
+        assertThat(metastore.getPartitionsByNames(table, ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2)).size()).isEqualTo(2);
+        assertThat(mockClient.getAccessCount()).isEqualTo(4);
     }
 
     @Test
     public void testListRoles()
     {
-        assertEquals(mockClient.getAccessCount(), 0);
+        assertThat(mockClient.getAccessCount()).isEqualTo(0);
 
-        assertEquals(metastore.listRoles(), TEST_ROLES);
-        assertEquals(mockClient.getAccessCount(), 1);
+        assertThat(metastore.listRoles()).containsExactlyElementsOf(TEST_ROLES);
+        assertThat(mockClient.getAccessCount()).isEqualTo(1);
 
-        assertEquals(metastore.listRoles(), TEST_ROLES);
-        assertEquals(mockClient.getAccessCount(), 1);
+        assertThat(metastore.listRoles()).containsExactlyElementsOf(TEST_ROLES);
+        assertThat(mockClient.getAccessCount()).isEqualTo(1);
 
-        assertEquals(metastore.getRolesStats().getRequestCount(), 2);
-        assertEquals(metastore.getRolesStats().getHitRate(), 0.5);
+        assertThat(metastore.getRolesStats().getRequestCount()).isEqualTo(2);
+        assertThat(metastore.getRolesStats().getHitRate()).isEqualTo(0.5);
 
         metastore.flushCache();
 
-        assertEquals(metastore.listRoles(), TEST_ROLES);
-        assertEquals(mockClient.getAccessCount(), 2);
+        assertThat(metastore.listRoles()).containsExactlyElementsOf(TEST_ROLES);
+        assertThat(mockClient.getAccessCount()).isEqualTo(2);
 
         metastore.createRole("role", "grantor");
 
-        assertEquals(metastore.listRoles(), TEST_ROLES);
-        assertEquals(mockClient.getAccessCount(), 3);
+        assertThat(metastore.listRoles()).containsExactlyElementsOf(TEST_ROLES);
+        assertThat(mockClient.getAccessCount()).isEqualTo(3);
 
         metastore.dropRole("testrole");
 
-        assertEquals(metastore.listRoles(), TEST_ROLES);
-        assertEquals(mockClient.getAccessCount(), 4);
+        assertThat(metastore.listRoles()).containsExactlyElementsOf(TEST_ROLES);
+        assertThat(mockClient.getAccessCount()).isEqualTo(4);
 
-        assertEquals(metastore.getRolesStats().getRequestCount(), 5);
-        assertEquals(metastore.getRolesStats().getHitRate(), 0.2);
+        assertThat(metastore.getRolesStats().getRequestCount()).isEqualTo(5);
+        assertThat(metastore.getRolesStats().getHitRate()).isEqualTo(0.2);
     }
 
     @Test
     public void testGetTableStatistics()
     {
-        assertEquals(mockClient.getAccessCount(), 0);
+        assertThat(mockClient.getAccessCount()).isEqualTo(0);
 
         Table table = metastore.getTable(TEST_DATABASE, TEST_TABLE).orElseThrow();
-        assertEquals(mockClient.getAccessCount(), 1);
+        assertThat(mockClient.getAccessCount()).isEqualTo(1);
 
-        assertEquals(metastore.getTableStatistics(table), TEST_STATS);
-        assertEquals(mockClient.getAccessCount(), 2);
+        assertThat(metastore.getTableStatistics(table)).isEqualTo(TEST_STATS);
+        assertThat(mockClient.getAccessCount()).isEqualTo(2);
 
-        assertEquals(metastore.getTableStatistics(table), TEST_STATS);
-        assertEquals(mockClient.getAccessCount(), 2);
+        assertThat(metastore.getTableStatistics(table)).isEqualTo(TEST_STATS);
+        assertThat(mockClient.getAccessCount()).isEqualTo(2);
 
-        assertEquals(metastore.getTableStatisticsStats().getRequestCount(), 2);
-        assertEquals(metastore.getTableStatisticsStats().getHitRate(), 0.5);
+        assertThat(metastore.getTableStatisticsStats().getRequestCount()).isEqualTo(2);
+        assertThat(metastore.getTableStatisticsStats().getHitRate()).isEqualTo(0.5);
 
-        assertEquals(metastore.getTableStats().getRequestCount(), 1);
-        assertEquals(metastore.getTableStats().getHitRate(), 0.0);
+        assertThat(metastore.getTableStats().getRequestCount()).isEqualTo(1);
+        assertThat(metastore.getTableStats().getHitRate()).isEqualTo(0.0);
 
         // check empty column list does not trigger the call
         Table emptyColumnListTable = Table.builder(table).setDataColumns(ImmutableList.of()).build();
         assertThat(metastore.getTableStatistics(emptyColumnListTable).getBasicStatistics()).isEqualTo(TEST_STATS.getBasicStatistics());
-        assertEquals(metastore.getTableStatisticsStats().getRequestCount(), 3);
-        assertEquals(metastore.getTableStatisticsStats().getHitRate(), 2.0 / 3);
+        assertThat(metastore.getTableStatisticsStats().getRequestCount()).isEqualTo(3);
+        assertThat(metastore.getTableStatisticsStats().getHitRate()).isEqualTo(2.0 / 3);
 
         mockClient.mockColumnStats(TEST_DATABASE, TEST_TABLE, ImmutableMap.of(
                 "col1", ColumnStatisticsData.longStats(new LongColumnStatsData().setNumNulls(1)),
@@ -570,12 +566,12 @@ public class TestCachingHiveMetastore
                 .containsEntry("col3", intColumnStats(3));
 
         metastore.getTableStatistics(table); // ensure cached
-        assertEquals(mockClient.getAccessCount(), 5);
+        assertThat(mockClient.getAccessCount()).isEqualTo(5);
         ColumnStatisticsData newStats = new ColumnStatisticsData();
         newStats.setLongStats(new LongColumnStatsData(327843, 4324));
         mockClient.mockColumnStats(TEST_DATABASE, TEST_TABLE, ImmutableMap.of(TEST_COLUMN, newStats));
         metastore.invalidateTable(TEST_DATABASE, TEST_TABLE);
-        assertEquals(metastore.getTableStatistics(table), PartitionStatistics.builder()
+        assertThat(metastore.getTableStatistics(table)).isEqualTo(PartitionStatistics.builder()
                 .setBasicStatistics(TEST_STATS.getBasicStatistics())
                 .setColumnStatistics(ImmutableMap.of(TEST_COLUMN, createIntegerColumnStatistics(
                         OptionalLong.empty(),
@@ -583,28 +579,28 @@ public class TestCachingHiveMetastore
                         OptionalLong.of(newStats.getLongStats().getNumNulls()),
                         OptionalLong.of(newStats.getLongStats().getNumDVs() - 1))))
                 .build());
-        assertEquals(mockClient.getAccessCount(), 6);
+        assertThat(mockClient.getAccessCount()).isEqualTo(6);
     }
 
     @Test
     public void testGetTableStatisticsWithoutMetadataCache()
     {
-        assertEquals(mockClient.getAccessCount(), 0);
+        assertThat(mockClient.getAccessCount()).isEqualTo(0);
 
         Table table = statsOnlyCacheMetastore.getTable(TEST_DATABASE, TEST_TABLE).orElseThrow();
-        assertEquals(mockClient.getAccessCount(), 1);
+        assertThat(mockClient.getAccessCount()).isEqualTo(1);
 
-        assertEquals(statsOnlyCacheMetastore.getTableStatistics(table), TEST_STATS);
-        assertEquals(mockClient.getAccessCount(), 2);
+        assertThat(statsOnlyCacheMetastore.getTableStatistics(table)).isEqualTo(TEST_STATS);
+        assertThat(mockClient.getAccessCount()).isEqualTo(2);
 
-        assertEquals(statsOnlyCacheMetastore.getTableStatistics(table), TEST_STATS);
-        assertEquals(mockClient.getAccessCount(), 2);
+        assertThat(statsOnlyCacheMetastore.getTableStatistics(table)).isEqualTo(TEST_STATS);
+        assertThat(mockClient.getAccessCount()).isEqualTo(2);
 
-        assertEquals(statsOnlyCacheMetastore.getTableStatisticsStats().getRequestCount(), 2);
-        assertEquals(statsOnlyCacheMetastore.getTableStatisticsStats().getHitRate(), 0.5);
+        assertThat(statsOnlyCacheMetastore.getTableStatisticsStats().getRequestCount()).isEqualTo(2);
+        assertThat(statsOnlyCacheMetastore.getTableStatisticsStats().getHitRate()).isEqualTo(0.5);
 
-        assertEquals(statsOnlyCacheMetastore.getTableStats().getRequestCount(), 0);
-        assertEquals(statsOnlyCacheMetastore.getTableStats().getHitRate(), 1.0);
+        assertThat(statsOnlyCacheMetastore.getTableStats().getRequestCount()).isEqualTo(0);
+        assertThat(statsOnlyCacheMetastore.getTableStats().getHitRate()).isEqualTo(1.0);
     }
 
     @Test
@@ -651,12 +647,12 @@ public class TestCachingHiveMetastore
                     });
 
             // start get stats before the invalidation, it will wait until invalidation is done to finish
-            assertEquals(metastore.getTableStatistics(table), TEST_STATS);
-            assertEquals(mockClient.getAccessCount(), 2);
+            assertThat(metastore.getTableStatistics(table)).isEqualTo(TEST_STATS);
+            assertThat(mockClient.getAccessCount()).isEqualTo(2);
             // get stats after invalidate
-            assertEquals(metastore.getTableStatistics(table), TEST_STATS);
+            assertThat(metastore.getTableStatistics(table)).isEqualTo(TEST_STATS);
             // the value was not cached
-            assertEquals(mockClient.getAccessCount(), 3);
+            assertThat(mockClient.getAccessCount()).isEqualTo(3);
             // make sure invalidateFuture is done
             invalidateFuture.get(1, SECONDS);
         }
@@ -668,10 +664,10 @@ public class TestCachingHiveMetastore
     @Test
     public void testGetPartitionStatistics()
     {
-        assertEquals(mockClient.getAccessCount(), 0);
+        assertThat(mockClient.getAccessCount()).isEqualTo(0);
 
         Table table = metastore.getTable(TEST_DATABASE, TEST_TABLE).orElseThrow();
-        assertEquals(mockClient.getAccessCount(), 1);
+        assertThat(mockClient.getAccessCount()).isEqualTo(1);
 
         Partition partition = metastore.getPartition(table, TEST_PARTITION_VALUES1).orElseThrow();
         String partitionName = makePartitionName(table, partition);
@@ -679,31 +675,31 @@ public class TestCachingHiveMetastore
         String partition2Name = makePartitionName(table, partition2);
         Partition partition3 = metastore.getPartition(table, TEST_PARTITION_VALUES3).orElseThrow();
         String partition3Name = makePartitionName(table, partition3);
-        assertEquals(mockClient.getAccessCount(), 4);
+        assertThat(mockClient.getAccessCount()).isEqualTo(4);
 
-        assertEquals(metastore.getPartitionStatistics(table, ImmutableList.of(partition)), ImmutableMap.of(TEST_PARTITION1, TEST_STATS));
-        assertEquals(mockClient.getAccessCount(), 5);
+        assertThat(metastore.getPartitionStatistics(table, ImmutableList.of(partition))).isEqualTo(ImmutableMap.of(TEST_PARTITION1, TEST_STATS));
+        assertThat(mockClient.getAccessCount()).isEqualTo(5);
 
-        assertEquals(metastore.getPartitionStatisticsStats().getRequestCount(), 1);
-        assertEquals(metastore.getPartitionStatistics(table, ImmutableList.of(partition)), ImmutableMap.of(TEST_PARTITION1, TEST_STATS));
-        assertEquals(mockClient.getAccessCount(), 5);
+        assertThat(metastore.getPartitionStatisticsStats().getRequestCount()).isEqualTo(1);
+        assertThat(metastore.getPartitionStatistics(table, ImmutableList.of(partition))).isEqualTo(ImmutableMap.of(TEST_PARTITION1, TEST_STATS));
+        assertThat(mockClient.getAccessCount()).isEqualTo(5);
 
-        assertEquals(metastore.getPartitionStatisticsStats().getRequestCount(), 2);
-        assertEquals(metastore.getPartitionStatisticsStats().getHitRate(), 1.0 / 2);
+        assertThat(metastore.getPartitionStatisticsStats().getRequestCount()).isEqualTo(2);
+        assertThat(metastore.getPartitionStatisticsStats().getHitRate()).isEqualTo(1.0 / 2);
 
-        assertEquals(metastore.getTableStats().getRequestCount(), 1);
-        assertEquals(metastore.getTableStats().getHitRate(), 0.0);
+        assertThat(metastore.getTableStats().getRequestCount()).isEqualTo(1);
+        assertThat(metastore.getTableStats().getHitRate()).isEqualTo(0.0);
 
-        assertEquals(metastore.getPartitionStats().getRequestCount(), 3);
-        assertEquals(metastore.getPartitionStats().getHitRate(), 0.0);
+        assertThat(metastore.getPartitionStats().getRequestCount()).isEqualTo(3);
+        assertThat(metastore.getPartitionStats().getHitRate()).isEqualTo(0.0);
 
         // check empty column list does not trigger the call
         Table emptyColumnListTable = Table.builder(table).setDataColumns(ImmutableList.of()).build();
         Map<String, PartitionStatistics> partitionStatistics = metastore.getPartitionStatistics(emptyColumnListTable, ImmutableList.of(partition));
         assertThat(partitionStatistics).containsOnlyKeys(TEST_PARTITION1);
         assertThat(partitionStatistics.get(TEST_PARTITION1).getBasicStatistics()).isEqualTo(TEST_STATS.getBasicStatistics());
-        assertEquals(metastore.getPartitionStatisticsStats().getRequestCount(), 3);
-        assertEquals(metastore.getPartitionStatisticsStats().getHitRate(), 2.0 / 3);
+        assertThat(metastore.getPartitionStatisticsStats().getRequestCount()).isEqualTo(3);
+        assertThat(metastore.getPartitionStatisticsStats().getHitRate()).isEqualTo(2.0 / 3);
 
         mockClient.mockPartitionColumnStats(TEST_DATABASE, TEST_TABLE, TEST_PARTITION1, ImmutableMap.of(
                 "col1", ColumnStatisticsData.longStats(new LongColumnStatsData().setNumNulls(1)),
@@ -757,28 +753,28 @@ public class TestCachingHiveMetastore
     @Test
     public void testGetPartitionStatisticsWithoutMetadataCache()
     {
-        assertEquals(mockClient.getAccessCount(), 0);
+        assertThat(mockClient.getAccessCount()).isEqualTo(0);
 
         Table table = statsOnlyCacheMetastore.getTable(TEST_DATABASE, TEST_TABLE).orElseThrow();
-        assertEquals(mockClient.getAccessCount(), 1);
+        assertThat(mockClient.getAccessCount()).isEqualTo(1);
 
         Partition partition = statsOnlyCacheMetastore.getPartition(table, TEST_PARTITION_VALUES1).orElseThrow();
-        assertEquals(mockClient.getAccessCount(), 2);
+        assertThat(mockClient.getAccessCount()).isEqualTo(2);
 
-        assertEquals(statsOnlyCacheMetastore.getPartitionStatistics(table, ImmutableList.of(partition)), ImmutableMap.of(TEST_PARTITION1, TEST_STATS));
-        assertEquals(mockClient.getAccessCount(), 3);
+        assertThat(statsOnlyCacheMetastore.getPartitionStatistics(table, ImmutableList.of(partition))).isEqualTo(ImmutableMap.of(TEST_PARTITION1, TEST_STATS));
+        assertThat(mockClient.getAccessCount()).isEqualTo(3);
 
-        assertEquals(statsOnlyCacheMetastore.getPartitionStatistics(table, ImmutableList.of(partition)), ImmutableMap.of(TEST_PARTITION1, TEST_STATS));
-        assertEquals(mockClient.getAccessCount(), 3);
+        assertThat(statsOnlyCacheMetastore.getPartitionStatistics(table, ImmutableList.of(partition))).isEqualTo(ImmutableMap.of(TEST_PARTITION1, TEST_STATS));
+        assertThat(mockClient.getAccessCount()).isEqualTo(3);
 
-        assertEquals(statsOnlyCacheMetastore.getPartitionStatisticsStats().getRequestCount(), 2);
-        assertEquals(statsOnlyCacheMetastore.getPartitionStatisticsStats().getHitRate(), 1.0 / 2);
+        assertThat(statsOnlyCacheMetastore.getPartitionStatisticsStats().getRequestCount()).isEqualTo(2);
+        assertThat(statsOnlyCacheMetastore.getPartitionStatisticsStats().getHitRate()).isEqualTo(1.0 / 2);
 
-        assertEquals(statsOnlyCacheMetastore.getTableStats().getRequestCount(), 0);
-        assertEquals(statsOnlyCacheMetastore.getTableStats().getHitRate(), 1.0);
+        assertThat(statsOnlyCacheMetastore.getTableStats().getRequestCount()).isEqualTo(0);
+        assertThat(statsOnlyCacheMetastore.getTableStats().getHitRate()).isEqualTo(1.0);
 
-        assertEquals(statsOnlyCacheMetastore.getPartitionStats().getRequestCount(), 0);
-        assertEquals(statsOnlyCacheMetastore.getPartitionStats().getHitRate(), 1.0);
+        assertThat(statsOnlyCacheMetastore.getPartitionStats().getRequestCount()).isEqualTo(0);
+        assertThat(statsOnlyCacheMetastore.getPartitionStats().getHitRate()).isEqualTo(1.0);
     }
 
     @Test
@@ -827,12 +823,12 @@ public class TestCachingHiveMetastore
                     });
 
             // start get stats before the invalidation, it will wait until invalidation is done to finish
-            assertEquals(metastore.getPartitionStatistics(table, ImmutableList.of(partition)), ImmutableMap.of(TEST_PARTITION1, TEST_STATS));
-            assertEquals(mockClient.getAccessCount(), 3);
+            assertThat(metastore.getPartitionStatistics(table, ImmutableList.of(partition))).isEqualTo(ImmutableMap.of(TEST_PARTITION1, TEST_STATS));
+            assertThat(mockClient.getAccessCount()).isEqualTo(3);
             // get stats after invalidate
-            assertEquals(metastore.getPartitionStatistics(table, ImmutableList.of(partition)), ImmutableMap.of(TEST_PARTITION1, TEST_STATS));
+            assertThat(metastore.getPartitionStatistics(table, ImmutableList.of(partition))).isEqualTo(ImmutableMap.of(TEST_PARTITION1, TEST_STATS));
             // the value was not cached
-            assertEquals(mockClient.getAccessCount(), 4);
+            assertThat(mockClient.getAccessCount()).isEqualTo(4);
             // make sure invalidateFuture is done
             invalidateFuture.get(1, SECONDS);
         }
@@ -844,15 +840,15 @@ public class TestCachingHiveMetastore
     @Test
     public void testUpdatePartitionStatistics()
     {
-        assertEquals(mockClient.getAccessCount(), 0);
+        assertThat(mockClient.getAccessCount()).isEqualTo(0);
 
         HiveMetastoreClosure hiveMetastoreClosure = new HiveMetastoreClosure(metastore, TESTING_TYPE_MANAGER, false);
 
         Table table = hiveMetastoreClosure.getTable(TEST_DATABASE, TEST_TABLE).orElseThrow();
-        assertEquals(mockClient.getAccessCount(), 1);
+        assertThat(mockClient.getAccessCount()).isEqualTo(1);
 
         hiveMetastoreClosure.updatePartitionStatistics(table.getDatabaseName(), table.getTableName(), TEST_PARTITION1, identity());
-        assertEquals(mockClient.getAccessCount(), 5);
+        assertThat(mockClient.getAccessCount()).isEqualTo(5);
     }
 
     @Test
@@ -860,9 +856,9 @@ public class TestCachingHiveMetastore
     {
         Table table = metastore.getTable(TEST_DATABASE, TEST_TABLE).orElseThrow();
         Map<String, Optional<Partition>> partitionsByNames = metastore.getPartitionsByNames(table, ImmutableList.of(BAD_PARTITION));
-        assertEquals(partitionsByNames.size(), 1);
+        assertThat(partitionsByNames.size()).isEqualTo(1);
         Optional<Partition> onlyElement = Iterables.getOnlyElement(partitionsByNames.values());
-        assertFalse(onlyElement.isPresent());
+        assertThat(onlyElement.isPresent()).isFalse();
     }
 
     @Test
@@ -875,7 +871,7 @@ public class TestCachingHiveMetastore
         }
         catch (RuntimeException ignored) {
         }
-        assertEquals(mockClient.getAccessCount(), 1);
+        assertThat(mockClient.getAccessCount()).isEqualTo(1);
 
         // Second try should hit the client again
         try {
@@ -883,7 +879,7 @@ public class TestCachingHiveMetastore
         }
         catch (RuntimeException ignored) {
         }
-        assertEquals(mockClient.getAccessCount(), 2);
+        assertThat(mockClient.getAccessCount()).isEqualTo(2);
     }
 
     @Test
@@ -892,35 +888,35 @@ public class TestCachingHiveMetastore
         CachingHiveMetastore metastore = createCachingHiveMetastore(new BridgingHiveMetastore(thriftHiveMetastore), CACHE_TTL, false, true, executor);
 
         mockClient.setReturnTable(false);
-        assertEquals(mockClient.getAccessCount(), 0);
+        assertThat(mockClient.getAccessCount()).isEqualTo(0);
 
         // First access
         assertThat(metastore.getTable(TEST_DATABASE, TEST_TABLE)).isEmpty();
-        assertEquals(mockClient.getAccessCount(), 1);
+        assertThat(mockClient.getAccessCount()).isEqualTo(1);
 
         // Second access, second load
         assertThat(metastore.getTable(TEST_DATABASE, TEST_TABLE)).isEmpty();
-        assertEquals(mockClient.getAccessCount(), 2);
+        assertThat(mockClient.getAccessCount()).isEqualTo(2);
 
         // Table get be accessed once it exists
         mockClient.setReturnTable(true);
         assertThat(metastore.getTable(TEST_DATABASE, TEST_TABLE)).isPresent();
-        assertEquals(mockClient.getAccessCount(), 3);
+        assertThat(mockClient.getAccessCount()).isEqualTo(3);
 
         // Table existence is cached
         mockClient.setReturnTable(true);
         assertThat(metastore.getTable(TEST_DATABASE, TEST_TABLE)).isPresent();
-        assertEquals(mockClient.getAccessCount(), 3);
+        assertThat(mockClient.getAccessCount()).isEqualTo(3);
 
         // Table is returned even if no longer exists
         mockClient.setReturnTable(false);
         assertThat(metastore.getTable(TEST_DATABASE, TEST_TABLE)).isPresent();
-        assertEquals(mockClient.getAccessCount(), 3);
+        assertThat(mockClient.getAccessCount()).isEqualTo(3);
 
         // After cache invalidation, table absence is apparent
         metastore.invalidateTable(TEST_DATABASE, TEST_TABLE);
         assertThat(metastore.getTable(TEST_DATABASE, TEST_TABLE)).isEmpty();
-        assertEquals(mockClient.getAccessCount(), 4);
+        assertThat(mockClient.getAccessCount()).isEqualTo(4);
     }
 
     @Test
@@ -928,12 +924,12 @@ public class TestCachingHiveMetastore
     {
         metastore = createPerTransactionCache(new BridgingHiveMetastore(createThriftHiveMetastore()), 1000);
 
-        assertEquals(mockClient.getAccessCount(), 0);
-        assertEquals(metastore.getAllDatabases(), ImmutableList.of(TEST_DATABASE));
-        assertEquals(mockClient.getAccessCount(), 1);
-        assertEquals(metastore.getAllDatabases(), ImmutableList.of(TEST_DATABASE));
-        assertEquals(mockClient.getAccessCount(), 1);
-        assertEquals(metastore.getDatabaseNamesStats().getRequestCount(), 0);
+        assertThat(mockClient.getAccessCount()).isEqualTo(0);
+        assertThat(metastore.getAllDatabases()).isEqualTo(ImmutableList.of(TEST_DATABASE));
+        assertThat(mockClient.getAccessCount()).isEqualTo(1);
+        assertThat(metastore.getAllDatabases()).isEqualTo(ImmutableList.of(TEST_DATABASE));
+        assertThat(mockClient.getAccessCount()).isEqualTo(1);
+        assertThat(metastore.getDatabaseNamesStats().getRequestCount()).isEqualTo(0);
     }
 
     @Test
@@ -1093,7 +1089,7 @@ public class TestCachingHiveMetastore
             getPartitionsByNamesFinishedLatch.countDown();
 
             executor.shutdownNow();
-            assertTrue(executor.awaitTermination(10, SECONDS));
+            assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
         }
     }
 
@@ -1101,26 +1097,26 @@ public class TestCachingHiveMetastore
     public void testDropTable()
     {
         // make sure the table and partition caches hit
-        assertEquals(mockClient.getAccessCount(), 0);
+        assertThat(mockClient.getAccessCount()).isEqualTo(0);
         Table table = metastore.getTable(TEST_DATABASE, TEST_TABLE).orElseThrow();
-        assertEquals(mockClient.getAccessCount(), 1);
-        assertNotNull(metastore.getTable(TEST_DATABASE, TEST_TABLE));
-        assertEquals(mockClient.getAccessCount(), 1);
+        assertThat(mockClient.getAccessCount()).isEqualTo(1);
+        assertThat(metastore.getTable(TEST_DATABASE, TEST_TABLE)).isNotNull();
+        assertThat(mockClient.getAccessCount()).isEqualTo(1);
 
-        assertNotNull(metastore.getPartition(table, TEST_PARTITION_VALUES1));
-        assertEquals(mockClient.getAccessCount(), 2);
-        assertNotNull(metastore.getPartition(table, TEST_PARTITION_VALUES1));
-        assertEquals(mockClient.getAccessCount(), 2);
+        assertThat(metastore.getPartition(table, TEST_PARTITION_VALUES1)).isNotNull();
+        assertThat(mockClient.getAccessCount()).isEqualTo(2);
+        assertThat(metastore.getPartition(table, TEST_PARTITION_VALUES1)).isNotNull();
+        assertThat(mockClient.getAccessCount()).isEqualTo(2);
 
         // the mock table is not really dropped, because it doesn't really exist in hive,
         // we just need to go through the cache invalidation logic in the try finally code block
         metastore.dropTable(TEST_DATABASE, TEST_TABLE, false);
 
         // pretend that the mock table is recreated, if the cache is invalidated, the access count should increment
-        assertNotNull(metastore.getTable(TEST_DATABASE, TEST_TABLE));
-        assertEquals(mockClient.getAccessCount(), 4);
-        assertNotNull(metastore.getPartition(table, TEST_PARTITION_VALUES1));
-        assertEquals(mockClient.getAccessCount(), 5);
+        assertThat(metastore.getTable(TEST_DATABASE, TEST_TABLE)).isNotNull();
+        assertThat(mockClient.getAccessCount()).isEqualTo(4);
+        assertThat(metastore.getPartition(table, TEST_PARTITION_VALUES1)).isNotNull();
+        assertThat(mockClient.getAccessCount()).isEqualTo(5);
     }
 
     @Test
@@ -1231,7 +1227,9 @@ public class TestCachingHiveMetastore
         {
             for (int i = 0; i < 5; i++) {
                 metastoreInteractions.accept(cachingHiveMetastore);
-                assertEquals(thriftClient.getAccessCount(), 1, "Metastore is expected to use cache, but it does not.");
+                assertThat(thriftClient.getAccessCount())
+                        .describedAs("Metastore is expected to use cache, but it does not.")
+                        .isEqualTo(1);
             }
         }
 
@@ -1239,7 +1237,9 @@ public class TestCachingHiveMetastore
         {
             for (int i = 1; i < 5; i++) {
                 metastoreInteractions.accept(cachingHiveMetastore);
-                assertEquals(thriftClient.getAccessCount(), i, "Metastore is expected to not use cache, but it does.");
+                assertThat(thriftClient.getAccessCount())
+                        .describedAs("Metastore is expected to not use cache, but it does.")
+                        .isEqualTo(i);
             }
         }
 
@@ -1253,8 +1253,10 @@ public class TestCachingHiveMetastore
                 metastoreInteractions.accept(cachingHiveMetastore);
                 int currentAccessCount = thriftClient.getAccessCount();
                 int timesCacheHasBeenOmitted = (currentAccessCount - startingAccessCount) / i;
-                assertEquals(timesCacheHasBeenOmitted, expectedCacheOmittingOperations, format("Metastore is expected to not use cache %s times, but it does not use it %s times.",
-                        expectedCacheOmittingOperations, timesCacheHasBeenOmitted));
+                assertThat(timesCacheHasBeenOmitted)
+                        .describedAs(format("Metastore is expected to not use cache %s times, but it does not use it %s times.",
+                                expectedCacheOmittingOperations, timesCacheHasBeenOmitted))
+                        .isEqualTo(expectedCacheOmittingOperations);
             }
         }
     }

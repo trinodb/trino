@@ -69,8 +69,8 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.stream.Collectors.toList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.joda.time.DateTimeZone.UTC;
-import static org.testng.Assert.assertEquals;
 
 class TestOrcPredicates
 {
@@ -147,7 +147,7 @@ class TestOrcPredicates
                     filteredRows += page.getPositionCount();
                 }
             }
-            assertEquals(filteredRows, expectedRows);
+            assertThat(filteredRows).isEqualTo(expectedRows);
         }
     }
 

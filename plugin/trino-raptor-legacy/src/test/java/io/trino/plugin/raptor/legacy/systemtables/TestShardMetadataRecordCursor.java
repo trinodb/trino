@@ -62,9 +62,9 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.util.stream.Collectors.toList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_METHOD)
 @Execution(SAME_THREAD)
@@ -145,14 +145,14 @@ public class TestShardMetadataRecordCursor
         try (RecordCursor cursor = new ShardMetadataSystemTable(dbi).cursor(null, SESSION, tupleDomain)) {
             actual = getMaterializedResults(cursor, SHARD_METADATA.getColumns());
         }
-        assertEquals(actual.size(), 3);
+        assertThat(actual.size()).isEqualTo(3);
 
         List<MaterializedRow> expected = ImmutableList.of(
                 new MaterializedRow(DEFAULT_PRECISION, schema, table, utf8Slice(uuid1.toString()), null, 100L, 10L, 1L, utf8Slice("0000000000001234"), null, null, null, null),
                 new MaterializedRow(DEFAULT_PRECISION, schema, table, utf8Slice(uuid2.toString()), null, 200L, 20L, 2L, utf8Slice("cafebabedeadbeef"), null, null, null, null),
                 new MaterializedRow(DEFAULT_PRECISION, schema, table, utf8Slice(uuid3.toString()), null, 300L, 30L, 3L, utf8Slice("fedcba0987654321"), null, null, null, null));
 
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -176,7 +176,7 @@ public class TestShardMetadataRecordCursor
         Set<Long> expected = ImmutableSet.of(
                 metadataDao.getTableInformation("other", "orders").getTableId(),
                 metadataDao.getTableInformation("test", "orders").getTableId());
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -200,7 +200,7 @@ public class TestShardMetadataRecordCursor
         Set<Long> expected = ImmutableSet.of(
                 metadataDao.getTableInformation("test", "orders").getTableId(),
                 metadataDao.getTableInformation("test", "orders2").getTableId());
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     private void createTable(ConnectorTableMetadata table)
@@ -214,7 +214,7 @@ public class TestShardMetadataRecordCursor
 
         ImmutableList.Builder<MaterializedRow> rowBuilder = ImmutableList.builder();
         for (int i = 0; i < types.size(); i++) {
-            assertEquals(cursor.getType(i), types.get(i));
+            assertThat(cursor.getType(i)).isEqualTo(types.get(i));
         }
 
         while (cursor.advanceNextPosition()) {

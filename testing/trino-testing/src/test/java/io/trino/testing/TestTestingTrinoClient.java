@@ -37,10 +37,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.Principal;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -100,7 +100,7 @@ public class TestTestingTrinoClient
 
         try (TestingTrinoClient client = new TestingTrinoClient(server, session, httpClient)) {
             MaterializedResult result = client.execute("SELECT 123").getResult();
-            assertEquals(result.getOnlyValue(), 123);
+            assertThat(result.getOnlyValue()).isEqualTo(123);
         }
     }
 

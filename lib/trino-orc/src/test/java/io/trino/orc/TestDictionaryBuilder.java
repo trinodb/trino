@@ -23,7 +23,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static io.airlift.slice.Slices.wrappedBuffer;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDictionaryBuilder
 {
@@ -36,6 +36,6 @@ public class TestDictionaryBuilder
             positions.add(dictionaryBuilder.putIfAbsent(new VariableWidthBlock(1, wrappedBuffer(new byte[] {1}), new int[] {0, 1}, Optional.of(new boolean[] {false})), 0));
             positions.add(dictionaryBuilder.putIfAbsent(new VariableWidthBlock(1, wrappedBuffer(new byte[] {2}), new int[] {0, 1}, Optional.of(new boolean[] {false})), 0));
         }
-        assertEquals(positions, ImmutableSet.of(1, 2));
+        assertThat(positions).isEqualTo(ImmutableSet.of(1, 2));
     }
 }

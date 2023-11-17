@@ -33,7 +33,7 @@ import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static io.airlift.testing.ValidationAssertions.assertValidates;
 import static io.trino.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
 import static io.trino.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestFileBasedAccessControlConfig
 {
@@ -171,14 +171,14 @@ public class TestFileBasedAccessControlConfig
     {
         FileBasedAccessControlConfig fileBasedAccessControlConfig = new FileBasedAccessControlConfig()
                 .setConfigFile("/etc/access-control");
-        assertEquals(fileBasedAccessControlConfig.isHttp(), false);
+        assertThat(fileBasedAccessControlConfig.isHttp()).isEqualTo(false);
 
         fileBasedAccessControlConfig = new FileBasedAccessControlConfig()
                 .setConfigFile("http://trino.example/config");
-        assertEquals(fileBasedAccessControlConfig.isHttp(), true);
+        assertThat(fileBasedAccessControlConfig.isHttp()).isEqualTo(true);
 
         fileBasedAccessControlConfig = new FileBasedAccessControlConfig()
                 .setConfigFile("https://trino.example/config");
-        assertEquals(fileBasedAccessControlConfig.isHttp(), true);
+        assertThat(fileBasedAccessControlConfig.isHttp()).isEqualTo(true);
     }
 }

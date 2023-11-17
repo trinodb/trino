@@ -34,7 +34,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * A unit test for {@link TrinoResultSet}.
@@ -82,7 +82,7 @@ public class TestTrinoResultSet
             TimeUnit.MILLISECONDS.sleep(10);
         }
         boolean interruptedButSwallowed = interruptedButSwallowedLatch.await(5000, TimeUnit.MILLISECONDS);
-        assertTrue(interruptedButSwallowed);
+        assertThat(interruptedButSwallowed).isTrue();
     }
 
     @Test

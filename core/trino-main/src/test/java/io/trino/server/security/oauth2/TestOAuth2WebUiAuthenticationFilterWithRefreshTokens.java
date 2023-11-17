@@ -48,7 +48,6 @@ import static io.trino.server.ui.OAuthIdTokenCookie.ID_TOKEN_COOKIE;
 import static jakarta.servlet.http.HttpServletResponse.SC_OK;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestOAuth2WebUiAuthenticationFilterWithRefreshTokens
 {
@@ -190,8 +189,8 @@ public class TestOAuth2WebUiAuthenticationFilterWithRefreshTokens
                                 .get()
                                 .build())
                 .execute()) {
-            assertEquals(response.code(), SC_OK);
-            assertEquals(response.request().url().toString(), uiUri.resolve("logout/logout.html").toString());
+            assertThat(response.code()).isEqualTo(SC_OK);
+            assertThat(response.request().url().toString()).isEqualTo(uiUri.resolve("logout/logout.html").toString());
         }
         assertThat(cookieStore.get(uiUri)).isEmpty();
     }
@@ -217,8 +216,8 @@ public class TestOAuth2WebUiAuthenticationFilterWithRefreshTokens
                                 .get()
                                 .build())
                 .execute()) {
-            assertEquals(response.code(), SC_OK);
-            assertEquals(response.request().url().toString(), uiUri.toString());
+            assertThat(response.code()).isEqualTo(SC_OK);
+            assertThat(response.request().url().toString()).isEqualTo(uiUri.toString());
         }
     }
 }

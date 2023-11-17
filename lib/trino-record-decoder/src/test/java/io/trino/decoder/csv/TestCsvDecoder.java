@@ -43,8 +43,8 @@ import static io.trino.decoder.util.DecoderTestUtil.checkValue;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.util.Collections.emptyMap;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestCsvDecoder
 {
@@ -69,7 +69,7 @@ public class TestCsvDecoder
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(csv.getBytes(StandardCharsets.UTF_8))
                 .orElseThrow(AssertionError::new);
 
-        assertEquals(decodedRow.size(), columns.size());
+        assertThat(decodedRow.size()).isEqualTo(columns.size());
 
         checkValue(decodedRow, row1, "ro");
         checkValue(decodedRow, row2, "row2");
@@ -100,7 +100,7 @@ public class TestCsvDecoder
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(csv.getBytes(StandardCharsets.UTF_8))
                 .orElseThrow(AssertionError::new);
 
-        assertEquals(decodedRow.size(), columns.size());
+        assertThat(decodedRow.size()).isEqualTo(columns.size());
 
         checkValue(decodedRow, row1, true);
         checkValue(decodedRow, row2, false);
@@ -128,7 +128,7 @@ public class TestCsvDecoder
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(csv.getBytes(StandardCharsets.UTF_8))
                 .orElseThrow(AssertionError::new);
 
-        assertEquals(decodedRow.size(), columns.size());
+        assertThat(decodedRow.size()).isEqualTo(columns.size());
 
         checkIsNull(decodedRow, row1);
         checkIsNull(decodedRow, row2);
@@ -154,7 +154,7 @@ public class TestCsvDecoder
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(csv.getBytes(StandardCharsets.UTF_8))
                 .orElseThrow(AssertionError::new);
 
-        assertEquals(decodedRow.size(), columns.size());
+        assertThat(decodedRow.size()).isEqualTo(columns.size());
 
         checkValue(decodedRow, column1, "ala");
         checkValue(decodedRow, column2, 10);

@@ -26,10 +26,7 @@ import static io.trino.orc.metadata.statistics.DoubleStatistics.DOUBLE_VALUE_BYT
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDoubleStatisticsBuilder
         extends AbstractStatisticsBuilderTest<DoubleStatisticsBuilder, Double>
@@ -82,7 +79,7 @@ public class TestDoubleStatisticsBuilder
         statisticsBuilder.addValue(42.42);
         ColumnStatistics columnStatistics = statisticsBuilder.buildColumnStatistics();
         assertColumnStatistics(columnStatistics, 1, 42.42, 42.42);
-        assertEquals(columnStatistics.getNumberOfNanValues(), 0);
+        assertThat(columnStatistics.getNumberOfNanValues()).isEqualTo(0);
         statisticsBuilder.addValue(NaN);
         assertNoColumnStatistics(statisticsBuilder.buildColumnStatistics(), 2, 1);
         statisticsBuilder.addValue(42.42);
@@ -106,10 +103,10 @@ public class TestDoubleStatisticsBuilder
         statisticsBuilder.addValue(10.11);
         statisticsBuilder.addValue(42.42);
         BloomFilter bloomFilter = statisticsBuilder.buildColumnStatistics().getBloomFilter();
-        assertNotNull(bloomFilter);
-        assertTrue(bloomFilter.testDouble(3.14));
-        assertTrue(bloomFilter.testDouble(10.11));
-        assertTrue(bloomFilter.testDouble(42.42));
-        assertFalse(bloomFilter.testDouble(100));
+        assertThat(bloomFilter).isNotNull();
+        assertThat(bloomFilter.testDouble(3.14)).isTrue();
+        assertThat(bloomFilter.testDouble(10.11)).isTrue();
+        assertThat(bloomFilter.testDouble(42.42)).isTrue();
+        assertThat(bloomFilter.testDouble(100)).isFalse();
     }
 }

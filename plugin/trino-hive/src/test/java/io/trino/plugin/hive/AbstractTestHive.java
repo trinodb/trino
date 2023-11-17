@@ -324,15 +324,11 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.hadoop.hive.common.FileUtils.makePartName;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Fail.fail;
+import static org.assertj.core.data.Offset.offset;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 @TestInstance(PER_CLASS)
 @Execution(SAME_THREAD) // staging directory is shared mutable state
@@ -1057,7 +1053,7 @@ public abstract class AbstractTestHive
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
             List<String> databases = metadata.listSchemaNames(newSession());
-            assertTrue(databases.contains(database));
+            assertThat(databases.contains(database)).isTrue();
         }
     }
 
@@ -1067,8 +1063,8 @@ public abstract class AbstractTestHive
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
             List<SchemaTableName> tables = metadata.listTables(newSession(), Optional.of(database));
-            assertTrue(tables.contains(tablePartitionFormat));
-            assertTrue(tables.contains(tableUnpartitioned));
+            assertThat(tables.contains(tablePartitionFormat)).isTrue();
+            assertThat(tables.contains(tableUnpartitioned)).isTrue();
         }
     }
 
@@ -1078,8 +1074,8 @@ public abstract class AbstractTestHive
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
             List<SchemaTableName> tables = metadata.listTables(newSession(), Optional.empty());
-            assertTrue(tables.contains(tablePartitionFormat));
-            assertTrue(tables.contains(tableUnpartitioned));
+            assertThat(tables.contains(tablePartitionFormat)).isTrue();
+            assertThat(tables.contains(tableUnpartitioned)).isTrue();
         }
     }
 
@@ -1089,8 +1085,8 @@ public abstract class AbstractTestHive
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
             Map<SchemaTableName, List<ColumnMetadata>> allColumns = listTableColumns(metadata, newSession(), new SchemaTablePrefix());
-            assertTrue(allColumns.containsKey(tablePartitionFormat));
-            assertTrue(allColumns.containsKey(tableUnpartitioned));
+            assertThat(allColumns.containsKey(tablePartitionFormat)).isTrue();
+            assertThat(allColumns.containsKey(tableUnpartitioned)).isTrue();
         }
     }
 
@@ -1100,8 +1096,8 @@ public abstract class AbstractTestHive
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
             Map<SchemaTableName, List<ColumnMetadata>> allColumns = listTableColumns(metadata, newSession(), new SchemaTablePrefix(database));
-            assertTrue(allColumns.containsKey(tablePartitionFormat));
-            assertTrue(allColumns.containsKey(tableUnpartitioned));
+            assertThat(allColumns.containsKey(tablePartitionFormat)).isTrue();
+            assertThat(allColumns.containsKey(tableUnpartitioned)).isTrue();
         }
     }
 
@@ -1111,12 +1107,12 @@ public abstract class AbstractTestHive
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
             ConnectorSession session = newSession();
-            assertNull(metadata.getTableHandle(session, new SchemaTableName(INVALID_DATABASE, INVALID_TABLE)));
-            assertEquals(metadata.listTables(session, Optional.of(INVALID_DATABASE)), ImmutableList.of());
-            assertEquals(listTableColumns(metadata, session, new SchemaTablePrefix(INVALID_DATABASE, INVALID_TABLE)), ImmutableMap.of());
-            assertEquals(metadata.listViews(session, Optional.of(INVALID_DATABASE)), ImmutableList.of());
-            assertEquals(metadata.getViews(session, Optional.of(INVALID_DATABASE)), ImmutableMap.of());
-            assertEquals(metadata.getView(session, new SchemaTableName(INVALID_DATABASE, INVALID_TABLE)), Optional.empty());
+            assertThat(metadata.getTableHandle(session, new SchemaTableName(INVALID_DATABASE, INVALID_TABLE))).isNull();
+            assertThat(metadata.listTables(session, Optional.of(INVALID_DATABASE))).isEqualTo(ImmutableList.of());
+            assertThat(listTableColumns(metadata, session, new SchemaTablePrefix(INVALID_DATABASE, INVALID_TABLE))).isEqualTo(ImmutableMap.of());
+            assertThat(metadata.listViews(session, Optional.of(INVALID_DATABASE))).isEqualTo(ImmutableList.of());
+            assertThat(metadata.getViews(session, Optional.of(INVALID_DATABASE))).isEqualTo(ImmutableMap.of());
+            assertThat(metadata.getView(session, new SchemaTableName(INVALID_DATABASE, INVALID_TABLE))).isEqualTo(Optional.empty());
         }
     }
 
@@ -1345,20 +1341,20 @@ public abstract class AbstractTestHive
         }
         catch (TrinoException e) {
             // expected
-            assertEquals(e.getErrorCode(), HIVE_PARTITION_SCHEMA_MISMATCH.toErrorCode());
+            assertThat(e.getErrorCode()).isEqualTo(HIVE_PARTITION_SCHEMA_MISMATCH.toErrorCode());
         }
     }
 
     protected void assertExpectedTableProperties(ConnectorTableProperties actualProperties, ConnectorTableProperties expectedProperties)
     {
-        assertEquals(actualProperties.getPredicate(), expectedProperties.getPredicate());
-        assertEquals(actualProperties.getDiscretePredicates().isPresent(), expectedProperties.getDiscretePredicates().isPresent());
+        assertThat(actualProperties.getPredicate()).isEqualTo(expectedProperties.getPredicate());
+        assertThat(actualProperties.getDiscretePredicates().isPresent()).isEqualTo(expectedProperties.getDiscretePredicates().isPresent());
         actualProperties.getDiscretePredicates().ifPresent(actual -> {
             DiscretePredicates expected = expectedProperties.getDiscretePredicates().get();
-            assertEquals(actual.getColumns(), expected.getColumns());
+            assertThat(actual.getColumns()).isEqualTo(expected.getColumns());
             assertEqualsIgnoreOrder(actual.getPredicates(), expected.getPredicates());
         });
-        assertEquals(actualProperties.getLocalProperties(), expectedProperties.getLocalProperties());
+        assertThat(actualProperties.getLocalProperties()).isEqualTo(expectedProperties.getLocalProperties());
     }
 
     protected void assertExpectedPartitions(ConnectorTableHandle table, Iterable<HivePartition> expectedPartitions)
@@ -1373,9 +1369,9 @@ public abstract class AbstractTestHive
         for (Map.Entry<String, HivePartition> expected : expectedById.entrySet()) {
             HivePartition actualPartition = actualById.get(expected.getKey());
             HivePartition expectedPartition = expected.getValue();
-            assertEquals(actualPartition.getPartitionId(), expectedPartition.getPartitionId());
-            assertEquals(actualPartition.getKeys(), expectedPartition.getKeys());
-            assertEquals(actualPartition.getTableName(), expectedPartition.getTableName());
+            assertThat(actualPartition.getPartitionId()).isEqualTo(expectedPartition.getPartitionId());
+            assertThat(actualPartition.getKeys()).isEqualTo(expectedPartition.getKeys());
+            assertThat(actualPartition.getTableName()).isEqualTo(expectedPartition.getTableName());
         }
     }
 
@@ -1434,7 +1430,7 @@ public abstract class AbstractTestHive
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
             Map<SchemaTableName, List<ColumnMetadata>> columns = listTableColumns(metadata, newSession(), tableOffline.toSchemaTablePrefix());
-            assertEquals(columns.size(), 1);
+            assertThat(columns.size()).isEqualTo(1);
             Map<String, ColumnMetadata> map = uniqueIndex(getOnlyElement(columns.values()), ColumnMetadata::getName);
 
             assertPrimitiveField(map, "t_string", createUnboundedVarcharType(), false);
@@ -1459,7 +1455,7 @@ public abstract class AbstractTestHive
     {
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
-            assertNull(metadata.getTableHandle(newSession(), invalidTable));
+            assertThat(metadata.getTableHandle(newSession(), invalidTable)).isNull();
         }
     }
 
@@ -1526,7 +1522,9 @@ public abstract class AbstractTestHive
     {
         TableStatistics tableStatistics = metadata.getTableStatistics(session, tableHandle);
 
-        assertFalse(tableStatistics.getRowCount().isUnknown(), "row count is unknown");
+        assertThat(tableStatistics.getRowCount().isUnknown())
+                .describedAs("row count is unknown")
+                .isFalse();
 
         Map<String, ColumnStatistics> columnsStatistics = tableStatistics
                 .getColumnStatistics()
@@ -1537,30 +1535,32 @@ public abstract class AbstractTestHive
                                 entry -> ((HiveColumnHandle) entry.getKey()).getName(),
                                 Map.Entry::getValue));
 
-        assertEquals(columnsStatistics.keySet(), expectedColumnStatsColumns, "columns with statistics");
+        assertThat(columnsStatistics.keySet())
+                .describedAs("columns with statistics")
+                .isEqualTo(expectedColumnStatsColumns);
 
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
         columnsStatistics.forEach((columnName, columnStatistics) -> {
             ColumnHandle columnHandle = columnHandles.get(columnName);
             Type columnType = metadata.getColumnMetadata(session, tableHandle, columnHandle).getType();
 
-            assertFalse(
-                    columnStatistics.getNullsFraction().isUnknown(),
-                    "unknown nulls fraction for " + columnName);
+            assertThat(columnStatistics.getNullsFraction().isUnknown())
+                    .describedAs("unknown nulls fraction for " + columnName)
+                    .isFalse();
 
-            assertFalse(
-                    columnStatistics.getDistinctValuesCount().isUnknown(),
-                    "unknown distinct values count for " + columnName);
+            assertThat(columnStatistics.getDistinctValuesCount().isUnknown())
+                    .describedAs("unknown distinct values count for " + columnName)
+                    .isFalse();
 
             if (columnType instanceof VarcharType) {
-                assertFalse(
-                        columnStatistics.getDataSize().isUnknown(),
-                        "unknown data size for " + columnName);
+                assertThat(columnStatistics.getDataSize().isUnknown())
+                        .describedAs("unknown data size for " + columnName)
+                        .isFalse();
             }
             else {
-                assertTrue(
-                        columnStatistics.getDataSize().isUnknown(),
-                        "unknown data size for" + columnName);
+                assertThat(columnStatistics.getDataSize().isUnknown())
+                        .describedAs("unknown data size for" + columnName)
+                        .isTrue();
             }
         });
     }
@@ -1576,7 +1576,7 @@ public abstract class AbstractTestHive
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tablePartitionFormat);
             ConnectorSplitSource splitSource = getSplits(splitManager, transaction, session, tableHandle);
 
-            assertEquals(getSplitCount(splitSource), tablePartitionFormatPartitions.size());
+            assertThat(getSplitCount(splitSource)).isEqualTo(tablePartitionFormatPartitions.size());
         }
     }
 
@@ -1591,7 +1591,7 @@ public abstract class AbstractTestHive
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableUnpartitioned);
             ConnectorSplitSource splitSource = getSplits(splitManager, transaction, session, tableHandle);
 
-            assertEquals(getSplitCount(splitSource), 1);
+            assertThat(getSplitCount(splitSource)).isEqualTo(1);
         }
     }
 
@@ -1613,11 +1613,11 @@ public abstract class AbstractTestHive
                 getAllSplits(getSplits(splitManager, transaction, session, tableHandle));
 
                 // directory should be listed initially
-                assertEquals(countingDirectoryLister.getListCount(), initListCount + 1);
+                assertThat(countingDirectoryLister.getListCount()).isEqualTo(initListCount + 1);
 
                 // directory content should be cached
                 getAllSplits(getSplits(splitManager, transaction, session, tableHandle));
-                assertEquals(countingDirectoryLister.getListCount(), initListCount + 1);
+                assertThat(countingDirectoryLister.getListCount()).isEqualTo(initListCount + 1);
             }
 
             try (Transaction transaction = newTransaction()) {
@@ -1629,7 +1629,7 @@ public abstract class AbstractTestHive
                 getAllSplits(getSplits(splitManager, transaction, session, tableHandle));
 
                 // directory should be listed again in new transaction
-                assertEquals(countingDirectoryLister.getListCount(), initListCount + 2);
+                assertThat(countingDirectoryLister.getListCount()).isEqualTo(initListCount + 2);
             }
         }
         finally {
@@ -1657,7 +1657,7 @@ public abstract class AbstractTestHive
                 fail("expected TableOfflineException");
             }
             catch (TableOfflineException e) {
-                assertEquals(e.getTableName(), tableOffline);
+                assertThat(e.getTableName()).isEqualTo(tableOffline);
             }
         }
     }
@@ -1670,7 +1670,7 @@ public abstract class AbstractTestHive
             ConnectorSession session = newSession();
 
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableNotReadable);
-            assertNotNull(tableHandle);
+            assertThat(tableHandle).isNotNull();
 
             try {
                 getSplitCount(getSplits(splitManager, transaction, session, tableHandle));
@@ -1678,8 +1678,8 @@ public abstract class AbstractTestHive
             }
             catch (HiveNotReadableException e) {
                 assertThat(e).hasMessageMatching("Table '.*\\.trino_test_not_readable' is not readable: reason for not readable");
-                assertEquals(e.getTableName(), tableNotReadable);
-                assertEquals(e.getPartition(), Optional.empty());
+                assertThat(e.getTableName()).isEqualTo(tableNotReadable);
+                assertThat(e.getPartition()).isEqualTo(Optional.empty());
             }
         }
     }
@@ -1720,7 +1720,7 @@ public abstract class AbstractTestHive
                     rowFound = true;
                 }
             }
-            assertTrue(rowFound);
+            assertThat(rowFound).isTrue();
         }
     }
 
@@ -1743,8 +1743,8 @@ public abstract class AbstractTestHive
                     newSession(ImmutableMap.of("propagate_table_scan_sorting_properties", true)),
                     tableHandle);
             // trino_test_bucketed_by_bigint_boolean does not define sorting, therefore local properties is empty
-            assertTrue(properties.getLocalProperties().isEmpty());
-            assertTrue(metadata.getTableProperties(newSession(), tableHandle).getLocalProperties().isEmpty());
+            assertThat(properties.getLocalProperties().isEmpty()).isTrue();
+            assertThat(metadata.getTableProperties(newSession(), tableHandle).getLocalProperties().isEmpty()).isTrue();
 
             String testString = "test";
             Long testBigint = 89L;
@@ -1767,7 +1767,7 @@ public abstract class AbstractTestHive
                     break;
                 }
             }
-            assertTrue(rowFound);
+            assertThat(rowFound).isTrue();
         }
     }
 
@@ -1850,7 +1850,7 @@ public abstract class AbstractTestHive
             List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, tableHandle).values());
 
             List<ConnectorSplit> splits = getAllSplits(getSplits(splitManager, transaction, session, tableHandle));
-            assertEquals(splits.size(), 16);
+            assertThat(splits.size()).isEqualTo(16);
 
             ImmutableList.Builder<MaterializedRow> allRows = ImmutableList.builder();
             for (ConnectorSplit split : splits) {
@@ -1861,7 +1861,7 @@ public abstract class AbstractTestHive
             }
             result = new MaterializedResult(allRows.build(), getTypes(columnHandles));
 
-            assertEquals(result.getRowCount(), rowCount);
+            assertThat(result.getRowCount()).isEqualTo(rowCount);
 
             Map<String, Integer> columnIndex = indexColumns(columnHandles);
             int nameColumnIndex = columnIndex.get("name");
@@ -1870,7 +1870,7 @@ public abstract class AbstractTestHive
                 String name = (String) row.getField(nameColumnIndex);
                 int bucket = (int) row.getField(bucketColumnIndex);
 
-                assertEquals(bucket, Integer.parseInt(name) % bucketCount);
+                assertThat(bucket).isEqualTo(Integer.parseInt(name) % bucketCount);
             }
         }
     }
@@ -1986,18 +1986,16 @@ public abstract class AbstractTestHive
             String name = (String) row.getField(nameColumnIndex);
             int bucket = (int) row.getField(bucketColumnIndex);
             idCount.compute(Long.parseLong(name), (key, oldValue) -> oldValue == null ? 1 : oldValue + 1);
-            assertEquals(bucket, Integer.parseInt(name) % bucketCount);
+            assertThat(bucket).isEqualTo(Integer.parseInt(name) % bucketCount);
             if (idColumnIndex.isPresent()) {
                 long id = (long) row.getField(idColumnIndex.getAsInt());
-                assertEquals(Integer.parseInt(name), id);
+                assertThat(Integer.parseInt(name)).isEqualTo(id);
             }
         }
-        assertEquals(
-                (int) idCount.values().stream()
-                        .distinct()
-                        .collect(onlyElement()),
-                3);
-        assertEquals(idCount.keySet(), expectedIds);
+        assertThat((int) idCount.values().stream()
+                .distinct()
+                .collect(onlyElement())).isEqualTo(3);
+        assertThat(idCount.keySet()).isEqualTo(expectedIds);
     }
 
     @Test
@@ -2065,7 +2063,7 @@ public abstract class AbstractTestHive
             // read entire table
             List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, tableHandle).values());
             MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.empty(), Optional.empty());
-            assertEquals(result.getRowCount(), 300);
+            assertThat(result.getRowCount()).isEqualTo(300);
         }
 
         try (Transaction transaction = newTransaction()) {
@@ -2075,7 +2073,7 @@ public abstract class AbstractTestHive
             Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
             // verify local sorting property
             ConnectorTableProperties properties = metadata.getTableProperties(session, tableHandle);
-            assertEquals(properties.getLocalProperties(), ImmutableList.of(
+            assertThat(properties.getLocalProperties()).isEqualTo(ImmutableList.of(
                     new SortingProperty<>(columnHandles.get("id"), ASC_NULLS_FIRST)));
 
             // read on a entire table should fail with exception
@@ -2095,7 +2093,7 @@ public abstract class AbstractTestHive
                             Domain.create(ValueSet.of(VARCHAR, utf8Slice("sorted_by_id_name"), utf8Slice("sorted_by_id")), false))),
                     OptionalInt.empty(),
                     Optional.empty());
-            assertEquals(result.getRowCount(), 200);
+            assertThat(result.getRowCount()).isEqualTo(200);
         }
     }
 
@@ -2127,7 +2125,7 @@ public abstract class AbstractTestHive
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
             List<ColumnHandle> columnHandles = filterNonHiddenColumnHandles(metadata.getColumnHandles(session, tableHandle).values());
             MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.empty(), Optional.of(storageFormat));
-            assertEquals(result.getRowCount(), 87); // fewer rows due to deleted file
+            assertThat(result.getRowCount()).isEqualTo(87); // fewer rows due to deleted file
         }
 
         // read fails due to validation failure
@@ -2197,7 +2195,7 @@ public abstract class AbstractTestHive
         // verify all paths are unique
         Set<String> paths = new HashSet<>();
         for (ConnectorSplit split : splits) {
-            assertTrue(paths.add(((HiveSplit) split).getPath()));
+            assertThat(paths.add(((HiveSplit) split).getPath())).isTrue();
         }
     }
 
@@ -2216,7 +2214,7 @@ public abstract class AbstractTestHive
             Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
             List<ConnectorSplit> splits = getAllSplits(tableHandle, transaction, session);
-            assertEquals(splits.size(), tablePartitionFormatPartitions.size());
+            assertThat(splits.size()).isEqualTo(tablePartitionFormatPartitions.size());
 
             for (ConnectorSplit split : splits) {
                 HiveSplit hiveSplit = (HiveSplit) split;
@@ -2247,48 +2245,48 @@ public abstract class AbstractTestHive
 
                         value = row.getField(columnIndex.get("t_string"));
                         if (rowNumber % 19 == 0) {
-                            assertNull(value);
+                            assertThat(value).isNull();
                         }
                         else if (rowNumber % 19 == 1) {
-                            assertEquals(value, "");
+                            assertThat(value).isEqualTo("");
                         }
                         else {
-                            assertEquals(value, "test");
+                            assertThat(value).isEqualTo("test");
                         }
 
-                        assertEquals(row.getField(columnIndex.get("t_tinyint")), (byte) (1 + rowNumber));
-                        assertEquals(row.getField(columnIndex.get("t_smallint")), (short) (2 + rowNumber));
-                        assertEquals(row.getField(columnIndex.get("t_int")), 3 + (int) rowNumber);
+                        assertThat(row.getField(columnIndex.get("t_tinyint"))).isEqualTo((byte) (1 + rowNumber));
+                        assertThat(row.getField(columnIndex.get("t_smallint"))).isEqualTo((short) (2 + rowNumber));
+                        assertThat(row.getField(columnIndex.get("t_int"))).isEqualTo(3 + (int) rowNumber);
 
                         if (rowNumber % 13 == 0) {
-                            assertNull(row.getField(columnIndex.get("t_bigint")));
+                            assertThat(row.getField(columnIndex.get("t_bigint"))).isNull();
                         }
                         else {
-                            assertEquals(row.getField(columnIndex.get("t_bigint")), 4 + rowNumber);
+                            assertThat(row.getField(columnIndex.get("t_bigint"))).isEqualTo(4 + rowNumber);
                         }
 
-                        assertEquals((Float) row.getField(columnIndex.get("t_float")), 5.1f + rowNumber, 0.001);
-                        assertEquals(row.getField(columnIndex.get("t_double")), 6.2 + rowNumber);
+                        assertThat((Float) row.getField(columnIndex.get("t_float"))).isCloseTo(5.1f + rowNumber, offset(0.001f));
+                        assertThat(row.getField(columnIndex.get("t_double"))).isEqualTo(6.2 + rowNumber);
 
                         if (rowNumber % 3 == 2) {
-                            assertNull(row.getField(columnIndex.get("t_boolean")));
+                            assertThat(row.getField(columnIndex.get("t_boolean"))).isNull();
                         }
                         else {
-                            assertEquals(row.getField(columnIndex.get("t_boolean")), rowNumber % 3 != 0);
+                            assertThat(row.getField(columnIndex.get("t_boolean"))).isEqualTo(rowNumber % 3 != 0);
                         }
 
-                        assertEquals(row.getField(columnIndex.get("ds")), ds);
-                        assertEquals(row.getField(columnIndex.get("file_format")), fileFormat);
-                        assertEquals(row.getField(columnIndex.get("dummy")), dummyPartition);
+                        assertThat(row.getField(columnIndex.get("ds"))).isEqualTo(ds);
+                        assertThat(row.getField(columnIndex.get("file_format"))).isEqualTo(fileFormat);
+                        assertThat(row.getField(columnIndex.get("dummy"))).isEqualTo(dummyPartition);
 
                         long newCompletedBytes = pageSource.getCompletedBytes();
-                        assertTrue(newCompletedBytes >= completedBytes);
-                        assertTrue(newCompletedBytes <= hiveSplit.getLength());
+                        assertThat(newCompletedBytes >= completedBytes).isTrue();
+                        assertThat(newCompletedBytes <= hiveSplit.getLength()).isTrue();
                         completedBytes = newCompletedBytes;
                     }
 
-                    assertTrue(completedBytes <= hiveSplit.getLength());
-                    assertEquals(rowNumber, 100);
+                    assertThat(completedBytes <= hiveSplit.getLength()).isTrue();
+                    assertThat(rowNumber).isEqualTo(100);
                 }
             }
         }
@@ -2308,7 +2306,7 @@ public abstract class AbstractTestHive
             Map<String, Integer> columnIndex = indexColumns(columnHandles);
 
             List<ConnectorSplit> splits = getAllSplits(tableHandle, transaction, session);
-            assertEquals(splits.size(), tablePartitionFormatPartitions.size());
+            assertThat(splits.size()).isEqualTo(tablePartitionFormatPartitions.size());
 
             for (ConnectorSplit split : splits) {
                 HiveSplit hiveSplit = (HiveSplit) split;
@@ -2326,13 +2324,13 @@ public abstract class AbstractTestHive
                     for (MaterializedRow row : result) {
                         rowNumber++;
 
-                        assertEquals(row.getField(columnIndex.get("t_double")), 6.2 + rowNumber);
-                        assertEquals(row.getField(columnIndex.get("ds")), ds);
-                        assertEquals(row.getField(columnIndex.get("file_format")), fileFormat);
-                        assertEquals(row.getField(columnIndex.get("dummy")), dummyPartition);
+                        assertThat(row.getField(columnIndex.get("t_double"))).isEqualTo(6.2 + rowNumber);
+                        assertThat(row.getField(columnIndex.get("ds"))).isEqualTo(ds);
+                        assertThat(row.getField(columnIndex.get("file_format"))).isEqualTo(fileFormat);
+                        assertThat(row.getField(columnIndex.get("dummy"))).isEqualTo(dummyPartition);
                     }
                 }
-                assertEquals(rowNumber, 100);
+                assertThat(rowNumber).isEqualTo(100);
             }
         }
     }
@@ -2356,7 +2354,7 @@ public abstract class AbstractTestHive
             for (ConnectorSplit split : splits) {
                 HiveSplit hiveSplit = (HiveSplit) split;
 
-                assertEquals(hiveSplit.getPartitionKeys(), ImmutableList.of());
+                assertThat(hiveSplit.getPartitionKeys()).isEqualTo(ImmutableList.of());
 
                 long rowNumber = 0;
                 try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, tableHandle, columnHandles, DynamicFilter.EMPTY)) {
@@ -2367,19 +2365,19 @@ public abstract class AbstractTestHive
                         rowNumber++;
 
                         if (rowNumber % 19 == 0) {
-                            assertNull(row.getField(columnIndex.get("t_string")));
+                            assertThat(row.getField(columnIndex.get("t_string"))).isNull();
                         }
                         else if (rowNumber % 19 == 1) {
-                            assertEquals(row.getField(columnIndex.get("t_string")), "");
+                            assertThat(row.getField(columnIndex.get("t_string"))).isEqualTo("");
                         }
                         else {
-                            assertEquals(row.getField(columnIndex.get("t_string")), "unpartitioned");
+                            assertThat(row.getField(columnIndex.get("t_string"))).isEqualTo("unpartitioned");
                         }
 
-                        assertEquals(row.getField(columnIndex.get("t_tinyint")), (byte) (1 + rowNumber));
+                        assertThat(row.getField(columnIndex.get("t_tinyint"))).isEqualTo((byte) (1 + rowNumber));
                     }
                 }
-                assertEquals(rowNumber, 100);
+                assertThat(rowNumber).isEqualTo(100);
             }
         }
     }
@@ -2416,7 +2414,7 @@ public abstract class AbstractTestHive
             Constraint constraint = new Constraint(TupleDomain.fromFixedValues(ImmutableMap.of(column, NullableValue.of(BOOLEAN, false))));
             table = applyFilter(metadata, table, constraint);
             HivePartition partition = getOnlyElement(((HiveTableHandle) table).getPartitions().orElseThrow(AssertionError::new));
-            assertEquals(getPartitionId(partition), "t_boolean=0");
+            assertThat(getPartitionId(partition)).isEqualTo("t_boolean=0");
 
             ConnectorSplitSource splitSource = getSplits(splitManager, transaction, session, table);
             ConnectorSplit split = getOnlyElement(getAllSplits(splitSource));
@@ -2426,7 +2424,7 @@ public abstract class AbstractTestHive
                 fail("expected exception");
             }
             catch (TrinoException e) {
-                assertEquals(e.getErrorCode(), HIVE_INVALID_PARTITION_VALUE.toErrorCode());
+                assertThat(e.getErrorCode()).isEqualTo(HIVE_INVALID_PARTITION_VALUE.toErrorCode());
             }
         }
     }
@@ -2531,19 +2529,19 @@ public abstract class AbstractTestHive
                 // verify directory is empty
                 HdfsContext context = new HdfsContext(session);
                 Path location = new Path(table.getStorage().getLocation());
-                assertTrue(listDirectory(context, location).isEmpty());
+                assertThat(listDirectory(context, location).isEmpty()).isTrue();
 
                 // read table with empty directory
                 readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.of(0), Optional.of(ORC));
 
                 // create empty file
                 FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, location);
-                assertTrue(fileSystem.createNewFile(new Path(location, "empty-file")));
-                assertEquals(listDirectory(context, location), ImmutableList.of("empty-file"));
+                assertThat(fileSystem.createNewFile(new Path(location, "empty-file"))).isTrue();
+                assertThat(listDirectory(context, location)).isEqualTo(ImmutableList.of("empty-file"));
 
                 // read table with empty file
                 MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.of(0), Optional.empty());
-                assertEquals(result.getRowCount(), 0);
+                assertThat(result.getRowCount()).isEqualTo(0);
             }
         }
         finally {
@@ -2571,8 +2569,8 @@ public abstract class AbstractTestHive
                 ConnectorSession session = newSession();
                 ConnectorMetadata metadata = transaction.getMetadata();
 
-                assertNull(metadata.getTableHandle(session, temporaryRenameTableOld));
-                assertNotNull(metadata.getTableHandle(session, temporaryRenameTableNew));
+                assertThat(metadata.getTableHandle(session, temporaryRenameTableOld)).isNull();
+                assertThat(metadata.getTableHandle(session, temporaryRenameTableNew)).isNotNull();
             }
         }
         finally {
@@ -2684,7 +2682,7 @@ public abstract class AbstractTestHive
                 // verify we have data files
                 stagingPathRoot = getStagingPathRoot(outputHandle);
                 HdfsContext context = new HdfsContext(session);
-                assertFalse(listAllDataFiles(context, stagingPathRoot).isEmpty());
+                assertThat(listAllDataFiles(context, stagingPathRoot).isEmpty()).isFalse();
 
                 // rollback the table
                 transaction.rollback();
@@ -2692,13 +2690,13 @@ public abstract class AbstractTestHive
 
             // verify all files have been deleted
             HdfsContext context = new HdfsContext(newSession());
-            assertTrue(listAllDataFiles(context, stagingPathRoot).isEmpty());
+            assertThat(listAllDataFiles(context, stagingPathRoot).isEmpty()).isTrue();
 
             // verify table is not in the metastore
             try (Transaction transaction = newTransaction()) {
                 ConnectorSession session = newSession();
                 ConnectorMetadata metadata = transaction.getMetadata();
-                assertNull(metadata.getTableHandle(session, temporaryCreateRollbackTable));
+                assertThat(metadata.getTableHandle(session, temporaryCreateRollbackTable)).isNull();
             }
         }
         finally {
@@ -2724,7 +2722,7 @@ public abstract class AbstractTestHive
                 transaction.getMetastore()
                         .createTable(session, table, privileges, Optional.empty(), Optional.empty(), false, ZERO_TABLE_STATISTICS, false);
                 Optional<Table> tableHandle = transaction.getMetastore().getTable(schemaName, tableName);
-                assertTrue(tableHandle.isPresent());
+                assertThat(tableHandle.isPresent()).isTrue();
                 transaction.commit();
             }
 
@@ -2758,8 +2756,8 @@ public abstract class AbstractTestHive
                 fail("Expected exception");
             }
             catch (TrinoException e) {
-                assertEquals(e.getErrorCode(), TRANSACTION_CONFLICT.toErrorCode());
-                assertEquals(e.getMessage(), format("Table already exists with a different schema: '%s'", schemaTableName.getTableName()));
+                assertThat(e.getErrorCode()).isEqualTo(TRANSACTION_CONFLICT.toErrorCode());
+                assertThat(e.getMessage()).isEqualTo(format("Table already exists with a different schema: '%s'", schemaTableName.getTableName()));
             }
         }
         finally {
@@ -2897,7 +2895,7 @@ public abstract class AbstractTestHive
                             "bucket_execution_enabled", false)),
                     tableHandle);
             Map<String, Integer> columnIndex = indexColumns(columnHandles);
-            assertEquals(properties.getLocalProperties(), ImmutableList.of(
+            assertThat(properties.getLocalProperties()).isEqualTo(ImmutableList.of(
                     new SortingProperty<>(columnHandles.get(columnIndex.get("value_asc")), ASC_NULLS_FIRST),
                     new SortingProperty<>(columnHandles.get(columnIndex.get("value_desc")), DESC_NULLS_LAST)));
             assertThat(metadata.getTableProperties(newSession(), tableHandle).getLocalProperties()).isEmpty();
@@ -2919,8 +2917,8 @@ public abstract class AbstractTestHive
                         for (int i = 0; i < page.getPositionCount(); i++) {
                             Block blockAsc = page.getBlock(1);
                             Block blockDesc = page.getBlock(2);
-                            assertFalse(blockAsc.isNull(i));
-                            assertFalse(blockDesc.isNull(i));
+                            assertThat(blockAsc.isNull(i)).isFalse();
+                            assertThat(blockDesc.isNull(i)).isFalse();
 
                             String valueAsc = VARCHAR.getSlice(blockAsc, i).toStringUtf8();
                             if (lastValueAsc != null) {
@@ -3108,7 +3106,9 @@ public abstract class AbstractTestHive
                     HdfsContext context = new HdfsContext(session);
                     Path temporaryRoot = new Path(targetPath.toString(), temporaryStagingPrefix);
                     FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, temporaryRoot);
-                    assertFalse(fileSystem.exists(temporaryRoot), format("Temporary staging directory %s is created.", temporaryRoot));
+                    assertThat(fileSystem.exists(temporaryRoot))
+                            .describedAs(format("Temporary staging directory %s is created.", temporaryRoot))
+                            .isFalse();
                 }
             }
             finally {
@@ -3149,7 +3149,7 @@ public abstract class AbstractTestHive
                 fail("create table with unsupported type should fail for storage format " + storageFormat);
             }
             catch (TrinoException e) {
-                assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());
+                assertThat(e.getErrorCode()).isEqualTo(NOT_SUPPORTED.toErrorCode());
             }
         }
     }
@@ -3573,7 +3573,7 @@ public abstract class AbstractTestHive
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
             Map<SchemaTableName, List<ColumnMetadata>> allColumns = listTableColumns(metadata, newSession(), new SchemaTablePrefix(schemaTableName.getSchemaName()));
-            assertTrue(allColumns.containsKey(schemaTableName));
+            assertThat(allColumns.containsKey(schemaTableName)).isTrue();
         }
         finally {
             dropTable(schemaTableName);
@@ -3711,9 +3711,7 @@ public abstract class AbstractTestHive
 
             // create partition with stats for all columns
             metastoreClient.addPartitions(tableName.getSchemaName(), tableName.getTableName(), ImmutableList.of(new PartitionWithStatistics(partition, partitionName, statsForAllColumns1)));
-            assertEquals(
-                    metastoreClient.getPartition(tableName.getSchemaName(), tableName.getTableName(), partitionValues).get().getStorage().getStorageFormat(),
-                    fromHiveStorageFormat(ORC));
+            assertThat(metastoreClient.getPartition(tableName.getSchemaName(), tableName.getTableName(), partitionValues).get().getStorage().getStorageFormat()).isEqualTo(fromHiveStorageFormat(ORC));
             assertThat(metastoreClient.getPartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(partitionName)))
                     .isEqualTo(ImmutableMap.of(partitionName, statsForAllColumns1));
 
@@ -3724,9 +3722,7 @@ public abstract class AbstractTestHive
                             .setLocation(partitionTargetPath(tableName, partitionName)))
                     .build();
             metastoreClient.alterPartition(tableName.getSchemaName(), tableName.getTableName(), new PartitionWithStatistics(modifiedPartition, partitionName, statsForAllColumns2));
-            assertEquals(
-                    metastoreClient.getPartition(tableName.getSchemaName(), tableName.getTableName(), partitionValues).get().getStorage().getStorageFormat(),
-                    fromHiveStorageFormat(RCBINARY));
+            assertThat(metastoreClient.getPartition(tableName.getSchemaName(), tableName.getTableName(), partitionValues).get().getStorage().getStorageFormat()).isEqualTo(fromHiveStorageFormat(RCBINARY));
             assertThat(metastoreClient.getPartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(partitionName)))
                     .isEqualTo(ImmutableMap.of(partitionName, statsForAllColumns2));
 
@@ -3812,7 +3808,7 @@ public abstract class AbstractTestHive
                 ConnectorTableHandle tableHandle = metadata.getTableHandle(session, tableName);
                 TableStatistics unsampledStatistics = metadata.getTableStatistics(sampleSize(2), tableHandle);
                 TableStatistics sampledStatistics = metadata.getTableStatistics(sampleSize(1), tableHandle);
-                assertEquals(sampledStatistics, unsampledStatistics);
+                assertThat(sampledStatistics).isEqualTo(unsampledStatistics);
             }
         }
         finally {
@@ -3846,7 +3842,7 @@ public abstract class AbstractTestHive
             List<ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle).values().stream()
                     .filter(columnHandle -> !((HiveColumnHandle) columnHandle).isHidden())
                     .collect(toList());
-            assertEquals(columnHandles.size(), columnsForApplyProjectionTest.size());
+            assertThat(columnHandles.size()).isEqualTo(columnsForApplyProjectionTest.size());
 
             Map<String, ColumnHandle> columnHandleMap = columnHandles.stream()
                     .collect(toImmutableMap(handle -> ((HiveColumnHandle) handle).getBaseColumnName(), Function.identity()));
@@ -3951,16 +3947,20 @@ public abstract class AbstractTestHive
     private static void assertProjectionResult(Optional<ProjectionApplicationResult<ConnectorTableHandle>> projectionResult, boolean shouldBeEmpty, List<ConnectorExpression> expectedProjections, Map<String, Type> expectedAssignments)
     {
         if (shouldBeEmpty) {
-            assertTrue(projectionResult.isEmpty(), "expected projectionResult to be empty");
+            assertThat(projectionResult.isEmpty())
+                    .describedAs("expected projectionResult to be empty")
+                    .isTrue();
             return;
         }
 
-        assertTrue(projectionResult.isPresent(), "expected non-empty projection result");
+        assertThat(projectionResult.isPresent())
+                .describedAs("expected non-empty projection result")
+                .isTrue();
 
         ProjectionApplicationResult<ConnectorTableHandle> result = projectionResult.get();
 
         // Verify projections
-        assertEquals(expectedProjections, result.getProjections());
+        assertThat(expectedProjections).isEqualTo(result.getProjections());
 
         // Verify assignments
         List<Assignment> assignments = result.getAssignments();
@@ -3968,15 +3968,13 @@ public abstract class AbstractTestHive
 
         for (String variable : expectedAssignments.keySet()) {
             Type expectedType = expectedAssignments.get(variable);
-            assertTrue(actualAssignments.containsKey(variable));
-            assertEquals(actualAssignments.get(variable).getType(), expectedType);
-            assertEquals(((HiveColumnHandle) actualAssignments.get(variable).getColumn()).getType(), expectedType);
+            assertThat(actualAssignments.containsKey(variable)).isTrue();
+            assertThat(actualAssignments.get(variable).getType()).isEqualTo(expectedType);
+            assertThat(((HiveColumnHandle) actualAssignments.get(variable).getColumn()).getType()).isEqualTo(expectedType);
         }
 
-        assertEquals(actualAssignments.size(), expectedAssignments.size());
-        assertEquals(
-                actualAssignments.values().stream().map(Assignment::getColumn).collect(toImmutableSet()),
-                ((HiveTableHandle) result.getHandle()).getProjectedColumns());
+        assertThat(actualAssignments.size()).isEqualTo(expectedAssignments.size());
+        assertThat(actualAssignments.values().stream().map(Assignment::getColumn).collect(toImmutableSet())).isEqualTo(((HiveTableHandle) result.getHandle()).getProjectedColumns());
     }
 
     @Test
@@ -4104,7 +4102,7 @@ public abstract class AbstractTestHive
             fail("create existing should fail");
         }
         catch (ViewAlreadyExistsException e) {
-            assertEquals(e.getViewName(), temporaryCreateView);
+            assertThat(e.getViewName()).isEqualTo(temporaryCreateView);
         }
 
         try (Transaction transaction = newTransaction()) {
@@ -4131,7 +4129,7 @@ public abstract class AbstractTestHive
             fail("drop non-existing should fail");
         }
         catch (ViewNotFoundException e) {
-            assertEquals(e.getViewName(), temporaryCreateView);
+            assertThat(e.getViewName()).isEqualTo(temporaryCreateView);
         }
 
         // create works for new view
@@ -4164,10 +4162,10 @@ public abstract class AbstractTestHive
                     .contains(viewData);
 
             Map<SchemaTableName, ConnectorViewDefinition> views = metadata.getViews(newSession(), Optional.of(viewName.getSchemaName()));
-            assertEquals(views.size(), 1);
-            assertEquals(views.get(viewName).getOriginalSql(), definition.getOriginalSql());
+            assertThat(views.size()).isEqualTo(1);
+            assertThat(views.get(viewName).getOriginalSql()).isEqualTo(definition.getOriginalSql());
 
-            assertTrue(metadata.listViews(newSession(), Optional.of(viewName.getSchemaName())).contains(viewName));
+            assertThat(metadata.listViews(newSession(), Optional.of(viewName.getSchemaName())).contains(viewName)).isTrue();
         }
     }
 
@@ -4212,7 +4210,7 @@ public abstract class AbstractTestHive
 
             // verify the metadata
             ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session, getTableHandle(metadata, tableName));
-            assertEquals(filterNonHiddenColumnMetadata(tableMetadata.getColumns()), CREATE_TABLE_COLUMNS);
+            assertThat(filterNonHiddenColumnMetadata(tableMetadata.getColumns())).isEqualTo(CREATE_TABLE_COLUMNS);
 
             // verify the data
             MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.empty(), Optional.of(storageFormat));
@@ -4220,13 +4218,13 @@ public abstract class AbstractTestHive
 
             // verify the node version and query ID in table
             Table table = getMetastoreClient().getTable(tableName.getSchemaName(), tableName.getTableName()).get();
-            assertEquals(table.getParameters().get(PRESTO_VERSION_NAME), TEST_SERVER_VERSION);
-            assertEquals(table.getParameters().get(PRESTO_QUERY_ID_NAME), queryId);
+            assertThat(table.getParameters().get(PRESTO_VERSION_NAME)).isEqualTo(TEST_SERVER_VERSION);
+            assertThat(table.getParameters().get(PRESTO_QUERY_ID_NAME)).isEqualTo(queryId);
 
             // verify basic statistics
             HiveBasicStatistics statistics = getBasicStatisticsForTable(transaction, tableName);
-            assertEquals(statistics.getRowCount().getAsLong(), CREATE_TABLE_DATA.getRowCount());
-            assertEquals(statistics.getFileCount().getAsLong(), 1L);
+            assertThat(statistics.getRowCount().getAsLong()).isEqualTo(CREATE_TABLE_DATA.getRowCount());
+            assertThat(statistics.getFileCount().getAsLong()).isEqualTo(1L);
             assertGreaterThan(statistics.getInMemoryDataSizeInBytes().getAsLong(), 0L);
             assertGreaterThan(statistics.getOnDiskDataSizeInBytes().getAsLong(), 0L);
         }
@@ -4277,28 +4275,28 @@ public abstract class AbstractTestHive
                             .setExtraInfo(Optional.ofNullable(columnExtraInfo(partitionedBy.contains(column.getName()))))
                             .build())
                     .collect(toList());
-            assertEquals(filterNonHiddenColumnMetadata(tableMetadata.getColumns()), expectedColumns);
+            assertThat(filterNonHiddenColumnMetadata(tableMetadata.getColumns())).isEqualTo(expectedColumns);
 
             // verify table format
             Table table = transaction.getMetastore().getTable(tableName.getSchemaName(), tableName.getTableName()).get();
-            assertEquals(table.getStorage().getStorageFormat().getInputFormat(), storageFormat.getInputFormat());
+            assertThat(table.getStorage().getStorageFormat().getInputFormat()).isEqualTo(storageFormat.getInputFormat());
 
             // verify the node version and query ID
-            assertEquals(table.getParameters().get(PRESTO_VERSION_NAME), TEST_SERVER_VERSION);
-            assertEquals(table.getParameters().get(PRESTO_QUERY_ID_NAME), queryId);
+            assertThat(table.getParameters().get(PRESTO_VERSION_NAME)).isEqualTo(TEST_SERVER_VERSION);
+            assertThat(table.getParameters().get(PRESTO_QUERY_ID_NAME)).isEqualTo(queryId);
 
             // verify the table is empty
             List<ColumnHandle> columnHandles = filterNonHiddenColumnHandles(metadata.getColumnHandles(session, tableHandle).values());
             MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.empty(), Optional.of(storageFormat));
-            assertEquals(result.getRowCount(), 0);
+            assertThat(result.getRowCount()).isEqualTo(0);
 
             // verify basic statistics
             if (partitionedBy.isEmpty()) {
                 HiveBasicStatistics statistics = getBasicStatisticsForTable(transaction, tableName);
-                assertEquals(statistics.getRowCount().getAsLong(), 0L);
-                assertEquals(statistics.getFileCount().getAsLong(), 0L);
-                assertEquals(statistics.getInMemoryDataSizeInBytes().getAsLong(), 0L);
-                assertEquals(statistics.getOnDiskDataSizeInBytes().getAsLong(), 0L);
+                assertThat(statistics.getRowCount().getAsLong()).isEqualTo(0L);
+                assertThat(statistics.getFileCount().getAsLong()).isEqualTo(0L);
+                assertThat(statistics.getInMemoryDataSizeInBytes().getAsLong()).isEqualTo(0L);
+                assertThat(statistics.getOnDiskDataSizeInBytes().getAsLong()).isEqualTo(0L);
             }
         }
     }
@@ -4324,7 +4322,7 @@ public abstract class AbstractTestHive
 
                 // verify the metadata
                 ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session, getTableHandle(metadata, tableName));
-                assertEquals(filterNonHiddenColumnMetadata(tableMetadata.getColumns()), CREATE_TABLE_COLUMNS);
+                assertThat(filterNonHiddenColumnMetadata(tableMetadata.getColumns())).isEqualTo(CREATE_TABLE_COLUMNS);
 
                 // verify the data
                 resultBuilder.rows(CREATE_TABLE_DATA.getMaterializedRows());
@@ -4333,8 +4331,8 @@ public abstract class AbstractTestHive
 
                 // statistics
                 HiveBasicStatistics tableStatistics = getBasicStatisticsForTable(transaction, tableName);
-                assertEquals(tableStatistics.getRowCount().orElse(0), CREATE_TABLE_DATA.getRowCount() * (i + 1L));
-                assertEquals(tableStatistics.getFileCount().getAsLong(), i + 1L);
+                assertThat(tableStatistics.getRowCount().orElse(0)).isEqualTo(CREATE_TABLE_DATA.getRowCount() * (i + 1L));
+                assertThat(tableStatistics.getFileCount().getAsLong()).isEqualTo(i + 1L);
                 assertGreaterThan(tableStatistics.getInMemoryDataSizeInBytes().getAsLong(), 0L);
                 assertGreaterThan(tableStatistics.getOnDiskDataSizeInBytes().getAsLong(), 0L);
             }
@@ -4344,7 +4342,7 @@ public abstract class AbstractTestHive
         Set<String> existingFiles;
         try (Transaction transaction = newTransaction()) {
             existingFiles = listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName());
-            assertFalse(existingFiles.isEmpty());
+            assertThat(existingFiles.isEmpty()).isFalse();
         }
 
         Location stagingPathRoot;
@@ -4364,22 +4362,22 @@ public abstract class AbstractTestHive
 
             // statistics, visible from within transaction
             HiveBasicStatistics tableStatistics = getBasicStatisticsForTable(transaction, tableName);
-            assertEquals(tableStatistics.getRowCount().getAsLong(), CREATE_TABLE_DATA.getRowCount() * 5L);
+            assertThat(tableStatistics.getRowCount().getAsLong()).isEqualTo(CREATE_TABLE_DATA.getRowCount() * 5L);
 
             try (Transaction otherTransaction = newTransaction()) {
                 // statistics, not visible from outside transaction
                 HiveBasicStatistics otherTableStatistics = getBasicStatisticsForTable(otherTransaction, tableName);
-                assertEquals(otherTableStatistics.getRowCount().getAsLong(), CREATE_TABLE_DATA.getRowCount() * 3L);
+                assertThat(otherTableStatistics.getRowCount().getAsLong()).isEqualTo(CREATE_TABLE_DATA.getRowCount() * 3L);
             }
 
             // verify we did not modify the table directory
-            assertEquals(listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName()), existingFiles);
+            assertThat(listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName())).isEqualTo(existingFiles);
 
             // verify all temp files start with the unique prefix
             stagingPathRoot = getStagingPathRoot(insertTableHandle);
             HdfsContext context = new HdfsContext(session);
             Set<String> tempFiles = listAllDataFiles(context, stagingPathRoot);
-            assertTrue(!tempFiles.isEmpty());
+            assertThat(!tempFiles.isEmpty()).isTrue();
             for (String filePath : tempFiles) {
                 assertThat(new Path(filePath).getName()).startsWith(session.getQueryId());
             }
@@ -4390,7 +4388,7 @@ public abstract class AbstractTestHive
 
         // verify temp directory is empty
         HdfsContext context = new HdfsContext(newSession());
-        assertTrue(listAllDataFiles(context, stagingPathRoot).isEmpty());
+        assertThat(listAllDataFiles(context, stagingPathRoot).isEmpty()).isTrue();
 
         // verify the data is unchanged
         try (Transaction transaction = newTransaction()) {
@@ -4404,14 +4402,14 @@ public abstract class AbstractTestHive
             assertEqualsIgnoreOrder(result.getMaterializedRows(), resultBuilder.build().getMaterializedRows());
 
             // verify we did not modify the table directory
-            assertEquals(listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName()), existingFiles);
+            assertThat(listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName())).isEqualTo(existingFiles);
         }
 
         // verify statistics unchanged
         try (Transaction transaction = newTransaction()) {
             HiveBasicStatistics statistics = getBasicStatisticsForTable(transaction, tableName);
-            assertEquals(statistics.getRowCount().getAsLong(), CREATE_TABLE_DATA.getRowCount() * 3L);
-            assertEquals(statistics.getFileCount().getAsLong(), 3L);
+            assertThat(statistics.getRowCount().getAsLong()).isEqualTo(CREATE_TABLE_DATA.getRowCount() * 3L);
+            assertThat(statistics.getFileCount().getAsLong()).isEqualTo(3L);
         }
     }
 
@@ -4446,7 +4444,7 @@ public abstract class AbstractTestHive
 
                 // verify the metadata
                 ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session, getTableHandle(metadata, tableName));
-                assertEquals(filterNonHiddenColumnMetadata(tableMetadata.getColumns()), CREATE_TABLE_COLUMNS);
+                assertThat(filterNonHiddenColumnMetadata(tableMetadata.getColumns())).isEqualTo(CREATE_TABLE_COLUMNS);
 
                 // verify the data
                 MaterializedResult result = readTable(transaction, tableHandle, columnHandles, session, TupleDomain.all(), OptionalInt.empty(), Optional.empty());
@@ -4454,8 +4452,8 @@ public abstract class AbstractTestHive
 
                 // statistics
                 HiveBasicStatistics tableStatistics = getBasicStatisticsForTable(transaction, tableName);
-                assertEquals(tableStatistics.getRowCount().getAsLong(), overwriteData.getRowCount());
-                assertEquals(tableStatistics.getFileCount().getAsLong(), 1L);
+                assertThat(tableStatistics.getRowCount().getAsLong()).isEqualTo(overwriteData.getRowCount());
+                assertThat(tableStatistics.getFileCount().getAsLong()).isEqualTo(1L);
                 assertGreaterThan(tableStatistics.getInMemoryDataSizeInBytes().getAsLong(), 0L);
                 assertGreaterThan(tableStatistics.getOnDiskDataSizeInBytes().getAsLong(), 0L);
             }
@@ -4465,7 +4463,7 @@ public abstract class AbstractTestHive
         Set<String> existingFiles;
         try (Transaction transaction = newTransaction()) {
             existingFiles = listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName());
-            assertFalse(existingFiles.isEmpty());
+            assertThat(existingFiles.isEmpty()).isFalse();
         }
 
         Location stagingPathRoot;
@@ -4486,22 +4484,22 @@ public abstract class AbstractTestHive
 
             // statistics, visible from within transaction
             HiveBasicStatistics tableStatistics = getBasicStatisticsForTable(transaction, tableName);
-            assertEquals(tableStatistics.getRowCount().getAsLong(), overwriteData.getRowCount() * 4L);
+            assertThat(tableStatistics.getRowCount().getAsLong()).isEqualTo(overwriteData.getRowCount() * 4L);
 
             try (Transaction otherTransaction = newTransaction()) {
                 // statistics, not visible from outside transaction
                 HiveBasicStatistics otherTableStatistics = getBasicStatisticsForTable(otherTransaction, tableName);
-                assertEquals(otherTableStatistics.getRowCount().getAsLong(), overwriteData.getRowCount());
+                assertThat(otherTableStatistics.getRowCount().getAsLong()).isEqualTo(overwriteData.getRowCount());
             }
 
             // verify we did not modify the table directory
-            assertEquals(listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName()), existingFiles);
+            assertThat(listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName())).isEqualTo(existingFiles);
 
             // verify all temp files start with the unique prefix
             stagingPathRoot = getStagingPathRoot(insertTableHandle);
             HdfsContext context = new HdfsContext(session);
             Set<String> tempFiles = listAllDataFiles(context, stagingPathRoot);
-            assertTrue(!tempFiles.isEmpty());
+            assertThat(!tempFiles.isEmpty()).isTrue();
             for (String filePath : tempFiles) {
                 assertThat(new Path(filePath).getName()).startsWith(session.getQueryId());
             }
@@ -4512,7 +4510,7 @@ public abstract class AbstractTestHive
 
         // verify temp directory is empty
         HdfsContext context = new HdfsContext(newSession());
-        assertTrue(listAllDataFiles(context, stagingPathRoot).isEmpty());
+        assertThat(listAllDataFiles(context, stagingPathRoot).isEmpty()).isTrue();
 
         // verify the data is unchanged
         try (Transaction transaction = newTransaction()) {
@@ -4526,14 +4524,14 @@ public abstract class AbstractTestHive
             assertEqualsIgnoreOrder(result.getMaterializedRows(), overwriteData.getMaterializedRows());
 
             // verify we did not modify the table directory
-            assertEquals(listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName()), existingFiles);
+            assertThat(listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName())).isEqualTo(existingFiles);
         }
 
         // verify statistics unchanged
         try (Transaction transaction = newTransaction()) {
             HiveBasicStatistics statistics = getBasicStatisticsForTable(transaction, tableName);
-            assertEquals(statistics.getRowCount().getAsLong(), overwriteData.getRowCount());
-            assertEquals(statistics.getFileCount().getAsLong(), 1L);
+            assertThat(statistics.getRowCount().getAsLong()).isEqualTo(overwriteData.getRowCount());
+            assertThat(statistics.getFileCount().getAsLong()).isEqualTo(1L);
         }
     }
 
@@ -4642,11 +4640,11 @@ public abstract class AbstractTestHive
 
             // verify the node versions in partitions
             Map<String, Optional<Partition>> partitions = getMetastoreClient().getPartitionsByNames(table, partitionNames);
-            assertEquals(partitions.size(), partitionNames.size());
+            assertThat(partitions.size()).isEqualTo(partitionNames.size());
             for (String partitionName : partitionNames) {
                 Partition partition = partitions.get(partitionName).get();
-                assertEquals(partition.getParameters().get(PRESTO_VERSION_NAME), TEST_SERVER_VERSION);
-                assertEquals(partition.getParameters().get(PRESTO_QUERY_ID_NAME), queryId);
+                assertThat(partition.getParameters().get(PRESTO_VERSION_NAME)).isEqualTo(TEST_SERVER_VERSION);
+                assertThat(partition.getParameters().get(PRESTO_QUERY_ID_NAME)).isEqualTo(queryId);
             }
 
             // load the new table
@@ -4662,13 +4660,13 @@ public abstract class AbstractTestHive
 
             // test rollback
             existingFiles = listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName());
-            assertFalse(existingFiles.isEmpty());
+            assertThat(existingFiles.isEmpty()).isFalse();
 
             // test statistics
             for (String partitionName : partitionNames) {
                 HiveBasicStatistics partitionStatistics = getBasicStatisticsForPartition(transaction, tableName, COLUMN_NAMES_PARTITIONED, partitionName);
-                assertEquals(partitionStatistics.getRowCount().getAsLong(), 1L);
-                assertEquals(partitionStatistics.getFileCount().getAsLong(), 1L);
+                assertThat(partitionStatistics.getRowCount().getAsLong()).isEqualTo(1L);
+                assertThat(partitionStatistics.getFileCount().getAsLong()).isEqualTo(1L);
                 assertGreaterThan(partitionStatistics.getInMemoryDataSizeInBytes().getAsLong(), 0L);
                 assertGreaterThan(partitionStatistics.getOnDiskDataSizeInBytes().getAsLong(), 0L);
             }
@@ -4691,7 +4689,7 @@ public abstract class AbstractTestHive
             // verify all temp files start with the unique prefix
             HdfsContext context = new HdfsContext(session);
             Set<String> tempFiles = listAllDataFiles(context, getStagingPathRoot(insertTableHandle));
-            assertTrue(!tempFiles.isEmpty());
+            assertThat(!tempFiles.isEmpty()).isTrue();
             for (String filePath : tempFiles) {
                 assertThat(new Path(filePath).getName()).startsWith(session.getQueryId());
             }
@@ -4712,11 +4710,11 @@ public abstract class AbstractTestHive
             assertEqualsIgnoreOrder(result.getMaterializedRows(), CREATE_TABLE_PARTITIONED_DATA.getMaterializedRows());
 
             // verify we did not modify the table directory
-            assertEquals(listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName()), existingFiles);
+            assertThat(listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName())).isEqualTo(existingFiles);
 
             // verify temp directory is empty
             HdfsContext context = new HdfsContext(session);
-            assertTrue(listAllDataFiles(context, stagingPathRoot).isEmpty());
+            assertThat(listAllDataFiles(context, stagingPathRoot).isEmpty()).isTrue();
         }
     }
 
@@ -4776,8 +4774,8 @@ public abstract class AbstractTestHive
                 // test statistics
                 for (String partitionName : partitionNames) {
                     HiveBasicStatistics statistics = getBasicStatisticsForPartition(transaction, tableName, COLUMN_NAMES_PARTITIONED, partitionName);
-                    assertEquals(statistics.getRowCount().getAsLong(), i + 1L);
-                    assertEquals(statistics.getFileCount().getAsLong(), i + 1L);
+                    assertThat(statistics.getRowCount().getAsLong()).isEqualTo(i + 1L);
+                    assertThat(statistics.getFileCount().getAsLong()).isEqualTo(i + 1L);
                     assertGreaterThan(statistics.getInMemoryDataSizeInBytes().getAsLong(), 0L);
                     assertGreaterThan(statistics.getOnDiskDataSizeInBytes().getAsLong(), 0L);
                 }
@@ -4792,7 +4790,7 @@ public abstract class AbstractTestHive
             ConnectorSession session = newSession();
 
             existingFiles = listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName());
-            assertFalse(existingFiles.isEmpty());
+            assertThat(existingFiles.isEmpty()).isFalse();
 
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
 
@@ -4808,7 +4806,7 @@ public abstract class AbstractTestHive
             // verify all temp files start with the unique prefix
             HdfsContext context = new HdfsContext(session);
             Set<String> tempFiles = listAllDataFiles(context, getStagingPathRoot(insertTableHandle));
-            assertTrue(!tempFiles.isEmpty());
+            assertThat(!tempFiles.isEmpty()).isTrue();
             for (String filePath : tempFiles) {
                 assertThat(new Path(filePath).getName()).startsWith(session.getQueryId());
             }
@@ -4818,7 +4816,7 @@ public abstract class AbstractTestHive
                     .orElseThrow(() -> new AssertionError("Table does not exist: " + tableName));
             for (String partitionName : partitionNames) {
                 HiveBasicStatistics partitionStatistics = getBasicStatisticsForPartition(transaction, tableName, COLUMN_NAMES_PARTITIONED, partitionName);
-                assertEquals(partitionStatistics.getRowCount().getAsLong(), 5L);
+                assertThat(partitionStatistics.getRowCount().getAsLong()).isEqualTo(5L);
             }
 
             // rollback insert
@@ -4837,18 +4835,18 @@ public abstract class AbstractTestHive
             assertEqualsIgnoreOrder(result.getMaterializedRows(), resultBuilder.build().getMaterializedRows());
 
             // verify we did not modify the table directory
-            assertEquals(listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName()), existingFiles);
+            assertThat(listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName())).isEqualTo(existingFiles);
 
             // verify temp directory is empty
             HdfsContext hdfsContext = new HdfsContext(session);
-            assertTrue(listAllDataFiles(hdfsContext, stagingPathRoot).isEmpty());
+            assertThat(listAllDataFiles(hdfsContext, stagingPathRoot).isEmpty()).isTrue();
 
             // verify statistics have been rolled back
             List<String> partitionNames = transaction.getMetastore().getPartitionNames(tableName.getSchemaName(), tableName.getTableName())
                     .orElseThrow(() -> new AssertionError("Table does not exist: " + tableName));
             for (String partitionName : partitionNames) {
                 HiveBasicStatistics partitionStatistics = getBasicStatisticsForPartition(transaction, tableName, COLUMN_NAMES_PARTITIONED, partitionName);
-                assertEquals(partitionStatistics.getRowCount().getAsLong(), 3L);
+                assertThat(partitionStatistics.getRowCount().getAsLong()).isEqualTo(3L);
             }
         }
     }
@@ -4960,7 +4958,7 @@ public abstract class AbstractTestHive
         if (!writePath.equals(targetPath)) {
             HdfsContext context = new HdfsContext(newSession());
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, new Path(writePath.toString()));
-            assertFalse(fileSystem.exists(new Path(writePath.toString())));
+            assertThat(fileSystem.exists(new Path(writePath.toString()))).isFalse();
         }
 
         return queryId;
@@ -4991,7 +4989,7 @@ public abstract class AbstractTestHive
 
             // verify table directory is not empty
             Set<String> filesAfterInsert = listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName());
-            assertFalse(filesAfterInsert.isEmpty());
+            assertThat(filesAfterInsert.isEmpty()).isFalse();
 
             // verify the data
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
@@ -5067,7 +5065,7 @@ public abstract class AbstractTestHive
 
             // verify table directory is empty
             Set<String> filesAfterDelete = listAllDataFiles(transaction, tableName.getSchemaName(), tableName.getTableName());
-            assertTrue(filesAfterDelete.isEmpty());
+            assertThat(filesAfterDelete.isEmpty()).isTrue();
         }
     }
 
@@ -5093,7 +5091,7 @@ public abstract class AbstractTestHive
     protected HiveSplit getHiveSplit(ConnectorTableHandle tableHandle, Transaction transaction, ConnectorSession session)
     {
         List<ConnectorSplit> splits = getAllSplits(tableHandle, transaction, session);
-        assertEquals(splits.size(), 1);
+        assertThat(splits.size()).isEqualTo(1);
         return (HiveSplit) getOnlyElement(splits);
     }
 
@@ -5130,49 +5128,49 @@ public abstract class AbstractTestHive
                 index = columnIndex.get("t_string");
                 value = row.getField(index);
                 if (rowNumber % 19 == 0) {
-                    assertNull(value);
+                    assertThat(value).isNull();
                 }
                 else if (rowNumber % 19 == 1) {
-                    assertEquals(value, "");
+                    assertThat(value).isEqualTo("");
                 }
                 else {
-                    assertEquals(value, "test");
+                    assertThat(value).isEqualTo("test");
                 }
 
                 // NUMBERS
-                assertEquals(row.getField(columnIndex.get("t_tinyint")), (byte) (1 + rowNumber));
-                assertEquals(row.getField(columnIndex.get("t_smallint")), (short) (2 + rowNumber));
-                assertEquals(row.getField(columnIndex.get("t_int")), (int) (3 + rowNumber));
+                assertThat(row.getField(columnIndex.get("t_tinyint"))).isEqualTo((byte) (1 + rowNumber));
+                assertThat(row.getField(columnIndex.get("t_smallint"))).isEqualTo((short) (2 + rowNumber));
+                assertThat(row.getField(columnIndex.get("t_int"))).isEqualTo((int) (3 + rowNumber));
 
                 index = columnIndex.get("t_bigint");
                 if ((rowNumber % 13) == 0) {
-                    assertNull(row.getField(index));
+                    assertThat(row.getField(index)).isNull();
                 }
                 else {
-                    assertEquals(row.getField(index), 4 + rowNumber);
+                    assertThat(row.getField(index)).isEqualTo(4 + rowNumber);
                 }
 
-                assertEquals((Float) row.getField(columnIndex.get("t_float")), 5.1f + rowNumber, 0.001);
-                assertEquals(row.getField(columnIndex.get("t_double")), 6.2 + rowNumber);
+                assertThat((Float) row.getField(columnIndex.get("t_float"))).isCloseTo(5.1f + rowNumber, offset(0.001f));
+                assertThat(row.getField(columnIndex.get("t_double"))).isEqualTo(6.2 + rowNumber);
 
                 // BOOLEAN
                 index = columnIndex.get("t_boolean");
                 if ((rowNumber % 3) == 2) {
-                    assertNull(row.getField(index));
+                    assertThat(row.getField(index)).isNull();
                 }
                 else {
-                    assertEquals(row.getField(index), (rowNumber % 3) != 0);
+                    assertThat(row.getField(index)).isEqualTo((rowNumber % 3) != 0);
                 }
 
                 // TIMESTAMP
                 index = columnIndex.get("t_timestamp");
                 if (index != null) {
                     if ((rowNumber % 17) == 0) {
-                        assertNull(row.getField(index));
+                        assertThat(row.getField(index)).isNull();
                     }
                     else {
                         SqlTimestamp expected = sqlTimestampOf(3, 2011, 5, 6, 7, 8, 9, 123);
-                        assertEquals(row.getField(index), expected);
+                        assertThat(row.getField(index)).isEqualTo(expected);
                     }
                 }
 
@@ -5180,10 +5178,10 @@ public abstract class AbstractTestHive
                 index = columnIndex.get("t_binary");
                 if (index != null) {
                     if ((rowNumber % 23) == 0) {
-                        assertNull(row.getField(index));
+                        assertThat(row.getField(index)).isNull();
                     }
                     else {
-                        assertEquals(row.getField(index), new SqlVarbinary("test binary".getBytes(UTF_8)));
+                        assertThat(row.getField(index)).isEqualTo(new SqlVarbinary("test binary".getBytes(UTF_8)));
                     }
                 }
 
@@ -5191,11 +5189,11 @@ public abstract class AbstractTestHive
                 index = columnIndex.get("t_date");
                 if (index != null) {
                     if ((rowNumber % 37) == 0) {
-                        assertNull(row.getField(index));
+                        assertThat(row.getField(index)).isNull();
                     }
                     else {
                         SqlDate expected = new SqlDate(toIntExact(MILLISECONDS.toDays(new DateTime(2013, 8, 9, 0, 0, 0, UTC).getMillis())));
-                        assertEquals(row.getField(index), expected);
+                        assertThat(row.getField(index)).isEqualTo(expected);
                     }
                 }
 
@@ -5204,20 +5202,20 @@ public abstract class AbstractTestHive
                 if (index != null) {
                     value = row.getField(index);
                     if (rowNumber % 39 == 0) {
-                        assertNull(value);
+                        assertThat(value).isNull();
                     }
                     else if (rowNumber % 39 == 1) {
                         // https://issues.apache.org/jira/browse/HIVE-13289
                         // RCBINARY reads empty VARCHAR as null
                         if (hiveStorageFormat == RCBINARY) {
-                            assertNull(value);
+                            assertThat(value).isNull();
                         }
                         else {
-                            assertEquals(value, "");
+                            assertThat(value).isEqualTo("");
                         }
                     }
                     else {
-                        assertEquals(value, "test varchar");
+                        assertThat(value).isEqualTo("test varchar");
                     }
                 }
 
@@ -5226,10 +5224,10 @@ public abstract class AbstractTestHive
                 if (index != null) {
                     value = row.getField(index);
                     if ((rowNumber % 41) == 0) {
-                        assertNull(value);
+                        assertThat(value).isNull();
                     }
                     else {
-                        assertEquals(value, (rowNumber % 41) == 1 ? "                         " : "test char                ");
+                        assertThat(value).isEqualTo((rowNumber % 41) == 1 ? "                         " : "test char                ");
                     }
                 }
 
@@ -5237,10 +5235,10 @@ public abstract class AbstractTestHive
                 index = columnIndex.get("t_map");
                 if (index != null) {
                     if ((rowNumber % 27) == 0) {
-                        assertNull(row.getField(index));
+                        assertThat(row.getField(index)).isNull();
                     }
                     else {
-                        assertEquals(row.getField(index), ImmutableMap.of("test key", "test value"));
+                        assertThat(row.getField(index)).isEqualTo(ImmutableMap.of("test key", "test value"));
                     }
                 }
 
@@ -5248,10 +5246,10 @@ public abstract class AbstractTestHive
                 index = columnIndex.get("t_array_string");
                 if (index != null) {
                     if ((rowNumber % 29) == 0) {
-                        assertNull(row.getField(index));
+                        assertThat(row.getField(index)).isNull();
                     }
                     else {
-                        assertEquals(row.getField(index), ImmutableList.of("abc", "xyz", "data"));
+                        assertThat(row.getField(index)).isEqualTo(ImmutableList.of("abc", "xyz", "data"));
                     }
                 }
 
@@ -5259,11 +5257,11 @@ public abstract class AbstractTestHive
                 index = columnIndex.get("t_array_timestamp");
                 if (index != null) {
                     if ((rowNumber % 43) == 0) {
-                        assertNull(row.getField(index));
+                        assertThat(row.getField(index)).isNull();
                     }
                     else {
                         SqlTimestamp expected = sqlTimestampOf(3, LocalDateTime.of(2011, 5, 6, 7, 8, 9, 123_000_000));
-                        assertEquals(row.getField(index), ImmutableList.of(expected));
+                        assertThat(row.getField(index)).isEqualTo(ImmutableList.of(expected));
                     }
                 }
 
@@ -5271,12 +5269,12 @@ public abstract class AbstractTestHive
                 index = columnIndex.get("t_array_struct");
                 if (index != null) {
                     if ((rowNumber % 31) == 0) {
-                        assertNull(row.getField(index));
+                        assertThat(row.getField(index)).isNull();
                     }
                     else {
                         List<Object> expected1 = ImmutableList.of("test abc", 0.1);
                         List<Object> expected2 = ImmutableList.of("test xyz", 0.2);
-                        assertEquals(row.getField(index), ImmutableList.of(expected1, expected2));
+                        assertThat(row.getField(index)).isEqualTo(ImmutableList.of(expected1, expected2));
                     }
                 }
 
@@ -5284,14 +5282,14 @@ public abstract class AbstractTestHive
                 index = columnIndex.get("t_struct");
                 if (index != null) {
                     if ((rowNumber % 31) == 0) {
-                        assertNull(row.getField(index));
+                        assertThat(row.getField(index)).isNull();
                     }
                     else {
-                        assertTrue(row.getField(index) instanceof List);
+                        assertThat(row.getField(index) instanceof List).isTrue();
                         List<?> values = (List<?>) row.getField(index);
-                        assertEquals(values.size(), 2);
-                        assertEquals(values.get(0), "test abc");
-                        assertEquals(values.get(1), 0.1);
+                        assertThat(values.size()).isEqualTo(2);
+                        assertThat(values.get(0)).isEqualTo("test abc");
+                        assertThat(values.get(1)).isEqualTo(0.1);
                     }
                 }
 
@@ -5299,27 +5297,27 @@ public abstract class AbstractTestHive
                 index = columnIndex.get("t_complex");
                 if (index != null) {
                     if ((rowNumber % 33) == 0) {
-                        assertNull(row.getField(index));
+                        assertThat(row.getField(index)).isNull();
                     }
                     else {
                         List<Object> expected1 = ImmutableList.of("test abc", 0.1);
                         List<Object> expected2 = ImmutableList.of("test xyz", 0.2);
-                        assertEquals(row.getField(index), ImmutableMap.of(1, ImmutableList.of(expected1, expected2)));
+                        assertThat(row.getField(index)).isEqualTo(ImmutableMap.of(1, ImmutableList.of(expected1, expected2)));
                     }
                 }
 
                 // NEW COLUMN
-                assertNull(row.getField(columnIndex.get("new_column")));
+                assertThat(row.getField(columnIndex.get("new_column"))).isNull();
 
                 long newCompletedBytes = pageSource.getCompletedBytes();
-                assertTrue(newCompletedBytes >= completedBytes);
+                assertThat(newCompletedBytes >= completedBytes).isTrue();
                 // some formats (e.g., parquet) over read the data by a bit
                 assertLessThanOrEqual(newCompletedBytes, hiveSplit.getLength() + (100 * 1024));
                 completedBytes = newCompletedBytes;
             }
 
             assertLessThanOrEqual(completedBytes, hiveSplit.getLength() + (100 * 1024));
-            assertEquals(rowNumber, 100);
+            assertThat(rowNumber).isEqualTo(100);
         }
         finally {
             pageSource.close();
@@ -5378,7 +5376,7 @@ public abstract class AbstractTestHive
         tableHandle = applyFilter(transaction.getMetadata(), tableHandle, new Constraint(tupleDomain));
         List<ConnectorSplit> splits = getAllSplits(getSplits(splitManager, transaction, session, tableHandle));
         if (expectedSplitCount.isPresent()) {
-            assertEquals(splits.size(), expectedSplitCount.getAsInt());
+            assertThat(splits.size()).isEqualTo(expectedSplitCount.getAsInt());
         }
 
         ImmutableList.Builder<MaterializedRow> allRows = ImmutableList.builder();
@@ -5521,10 +5519,12 @@ public abstract class AbstractTestHive
 
     private static void assertPrimitiveField(Map<String, ColumnMetadata> map, String name, Type type, boolean partitionKey)
     {
-        assertTrue(map.containsKey(name));
+        assertThat(map.containsKey(name)).isTrue();
         ColumnMetadata column = map.get(name);
-        assertEquals(column.getType(), type, name);
-        assertEquals(column.getExtraInfo(), columnExtraInfo(partitionKey));
+        assertThat(column.getType())
+                .describedAs(name)
+                .isEqualTo(type);
+        assertThat(column.getExtraInfo()).isEqualTo(columnExtraInfo(partitionKey));
     }
 
     protected static ImmutableMap<String, Integer> indexColumns(List<ColumnHandle> columnHandles)
@@ -5658,7 +5658,7 @@ public abstract class AbstractTestHive
 
         HdfsContext context = new HdfsContext(newSession());
         List<String> targetDirectoryList = listDirectory(context, targetPath);
-        assertEquals(targetDirectoryList, ImmutableList.of());
+        assertThat(targetDirectoryList).isEqualTo(ImmutableList.of());
     }
 
     private void alterBucketProperty(SchemaTableName schemaTableName, Optional<HiveBucketProperty> bucketProperty)
@@ -5748,9 +5748,9 @@ public abstract class AbstractTestHive
                 ConnectorSession session = newSession();
                 ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
                 Optional<ConnectorTableLayout> insertLayout = metadata.getInsertLayout(session, tableHandle);
-                assertTrue(insertLayout.isPresent());
-                assertFalse(insertLayout.get().getPartitioning().isPresent());
-                assertEquals(insertLayout.get().getPartitionColumns(), ImmutableList.of(partitioningColumn.getName()));
+                assertThat(insertLayout.isPresent()).isTrue();
+                assertThat(insertLayout.get().getPartitioning().isPresent()).isFalse();
+                assertThat(insertLayout.get().getPartitionColumns()).isEqualTo(ImmutableList.of(partitioningColumn.getName()));
             }
         }
         finally {
@@ -5788,18 +5788,18 @@ public abstract class AbstractTestHive
                 ConnectorSession session = newSession();
                 ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
                 Optional<ConnectorTableLayout> insertLayout = metadata.getInsertLayout(session, tableHandle);
-                assertTrue(insertLayout.isPresent());
+                assertThat(insertLayout.isPresent()).isTrue();
                 ConnectorPartitioningHandle partitioningHandle = new HivePartitioningHandle(
                         bucketProperty.getBucketingVersion(),
                         bucketProperty.getBucketCount(),
                         ImmutableList.of(HIVE_STRING),
                         OptionalInt.empty(),
                         false);
-                assertEquals(insertLayout.get().getPartitioning(), Optional.of(partitioningHandle));
-                assertEquals(insertLayout.get().getPartitionColumns(), ImmutableList.of("column1"));
+                assertThat(insertLayout.get().getPartitioning()).isEqualTo(Optional.of(partitioningHandle));
+                assertThat(insertLayout.get().getPartitionColumns()).isEqualTo(ImmutableList.of("column1"));
                 ConnectorBucketNodeMap connectorBucketNodeMap = nodePartitioningProvider.getBucketNodeMapping(transaction.getTransactionHandle(), session, partitioningHandle).orElseThrow();
-                assertEquals(connectorBucketNodeMap.getBucketCount(), 4);
-                assertFalse(connectorBucketNodeMap.hasFixedMapping());
+                assertThat(connectorBucketNodeMap.getBucketCount()).isEqualTo(4);
+                assertThat(connectorBucketNodeMap.hasFixedMapping()).isFalse();
             }
         }
         finally {
@@ -5838,18 +5838,18 @@ public abstract class AbstractTestHive
                 ConnectorSession session = newSession();
                 ConnectorTableHandle tableHandle = getTableHandle(metadata, tableName);
                 Optional<ConnectorTableLayout> insertLayout = metadata.getInsertLayout(session, tableHandle);
-                assertTrue(insertLayout.isPresent());
+                assertThat(insertLayout.isPresent()).isTrue();
                 ConnectorPartitioningHandle partitioningHandle = new HivePartitioningHandle(
                         bucketProperty.getBucketingVersion(),
                         bucketProperty.getBucketCount(),
                         ImmutableList.of(HIVE_STRING),
                         OptionalInt.empty(),
                         true);
-                assertEquals(insertLayout.get().getPartitioning(), Optional.of(partitioningHandle));
-                assertEquals(insertLayout.get().getPartitionColumns(), ImmutableList.of("column1", "column2"));
+                assertThat(insertLayout.get().getPartitioning()).isEqualTo(Optional.of(partitioningHandle));
+                assertThat(insertLayout.get().getPartitionColumns()).isEqualTo(ImmutableList.of("column1", "column2"));
                 ConnectorBucketNodeMap connectorBucketNodeMap = nodePartitioningProvider.getBucketNodeMapping(transaction.getTransactionHandle(), session, partitioningHandle).orElseThrow();
-                assertEquals(connectorBucketNodeMap.getBucketCount(), 32);
-                assertFalse(connectorBucketNodeMap.hasFixedMapping());
+                assertThat(connectorBucketNodeMap.getBucketCount()).isEqualTo(32);
+                assertThat(connectorBucketNodeMap.hasFixedMapping()).isFalse();
             }
         }
         finally {
@@ -5875,9 +5875,9 @@ public abstract class AbstractTestHive
                                     BUCKETED_BY_PROPERTY, ImmutableList.of(),
                                     BUCKET_COUNT_PROPERTY, 0,
                                     SORTED_BY_PROPERTY, ImmutableList.of())));
-            assertTrue(newTableLayout.isPresent());
-            assertFalse(newTableLayout.get().getPartitioning().isPresent());
-            assertEquals(newTableLayout.get().getPartitionColumns(), ImmutableList.of("column2"));
+            assertThat(newTableLayout.isPresent()).isTrue();
+            assertThat(newTableLayout.get().getPartitioning().isPresent()).isFalse();
+            assertThat(newTableLayout.get().getPartitionColumns()).isEqualTo(ImmutableList.of("column2"));
         }
     }
 
@@ -5899,18 +5899,18 @@ public abstract class AbstractTestHive
                                     BUCKETED_BY_PROPERTY, ImmutableList.of("column1"),
                                     BUCKET_COUNT_PROPERTY, 10,
                                     SORTED_BY_PROPERTY, ImmutableList.of())));
-            assertTrue(newTableLayout.isPresent());
+            assertThat(newTableLayout.isPresent()).isTrue();
             ConnectorPartitioningHandle partitioningHandle = new HivePartitioningHandle(
                     BUCKETING_V1,
                     10,
                     ImmutableList.of(HIVE_LONG),
                     OptionalInt.empty(),
                     false);
-            assertEquals(newTableLayout.get().getPartitioning(), Optional.of(partitioningHandle));
-            assertEquals(newTableLayout.get().getPartitionColumns(), ImmutableList.of("column1"));
+            assertThat(newTableLayout.get().getPartitioning()).isEqualTo(Optional.of(partitioningHandle));
+            assertThat(newTableLayout.get().getPartitionColumns()).isEqualTo(ImmutableList.of("column1"));
             ConnectorBucketNodeMap connectorBucketNodeMap = nodePartitioningProvider.getBucketNodeMapping(transaction.getTransactionHandle(), session, partitioningHandle).orElseThrow();
-            assertEquals(connectorBucketNodeMap.getBucketCount(), 10);
-            assertFalse(connectorBucketNodeMap.hasFixedMapping());
+            assertThat(connectorBucketNodeMap.getBucketCount()).isEqualTo(10);
+            assertThat(connectorBucketNodeMap.hasFixedMapping()).isFalse();
         }
     }
 
@@ -5932,18 +5932,18 @@ public abstract class AbstractTestHive
                                     BUCKETED_BY_PROPERTY, ImmutableList.of("column1"),
                                     BUCKET_COUNT_PROPERTY, 10,
                                     SORTED_BY_PROPERTY, ImmutableList.of())));
-            assertTrue(newTableLayout.isPresent());
+            assertThat(newTableLayout.isPresent()).isTrue();
             ConnectorPartitioningHandle partitioningHandle = new HivePartitioningHandle(
                     BUCKETING_V1,
                     10,
                     ImmutableList.of(HIVE_LONG),
                     OptionalInt.empty(),
                     true);
-            assertEquals(newTableLayout.get().getPartitioning(), Optional.of(partitioningHandle));
-            assertEquals(newTableLayout.get().getPartitionColumns(), ImmutableList.of("column1", "column2"));
+            assertThat(newTableLayout.get().getPartitioning()).isEqualTo(Optional.of(partitioningHandle));
+            assertThat(newTableLayout.get().getPartitionColumns()).isEqualTo(ImmutableList.of("column1", "column2"));
             ConnectorBucketNodeMap connectorBucketNodeMap = nodePartitioningProvider.getBucketNodeMapping(transaction.getTransactionHandle(), session, partitioningHandle).orElseThrow();
-            assertEquals(connectorBucketNodeMap.getBucketCount(), 32);
-            assertFalse(connectorBucketNodeMap.hasFixedMapping());
+            assertThat(connectorBucketNodeMap.getBucketCount()).isEqualTo(32);
+            assertThat(connectorBucketNodeMap.hasFixedMapping()).isFalse();
         }
     }
 
@@ -6072,7 +6072,7 @@ public abstract class AbstractTestHive
                 metadata.finishInsert(session, insertTableHandle, fragments, ImmutableList.of());
                 rollbackIfEquals(tag, ROLLBACK_AFTER_FINISH_INSERT);
 
-                assertEquals(tag, COMMIT);
+                assertThat(tag).isEqualTo(COMMIT);
 
                 if (conflictTrigger.isPresent()) {
                     JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
@@ -6084,7 +6084,7 @@ public abstract class AbstractTestHive
                 }
                 transaction.commit();
                 if (conflictTrigger.isPresent()) {
-                    assertTrue(expectQuerySucceed);
+                    assertThat(expectQuerySucceed).isTrue();
                     conflictTrigger.get().verifyAndCleanup(session, tableName);
                 }
             }
@@ -6092,7 +6092,7 @@ public abstract class AbstractTestHive
                 transaction.rollback();
             }
             catch (TrinoException e) {
-                assertFalse(expectQuerySucceed);
+                assertThat(expectQuerySucceed).isFalse();
                 if (conflictTrigger.isPresent()) {
                     conflictTrigger.get().verifyAndCleanup(newSession(), tableName);
                 }
@@ -6103,7 +6103,7 @@ public abstract class AbstractTestHive
         if (writePath != null && !writePath.equals(targetPath)) {
             HdfsContext context = new HdfsContext(newSession());
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, new Path(writePath.toString()));
-            assertFalse(fileSystem.exists(new Path(writePath.toString())));
+            assertThat(fileSystem.exists(new Path(writePath.toString()))).isFalse();
         }
 
         try (Transaction transaction = newTransaction()) {
@@ -6246,7 +6246,7 @@ public abstract class AbstractTestHive
             Optional<Partition> actualPartition = metastoreClient.getPartition(table, toPartitionValues(partitionNameToConflict));
             // Make sure the partition inserted to trigger conflict was not overwritten
             // Checking storage location is sufficient because implement never uses .../pk1=a/pk2=a2 as the directory for partition [b, b2].
-            assertEquals(actualPartition.get().getStorage().getLocation(), conflictPartition.getStorage().getLocation());
+            assertThat(actualPartition.get().getStorage().getLocation()).isEqualTo(conflictPartition.getStorage().getLocation());
             metastoreClient.dropPartition(tableName.getSchemaName(), tableName.getTableName(), conflictPartition.getValues(), false);
         }
     }
@@ -6299,7 +6299,7 @@ public abstract class AbstractTestHive
         public void verifyAndCleanup(ConnectorSession session, SchemaTableName tableName)
                 throws IOException
         {
-            assertEquals(listDirectory(context, path), ImmutableList.of());
+            assertThat(listDirectory(context, path)).isEqualTo(ImmutableList.of());
             hdfsEnvironment.getFileSystem(context, path).delete(path, false);
         }
     }
@@ -6320,7 +6320,7 @@ public abstract class AbstractTestHive
                     break;
                 }
             }
-            assertNotNull(path);
+            assertThat(path).isNotNull();
 
             context = new HdfsContext(session);
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(context, path);
@@ -6333,7 +6333,7 @@ public abstract class AbstractTestHive
         {
             // The file we added to trigger a conflict was cleaned up because it matches the query prefix.
             // Consider this the same as a network failure that caused the successful creation of file not reported to the caller.
-            assertFalse(hdfsEnvironment.getFileSystem(context, path).exists(path));
+            assertThat(hdfsEnvironment.getFileSystem(context, path).exists(path)).isFalse();
         }
     }
 

@@ -25,7 +25,7 @@ import static io.trino.parquet.ParquetTimestampUtils.decodeInt96Timestamp;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.time.ZoneOffset.UTC;
 import static org.apache.hadoop.hive.ql.io.parquet.timestamp.NanoTimeUtils.getNanoTime;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestParquetTimestampUtils
 {
@@ -45,8 +45,8 @@ public class TestParquetTimestampUtils
             decodeInt96Timestamp(Binary.fromConstantByteArray(invalidLengthBinaryTimestamp));
         }
         catch (TrinoException e) {
-            assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());
-            assertEquals(e.getMessage(), "Parquet timestamp must be 12 bytes, actual 8");
+            assertThat(e.getErrorCode()).isEqualTo(NOT_SUPPORTED.toErrorCode());
+            assertThat(e.getMessage()).isEqualTo("Parquet timestamp must be 12 bytes, actual 8");
         }
     }
 
@@ -55,7 +55,7 @@ public class TestParquetTimestampUtils
         Timestamp timestamp = Timestamp.ofEpochSecond(dateTime.toEpochSecond(UTC), dateTime.getNano());
         Binary timestampBytes = getNanoTime(timestamp, false).toBinary();
         DecodedTimestamp decodedTimestamp = decodeInt96Timestamp(timestampBytes);
-        assertEquals(decodedTimestamp.epochSeconds(), dateTime.toEpochSecond(UTC));
-        assertEquals(decodedTimestamp.nanosOfSecond(), dateTime.getNano());
+        assertThat(decodedTimestamp.epochSeconds()).isEqualTo(dateTime.toEpochSecond(UTC));
+        assertThat(decodedTimestamp.nanosOfSecond()).isEqualTo(dateTime.getNano());
     }
 }

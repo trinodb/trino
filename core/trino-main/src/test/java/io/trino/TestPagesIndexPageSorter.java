@@ -33,7 +33,7 @@ import static io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPagesIndexPageSorter
 {
@@ -154,7 +154,7 @@ public class TestPagesIndexPageSorter
 
         MaterializedResult expected = toMaterializedResult(TEST_SESSION, types, expectedPages);
         MaterializedResult actual = toMaterializedResult(TEST_SESSION, types, outputPages);
-        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertThat(actual.getMaterializedRows()).isEqualTo(expected.getMaterializedRows());
     }
 
     private static List<Page> createOutputPages(List<Type> types, List<Page> inputPages, long[] sortedAddresses)

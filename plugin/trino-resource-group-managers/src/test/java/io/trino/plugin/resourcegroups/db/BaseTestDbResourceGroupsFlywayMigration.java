@@ -24,9 +24,9 @@ import org.testcontainers.containers.JdbcDatabaseContainer;
 
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
 @Execution(SAME_THREAD)
@@ -92,7 +92,7 @@ public abstract class BaseTestDbResourceGroupsFlywayMigration
     {
         List<String> results = jdbi.withHandle(handle ->
                 handle.createQuery(sql).mapTo(String.class).list());
-        assertEquals(results.size(), expectedCount);
+        assertThat(results.size()).isEqualTo(expectedCount);
     }
 
     protected void dropAllTables()

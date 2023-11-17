@@ -26,8 +26,8 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
 public class TestFileBackupStore
@@ -54,6 +54,6 @@ public class TestFileBackupStore
     {
         UUID uuid = UUID.fromString("701e1a79-74f7-4f56-b438-b41e8e7d019d");
         File expected = temporary.resolve("backup").resolve("70").resolve("1e").resolve(format("%s.orc", uuid)).toFile();
-        assertEquals(store.getBackupFile(uuid), expected);
+        assertThat(store.getBackupFile(uuid)).isEqualTo(expected);
     }
 }

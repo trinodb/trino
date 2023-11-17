@@ -36,7 +36,7 @@ import static io.trino.execution.QueryState.FINISHED;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.operator.BlockedReason.WAITING_FOR_MEMORY;
 import static java.util.concurrent.TimeUnit.MINUTES;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestClusterMemoryLeakDetector
 {
@@ -47,23 +47,23 @@ public class TestClusterMemoryLeakDetector
         ClusterMemoryLeakDetector leakDetector = new ClusterMemoryLeakDetector();
 
         leakDetector.checkForMemoryLeaks(ImmutableList::of, ImmutableMap.of());
-        assertEquals(leakDetector.getNumberOfLeakedQueries(), 0);
+        assertThat(leakDetector.getNumberOfLeakedQueries()).isEqualTo(0);
 
         // the leak detector should report no leaked queries as the query is still running
         leakDetector.checkForMemoryLeaks(() -> ImmutableList.of(createQueryInfo(testQuery.getId(), RUNNING)), ImmutableMap.of(testQuery, 1L));
-        assertEquals(leakDetector.getNumberOfLeakedQueries(), 0);
+        assertThat(leakDetector.getNumberOfLeakedQueries()).isEqualTo(0);
 
         // the leak detector should report exactly one leaked query since the query is finished, and its end time is way in the past
         leakDetector.checkForMemoryLeaks(() -> ImmutableList.of(createQueryInfo(testQuery.getId(), FINISHED)), ImmutableMap.of(testQuery, 1L));
-        assertEquals(leakDetector.getNumberOfLeakedQueries(), 1);
+        assertThat(leakDetector.getNumberOfLeakedQueries()).isEqualTo(1);
 
         // the leak detector should report no leaked queries as the query doesn't have any memory reservation
         leakDetector.checkForMemoryLeaks(() -> ImmutableList.of(createQueryInfo(testQuery.getId(), FINISHED)), ImmutableMap.of(testQuery, 0L));
-        assertEquals(leakDetector.getNumberOfLeakedQueries(), 0);
+        assertThat(leakDetector.getNumberOfLeakedQueries()).isEqualTo(0);
 
         // the leak detector should report exactly one leaked query since the coordinator doesn't know of any query
         leakDetector.checkForMemoryLeaks(ImmutableList::of, ImmutableMap.of(testQuery, 1L));
-        assertEquals(leakDetector.getNumberOfLeakedQueries(), 1);
+        assertThat(leakDetector.getNumberOfLeakedQueries()).isEqualTo(1);
     }
 
     private static BasicQueryInfo createQueryInfo(String queryId, QueryState state)

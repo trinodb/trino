@@ -27,11 +27,9 @@ import java.util.OptionalLong;
 
 import static io.trino.plugin.raptor.legacy.DatabaseTesting.createTestingJdbi;
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
 
 @TestInstance(PER_METHOD)
 @Execution(SAME_THREAD)
@@ -63,16 +61,16 @@ public class TestMetadataDao
         long tableId = dao.insertTable("schema1", "table1", true, false, null, 0);
         dao.insertColumn(tableId, columnId, "col1", 1, "bigint", null, null);
         Long temporalColumnId = dao.getTemporalColumnId(tableId);
-        assertNull(temporalColumnId);
+        assertThat(temporalColumnId).isNull();
 
         dao.updateTemporalColumnId(tableId, columnId);
         temporalColumnId = dao.getTemporalColumnId(tableId);
-        assertNotNull(temporalColumnId);
-        assertEquals(temporalColumnId, columnId);
+        assertThat(temporalColumnId).isNotNull();
+        assertThat(temporalColumnId).isEqualTo(columnId);
 
         long tableId2 = dao.insertTable("schema1", "table2", true, false, null, 0);
         Long columnId2 = dao.getTemporalColumnId(tableId2);
-        assertNull(columnId2);
+        assertThat(columnId2).isNull();
     }
 
     @Test
@@ -91,10 +89,10 @@ public class TestMetadataDao
 
     private static void assertTable(Table info, long tableId)
     {
-        assertEquals(info.getTableId(), tableId);
-        assertEquals(info.getDistributionId(), Optional.empty());
-        assertEquals(info.getDistributionName(), Optional.empty());
-        assertEquals(info.getBucketCount(), OptionalInt.empty());
-        assertEquals(info.getTemporalColumnId(), OptionalLong.empty());
+        assertThat(info.getTableId()).isEqualTo(tableId);
+        assertThat(info.getDistributionId()).isEqualTo(Optional.empty());
+        assertThat(info.getDistributionName()).isEqualTo(Optional.empty());
+        assertThat(info.getBucketCount()).isEqualTo(OptionalInt.empty());
+        assertThat(info.getTemporalColumnId()).isEqualTo(OptionalLong.empty());
     }
 }

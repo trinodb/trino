@@ -71,7 +71,6 @@ import static java.util.stream.Collectors.toMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.data.Percentage.withPercentage;
-import static org.testng.Assert.assertEquals;
 
 public abstract class BaseFailureRecoveryTest
         extends AbstractTestQueryFramework
@@ -620,22 +619,30 @@ public abstract class BaseFailureRecoveryTest
             boolean isUpdate = expectedQueryResult.getUpdateCount().isPresent();
             boolean isExplain = query.trim().toUpperCase(ENGLISH).startsWith("EXPLAIN");
             if (isAnalyze) {
-                assertEquals(actualQueryResult.getUpdateCount(), expectedQueryResult.getUpdateCount());
+                assertThat(actualQueryResult.getUpdateCount()).isEqualTo(expectedQueryResult.getUpdateCount());
                 assertThat(expected.getUpdatedTableStatistics()).isPresent();
                 assertThat(actual.getUpdatedTableStatistics()).isPresent();
 
                 MaterializedResult expectedUpdatedTableStatisticsResult = expected.getUpdatedTableStatistics().get();
                 MaterializedResult actualUpdatedTableStatisticsResult = actual.getUpdatedTableStatistics().get();
-                assertEquals(actualUpdatedTableStatisticsResult.getTypes(), expectedUpdatedTableStatisticsResult.getTypes(), "Column types");
-                assertEquals(actualUpdatedTableStatisticsResult.getColumnNames(), expectedUpdatedTableStatisticsResult.getColumnNames(), "Column names");
+                assertThat(actualUpdatedTableStatisticsResult.getTypes())
+                        .describedAs("Column types")
+                        .isEqualTo(expectedUpdatedTableStatisticsResult.getTypes());
+                assertThat(actualUpdatedTableStatisticsResult.getColumnNames())
+                        .describedAs("Column names")
+                        .isEqualTo(expectedUpdatedTableStatisticsResult.getColumnNames());
                 Map<String, MaterializedRow> expectedUpdatedTableStatistics = expectedUpdatedTableStatisticsResult.getMaterializedRows().stream()
                         .collect(toMap(row -> (String) row.getField(0), identity()));
                 Map<String, MaterializedRow> actualUpdatedTableStatistics = actualUpdatedTableStatisticsResult.getMaterializedRows().stream()
                         .collect(toMap(row -> (String) row.getField(0), identity()));
-                assertEquals(actualUpdatedTableStatistics.keySet(), expectedUpdatedTableStatistics.keySet(), "Table columns");
+                assertThat(actualUpdatedTableStatistics.keySet())
+                        .describedAs("Table columns")
+                        .isEqualTo(expectedUpdatedTableStatistics.keySet());
                 expectedUpdatedTableStatistics.forEach((key, expectedRow) -> {
                     MaterializedRow actualRow = actualUpdatedTableStatistics.get(key);
-                    assertEquals(actualRow.getFieldCount(), expectedRow.getFieldCount(), "Unexpected layout of stats");
+                    assertThat(actualRow.getFieldCount())
+                            .describedAs("Unexpected layout of stats")
+                            .isEqualTo(expectedRow.getFieldCount());
                     for (int statsColumnIndex = 0; statsColumnIndex < expectedRow.getFieldCount(); statsColumnIndex++) {
                         String statsColumnName = actualUpdatedTableStatisticsResult.getColumnNames().get(statsColumnIndex);
                         String testedFieldDescription = "Field %d '%s' in %s".formatted(statsColumnIndex, statsColumnName, actualRow);
@@ -661,7 +668,7 @@ public abstract class BaseFailureRecoveryTest
                 });
             }
             else if (isUpdate) {
-                assertEquals(actualQueryResult.getUpdateCount(), expectedQueryResult.getUpdateCount());
+                assertThat(actualQueryResult.getUpdateCount()).isEqualTo(expectedQueryResult.getUpdateCount());
                 assertThat(expected.getUpdatedTableContent()).isPresent();
                 assertThat(actual.getUpdatedTableContent()).isPresent();
                 MaterializedResult expectedUpdatedTableContent = expected.getUpdatedTableContent().get();
@@ -669,7 +676,7 @@ public abstract class BaseFailureRecoveryTest
                 assertEqualsIgnoreOrder(actualUpdatedTableContent, expectedUpdatedTableContent, "For query: \n " + query);
             }
             else if (isExplain) {
-                assertEquals(actualQueryResult.getRowCount(), expectedQueryResult.getRowCount());
+                assertThat(actualQueryResult.getRowCount()).isEqualTo(expectedQueryResult.getRowCount());
             }
             else {
                 assertEqualsIgnoreOrder(actualQueryResult, expectedQueryResult, "For query: \n " + query);

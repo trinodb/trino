@@ -23,7 +23,7 @@ import org.junit.jupiter.api.Test;
 import static com.google.common.base.Verify.verify;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * @see TestHiveDistributedJoinQueriesWithoutDynamicFiltering for tests with dynamic filtering disabled
@@ -60,6 +60,6 @@ public class TestHiveDistributedJoinQueries
         MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
                 session,
                 "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice = 123.4567");
-        assertEquals(result.getResult().getRowCount(), 0);
+        assertThat(result.getResult().getRowCount()).isEqualTo(0);
     }
 }

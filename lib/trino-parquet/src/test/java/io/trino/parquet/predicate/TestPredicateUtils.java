@@ -40,33 +40,32 @@ import static org.apache.parquet.column.Encoding.RLE_DICTIONARY;
 import static org.apache.parquet.hadoop.metadata.ColumnPath.fromDotString;
 import static org.apache.parquet.hadoop.metadata.CompressionCodecName.UNCOMPRESSED;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPredicateUtils
 {
     @Test
     public void testIsStatisticsOverflow()
     {
-        assertFalse(isStatisticsOverflow(TINYINT, -10L, 10L));
-        assertTrue(isStatisticsOverflow(TINYINT, -129L, 10L));
-        assertTrue(isStatisticsOverflow(TINYINT, -10L, 129L));
+        assertThat(isStatisticsOverflow(TINYINT, -10L, 10L)).isFalse();
+        assertThat(isStatisticsOverflow(TINYINT, -129L, 10L)).isTrue();
+        assertThat(isStatisticsOverflow(TINYINT, -10L, 129L)).isTrue();
 
-        assertFalse(isStatisticsOverflow(SMALLINT, -32_000L, 32_000L));
-        assertTrue(isStatisticsOverflow(SMALLINT, -100_000L, 32_000L));
-        assertTrue(isStatisticsOverflow(SMALLINT, -32_000L, 100_000L));
+        assertThat(isStatisticsOverflow(SMALLINT, -32_000L, 32_000L)).isFalse();
+        assertThat(isStatisticsOverflow(SMALLINT, -100_000L, 32_000L)).isTrue();
+        assertThat(isStatisticsOverflow(SMALLINT, -32_000L, 100_000L)).isTrue();
 
-        assertFalse(isStatisticsOverflow(INTEGER, -2_000_000_000L, 2_000_000_000L));
-        assertTrue(isStatisticsOverflow(INTEGER, -3_000_000_000L, 2_000_000_000L));
-        assertTrue(isStatisticsOverflow(INTEGER, -2_000_000_000L, 3_000_000_000L));
+        assertThat(isStatisticsOverflow(INTEGER, -2_000_000_000L, 2_000_000_000L)).isFalse();
+        assertThat(isStatisticsOverflow(INTEGER, -3_000_000_000L, 2_000_000_000L)).isTrue();
+        assertThat(isStatisticsOverflow(INTEGER, -2_000_000_000L, 3_000_000_000L)).isTrue();
 
         // short decimal
-        assertFalse(isStatisticsOverflow(createDecimalType(5, 0), -10_000L, 10_000L));
-        assertTrue(isStatisticsOverflow(createDecimalType(5, 0), -100_000L, 10_000L));
-        assertTrue(isStatisticsOverflow(createDecimalType(5, 0), -10_000L, 100_000L));
+        assertThat(isStatisticsOverflow(createDecimalType(5, 0), -10_000L, 10_000L)).isFalse();
+        assertThat(isStatisticsOverflow(createDecimalType(5, 0), -100_000L, 10_000L)).isTrue();
+        assertThat(isStatisticsOverflow(createDecimalType(5, 0), -10_000L, 100_000L)).isTrue();
 
         // long decimal
-        assertFalse(isStatisticsOverflow(createDecimalType(19, 0), -1_000_000_000_000_000_000L, 1_000_000_000_000_000_000L));
+        assertThat(isStatisticsOverflow(createDecimalType(19, 0), -1_000_000_000_000_000_000L, 1_000_000_000_000_000_000L)).isFalse();
     }
 
     @Test
@@ -81,27 +80,45 @@ public class TestPredicateUtils
         Set<Encoding> mixedDictionary = ImmutableSet.of(PLAIN_DICTIONARY, PLAIN);
         Set<Encoding> dictionary = ImmutableSet.of(PLAIN_DICTIONARY);
 
-        assertFalse(isOnlyDictionaryEncodingPages(createColumnMetaDataV1(union(required, notDictionary))), "required notDictionary");
-        assertFalse(isOnlyDictionaryEncodingPages(createColumnMetaDataV1(union(optional, notDictionary))), "optional notDictionary");
-        assertFalse(isOnlyDictionaryEncodingPages(createColumnMetaDataV1(union(repeated, notDictionary))), "repeated notDictionary");
-        assertFalse(isOnlyDictionaryEncodingPages(createColumnMetaDataV1(union(required, mixedDictionary))), "required mixedDictionary");
-        assertFalse(isOnlyDictionaryEncodingPages(createColumnMetaDataV1(union(optional, mixedDictionary))), "optional mixedDictionary");
-        assertFalse(isOnlyDictionaryEncodingPages(createColumnMetaDataV1(union(repeated, mixedDictionary))), "repeated mixedDictionary");
-        assertTrue(isOnlyDictionaryEncodingPages(createColumnMetaDataV1(union(required, dictionary))), "required dictionary");
-        assertTrue(isOnlyDictionaryEncodingPages(createColumnMetaDataV1(union(optional, dictionary))), "optional dictionary");
-        assertTrue(isOnlyDictionaryEncodingPages(createColumnMetaDataV1(union(repeated, dictionary))), "repeated dictionary");
+        assertThat(isOnlyDictionaryEncodingPages(createColumnMetaDataV1(union(required, notDictionary))))
+                .describedAs("required notDictionary")
+                .isFalse();
+        assertThat(isOnlyDictionaryEncodingPages(createColumnMetaDataV1(union(optional, notDictionary))))
+                .describedAs("optional notDictionary")
+                .isFalse();
+        assertThat(isOnlyDictionaryEncodingPages(createColumnMetaDataV1(union(repeated, notDictionary))))
+                .describedAs("repeated notDictionary")
+                .isFalse();
+        assertThat(isOnlyDictionaryEncodingPages(createColumnMetaDataV1(union(required, mixedDictionary))))
+                .describedAs("required mixedDictionary")
+                .isFalse();
+        assertThat(isOnlyDictionaryEncodingPages(createColumnMetaDataV1(union(optional, mixedDictionary))))
+                .describedAs("optional mixedDictionary")
+                .isFalse();
+        assertThat(isOnlyDictionaryEncodingPages(createColumnMetaDataV1(union(repeated, mixedDictionary))))
+                .describedAs("repeated mixedDictionary")
+                .isFalse();
+        assertThat(isOnlyDictionaryEncodingPages(createColumnMetaDataV1(union(required, dictionary))))
+                .describedAs("required dictionary")
+                .isTrue();
+        assertThat(isOnlyDictionaryEncodingPages(createColumnMetaDataV1(union(optional, dictionary))))
+                .describedAs("optional dictionary")
+                .isTrue();
+        assertThat(isOnlyDictionaryEncodingPages(createColumnMetaDataV1(union(repeated, dictionary))))
+                .describedAs("repeated dictionary")
+                .isTrue();
     }
 
     @Test
     @SuppressWarnings("deprecation")
     public void testDictionaryEncodingV2()
     {
-        assertTrue(isOnlyDictionaryEncodingPages(createColumnMetaDataV2(RLE_DICTIONARY)));
-        assertTrue(isOnlyDictionaryEncodingPages(createColumnMetaDataV2(PLAIN_DICTIONARY)));
-        assertFalse(isOnlyDictionaryEncodingPages(createColumnMetaDataV2(PLAIN)));
+        assertThat(isOnlyDictionaryEncodingPages(createColumnMetaDataV2(RLE_DICTIONARY))).isTrue();
+        assertThat(isOnlyDictionaryEncodingPages(createColumnMetaDataV2(PLAIN_DICTIONARY))).isTrue();
+        assertThat(isOnlyDictionaryEncodingPages(createColumnMetaDataV2(PLAIN))).isFalse();
 
         // Simulate fallback to plain encoding e.g. too many unique entries
-        assertFalse(isOnlyDictionaryEncodingPages(createColumnMetaDataV2(RLE_DICTIONARY, PLAIN)));
+        assertThat(isOnlyDictionaryEncodingPages(createColumnMetaDataV2(RLE_DICTIONARY, PLAIN))).isFalse();
     }
 
     private ColumnChunkMetaData createColumnMetaDataV2(Encoding... dataEncodings)

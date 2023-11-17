@@ -52,12 +52,11 @@ import static io.trino.orc.TestingOrcPredicate.ORC_STRIPE_SIZE;
 import static io.trino.orc.metadata.CompressionKind.NONE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
 
 @TestInstance(PER_METHOD)
 @Execution(SAME_THREAD)
@@ -99,10 +98,10 @@ public class TestStructColumnReader
         RowBlock readBlock = read(tempFile, readerType);
         List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
 
-        assertEquals(actual.size(), readerFields.size());
-        assertEquals(actual.get(0), "field_a_value");
-        assertEquals(actual.get(1), "field_b_value");
-        assertEquals(actual.get(2), "field_c_value");
+        assertThat(actual.size()).isEqualTo(readerFields.size());
+        assertThat(actual.get(0)).isEqualTo("field_a_value");
+        assertThat(actual.get(1)).isEqualTo("field_b_value");
+        assertThat(actual.get(2)).isEqualTo("field_c_value");
     }
 
     /**
@@ -122,10 +121,10 @@ public class TestStructColumnReader
         RowBlock readBlock = read(tempFile, readerType);
         List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
 
-        assertEquals(actual.size(), readerFields.size());
-        assertEquals(actual.get(0), "fieldAValue");
-        assertEquals(actual.get(1), "fieldBValue");
-        assertEquals(actual.get(2), "fieldCValue");
+        assertThat(actual.size()).isEqualTo(readerFields.size());
+        assertThat(actual.get(0)).isEqualTo("fieldAValue");
+        assertThat(actual.get(1)).isEqualTo("fieldBValue");
+        assertThat(actual.get(2)).isEqualTo("fieldCValue");
     }
 
     /**
@@ -145,10 +144,10 @@ public class TestStructColumnReader
         RowBlock readBlock = read(tempFile, readerType);
         List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
 
-        assertEquals(actual.size(), readerFields.size());
-        assertEquals(actual.get(0), "fieldAValue");
-        assertEquals(actual.get(1), "fieldBValue");
-        assertEquals(actual.get(2), "fieldCValue");
+        assertThat(actual.size()).isEqualTo(readerFields.size());
+        assertThat(actual.get(0)).isEqualTo("fieldAValue");
+        assertThat(actual.get(1)).isEqualTo("fieldBValue");
+        assertThat(actual.get(2)).isEqualTo("fieldCValue");
     }
 
     @Test
@@ -187,10 +186,10 @@ public class TestStructColumnReader
         RowBlock readBlock = read(tempFile, readerType);
         List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
 
-        assertEquals(actual.size(), readerFields.size());
-        assertEquals(actual.get(0), "field_a_value");
-        assertNull(actual.get(1));
-        assertEquals(actual.get(2), "field_c_value");
+        assertThat(actual.size()).isEqualTo(readerFields.size());
+        assertThat(actual.get(0)).isEqualTo("field_a_value");
+        assertThat(actual.get(1)).isNull();
+        assertThat(actual.get(2)).isEqualTo("field_c_value");
     }
 
     /**
@@ -211,9 +210,9 @@ public class TestStructColumnReader
         RowBlock readBlock = read(tempFile, readerType);
         List<?> actual = (List<?>) readerType.getObjectValue(TestingConnectorSession.SESSION, readBlock, 0);
 
-        assertEquals(actual.size(), readerFields.size());
-        assertEquals(actual.get(0), "field_a_value");
-        assertEquals(actual.get(1), "field_c_value");
+        assertThat(actual.size()).isEqualTo(readerFields.size());
+        assertThat(actual.get(0)).isEqualTo("field_a_value");
+        assertThat(actual.get(1)).isEqualTo("field_c_value");
     }
 
     private void write(TempFile tempFile, Type writerType, List<String> data)

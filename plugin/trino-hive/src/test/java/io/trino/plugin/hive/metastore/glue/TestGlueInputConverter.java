@@ -40,8 +40,7 @@ import java.util.Random;
 import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getPrestoTestDatabase;
 import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getPrestoTestPartition;
 import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getPrestoTestTable;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestGlueInputConverter
 {
@@ -54,10 +53,10 @@ public class TestGlueInputConverter
     {
         DatabaseInput dbInput = GlueInputConverter.convertDatabase(testDb);
 
-        assertEquals(dbInput.getName(), testDb.getDatabaseName());
-        assertEquals(dbInput.getDescription(), testDb.getComment().get());
-        assertEquals(dbInput.getLocationUri(), testDb.getLocation().get());
-        assertEquals(dbInput.getParameters(), testDb.getParameters());
+        assertThat(dbInput.getName()).isEqualTo(testDb.getDatabaseName());
+        assertThat(dbInput.getDescription()).isEqualTo(testDb.getComment().get());
+        assertThat(dbInput.getLocationUri()).isEqualTo(testDb.getLocation().get());
+        assertThat(dbInput.getParameters()).isEqualTo(testDb.getParameters());
     }
 
     @Test
@@ -65,15 +64,15 @@ public class TestGlueInputConverter
     {
         TableInput tblInput = GlueInputConverter.convertTable(testTbl);
 
-        assertEquals(tblInput.getName(), testTbl.getTableName());
-        assertEquals(tblInput.getOwner(), testTbl.getOwner().orElse(null));
-        assertEquals(tblInput.getTableType(), testTbl.getTableType());
-        assertEquals(tblInput.getParameters(), testTbl.getParameters());
+        assertThat(tblInput.getName()).isEqualTo(testTbl.getTableName());
+        assertThat(tblInput.getOwner()).isEqualTo(testTbl.getOwner().orElse(null));
+        assertThat(tblInput.getTableType()).isEqualTo(testTbl.getTableType());
+        assertThat(tblInput.getParameters()).isEqualTo(testTbl.getParameters());
         assertColumnList(tblInput.getStorageDescriptor().getColumns(), testTbl.getDataColumns());
         assertColumnList(tblInput.getPartitionKeys(), testTbl.getPartitionColumns());
         assertStorage(tblInput.getStorageDescriptor(), testTbl.getStorage());
-        assertEquals(tblInput.getViewExpandedText(), testTbl.getViewExpandedText().get());
-        assertEquals(tblInput.getViewOriginalText(), testTbl.getViewOriginalText().get());
+        assertThat(tblInput.getViewExpandedText()).isEqualTo(testTbl.getViewExpandedText().get());
+        assertThat(tblInput.getViewOriginalText()).isEqualTo(testTbl.getViewOriginalText().get());
     }
 
     @Test
@@ -81,9 +80,9 @@ public class TestGlueInputConverter
     {
         PartitionInput partitionInput = GlueInputConverter.convertPartition(testPartition);
 
-        assertEquals(partitionInput.getParameters(), testPartition.getParameters());
+        assertThat(partitionInput.getParameters()).isEqualTo(testPartition.getParameters());
         assertStorage(partitionInput.getStorageDescriptor(), testPartition.getStorage());
-        assertEquals(partitionInput.getValues(), testPartition.getValues());
+        assertThat(partitionInput.getValues()).isEqualTo(testPartition.getValues());
     }
 
     @Test
@@ -94,28 +93,28 @@ public class TestGlueInputConverter
         LanguageFunction expected = new LanguageFunction("(integer,bigint,varchar)", sql, List.of(), Optional.of("owner"));
 
         UserDefinedFunctionInput input = GlueInputConverter.convertFunction("test_name", expected);
-        assertEquals(input.getOwnerName(), expected.owner().orElseThrow());
+        assertThat(input.getOwnerName()).isEqualTo(expected.owner().orElseThrow());
 
         UserDefinedFunction function = new UserDefinedFunction()
                 .withOwnerName(input.getOwnerName())
                 .withResourceUris(input.getResourceUris());
         LanguageFunction actual = GlueToTrinoConverter.convertFunction(function);
 
-        assertEquals(input.getResourceUris().size(), 4);
-        assertEquals(actual, expected);
+        assertThat(input.getResourceUris().size()).isEqualTo(4);
+        assertThat(actual).isEqualTo(expected);
 
         // verify that the owner comes from the metastore
         function.setOwnerName("other");
         actual = GlueToTrinoConverter.convertFunction(function);
-        assertEquals(actual.owner(), Optional.of("other"));
+        assertThat(actual.owner()).isEqualTo(Optional.of("other"));
     }
 
     private static void assertColumnList(List<com.amazonaws.services.glue.model.Column> actual, List<Column> expected)
     {
         if (expected == null) {
-            assertNull(actual);
+            assertThat(actual).isNull();
         }
-        assertEquals(actual.size(), expected.size());
+        assertThat(actual.size()).isEqualTo(expected.size());
 
         for (int i = 0; i < expected.size(); i++) {
             assertColumn(actual.get(i), expected.get(i));
@@ -124,22 +123,22 @@ public class TestGlueInputConverter
 
     private static void assertColumn(com.amazonaws.services.glue.model.Column actual, Column expected)
     {
-        assertEquals(actual.getName(), expected.getName());
-        assertEquals(actual.getType(), expected.getType().getHiveTypeName().toString());
-        assertEquals(actual.getComment(), expected.getComment().get());
+        assertThat(actual.getName()).isEqualTo(expected.getName());
+        assertThat(actual.getType()).isEqualTo(expected.getType().getHiveTypeName().toString());
+        assertThat(actual.getComment()).isEqualTo(expected.getComment().get());
     }
 
     private static void assertStorage(StorageDescriptor actual, Storage expected)
     {
-        assertEquals(actual.getLocation(), expected.getLocation());
-        assertEquals(actual.getSerdeInfo().getSerializationLibrary(), expected.getStorageFormat().getSerde());
-        assertEquals(actual.getInputFormat(), expected.getStorageFormat().getInputFormat());
-        assertEquals(actual.getOutputFormat(), expected.getStorageFormat().getOutputFormat());
+        assertThat(actual.getLocation()).isEqualTo(expected.getLocation());
+        assertThat(actual.getSerdeInfo().getSerializationLibrary()).isEqualTo(expected.getStorageFormat().getSerde());
+        assertThat(actual.getInputFormat()).isEqualTo(expected.getStorageFormat().getInputFormat());
+        assertThat(actual.getOutputFormat()).isEqualTo(expected.getStorageFormat().getOutputFormat());
 
         if (expected.getBucketProperty().isPresent()) {
             HiveBucketProperty bucketProperty = expected.getBucketProperty().get();
-            assertEquals(actual.getBucketColumns(), bucketProperty.getBucketedBy());
-            assertEquals(actual.getNumberOfBuckets().intValue(), bucketProperty.getBucketCount());
+            assertThat(actual.getBucketColumns()).isEqualTo(bucketProperty.getBucketedBy());
+            assertThat(actual.getNumberOfBuckets().intValue()).isEqualTo(bucketProperty.getBucketCount());
         }
     }
 }

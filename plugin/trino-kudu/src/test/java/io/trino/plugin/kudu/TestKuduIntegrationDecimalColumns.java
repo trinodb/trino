@@ -24,9 +24,9 @@ import org.junit.jupiter.api.TestInstance;
 
 import static io.trino.plugin.kudu.KuduQueryRunnerFactory.createKuduQueryRunner;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.offset;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 public class TestKuduIntegrationDecimalColumns
@@ -114,11 +114,13 @@ public class TestKuduIntegrationDecimalColumns
             assertUpdate(format("INSERT INTO %s VALUES(1, DECIMAL '%s')", testTable.getName(), insertValue), 1);
 
             MaterializedResult result = computeActual(format("SELECT id, CAST((dec - (DECIMAL '%s')) as DOUBLE) FROM %s", insertValue, testTable.getName()));
-            assertEquals(result.getRowCount(), 1);
+            assertThat(result.getRowCount()).isEqualTo(1);
             Object obj = result.getMaterializedRows().get(0).getField(1);
-            assertTrue(obj instanceof Double);
+            assertThat(obj instanceof Double).isTrue();
             Double actual = (Double) obj;
-            assertEquals(0, actual, 0.3 * Math.pow(0.1, decimal.scale), "p=" + decimal.precision + ",s=" + decimal.scale + " => " + actual + ",insert = " + insertValue);
+            assertThat(actual)
+                    .describedAs("p=" + decimal.precision + ",s=" + decimal.scale + " => " + actual + ",insert = " + insertValue)
+                    .isCloseTo(0, offset(0.3 * Math.pow(0.1, decimal.scale)));
         }
     }
 

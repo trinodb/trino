@@ -46,11 +46,10 @@ import static io.trino.spi.StandardErrorCode.EXCEEDED_SCAN_LIMIT;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Arrays.stream;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Fail.fail;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.fail;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -103,10 +102,10 @@ public class TestQueryManager
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
         queryManager.failQuery(queryId, new TrinoException(GENERIC_INTERNAL_ERROR, "mock exception"));
         QueryInfo queryInfo = queryManager.getFullQueryInfo(queryId);
-        assertEquals(queryInfo.getState(), FAILED);
-        assertEquals(queryInfo.getErrorCode(), GENERIC_INTERNAL_ERROR.toErrorCode());
-        assertNotNull(queryInfo.getFailureInfo());
-        assertEquals(queryInfo.getFailureInfo().getMessage(), "mock exception");
+        assertThat(queryInfo.getState()).isEqualTo(FAILED);
+        assertThat(queryInfo.getErrorCode()).isEqualTo(GENERIC_INTERNAL_ERROR.toErrorCode());
+        assertThat(queryInfo.getFailureInfo()).isNotNull();
+        assertThat(queryInfo.getFailureInfo().getMessage()).isEqualTo("mock exception");
     }
 
     @Test
@@ -119,8 +118,8 @@ public class TestQueryManager
             waitForQueryState(queryRunner, queryId, FAILED);
             QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
             BasicQueryInfo queryInfo = queryManager.getQueryInfo(queryId);
-            assertEquals(queryInfo.getState(), FAILED);
-            assertEquals(queryInfo.getErrorCode(), EXCEEDED_CPU_LIMIT.toErrorCode());
+            assertThat(queryInfo.getState()).isEqualTo(FAILED);
+            assertThat(queryInfo.getErrorCode()).isEqualTo(EXCEEDED_CPU_LIMIT.toErrorCode());
         }
     }
 
@@ -134,8 +133,8 @@ public class TestQueryManager
             waitForQueryState(queryRunner, queryId, FAILED);
             QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
             BasicQueryInfo queryInfo = queryManager.getQueryInfo(queryId);
-            assertEquals(queryInfo.getState(), FAILED);
-            assertEquals(queryInfo.getErrorCode(), EXCEEDED_SCAN_LIMIT.toErrorCode());
+            assertThat(queryInfo.getState()).isEqualTo(FAILED);
+            assertThat(queryInfo.getErrorCode()).isEqualTo(EXCEEDED_SCAN_LIMIT.toErrorCode());
         }
     }
 
@@ -157,8 +156,8 @@ public class TestQueryManager
             waitForQueryState(queryRunner, queryId, FAILED);
             QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
             BasicQueryInfo queryInfo = queryManager.getQueryInfo(queryId);
-            assertEquals(queryInfo.getState(), FAILED);
-            assertEquals(queryInfo.getErrorCode(), EXCEEDED_SCAN_LIMIT.toErrorCode());
+            assertThat(queryInfo.getState()).isEqualTo(FAILED);
+            assertThat(queryInfo.getErrorCode()).isEqualTo(EXCEEDED_SCAN_LIMIT.toErrorCode());
         }
     }
 }

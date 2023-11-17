@@ -28,8 +28,8 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestTuple
 {
@@ -43,7 +43,7 @@ public class TestTuple
         Tuple greaterThanTuple1 = new Tuple(types, ImmutableList.of(1L, "hello", false, 1.2d, 11111, 1113));
         Tuple lessThanTuple1 = new Tuple(types, ImmutableList.of(1L, "hello", false, 1.2d, 11111, 1111));
 
-        assertEquals(tuple1.compareTo(equalToTuple1), 0);
+        assertThat(tuple1.compareTo(equalToTuple1)).isEqualTo(0);
         assertLessThan(tuple1.compareTo(greaterThanTuple1), 0);
         assertGreaterThan(tuple1.compareTo(lessThanTuple1), 0);
     }

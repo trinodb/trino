@@ -20,7 +20,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveTableHandle
 {
@@ -34,6 +34,6 @@ public class TestHiveTableHandle
         String json = codec.toJson(expected);
         HiveTableHandle actual = codec.fromJson(json);
 
-        assertEquals(actual.getSchemaTableName(), expected.getSchemaTableName());
+        assertThat(actual.getSchemaTableName()).isEqualTo(expected.getSchemaTableName());
     }
 }

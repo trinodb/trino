@@ -38,11 +38,10 @@ import java.util.Properties;
 
 import static com.google.common.io.Resources.getResource;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -101,14 +100,14 @@ public class TestTrinoDriverImpersonateUser
     public void testQueryUserNotSpecified()
             throws Exception
     {
-        assertEquals(trySelectCurrentUser(ImmutableMap.of("user", TEST_USER, "password", PASSWORD)), TEST_USER);
+        assertThat(trySelectCurrentUser(ImmutableMap.of("user", TEST_USER, "password", PASSWORD))).isEqualTo(TEST_USER);
     }
 
     @Test
     public void testImpersonateUser()
             throws Exception
     {
-        assertEquals(trySelectCurrentUser(ImmutableMap.of("user", TEST_USER, "password", PASSWORD, "sessionUser", "differentUser")), "differentUser");
+        assertThat(trySelectCurrentUser(ImmutableMap.of("user", TEST_USER, "password", PASSWORD, "sessionUser", "differentUser"))).isEqualTo("differentUser");
     }
 
     private String trySelectCurrentUser(Map<String, String> additionalProperties)
@@ -117,7 +116,7 @@ public class TestTrinoDriverImpersonateUser
         try (Connection connection = createConnection(additionalProperties);
                 Statement statement = connection.createStatement();
                 ResultSet resultSet = statement.executeQuery("SELECT current_user")) {
-            assertTrue(resultSet.next());
+            assertThat(resultSet.next()).isTrue();
             return resultSet.getString(1);
         }
     }

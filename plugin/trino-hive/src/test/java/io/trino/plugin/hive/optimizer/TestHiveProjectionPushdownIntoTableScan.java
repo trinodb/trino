@@ -55,7 +55,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveProjectionPushdownIntoTableScan
         extends BasePushdownPlanTest
@@ -131,7 +131,9 @@ public class TestHiveProjectionPushdownIntoTableScan
         Session session = getQueryRunner().getDefaultSession();
 
         Optional<TableHandle> tableHandle = getTableHandle(session, completeTableName);
-        assertTrue(tableHandle.isPresent(), "expected the table handle to be present");
+        assertThat(tableHandle.isPresent())
+                .describedAs("expected the table handle to be present")
+                .isTrue();
 
         Map<String, ColumnHandle> columns = getColumnHandles(session, completeTableName);
 

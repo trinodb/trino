@@ -23,7 +23,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static java.util.concurrent.TimeUnit.MINUTES;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSalesforceConfig
 {
@@ -67,6 +67,6 @@ public class TestSalesforceConfig
         int expected = (int) orgs.chars().filter(sep -> sep == ',').count() + 1;
         int actual = (new SalesforceConfig()
                 .setAllowedOrganizations(orgs)).getOrgSet().size();
-        assertEquals(expected, actual);
+        assertThat(expected).isEqualTo(actual);
     }
 }

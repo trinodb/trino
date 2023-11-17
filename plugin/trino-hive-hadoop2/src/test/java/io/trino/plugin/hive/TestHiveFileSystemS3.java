@@ -59,7 +59,6 @@ import static java.io.InputStream.nullInputStream;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertFalse;
 import static org.testng.util.Strings.isNullOrEmpty;
 
 @TestInstance(PER_CLASS)
@@ -132,7 +131,7 @@ public class TestHiveFileSystemS3
         Path filePath = new Path(basePath, markerFileName);
         fs.create(filePath).close();
 
-        assertFalse(Arrays.stream(fs.listStatus(basePath)).anyMatch(file -> file.getPath().getName().equalsIgnoreCase(markerFileName)));
+        assertThat(Arrays.stream(fs.listStatus(basePath)).anyMatch(file -> file.getPath().getName().equalsIgnoreCase(markerFileName))).isFalse();
     }
 
     /**

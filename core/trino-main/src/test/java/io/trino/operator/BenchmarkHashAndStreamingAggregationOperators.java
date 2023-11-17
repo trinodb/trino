@@ -66,9 +66,9 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
 import static org.openjdk.jmh.annotations.Scope.Thread;
-import static org.testng.Assert.assertEquals;
 
 @State(Thread)
 @OutputTimeUnit(MILLISECONDS)
@@ -359,13 +359,13 @@ public class BenchmarkHashAndStreamingAggregationOperators
         context.groupByTypes = groupByTypes;
         context.setup();
 
-        assertEquals(TOTAL_PAGES, context.getPages().size());
+        assertThat(TOTAL_PAGES).isEqualTo(context.getPages().size());
         for (int i = 0; i < TOTAL_PAGES; i++) {
-            assertEquals(ROWS_PER_PAGE, context.getPages().get(i).getPositionCount());
+            assertThat(ROWS_PER_PAGE).isEqualTo(context.getPages().get(i).getPositionCount());
         }
 
         List<Page> outputPages = benchmark(context);
-        assertEquals(TOTAL_PAGES * ROWS_PER_PAGE / rowsPerGroup, outputPages.stream().mapToInt(Page::getPositionCount).sum());
+        assertThat(TOTAL_PAGES * ROWS_PER_PAGE / rowsPerGroup).isEqualTo(outputPages.stream().mapToInt(Page::getPositionCount).sum());
 
         context.cleanup();
     }

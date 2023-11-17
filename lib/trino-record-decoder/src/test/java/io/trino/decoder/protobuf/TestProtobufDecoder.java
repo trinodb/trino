@@ -76,10 +76,8 @@ import static java.lang.Math.floorMod;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
 
 public class TestProtobufDecoder
 {
@@ -156,7 +154,7 @@ public class TestProtobufDecoder
                 .decodeRow(messageBuilder.build().toByteArray())
                 .orElseThrow(AssertionError::new);
 
-        assertEquals(decodedRow.size(), 9);
+        assertThat(decodedRow.size()).isEqualTo(9);
 
         checkValue(decodedRow, stringColumn, stringData);
         checkValue(decodedRow, integerColumn, integerData);
@@ -189,7 +187,7 @@ public class TestProtobufDecoder
         // Uses the file-based schema parser which generates a Descriptor that does not have any oneof fields -- all are null
         Descriptor descriptor = getDescriptor("test_oneof.proto");
         for (String oneofColumnName : oneofColumnNames) {
-            assertNull(descriptor.findFieldByName(oneofColumnName));
+            assertThat(descriptor.findFieldByName(oneofColumnName)).isNull();
         }
     }
 
@@ -325,13 +323,13 @@ public class TestProtobufDecoder
                 .decodeRow(message.toByteArray())
                 .orElseThrow(AssertionError::new);
 
-        assertEquals(decodedRow.size(), 2);
+        assertThat(decodedRow.size()).isEqualTo(2);
 
         final var obj = new ObjectMapper();
         final var expected = obj.writeValueAsString(setValue);
 
-        assertEquals(decodedRow.get(testColumnHandle).getSlice().toStringUtf8(), "value");
-        assertEquals(decodedRow.get(testOneofColumn).getSlice().toStringUtf8(), expected);
+        assertThat(decodedRow.get(testColumnHandle).getSlice().toStringUtf8()).isEqualTo("value");
+        assertThat(decodedRow.get(testOneofColumn).getSlice().toStringUtf8()).isEqualTo(expected);
     }
 
     @Test
@@ -357,7 +355,7 @@ public class TestProtobufDecoder
                 .decodeRow(testAny.toByteArray())
                 .orElseThrow(AssertionError::new);
 
-        assertTrue(decodedRow.get(testAnyColumn).isNull());
+        assertThat(decodedRow.get(testAnyColumn).isNull()).isTrue();
     }
 
     @Test
@@ -403,16 +401,16 @@ public class TestProtobufDecoder
                 .orElseThrow(AssertionError::new);
 
         JsonNode actual = new ObjectMapper().readTree(decodedRow.get(testOneOfColumn).getSlice().toStringUtf8());
-        assertTrue(actual.get("@type").textValue().contains("schema"));
-        assertEquals(actual.get("stringColumn").textValue(), stringData);
-        assertEquals(actual.get("integerColumn").intValue(), integerData);
-        assertEquals(actual.get("longColumn").textValue(), Long.toString(longData));
-        assertEquals(actual.get("doubleColumn").doubleValue(), doubleData);
-        assertEquals(actual.get("floatColumn").floatValue(), floatData);
-        assertEquals(actual.get("booleanColumn").booleanValue(), booleanData);
-        assertEquals(actual.get("numberColumn").textValue(), enumData);
-        assertEquals(actual.get("timestampColumn").textValue(), "2020-12-12T15:35:45.923Z");
-        assertEquals(actual.get("bytesColumn").binaryValue(), bytesData);
+        assertThat(actual.get("@type").textValue().contains("schema")).isTrue();
+        assertThat(actual.get("stringColumn").textValue()).isEqualTo(stringData);
+        assertThat(actual.get("integerColumn").intValue()).isEqualTo(integerData);
+        assertThat(actual.get("longColumn").textValue()).isEqualTo(Long.toString(longData));
+        assertThat(actual.get("doubleColumn").doubleValue()).isEqualTo(doubleData);
+        assertThat(actual.get("floatColumn").floatValue()).isEqualTo(floatData);
+        assertThat(actual.get("booleanColumn").booleanValue()).isEqualTo(booleanData);
+        assertThat(actual.get("numberColumn").textValue()).isEqualTo(enumData);
+        assertThat(actual.get("timestampColumn").textValue()).isEqualTo("2020-12-12T15:35:45.923Z");
+        assertThat(actual.get("bytesColumn").binaryValue()).isEqualTo(bytesData);
     }
 
     @Test
@@ -510,27 +508,27 @@ public class TestProtobufDecoder
                 .decodeRow(messageBuilder.build().toByteArray())
                 .orElseThrow(AssertionError::new);
 
-        assertEquals(decodedRow.size(), 3);
+        assertThat(decodedRow.size()).isEqualTo(3);
 
         Block listBlock = (Block) decodedRow.get(listColumn).getObject();
-        assertEquals(VARCHAR.getSlice(listBlock, 0).toStringUtf8(), "Presto");
+        assertThat(VARCHAR.getSlice(listBlock, 0).toStringUtf8()).isEqualTo("Presto");
 
         SqlMap sqlMap = (SqlMap) decodedRow.get(mapColumn).getObject();
-        assertEquals(VARCHAR.getSlice(sqlMap.getRawKeyBlock(), sqlMap.getRawOffset()).toStringUtf8(), "Key");
-        assertEquals(VARCHAR.getSlice(sqlMap.getRawValueBlock(), sqlMap.getRawOffset()).toStringUtf8(), "Value");
+        assertThat(VARCHAR.getSlice(sqlMap.getRawKeyBlock(), sqlMap.getRawOffset()).toStringUtf8()).isEqualTo("Key");
+        assertThat(VARCHAR.getSlice(sqlMap.getRawValueBlock(), sqlMap.getRawOffset()).toStringUtf8()).isEqualTo("Value");
 
         SqlRow sqlRow = (SqlRow) decodedRow.get(rowColumn).getObject();
         int rawIndex = sqlRow.getRawIndex();
         ConnectorSession session = TestingSession.testSessionBuilder().build().toConnectorSession();
-        assertEquals(VARCHAR.getObjectValue(session, sqlRow.getRawFieldBlock(0), rawIndex), stringData);
-        assertEquals(INTEGER.getObjectValue(session, sqlRow.getRawFieldBlock(1), rawIndex), integerData);
-        assertEquals(BIGINT.getObjectValue(session, sqlRow.getRawFieldBlock(2), rawIndex), longData);
-        assertEquals(DOUBLE.getObjectValue(session, sqlRow.getRawFieldBlock(3), rawIndex), doubleData);
-        assertEquals(REAL.getObjectValue(session, sqlRow.getRawFieldBlock(4), rawIndex), floatData);
-        assertEquals(BOOLEAN.getObjectValue(session, sqlRow.getRawFieldBlock(5), rawIndex), booleanData);
-        assertEquals(VARCHAR.getObjectValue(session, sqlRow.getRawFieldBlock(6), rawIndex), enumData);
-        assertEquals(TIMESTAMP_MICROS.getObjectValue(session, sqlRow.getRawFieldBlock(7), rawIndex), sqlTimestamp.roundTo(6));
-        assertEquals(VARBINARY.getObjectValue(session, sqlRow.getRawFieldBlock(8), rawIndex), new SqlVarbinary(bytesData));
+        assertThat(VARCHAR.getObjectValue(session, sqlRow.getRawFieldBlock(0), rawIndex)).isEqualTo(stringData);
+        assertThat(INTEGER.getObjectValue(session, sqlRow.getRawFieldBlock(1), rawIndex)).isEqualTo(integerData);
+        assertThat(BIGINT.getObjectValue(session, sqlRow.getRawFieldBlock(2), rawIndex)).isEqualTo(longData);
+        assertThat(DOUBLE.getObjectValue(session, sqlRow.getRawFieldBlock(3), rawIndex)).isEqualTo(doubleData);
+        assertThat(REAL.getObjectValue(session, sqlRow.getRawFieldBlock(4), rawIndex)).isEqualTo(floatData);
+        assertThat(BOOLEAN.getObjectValue(session, sqlRow.getRawFieldBlock(5), rawIndex)).isEqualTo(booleanData);
+        assertThat(VARCHAR.getObjectValue(session, sqlRow.getRawFieldBlock(6), rawIndex)).isEqualTo(enumData);
+        assertThat(TIMESTAMP_MICROS.getObjectValue(session, sqlRow.getRawFieldBlock(7), rawIndex)).isEqualTo(sqlTimestamp.roundTo(6));
+        assertThat(VARBINARY.getObjectValue(session, sqlRow.getRawFieldBlock(8), rawIndex)).isEqualTo(new SqlVarbinary(bytesData));
     }
 
     @Test
@@ -639,7 +637,7 @@ public class TestProtobufDecoder
                 .decodeRow(messageBuilder.build().toByteArray())
                 .orElseThrow(AssertionError::new);
 
-        assertEquals(decodedRow.size(), 9);
+        assertThat(decodedRow.size()).isEqualTo(9);
 
         checkValue(decodedRow, stringColumn, stringData);
         checkValue(decodedRow, integerColumn, integerData);

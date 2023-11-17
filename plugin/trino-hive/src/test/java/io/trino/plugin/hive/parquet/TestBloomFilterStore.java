@@ -82,9 +82,8 @@ import static org.apache.parquet.hadoop.ParquetOutputFormat.WRITER_VERSION;
 import static org.apache.parquet.hadoop.metadata.ColumnPath.fromDotString;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.joda.time.DateTimeZone.UTC;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestBloomFilterStore
 {
@@ -179,20 +178,20 @@ public class TestBloomFilterStore
     {
         try (ParquetTester.TempFile tempFile = new ParquetTester.TempFile("testbloomfilter", ".parquet")) {
             BloomFilterStore bloomFilterEnabled = generateBloomFilterStore(tempFile, true, typeTestCase.writeValues, typeTestCase.objectInspector);
-            assertTrue(bloomFilterEnabled.getBloomFilter(fromDotString(COLUMN_NAME)).isPresent());
+            assertThat(bloomFilterEnabled.getBloomFilter(fromDotString(COLUMN_NAME)).isPresent()).isTrue();
             BloomFilter bloomFilter = bloomFilterEnabled.getBloomFilter(fromDotString(COLUMN_NAME)).get();
 
             for (Object data : typeTestCase.matchingValues) {
-                assertTrue(TupleDomainParquetPredicate.checkInBloomFilter(bloomFilter, data, typeTestCase.sqlType));
+                assertThat(TupleDomainParquetPredicate.checkInBloomFilter(bloomFilter, data, typeTestCase.sqlType)).isTrue();
             }
             for (Object data : typeTestCase.nonMatchingValues) {
-                assertFalse(TupleDomainParquetPredicate.checkInBloomFilter(bloomFilter, data, typeTestCase.sqlType));
+                assertThat(TupleDomainParquetPredicate.checkInBloomFilter(bloomFilter, data, typeTestCase.sqlType)).isFalse();
             }
         }
 
         try (ParquetTester.TempFile tempFile = new ParquetTester.TempFile("testbloomfilter", ".parquet")) {
             BloomFilterStore bloomFilterNotEnabled = generateBloomFilterStore(tempFile, false, typeTestCase.writeValues, typeTestCase.objectInspector);
-            assertTrue(bloomFilterNotEnabled.getBloomFilter(fromDotString(COLUMN_NAME)).isEmpty());
+            assertThat(bloomFilterNotEnabled.getBloomFilter(fromDotString(COLUMN_NAME)).isEmpty()).isTrue();
         }
     }
 
@@ -206,18 +205,18 @@ public class TestBloomFilterStore
             TupleDomain<ColumnDescriptor> domain = withColumnDomains(singletonMap(columnDescriptor, multipleValues(typeTestCase.sqlType, typeTestCase.matchingValues)));
             TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(domain, singletonList(columnDescriptor), UTC);
             // bloomfilter store has the column, and values match
-            assertTrue(parquetPredicate.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD));
+            assertThat(parquetPredicate.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD)).isTrue();
 
             TupleDomain<ColumnDescriptor> domainWithoutMatch = withColumnDomains(singletonMap(columnDescriptor, multipleValues(typeTestCase.sqlType, typeTestCase.nonMatchingValues)));
             TupleDomainParquetPredicate parquetPredicateWithoutMatch = new TupleDomainParquetPredicate(domainWithoutMatch, singletonList(columnDescriptor), UTC);
             // bloomfilter store has the column, but values not match
-            assertFalse(parquetPredicateWithoutMatch.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD));
+            assertThat(parquetPredicateWithoutMatch.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD)).isFalse();
 
             ColumnDescriptor columnDescriptor = new ColumnDescriptor(new String[] {"non_exist_path"}, Types.optional(BINARY).named("Test column"), 0, 0);
             TupleDomain<ColumnDescriptor> domainForColumnWithoutBloomFilter = withColumnDomains(singletonMap(columnDescriptor, multipleValues(typeTestCase.sqlType, typeTestCase.nonMatchingValues)));
             TupleDomainParquetPredicate predicateForColumnWithoutBloomFilter = new TupleDomainParquetPredicate(domainForColumnWithoutBloomFilter, singletonList(columnDescriptor), UTC);
             // bloomfilter store does not have the column
-            assertTrue(predicateForColumnWithoutBloomFilter.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD));
+            assertThat(predicateForColumnWithoutBloomFilter.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD)).isTrue();
         }
     }
 
@@ -232,19 +231,19 @@ public class TestBloomFilterStore
             TupleDomain<ColumnDescriptor> domain = TupleDomain.withColumnDomains(singletonMap(columnDescriptor, Domain.create(SortedRangeSet.copyOf(INTEGER,
                     ImmutableList.of(Range.range(INTEGER, 60L, true, 68L, true))), false)));
             TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(domain, singletonList(columnDescriptor), UTC);
-            assertTrue(parquetPredicate.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD));
+            assertThat(parquetPredicate.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD)).isTrue();
 
             // case 2, bloomfilter store does not have the column, but ranges exceeded DOMAIN_COMPACTION_THRESHOLD
             domain = TupleDomain.withColumnDomains(singletonMap(columnDescriptor, Domain.create(SortedRangeSet.copyOf(INTEGER,
                     ImmutableList.of(Range.range(INTEGER, -68L, true, 0L, true))), false)));
             parquetPredicate = new TupleDomainParquetPredicate(domain, singletonList(columnDescriptor), UTC);
-            assertTrue(parquetPredicate.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD));
+            assertThat(parquetPredicate.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD)).isTrue();
 
             // case 3, bloomfilter store has the column, and ranges expanded successfully but does not overlap
             domain = TupleDomain.withColumnDomains(singletonMap(columnDescriptor, Domain.create(SortedRangeSet.copyOf(INTEGER,
                     ImmutableList.of(Range.range(INTEGER, -68L, true, -60L, true))), false)));
             parquetPredicate = new TupleDomainParquetPredicate(domain, singletonList(columnDescriptor), UTC);
-            assertFalse(parquetPredicate.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD));
+            assertThat(parquetPredicate.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD)).isFalse();
         }
     }
 
@@ -260,13 +259,13 @@ public class TestBloomFilterStore
                     ImmutableList.of(Range.range(INTEGER, 60L, true, 68L, true))), false)));
             TupleDomainParquetPredicate parquetPredicate = new TupleDomainParquetPredicate(domain, singletonList(columnDescriptor), UTC);
             // bloomfilter store has the column, and ranges overlap
-            assertTrue(parquetPredicate.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD));
+            assertThat(parquetPredicate.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD)).isTrue();
 
             TupleDomain<ColumnDescriptor> domainWithoutMatch = TupleDomain.withColumnDomains(singletonMap(columnDescriptor, Domain.create(SortedRangeSet.copyOf(INTEGER,
                     ImmutableList.of(Range.range(INTEGER, -68L, true, -60L, true))), false)));
             // bloomfilter store has the column, but ranges not overlap
             TupleDomainParquetPredicate parquetPredicateWithoutMatch = new TupleDomainParquetPredicate(domainWithoutMatch, singletonList(columnDescriptor), UTC);
-            assertFalse(parquetPredicateWithoutMatch.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD));
+            assertThat(parquetPredicateWithoutMatch.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD)).isFalse();
         }
     }
 
@@ -281,7 +280,7 @@ public class TestBloomFilterStore
             TupleDomain<ColumnDescriptor> domainWithoutMatch = TupleDomain.withColumnDomains(singletonMap(columnDescriptor, Domain.create(SortedRangeSet.copyOf(INTEGER,
                     ImmutableList.of(Range.range(INTEGER, -68L, true, -60L, true))), true)));
             TupleDomainParquetPredicate parquetPredicateWithoutMatch = new TupleDomainParquetPredicate(domainWithoutMatch, singletonList(columnDescriptor), UTC);
-            assertTrue(parquetPredicateWithoutMatch.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD));
+            assertThat(parquetPredicateWithoutMatch.matches(bloomFilterStore, DOMAIN_COMPACTION_THRESHOLD)).isTrue();
         }
     }
 

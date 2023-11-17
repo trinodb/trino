@@ -16,7 +16,7 @@ package io.trino.execution;
 import io.airlift.json.JsonCodec;
 import org.junit.jupiter.api.Test;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestColumn
 {
@@ -29,6 +29,6 @@ public class TestColumn
         String json = codec.toJson(expected);
         Column actual = codec.fromJson(json);
 
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 }

@@ -24,8 +24,8 @@ import java.util.stream.IntStream;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestIcebergParquetConnectorTest
         extends BaseIcebergConnectorTest
@@ -65,7 +65,7 @@ public class TestIcebergParquetConnectorTest
             assertUpdate(withSmallRowGroups(getSession()), "INSERT INTO " + tableName + " VALUES " + values, 100);
 
             MaterializedResult result = getDistributedQueryRunner().execute(String.format("SELECT * FROM %s", tableName));
-            assertEquals(result.getRowCount(), 100);
+            assertThat(result.getRowCount()).isEqualTo(100);
         }
     }
 

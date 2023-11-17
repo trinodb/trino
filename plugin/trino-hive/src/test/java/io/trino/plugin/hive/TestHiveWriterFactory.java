@@ -24,7 +24,6 @@ import static io.trino.plugin.hive.HiveWriterFactory.computeTransactionalBuckete
 import static io.trino.plugin.hive.HiveWriterFactory.setSchemeToFileIfAbsent;
 import static org.apache.hadoop.hive.ql.exec.Utilities.getBucketIdFromFile;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestHiveWriterFactory
 {
@@ -33,11 +32,11 @@ public class TestHiveWriterFactory
     {
         String name = computeNonTransactionalBucketedFilename("20180102_030405_00641_x1y2z", 1234);
         assertThat(name).matches("001234_0_.*_20180102_030405_00641_x1y2z");
-        assertEquals(getBucketIdFromFile(name), 1234);
+        assertThat(getBucketIdFromFile(name)).isEqualTo(1234);
 
         name = computeTransactionalBucketedFilename(1234);
-        assertEquals(name, "001234_0");
-        assertEquals(getBucketIdFromFile(name), 1234);
+        assertThat(name).isEqualTo("001234_0");
+        assertThat(getBucketIdFromFile(name)).isEqualTo(1234);
     }
 
     @Test

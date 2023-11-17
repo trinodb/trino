@@ -18,7 +18,7 @@ import io.airlift.json.JsonCodec;
 import io.trino.spi.HostAddress;
 import org.junit.jupiter.api.Test;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCassandraSplit
 {
@@ -36,8 +36,8 @@ public class TestCassandraSplit
         String json = codec.toJson(expected);
         CassandraSplit actual = codec.fromJson(json);
 
-        assertEquals(actual.getSplitCondition(), expected.getSplitCondition());
-        assertEquals(actual.getAddresses(), expected.getAddresses());
+        assertThat(actual.getSplitCondition()).isEqualTo(expected.getSplitCondition());
+        assertThat(actual.getAddresses()).isEqualTo(expected.getAddresses());
     }
 
     @Test
@@ -48,12 +48,12 @@ public class TestCassandraSplit
                 CassandraPartition.UNPARTITIONED_ID,
                 "token(k) >= 0 AND token(k) <= 2",
                 addresses);
-        assertEquals(split.getWhereClause(), " WHERE token(k) >= 0 AND token(k) <= 2");
+        assertThat(split.getWhereClause()).isEqualTo(" WHERE token(k) >= 0 AND token(k) <= 2");
 
         split = new CassandraSplit(
                 "key = 123",
                 null,
                 addresses);
-        assertEquals(split.getWhereClause(), " WHERE key = 123");
+        assertThat(split.getWhereClause()).isEqualTo(" WHERE key = 123");
     }
 }

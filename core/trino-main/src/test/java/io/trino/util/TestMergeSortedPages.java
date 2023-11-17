@@ -42,9 +42,6 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestMergeSortedPages
 {
@@ -335,12 +332,12 @@ public class TestMergeSortedPages
                 yieldSignal);
 
         // yield signal is on
-        assertFalse(mergedPages.process());
+        assertThat(mergedPages.process()).isFalse();
         yieldSignal.resetYieldForTesting();
 
         // page is produced
-        assertTrue(mergedPages.process());
-        assertFalse(mergedPages.isFinished());
+        assertThat(mergedPages.process()).isTrue();
+        assertThat(mergedPages.isFinished()).isFalse();
 
         Page page = mergedPages.getResult();
         assertThat(toMaterializedResult(TEST_SESSION, types, ImmutableList.of(page)))
@@ -349,8 +346,8 @@ public class TestMergeSortedPages
                         .build());
 
         // merge source finished
-        assertTrue(mergedPages.process());
-        assertTrue(mergedPages.isFinished());
+        assertThat(mergedPages.process()).isTrue();
+        assertThat(mergedPages.isFinished()).isTrue();
     }
 
     @Test
@@ -369,10 +366,10 @@ public class TestMergeSortedPages
                 newSimpleAggregatedMemoryContext().newAggregatedMemoryContext(),
                 yieldSignal);
         // yield signal is on
-        assertFalse(mergedPages.process());
+        assertThat(mergedPages.process()).isFalse();
         // processor finishes computations (yield signal is still on, but previous process() call yielded)
-        assertTrue(mergedPages.process());
-        assertTrue(mergedPages.isFinished());
+        assertThat(mergedPages.process()).isTrue();
+        assertThat(mergedPages.isFinished()).isTrue();
     }
 
     private static MaterializedResult mergeSortedPages(
@@ -394,16 +391,16 @@ public class TestMergeSortedPages
                 memoryContext,
                 new DriverYieldSignal());
 
-        assertTrue(mergedPages.process());
+        assertThat(mergedPages.process()).isTrue();
 
         if (mergedPages.isFinished()) {
             return toMaterializedResult(TEST_SESSION, types, ImmutableList.of());
         }
 
         Page page = mergedPages.getResult();
-        assertTrue(mergedPages.process());
-        assertTrue(mergedPages.isFinished());
-        assertEquals(memoryContext.getBytes(), 0L);
+        assertThat(mergedPages.process()).isTrue();
+        assertThat(mergedPages.isFinished()).isTrue();
+        assertThat(memoryContext.getBytes()).isEqualTo(0L);
 
         return toMaterializedResult(TEST_SESSION, types, ImmutableList.of(page));
     }

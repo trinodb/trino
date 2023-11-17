@@ -22,9 +22,7 @@ import java.util.UUID;
 import static java.nio.file.Files.readAllBytes;
 import static java.nio.file.Files.writeString;
 import static java.util.UUID.randomUUID;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class AbstractTestBackupStore<T extends BackupStore>
 {
@@ -40,41 +38,41 @@ public abstract class AbstractTestBackupStore<T extends BackupStore>
         writeString(file1.toPath(), "hello world");
         UUID uuid1 = randomUUID();
 
-        assertFalse(store.shardExists(uuid1));
+        assertThat(store.shardExists(uuid1)).isFalse();
         store.backupShard(uuid1, file1);
-        assertTrue(store.shardExists(uuid1));
+        assertThat(store.shardExists(uuid1)).isTrue();
 
         // backup second file
         File file2 = temporary.resolve("file2").toFile();
         writeString(file2.toPath(), "bye bye");
         UUID uuid2 = randomUUID();
 
-        assertFalse(store.shardExists(uuid2));
+        assertThat(store.shardExists(uuid2)).isFalse();
         store.backupShard(uuid2, file2);
-        assertTrue(store.shardExists(uuid2));
+        assertThat(store.shardExists(uuid2)).isTrue();
 
         // verify first file
         File restore1 = temporary.resolve("restore1").toFile();
         store.restoreShard(uuid1, restore1);
-        assertEquals(readAllBytes(file1.toPath()), readAllBytes(restore1.toPath()));
+        assertThat(readAllBytes(file1.toPath())).isEqualTo(readAllBytes(restore1.toPath()));
 
         // verify second file
         File restore2 = temporary.resolve("restore2").toFile();
         store.restoreShard(uuid2, restore2);
-        assertEquals(readAllBytes(file2.toPath()), readAllBytes(restore2.toPath()));
+        assertThat(readAllBytes(file2.toPath())).isEqualTo(readAllBytes(restore2.toPath()));
 
         // verify random UUID does not exist
-        assertFalse(store.shardExists(randomUUID()));
+        assertThat(store.shardExists(randomUUID())).isFalse();
 
         // delete first file
-        assertTrue(store.shardExists(uuid1));
-        assertTrue(store.shardExists(uuid2));
+        assertThat(store.shardExists(uuid1)).isTrue();
+        assertThat(store.shardExists(uuid2)).isTrue();
 
         store.deleteShard(uuid1);
         store.deleteShard(uuid1);
 
-        assertFalse(store.shardExists(uuid1));
-        assertTrue(store.shardExists(uuid2));
+        assertThat(store.shardExists(uuid1)).isFalse();
+        assertThat(store.shardExists(uuid2)).isTrue();
 
         // delete random UUID
         store.deleteShard(randomUUID());

@@ -20,8 +20,8 @@ import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.TimeUnit;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestPinotSessionProperties
 {
@@ -42,6 +42,6 @@ public class TestPinotSessionProperties
         ConnectorSession session = TestingConnectorSession.builder()
                 .setPropertyMetadata(pinotSessionProperties.getSessionProperties())
                 .build();
-        assertEquals(PinotSessionProperties.getConnectionTimeout(session), new Duration(0.25, TimeUnit.MINUTES));
+        assertThat(PinotSessionProperties.getConnectionTimeout(session)).isEqualTo(new Duration(0.25, TimeUnit.MINUTES));
     }
 }

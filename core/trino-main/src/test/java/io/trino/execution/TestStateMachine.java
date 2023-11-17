@@ -27,12 +27,10 @@ import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -97,16 +95,16 @@ public class TestStateMachine
             throws Exception
     {
         StateMachine<State> stateMachine = new StateMachine<>("test", executor, State.BREAKFAST, ImmutableSet.of(State.DINNER));
-        assertEquals(stateMachine.get(), State.BREAKFAST);
+        assertThat(stateMachine.get()).isEqualTo(State.BREAKFAST);
 
-        assertNoStateChange(stateMachine, () -> assertEquals(stateMachine.set(State.BREAKFAST), State.BREAKFAST));
+        assertNoStateChange(stateMachine, () -> assertThat(stateMachine.set(State.BREAKFAST)).isEqualTo(State.BREAKFAST));
 
-        assertStateChange(stateMachine, () -> assertEquals(stateMachine.set(State.LUNCH), State.BREAKFAST), State.LUNCH);
+        assertStateChange(stateMachine, () -> assertThat(stateMachine.set(State.LUNCH)).isEqualTo(State.BREAKFAST), State.LUNCH);
 
-        assertStateChange(stateMachine, () -> assertEquals(stateMachine.set(State.BREAKFAST), State.LUNCH), State.BREAKFAST);
+        assertStateChange(stateMachine, () -> assertThat(stateMachine.set(State.BREAKFAST)).isEqualTo(State.LUNCH), State.BREAKFAST);
 
         // transition to a final state
-        assertStateChange(stateMachine, () -> assertEquals(stateMachine.set(State.DINNER), State.BREAKFAST), State.DINNER);
+        assertStateChange(stateMachine, () -> assertThat(stateMachine.set(State.DINNER)).isEqualTo(State.BREAKFAST), State.DINNER);
 
         // attempt transition from a final state
         assertNoStateChange(stateMachine, () ->
@@ -121,16 +119,16 @@ public class TestStateMachine
             throws Exception
     {
         StateMachine<State> stateMachine = new StateMachine<>("test", executor, State.BREAKFAST, ImmutableSet.of(State.DINNER));
-        assertEquals(stateMachine.get(), State.BREAKFAST);
+        assertThat(stateMachine.get()).isEqualTo(State.BREAKFAST);
 
-        assertNoStateChange(stateMachine, () -> assertEquals(stateMachine.trySet(State.BREAKFAST), State.BREAKFAST));
+        assertNoStateChange(stateMachine, () -> assertThat(stateMachine.trySet(State.BREAKFAST)).isEqualTo(State.BREAKFAST));
 
-        assertStateChange(stateMachine, () -> assertEquals(stateMachine.trySet(State.LUNCH), State.BREAKFAST), State.LUNCH);
+        assertStateChange(stateMachine, () -> assertThat(stateMachine.trySet(State.LUNCH)).isEqualTo(State.BREAKFAST), State.LUNCH);
 
-        assertStateChange(stateMachine, () -> assertEquals(stateMachine.trySet(State.BREAKFAST), State.LUNCH), State.BREAKFAST);
+        assertStateChange(stateMachine, () -> assertThat(stateMachine.trySet(State.BREAKFAST)).isEqualTo(State.LUNCH), State.BREAKFAST);
 
         // transition to a final state
-        assertStateChange(stateMachine, () -> assertEquals(stateMachine.trySet(State.DINNER), State.BREAKFAST), State.DINNER);
+        assertStateChange(stateMachine, () -> assertThat(stateMachine.trySet(State.DINNER)).isEqualTo(State.BREAKFAST), State.DINNER);
 
         // attempt transition from a final state
         assertNoStateChange(stateMachine, () -> stateMachine.trySet(State.LUNCH));
@@ -142,7 +140,7 @@ public class TestStateMachine
             throws Exception
     {
         StateMachine<State> stateMachine = new StateMachine<>("test", executor, State.BREAKFAST, ImmutableSet.of(State.DINNER));
-        assertEquals(stateMachine.get(), State.BREAKFAST);
+        assertThat(stateMachine.get()).isEqualTo(State.BREAKFAST);
 
         // no match with new state
         assertNoStateChange(stateMachine, () -> stateMachine.compareAndSet(State.DINNER, State.LUNCH));
@@ -174,36 +172,36 @@ public class TestStateMachine
             throws Exception
     {
         StateMachine<State> stateMachine = new StateMachine<>("test", executor, State.BREAKFAST, ImmutableSet.of(State.DINNER));
-        assertEquals(stateMachine.get(), State.BREAKFAST);
+        assertThat(stateMachine.get()).isEqualTo(State.BREAKFAST);
 
         // false predicate with new state
         assertNoStateChange(stateMachine,
-                () -> assertFalse(stateMachine.setIf(State.LUNCH, currentState -> {
-                    assertEquals(currentState, State.BREAKFAST);
+                () -> assertThat(stateMachine.setIf(State.LUNCH, currentState -> {
+                    assertThat(currentState).isEqualTo(State.BREAKFAST);
                     return false;
-                })));
+                })).isFalse());
 
         // true predicate with new state
         assertStateChange(stateMachine,
-                () -> assertTrue(stateMachine.setIf(State.LUNCH, currentState -> {
-                    assertEquals(currentState, State.BREAKFAST);
+                () -> assertThat(stateMachine.setIf(State.LUNCH, currentState -> {
+                    assertThat(currentState).isEqualTo(State.BREAKFAST);
                     return true;
-                })),
+                })).isTrue(),
                 State.LUNCH);
 
         // false predicate with same state
         assertNoStateChange(stateMachine,
-                () -> assertFalse(stateMachine.setIf(State.LUNCH, currentState -> {
-                    assertEquals(currentState, State.LUNCH);
+                () -> assertThat(stateMachine.setIf(State.LUNCH, currentState -> {
+                    assertThat(currentState).isEqualTo(State.LUNCH);
                     return false;
-                })));
+                })).isFalse());
 
         // true predicate with same state
         assertNoStateChange(stateMachine,
-                () -> assertFalse(stateMachine.setIf(State.LUNCH, currentState -> {
-                    assertEquals(currentState, State.LUNCH);
+                () -> assertThat(stateMachine.setIf(State.LUNCH, currentState -> {
+                    assertThat(currentState).isEqualTo(State.LUNCH);
                     return true;
-                })));
+                })).isFalse());
 
         // transition to a final state
         assertStateChange(stateMachine, () -> stateMachine.setIf(State.DINNER, currentState -> true), State.DINNER);
@@ -227,15 +225,15 @@ public class TestStateMachine
 
         stateChange.run();
 
-        assertEquals(stateMachine.get(), expectedState);
+        assertThat(stateMachine.get()).isEqualTo(expectedState);
 
-        assertEquals(futureChange.get(10, SECONDS), expectedState);
-        assertEquals(listenerChange.get(10, SECONDS), expectedState);
+        assertThat(futureChange.get(10, SECONDS)).isEqualTo(expectedState);
+        assertThat(listenerChange.get(10, SECONDS)).isEqualTo(expectedState);
 
         // listeners should not be retained if we are in a terminal state
         boolean isTerminalState = stateMachine.isTerminalState(expectedState);
         if (isTerminalState) {
-            assertEquals(stateMachine.getStateChangeListeners(), ImmutableSet.of());
+            assertThat(stateMachine.getStateChangeListeners()).containsExactlyElementsOf(ImmutableSet.of());
         }
     }
 
@@ -249,20 +247,20 @@ public class TestStateMachine
         // listeners should not be added if we are in a terminal state, but listener should fire
         boolean isTerminalState = stateMachine.isTerminalState(initialState);
         if (isTerminalState) {
-            assertEquals(stateMachine.getStateChangeListeners(), ImmutableSet.of());
+            assertThat(stateMachine.getStateChangeListeners()).containsExactlyElementsOf(ImmutableSet.of());
         }
 
         stateChange.run();
 
-        assertEquals(stateMachine.get(), initialState);
+        assertThat(stateMachine.get()).isEqualTo(initialState);
 
         // the future change will trigger if the state machine is in a terminal state
         // this is to prevent waiting for state changes that will never occur
-        assertEquals(futureChange.isDone(), isTerminalState);
+        assertThat(futureChange.isDone()).isEqualTo(isTerminalState);
         futureChange.cancel(true);
 
         // test listener future only completes if the state actually changed
-        assertFalse(listenerChange.isDone());
+        assertThat(listenerChange.isDone()).isFalse();
         listenerChange.cancel(true);
     }
 
@@ -287,7 +285,9 @@ public class TestStateMachine
             }
         });
 
-        assertTrue(tryGetFutureValue(initialStateNotified, 10, SECONDS).isPresent(), "Initial state notification not fired");
+        assertThat(tryGetFutureValue(initialStateNotified, 10, SECONDS).isPresent())
+                .describedAs("Initial state notification not fired")
+                .isTrue();
 
         return stateChanged;
     }

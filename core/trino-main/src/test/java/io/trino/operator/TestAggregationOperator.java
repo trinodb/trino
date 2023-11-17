@@ -56,8 +56,6 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_METHOD)
 public class TestAggregationOperator
@@ -178,7 +176,7 @@ public class TestAggregationOperator
                 .build();
 
         assertOperatorEquals(operatorFactory, driverContext, input, expected);
-        assertEquals(driverContext.getMemoryUsage(), 0);
+        assertThat(driverContext.getMemoryUsage()).isEqualTo(0);
     }
 
     @Test
@@ -197,7 +195,7 @@ public class TestAggregationOperator
                 .addDriverContext();
 
         try (Operator operator = operatorFactory.createOperator(driverContext)) {
-            assertTrue(operator.needsInput());
+            assertThat(operator.needsInput()).isTrue();
             operator.addInput(input);
 
             assertThat(driverContext.getMemoryUsage()).isGreaterThan(0);
@@ -205,6 +203,6 @@ public class TestAggregationOperator
             toPages(operator, emptyIterator());
         }
 
-        assertEquals(driverContext.getMemoryUsage(), 0);
+        assertThat(driverContext.getMemoryUsage()).isEqualTo(0);
     }
 }

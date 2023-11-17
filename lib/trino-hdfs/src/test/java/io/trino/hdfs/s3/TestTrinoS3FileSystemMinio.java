@@ -31,7 +31,6 @@ import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 public class TestTrinoS3FileSystemMinio
@@ -147,7 +146,7 @@ public class TestTrinoS3FileSystemMinio
             assertThat(listPaths(s3, testBucketName, "", true))
                     .containsOnly("file1.txt", "directory2/", "directory2/file2.txt");
 
-            assertTrue(fs.delete(new Path(testBucketPath + Path.SEPARATOR), true));
+            assertThat(fs.delete(new Path(testBucketPath + Path.SEPARATOR), true)).isTrue();
 
             assertThat(listPaths(s3, testBucketName, "", true)).isEmpty();
         }

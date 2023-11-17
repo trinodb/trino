@@ -36,9 +36,8 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.apache.pinot.common.utils.DataSchema.ColumnDataType.LONG;
 import static org.apache.pinot.common.utils.DataSchema.ColumnDataType.STRING;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestBrokerQueries
         extends TestPinotQueryBase
@@ -77,11 +76,13 @@ public class TestBrokerQueries
                 .add(new PinotColumnHandle("col_2", BIGINT))
                 .build();
         ResultsIterator resultIterator = fromResultTable(RESPONSE, columnHandles, 0);
-        assertTrue(resultIterator.hasNext(), "resultIterator is empty");
+        assertThat(resultIterator.hasNext())
+                .describedAs("resultIterator is empty")
+                .isTrue();
         BrokerResultRow row = resultIterator.next();
-        assertEquals(row.getField(0), "col_3_data");
-        assertEquals(row.getField(1), "col_1_data");
-        assertEquals(row.getField(2), 2L);
+        assertThat(row.getField(0)).isEqualTo("col_3_data");
+        assertThat(row.getField(1)).isEqualTo("col_1_data");
+        assertThat(row.getField(2)).isEqualTo(2L);
     }
 
     @Test
@@ -92,10 +93,12 @@ public class TestBrokerQueries
                 .add(new PinotColumnHandle("col_1", VARCHAR))
                 .build();
         ResultsIterator resultIterator = fromResultTable(RESPONSE, columnHandles, 0);
-        assertTrue(resultIterator.hasNext(), "resultIterator is empty");
+        assertThat(resultIterator.hasNext())
+                .describedAs("resultIterator is empty")
+                .isTrue();
         BrokerResultRow row = resultIterator.next();
-        assertEquals(row.getField(0), "col_3_data");
-        assertEquals(row.getField(1), "col_1_data");
+        assertThat(row.getField(0)).isEqualTo("col_3_data");
+        assertThat(row.getField(1)).isEqualTo("col_1_data");
     }
 
     @Test
@@ -113,16 +116,16 @@ public class TestBrokerQueries
                 LIMIT_FOR_BROKER_QUERIES);
 
         Page page = pageSource.getNextPage();
-        assertEquals(page.getChannelCount(), columnHandles.size());
-        assertEquals(page.getPositionCount(), RESPONSE.getResultTable().getRows().size());
+        assertThat(page.getChannelCount()).isEqualTo(columnHandles.size());
+        assertThat(page.getPositionCount()).isEqualTo(RESPONSE.getResultTable().getRows().size());
         Block block = page.getBlock(0);
         String value = block.getSlice(0, 0, block.getSliceLength(0)).toStringUtf8();
-        assertEquals(value, getOnlyElement(RESPONSE.getResultTable().getRows())[0]);
+        assertThat(value).isEqualTo(getOnlyElement(RESPONSE.getResultTable().getRows())[0]);
         block = page.getBlock(1);
-        assertEquals(block.getLong(0, 0), (long) getOnlyElement(RESPONSE.getResultTable().getRows())[1]);
+        assertThat(block.getLong(0, 0)).isEqualTo((long) getOnlyElement(RESPONSE.getResultTable().getRows())[1]);
         block = page.getBlock(2);
         value = block.getSlice(0, 0, block.getSliceLength(0)).toStringUtf8();
-        assertEquals(value, getOnlyElement(RESPONSE.getResultTable().getRows())[2]);
+        assertThat(value).isEqualTo(getOnlyElement(RESPONSE.getResultTable().getRows())[2]);
     }
 
     @Test
@@ -134,8 +137,8 @@ public class TestBrokerQueries
                 testingPinotClient,
                 LIMIT_FOR_BROKER_QUERIES);
         Page page = pageSource.getNextPage();
-        assertEquals(page.getPositionCount(), RESPONSE.getResultTable().getRows().size());
-        assertEquals(page.getChannelCount(), 0);
+        assertThat(page.getPositionCount()).isEqualTo(RESPONSE.getResultTable().getRows().size());
+        assertThat(page.getChannelCount()).isEqualTo(0);
     }
 
     @Test

@@ -29,10 +29,10 @@ import static com.google.common.net.MediaType.ANY_TEXT_TYPE;
 import static io.airlift.http.client.HttpStatus.OK;
 import static io.airlift.http.client.testing.TestingResponse.mockResponse;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Fail.fail;
 import static org.junit.jupiter.api.Assumptions.abort;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
 
 public class TestSalesforceBasicAuthenticator
 {
@@ -65,14 +65,20 @@ public class TestSalesforceBasicAuthenticator
         SalesforceBasicAuthenticator authenticator = new SalesforceBasicAuthenticator(config, testHttpClient);
 
         Principal principal = authenticator.createAuthenticatedPrincipal(username, password);
-        assertEquals(principal.getName(), username, "Test principal name.");
+        assertThat(principal.getName())
+                .describedAs("Test principal name.")
+                .isEqualTo(username);
 
         principal = authenticator.createAuthenticatedPrincipal(username, password);
-        assertEquals(principal.getName(), username, "Test principal name from cache.");
+        assertThat(principal.getName())
+                .describedAs("Test principal name from cache.")
+                .isEqualTo(username);
 
         Thread.sleep(2000L);
         principal = authenticator.createAuthenticatedPrincipal(username, password);
-        assertEquals(principal.getName(), username, "Test principal name from expired cache.");
+        assertThat(principal.getName())
+                .describedAs("Test principal name from expired cache.")
+                .isEqualTo(username);
     }
 
     @Test
@@ -129,7 +135,9 @@ public class TestSalesforceBasicAuthenticator
         SalesforceBasicAuthenticator authenticator = new SalesforceBasicAuthenticator(config, testHttpClient);
 
         Principal principal = authenticator.createAuthenticatedPrincipal(username, password);
-        assertEquals(principal.getName(), username, "Test allowing all orgs.");
+        assertThat(principal.getName())
+                .describedAs("Test allowing all orgs.")
+                .isEqualTo(username);
     }
 
     @Test
@@ -148,7 +156,9 @@ public class TestSalesforceBasicAuthenticator
         SalesforceBasicAuthenticator authenticator = new SalesforceBasicAuthenticator(config, testHttpClient);
 
         Principal principal = authenticator.createAuthenticatedPrincipal(username, password);
-        assertEquals(principal.getName(), username, "Test allowing a few orgs.");
+        assertThat(principal.getName())
+                .describedAs("Test allowing a few orgs.")
+                .isEqualTo(username);
     }
 
     /*
@@ -188,7 +198,9 @@ public class TestSalesforceBasicAuthenticator
         SalesforceBasicAuthenticator authenticator = new SalesforceBasicAuthenticator(config, testHttpClient);
 
         Principal principal = authenticator.createAuthenticatedPrincipal(username, password);
-        assertEquals(principal.getName(), username, "Test principal name for real, yo!");
+        assertThat(principal.getName())
+                .describedAs("Test principal name for real, yo!")
+                .isEqualTo(username);
     }
 
     // Test a real login for a different org.
@@ -239,7 +251,9 @@ public class TestSalesforceBasicAuthenticator
         SalesforceBasicAuthenticator authenticator = new SalesforceBasicAuthenticator(config, testHttpClient);
 
         Principal principal = authenticator.createAuthenticatedPrincipal(username, password);
-        assertEquals(principal.getName(), username, "Test no org check for real, yo!");
+        assertThat(principal.getName())
+                .describedAs("Test no org check for real, yo!")
+                .isEqualTo(username);
     }
 
     // Test a login with a bad password.

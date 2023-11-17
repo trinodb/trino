@@ -59,12 +59,10 @@ import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTIT
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -151,7 +149,7 @@ public class TestPartitionedOutputBuffer
 
         // try to add one more page, which should block
         ListenableFuture<Void> future = enqueuePage(buffer, createPage(13), firstPartition);
-        assertFalse(future.isDone());
+        assertThat(future.isDone()).isFalse();
         assertQueueState(buffer, FIRST, 11, 3);
         assertQueueState(buffer, SECOND, 10, 0);
 
@@ -162,7 +160,7 @@ public class TestPartitionedOutputBuffer
         assertQueueState(buffer, SECOND, 10, 0);
 
         // we should still be blocked
-        assertFalse(future.isDone());
+        assertThat(future.isDone()).isFalse();
 
         // read pages from second partition
         assertBufferResultEquals(TYPES, getBufferResult(buffer, SECOND, 0, sizeOfPages(10), NO_WAIT), bufferResult(
@@ -201,7 +199,7 @@ public class TestPartitionedOutputBuffer
 
         //
         // finish the buffer
-        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
+        assertThat(buffer.getState()).isEqualTo(NO_MORE_BUFFERS);
         buffer.setNoMorePages();
         assertQueueState(buffer, FIRST, 12, 4);
         assertQueueState(buffer, SECOND, 0, 10);
@@ -209,12 +207,12 @@ public class TestPartitionedOutputBuffer
         assertQueueClosed(buffer, SECOND, 10);
 
         // not fully finished until all pages are consumed
-        assertEquals(buffer.getState(), FLUSHING);
+        assertThat(buffer.getState()).isEqualTo(FLUSHING);
 
         // remove a page, not finished
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 5, sizeOfPages(1), NO_WAIT), bufferResult(5, createPage(5)));
         assertQueueState(buffer, FIRST, 11, 5);
-        assertEquals(buffer.getState(), FLUSHING);
+        assertThat(buffer.getState()).isEqualTo(FLUSHING);
 
         // remove all remaining pages from first queue, should not be finished
         BufferResult x = getBufferResult(buffer, FIRST, 6, sizeOfPages(30), NO_WAIT);
@@ -271,7 +269,7 @@ public class TestPartitionedOutputBuffer
             acknowledgeBufferResult(buffer, FIRST, 4);
         }
         catch (IllegalArgumentException e) {
-            assertEquals(e.getMessage(), "Invalid sequence id");
+            assertThat(e.getMessage()).isEqualTo("Invalid sequence id");
         }
 
         // fill the buffer
@@ -330,7 +328,7 @@ public class TestPartitionedOutputBuffer
                         .withNoMoreBufferIds(),
                 sizeOfPages(10));
 
-        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
+        assertThat(buffer.getState()).isEqualTo(NO_MORE_BUFFERS);
 
         assertThatThrownBy(() -> buffer.setOutputBuffers(PipelinedOutputBuffers.createInitial(PARTITIONED)
                 .withBuffer(FIRST, 0)
@@ -351,7 +349,7 @@ public class TestPartitionedOutputBuffer
         buffer.setNoMorePages();
         addPage(buffer, createPage(0));
         addPage(buffer, createPage(0));
-        assertEquals(buffer.getInfo().getTotalPagesSent(), 0);
+        assertThat(buffer.getInfo().getTotalPagesSent()).isEqualTo(0);
     }
 
     @Test
@@ -365,7 +363,7 @@ public class TestPartitionedOutputBuffer
         buffer.destroy();
         addPage(buffer, createPage(0));
         addPage(buffer, createPage(0));
-        assertEquals(buffer.getInfo().getTotalPagesSent(), 0);
+        assertThat(buffer.getInfo().getTotalPagesSent()).isEqualTo(0);
     }
 
     @Test
@@ -409,7 +407,7 @@ public class TestPartitionedOutputBuffer
         ListenableFuture<Void> future = enqueuePage(buffer, createPage(3), secondPartition);
 
         // we should be blocked
-        assertFalse(future.isDone());
+        assertThat(future.isDone()).isFalse();
         assertQueueState(buffer, FIRST, 2, 0);
         assertQueueState(buffer, SECOND, 1, 0);
 
@@ -481,24 +479,24 @@ public class TestPartitionedOutputBuffer
                         .withBuffer(FIRST, 0)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
-        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
+        assertThat(buffer.getState()).isEqualTo(NO_MORE_BUFFERS);
 
         // attempt to get a page
         ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
 
         // verify we are waiting for a page
-        assertFalse(future.isDone());
+        assertThat(future.isDone()).isFalse();
 
         // add one item
         addPage(buffer, createPage(0));
-        assertTrue(future.isDone());
+        assertThat(future.isDone()).isTrue();
 
         // verify we got one page
         assertBufferResultEquals(TYPES, getFuture(future, NO_WAIT), bufferResult(0, createPage(0)));
 
         // attempt to get another page, and verify we are blocked
         future = buffer.get(FIRST, 1, sizeOfPages(10));
-        assertFalse(future.isDone());
+        assertThat(future.isDone()).isFalse();
 
         // destroy the buffer
         buffer.destroy(FIRST);
@@ -519,13 +517,13 @@ public class TestPartitionedOutputBuffer
                         .withBuffer(FIRST, 0)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
-        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
+        assertThat(buffer.getState()).isEqualTo(NO_MORE_BUFFERS);
 
         // attempt to get a page
         ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
 
         // verify we are waiting for a page
-        assertFalse(future.isDone());
+        assertThat(future.isDone()).isFalse();
 
         // add one item
         addPage(buffer, createPage(0));
@@ -535,7 +533,7 @@ public class TestPartitionedOutputBuffer
 
         // attempt to get another page, and verify we are blocked
         future = buffer.get(FIRST, 1, sizeOfPages(10));
-        assertFalse(future.isDone());
+        assertThat(future.isDone()).isFalse();
 
         // finish the buffer
         buffer.setNoMorePages();
@@ -553,7 +551,7 @@ public class TestPartitionedOutputBuffer
                         .withBuffer(FIRST, 0)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
-        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
+        assertThat(buffer.getState()).isEqualTo(NO_MORE_BUFFERS);
 
         // fill the buffer
         for (int i = 0; i < 5; i++) {
@@ -569,12 +567,12 @@ public class TestPartitionedOutputBuffer
         buffer.get(FIRST, 1, sizeOfPages(1)).cancel(true);
 
         // verify we are still blocked because the buffer is full
-        assertFalse(firstEnqueuePage.isDone());
-        assertFalse(secondEnqueuePage.isDone());
+        assertThat(firstEnqueuePage.isDone()).isFalse();
+        assertThat(secondEnqueuePage.isDone()).isFalse();
 
         // finish the query
         buffer.setNoMorePages();
-        assertEquals(buffer.getState(), FLUSHING);
+        assertThat(buffer.getState()).isEqualTo(FLUSHING);
 
         // verify futures are complete
         assertFutureIsDone(firstEnqueuePage);
@@ -599,13 +597,13 @@ public class TestPartitionedOutputBuffer
                         .withBuffer(FIRST, 0)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
-        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
+        assertThat(buffer.getState()).isEqualTo(NO_MORE_BUFFERS);
 
         // attempt to get a page
         ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
 
         // verify we are waiting for a page
-        assertFalse(future.isDone());
+        assertThat(future.isDone()).isFalse();
 
         // add one page
         addPage(buffer, createPage(0));
@@ -615,7 +613,7 @@ public class TestPartitionedOutputBuffer
 
         // attempt to get another page, and verify we are blocked
         future = buffer.get(FIRST, 1, sizeOfPages(10));
-        assertFalse(future.isDone());
+        assertThat(future.isDone()).isFalse();
 
         // destroy the buffer
         buffer.destroy();
@@ -633,7 +631,7 @@ public class TestPartitionedOutputBuffer
                         .withBuffer(FIRST, 0)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
-        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
+        assertThat(buffer.getState()).isEqualTo(NO_MORE_BUFFERS);
 
         // fill the buffer
         for (int i = 0; i < 5; i++) {
@@ -649,8 +647,8 @@ public class TestPartitionedOutputBuffer
         buffer.get(FIRST, 1, sizeOfPages(1)).cancel(true);
 
         // verify we are still blocked because the buffer is full
-        assertFalse(firstEnqueuePage.isDone());
-        assertFalse(secondEnqueuePage.isDone());
+        assertThat(firstEnqueuePage.isDone()).isFalse();
+        assertThat(secondEnqueuePage.isDone()).isFalse();
 
         // destroy the buffer (i.e., cancel the query)
         buffer.destroy();
@@ -669,13 +667,13 @@ public class TestPartitionedOutputBuffer
                         .withBuffer(FIRST, 0)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
-        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
+        assertThat(buffer.getState()).isEqualTo(NO_MORE_BUFFERS);
 
         // attempt to get a page
         ListenableFuture<BufferResult> future = buffer.get(FIRST, 0, sizeOfPages(10));
 
         // verify we are waiting for a page
-        assertFalse(future.isDone());
+        assertThat(future.isDone()).isFalse();
 
         // add one page
         addPage(buffer, createPage(0));
@@ -685,17 +683,17 @@ public class TestPartitionedOutputBuffer
 
         // attempt to get another page, and verify we are blocked
         future = buffer.get(FIRST, 1, sizeOfPages(10));
-        assertFalse(future.isDone());
+        assertThat(future.isDone()).isFalse();
 
         // abort the buffer
         buffer.abort();
 
         // future should have not finished
-        assertFalse(future.isDone());
+        assertThat(future.isDone()).isFalse();
 
         // attempt to get another page, and verify we are blocked
         future = buffer.get(FIRST, 1, sizeOfPages(10));
-        assertFalse(future.isDone());
+        assertThat(future.isDone()).isFalse();
     }
 
     @Test
@@ -706,7 +704,7 @@ public class TestPartitionedOutputBuffer
                         .withBuffer(FIRST, 0)
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
-        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
+        assertThat(buffer.getState()).isEqualTo(NO_MORE_BUFFERS);
 
         // fill the buffer
         for (int i = 0; i < 5; i++) {
@@ -722,12 +720,12 @@ public class TestPartitionedOutputBuffer
         buffer.get(FIRST, 1, sizeOfPages(1)).cancel(true);
 
         // verify we are still blocked because the buffer is full
-        assertFalse(firstEnqueuePage.isDone());
-        assertFalse(secondEnqueuePage.isDone());
+        assertThat(firstEnqueuePage.isDone()).isFalse();
+        assertThat(secondEnqueuePage.isDone()).isFalse();
 
         // abort the buffer (i.e., fail the query)
         buffer.abort();
-        assertEquals(buffer.getState(), ABORTED);
+        assertThat(buffer.getState()).isEqualTo(ABORTED);
 
         // verify the futures are completed
         assertFutureIsDone(firstEnqueuePage);
@@ -743,7 +741,7 @@ public class TestPartitionedOutputBuffer
                         .withNoMoreBufferIds(),
                 sizeOfPages(5));
 
-        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
+        assertThat(buffer.getState()).isEqualTo(NO_MORE_BUFFERS);
 
         // fill the buffer
         List<Page> pages = new ArrayList<>();
@@ -759,13 +757,13 @@ public class TestPartitionedOutputBuffer
         assertBufferResultEquals(TYPES, getBufferResult(buffer, FIRST, 0, sizeOfPages(5), MAX_WAIT), createBufferResult(TASK_INSTANCE_ID, 0, pages));
 
         // there are no more pages and no more buffers, but buffer is not finished because it didn't receive an acknowledgement yet
-        assertEquals(buffer.getState(), FLUSHING);
+        assertThat(buffer.getState()).isEqualTo(FLUSHING);
 
         // ask the buffer to finish
         buffer.destroy(FIRST);
 
         // verify that the buffer is finished
-        assertEquals(buffer.getState(), FINISHED);
+        assertThat(buffer.getState()).isEqualTo(FINISHED);
     }
 
     @Test
@@ -789,11 +787,11 @@ public class TestPartitionedOutputBuffer
         // and if we destroy all the buffers it should destroy itself
         // and move to the FINISHED state
         buffer.destroy(FIRST);
-        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
+        assertThat(buffer.getState()).isEqualTo(NO_MORE_BUFFERS);
         buffer.destroy(SECOND);
-        assertEquals(buffer.getState(), NO_MORE_BUFFERS);
+        assertThat(buffer.getState()).isEqualTo(NO_MORE_BUFFERS);
         buffer.destroy(THIRD);
-        assertEquals(buffer.getState(), FINISHED);
+        assertThat(buffer.getState()).isEqualTo(FINISHED);
     }
 
     @Test
@@ -808,7 +806,7 @@ public class TestPartitionedOutputBuffer
         long serializePageSize = serializePage(page).getRetainedSize();
         for (int i = 0; i < 5; i++) {
             addPage(buffer, page, 0);
-            assertEquals(buffer.getPeakMemoryUsage(), (i + 1) * serializePageSize);
+            assertThat(buffer.getPeakMemoryUsage()).isEqualTo((i + 1) * serializePageSize);
         }
     }
 
@@ -824,12 +822,12 @@ public class TestPartitionedOutputBuffer
             addPage(buffer, createPage(1), 0);
         }
         OutputBufferMemoryManager memoryManager = buffer.getMemoryManager();
-        assertTrue(memoryManager.getBufferedBytes() > 0);
+        assertThat(memoryManager.getBufferedBytes() > 0).isTrue();
         buffer.forceFreeMemory();
-        assertEquals(memoryManager.getBufferedBytes(), 0);
+        assertThat(memoryManager.getBufferedBytes()).isEqualTo(0);
         // adding a page after forceFreeMemory() should be NOOP
         addPage(buffer, createPage(1));
-        assertEquals(memoryManager.getBufferedBytes(), 0);
+        assertThat(memoryManager.getBufferedBytes()).isEqualTo(0);
     }
 
     private PartitionedOutputBuffer createPartitionedBuffer(PipelinedOutputBuffers buffers, DataSize dataSize)

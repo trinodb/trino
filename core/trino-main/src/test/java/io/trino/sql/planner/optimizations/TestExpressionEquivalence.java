@@ -45,8 +45,7 @@ import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExpressionEquivalence
 {
@@ -143,12 +142,12 @@ public class TestExpressionEquivalence
         TypeProvider types = TypeProvider.copyOf(symbols.stream()
                 .collect(toMap(identity(), TestExpressionEquivalence::generateType)));
 
-        assertTrue(
-                areExpressionEquivalent(leftExpression, rightExpression, types),
-                format("Expected (%s) and (%s) to be equivalent", left, right));
-        assertTrue(
-                areExpressionEquivalent(rightExpression, leftExpression, types),
-                format("Expected (%s) and (%s) to be equivalent", right, left));
+        assertThat(areExpressionEquivalent(leftExpression, rightExpression, types))
+                .describedAs(format("Expected (%s) and (%s) to be equivalent", left, right))
+                .isTrue();
+        assertThat(areExpressionEquivalent(rightExpression, leftExpression, types))
+                .describedAs(format("Expected (%s) and (%s) to be equivalent", right, left))
+                .isTrue();
     }
 
     @Test
@@ -216,12 +215,12 @@ public class TestExpressionEquivalence
         TypeProvider types = TypeProvider.copyOf(symbols.stream()
                 .collect(toMap(identity(), TestExpressionEquivalence::generateType)));
 
-        assertFalse(
-                areExpressionEquivalent(leftExpression, rightExpression, types),
-                format("Expected (%s) and (%s) to not be equivalent", left, right));
-        assertFalse(
-                areExpressionEquivalent(rightExpression, leftExpression, types),
-                format("Expected (%s) and (%s) to not be equivalent", right, left));
+        assertThat(areExpressionEquivalent(leftExpression, rightExpression, types))
+                .describedAs(format("Expected (%s) and (%s) to not be equivalent", left, right))
+                .isFalse();
+        assertThat(areExpressionEquivalent(rightExpression, leftExpression, types))
+                .describedAs(format("Expected (%s) and (%s) to not be equivalent", right, left))
+                .isFalse();
     }
 
     private static boolean areExpressionEquivalent(Expression leftExpression, Expression rightExpression, TypeProvider types)

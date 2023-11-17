@@ -27,7 +27,7 @@ import static io.trino.plugin.hive.metastore.glue.GlueExpressionUtil.buildGlueEx
 import static io.trino.plugin.hive.metastore.glue.GlueExpressionUtil.buildGlueExpressionForSingleDomain;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestGlueExpressionUtil
 {
@@ -36,7 +36,7 @@ public class TestGlueExpressionUtil
     {
         Domain domain = Domain.singleValue(VarcharType.VARCHAR, utf8Slice("2020-01-01"));
         Optional<String> foo = buildGlueExpressionForSingleDomain("foo", domain, true);
-        assertEquals(foo.get(), "((foo = '2020-01-01'))");
+        assertThat(foo.get()).isEqualTo("((foo = '2020-01-01'))");
     }
 
     @Test
@@ -47,7 +47,7 @@ public class TestGlueExpressionUtil
                 .addStringValues("col2", "2020-02-20")
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1", "col2"), filter, true);
-        assertEquals(expression, "((col1 = '2020-01-01')) AND ((col2 = '2020-02-20'))");
+        assertThat(expression).isEqualTo("((col1 = '2020-01-01')) AND ((col2 = '2020-02-20'))");
     }
 
     @Test
@@ -58,7 +58,7 @@ public class TestGlueExpressionUtil
                 .addStringValues("col2", "2020-02-20", "2020-02-28")
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1", "col2"), filter, true);
-        assertEquals(expression, "((col1 = '2020-01-01')) AND ((col2 in ('2020-02-20', '2020-02-28')))");
+        assertThat(expression).isEqualTo("((col1 = '2020-01-01')) AND ((col2 in ('2020-02-20', '2020-02-28')))");
     }
 
     @Test
@@ -69,7 +69,7 @@ public class TestGlueExpressionUtil
                 .addStringValues("col2", "2020-02-20", "2020-02-28")
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1"), filter, true);
-        assertEquals(expression, "((col1 = '2020-01-01'))");
+        assertThat(expression).isEqualTo("((col1 = '2020-01-01'))");
     }
 
     @Test
@@ -81,7 +81,7 @@ public class TestGlueExpressionUtil
                 .addRanges("col2", Range.lessThan(BIGINT, 0L))
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1", "col2"), filter, true);
-        assertEquals(expression, "((col1 = '2020-01-01')) AND ((col2 < 0) OR (col2 > 100))");
+        assertThat(expression).isEqualTo("((col1 = '2020-01-01')) AND ((col2 < 0) OR (col2 > 100))");
     }
 
     @Test
@@ -93,7 +93,7 @@ public class TestGlueExpressionUtil
                 .addRanges("col1", Range.lessThan(BIGINT, 0L))
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1"), filter, true);
-        assertEquals(expression, "((col1 < 0) OR (col1 > 100) OR (col1 = 3))");
+        assertThat(expression).isEqualTo("((col1 < 0) OR (col1 > 100) OR (col1 = 3))");
     }
 
     @Test
@@ -104,7 +104,7 @@ public class TestGlueExpressionUtil
                 .addRanges("col1", Range.range(VarcharType.VARCHAR, utf8Slice("2020-03-01"), true, utf8Slice("2020-03-31"), true))
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1"), filter, true);
-        assertEquals(expression, "((col1 >= '2020-03-01' AND col1 <= '2020-03-31') OR (col1 in ('2020-01-01', '2020-01-31')))");
+        assertThat(expression).isEqualTo("((col1 >= '2020-03-01' AND col1 <= '2020-03-31') OR (col1 in ('2020-01-01', '2020-01-31')))");
     }
 
     @Test
@@ -114,7 +114,7 @@ public class TestGlueExpressionUtil
                 .addStringValues("col1", "2020-01-01")
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1", "col2"), filter, true);
-        assertEquals(expression, "((col1 = '2020-01-01'))");
+        assertThat(expression).isEqualTo("((col1 = '2020-01-01'))");
     }
 
     @Test
@@ -124,7 +124,7 @@ public class TestGlueExpressionUtil
                 .addDomain("col1", Domain.onlyNull(VarcharType.VARCHAR))
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1"), filter, true);
-        assertEquals(expression, format("(col1 = '%s')", GlueExpressionUtil.NULL_STRING));
+        assertThat(expression).isEqualTo(format("(col1 = '%s')", GlueExpressionUtil.NULL_STRING));
     }
 
     @Test
@@ -134,7 +134,7 @@ public class TestGlueExpressionUtil
                 .addDomain("col1", Domain.notNull(VarcharType.VARCHAR))
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1"), filter, true);
-        assertEquals(expression, format("(col1 <> '%s')", GlueExpressionUtil.NULL_STRING));
+        assertThat(expression).isEqualTo(format("(col1 <> '%s')", GlueExpressionUtil.NULL_STRING));
     }
 
     @Test
@@ -145,7 +145,7 @@ public class TestGlueExpressionUtil
                 .addDomain("col1", Domain.onlyNull(VarcharType.VARCHAR))
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1"), filter, true);
-        assertEquals(expression, format("((col1 = '2020-01-01') OR (col1 = '%s'))", GlueExpressionUtil.NULL_STRING));
+        assertThat(expression).isEqualTo(format("((col1 = '2020-01-01') OR (col1 = '%s'))", GlueExpressionUtil.NULL_STRING));
     }
 
     @Test
@@ -156,7 +156,7 @@ public class TestGlueExpressionUtil
                 .addDomain("col2", Domain.notNull(VarcharType.VARCHAR))
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1", "col2"), filter, true);
-        assertEquals(expression, format("((col1 = '2020-01-01')) AND (col2 <> '%s')", GlueExpressionUtil.NULL_STRING));
+        assertThat(expression).isEqualTo(format("((col1 = '2020-01-01')) AND (col2 <> '%s')", GlueExpressionUtil.NULL_STRING));
     }
 
     @Test
@@ -166,7 +166,7 @@ public class TestGlueExpressionUtil
                 .addStringValues("col1", "x".repeat(101))
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1"), filter, true, 100);
-        assertEquals(expression, "");
+        assertThat(expression).isEqualTo("");
     }
 
     @Test
@@ -177,14 +177,14 @@ public class TestGlueExpressionUtil
                 .addStringValues("col2", "x".repeat(25))
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1", "col2"), filter, true, 20);
-        assertEquals(expression, "((col1 = 'xxxxx'))");
+        assertThat(expression).isEqualTo("((col1 = 'xxxxx'))");
     }
 
     @Test
     public void testBuildGlueExpressionTupleDomainAll()
     {
         String expression = buildGlueExpression(ImmutableList.of("col1"), TupleDomain.all(), true);
-        assertEquals(expression, "");
+        assertThat(expression).isEqualTo("");
     }
 
     @Test
@@ -194,7 +194,7 @@ public class TestGlueExpressionUtil
                 .addDecimalValues("col1", "10.134")
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1"), filter, true);
-        assertEquals(expression, "((col1 = 10.13400))");
+        assertThat(expression).isEqualTo("((col1 = 10.13400))");
     }
 
     @Test
@@ -204,7 +204,7 @@ public class TestGlueExpressionUtil
                 .addBigintValues("col1", Long.MAX_VALUE)
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1"), filter, true);
-        assertEquals(expression, format("((col1 = %d))", Long.MAX_VALUE));
+        assertThat(expression).isEqualTo(format("((col1 = %d))", Long.MAX_VALUE));
     }
 
     @Test
@@ -214,7 +214,7 @@ public class TestGlueExpressionUtil
                 .addIntegerValues("col1", Long.valueOf(Integer.MAX_VALUE))
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1"), filter, true);
-        assertEquals(expression, format("((col1 = %d))", Integer.MAX_VALUE));
+        assertThat(expression).isEqualTo(format("((col1 = %d))", Integer.MAX_VALUE));
     }
 
     @Test
@@ -224,7 +224,7 @@ public class TestGlueExpressionUtil
                 .addIntegerValues("col1", Long.valueOf(Short.MAX_VALUE))
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1"), filter, true);
-        assertEquals(expression, format("((col1 = %d))", Short.MAX_VALUE));
+        assertThat(expression).isEqualTo(format("((col1 = %d))", Short.MAX_VALUE));
     }
 
     @Test
@@ -234,6 +234,6 @@ public class TestGlueExpressionUtil
                 .addIntegerValues("col1", Long.valueOf(Byte.MAX_VALUE))
                 .build();
         String expression = buildGlueExpression(ImmutableList.of("col1"), filter, true);
-        assertEquals(expression, format("((col1 = %d))", Byte.MAX_VALUE));
+        assertThat(expression).isEqualTo(format("((col1 = %d))", Byte.MAX_VALUE));
     }
 }

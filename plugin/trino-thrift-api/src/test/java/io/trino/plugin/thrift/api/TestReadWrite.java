@@ -51,8 +51,7 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestReadWrite
 {
@@ -170,8 +169,8 @@ public class TestReadWrite
         Page page = batch.toPage(columns.stream().map(ColumnDefinition::getType).collect(toImmutableList()));
 
         // compare the result with original input
-        assertNotNull(page);
-        assertEquals(page.getChannelCount(), columns.size());
+        assertThat(page).isNotNull();
+        assertThat(page.getChannelCount()).isEqualTo(columns.size());
         for (int i = 0; i < columns.size(); i++) {
             Block actual = page.getBlock(i);
             Block expected = inputBlocks.get(i);
@@ -195,12 +194,12 @@ public class TestReadWrite
 
     private static void assertBlock(Block actual, Block expected, ColumnDefinition columnDefinition)
     {
-        assertEquals(actual.getPositionCount(), expected.getPositionCount());
+        assertThat(actual.getPositionCount()).isEqualTo(expected.getPositionCount());
         int positions = actual.getPositionCount();
         for (int i = 0; i < positions; i++) {
             Object actualValue = columnDefinition.extractValue(actual, i);
             Object expectedValue = columnDefinition.extractValue(expected, i);
-            assertEquals(actualValue, expectedValue);
+            assertThat(actualValue).isEqualTo(expectedValue);
         }
     }
 

@@ -54,7 +54,7 @@ import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class TestNodeLocalDynamicSplitPruning
 {
@@ -86,11 +86,11 @@ class TestNodeLocalDynamicSplitPruning
         HiveConfig config = new HiveConfig();
         HiveTransactionHandle transaction = new HiveTransactionHandle(false);
         try (ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, config, getDynamicFilter(getTupleDomainForBucketSplitPruning()))) {
-            assertEquals(emptyPageSource.getClass(), EmptyPageSource.class);
+            assertThat(emptyPageSource.getClass()).isEqualTo(EmptyPageSource.class);
         }
 
         try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, config, getDynamicFilter(getNonSelectiveBucketTupleDomain()))) {
-            assertEquals(nonEmptyPageSource.getClass(), HivePageSource.class);
+            assertThat(nonEmptyPageSource.getClass()).isEqualTo(HivePageSource.class);
         }
     }
 
@@ -102,11 +102,11 @@ class TestNodeLocalDynamicSplitPruning
         HiveTransactionHandle transaction = new HiveTransactionHandle(false);
 
         try (ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, config, getDynamicFilter(getTupleDomainForPartitionSplitPruning()))) {
-            assertEquals(emptyPageSource.getClass(), EmptyPageSource.class);
+            assertThat(emptyPageSource.getClass()).isEqualTo(EmptyPageSource.class);
         }
 
         try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, config, getDynamicFilter(getNonSelectivePartitionTupleDomain()))) {
-            assertEquals(nonEmptyPageSource.getClass(), HivePageSource.class);
+            assertThat(nonEmptyPageSource.getClass()).isEqualTo(HivePageSource.class);
         }
     }
 

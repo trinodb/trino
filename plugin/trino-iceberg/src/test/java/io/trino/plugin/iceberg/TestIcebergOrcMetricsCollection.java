@@ -54,8 +54,7 @@ import static io.trino.plugin.iceberg.DataFileRecord.toDataFileRecord;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIcebergOrcMetricsCollection
         extends AbstractTestQueryFramework
@@ -121,12 +120,12 @@ public class TestIcebergOrcMetricsCollection
         assertUpdate("insert into no_metrics values ('abcd', 'a')", 1);
         List<MaterializedRow> materializedRows = computeActual("select * from \"no_metrics$files\"").getMaterializedRows();
         DataFileRecord datafile = toDataFileRecord(materializedRows.get(0));
-        assertEquals(datafile.getRecordCount(), 1);
-        assertNull(datafile.getValueCounts());
-        assertNull(datafile.getNullValueCounts());
-        assertNull(datafile.getUpperBounds());
-        assertNull(datafile.getLowerBounds());
-        assertNull(datafile.getColumnSizes());
+        assertThat(datafile.getRecordCount()).isEqualTo(1);
+        assertThat(datafile.getValueCounts()).isNull();
+        assertThat(datafile.getNullValueCounts()).isNull();
+        assertThat(datafile.getUpperBounds()).isNull();
+        assertThat(datafile.getLowerBounds()).isNull();
+        assertThat(datafile.getColumnSizes()).isNull();
 
         // keep c1 metrics
         assertUpdate("create table c1_metrics (c1 varchar, c2 varchar)");
@@ -140,11 +139,11 @@ public class TestIcebergOrcMetricsCollection
         assertUpdate("insert into c1_metrics values ('b', 'a')", 1);
         materializedRows = computeActual("select * from \"c1_metrics$files\"").getMaterializedRows();
         datafile = toDataFileRecord(materializedRows.get(0));
-        assertEquals(datafile.getRecordCount(), 1);
-        assertEquals(datafile.getValueCounts().size(), 1);
-        assertEquals(datafile.getNullValueCounts().size(), 1);
-        assertEquals(datafile.getUpperBounds().size(), 1);
-        assertEquals(datafile.getLowerBounds().size(), 1);
+        assertThat(datafile.getRecordCount()).isEqualTo(1);
+        assertThat(datafile.getValueCounts().size()).isEqualTo(1);
+        assertThat(datafile.getNullValueCounts().size()).isEqualTo(1);
+        assertThat(datafile.getUpperBounds().size()).isEqualTo(1);
+        assertThat(datafile.getLowerBounds().size()).isEqualTo(1);
 
         // set c1 metrics mode to count
         assertUpdate("create table c1_metrics_count (c1 varchar, c2 varchar)");
@@ -158,11 +157,11 @@ public class TestIcebergOrcMetricsCollection
         assertUpdate("insert into c1_metrics_count values ('b', 'a')", 1);
         materializedRows = computeActual("select * from \"c1_metrics_count$files\"").getMaterializedRows();
         datafile = toDataFileRecord(materializedRows.get(0));
-        assertEquals(datafile.getRecordCount(), 1);
-        assertEquals(datafile.getValueCounts().size(), 1);
-        assertEquals(datafile.getNullValueCounts().size(), 1);
-        assertNull(datafile.getUpperBounds());
-        assertNull(datafile.getLowerBounds());
+        assertThat(datafile.getRecordCount()).isEqualTo(1);
+        assertThat(datafile.getValueCounts().size()).isEqualTo(1);
+        assertThat(datafile.getNullValueCounts().size()).isEqualTo(1);
+        assertThat(datafile.getUpperBounds()).isNull();
+        assertThat(datafile.getLowerBounds()).isNull();
 
         // set c1 metrics mode to truncate(10)
         assertUpdate("create table c1_metrics_truncate (c1 varchar, c2 varchar)");
@@ -176,13 +175,13 @@ public class TestIcebergOrcMetricsCollection
         assertUpdate("insert into c1_metrics_truncate values ('abcaabcaabcaabca', 'a')", 1);
         materializedRows = computeActual("select * from \"c1_metrics_truncate$files\"").getMaterializedRows();
         datafile = toDataFileRecord(materializedRows.get(0));
-        assertEquals(datafile.getRecordCount(), 1);
-        assertEquals(datafile.getValueCounts().size(), 1);
-        assertEquals(datafile.getNullValueCounts().size(), 1);
+        assertThat(datafile.getRecordCount()).isEqualTo(1);
+        assertThat(datafile.getValueCounts().size()).isEqualTo(1);
+        assertThat(datafile.getNullValueCounts().size()).isEqualTo(1);
         datafile.getUpperBounds().forEach((k, v) -> {
-            assertEquals(v.length(), 10); });
+            assertThat(v.length()).isEqualTo(10); });
         datafile.getLowerBounds().forEach((k, v) -> {
-            assertEquals(v.length(), 10); });
+            assertThat(v.length()).isEqualTo(10); });
 
         // keep both c1 and c2 metrics
         assertUpdate("create table c_metrics (c1 varchar, c2 varchar)");
@@ -195,11 +194,11 @@ public class TestIcebergOrcMetricsCollection
         assertUpdate("insert into c_metrics values ('b', 'a')", 1);
         materializedRows = computeActual("select * from \"c_metrics$files\"").getMaterializedRows();
         datafile = toDataFileRecord(materializedRows.get(0));
-        assertEquals(datafile.getRecordCount(), 1);
-        assertEquals(datafile.getValueCounts().size(), 2);
-        assertEquals(datafile.getNullValueCounts().size(), 2);
-        assertEquals(datafile.getUpperBounds().size(), 2);
-        assertEquals(datafile.getLowerBounds().size(), 2);
+        assertThat(datafile.getRecordCount()).isEqualTo(1);
+        assertThat(datafile.getValueCounts().size()).isEqualTo(2);
+        assertThat(datafile.getNullValueCounts().size()).isEqualTo(2);
+        assertThat(datafile.getUpperBounds().size()).isEqualTo(2);
+        assertThat(datafile.getLowerBounds().size()).isEqualTo(2);
 
         // keep all metrics
         assertUpdate("create table metrics (c1 varchar, c2 varchar)");
@@ -211,11 +210,11 @@ public class TestIcebergOrcMetricsCollection
         assertUpdate("insert into metrics values ('b', 'a')", 1);
         materializedRows = computeActual("select * from \"metrics$files\"").getMaterializedRows();
         datafile = toDataFileRecord(materializedRows.get(0));
-        assertEquals(datafile.getRecordCount(), 1);
-        assertEquals(datafile.getValueCounts().size(), 2);
-        assertEquals(datafile.getNullValueCounts().size(), 2);
-        assertEquals(datafile.getUpperBounds().size(), 2);
-        assertEquals(datafile.getLowerBounds().size(), 2);
+        assertThat(datafile.getRecordCount()).isEqualTo(1);
+        assertThat(datafile.getValueCounts().size()).isEqualTo(2);
+        assertThat(datafile.getNullValueCounts().size()).isEqualTo(2);
+        assertThat(datafile.getUpperBounds().size()).isEqualTo(2);
+        assertThat(datafile.getLowerBounds().size()).isEqualTo(2);
     }
 
     @Test
@@ -223,51 +222,51 @@ public class TestIcebergOrcMetricsCollection
     {
         assertUpdate("CREATE TABLE orders WITH (format = 'ORC') AS SELECT * FROM tpch.tiny.orders", 15000);
         MaterializedResult materializedResult = computeActual("SELECT * FROM \"orders$files\"");
-        assertEquals(materializedResult.getRowCount(), 1);
+        assertThat(materializedResult.getRowCount()).isEqualTo(1);
         DataFileRecord datafile = toDataFileRecord(materializedResult.getMaterializedRows().get(0));
 
         // check content
-        assertEquals(datafile.getContent(), FileContent.DATA.id());
+        assertThat(datafile.getContent()).isEqualTo(FileContent.DATA.id());
 
         // Check file format
-        assertEquals(datafile.getFileFormat(), "ORC");
+        assertThat(datafile.getFileFormat()).isEqualTo("ORC");
 
         // Check file row count
-        assertEquals(datafile.getRecordCount(), 15000L);
+        assertThat(datafile.getRecordCount()).isEqualTo(15000L);
 
         // Check per-column value count
-        datafile.getValueCounts().values().forEach(valueCount -> assertEquals(valueCount, (Long) 15000L));
+        datafile.getValueCounts().values().forEach(valueCount -> assertThat(valueCount).isEqualTo((Long) 15000L));
 
         // Check per-column null value count
-        datafile.getNullValueCounts().values().forEach(nullValueCount -> assertEquals(nullValueCount, (Long) 0L));
+        datafile.getNullValueCounts().values().forEach(nullValueCount -> assertThat(nullValueCount).isEqualTo((Long) 0L));
 
         // Check NaN value count
         // TODO: add more checks after NaN info is collected
-        assertNull(datafile.getNanValueCounts());
+        assertThat(datafile.getNanValueCounts()).isNull();
 
         // Check per-column lower bound
         Map<Integer, String> lowerBounds = datafile.getLowerBounds();
-        assertEquals(lowerBounds.get(1), "1");
-        assertEquals(lowerBounds.get(2), "1");
-        assertEquals(lowerBounds.get(3), "F");
-        assertEquals(lowerBounds.get(4), "874.89");
-        assertEquals(lowerBounds.get(5), "1992-01-01");
-        assertEquals(lowerBounds.get(6), "1-URGENT");
-        assertEquals(lowerBounds.get(7), "Clerk#000000001");
-        assertEquals(lowerBounds.get(8), "0");
-        assertEquals(lowerBounds.get(9), " about the accou");
+        assertThat(lowerBounds.get(1)).isEqualTo("1");
+        assertThat(lowerBounds.get(2)).isEqualTo("1");
+        assertThat(lowerBounds.get(3)).isEqualTo("F");
+        assertThat(lowerBounds.get(4)).isEqualTo("874.89");
+        assertThat(lowerBounds.get(5)).isEqualTo("1992-01-01");
+        assertThat(lowerBounds.get(6)).isEqualTo("1-URGENT");
+        assertThat(lowerBounds.get(7)).isEqualTo("Clerk#000000001");
+        assertThat(lowerBounds.get(8)).isEqualTo("0");
+        assertThat(lowerBounds.get(9)).isEqualTo(" about the accou");
 
         // Check per-column upper bound
         Map<Integer, String> upperBounds = datafile.getUpperBounds();
-        assertEquals(upperBounds.get(1), "60000");
-        assertEquals(upperBounds.get(2), "1499");
-        assertEquals(upperBounds.get(3), "P");
-        assertEquals(upperBounds.get(4), "466001.28");
-        assertEquals(upperBounds.get(5), "1998-08-02");
-        assertEquals(upperBounds.get(6), "5-LOW");
-        assertEquals(upperBounds.get(7), "Clerk#000001000");
-        assertEquals(upperBounds.get(8), "0");
-        assertEquals(upperBounds.get(9), "zzle. carefully!");
+        assertThat(upperBounds.get(1)).isEqualTo("60000");
+        assertThat(upperBounds.get(2)).isEqualTo("1499");
+        assertThat(upperBounds.get(3)).isEqualTo("P");
+        assertThat(upperBounds.get(4)).isEqualTo("466001.28");
+        assertThat(upperBounds.get(5)).isEqualTo("1998-08-02");
+        assertThat(upperBounds.get(6)).isEqualTo("5-LOW");
+        assertThat(upperBounds.get(7)).isEqualTo("Clerk#000001000");
+        assertThat(upperBounds.get(8)).isEqualTo("0");
+        assertThat(upperBounds.get(9)).isEqualTo("zzle. carefully!");
 
         assertUpdate("DROP TABLE orders");
     }
@@ -282,41 +281,41 @@ public class TestIcebergOrcMetricsCollection
                 "(4, null, 'ccc', null)," +
                 "(null, null, 'ddd', null)", 4);
         MaterializedResult materializedResult = computeActual("SELECT * FROM \"test_with_nulls$files\"");
-        assertEquals(materializedResult.getRowCount(), 1);
+        assertThat(materializedResult.getRowCount()).isEqualTo(1);
         DataFileRecord datafile = toDataFileRecord(materializedResult.getMaterializedRows().get(0));
 
         // Check per-column value count
-        datafile.getValueCounts().values().forEach(valueCount -> assertEquals(valueCount, (Long) 4L));
+        datafile.getValueCounts().values().forEach(valueCount -> assertThat(valueCount).isEqualTo((Long) 4L));
 
         // Check per-column null value count
-        assertEquals(datafile.getNullValueCounts().get(1), (Long) 1L);
-        assertEquals(datafile.getNullValueCounts().get(2), (Long) 2L);
-        assertEquals(datafile.getNullValueCounts().get(3), (Long) 0L);
-        assertEquals(datafile.getNullValueCounts().get(4), (Long) 2L);
+        assertThat(datafile.getNullValueCounts().get(1)).isEqualTo((Long) 1L);
+        assertThat(datafile.getNullValueCounts().get(2)).isEqualTo((Long) 2L);
+        assertThat(datafile.getNullValueCounts().get(3)).isEqualTo((Long) 0L);
+        assertThat(datafile.getNullValueCounts().get(4)).isEqualTo((Long) 2L);
 
         // Check per-column lower bound
-        assertEquals(datafile.getLowerBounds().get(1), "3");
-        assertEquals(datafile.getLowerBounds().get(2), "3.4");
-        assertEquals(datafile.getLowerBounds().get(3), "aaa");
-        assertEquals(datafile.getLowerBounds().get(4), "2020-01-01T00:00:00.123");
+        assertThat(datafile.getLowerBounds().get(1)).isEqualTo("3");
+        assertThat(datafile.getLowerBounds().get(2)).isEqualTo("3.4");
+        assertThat(datafile.getLowerBounds().get(3)).isEqualTo("aaa");
+        assertThat(datafile.getLowerBounds().get(4)).isEqualTo("2020-01-01T00:00:00.123");
 
         assertUpdate("DROP TABLE test_with_nulls");
 
         assertUpdate("CREATE TABLE test_all_nulls (_integer INTEGER)");
         assertUpdate("INSERT INTO test_all_nulls VALUES null, null, null", 3);
         materializedResult = computeActual("SELECT * FROM \"test_all_nulls$files\"");
-        assertEquals(materializedResult.getRowCount(), 1);
+        assertThat(materializedResult.getRowCount()).isEqualTo(1);
         datafile = toDataFileRecord(materializedResult.getMaterializedRows().get(0));
 
         // Check per-column value count
-        assertEquals(datafile.getValueCounts().get(1), (Long) 3L);
+        assertThat(datafile.getValueCounts().get(1)).isEqualTo((Long) 3L);
 
         // Check per-column null value count
-        assertEquals(datafile.getNullValueCounts().get(1), (Long) 3L);
+        assertThat(datafile.getNullValueCounts().get(1)).isEqualTo((Long) 3L);
 
         // Check that lower bounds and upper bounds are nulls. (There's no non-null record)
-        assertNull(datafile.getLowerBounds());
-        assertNull(datafile.getUpperBounds());
+        assertThat(datafile.getLowerBounds()).isNull();
+        assertThat(datafile.getUpperBounds()).isNull();
 
         assertUpdate("DROP TABLE test_all_nulls");
     }
@@ -327,21 +326,21 @@ public class TestIcebergOrcMetricsCollection
         assertUpdate("CREATE TABLE test_with_nans (_int INTEGER, _real REAL, _double DOUBLE)");
         assertUpdate("INSERT INTO test_with_nans VALUES (1, 1.1, 1.1), (2, nan(), 4.5), (3, 4.6, -nan())", 3);
         MaterializedResult materializedResult = computeActual("SELECT * FROM \"test_with_nans$files\"");
-        assertEquals(materializedResult.getRowCount(), 1);
+        assertThat(materializedResult.getRowCount()).isEqualTo(1);
         DataFileRecord datafile = toDataFileRecord(materializedResult.getMaterializedRows().get(0));
 
         // Check per-column value count
-        datafile.getValueCounts().values().forEach(valueCount -> assertEquals(valueCount, (Long) 3L));
+        datafile.getValueCounts().values().forEach(valueCount -> assertThat(valueCount).isEqualTo((Long) 3L));
 
         // Check per-column nan value count
-        assertEquals(datafile.getNanValueCounts().size(), 2);
-        assertEquals(datafile.getNanValueCounts().get(2), (Long) 1L);
-        assertEquals(datafile.getNanValueCounts().get(3), (Long) 1L);
+        assertThat(datafile.getNanValueCounts().size()).isEqualTo(2);
+        assertThat(datafile.getNanValueCounts().get(2)).isEqualTo((Long) 1L);
+        assertThat(datafile.getNanValueCounts().get(3)).isEqualTo((Long) 1L);
 
-        assertNull(datafile.getLowerBounds().get(2));
-        assertNull(datafile.getLowerBounds().get(3));
-        assertNull(datafile.getUpperBounds().get(2));
-        assertNull(datafile.getUpperBounds().get(3));
+        assertThat(datafile.getLowerBounds().get(2)).isNull();
+        assertThat(datafile.getLowerBounds().get(3)).isNull();
+        assertThat(datafile.getUpperBounds().get(2)).isNull();
+        assertThat(datafile.getUpperBounds().get(3)).isNull();
 
         assertUpdate("DROP TABLE test_with_nans");
     }
@@ -356,7 +355,7 @@ public class TestIcebergOrcMetricsCollection
                 "(8, ROW(0, ARRAY[14, 17, 21], 3.9)), " +
                 "(3, ROW(10, ARRAY[15, 18, 22], 4.9))", 4);
         MaterializedResult materializedResult = computeActual("SELECT * FROM \"test_nested_types$files\"");
-        assertEquals(materializedResult.getRowCount(), 1);
+        assertThat(materializedResult.getRowCount()).isEqualTo(1);
         DataFileRecord datafile = toDataFileRecord(materializedResult.getMaterializedRows().get(0));
 
         Map<Integer, String> lowerBounds = datafile.getLowerBounds();
@@ -366,20 +365,20 @@ public class TestIcebergOrcMetricsCollection
         // 1. top-level primitive columns
         // 2. and nested primitive fields that are not descendants of LISTs or MAPs
         // should appear in lowerBounds or UpperBounds
-        assertEquals(lowerBounds.size(), 3);
-        assertEquals(upperBounds.size(), 3);
+        assertThat(lowerBounds.size()).isEqualTo(3);
+        assertThat(upperBounds.size()).isEqualTo(3);
 
         // col1
-        assertEquals(lowerBounds.get(1), "-9");
-        assertEquals(upperBounds.get(1), "8");
+        assertThat(lowerBounds.get(1)).isEqualTo("-9");
+        assertThat(upperBounds.get(1)).isEqualTo("8");
 
         // col2.f1 (key in lowerBounds/upperBounds is Iceberg ID)
-        assertEquals(lowerBounds.get(3), "0");
-        assertEquals(upperBounds.get(3), "10");
+        assertThat(lowerBounds.get(3)).isEqualTo("0");
+        assertThat(upperBounds.get(3)).isEqualTo("10");
 
         // col2.f3 (key in lowerBounds/upperBounds is Iceberg ID)
-        assertEquals(lowerBounds.get(5), "-2.9");
-        assertEquals(upperBounds.get(5), "4.9");
+        assertThat(lowerBounds.get(5)).isEqualTo("-2.9");
+        assertThat(upperBounds.get(5)).isEqualTo("4.9");
 
         assertUpdate("DROP TABLE test_nested_types");
     }
@@ -393,27 +392,27 @@ public class TestIcebergOrcMetricsCollection
                 "(TIMESTAMP '2021-01-01 00:00:00.222222'), " +
                 "(TIMESTAMP '2021-01-31 00:00:00.333333')", 3);
         MaterializedResult materializedResult = computeActual("SELECT * FROM \"test_timestamp$files\"");
-        assertEquals(materializedResult.getRowCount(), 1);
+        assertThat(materializedResult.getRowCount()).isEqualTo(1);
         DataFileRecord datafile = toDataFileRecord(materializedResult.getMaterializedRows().get(0));
 
         // Check file format
-        assertEquals(datafile.getFileFormat(), "ORC");
+        assertThat(datafile.getFileFormat()).isEqualTo("ORC");
 
         // Check file row count
-        assertEquals(datafile.getRecordCount(), 3L);
+        assertThat(datafile.getRecordCount()).isEqualTo(3L);
 
         // Check per-column value count
-        datafile.getValueCounts().values().forEach(valueCount -> assertEquals(valueCount, (Long) 3L));
+        datafile.getValueCounts().values().forEach(valueCount -> assertThat(valueCount).isEqualTo((Long) 3L));
 
         // Check per-column null value count
-        datafile.getNullValueCounts().values().forEach(nullValueCount -> assertEquals(nullValueCount, (Long) 0L));
+        datafile.getNullValueCounts().values().forEach(nullValueCount -> assertThat(nullValueCount).isEqualTo((Long) 0L));
 
         // Check column lower bound. Min timestamp doesn't rely on file-level statistics and will not be truncated to milliseconds.
-        assertEquals(datafile.getLowerBounds().get(1), "2021-01-01T00:00:00.111");
+        assertThat(datafile.getLowerBounds().get(1)).isEqualTo("2021-01-01T00:00:00.111");
         assertQuery("SELECT min(_timestamp) FROM test_timestamp", "VALUES '2021-01-01 00:00:00.111111'");
 
         // Check column upper bound. Max timestamp doesn't rely on file-level statistics and will not be truncated to milliseconds.
-        assertEquals(datafile.getUpperBounds().get(1), "2021-01-31T00:00:00.333999");
+        assertThat(datafile.getUpperBounds().get(1)).isEqualTo("2021-01-31T00:00:00.333999");
         assertQuery("SELECT max(_timestamp) FROM test_timestamp", "VALUES '2021-01-31 00:00:00.333333'");
 
         assertUpdate("DROP TABLE test_timestamp");

@@ -34,12 +34,10 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -69,10 +67,10 @@ public class TestAsyncQueue
         queue.offer("1");
         queue.offer("2");
         queue.offer("3");
-        assertEquals(queue.getBatchAsync(100).get(), ImmutableList.of("1", "2", "3"));
+        assertThat(queue.getBatchAsync(100).get()).isEqualTo(ImmutableList.of("1", "2", "3"));
 
         queue.finish();
-        assertTrue(queue.isFinished());
+        assertThat(queue.isFinished()).isTrue();
     }
 
     @Test
@@ -82,29 +80,29 @@ public class TestAsyncQueue
     {
         AsyncQueue<String> queue = new AsyncQueue<>(4, executor);
 
-        assertTrue(queue.offer("1").isDone());
-        assertTrue(queue.offer("2").isDone());
-        assertTrue(queue.offer("3").isDone());
+        assertThat(queue.offer("1").isDone()).isTrue();
+        assertThat(queue.offer("2").isDone()).isTrue();
+        assertThat(queue.offer("3").isDone()).isTrue();
 
-        assertFalse(queue.offer("4").isDone());
-        assertFalse(queue.offer("5").isDone());
+        assertThat(queue.offer("4").isDone()).isFalse();
+        assertThat(queue.offer("5").isDone()).isFalse();
         ListenableFuture<Void> offerFuture = queue.offer("6");
-        assertFalse(offerFuture.isDone());
+        assertThat(offerFuture.isDone()).isFalse();
 
-        assertEquals(queue.getBatchAsync(2).get(), ImmutableList.of("1", "2"));
-        assertFalse(offerFuture.isDone());
+        assertThat(queue.getBatchAsync(2).get()).isEqualTo(ImmutableList.of("1", "2"));
+        assertThat(offerFuture.isDone()).isFalse();
 
-        assertEquals(queue.getBatchAsync(1).get(), ImmutableList.of("3"));
+        assertThat(queue.getBatchAsync(1).get()).isEqualTo(ImmutableList.of("3"));
         offerFuture.get();
 
         offerFuture = queue.offer("7");
-        assertFalse(offerFuture.isDone());
+        assertThat(offerFuture.isDone()).isFalse();
 
         queue.finish();
         offerFuture.get();
-        assertFalse(queue.isFinished());
-        assertEquals(queue.getBatchAsync(4).get(), ImmutableList.of("4", "5", "6", "7"));
-        assertTrue(queue.isFinished());
+        assertThat(queue.isFinished()).isFalse();
+        assertThat(queue.getBatchAsync(4).get()).isEqualTo(ImmutableList.of("4", "5", "6", "7"));
+        assertThat(queue.isFinished()).isTrue();
     }
 
     @Test
@@ -114,22 +112,22 @@ public class TestAsyncQueue
     {
         AsyncQueue<String> queue = new AsyncQueue<>(4, executor);
 
-        assertTrue(queue.offer("1").isDone());
-        assertTrue(queue.offer("2").isDone());
-        assertTrue(queue.offer("3").isDone());
-        assertEquals(queue.getBatchAsync(2).get(), ImmutableList.of("1", "2"));
-        assertEquals(queue.getBatchAsync(2).get(), ImmutableList.of("3"));
+        assertThat(queue.offer("1").isDone()).isTrue();
+        assertThat(queue.offer("2").isDone()).isTrue();
+        assertThat(queue.offer("3").isDone()).isTrue();
+        assertThat(queue.getBatchAsync(2).get()).isEqualTo(ImmutableList.of("1", "2"));
+        assertThat(queue.getBatchAsync(2).get()).isEqualTo(ImmutableList.of("3"));
         ListenableFuture<List<String>> batchFuture = queue.getBatchAsync(2);
-        assertFalse(batchFuture.isDone());
+        assertThat(batchFuture.isDone()).isFalse();
 
-        assertTrue(queue.offer("4").isDone());
-        assertEquals(batchFuture.get(), ImmutableList.of("4"));
+        assertThat(queue.offer("4").isDone()).isTrue();
+        assertThat(batchFuture.get()).isEqualTo(ImmutableList.of("4"));
 
         batchFuture = queue.getBatchAsync(2);
-        assertFalse(batchFuture.isDone());
+        assertThat(batchFuture.isDone()).isFalse();
         queue.finish();
         batchFuture.get();
-        assertTrue(queue.isFinished());
+        assertThat(queue.isFinished()).isTrue();
     }
 
     @Test
@@ -139,19 +137,19 @@ public class TestAsyncQueue
     {
         AsyncQueue<String> queue = new AsyncQueue<>(4, executor);
 
-        assertTrue(queue.offer("1").isDone());
-        assertTrue(queue.offer("2").isDone());
-        assertTrue(queue.offer("3").isDone());
-        assertFalse(queue.offer("4").isDone());
+        assertThat(queue.offer("1").isDone()).isTrue();
+        assertThat(queue.offer("2").isDone()).isTrue();
+        assertThat(queue.offer("3").isDone()).isTrue();
+        assertThat(queue.offer("4").isDone()).isFalse();
 
         queue.finish();
-        assertTrue(queue.offer("5").isDone());
-        assertTrue(queue.offer("6").isDone());
-        assertTrue(queue.offer("7").isDone());
-        assertFalse(queue.isFinished());
+        assertThat(queue.offer("5").isDone()).isTrue();
+        assertThat(queue.offer("6").isDone()).isTrue();
+        assertThat(queue.offer("7").isDone()).isTrue();
+        assertThat(queue.isFinished()).isFalse();
 
-        assertEquals(queue.getBatchAsync(100).get(), ImmutableList.of("1", "2", "3", "4"));
-        assertTrue(queue.isFinished());
+        assertThat(queue.getBatchAsync(100).get()).isEqualTo(ImmutableList.of("1", "2", "3", "4"));
+        assertThat(queue.isFinished()).isTrue();
     }
 
     @Test
@@ -185,12 +183,12 @@ public class TestAsyncQueue
         future3.get();
 
         queue.finish();
-        assertFalse(queue.isFinished());
+        assertThat(queue.isFinished()).isFalse();
 
         AtomicBoolean done = new AtomicBoolean();
         executor.submit(() -> {
             while (!done.get()) {
-                assertFalse(queue.isFinished() || done.get());
+                assertThat(queue.isFinished() || done.get()).isFalse();
             }
         });
 
@@ -202,11 +200,11 @@ public class TestAsyncQueue
         future3.get();
         done.set(true);
 
-        assertFalse(queue.isFinished());
+        assertThat(queue.isFinished()).isFalse();
         ArrayList<Integer> list = new ArrayList<>(queue.getBatchAsync(100).get());
         list.sort(Integer::compare);
-        assertEquals(list, ImmutableList.of(1, 2, 3, 4, 5));
-        assertTrue(queue.isFinished());
+        assertThat(list).isEqualTo(ImmutableList.of(1, 2, 3, 4, 5));
+        assertThat(queue.isFinished()).isTrue();
     }
 
     @Test
@@ -224,7 +222,7 @@ public class TestAsyncQueue
         queue.offer(5);
 
         ListenableFuture<Void> future1 = queue.offer(6);
-        assertFalse(future1.isDone());
+        assertThat(future1.isDone()).isFalse();
 
         Runnable runnable = () -> {
             getFutureValue(queue.borrowBatchAsync(1, elements -> {
@@ -237,23 +235,23 @@ public class TestAsyncQueue
                 .hasMessageContaining("test fail");
 
         ListenableFuture<Void> future2 = queue.offer(7);
-        assertFalse(future1.isDone());
-        assertFalse(future2.isDone());
+        assertThat(future1.isDone()).isFalse();
+        assertThat(future2.isDone()).isFalse();
         queue.finish();
         future1.get();
         future2.get();
-        assertTrue(queue.offer(8).isDone());
+        assertThat(queue.offer(8).isDone()).isTrue();
 
         assertThatThrownBy(() -> executor.submit(runnable).get())
                 .isInstanceOf(ExecutionException.class)
                 .hasMessageContaining("test fail");
 
-        assertTrue(queue.offer(9).isDone());
+        assertThat(queue.offer(9).isDone()).isTrue();
 
-        assertFalse(queue.isFinished());
+        assertThat(queue.isFinished()).isFalse();
         ArrayList<Integer> list = new ArrayList<>(queue.getBatchAsync(100).get());
         // 1 and 2 were removed by borrow call; 8 and 9 were never inserted because insertion happened after finish.
-        assertEquals(list, ImmutableList.of(3, 4, 5, 6, 7));
-        assertTrue(queue.isFinished());
+        assertThat(list).isEqualTo(ImmutableList.of(3, 4, 5, 6, 7));
+        assertThat(queue.isFinished()).isTrue();
     }
 }

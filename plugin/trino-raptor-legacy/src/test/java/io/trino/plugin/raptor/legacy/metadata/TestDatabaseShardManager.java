@@ -92,10 +92,9 @@ import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.stream.Collectors.toSet;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 
 @TestInstance(PER_METHOD)
 @Execution(SAME_THREAD)
@@ -145,7 +144,7 @@ public class TestDatabaseShardManager
         shardManager.commitShards(transactionId, tableId, columns, shards, Optional.empty(), 0);
 
         Set<ShardNodes> actual = getShardNodes(tableId, TupleDomain.all());
-        assertEquals(actual, toShardNodes(shards));
+        assertThat(actual).isEqualTo(toShardNodes(shards));
     }
 
     @Test
@@ -179,7 +178,7 @@ public class TestDatabaseShardManager
         shardManager.commitShards(transactionId, tableId, columns, shardNodes, Optional.empty(), 0);
 
         ShardNodes actual = getOnlyElement(getShardNodes(tableId, TupleDomain.all()));
-        assertEquals(actual, new ShardNodes(shard, ImmutableSet.of("node1")));
+        assertThat(actual).isEqualTo(new ShardNodes(shard, ImmutableSet.of("node1")));
 
         assertTrinoExceptionThrownBy(() -> shardManager.replaceShardAssignment(tableId, shard, "node2", true))
                 .hasErrorCode(SERVER_STARTING_UP)
@@ -189,13 +188,13 @@ public class TestDatabaseShardManager
         shardManager.replaceShardAssignment(tableId, shard, "node2", false);
 
         actual = getOnlyElement(getShardNodes(tableId, TupleDomain.all()));
-        assertEquals(actual, new ShardNodes(shard, ImmutableSet.of("node2")));
+        assertThat(actual).isEqualTo(new ShardNodes(shard, ImmutableSet.of("node2")));
 
         // replacing shard assignment should be idempotent
         shardManager.replaceShardAssignment(tableId, shard, "node2", false);
 
         actual = getOnlyElement(getShardNodes(tableId, TupleDomain.all()));
-        assertEquals(actual, new ShardNodes(shard, ImmutableSet.of("node2")));
+        assertThat(actual).isEqualTo(new ShardNodes(shard, ImmutableSet.of("node2")));
     }
 
     @Test
@@ -216,19 +215,19 @@ public class TestDatabaseShardManager
         long transactionId = shardManager.beginTransaction();
         shardManager.commitShards(transactionId, tableId, columns, shardNodes, Optional.empty(), 0);
 
-        assertEquals(getShardNodes(tableId, TupleDomain.all()), ImmutableSet.of(
+        assertThat(getShardNodes(tableId, TupleDomain.all())).isEqualTo(ImmutableSet.of(
                 new ShardNodes(shard1, ImmutableSet.of("node1")),
                 new ShardNodes(shard2, ImmutableSet.of("node1"))));
 
-        assertEquals(shardManager.getNodeBytes(), ImmutableMap.of("node1", 88L));
+        assertThat(shardManager.getNodeBytes()).isEqualTo(ImmutableMap.of("node1", 88L));
 
         shardManager.replaceShardAssignment(tableId, shard1, "node2", false);
 
-        assertEquals(getShardNodes(tableId, TupleDomain.all()), ImmutableSet.of(
+        assertThat(getShardNodes(tableId, TupleDomain.all())).isEqualTo(ImmutableSet.of(
                 new ShardNodes(shard1, ImmutableSet.of("node2")),
                 new ShardNodes(shard2, ImmutableSet.of("node1"))));
 
-        assertEquals(shardManager.getNodeBytes(), ImmutableMap.of("node1", 55L, "node2", 33L));
+        assertThat(shardManager.getNodeBytes()).isEqualTo(ImmutableMap.of("node1", 55L, "node2", 33L));
     }
 
     @Test
@@ -255,7 +254,7 @@ public class TestDatabaseShardManager
             Set<ShardMetadata> shardMetadata = shardManager.getNodeShards(node);
             Set<UUID> expectedUuids = ImmutableSet.copyOf(nodeShardMap.get(node));
             Set<UUID> actualUuids = shardMetadata.stream().map(ShardMetadata::getShardUuid).collect(toSet());
-            assertEquals(actualUuids, expectedUuids);
+            assertThat(actualUuids).isEqualTo(expectedUuids);
         }
     }
 
@@ -274,7 +273,7 @@ public class TestDatabaseShardManager
         shardManager.commitShards(transactionId, tableId, columns, shardNodes, Optional.empty(), 0);
         Set<UUID> actual = shardManager.getExistingShardUuids(tableId, ImmutableSet.of(shard1, shard2, UUID.randomUUID()));
         Set<UUID> expected = ImmutableSet.of(shard1, shard2);
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -310,7 +309,7 @@ public class TestDatabaseShardManager
 
         shardMetadata = shardManager.getNodeShards(nodes.get(0));
         Set<UUID> actualUuids = shardMetadata.stream().map(ShardMetadata::getShardUuid).collect(toSet());
-        assertEquals(actualUuids, ImmutableSet.copyOf(expectedUuids));
+        assertThat(actualUuids).isEqualTo(ImmutableSet.copyOf(expectedUuids));
 
         // Compute expected all uuids for this table
         Set<UUID> expectedAllUuids = new HashSet<>(originalUuids);
@@ -324,7 +323,7 @@ public class TestDatabaseShardManager
                 .flatMap(Collection::stream)
                 .map(ShardNodes::getShardUuid)
                 .collect(toSet());
-        assertEquals(actualAllUuids, expectedAllUuids);
+        assertThat(actualAllUuids).isEqualTo(expectedAllUuids);
 
         // verify that conflicting updates are handled
         newShards = ImmutableList.of(shardInfo(UUID.randomUUID(), nodes.get(0)));
@@ -376,8 +375,8 @@ public class TestDatabaseShardManager
         shardManager.createBuckets(distributionId, bucketCount);
 
         List<String> assignments = shardManager.getBucketAssignments(distributionId);
-        assertEquals(assignments.size(), bucketCount);
-        assertEquals(ImmutableSet.copyOf(assignments), nodeIds(originalNodes));
+        assertThat(assignments.size()).isEqualTo(bucketCount);
+        assertThat(ImmutableSet.copyOf(assignments)).isEqualTo(nodeIds(originalNodes));
 
         Set<Node> newNodes = ImmutableSet.of(node1, node3);
         shardManager = createShardManager(dbi, () -> newNodes, ticker);
@@ -389,15 +388,15 @@ public class TestDatabaseShardManager
 
         ticker.increment(2, DAYS);
         assignments = shardManager.getBucketAssignments(distributionId);
-        assertEquals(assignments.size(), bucketCount);
-        assertEquals(ImmutableSet.copyOf(assignments), nodeIds(newNodes));
+        assertThat(assignments.size()).isEqualTo(bucketCount);
+        assertThat(ImmutableSet.copyOf(assignments)).isEqualTo(nodeIds(newNodes));
 
         Set<Node> singleNode = ImmutableSet.of(node1);
         shardManager = createShardManager(dbi, () -> singleNode, ticker);
         ticker.increment(2, DAYS);
         assignments = shardManager.getBucketAssignments(distributionId);
-        assertEquals(assignments.size(), bucketCount);
-        assertEquals(ImmutableSet.copyOf(assignments), nodeIds(singleNode));
+        assertThat(assignments.size()).isEqualTo(bucketCount);
+        assertThat(ImmutableSet.copyOf(assignments)).isEqualTo(nodeIds(singleNode));
     }
 
     @Test
@@ -408,7 +407,7 @@ public class TestDatabaseShardManager
         shardManager.createTable(tableId, columns, false, OptionalLong.empty());
 
         try (ResultIterator<BucketShards> iterator = shardManager.getShardNodes(tableId, TupleDomain.all())) {
-            assertFalse(iterator.hasNext());
+            assertThat(iterator.hasNext()).isFalse();
         }
     }
 
@@ -420,7 +419,7 @@ public class TestDatabaseShardManager
         shardManager.createTable(tableId, columns, true, OptionalLong.empty());
 
         try (ResultIterator<BucketShards> iterator = shardManager.getShardNodesBucketed(tableId, true, ImmutableList.of(), TupleDomain.all())) {
-            assertFalse(iterator.hasNext());
+            assertThat(iterator.hasNext()).isFalse();
         }
     }
 
@@ -654,7 +653,7 @@ public class TestDatabaseShardManager
         shardManager.addColumn(tableId, newColumn);
         int after = columnCount(tableId);
         // should be 2 more: min and max columns
-        assertEquals(after, before + 2);
+        assertThat(after).isEqualTo(before + 2);
     }
 
     @Test
@@ -669,7 +668,7 @@ public class TestDatabaseShardManager
         shardManager.addColumn(tableId, columns.get(0));
         int after = columnCount(tableId);
         // no error, no columns added
-        assertEquals(after, before);
+        assertThat(after).isEqualTo(before);
     }
 
     @Test
@@ -783,7 +782,7 @@ public class TestDatabaseShardManager
         {
             TupleDomain<RaptorColumnHandle> predicate = TupleDomain.withColumnDomains(domains);
             Set<ShardNodes> actual = getShardNodes(tableId, predicate);
-            assertEquals(actual, toShardNodes(shards));
+            assertThat(actual).isEqualTo(toShardNodes(shards));
         }
     }
 

@@ -65,10 +65,6 @@ import static java.sql.JDBCType.VARBINARY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotEquals;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 @Execution(SAME_THREAD)
@@ -83,7 +79,9 @@ public class TestJdbcVendorCompatibility
     @BeforeAll
     public void setupServer()
     {
-        assertNotEquals(OTHER_TIMEZONE, TimeZone.getDefault().getID(), "We need a timezone different from the default JVM one");
+        assertThat(OTHER_TIMEZONE)
+                .describedAs("We need a timezone different from the default JVM one")
+                .isNotEqualTo(TimeZone.getDefault().getID());
         Logging.initialize();
         log = Logger.get(TestJdbcVendorCompatibility.class);
         server = TestingTrinoServer.create();
@@ -156,12 +154,12 @@ public class TestJdbcVendorCompatibility
                 Statement statement = connection.createStatement();
                 ConnectionSetup connectionSetup = new ConnectionSetup(referenceDrivers)) {
             checkRepresentation(connection, statement, "DATE '2018-02-13'", DATE, sessionTimezoneId, (rs, reference, column) -> {
-                assertEquals(rs.getDate(column), reference.getDate(column));
-                assertEquals(rs.getDate(column), Date.valueOf(LocalDate.of(2018, 2, 13)));
+                assertThat(rs.getDate(column)).isEqualTo(reference.getDate(column));
+                assertThat(rs.getDate(column)).isEqualTo(Date.valueOf(LocalDate.of(2018, 2, 13)));
 
                 // with calendar
-                assertEquals(rs.getDate(column, getCalendar()), reference.getDate(column, getCalendar()));
-                assertEquals(rs.getDate(column, getCalendar()), new Date(LocalDate.of(2018, 2, 13).atStartOfDay(getZoneId()).toInstant().toEpochMilli()));
+                assertThat(rs.getDate(column, getCalendar())).isEqualTo(reference.getDate(column, getCalendar()));
+                assertThat(rs.getDate(column, getCalendar())).isEqualTo(new Date(LocalDate.of(2018, 2, 13).atStartOfDay(getZoneId()).toInstant().toEpochMilli()));
             });
         }
     }
@@ -184,16 +182,12 @@ public class TestJdbcVendorCompatibility
                 Statement statement = connection.createStatement();
                 ConnectionSetup connectionSetup = new ConnectionSetup(referenceDrivers)) {
             checkRepresentation(connection, statement, "TIMESTAMP '2018-02-13 13:14:15.123'", TIMESTAMP, sessionTimezoneId, (rs, reference, column) -> {
-                assertEquals(rs.getTimestamp(column), reference.getTimestamp(column));
-                assertEquals(
-                        rs.getTimestamp(column),
-                        Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000)));
+                assertThat(rs.getTimestamp(column)).isEqualTo(reference.getTimestamp(column));
+                assertThat(rs.getTimestamp(column)).isEqualTo(Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000)));
 
                 // with calendar
-                assertEquals(rs.getTimestamp(column, getCalendar()), reference.getTimestamp(column, getCalendar()));
-                assertEquals(
-                        rs.getTimestamp(column, getCalendar()),
-                        new Timestamp(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000).atZone(getZoneId()).toInstant().toEpochMilli()));
+                assertThat(rs.getTimestamp(column, getCalendar())).isEqualTo(reference.getTimestamp(column, getCalendar()));
+                assertThat(rs.getTimestamp(column, getCalendar())).isEqualTo(new Timestamp(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000).atZone(getZoneId()).toInstant().toEpochMilli()));
             });
         }
     }
@@ -225,14 +219,14 @@ public class TestJdbcVendorCompatibility
                     (rs, reference, column) -> {
                         Timestamp timestampForPointInTime = Timestamp.from(Instant.EPOCH);
 
-                        assertEquals(rs.getTimestamp(column).getTime(), reference.getTimestamp(column).getTime()); // point in time
-                        assertEquals(rs.getTimestamp(column), reference.getTimestamp(column));
-                        assertEquals(rs.getTimestamp(column), timestampForPointInTime);
+                        assertThat(rs.getTimestamp(column).getTime()).isEqualTo(reference.getTimestamp(column).getTime()); // point in time
+                        assertThat(rs.getTimestamp(column)).isEqualTo(reference.getTimestamp(column));
+                        assertThat(rs.getTimestamp(column)).isEqualTo(timestampForPointInTime);
 
                         // with calendar
-                        assertEquals(rs.getTimestamp(column, getCalendar()).getTime(), reference.getTimestamp(column, getCalendar()).getTime()); // point in time
-                        assertEquals(rs.getTimestamp(column, getCalendar()), reference.getTimestamp(column, getCalendar()));
-                        assertEquals(rs.getTimestamp(column, getCalendar()), timestampForPointInTime);
+                        assertThat(rs.getTimestamp(column, getCalendar()).getTime()).isEqualTo(reference.getTimestamp(column, getCalendar()).getTime()); // point in time
+                        assertThat(rs.getTimestamp(column, getCalendar())).isEqualTo(reference.getTimestamp(column, getCalendar()));
+                        assertThat(rs.getTimestamp(column, getCalendar())).isEqualTo(timestampForPointInTime);
                     });
 
             checkRepresentation(
@@ -247,14 +241,14 @@ public class TestJdbcVendorCompatibility
                                 ZonedDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000, ZoneOffset.ofHoursMinutes(3, 15))
                                         .toInstant());
 
-                        assertEquals(rs.getTimestamp(column).getTime(), reference.getTimestamp(column).getTime()); // point in time
-                        assertEquals(rs.getTimestamp(column), reference.getTimestamp(column));
-                        assertEquals(rs.getTimestamp(column), timestampForPointInTime);
+                        assertThat(rs.getTimestamp(column).getTime()).isEqualTo(reference.getTimestamp(column).getTime()); // point in time
+                        assertThat(rs.getTimestamp(column)).isEqualTo(reference.getTimestamp(column));
+                        assertThat(rs.getTimestamp(column)).isEqualTo(timestampForPointInTime);
 
                         // with calendar
-                        assertEquals(rs.getTimestamp(column, getCalendar()).getTime(), reference.getTimestamp(column, getCalendar()).getTime()); // point in time
-                        assertEquals(rs.getTimestamp(column, getCalendar()), reference.getTimestamp(column, getCalendar()));
-                        assertEquals(rs.getTimestamp(column, getCalendar()), timestampForPointInTime);
+                        assertThat(rs.getTimestamp(column, getCalendar()).getTime()).isEqualTo(reference.getTimestamp(column, getCalendar()).getTime()); // point in time
+                        assertThat(rs.getTimestamp(column, getCalendar())).isEqualTo(reference.getTimestamp(column, getCalendar()));
+                        assertThat(rs.getTimestamp(column, getCalendar())).isEqualTo(timestampForPointInTime);
                     });
 
             checkRepresentation(
@@ -269,14 +263,14 @@ public class TestJdbcVendorCompatibility
                                 ZonedDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000, ZoneId.of("Europe/Warsaw"))
                                         .toInstant());
 
-                        assertEquals(rs.getTimestamp(column).getTime(), reference.getTimestamp(column).getTime()); // point in time
-                        assertEquals(rs.getTimestamp(column), reference.getTimestamp(column));
-                        assertEquals(rs.getTimestamp(column), timestampForPointInTime);
+                        assertThat(rs.getTimestamp(column).getTime()).isEqualTo(reference.getTimestamp(column).getTime()); // point in time
+                        assertThat(rs.getTimestamp(column)).isEqualTo(reference.getTimestamp(column));
+                        assertThat(rs.getTimestamp(column)).isEqualTo(timestampForPointInTime);
 
                         // with calendar
-                        assertEquals(rs.getTimestamp(column, getCalendar()).getTime(), reference.getTimestamp(column, getCalendar()).getTime()); // point in time
-                        assertEquals(rs.getTimestamp(column, getCalendar()), reference.getTimestamp(column, getCalendar()));
-                        assertEquals(rs.getTimestamp(column, getCalendar()), timestampForPointInTime);
+                        assertThat(rs.getTimestamp(column, getCalendar()).getTime()).isEqualTo(reference.getTimestamp(column, getCalendar()).getTime()); // point in time
+                        assertThat(rs.getTimestamp(column, getCalendar())).isEqualTo(reference.getTimestamp(column, getCalendar()));
+                        assertThat(rs.getTimestamp(column, getCalendar())).isEqualTo(timestampForPointInTime);
                     });
         }
     }
@@ -299,12 +293,12 @@ public class TestJdbcVendorCompatibility
                 Statement statement = connection.createStatement();
                 ConnectionSetup connectionSetup = new ConnectionSetup(referenceDrivers)) {
             checkRepresentation(connection, statement, "TIME '09:39:05'", TIME, sessionTimezoneId, (rs, reference, column) -> {
-                assertEquals(rs.getTime(column), reference.getTime(column));
-                assertEquals(rs.getTime(column), Time.valueOf(LocalTime.of(9, 39, 5)));
+                assertThat(rs.getTime(column)).isEqualTo(reference.getTime(column));
+                assertThat(rs.getTime(column)).isEqualTo(Time.valueOf(LocalTime.of(9, 39, 5)));
 
                 // with calendar
-                assertEquals(rs.getTime(column, getCalendar()), reference.getTime(column, getCalendar()));
-                assertEquals(rs.getTime(column, getCalendar()), new Time(LocalDate.of(1970, 1, 1).atTime(LocalTime.of(9, 39, 5)).atZone(getZoneId()).toInstant().toEpochMilli()));
+                assertThat(rs.getTime(column, getCalendar())).isEqualTo(reference.getTime(column, getCalendar()));
+                assertThat(rs.getTime(column, getCalendar())).isEqualTo(new Time(LocalDate.of(1970, 1, 1).atTime(LocalTime.of(9, 39, 5)).atZone(getZoneId()).toInstant().toEpochMilli()));
             });
         }
     }
@@ -392,9 +386,9 @@ public class TestJdbcVendorCompatibility
             binder.bind(statement, 1);
 
             try (ResultSet rs = statement.executeQuery()) {
-                assertTrue(rs.next());
-                assertEquals(expectedValue, rs.getObject(1));
-                assertFalse(rs.next());
+                assertThat(rs.next()).isTrue();
+                assertThat(expectedValue).isEqualTo(rs.getObject(1));
+                assertThat(rs.next()).isFalse();
             }
         }
     }
@@ -456,8 +450,8 @@ public class TestJdbcVendorCompatibility
     {
         try (ResultSet trinoResultSet = trinoQuery(connection, statement, trinoExpression, sessionTimezoneId);
                 ResultSet referenceResultSet = reference.query(referenceExpression, sessionTimezoneId)) {
-            assertTrue(trinoResultSet.next());
-            assertTrue(referenceResultSet.next());
+            assertThat(trinoResultSet.next()).isTrue();
+            assertThat(referenceResultSet.next()).isTrue();
             assertion.accept(trinoResultSet, referenceResultSet, 1);
 
             assertThat(trinoResultSet.getMetaData().getColumnType(1)).as("Trino declared SQL type")
@@ -466,8 +460,8 @@ public class TestJdbcVendorCompatibility
             assertThat(referenceResultSet.getMetaData().getColumnType(1)).as("Reference driver's declared SQL type for " + type)
                     .isEqualTo(reference.expectedDeclaredJdbcType(type));
 
-            assertFalse(trinoResultSet.next());
-            assertFalse(referenceResultSet.next());
+            assertThat(trinoResultSet.next()).isFalse();
+            assertThat(referenceResultSet.next()).isFalse();
         }
     }
 

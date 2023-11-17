@@ -51,13 +51,8 @@ import static io.trino.plugin.hive.util.HiveUtil.DELTA_LAKE_PROVIDER;
 import static io.trino.plugin.hive.util.HiveUtil.ICEBERG_TABLE_TYPE_NAME;
 import static io.trino.plugin.hive.util.HiveUtil.ICEBERG_TABLE_TYPE_VALUE;
 import static io.trino.plugin.hive.util.HiveUtil.SPARK_TABLE_PROVIDER_KEY;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNotSame;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertSame;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_METHOD)
 public class TestGlueToTrinoConverter
@@ -85,28 +80,28 @@ public class TestGlueToTrinoConverter
     public void testConvertDatabase()
     {
         io.trino.plugin.hive.metastore.Database trinoDatabase = GlueToTrinoConverter.convertDatabase(testDatabase);
-        assertEquals(trinoDatabase.getDatabaseName(), testDatabase.getName());
-        assertEquals(trinoDatabase.getLocation().get(), testDatabase.getLocationUri());
-        assertEquals(trinoDatabase.getComment().get(), testDatabase.getDescription());
-        assertEquals(trinoDatabase.getParameters(), testDatabase.getParameters());
-        assertEquals(trinoDatabase.getOwnerName(), Optional.of(PUBLIC_OWNER));
-        assertEquals(trinoDatabase.getOwnerType(), Optional.of(PrincipalType.ROLE));
+        assertThat(trinoDatabase.getDatabaseName()).isEqualTo(testDatabase.getName());
+        assertThat(trinoDatabase.getLocation().get()).isEqualTo(testDatabase.getLocationUri());
+        assertThat(trinoDatabase.getComment().get()).isEqualTo(testDatabase.getDescription());
+        assertThat(trinoDatabase.getParameters()).isEqualTo(testDatabase.getParameters());
+        assertThat(trinoDatabase.getOwnerName()).isEqualTo(Optional.of(PUBLIC_OWNER));
+        assertThat(trinoDatabase.getOwnerType()).isEqualTo(Optional.of(PrincipalType.ROLE));
     }
 
     @Test
     public void testConvertTable()
     {
         io.trino.plugin.hive.metastore.Table trinoTable = GlueToTrinoConverter.convertTable(testTable, testDatabase.getName());
-        assertEquals(trinoTable.getTableName(), testTable.getName());
-        assertEquals(trinoTable.getDatabaseName(), testDatabase.getName());
-        assertEquals(trinoTable.getTableType(), getTableTypeNullable(testTable));
-        assertEquals(trinoTable.getOwner().orElse(null), testTable.getOwner());
-        assertEquals(trinoTable.getParameters(), getTableParameters(testTable));
+        assertThat(trinoTable.getTableName()).isEqualTo(testTable.getName());
+        assertThat(trinoTable.getDatabaseName()).isEqualTo(testDatabase.getName());
+        assertThat(trinoTable.getTableType()).isEqualTo(getTableTypeNullable(testTable));
+        assertThat(trinoTable.getOwner().orElse(null)).isEqualTo(testTable.getOwner());
+        assertThat(trinoTable.getParameters()).isEqualTo(getTableParameters(testTable));
         assertColumnList(trinoTable.getDataColumns(), testTable.getStorageDescriptor().getColumns());
         assertColumnList(trinoTable.getPartitionColumns(), testTable.getPartitionKeys());
         assertStorage(trinoTable.getStorage(), testTable.getStorageDescriptor());
-        assertEquals(trinoTable.getViewOriginalText().get(), testTable.getViewOriginalText());
-        assertEquals(trinoTable.getViewExpandedText().get(), testTable.getViewExpandedText());
+        assertThat(trinoTable.getViewOriginalText().get()).isEqualTo(testTable.getViewOriginalText());
+        assertThat(trinoTable.getViewExpandedText().get()).isEqualTo(testTable.getViewExpandedText());
     }
 
     @Test
@@ -118,18 +113,18 @@ public class TestGlueToTrinoConverter
                 "org.apache.hadoop.hive.serde2.OpenCSVSerde"));
         io.trino.plugin.hive.metastore.Table trinoTable = GlueToTrinoConverter.convertTable(glueTable, testDatabase.getName());
 
-        assertEquals(trinoTable.getTableName(), glueTable.getName());
-        assertEquals(trinoTable.getDatabaseName(), testDatabase.getName());
-        assertEquals(trinoTable.getTableType(), getTableTypeNullable(glueTable));
-        assertEquals(trinoTable.getOwner().orElse(null), glueTable.getOwner());
-        assertEquals(trinoTable.getParameters(), getTableParameters(glueTable));
-        assertEquals(trinoTable.getDataColumns().size(), 1);
-        assertEquals(trinoTable.getDataColumns().get(0).getType(), HIVE_STRING);
+        assertThat(trinoTable.getTableName()).isEqualTo(glueTable.getName());
+        assertThat(trinoTable.getDatabaseName()).isEqualTo(testDatabase.getName());
+        assertThat(trinoTable.getTableType()).isEqualTo(getTableTypeNullable(glueTable));
+        assertThat(trinoTable.getOwner().orElse(null)).isEqualTo(glueTable.getOwner());
+        assertThat(trinoTable.getParameters()).isEqualTo(getTableParameters(glueTable));
+        assertThat(trinoTable.getDataColumns().size()).isEqualTo(1);
+        assertThat(trinoTable.getDataColumns().get(0).getType()).isEqualTo(HIVE_STRING);
 
         assertColumnList(trinoTable.getPartitionColumns(), glueTable.getPartitionKeys());
         assertStorage(trinoTable.getStorage(), glueTable.getStorageDescriptor());
-        assertEquals(trinoTable.getViewOriginalText().get(), glueTable.getViewOriginalText());
-        assertEquals(trinoTable.getViewExpandedText().get(), glueTable.getViewExpandedText());
+        assertThat(trinoTable.getViewOriginalText().get()).isEqualTo(glueTable.getViewOriginalText());
+        assertThat(trinoTable.getViewExpandedText().get()).isEqualTo(glueTable.getViewExpandedText());
     }
 
     @Test
@@ -138,7 +133,7 @@ public class TestGlueToTrinoConverter
         Table table = getGlueTestTable(testDatabase.getName());
         table.setTableType(null);
         io.trino.plugin.hive.metastore.Table trinoTable = GlueToTrinoConverter.convertTable(table, testDatabase.getName());
-        assertEquals(trinoTable.getTableType(), EXTERNAL_TABLE.name());
+        assertThat(trinoTable.getTableType()).isEqualTo(EXTERNAL_TABLE.name());
     }
 
     @Test
@@ -146,7 +141,7 @@ public class TestGlueToTrinoConverter
     {
         testTable.setPartitionKeys(null);
         io.trino.plugin.hive.metastore.Table trinoTable = GlueToTrinoConverter.convertTable(testTable, testDatabase.getName());
-        assertTrue(trinoTable.getPartitionColumns().isEmpty());
+        assertThat(trinoTable.getPartitionColumns().isEmpty()).isTrue();
     }
 
     @Test
@@ -162,12 +157,12 @@ public class TestGlueToTrinoConverter
     {
         GluePartitionConverter converter = createPartitionConverter(testTable);
         io.trino.plugin.hive.metastore.Partition trinoPartition = converter.apply(testPartition);
-        assertEquals(trinoPartition.getDatabaseName(), testPartition.getDatabaseName());
-        assertEquals(trinoPartition.getTableName(), testPartition.getTableName());
+        assertThat(trinoPartition.getDatabaseName()).isEqualTo(testPartition.getDatabaseName());
+        assertThat(trinoPartition.getTableName()).isEqualTo(testPartition.getTableName());
         assertColumnList(trinoPartition.getColumns(), testPartition.getStorageDescriptor().getColumns());
-        assertEquals(trinoPartition.getValues(), testPartition.getValues());
+        assertThat(trinoPartition.getValues()).isEqualTo(testPartition.getValues());
         assertStorage(trinoPartition.getStorage(), testPartition.getStorageDescriptor());
-        assertEquals(trinoPartition.getParameters(), getPartitionParameters(testPartition));
+        assertThat(trinoPartition.getParameters()).isEqualTo(getPartitionParameters(testPartition));
     }
 
     @Test
@@ -189,27 +184,27 @@ public class TestGlueToTrinoConverter
         io.trino.plugin.hive.metastore.Partition trinoPartition = converter.apply(testPartition);
         io.trino.plugin.hive.metastore.Partition trinoPartition2 = converter.apply(partitionTwo);
 
-        assertNotSame(trinoPartition, trinoPartition2);
-        assertSame(trinoPartition2.getDatabaseName(), trinoPartition.getDatabaseName());
-        assertSame(trinoPartition2.getTableName(), trinoPartition.getTableName());
-        assertSame(trinoPartition2.getColumns(), trinoPartition.getColumns());
-        assertSame(trinoPartition2.getParameters(), trinoPartition.getParameters());
-        assertNotSame(trinoPartition2.getValues(), trinoPartition.getValues());
+        assertThat(trinoPartition).isNotSameAs(trinoPartition2);
+        assertThat(trinoPartition2.getDatabaseName()).isSameAs(trinoPartition.getDatabaseName());
+        assertThat(trinoPartition2.getTableName()).isSameAs(trinoPartition.getTableName());
+        assertThat(trinoPartition2.getColumns()).isSameAs(trinoPartition.getColumns());
+        assertThat(trinoPartition2.getParameters()).isSameAs(trinoPartition.getParameters());
+        assertThat(trinoPartition2.getValues()).isNotSameAs(trinoPartition.getValues());
 
         Storage storage = trinoPartition.getStorage();
         Storage storage2 = trinoPartition2.getStorage();
 
-        assertSame(storage2.getStorageFormat(), storage.getStorageFormat());
-        assertSame(storage2.getBucketProperty(), storage.getBucketProperty());
-        assertSame(storage2.getSerdeParameters(), storage.getSerdeParameters());
-        assertNotSame(storage2.getLocation(), storage.getLocation());
+        assertThat(storage2.getStorageFormat()).isSameAs(storage.getStorageFormat());
+        assertThat(storage2.getBucketProperty()).isSameAs(storage.getBucketProperty());
+        assertThat(storage2.getSerdeParameters()).isSameAs(storage.getSerdeParameters());
+        assertThat(storage2.getLocation()).isNotSameAs(storage.getLocation());
     }
 
     @Test
     public void testDatabaseNullParameters()
     {
         testDatabase.setParameters(null);
-        assertNotNull(GlueToTrinoConverter.convertDatabase(testDatabase).getParameters());
+        assertThat(GlueToTrinoConverter.convertDatabase(testDatabase).getParameters()).isNotNull();
     }
 
     @Test
@@ -218,8 +213,8 @@ public class TestGlueToTrinoConverter
         testTable.setParameters(null);
         testTable.getStorageDescriptor().getSerdeInfo().setParameters(null);
         io.trino.plugin.hive.metastore.Table trinoTable = GlueToTrinoConverter.convertTable(testTable, testDatabase.getName());
-        assertNotNull(trinoTable.getParameters());
-        assertNotNull(trinoTable.getStorage().getSerdeParameters());
+        assertThat(trinoTable.getParameters()).isNotNull();
+        assertThat(trinoTable.getStorage().getSerdeParameters()).isNotNull();
     }
 
     @Test
@@ -228,16 +223,16 @@ public class TestGlueToTrinoConverter
         testTable.setParameters(ImmutableMap.of(ICEBERG_TABLE_TYPE_NAME, ICEBERG_TABLE_TYPE_VALUE));
         testTable.setStorageDescriptor(null);
         io.trino.plugin.hive.metastore.Table trinoTable = GlueToTrinoConverter.convertTable(testTable, testDatabase.getName());
-        assertEquals(trinoTable.getDataColumns().size(), 1);
+        assertThat(trinoTable.getDataColumns().size()).isEqualTo(1);
     }
 
     @Test
     public void testIcebergTableNonNullStorageDescriptor()
     {
         testTable.setParameters(ImmutableMap.of(ICEBERG_TABLE_TYPE_NAME, ICEBERG_TABLE_TYPE_VALUE));
-        assertNotNull(testTable.getStorageDescriptor());
+        assertThat(testTable.getStorageDescriptor()).isNotNull();
         io.trino.plugin.hive.metastore.Table trinoTable = GlueToTrinoConverter.convertTable(testTable, testDatabase.getName());
-        assertEquals(trinoTable.getDataColumns().size(), 1);
+        assertThat(trinoTable.getDataColumns().size()).isEqualTo(1);
     }
 
     @Test
@@ -246,46 +241,44 @@ public class TestGlueToTrinoConverter
         testTable.setParameters(ImmutableMap.of(SPARK_TABLE_PROVIDER_KEY, DELTA_LAKE_PROVIDER));
         testTable.setStorageDescriptor(null);
         io.trino.plugin.hive.metastore.Table trinoTable = GlueToTrinoConverter.convertTable(testTable, testDatabase.getName());
-        assertEquals(trinoTable.getDataColumns().size(), 1);
+        assertThat(trinoTable.getDataColumns().size()).isEqualTo(1);
     }
 
     @Test
     public void testDeltaTableNonNullStorageDescriptor()
     {
         testTable.setParameters(ImmutableMap.of(SPARK_TABLE_PROVIDER_KEY, DELTA_LAKE_PROVIDER));
-        assertNotNull(testTable.getStorageDescriptor());
+        assertThat(testTable.getStorageDescriptor()).isNotNull();
         io.trino.plugin.hive.metastore.Table trinoTable = GlueToTrinoConverter.convertTable(testTable, testDatabase.getName());
-        assertEquals(
-                trinoTable.getDataColumns().stream()
-                        .map(Column::getName)
-                        .collect(toImmutableSet()),
-                testTable.getStorageDescriptor().getColumns().stream()
-                        .map(com.amazonaws.services.glue.model.Column::getName)
-                        .collect(toImmutableSet()));
+        assertThat(trinoTable.getDataColumns().stream()
+                .map(Column::getName)
+                .collect(toImmutableSet())).isEqualTo(testTable.getStorageDescriptor().getColumns().stream()
+                .map(com.amazonaws.services.glue.model.Column::getName)
+                .collect(toImmutableSet()));
     }
 
     @Test
     public void testIcebergMaterializedViewNullStorageDescriptor()
     {
         Table testMaterializedView = getGlueTestTrinoMaterializedView(testDatabase.getName());
-        assertNull(testMaterializedView.getStorageDescriptor());
+        assertThat(testMaterializedView.getStorageDescriptor()).isNull();
         io.trino.plugin.hive.metastore.Table trinoTable = GlueToTrinoConverter.convertTable(testMaterializedView, testDatabase.getName());
-        assertEquals(trinoTable.getDataColumns().size(), 1);
+        assertThat(trinoTable.getDataColumns().size()).isEqualTo(1);
     }
 
     @Test
     public void testPartitionNullParameters()
     {
         testPartition.setParameters(null);
-        assertNotNull(createPartitionConverter(testTable).apply(testPartition).getParameters());
+        assertThat(createPartitionConverter(testTable).apply(testPartition).getParameters()).isNotNull();
     }
 
     private static void assertColumnList(List<Column> actual, List<com.amazonaws.services.glue.model.Column> expected)
     {
         if (expected == null) {
-            assertNull(actual);
+            assertThat(actual).isNull();
         }
-        assertEquals(actual.size(), expected.size());
+        assertThat(actual.size()).isEqualTo(expected.size());
 
         for (int i = 0; i < expected.size(); i++) {
             assertColumn(actual.get(i), expected.get(i));
@@ -294,21 +287,21 @@ public class TestGlueToTrinoConverter
 
     private static void assertColumn(Column actual, com.amazonaws.services.glue.model.Column expected)
     {
-        assertEquals(actual.getName(), expected.getName());
-        assertEquals(actual.getType().getHiveTypeName().toString(), expected.getType());
-        assertEquals(actual.getComment().get(), expected.getComment());
+        assertThat(actual.getName()).isEqualTo(expected.getName());
+        assertThat(actual.getType().getHiveTypeName().toString()).isEqualTo(expected.getType());
+        assertThat(actual.getComment().get()).isEqualTo(expected.getComment());
     }
 
     private static void assertStorage(Storage actual, StorageDescriptor expected)
     {
-        assertEquals(actual.getLocation(), expected.getLocation());
-        assertEquals(actual.getStorageFormat().getSerde(), expected.getSerdeInfo().getSerializationLibrary());
-        assertEquals(actual.getStorageFormat().getInputFormat(), expected.getInputFormat());
-        assertEquals(actual.getStorageFormat().getOutputFormat(), expected.getOutputFormat());
+        assertThat(actual.getLocation()).isEqualTo(expected.getLocation());
+        assertThat(actual.getStorageFormat().getSerde()).isEqualTo(expected.getSerdeInfo().getSerializationLibrary());
+        assertThat(actual.getStorageFormat().getInputFormat()).isEqualTo(expected.getInputFormat());
+        assertThat(actual.getStorageFormat().getOutputFormat()).isEqualTo(expected.getOutputFormat());
         if (!isNullOrEmpty(expected.getBucketColumns())) {
             HiveBucketProperty bucketProperty = actual.getBucketProperty().get();
-            assertEquals(bucketProperty.getBucketedBy(), expected.getBucketColumns());
-            assertEquals(bucketProperty.getBucketCount(), expected.getNumberOfBuckets().intValue());
+            assertThat(bucketProperty.getBucketedBy()).isEqualTo(expected.getBucketColumns());
+            assertThat(bucketProperty.getBucketCount()).isEqualTo(expected.getNumberOfBuckets().intValue());
         }
     }
 }

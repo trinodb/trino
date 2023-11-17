@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BROADCAST_PARTITION_ID;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.BROADCAST;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestBroadcastPipelinedOutputBufferManager
 {
@@ -27,34 +27,34 @@ public class TestBroadcastPipelinedOutputBufferManager
     public void test()
     {
         BroadcastPipelinedOutputBufferManager hashOutputBufferManager = new BroadcastPipelinedOutputBufferManager();
-        assertEquals(hashOutputBufferManager.getOutputBuffers(), PipelinedOutputBuffers.createInitial(BROADCAST));
+        assertThat(hashOutputBufferManager.getOutputBuffers()).isEqualTo(PipelinedOutputBuffers.createInitial(BROADCAST));
 
         hashOutputBufferManager.addOutputBuffer(new OutputBufferId(0));
         PipelinedOutputBuffers expectedOutputBuffers = PipelinedOutputBuffers.createInitial(BROADCAST).withBuffer(new OutputBufferId(0), BROADCAST_PARTITION_ID);
-        assertEquals(hashOutputBufferManager.getOutputBuffers(), expectedOutputBuffers);
+        assertThat(hashOutputBufferManager.getOutputBuffers()).isEqualTo(expectedOutputBuffers);
 
         hashOutputBufferManager.addOutputBuffer(new OutputBufferId(1));
         hashOutputBufferManager.addOutputBuffer(new OutputBufferId(2));
 
         expectedOutputBuffers = expectedOutputBuffers.withBuffer(new OutputBufferId(1), BROADCAST_PARTITION_ID);
         expectedOutputBuffers = expectedOutputBuffers.withBuffer(new OutputBufferId(2), BROADCAST_PARTITION_ID);
-        assertEquals(hashOutputBufferManager.getOutputBuffers(), expectedOutputBuffers);
+        assertThat(hashOutputBufferManager.getOutputBuffers()).isEqualTo(expectedOutputBuffers);
 
         // set no more buffers
         hashOutputBufferManager.addOutputBuffer(new OutputBufferId(3));
         hashOutputBufferManager.noMoreBuffers();
         expectedOutputBuffers = expectedOutputBuffers.withBuffer(new OutputBufferId(3), BROADCAST_PARTITION_ID);
         expectedOutputBuffers = expectedOutputBuffers.withNoMoreBufferIds();
-        assertEquals(hashOutputBufferManager.getOutputBuffers(), expectedOutputBuffers);
+        assertThat(hashOutputBufferManager.getOutputBuffers()).isEqualTo(expectedOutputBuffers);
 
         // try to add another buffer, which should not result in an error
         // and output buffers should not change
         hashOutputBufferManager.addOutputBuffer(new OutputBufferId(5));
-        assertEquals(hashOutputBufferManager.getOutputBuffers(), expectedOutputBuffers);
+        assertThat(hashOutputBufferManager.getOutputBuffers()).isEqualTo(expectedOutputBuffers);
 
         // try to set no more buffers again, which should not result in an error
         // and output buffers should not change
         hashOutputBufferManager.noMoreBuffers();
-        assertEquals(hashOutputBufferManager.getOutputBuffers(), expectedOutputBuffers);
+        assertThat(hashOutputBufferManager.getOutputBuffers()).isEqualTo(expectedOutputBuffers);
     }
 }

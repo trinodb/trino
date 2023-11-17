@@ -21,7 +21,7 @@ import java.util.Random;
 
 import static io.trino.orc.stream.TestingBitPackingUtils.unpackGeneric;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLongBitPacker
 {
@@ -51,9 +51,13 @@ public class TestLongBitPacker
                 RandomByteInputStream actualInput = new RandomByteInputStream();
                 packer.unpack(actual, offset, length, width, actualInput);
                 for (int i = offset; i < length + offset; i++) {
-                    assertEquals(actual[i], expected[i], format("index = %s, length = %s, width = %s, offset = %s", i, length, width, offset));
+                    assertThat(actual[i])
+                            .describedAs(format("index = %s, length = %s, width = %s, offset = %s", i, length, width, offset))
+                            .isEqualTo(expected[i]);
                 }
-                assertEquals(actualInput.getReadBytes(), expectedInput.getReadBytes(), format("Wrong number of bytes read for length = %s, width = %s, offset = %s", length, width, offset));
+                assertThat(actualInput.getReadBytes())
+                        .describedAs(format("Wrong number of bytes read for length = %s, width = %s, offset = %s", length, width, offset))
+                        .isEqualTo(expectedInput.getReadBytes());
             }
         }
     }

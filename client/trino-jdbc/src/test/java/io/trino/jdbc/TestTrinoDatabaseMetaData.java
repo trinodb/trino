@@ -89,9 +89,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 @Execution(SAME_THREAD)
@@ -187,12 +184,16 @@ public class TestTrinoDatabaseMetaData
             Set<String> queries = captureQueries(() -> {
                 String schemaPattern = "defau" + metaData.getSearchStringEscape() + "_t";
                 try (ResultSet resultSet = metaData.getColumns("blackhole", schemaPattern, null, null)) {
-                    assertFalse(resultSet.next(), "There should be no results");
+                    assertThat(resultSet.next())
+                            .describedAs("There should be no results")
+                            .isFalse();
                 }
                 return null;
             });
 
-            assertEquals(queries.size(), 1, "Expected exactly one query, got " + queries.size());
+            assertThat(queries.size())
+                    .describedAs("Expected exactly one query, got " + queries.size())
+                    .isEqualTo(1);
             String query = getOnlyElement(queries);
 
             assertContains(query, "_t' ESCAPE '", "Metadata query does not contain ESCAPE");
@@ -241,7 +242,7 @@ public class TestTrinoDatabaseMetaData
     {
         try (Connection connection = createConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
-            assertEquals(metaData.getURL(), "jdbc:trino://" + server.getAddress());
+            assertThat(metaData.getURL()).isEqualTo("jdbc:trino://" + server.getAddress());
         }
     }
 
@@ -251,10 +252,10 @@ public class TestTrinoDatabaseMetaData
     {
         try (Connection connection = createConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
-            assertEquals(metaData.getDatabaseProductName(), "Trino");
-            assertEquals(metaData.getDatabaseProductVersion(), "testversion");
-            assertEquals(metaData.getDatabaseMajorVersion(), 0);
-            assertEquals(metaData.getDatabaseMinorVersion(), 0);
+            assertThat(metaData.getDatabaseProductName()).isEqualTo("Trino");
+            assertThat(metaData.getDatabaseProductVersion()).isEqualTo("testversion");
+            assertThat(metaData.getDatabaseMajorVersion()).isEqualTo(0);
+            assertThat(metaData.getDatabaseMinorVersion()).isEqualTo(0);
         }
     }
 
@@ -264,7 +265,7 @@ public class TestTrinoDatabaseMetaData
     {
         try (Connection connection = createConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
-            assertEquals(metaData.getUserName(), "admin");
+            assertThat(metaData.getUserName()).isEqualTo("admin");
         }
     }
 
@@ -278,9 +279,9 @@ public class TestTrinoDatabaseMetaData
                         .isEqualTo(list(list("blackhole"), list("hive"), list(COUNTING_CATALOG), list("system"), list(TEST_CATALOG)));
 
                 ResultSetMetaData metadata = rs.getMetaData();
-                assertEquals(metadata.getColumnCount(), 1);
-                assertEquals(metadata.getColumnLabel(1), "TABLE_CAT");
-                assertEquals(metadata.getColumnType(1), Types.VARCHAR);
+                assertThat(metadata.getColumnCount()).isEqualTo(1);
+                assertThat(metadata.getColumnLabel(1)).isEqualTo("TABLE_CAT");
+                assertThat(metadata.getColumnType(1)).isEqualTo(Types.VARCHAR);
             }
         }
     }
@@ -400,13 +401,13 @@ public class TestTrinoDatabaseMetaData
         }
 
         ResultSetMetaData metadata = rs.getMetaData();
-        assertEquals(metadata.getColumnCount(), 2);
+        assertThat(metadata.getColumnCount()).isEqualTo(2);
 
-        assertEquals(metadata.getColumnLabel(1), "TABLE_SCHEM");
-        assertEquals(metadata.getColumnType(1), Types.VARCHAR);
+        assertThat(metadata.getColumnLabel(1)).isEqualTo("TABLE_SCHEM");
+        assertThat(metadata.getColumnType(1)).isEqualTo(Types.VARCHAR);
 
-        assertEquals(metadata.getColumnLabel(2), "TABLE_CATALOG");
-        assertEquals(metadata.getColumnType(2), Types.VARCHAR);
+        assertThat(metadata.getColumnLabel(2)).isEqualTo("TABLE_CATALOG");
+        assertThat(metadata.getColumnType(2)).isEqualTo(Types.VARCHAR);
     }
 
     @Test
@@ -607,37 +608,37 @@ public class TestTrinoDatabaseMetaData
             throws SQLException
     {
         ResultSetMetaData metadata = rs.getMetaData();
-        assertEquals(metadata.getColumnCount(), 10);
+        assertThat(metadata.getColumnCount()).isEqualTo(10);
 
-        assertEquals(metadata.getColumnLabel(1), "TABLE_CAT");
-        assertEquals(metadata.getColumnType(1), Types.VARCHAR);
+        assertThat(metadata.getColumnLabel(1)).isEqualTo("TABLE_CAT");
+        assertThat(metadata.getColumnType(1)).isEqualTo(Types.VARCHAR);
 
-        assertEquals(metadata.getColumnLabel(2), "TABLE_SCHEM");
-        assertEquals(metadata.getColumnType(2), Types.VARCHAR);
+        assertThat(metadata.getColumnLabel(2)).isEqualTo("TABLE_SCHEM");
+        assertThat(metadata.getColumnType(2)).isEqualTo(Types.VARCHAR);
 
-        assertEquals(metadata.getColumnLabel(3), "TABLE_NAME");
-        assertEquals(metadata.getColumnType(3), Types.VARCHAR);
+        assertThat(metadata.getColumnLabel(3)).isEqualTo("TABLE_NAME");
+        assertThat(metadata.getColumnType(3)).isEqualTo(Types.VARCHAR);
 
-        assertEquals(metadata.getColumnLabel(4), "TABLE_TYPE");
-        assertEquals(metadata.getColumnType(4), Types.VARCHAR);
+        assertThat(metadata.getColumnLabel(4)).isEqualTo("TABLE_TYPE");
+        assertThat(metadata.getColumnType(4)).isEqualTo(Types.VARCHAR);
 
-        assertEquals(metadata.getColumnLabel(5), "REMARKS");
-        assertEquals(metadata.getColumnType(5), Types.VARCHAR);
+        assertThat(metadata.getColumnLabel(5)).isEqualTo("REMARKS");
+        assertThat(metadata.getColumnType(5)).isEqualTo(Types.VARCHAR);
 
-        assertEquals(metadata.getColumnLabel(6), "TYPE_CAT");
-        assertEquals(metadata.getColumnType(6), Types.VARCHAR);
+        assertThat(metadata.getColumnLabel(6)).isEqualTo("TYPE_CAT");
+        assertThat(metadata.getColumnType(6)).isEqualTo(Types.VARCHAR);
 
-        assertEquals(metadata.getColumnLabel(7), "TYPE_SCHEM");
-        assertEquals(metadata.getColumnType(7), Types.VARCHAR);
+        assertThat(metadata.getColumnLabel(7)).isEqualTo("TYPE_SCHEM");
+        assertThat(metadata.getColumnType(7)).isEqualTo(Types.VARCHAR);
 
-        assertEquals(metadata.getColumnLabel(8), "TYPE_NAME");
-        assertEquals(metadata.getColumnType(8), Types.VARCHAR);
+        assertThat(metadata.getColumnLabel(8)).isEqualTo("TYPE_NAME");
+        assertThat(metadata.getColumnType(8)).isEqualTo(Types.VARCHAR);
 
-        assertEquals(metadata.getColumnLabel(9), "SELF_REFERENCING_COL_NAME");
-        assertEquals(metadata.getColumnType(9), Types.VARCHAR);
+        assertThat(metadata.getColumnLabel(9)).isEqualTo("SELF_REFERENCING_COL_NAME");
+        assertThat(metadata.getColumnType(9)).isEqualTo(Types.VARCHAR);
 
-        assertEquals(metadata.getColumnLabel(10), "REF_GENERATION");
-        assertEquals(metadata.getColumnType(10), Types.VARCHAR);
+        assertThat(metadata.getColumnLabel(10)).isEqualTo("REF_GENERATION");
+        assertThat(metadata.getColumnType(10)).isEqualTo(Types.VARCHAR);
     }
 
     @Test
@@ -650,10 +651,10 @@ public class TestTrinoDatabaseMetaData
                         .isEqualTo(list(list("TABLE"), list("VIEW")));
 
                 ResultSetMetaData metadata = tableTypes.getMetaData();
-                assertEquals(metadata.getColumnCount(), 1);
+                assertThat(metadata.getColumnCount()).isEqualTo(1);
 
-                assertEquals(metadata.getColumnLabel(1), "TABLE_TYPE");
-                assertEquals(metadata.getColumnType(1), Types.VARCHAR);
+                assertThat(metadata.getColumnLabel(1)).isEqualTo("TABLE_TYPE");
+                assertThat(metadata.getColumnType(1)).isEqualTo(Types.VARCHAR);
             }
         }
     }
@@ -665,30 +666,30 @@ public class TestTrinoDatabaseMetaData
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getColumns(null, null, "tables", "table_name")) {
                 assertColumnMetadata(rs);
-                assertTrue(rs.next());
-                assertEquals(rs.getString("TABLE_CAT"), "blackhole");
-                assertEquals(rs.getString("TABLE_SCHEM"), "information_schema");
-                assertEquals(rs.getString("TABLE_NAME"), "tables");
-                assertEquals(rs.getString("COLUMN_NAME"), "table_name");
-                assertEquals(rs.getLong("NULLABLE"), DatabaseMetaData.columnNullable);
-                assertEquals(rs.getString("IS_NULLABLE"), "YES");
-                assertEquals(rs.getInt("DATA_TYPE"), Types.VARCHAR);
-                assertTrue(rs.next());
-                assertEquals(rs.getString("TABLE_CAT"), "hive");
-                assertEquals(rs.getString("TABLE_SCHEM"), "information_schema");
-                assertTrue(rs.next());
-                assertEquals(rs.getString("TABLE_CAT"), COUNTING_CATALOG);
-                assertEquals(rs.getString("TABLE_SCHEM"), "information_schema");
-                assertTrue(rs.next());
-                assertEquals(rs.getString("TABLE_CAT"), "system");
-                assertEquals(rs.getString("TABLE_SCHEM"), "information_schema");
-                assertTrue(rs.next());
-                assertEquals(rs.getString("TABLE_CAT"), "system");
-                assertEquals(rs.getString("TABLE_SCHEM"), "jdbc");
-                assertTrue(rs.next());
-                assertEquals(rs.getString("TABLE_CAT"), TEST_CATALOG);
-                assertEquals(rs.getString("TABLE_SCHEM"), "information_schema");
-                assertFalse(rs.next());
+                assertThat(rs.next()).isTrue();
+                assertThat(rs.getString("TABLE_CAT")).isEqualTo("blackhole");
+                assertThat(rs.getString("TABLE_SCHEM")).isEqualTo("information_schema");
+                assertThat(rs.getString("TABLE_NAME")).isEqualTo("tables");
+                assertThat(rs.getString("COLUMN_NAME")).isEqualTo("table_name");
+                assertThat(rs.getLong("NULLABLE")).isEqualTo(DatabaseMetaData.columnNullable);
+                assertThat(rs.getString("IS_NULLABLE")).isEqualTo("YES");
+                assertThat(rs.getInt("DATA_TYPE")).isEqualTo(Types.VARCHAR);
+                assertThat(rs.next()).isTrue();
+                assertThat(rs.getString("TABLE_CAT")).isEqualTo("hive");
+                assertThat(rs.getString("TABLE_SCHEM")).isEqualTo("information_schema");
+                assertThat(rs.next()).isTrue();
+                assertThat(rs.getString("TABLE_CAT")).isEqualTo(COUNTING_CATALOG);
+                assertThat(rs.getString("TABLE_SCHEM")).isEqualTo("information_schema");
+                assertThat(rs.next()).isTrue();
+                assertThat(rs.getString("TABLE_CAT")).isEqualTo("system");
+                assertThat(rs.getString("TABLE_SCHEM")).isEqualTo("information_schema");
+                assertThat(rs.next()).isTrue();
+                assertThat(rs.getString("TABLE_CAT")).isEqualTo("system");
+                assertThat(rs.getString("TABLE_SCHEM")).isEqualTo("jdbc");
+                assertThat(rs.next()).isTrue();
+                assertThat(rs.getString("TABLE_CAT")).isEqualTo(TEST_CATALOG);
+                assertThat(rs.getString("TABLE_SCHEM")).isEqualTo("information_schema");
+                assertThat(rs.next()).isFalse();
             }
         }
 
@@ -730,26 +731,26 @@ public class TestTrinoDatabaseMetaData
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getColumns(TEST_CATALOG, "information_schema", "tables", "%m%")) {
                 assertColumnMetadata(rs);
-                assertTrue(rs.next());
-                assertEquals(rs.getString("COLUMN_NAME"), "table_schema");
-                assertTrue(rs.next());
-                assertEquals(rs.getString("COLUMN_NAME"), "table_name");
-                assertFalse(rs.next());
+                assertThat(rs.next()).isTrue();
+                assertThat(rs.getString("COLUMN_NAME")).isEqualTo("table_schema");
+                assertThat(rs.next()).isTrue();
+                assertThat(rs.getString("COLUMN_NAME")).isEqualTo("table_name");
+                assertThat(rs.next()).isFalse();
             }
         }
 
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getColumns(TEST_CATALOG, "tiny", "supplier", "suppkey")) {
                 assertColumnMetadata(rs);
-                assertTrue(rs.next());
-                assertEquals(rs.getLong("NULLABLE"), DatabaseMetaData.columnNoNulls);
-                assertEquals(rs.getString("IS_NULLABLE"), "NO");
+                assertThat(rs.next()).isTrue();
+                assertThat(rs.getLong("NULLABLE")).isEqualTo(DatabaseMetaData.columnNoNulls);
+                assertThat(rs.getString("IS_NULLABLE")).isEqualTo("NO");
             }
         }
 
         try (Connection connection = createConnection("blackhole", "blackhole");
                 Statement statement = connection.createStatement()) {
-            assertEquals(statement.executeUpdate(
+            assertThat(statement.executeUpdate(
                     "CREATE TABLE test_get_columns_table (" +
                             "c_boolean boolean, " +
                             "c_bigint bigint, " +
@@ -791,7 +792,7 @@ public class TestTrinoDatabaseMetaData
                             "c_decimal_38_0 decimal(38,0), " +
                             "c_array array<bigint>, " +
                             "c_color color" +
-                            ")"), 0);
+                            ")")).isEqualTo(0);
 
             try (ResultSet rs = connection.getMetaData().getColumns("blackhole", "blackhole", "test_get_columns_table", null)) {
                 assertColumnMetadata(rs);
@@ -835,7 +836,7 @@ public class TestTrinoDatabaseMetaData
                 assertColumnSpec(rs, Types.DECIMAL, 38L, 10L, 0L, null, createDecimalType(38, 0));
                 assertColumnSpec(rs, Types.ARRAY, null, null, null, null, new ArrayType(BigintType.BIGINT));
                 assertColumnSpec(rs, Types.JAVA_OBJECT, null, null, null, null, ColorType.COLOR);
-                assertFalse(rs.next());
+                assertThat(rs.next()).isFalse();
             }
         }
     }
@@ -844,92 +845,104 @@ public class TestTrinoDatabaseMetaData
             throws SQLException
     {
         String message = " of " + type.getDisplayName() + ": ";
-        assertTrue(rs.next());
-        assertEquals(rs.getObject("TYPE_NAME"), type.getDisplayName(), "TYPE_NAME");
-        assertEquals(rs.getObject("DATA_TYPE"), (long) jdbcType, "DATA_TYPE" + message);
-        assertEquals(rs.getObject("COLUMN_SIZE"), columnSize, "COLUMN_SIZE" + message);
-        assertEquals(rs.getObject("NUM_PREC_RADIX"), numPrecRadix, "NUM_PREC_RADIX" + message);
-        assertEquals(rs.getObject("DECIMAL_DIGITS"), decimalDigits, "DECIMAL_DIGITS" + message);
-        assertEquals(rs.getObject("CHAR_OCTET_LENGTH"), charOctetLength, "CHAR_OCTET_LENGTH" + message);
+        assertThat(rs.next()).isTrue();
+        assertThat(rs.getObject("TYPE_NAME"))
+                .describedAs("TYPE_NAME")
+                .isEqualTo(type.getDisplayName());
+        assertThat(rs.getObject("DATA_TYPE"))
+                .describedAs("DATA_TYPE" + message)
+                .isEqualTo((long) jdbcType);
+        assertThat(rs.getObject("COLUMN_SIZE"))
+                .describedAs("COLUMN_SIZE" + message)
+                .isEqualTo(columnSize);
+        assertThat(rs.getObject("NUM_PREC_RADIX"))
+                .describedAs("NUM_PREC_RADIX" + message)
+                .isEqualTo(numPrecRadix);
+        assertThat(rs.getObject("DECIMAL_DIGITS"))
+                .describedAs("DECIMAL_DIGITS" + message)
+                .isEqualTo(decimalDigits);
+        assertThat(rs.getObject("CHAR_OCTET_LENGTH"))
+                .describedAs("CHAR_OCTET_LENGTH" + message)
+                .isEqualTo(charOctetLength);
     }
 
     private static void assertColumnMetadata(ResultSet rs)
             throws SQLException
     {
         ResultSetMetaData metadata = rs.getMetaData();
-        assertEquals(metadata.getColumnCount(), 24);
+        assertThat(metadata.getColumnCount()).isEqualTo(24);
 
-        assertEquals(metadata.getColumnLabel(1), "TABLE_CAT");
-        assertEquals(metadata.getColumnType(1), Types.VARCHAR);
+        assertThat(metadata.getColumnLabel(1)).isEqualTo("TABLE_CAT");
+        assertThat(metadata.getColumnType(1)).isEqualTo(Types.VARCHAR);
 
-        assertEquals(metadata.getColumnLabel(2), "TABLE_SCHEM");
-        assertEquals(metadata.getColumnType(2), Types.VARCHAR);
+        assertThat(metadata.getColumnLabel(2)).isEqualTo("TABLE_SCHEM");
+        assertThat(metadata.getColumnType(2)).isEqualTo(Types.VARCHAR);
 
-        assertEquals(metadata.getColumnLabel(3), "TABLE_NAME");
-        assertEquals(metadata.getColumnType(3), Types.VARCHAR);
+        assertThat(metadata.getColumnLabel(3)).isEqualTo("TABLE_NAME");
+        assertThat(metadata.getColumnType(3)).isEqualTo(Types.VARCHAR);
 
-        assertEquals(metadata.getColumnLabel(4), "COLUMN_NAME");
-        assertEquals(metadata.getColumnType(4), Types.VARCHAR);
+        assertThat(metadata.getColumnLabel(4)).isEqualTo("COLUMN_NAME");
+        assertThat(metadata.getColumnType(4)).isEqualTo(Types.VARCHAR);
 
-        assertEquals(metadata.getColumnLabel(5), "DATA_TYPE");
-        assertEquals(metadata.getColumnType(5), Types.BIGINT);
+        assertThat(metadata.getColumnLabel(5)).isEqualTo("DATA_TYPE");
+        assertThat(metadata.getColumnType(5)).isEqualTo(Types.BIGINT);
 
-        assertEquals(metadata.getColumnLabel(6), "TYPE_NAME");
-        assertEquals(metadata.getColumnType(6), Types.VARCHAR);
+        assertThat(metadata.getColumnLabel(6)).isEqualTo("TYPE_NAME");
+        assertThat(metadata.getColumnType(6)).isEqualTo(Types.VARCHAR);
 
-        assertEquals(metadata.getColumnLabel(7), "COLUMN_SIZE");
-        assertEquals(metadata.getColumnType(7), Types.BIGINT);
+        assertThat(metadata.getColumnLabel(7)).isEqualTo("COLUMN_SIZE");
+        assertThat(metadata.getColumnType(7)).isEqualTo(Types.BIGINT);
 
-        assertEquals(metadata.getColumnLabel(8), "BUFFER_LENGTH");
-        assertEquals(metadata.getColumnType(8), Types.BIGINT);
+        assertThat(metadata.getColumnLabel(8)).isEqualTo("BUFFER_LENGTH");
+        assertThat(metadata.getColumnType(8)).isEqualTo(Types.BIGINT);
 
-        assertEquals(metadata.getColumnLabel(9), "DECIMAL_DIGITS");
-        assertEquals(metadata.getColumnType(9), Types.BIGINT);
+        assertThat(metadata.getColumnLabel(9)).isEqualTo("DECIMAL_DIGITS");
+        assertThat(metadata.getColumnType(9)).isEqualTo(Types.BIGINT);
 
-        assertEquals(metadata.getColumnLabel(10), "NUM_PREC_RADIX");
-        assertEquals(metadata.getColumnType(10), Types.BIGINT);
+        assertThat(metadata.getColumnLabel(10)).isEqualTo("NUM_PREC_RADIX");
+        assertThat(metadata.getColumnType(10)).isEqualTo(Types.BIGINT);
 
-        assertEquals(metadata.getColumnLabel(11), "NULLABLE");
-        assertEquals(metadata.getColumnType(11), Types.BIGINT);
+        assertThat(metadata.getColumnLabel(11)).isEqualTo("NULLABLE");
+        assertThat(metadata.getColumnType(11)).isEqualTo(Types.BIGINT);
 
-        assertEquals(metadata.getColumnLabel(12), "REMARKS");
-        assertEquals(metadata.getColumnType(12), Types.VARCHAR);
+        assertThat(metadata.getColumnLabel(12)).isEqualTo("REMARKS");
+        assertThat(metadata.getColumnType(12)).isEqualTo(Types.VARCHAR);
 
-        assertEquals(metadata.getColumnLabel(13), "COLUMN_DEF");
-        assertEquals(metadata.getColumnType(13), Types.VARCHAR);
+        assertThat(metadata.getColumnLabel(13)).isEqualTo("COLUMN_DEF");
+        assertThat(metadata.getColumnType(13)).isEqualTo(Types.VARCHAR);
 
-        assertEquals(metadata.getColumnLabel(14), "SQL_DATA_TYPE");
-        assertEquals(metadata.getColumnType(14), Types.BIGINT);
+        assertThat(metadata.getColumnLabel(14)).isEqualTo("SQL_DATA_TYPE");
+        assertThat(metadata.getColumnType(14)).isEqualTo(Types.BIGINT);
 
-        assertEquals(metadata.getColumnLabel(15), "SQL_DATETIME_SUB");
-        assertEquals(metadata.getColumnType(15), Types.BIGINT);
+        assertThat(metadata.getColumnLabel(15)).isEqualTo("SQL_DATETIME_SUB");
+        assertThat(metadata.getColumnType(15)).isEqualTo(Types.BIGINT);
 
-        assertEquals(metadata.getColumnLabel(16), "CHAR_OCTET_LENGTH");
-        assertEquals(metadata.getColumnType(16), Types.BIGINT);
+        assertThat(metadata.getColumnLabel(16)).isEqualTo("CHAR_OCTET_LENGTH");
+        assertThat(metadata.getColumnType(16)).isEqualTo(Types.BIGINT);
 
-        assertEquals(metadata.getColumnLabel(17), "ORDINAL_POSITION");
-        assertEquals(metadata.getColumnType(17), Types.BIGINT);
+        assertThat(metadata.getColumnLabel(17)).isEqualTo("ORDINAL_POSITION");
+        assertThat(metadata.getColumnType(17)).isEqualTo(Types.BIGINT);
 
-        assertEquals(metadata.getColumnLabel(18), "IS_NULLABLE");
-        assertEquals(metadata.getColumnType(18), Types.VARCHAR);
+        assertThat(metadata.getColumnLabel(18)).isEqualTo("IS_NULLABLE");
+        assertThat(metadata.getColumnType(18)).isEqualTo(Types.VARCHAR);
 
-        assertEquals(metadata.getColumnLabel(19), "SCOPE_CATALOG");
-        assertEquals(metadata.getColumnType(19), Types.VARCHAR);
+        assertThat(metadata.getColumnLabel(19)).isEqualTo("SCOPE_CATALOG");
+        assertThat(metadata.getColumnType(19)).isEqualTo(Types.VARCHAR);
 
-        assertEquals(metadata.getColumnLabel(20), "SCOPE_SCHEMA");
-        assertEquals(metadata.getColumnType(20), Types.VARCHAR);
+        assertThat(metadata.getColumnLabel(20)).isEqualTo("SCOPE_SCHEMA");
+        assertThat(metadata.getColumnType(20)).isEqualTo(Types.VARCHAR);
 
-        assertEquals(metadata.getColumnLabel(21), "SCOPE_TABLE");
-        assertEquals(metadata.getColumnType(21), Types.VARCHAR);
+        assertThat(metadata.getColumnLabel(21)).isEqualTo("SCOPE_TABLE");
+        assertThat(metadata.getColumnType(21)).isEqualTo(Types.VARCHAR);
 
-        assertEquals(metadata.getColumnLabel(22), "SOURCE_DATA_TYPE");
-        assertEquals(metadata.getColumnType(22), Types.BIGINT);
+        assertThat(metadata.getColumnLabel(22)).isEqualTo("SOURCE_DATA_TYPE");
+        assertThat(metadata.getColumnType(22)).isEqualTo(Types.BIGINT);
 
-        assertEquals(metadata.getColumnLabel(23), "IS_AUTOINCREMENT");
-        assertEquals(metadata.getColumnType(23), Types.VARCHAR);
+        assertThat(metadata.getColumnLabel(23)).isEqualTo("IS_AUTOINCREMENT");
+        assertThat(metadata.getColumnType(23)).isEqualTo(Types.VARCHAR);
 
-        assertEquals(metadata.getColumnLabel(24), "IS_GENERATEDCOLUMN");
-        assertEquals(metadata.getColumnType(24), Types.VARCHAR);
+        assertThat(metadata.getColumnLabel(24)).isEqualTo("IS_GENERATEDCOLUMN");
+        assertThat(metadata.getColumnType(24)).isEqualTo(Types.VARCHAR);
     }
 
     @Test
@@ -938,7 +951,7 @@ public class TestTrinoDatabaseMetaData
     {
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getPseudoColumns(null, null, null, null)) {
-                assertFalse(rs.next());
+                assertThat(rs.next()).isFalse();
             }
         }
     }
@@ -949,7 +962,7 @@ public class TestTrinoDatabaseMetaData
     {
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getProcedures(null, null, null)) {
-                assertFalse(rs.next());
+                assertThat(rs.next()).isFalse();
             }
         }
     }
@@ -960,7 +973,7 @@ public class TestTrinoDatabaseMetaData
     {
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getProcedureColumns(null, null, null, null)) {
-                assertFalse(rs.next());
+                assertThat(rs.next()).isFalse();
             }
         }
     }
@@ -971,7 +984,7 @@ public class TestTrinoDatabaseMetaData
     {
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getSuperTables(null, null, null)) {
-                assertFalse(rs.next());
+                assertThat(rs.next()).isFalse();
             }
         }
     }
@@ -982,7 +995,7 @@ public class TestTrinoDatabaseMetaData
     {
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getUDTs(null, null, null, null)) {
-                assertFalse(rs.next());
+                assertThat(rs.next()).isFalse();
             }
         }
     }
@@ -993,7 +1006,7 @@ public class TestTrinoDatabaseMetaData
     {
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getAttributes(null, null, null, null)) {
-                assertFalse(rs.next());
+                assertThat(rs.next()).isFalse();
             }
         }
     }
@@ -1004,7 +1017,7 @@ public class TestTrinoDatabaseMetaData
     {
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getSuperTypes(null, null, null)) {
-                assertFalse(rs.next());
+                assertThat(rs.next()).isFalse();
             }
         }
     }
@@ -1613,25 +1626,25 @@ public class TestTrinoDatabaseMetaData
     @Test
     public void testEscapeIfNecessary()
     {
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, false, null), null);
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, false, "a"), "a");
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, false, "abc_def"), "abc_def");
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, false, "abc__de_f"), "abc__de_f");
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, false, "abc%def"), "abc%def");
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, false, "abc\\_def"), "abc\\_def");
+        assertThat(TrinoDatabaseMetaData.escapeIfNecessary(false, false, null)).isEqualTo(null);
+        assertThat(TrinoDatabaseMetaData.escapeIfNecessary(false, false, "a")).isEqualTo("a");
+        assertThat(TrinoDatabaseMetaData.escapeIfNecessary(false, false, "abc_def")).isEqualTo("abc_def");
+        assertThat(TrinoDatabaseMetaData.escapeIfNecessary(false, false, "abc__de_f")).isEqualTo("abc__de_f");
+        assertThat(TrinoDatabaseMetaData.escapeIfNecessary(false, false, "abc%def")).isEqualTo("abc%def");
+        assertThat(TrinoDatabaseMetaData.escapeIfNecessary(false, false, "abc\\_def")).isEqualTo("abc\\_def");
 
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, false, null), null);
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, false, "a"), "a");
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, false, "abc_def"), "abc\\_def");
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, false, "abc__de_f"), "abc\\_\\_de\\_f");
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, false, "abc%def"), "abc\\%def");
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(true, false, "abc\\_def"), "abc\\\\\\_def");
+        assertThat(TrinoDatabaseMetaData.escapeIfNecessary(true, false, null)).isEqualTo(null);
+        assertThat(TrinoDatabaseMetaData.escapeIfNecessary(true, false, "a")).isEqualTo("a");
+        assertThat(TrinoDatabaseMetaData.escapeIfNecessary(true, false, "abc_def")).isEqualTo("abc\\_def");
+        assertThat(TrinoDatabaseMetaData.escapeIfNecessary(true, false, "abc__de_f")).isEqualTo("abc\\_\\_de\\_f");
+        assertThat(TrinoDatabaseMetaData.escapeIfNecessary(true, false, "abc%def")).isEqualTo("abc\\%def");
+        assertThat(TrinoDatabaseMetaData.escapeIfNecessary(true, false, "abc\\_def")).isEqualTo("abc\\\\\\_def");
 
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, true, null), null);
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, true, "a"), "a");
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, true, "abc_def"), "abc\\_def");
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, true, "abc__de_f"), "abc\\_\\_de\\_f");
-        assertEquals(TrinoDatabaseMetaData.escapeIfNecessary(false, true, "abc\\_def"), "abc\\\\\\_def");
+        assertThat(TrinoDatabaseMetaData.escapeIfNecessary(false, true, null)).isEqualTo(null);
+        assertThat(TrinoDatabaseMetaData.escapeIfNecessary(false, true, "a")).isEqualTo("a");
+        assertThat(TrinoDatabaseMetaData.escapeIfNecessary(false, true, "abc_def")).isEqualTo("abc\\_def");
+        assertThat(TrinoDatabaseMetaData.escapeIfNecessary(false, true, "abc__de_f")).isEqualTo("abc\\_\\_de\\_f");
+        assertThat(TrinoDatabaseMetaData.escapeIfNecessary(false, true, "abc\\_def")).isEqualTo("abc\\\\\\_def");
     }
 
     @Test
@@ -1666,24 +1679,60 @@ public class TestTrinoDatabaseMetaData
             throws SQLException
     {
         String message = " of " + typeName + ": ";
-        assertEquals(rs.getObject("TYPE_NAME"), typeName, "TYPE_NAME" + message);
-        assertEquals(rs.getObject("DATA_TYPE"), (long) dataType, "DATA_TYPE" + message);
-        assertEquals(rs.getObject("PRECISION"), precision, "PRECISION" + message);
-        assertEquals(rs.getObject("LITERAL_PREFIX"), null, "LITERAL_PREFIX" + message);
-        assertEquals(rs.getObject("LITERAL_SUFFIX"), null, "LITERAL_SUFFIX" + message);
-        assertEquals(rs.getObject("CREATE_PARAMS"), null, "CREATE_PARAMS" + message);
-        assertEquals(rs.getObject("NULLABLE"), (long) DatabaseMetaData.typeNullable, "NULLABLE" + message);
-        assertEquals(rs.getObject("CASE_SENSITIVE"), false, "CASE_SENSITIVE" + message);
-        assertEquals(rs.getObject("SEARCHABLE"), (long) DatabaseMetaData.typeSearchable, "SEARCHABLE" + message);
-        assertEquals(rs.getObject("UNSIGNED_ATTRIBUTE"), null, "UNSIGNED_ATTRIBUTE" + message);
-        assertEquals(rs.getObject("FIXED_PREC_SCALE"), false, "FIXED_PREC_SCALE" + message);
-        assertEquals(rs.getObject("AUTO_INCREMENT"), null, "AUTO_INCREMENT" + message);
-        assertEquals(rs.getObject("LOCAL_TYPE_NAME"), null, "LOCAL_TYPE_NAME" + message);
-        assertEquals(rs.getObject("MINIMUM_SCALE"), 0L, "MINIMUM_SCALE" + message);
-        assertEquals(rs.getObject("MAXIMUM_SCALE"), 0L, "MAXIMUM_SCALE" + message);
-        assertEquals(rs.getObject("SQL_DATA_TYPE"), null, "SQL_DATA_TYPE" + message);
-        assertEquals(rs.getObject("SQL_DATETIME_SUB"), null, "SQL_DATETIME_SUB" + message);
-        assertEquals(rs.getObject("NUM_PREC_RADIX"), numPrecRadix, "NUM_PREC_RADIX" + message);
+        assertThat(rs.getObject("TYPE_NAME"))
+                .describedAs("TYPE_NAME" + message)
+                .isEqualTo(typeName);
+        assertThat(rs.getObject("DATA_TYPE"))
+                .describedAs("DATA_TYPE" + message)
+                .isEqualTo((long) dataType);
+        assertThat(rs.getObject("PRECISION"))
+                .describedAs("PRECISION" + message)
+                .isEqualTo(precision);
+        assertThat(rs.getObject("LITERAL_PREFIX"))
+                .describedAs("LITERAL_PREFIX" + message)
+                .isEqualTo(null);
+        assertThat(rs.getObject("LITERAL_SUFFIX"))
+                .describedAs("LITERAL_SUFFIX" + message)
+                .isEqualTo(null);
+        assertThat(rs.getObject("CREATE_PARAMS"))
+                .describedAs("CREATE_PARAMS" + message)
+                .isEqualTo(null);
+        assertThat(rs.getObject("NULLABLE"))
+                .describedAs("NULLABLE" + message)
+                .isEqualTo((long) DatabaseMetaData.typeNullable);
+        assertThat(rs.getObject("CASE_SENSITIVE"))
+                .describedAs("CASE_SENSITIVE" + message)
+                .isEqualTo(false);
+        assertThat(rs.getObject("SEARCHABLE"))
+                .describedAs("SEARCHABLE" + message)
+                .isEqualTo((long) DatabaseMetaData.typeSearchable);
+        assertThat(rs.getObject("UNSIGNED_ATTRIBUTE"))
+                .describedAs("UNSIGNED_ATTRIBUTE" + message)
+                .isEqualTo(null);
+        assertThat(rs.getObject("FIXED_PREC_SCALE"))
+                .describedAs("FIXED_PREC_SCALE" + message)
+                .isEqualTo(false);
+        assertThat(rs.getObject("AUTO_INCREMENT"))
+                .describedAs("AUTO_INCREMENT" + message)
+                .isEqualTo(null);
+        assertThat(rs.getObject("LOCAL_TYPE_NAME"))
+                .describedAs("LOCAL_TYPE_NAME" + message)
+                .isEqualTo(null);
+        assertThat(rs.getObject("MINIMUM_SCALE"))
+                .describedAs("MINIMUM_SCALE" + message)
+                .isEqualTo(0L);
+        assertThat(rs.getObject("MAXIMUM_SCALE"))
+                .describedAs("MAXIMUM_SCALE" + message)
+                .isEqualTo(0L);
+        assertThat(rs.getObject("SQL_DATA_TYPE"))
+                .describedAs("SQL_DATA_TYPE" + message)
+                .isEqualTo(null);
+        assertThat(rs.getObject("SQL_DATETIME_SUB"))
+                .describedAs("SQL_DATETIME_SUB" + message)
+                .isEqualTo(null);
+        assertThat(rs.getObject("NUM_PREC_RADIX"))
+                .describedAs("NUM_PREC_RADIX" + message)
+                .isEqualTo(numPrecRadix);
     }
 
     private Set<String> captureQueries(Callable<?> action)

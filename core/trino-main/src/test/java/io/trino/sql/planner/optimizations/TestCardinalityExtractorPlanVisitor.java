@@ -29,7 +29,7 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
 import static java.util.Collections.emptyList;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCardinalityExtractorPlanVisitor
 {
@@ -38,13 +38,9 @@ public class TestCardinalityExtractorPlanVisitor
     {
         PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), PLANNER_CONTEXT, TEST_SESSION);
 
-        assertEquals(
-                extractCardinality(planBuilder.limit(3, planBuilder.values(emptyList(), ImmutableList.of(emptyList())))),
-                new Cardinality(Range.singleton(1L)));
+        assertThat(extractCardinality(planBuilder.limit(3, planBuilder.values(emptyList(), ImmutableList.of(emptyList()))))).isEqualTo(new Cardinality(Range.singleton(1L)));
 
-        assertEquals(
-                extractCardinality(planBuilder.limit(3, planBuilder.values(emptyList(), ImmutableList.of(emptyList(), emptyList(), emptyList(), emptyList())))),
-                new Cardinality(Range.singleton(3L)));
+        assertThat(extractCardinality(planBuilder.limit(3, planBuilder.values(emptyList(), ImmutableList.of(emptyList(), emptyList(), emptyList(), emptyList()))))).isEqualTo(new Cardinality(Range.singleton(3L)));
     }
 
     @Test
@@ -55,61 +51,54 @@ public class TestCardinalityExtractorPlanVisitor
         ColumnHandle columnHandle = new TestingColumnHandle("column");
 
         // single default aggregation
-        assertEquals(extractCardinality(
-                        planBuilder.aggregation(builder -> builder
-                                .singleGroupingSet()
-                                .source(planBuilder.values(10)))),
-                new Cardinality(Range.singleton(1L)));
+        assertThat(extractCardinality(
+                planBuilder.aggregation(builder -> builder
+                        .singleGroupingSet()
+                        .source(planBuilder.values(10))))).isEqualTo(new Cardinality(Range.singleton(1L)));
 
         // multiple grouping sets with default aggregation with source that produces arbitrary number of rows
-        assertEquals(extractCardinality(
-                        planBuilder.aggregation(builder -> builder
-                                .groupingSets(AggregationNode.groupingSets(
-                                        ImmutableList.of(symbol),
-                                        2,
-                                        ImmutableSet.of(0)))
-                                .source(planBuilder.tableScan(ImmutableList.of(symbol), ImmutableMap.of(symbol, columnHandle))))),
-                new Cardinality(Range.atLeast(1L)));
+        assertThat(extractCardinality(
+                planBuilder.aggregation(builder -> builder
+                        .groupingSets(AggregationNode.groupingSets(
+                                ImmutableList.of(symbol),
+                                2,
+                                ImmutableSet.of(0)))
+                        .source(planBuilder.tableScan(ImmutableList.of(symbol), ImmutableMap.of(symbol, columnHandle)))))).isEqualTo(new Cardinality(Range.atLeast(1L)));
 
         // multiple grouping sets with default aggregation with source that produces exact number of rows
-        assertEquals(extractCardinality(
-                        planBuilder.aggregation(builder -> builder
-                                .groupingSets(AggregationNode.groupingSets(
-                                        ImmutableList.of(symbol),
-                                        2,
-                                        ImmutableSet.of(0)))
-                                .source(planBuilder.values(10, symbol)))),
-                new Cardinality(Range.closed(1L, 10L)));
+        assertThat(extractCardinality(
+                planBuilder.aggregation(builder -> builder
+                        .groupingSets(AggregationNode.groupingSets(
+                                ImmutableList.of(symbol),
+                                2,
+                                ImmutableSet.of(0)))
+                        .source(planBuilder.values(10, symbol))))).isEqualTo(new Cardinality(Range.closed(1L, 10L)));
 
         // multiple grouping sets with default aggregation with source that produces no rows
-        assertEquals(extractCardinality(
-                        planBuilder.aggregation(builder -> builder
-                                .groupingSets(AggregationNode.groupingSets(
-                                        ImmutableList.of(symbol),
-                                        2,
-                                        ImmutableSet.of(0)))
-                                .source(planBuilder.values(0, symbol)))),
-                new Cardinality(Range.singleton(1L)));
+        assertThat(extractCardinality(
+                planBuilder.aggregation(builder -> builder
+                        .groupingSets(AggregationNode.groupingSets(
+                                ImmutableList.of(symbol),
+                                2,
+                                ImmutableSet.of(0)))
+                        .source(planBuilder.values(0, symbol))))).isEqualTo(new Cardinality(Range.singleton(1L)));
 
         // single non-default aggregation with source that produces arbitrary number of rows
-        assertEquals(extractCardinality(
-                        planBuilder.aggregation(builder -> builder
-                                .singleGroupingSet(symbol)
-                                .source(planBuilder.tableScan(ImmutableList.of(symbol), ImmutableMap.of(symbol, columnHandle))))),
-                new Cardinality(Range.atLeast(0L)));
+        assertThat(extractCardinality(
+                planBuilder.aggregation(builder -> builder
+                        .singleGroupingSet(symbol)
+                        .source(planBuilder.tableScan(ImmutableList.of(symbol), ImmutableMap.of(symbol, columnHandle)))))).isEqualTo(new Cardinality(Range.atLeast(0L)));
 
         // single non-default aggregation with source that produces at least single row
-        assertEquals(extractCardinality(
-                        planBuilder.aggregation(builder -> builder
-                                .singleGroupingSet(symbol)
-                                .source(planBuilder.values(10, symbol)))),
-                new Cardinality(Range.closed(1L, 10L)));
+        assertThat(extractCardinality(
+                planBuilder.aggregation(builder -> builder
+                        .singleGroupingSet(symbol)
+                        .source(planBuilder.values(10, symbol))))).isEqualTo(new Cardinality(Range.closed(1L, 10L)));
 
         // single non-default aggregation with source that produces no rows
-        assertEquals(extractCardinality(
-                        planBuilder.aggregation(builder -> builder
-                                .singleGroupingSet(symbol)
-                                .source(planBuilder.values(0, symbol)))),
-                new Cardinality(Range.singleton(0L)));
+        assertThat(extractCardinality(
+                planBuilder.aggregation(builder -> builder
+                        .singleGroupingSet(symbol)
+                        .source(planBuilder.values(0, symbol))))).isEqualTo(new Cardinality(Range.singleton(0L)));
     }
 }

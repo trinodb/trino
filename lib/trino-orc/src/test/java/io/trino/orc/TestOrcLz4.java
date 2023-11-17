@@ -34,7 +34,7 @@ import static io.trino.orc.metadata.CompressionKind.LZ4;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.nio.file.Files.readAllBytes;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOrcLz4
 {
@@ -54,8 +54,8 @@ public class TestOrcLz4
         OrcReader orcReader = OrcReader.createOrcReader(new MemoryOrcDataSource(new OrcDataSourceId("memory"), Slices.wrappedBuffer(data)), new OrcReaderOptions())
                 .orElseThrow(() -> new RuntimeException("File is empty"));
 
-        assertEquals(orcReader.getCompressionKind(), LZ4);
-        assertEquals(orcReader.getFooter().getNumberOfRows(), POSITION_COUNT);
+        assertThat(orcReader.getCompressionKind()).isEqualTo(LZ4);
+        assertThat(orcReader.getFooter().getNumberOfRows()).isEqualTo(POSITION_COUNT);
 
         try (OrcRecordReader reader = orcReader.createRecordReader(
                 orcReader.getRootColumn().getNestedColumns(),
@@ -85,7 +85,7 @@ public class TestOrcLz4
                 }
             }
 
-            assertEquals(rows, reader.getFileRowCount());
+            assertThat(rows).isEqualTo(reader.getFileRowCount());
         }
     }
 

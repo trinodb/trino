@@ -17,7 +17,7 @@ import org.apache.helix.model.InstanceConfig;
 import org.apache.pinot.core.transport.ServerInstance;
 import org.junit.jupiter.api.Test;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestInstance
 {
@@ -26,7 +26,7 @@ public class TestInstance
     {
         InstanceConfig instanceConfig = new InstanceConfig("Server_pinot-server-0.svc.cluster.local_9000");
         ServerInstance serverInstance = new ServerInstance(instanceConfig);
-        assertEquals(serverInstance.getHostname(), "pinot-server-0.svc.cluster.local");
-        assertEquals(serverInstance.getPort(), 9000);
+        assertThat(serverInstance.getHostname()).isEqualTo("pinot-server-0.svc.cluster.local");
+        assertThat(serverInstance.getPort()).isEqualTo(9000);
     }
 }

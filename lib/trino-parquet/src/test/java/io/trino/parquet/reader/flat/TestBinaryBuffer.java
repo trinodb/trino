@@ -18,7 +18,6 @@ import io.airlift.slice.Slices;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertSame;
 
 public class TestBinaryBuffer
 {
@@ -31,14 +30,14 @@ public class TestBinaryBuffer
 
         buffer.add(a, 0);
         Slice result = buffer.asSlice();
-        assertSame(a, result);
+        assertThat(a).isSameAs(result);
 
         buffer.add(b, 1);
 
         result = buffer.asSlice();
         Slice secondInvocation = buffer.asSlice();
 
-        assertSame(secondInvocation, result);
+        assertThat(secondInvocation).isSameAs(result);
         assertThat(result.getBytes()).isEqualTo(new byte[] {0, 1});
     }
 }

@@ -22,7 +22,7 @@ import java.util.List;
 import static io.trino.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.BOOLEAN;
 import static io.trino.orc.metadata.statistics.BooleanStatistics.BOOLEAN_VALUE_BYTES;
 import static io.trino.orc.metadata.statistics.ColumnStatistics.mergeColumnStatistics;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestBooleanStatisticsBuilder
         extends AbstractStatisticsBuilderTest<BooleanStatisticsBuilder, Boolean>
@@ -116,7 +116,7 @@ public class TestBooleanStatisticsBuilder
     {
         if (expectedNumberOfValues > 0) {
             assertColumnStatistics(columnStatistics, expectedNumberOfValues, null, null);
-            assertEquals(columnStatistics.getBooleanStatistics().getTrueValueCount(), trueValueCount);
+            assertThat(columnStatistics.getBooleanStatistics().getTrueValueCount()).isEqualTo(trueValueCount);
         }
     }
 }

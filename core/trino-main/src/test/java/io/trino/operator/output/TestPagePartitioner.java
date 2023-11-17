@@ -98,7 +98,6 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestPagePartitioner
@@ -384,7 +383,7 @@ public class TestPagePartitioner
 
         processPages(pagePartitioner, partitioningMode, page);
 
-        assertEquals(memoryContext.getBytes(), 0);
+        assertThat(memoryContext.getBytes()).isEqualTo(0);
     }
 
     @Test(dataProvider = "partitioningMode")
@@ -399,7 +398,7 @@ public class TestPagePartitioner
         partitioningMode.partitionPage(pagePartitioner, page);
 
         assertThatThrownBy(pagePartitioner::close).isEqualTo(exception);
-        assertEquals(memoryContext.getBytes(), 0);
+        assertThat(memoryContext.getBytes()).isEqualTo(0);
     }
 
     private void testOutputEqualsInput(Type type, PartitioningMode mode1, PartitioningMode mode2)

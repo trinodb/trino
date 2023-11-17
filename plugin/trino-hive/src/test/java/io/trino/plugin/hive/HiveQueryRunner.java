@@ -64,7 +64,7 @@ import static java.nio.file.Files.createDirectories;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public final class HiveQueryRunner
 {
@@ -257,7 +257,9 @@ public final class HiveQueryRunner
 
                 Map<String, String> hiveProperties = new HashMap<>();
                 if (!skipTimezoneSetup) {
-                    assertEquals(DateTimeZone.getDefault(), TIME_ZONE, "Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments");
+                    assertThat(DateTimeZone.getDefault())
+                            .describedAs("Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments")
+                            .isEqualTo(TIME_ZONE);
                     hiveProperties.put("hive.rcfile.time-zone", TIME_ZONE.getID());
                     hiveProperties.put("hive.parquet.time-zone", TIME_ZONE.getID());
                 }

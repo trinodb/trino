@@ -17,7 +17,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.raptor.legacy.storage.ShardRecoveryManager.MissingShardComparator;
 import static io.trino.plugin.raptor.legacy.storage.ShardRecoveryManager.MissingShardRunnable;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMissingShardComparator
 {
@@ -25,10 +25,10 @@ public class TestMissingShardComparator
     public void testOrdering()
     {
         MissingShardComparator comparator = new MissingShardComparator();
-        assertEquals(comparator.compare(new DummyMissingShardRunnable(false), new DummyMissingShardRunnable(false)), 0);
-        assertEquals(comparator.compare(new DummyMissingShardRunnable(false), new DummyMissingShardRunnable(true)), 1);
-        assertEquals(comparator.compare(new DummyMissingShardRunnable(true), new DummyMissingShardRunnable(false)), -1);
-        assertEquals(comparator.compare(new DummyMissingShardRunnable(true), new DummyMissingShardRunnable(true)), 0);
+        assertThat(comparator.compare(new DummyMissingShardRunnable(false), new DummyMissingShardRunnable(false))).isEqualTo(0);
+        assertThat(comparator.compare(new DummyMissingShardRunnable(false), new DummyMissingShardRunnable(true))).isEqualTo(1);
+        assertThat(comparator.compare(new DummyMissingShardRunnable(true), new DummyMissingShardRunnable(false))).isEqualTo(-1);
+        assertThat(comparator.compare(new DummyMissingShardRunnable(true), new DummyMissingShardRunnable(true))).isEqualTo(0);
     }
 
     private static class DummyMissingShardRunnable

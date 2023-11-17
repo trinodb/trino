@@ -55,8 +55,6 @@ import static io.trino.util.DynamicFiltersTestUtil.getSimplifiedDomainString;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 @Isolated
@@ -110,14 +108,14 @@ public abstract class BaseDynamicPartitionPruningTest
         assertEqualsIgnoreOrder(result.getResult(), expected);
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
+        assertThat(dynamicFiltersStats.getTotalDynamicFilters()).isEqualTo(1L);
+        assertThat(dynamicFiltersStats.getLazyDynamicFilters()).isEqualTo(1L);
+        assertThat(dynamicFiltersStats.getReplicatedDynamicFilters()).isEqualTo(0L);
+        assertThat(dynamicFiltersStats.getDynamicFiltersCompleted()).isEqualTo(1L);
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), none(BIGINT).toString(getSession().toConnectorSession()));
-        assertTrue(domainStats.getCollectionDuration().isPresent());
+        assertThat(domainStats.getSimplifiedDomain()).isEqualTo(none(BIGINT).toString(getSession().toConnectorSession()));
+        assertThat(domainStats.getCollectionDuration().isPresent()).isTrue();
     }
 
     @Test
@@ -133,13 +131,13 @@ public abstract class BaseDynamicPartitionPruningTest
         assertEqualsIgnoreOrder(result.getResult(), expected);
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
+        assertThat(dynamicFiltersStats.getTotalDynamicFilters()).isEqualTo(1L);
+        assertThat(dynamicFiltersStats.getLazyDynamicFilters()).isEqualTo(1L);
+        assertThat(dynamicFiltersStats.getReplicatedDynamicFilters()).isEqualTo(0L);
+        assertThat(dynamicFiltersStats.getDynamicFiltersCompleted()).isEqualTo(1L);
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
+        assertThat(domainStats.getSimplifiedDomain()).isEqualTo(singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
     }
 
     @Test
@@ -154,10 +152,10 @@ public abstract class BaseDynamicPartitionPruningTest
         assertEqualsIgnoreOrder(result.getResult(), expected);
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
+        assertThat(dynamicFiltersStats.getTotalDynamicFilters()).isEqualTo(1L);
+        assertThat(dynamicFiltersStats.getLazyDynamicFilters()).isEqualTo(1L);
+        assertThat(dynamicFiltersStats.getReplicatedDynamicFilters()).isEqualTo(0L);
+        assertThat(dynamicFiltersStats.getDynamicFiltersCompleted()).isEqualTo(1L);
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
         assertThat(domainStats.getSimplifiedDomain())
@@ -176,16 +174,14 @@ public abstract class BaseDynamicPartitionPruningTest
         assertEqualsIgnoreOrder(result.getResult(), expected);
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
+        assertThat(dynamicFiltersStats.getTotalDynamicFilters()).isEqualTo(1L);
+        assertThat(dynamicFiltersStats.getLazyDynamicFilters()).isEqualTo(1L);
+        assertThat(dynamicFiltersStats.getReplicatedDynamicFilters()).isEqualTo(0L);
+        assertThat(dynamicFiltersStats.getDynamicFiltersCompleted()).isEqualTo(1L);
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(
-                domainStats.getSimplifiedDomain(),
-                Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 60000L, true)), false)
-                        .toString(getSession().toConnectorSession()));
+        assertThat(domainStats.getSimplifiedDomain()).isEqualTo(Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 60000L, true)), false)
+                .toString(getSession().toConnectorSession()));
     }
 
     @Test
@@ -204,10 +200,10 @@ public abstract class BaseDynamicPartitionPruningTest
         assertEqualsIgnoreOrder(result.getResult(), expected);
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 2L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 2L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 2);
+        assertThat(dynamicFiltersStats.getTotalDynamicFilters()).isEqualTo(2L);
+        assertThat(dynamicFiltersStats.getLazyDynamicFilters()).isEqualTo(2L);
+        assertThat(dynamicFiltersStats.getReplicatedDynamicFilters()).isEqualTo(0L);
+        assertThat(dynamicFiltersStats.getDynamicFiltersCompleted()).isEqualTo(2);
 
         List<DynamicFilterDomainStats> domainStats = dynamicFiltersStats.getDynamicFilterDomainStats();
         assertThat(domainStats).map(DynamicFilterDomainStats::getSimplifiedDomain)
@@ -235,15 +231,15 @@ public abstract class BaseDynamicPartitionPruningTest
 
         OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), getQualifiedTableName("partitioned_lineitem_int"));
         // Probe-side is partially scanned
-        assertEquals(probeStats.getInputPositions(), 615L);
+        assertThat(probeStats.getInputPositions()).isEqualTo(615L);
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
+        assertThat(dynamicFiltersStats.getTotalDynamicFilters()).isEqualTo(1L);
+        assertThat(dynamicFiltersStats.getLazyDynamicFilters()).isEqualTo(1L);
+        assertThat(dynamicFiltersStats.getReplicatedDynamicFilters()).isEqualTo(0L);
+        assertThat(dynamicFiltersStats.getDynamicFiltersCompleted()).isEqualTo(1L);
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
+        assertThat(domainStats.getSimplifiedDomain()).isEqualTo(singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
     }
 
     @Test
@@ -258,13 +254,13 @@ public abstract class BaseDynamicPartitionPruningTest
         assertEqualsIgnoreOrder(result.getResult(), expected);
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
+        assertThat(dynamicFiltersStats.getTotalDynamicFilters()).isEqualTo(1L);
+        assertThat(dynamicFiltersStats.getLazyDynamicFilters()).isEqualTo(1L);
+        assertThat(dynamicFiltersStats.getReplicatedDynamicFilters()).isEqualTo(0L);
+        assertThat(dynamicFiltersStats.getDynamicFiltersCompleted()).isEqualTo(1L);
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), none(BIGINT).toString(getSession().toConnectorSession()));
+        assertThat(domainStats.getSimplifiedDomain()).isEqualTo(none(BIGINT).toString(getSession().toConnectorSession()));
     }
 
     @Test
@@ -279,13 +275,13 @@ public abstract class BaseDynamicPartitionPruningTest
         assertEqualsIgnoreOrder(result.getResult(), expected);
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
+        assertThat(dynamicFiltersStats.getTotalDynamicFilters()).isEqualTo(1L);
+        assertThat(dynamicFiltersStats.getLazyDynamicFilters()).isEqualTo(1L);
+        assertThat(dynamicFiltersStats.getReplicatedDynamicFilters()).isEqualTo(0L);
+        assertThat(dynamicFiltersStats.getDynamicFiltersCompleted()).isEqualTo(1L);
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
+        assertThat(domainStats.getSimplifiedDomain()).isEqualTo(singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
     }
 
     @Test
@@ -300,10 +296,10 @@ public abstract class BaseDynamicPartitionPruningTest
         assertEqualsIgnoreOrder(result.getResult(), expected);
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
+        assertThat(dynamicFiltersStats.getTotalDynamicFilters()).isEqualTo(1L);
+        assertThat(dynamicFiltersStats.getLazyDynamicFilters()).isEqualTo(1L);
+        assertThat(dynamicFiltersStats.getReplicatedDynamicFilters()).isEqualTo(0L);
+        assertThat(dynamicFiltersStats.getDynamicFiltersCompleted()).isEqualTo(1L);
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
         assertThat(domainStats.getSimplifiedDomain())
@@ -322,16 +318,14 @@ public abstract class BaseDynamicPartitionPruningTest
         assertEqualsIgnoreOrder(result.getResult(), expected);
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
+        assertThat(dynamicFiltersStats.getTotalDynamicFilters()).isEqualTo(1L);
+        assertThat(dynamicFiltersStats.getLazyDynamicFilters()).isEqualTo(1L);
+        assertThat(dynamicFiltersStats.getReplicatedDynamicFilters()).isEqualTo(0L);
+        assertThat(dynamicFiltersStats.getDynamicFiltersCompleted()).isEqualTo(1L);
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(
-                domainStats.getSimplifiedDomain(),
-                Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 60000L, true)), false)
-                        .toString(getSession().toConnectorSession()));
+        assertThat(domainStats.getSimplifiedDomain()).isEqualTo(Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 60000L, true)), false)
+                .toString(getSession().toConnectorSession()));
     }
 
     @Test
@@ -346,13 +340,13 @@ public abstract class BaseDynamicPartitionPruningTest
         assertEqualsIgnoreOrder(result.getResult(), expected);
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
+        assertThat(dynamicFiltersStats.getTotalDynamicFilters()).isEqualTo(1L);
+        assertThat(dynamicFiltersStats.getLazyDynamicFilters()).isEqualTo(1L);
+        assertThat(dynamicFiltersStats.getReplicatedDynamicFilters()).isEqualTo(0L);
+        assertThat(dynamicFiltersStats.getDynamicFiltersCompleted()).isEqualTo(1L);
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), none(BIGINT).toString(getSession().toConnectorSession()));
+        assertThat(domainStats.getSimplifiedDomain()).isEqualTo(none(BIGINT).toString(getSession().toConnectorSession()));
     }
 
     @Test
@@ -367,13 +361,13 @@ public abstract class BaseDynamicPartitionPruningTest
         assertEqualsIgnoreOrder(result.getResult(), expected);
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
+        assertThat(dynamicFiltersStats.getTotalDynamicFilters()).isEqualTo(1L);
+        assertThat(dynamicFiltersStats.getLazyDynamicFilters()).isEqualTo(1L);
+        assertThat(dynamicFiltersStats.getReplicatedDynamicFilters()).isEqualTo(0L);
+        assertThat(dynamicFiltersStats.getDynamicFiltersCompleted()).isEqualTo(1L);
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
-        assertEquals(domainStats.getSimplifiedDomain(), singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
+        assertThat(domainStats.getSimplifiedDomain()).isEqualTo(singleValue(BIGINT, 1L).toString(getSession().toConnectorSession()));
     }
 
     @Test
@@ -388,10 +382,10 @@ public abstract class BaseDynamicPartitionPruningTest
         assertEqualsIgnoreOrder(result.getResult(), expected);
 
         DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
-        assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
-        assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);
-        assertEquals(dynamicFiltersStats.getDynamicFiltersCompleted(), 1L);
+        assertThat(dynamicFiltersStats.getTotalDynamicFilters()).isEqualTo(1L);
+        assertThat(dynamicFiltersStats.getLazyDynamicFilters()).isEqualTo(1L);
+        assertThat(dynamicFiltersStats.getReplicatedDynamicFilters()).isEqualTo(0L);
+        assertThat(dynamicFiltersStats.getDynamicFiltersCompleted()).isEqualTo(1L);
 
         DynamicFilterDomainStats domainStats = getOnlyElement(dynamicFiltersStats.getDynamicFilterDomainStats());
         assertThat(domainStats.getSimplifiedDomain())

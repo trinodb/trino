@@ -30,8 +30,8 @@ import static io.trino.sql.QueryUtil.simpleQuery;
 import static io.trino.sql.QueryUtil.table;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestQueryPreparer
 {
@@ -42,8 +42,7 @@ public class TestQueryPreparer
     public void testSelectStatement()
     {
         PreparedQuery preparedQuery = QUERY_PREPARER.prepareQuery(TEST_SESSION, "SELECT * FROM foo");
-        assertEquals(preparedQuery.getStatement(),
-                simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("foo"))));
+        assertThat(preparedQuery.getStatement()).isEqualTo(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("foo"))));
     }
 
     @Test
@@ -53,16 +52,14 @@ public class TestQueryPreparer
                 .addPreparedStatement("my_query", "SELECT * FROM foo")
                 .build();
         PreparedQuery preparedQuery = QUERY_PREPARER.prepareQuery(session, "EXECUTE my_query");
-        assertEquals(preparedQuery.getStatement(),
-                simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("foo"))));
+        assertThat(preparedQuery.getStatement()).isEqualTo(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("foo"))));
     }
 
     @Test
     public void testExecuteImmediateStatement()
     {
         PreparedQuery preparedQuery = QUERY_PREPARER.prepareQuery(TEST_SESSION, "EXECUTE IMMEDIATE 'SELECT * FROM foo'");
-        assertEquals(preparedQuery.getStatement(),
-                simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("foo"))));
+        assertThat(preparedQuery.getStatement()).isEqualTo(simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("foo"))));
     }
 
     @Test

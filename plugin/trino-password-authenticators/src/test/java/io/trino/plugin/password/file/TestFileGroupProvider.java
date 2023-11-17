@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestFileGroupProvider
 {
@@ -46,9 +46,9 @@ public class TestFileGroupProvider
 
     private static void assertGroupProvider(GroupProvider groupProvider)
     {
-        assertEquals(groupProvider.getGroups("user_1"), ImmutableSet.of("group_a", "group_b"));
-        assertEquals(groupProvider.getGroups("user_2"), ImmutableSet.of("group_a"));
-        assertEquals(groupProvider.getGroups("user_3"), ImmutableSet.of("group_b"));
-        assertEquals(groupProvider.getGroups("unknown"), ImmutableSet.of());
+        assertThat(groupProvider.getGroups("user_1")).isEqualTo(ImmutableSet.of("group_a", "group_b"));
+        assertThat(groupProvider.getGroups("user_2")).isEqualTo(ImmutableSet.of("group_a"));
+        assertThat(groupProvider.getGroups("user_3")).isEqualTo(ImmutableSet.of("group_b"));
+        assertThat(groupProvider.getGroups("unknown")).isEqualTo(ImmutableSet.of());
     }
 }

@@ -29,7 +29,7 @@ import java.util.concurrent.TimeUnit;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHdfsConfig
 {
@@ -104,7 +104,7 @@ public class TestHdfsConfig
         HdfsConfig expected = new HdfsConfig()
                 .setNewDirectoryPermissions("skip");
 
-        assertEquals(properties.get("hive.fs.new-directory-permissions"), expected.getNewDirectoryPermissions());
-        assertEquals(Optional.empty(), expected.getNewDirectoryFsPermissions());
+        assertThat(properties.get("hive.fs.new-directory-permissions")).isEqualTo(expected.getNewDirectoryPermissions());
+        assertThat(Optional.empty()).isEqualTo(expected.getNewDirectoryFsPermissions());
     }
 }

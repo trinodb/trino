@@ -24,7 +24,7 @@ import java.util.List;
 import static io.trino.client.ClientStandardTypes.BIGINT;
 import static io.trino.client.ClientStandardTypes.VARCHAR;
 import static java.util.Arrays.asList;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestAutoTablePrinter
 {
@@ -57,7 +57,7 @@ public class TestAutoTablePrinter
                 " bye   | done  |      -15 \n" +
                 "(4 rows)\n";
 
-        assertEquals(writer.getBuffer().toString(), expected);
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 
     @Test
@@ -93,7 +93,7 @@ public class TestAutoTablePrinter
                 "last     | done\n" +
                 "quantity | -15\n";
 
-        assertEquals(writer.getBuffer().toString(), expected);
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 
     static Column column(String name, String type)

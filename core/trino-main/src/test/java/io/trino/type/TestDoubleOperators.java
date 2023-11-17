@@ -48,8 +48,6 @@ import static java.lang.Double.longBitsToDouble;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -837,13 +835,13 @@ public class TestDoubleOperators
     {
         long[] nanRepresentations = new long[] {doubleToLongBits(Double.NaN), 0xfff8000000000000L, 0x7ff8123412341234L, 0xfff8123412341234L};
         for (long nanRepresentation : nanRepresentations) {
-            assertTrue(isNaN(longBitsToDouble(nanRepresentation)));
+            assertThat(isNaN(longBitsToDouble(nanRepresentation))).isTrue();
             // longBitsToDouble() keeps the bitwise difference in NaN
-            assertTrue(nanRepresentation == nanRepresentations[0]
-                    || doubleToRawLongBits(longBitsToDouble(nanRepresentation)) != doubleToRawLongBits(longBitsToDouble(nanRepresentations[0])));
+            assertThat(nanRepresentation == nanRepresentations[0]
+                    || doubleToRawLongBits(longBitsToDouble(nanRepresentation)) != doubleToRawLongBits(longBitsToDouble(nanRepresentations[0]))).isTrue();
 
-            assertEquals(executeHashOperator(longBitsToDouble(nanRepresentation)), executeHashOperator(longBitsToDouble(nanRepresentations[0])));
-            assertEquals(executeXxHash64Operator(longBitsToDouble(nanRepresentation)), executeXxHash64Operator(longBitsToDouble(nanRepresentations[0])));
+            assertThat(executeHashOperator(longBitsToDouble(nanRepresentation))).isEqualTo(executeHashOperator(longBitsToDouble(nanRepresentations[0])));
+            assertThat(executeXxHash64Operator(longBitsToDouble(nanRepresentation))).isEqualTo(executeXxHash64Operator(longBitsToDouble(nanRepresentations[0])));
         }
     }
 
@@ -854,9 +852,9 @@ public class TestDoubleOperators
         double[] zeroes = {0.0, -0.0};
         for (double zero : zeroes) {
             //noinspection SimplifiedTestNGAssertion
-            assertTrue(zero == 0);
-            assertEquals(executeHashOperator(zero), executeHashOperator(zeroes[0]));
-            assertEquals(executeXxHash64Operator(zero), executeXxHash64Operator(zeroes[0]));
+            assertThat(zero == 0).isTrue();
+            assertThat(executeHashOperator(zero)).isEqualTo(executeHashOperator(zeroes[0]));
+            assertThat(executeXxHash64Operator(zero)).isEqualTo(executeXxHash64Operator(zeroes[0]));
         }
     }
 

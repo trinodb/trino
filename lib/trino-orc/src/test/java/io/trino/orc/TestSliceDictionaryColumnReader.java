@@ -37,8 +37,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.nio.file.Files.readAllBytes;
 import static java.time.ZoneOffset.UTC;
 import static java.util.UUID.randomUUID;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSliceDictionaryColumnReader
 {
@@ -62,7 +61,7 @@ public class TestSliceDictionaryColumnReader
                 .orElseThrow(() -> new RuntimeException("File is empty"));
         Footer footer = orcReader.getFooter();
         List<OrcColumn> columns = orcReader.getRootColumn().getNestedColumns();
-        assertTrue(columns.size() == 1);
+        assertThat(columns.size() == 1).isTrue();
         StripeReader stripeReader = new StripeReader(
                 dataSource,
                 UTC,
@@ -88,12 +87,12 @@ public class TestSliceDictionaryColumnReader
                 columnReader.prepareNextRead(1000);
                 columnReader.readBlock();
                 // memory usage check
-                assertEquals(memoryContext.getBytes(), columnReader.getRetainedSizeInBytes());
+                assertThat(memoryContext.getBytes()).isEqualTo(columnReader.getRetainedSizeInBytes());
             }
         }
 
         columnReader.close();
-        assertTrue(memoryContext.getBytes() == 0);
+        assertThat(memoryContext.getBytes() == 0).isTrue();
     }
 
     private List<String> createValues()

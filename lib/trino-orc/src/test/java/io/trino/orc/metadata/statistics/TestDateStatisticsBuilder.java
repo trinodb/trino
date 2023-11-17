@@ -23,10 +23,8 @@ import static io.trino.orc.metadata.statistics.AbstractStatisticsBuilderTest.Sta
 import static io.trino.orc.metadata.statistics.DateStatistics.DATE_VALUE_BYTES;
 import static java.lang.Integer.MAX_VALUE;
 import static java.lang.Integer.MIN_VALUE;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
 
 public class TestDateStatisticsBuilder
         extends AbstractStatisticsBuilderTest<DateStatisticsBuilder, Integer>
@@ -86,10 +84,10 @@ public class TestDateStatisticsBuilder
         statisticsBuilder.addValue(1011);
         statisticsBuilder.addValue(4242);
         BloomFilter bloomFilter = statisticsBuilder.buildColumnStatistics().getBloomFilter();
-        assertNotNull(bloomFilter);
-        assertTrue(bloomFilter.testLong(314));
-        assertTrue(bloomFilter.testLong(1011));
-        assertTrue(bloomFilter.testLong(4242));
-        assertFalse(bloomFilter.testLong(100));
+        assertThat(bloomFilter).isNotNull();
+        assertThat(bloomFilter.testLong(314)).isTrue();
+        assertThat(bloomFilter.testLong(1011)).isTrue();
+        assertThat(bloomFilter.testLong(4242)).isTrue();
+        assertThat(bloomFilter.testLong(100)).isFalse();
     }
 }

@@ -15,13 +15,12 @@ package io.trino.cost;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.sql.planner.Symbol;
+import org.assertj.core.api.Assertions;
 
 import java.util.function.Consumer;
 
 import static com.google.common.collect.Sets.union;
 import static io.trino.cost.EstimateAssertion.assertEstimateEquals;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class PlanNodeStatsAssertion
 {
@@ -45,7 +44,9 @@ public class PlanNodeStatsAssertion
 
     public PlanNodeStatsAssertion outputRowsCountUnknown()
     {
-        assertTrue(Double.isNaN(actual.getOutputRowCount()), "expected unknown outputRowsCount but got " + actual.getOutputRowCount());
+        Assertions.assertThat(Double.isNaN(actual.getOutputRowCount()))
+                .describedAs("expected unknown outputRowsCount but got " + actual.getOutputRowCount())
+                .isTrue();
         return this;
     }
 
@@ -78,7 +79,9 @@ public class PlanNodeStatsAssertion
 
     public PlanNodeStatsAssertion symbolsWithKnownStats(Symbol... symbols)
     {
-        assertEquals(actual.getSymbolsWithKnownStatistics(), ImmutableSet.copyOf(symbols), "symbols with known stats");
+        Assertions.assertThat(actual.getSymbolsWithKnownStatistics())
+                .describedAs("symbols with known stats")
+                .isEqualTo(ImmutableSet.copyOf(symbols));
         return this;
     }
 

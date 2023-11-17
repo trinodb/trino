@@ -32,10 +32,9 @@ import java.util.UUID;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 import static org.testng.util.Strings.isNullOrEmpty;
 
 @TestInstance(PER_CLASS)
@@ -99,19 +98,19 @@ public class TestHiveFileSystemAdl
     {
         Path basePath = new Path(getBasePath(), UUID.randomUUID().toString());
         FileSystem fs = hdfsEnvironment.getFileSystem(TESTING_CONTEXT, basePath);
-        assertFalse(fs.exists(basePath));
+        assertThat(fs.exists(basePath)).isFalse();
 
         // create file foo.txt
         Path path = new Path(basePath, "foo.txt");
-        assertTrue(fs.createNewFile(path));
-        assertTrue(fs.exists(path));
+        assertThat(fs.createNewFile(path)).isTrue();
+        assertThat(fs.exists(path)).isTrue();
 
         // rename foo.txt to bar.txt when bar does not exist
         Path newPath = new Path(basePath, "bar.txt");
-        assertFalse(fs.exists(newPath));
-        assertTrue(fs.rename(path, newPath));
-        assertFalse(fs.exists(path));
-        assertTrue(fs.exists(newPath));
+        assertThat(fs.exists(newPath)).isFalse();
+        assertThat(fs.rename(path, newPath)).isTrue();
+        assertThat(fs.exists(path)).isFalse();
+        assertThat(fs.exists(newPath)).isTrue();
 
         // rename foo.txt to foo.txt when foo.txt does not exist
         // This fails with error no such file in ADLFileSystem
@@ -119,43 +118,43 @@ public class TestHiveFileSystemAdl
                 .isInstanceOf(FileNotFoundException.class);
 
         // create file foo.txt and rename to existing bar.txt
-        assertTrue(fs.createNewFile(path));
-        assertFalse(fs.rename(path, newPath));
+        assertThat(fs.createNewFile(path)).isTrue();
+        assertThat(fs.rename(path, newPath)).isFalse();
 
         // rename foo.txt to foo.txt when foo.txt exists
         // This returns true in ADLFileSystem
-        assertTrue(fs.rename(path, path));
+        assertThat(fs.rename(path, path)).isTrue();
 
         // delete foo.txt
-        assertTrue(fs.delete(path, false));
-        assertFalse(fs.exists(path));
+        assertThat(fs.delete(path, false)).isTrue();
+        assertThat(fs.exists(path)).isFalse();
 
         // create directory source with file
         Path source = new Path(basePath, "source");
-        assertTrue(fs.createNewFile(new Path(source, "test.txt")));
+        assertThat(fs.createNewFile(new Path(source, "test.txt"))).isTrue();
 
         // rename source to non-existing target
         Path target = new Path(basePath, "target");
-        assertFalse(fs.exists(target));
-        assertTrue(fs.rename(source, target));
-        assertFalse(fs.exists(source));
-        assertTrue(fs.exists(target));
+        assertThat(fs.exists(target)).isFalse();
+        assertThat(fs.rename(source, target)).isTrue();
+        assertThat(fs.exists(source)).isFalse();
+        assertThat(fs.exists(target)).isTrue();
 
         // create directory source with file
-        assertTrue(fs.createNewFile(new Path(source, "test.txt")));
+        assertThat(fs.createNewFile(new Path(source, "test.txt"))).isTrue();
 
         // rename source to existing target
-        assertTrue(fs.rename(source, target));
-        assertFalse(fs.exists(source));
+        assertThat(fs.rename(source, target)).isTrue();
+        assertThat(fs.exists(source)).isFalse();
         target = new Path(target, "source");
-        assertTrue(fs.exists(target));
-        assertTrue(fs.exists(new Path(target, "test.txt")));
+        assertThat(fs.exists(target)).isTrue();
+        assertThat(fs.exists(new Path(target, "test.txt"))).isTrue();
 
         // delete target
         target = new Path(basePath, "target");
-        assertTrue(fs.exists(target));
-        assertTrue(fs.delete(target, true));
-        assertFalse(fs.exists(target));
+        assertThat(fs.exists(target)).isTrue();
+        assertThat(fs.delete(target, true)).isTrue();
+        assertThat(fs.exists(target)).isFalse();
 
         // cleanup
         fs.delete(basePath, true);

@@ -25,7 +25,6 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.StructuralTestUtil.mapType;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestWindowQueries
         extends AbstractTestQueryFramework
@@ -91,7 +90,7 @@ public abstract class AbstractTestWindowQueries
                 .row(null, null, "b", 5L)
                 .build();
 
-        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertThat(actual.getMaterializedRows()).isEqualTo(expected.getMaterializedRows());
     }
 
     @Test

@@ -33,13 +33,10 @@ import java.util.UUID;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.trino.plugin.raptor.legacy.DatabaseTesting.createTestingJdbi;
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_METHOD)
 @Execution(SAME_THREAD)
@@ -68,18 +65,18 @@ public class TestShardDao
     @Test
     public void testExternalBatches()
     {
-        assertFalse(dao.externalBatchExists("foo"));
-        assertFalse(dao.externalBatchExists("bar"));
+        assertThat(dao.externalBatchExists("foo")).isFalse();
+        assertThat(dao.externalBatchExists("bar")).isFalse();
 
         dao.insertExternalBatch("foo");
 
-        assertTrue(dao.externalBatchExists("foo"));
-        assertFalse(dao.externalBatchExists("bar"));
+        assertThat(dao.externalBatchExists("foo")).isTrue();
+        assertThat(dao.externalBatchExists("bar")).isFalse();
 
         assertThatThrownBy(() -> dao.insertExternalBatch("foo"))
                 .isInstanceOfSatisfying(UnableToExecuteStatementException.class, e -> {
                     assertInstanceOf(e.getCause(), SQLException.class);
-                    assertTrue(((SQLException) e.getCause()).getSQLState().startsWith("23"));
+                    assertThat(((SQLException) e.getCause()).getSQLState().startsWith("23")).isTrue();
                 });
     }
 
@@ -101,13 +98,13 @@ public class TestShardDao
     @Test
     public void testNodeInsert()
     {
-        assertEquals(dao.getAllNodesInUse(), ImmutableSet.of());
+        assertThat(dao.getAllNodesInUse()).isEqualTo(ImmutableSet.of());
 
         String nodeName = UUID.randomUUID().toString();
         int nodeId = dao.insertNode(nodeName);
-        assertEquals(dao.getNodeId(nodeName), (Integer) nodeId);
+        assertThat(dao.getNodeId(nodeName)).isEqualTo((Integer) nodeId);
 
-        assertEquals(dao.getAllNodesInUse(), ImmutableSet.of(nodeName));
+        assertThat(dao.getAllNodesInUse()).isEqualTo(ImmutableSet.of(nodeName));
     }
 
     @Test
@@ -118,14 +115,14 @@ public class TestShardDao
         long shardId = dao.insertShard(shardUuid, tableId, null, 13, 42, 84, 1234);
 
         ShardMetadata shard = dao.getShard(shardUuid);
-        assertNotNull(shard);
-        assertEquals(shard.getTableId(), tableId);
-        assertEquals(shard.getShardId(), shardId);
-        assertEquals(shard.getShardUuid(), shardUuid);
-        assertEquals(shard.getRowCount(), 13);
-        assertEquals(shard.getCompressedSize(), 42);
-        assertEquals(shard.getUncompressedSize(), 84);
-        assertEquals(shard.getXxhash64(), OptionalLong.of(1234));
+        assertThat(shard).isNotNull();
+        assertThat(shard.getTableId()).isEqualTo(tableId);
+        assertThat(shard.getShardId()).isEqualTo(shardId);
+        assertThat(shard.getShardUuid()).isEqualTo(shardUuid);
+        assertThat(shard.getRowCount()).isEqualTo(13);
+        assertThat(shard.getCompressedSize()).isEqualTo(42);
+        assertThat(shard.getUncompressedSize()).isEqualTo(84);
+        assertThat(shard.getXxhash64()).isEqualTo(OptionalLong.of(1234));
     }
 
     @Test
@@ -139,13 +136,13 @@ public class TestShardDao
 
         dao.insertShardNode(shard, nodeId);
 
-        assertEquals(dao.getShardNodes(tableId), ImmutableList.of(new ShardNode(shard, "node")));
+        assertThat(dao.getShardNodes(tableId)).containsExactlyElementsOf(ImmutableList.of(new ShardNode(shard, "node")));
     }
 
     @Test
     public void testNodeShards()
     {
-        assertEquals(dao.getAllNodesInUse(), ImmutableSet.of());
+        assertThat(dao.getAllNodesInUse()).isEqualTo(ImmutableSet.of());
 
         String nodeName1 = UUID.randomUUID().toString();
         int nodeId1 = dao.insertNode(nodeName1);
@@ -153,7 +150,7 @@ public class TestShardDao
         String nodeName2 = UUID.randomUUID().toString();
         int nodeId2 = dao.insertNode(nodeName2);
 
-        assertEquals(dao.getAllNodesInUse(), ImmutableSet.of(nodeName1, nodeName2));
+        assertThat(dao.getAllNodesInUse()).isEqualTo(ImmutableSet.of(nodeName1, nodeName2));
 
         UUID shardUuid1 = UUID.randomUUID();
         UUID shardUuid2 = UUID.randomUUID();
@@ -187,12 +184,12 @@ public class TestShardDao
         ShardMetadata shard4 = new ShardMetadata(bucketedTableId, shardId4, shardUuid4, OptionalInt.of(9), 4, 44, 444, OptionalLong.of(888_444), noRange, noRange);
         ShardMetadata shard5 = new ShardMetadata(bucketedTableId, shardId5, shardUuid5, OptionalInt.of(7), 5, 55, 555, OptionalLong.of(888_555), noRange, noRange);
 
-        assertEquals(dao.getShards(plainTableId), ImmutableSet.of(shardUuid1, shardUuid2));
-        assertEquals(dao.getShards(bucketedTableId), ImmutableSet.of(shardUuid3, shardUuid4, shardUuid5));
+        assertThat(dao.getShards(plainTableId)).isEqualTo(ImmutableSet.of(shardUuid1, shardUuid2));
+        assertThat(dao.getShards(bucketedTableId)).isEqualTo(ImmutableSet.of(shardUuid3, shardUuid4, shardUuid5));
 
-        assertEquals(dao.getNodeShards(nodeName1, null), ImmutableSet.of(shard3));
-        assertEquals(dao.getNodeShards(nodeName2, null), ImmutableSet.of(shard4, shard5));
-        assertEquals(dao.getNodeSizes(), ImmutableSet.of(
+        assertThat(dao.getNodeShards(nodeName1, null)).isEqualTo(ImmutableSet.of(shard3));
+        assertThat(dao.getNodeShards(nodeName2, null)).isEqualTo(ImmutableSet.of(shard4, shard5));
+        assertThat(dao.getNodeSizes()).isEqualTo(ImmutableSet.of(
                 new NodeSize(nodeName1, 33),
                 new NodeSize(nodeName2, 44 + 55)));
 
@@ -200,42 +197,42 @@ public class TestShardDao
         dao.insertShardNode(shardId2, nodeId1);
         dao.insertShardNode(shardId1, nodeId2);
 
-        assertEquals(dao.getNodeShards(nodeName1, null), ImmutableSet.of(shard1, shard2, shard3));
-        assertEquals(dao.getNodeShards(nodeName2, null), ImmutableSet.of(shard1, shard4, shard5));
-        assertEquals(dao.getNodeSizes(), ImmutableSet.of(
+        assertThat(dao.getNodeShards(nodeName1, null)).isEqualTo(ImmutableSet.of(shard1, shard2, shard3));
+        assertThat(dao.getNodeShards(nodeName2, null)).isEqualTo(ImmutableSet.of(shard1, shard4, shard5));
+        assertThat(dao.getNodeSizes()).isEqualTo(ImmutableSet.of(
                 new NodeSize(nodeName1, 11 + 22 + 33),
                 new NodeSize(nodeName2, 11 + 44 + 55)));
 
         dao.dropShardNodes(plainTableId);
 
-        assertEquals(dao.getNodeShards(nodeName1, null), ImmutableSet.of(shard3));
-        assertEquals(dao.getNodeShards(nodeName2, null), ImmutableSet.of(shard4, shard5));
-        assertEquals(dao.getNodeSizes(), ImmutableSet.of(
+        assertThat(dao.getNodeShards(nodeName1, null)).isEqualTo(ImmutableSet.of(shard3));
+        assertThat(dao.getNodeShards(nodeName2, null)).isEqualTo(ImmutableSet.of(shard4, shard5));
+        assertThat(dao.getNodeSizes()).isEqualTo(ImmutableSet.of(
                 new NodeSize(nodeName1, 33),
                 new NodeSize(nodeName2, 44 + 55)));
 
         dao.dropShards(plainTableId);
         dao.dropShards(bucketedTableId);
 
-        assertEquals(dao.getShards(plainTableId), ImmutableSet.of());
-        assertEquals(dao.getShards(bucketedTableId), ImmutableSet.of());
-        assertEquals(dao.getNodeSizes(), ImmutableSet.of());
+        assertThat(dao.getShards(plainTableId)).isEqualTo(ImmutableSet.of());
+        assertThat(dao.getShards(bucketedTableId)).isEqualTo(ImmutableSet.of());
+        assertThat(dao.getNodeSizes()).isEqualTo(ImmutableSet.of());
     }
 
     @Test
     public void testShardSelection()
     {
-        assertEquals(dao.getAllNodesInUse(), ImmutableSet.of());
+        assertThat(dao.getAllNodesInUse()).isEqualTo(ImmutableSet.of());
 
         String nodeName1 = UUID.randomUUID().toString();
         int nodeId1 = dao.insertNode(nodeName1);
 
-        assertEquals(dao.getAllNodesInUse(), ImmutableSet.of(nodeName1));
+        assertThat(dao.getAllNodesInUse()).isEqualTo(ImmutableSet.of(nodeName1));
 
         String nodeName2 = UUID.randomUUID().toString();
         int nodeId2 = dao.insertNode(nodeName2);
 
-        assertEquals(dao.getAllNodesInUse(), ImmutableSet.of(nodeName1, nodeName2));
+        assertThat(dao.getAllNodesInUse()).isEqualTo(ImmutableSet.of(nodeName1, nodeName2));
 
         long tableId = createTable("test");
 
@@ -250,14 +247,14 @@ public class TestShardDao
         long shardId4 = dao.insertShard(shardUuid4, tableId, null, 0, 0, 0, 0);
 
         Set<UUID> shards = dao.getShards(tableId);
-        assertEquals(shards.size(), 4);
+        assertThat(shards.size()).isEqualTo(4);
 
-        assertTrue(shards.contains(shardUuid1));
-        assertTrue(shards.contains(shardUuid2));
-        assertTrue(shards.contains(shardUuid3));
-        assertTrue(shards.contains(shardUuid4));
+        assertThat(shards.contains(shardUuid1)).isTrue();
+        assertThat(shards.contains(shardUuid2)).isTrue();
+        assertThat(shards.contains(shardUuid3)).isTrue();
+        assertThat(shards.contains(shardUuid4)).isTrue();
 
-        assertEquals(dao.getShardNodes(tableId).size(), 0);
+        assertThat(dao.getShardNodes(tableId).size()).isEqualTo(0);
 
         dao.insertShardNode(shardId1, nodeId1);
         dao.insertShardNode(shardId1, nodeId2);
@@ -266,10 +263,10 @@ public class TestShardDao
         dao.insertShardNode(shardId4, nodeId1);
         dao.insertShardNode(shardId4, nodeId2);
 
-        assertEquals(dao.getShards(tableId), shards);
+        assertThat(dao.getShards(tableId)).isEqualTo(shards);
 
         Set<ShardNode> shardNodes = dao.getShardNodes(tableId);
-        assertEquals(shardNodes.size(), 6);
+        assertThat(shardNodes.size()).isEqualTo(6);
 
         assertContainsShardNode(shardNodes, nodeName1, shardUuid1);
         assertContainsShardNode(shardNodes, nodeName2, shardUuid1);
@@ -286,6 +283,6 @@ public class TestShardDao
 
     private static void assertContainsShardNode(Set<ShardNode> nodes, String nodeName, UUID shardUuid)
     {
-        assertTrue(nodes.contains(new ShardNode(shardUuid, nodeName)));
+        assertThat(nodes.contains(new ShardNode(shardUuid, nodeName))).isTrue();
     }
 }

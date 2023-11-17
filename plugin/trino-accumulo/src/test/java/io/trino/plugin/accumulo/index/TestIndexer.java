@@ -45,10 +45,9 @@ import java.util.Optional;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -141,7 +140,7 @@ public class TestIndexer
         assertKeyValuePair(iter.next(), M1_FNAME_VALUE, "cf_firstname", "row1", "");
         assertKeyValuePair(iter.next(), bytes("def"), "cf_arr", "row1", "");
         assertKeyValuePair(iter.next(), bytes("ghi"), "cf_arr", "row1", "");
-        assertFalse(iter.hasNext());
+        assertThat(iter.hasNext()).isFalse();
 
         scan.close();
 
@@ -157,7 +156,7 @@ public class TestIndexer
         assertKeyValuePair(iter.next(), M1_FNAME_VALUE, "cf_firstname", "___card___", "1");
         assertKeyValuePair(iter.next(), bytes("def"), "cf_arr", "___card___", "1");
         assertKeyValuePair(iter.next(), bytes("ghi"), "cf_arr", "___card___", "1");
-        assertFalse(iter.hasNext());
+        assertThat(iter.hasNext()).isFalse();
 
         scan.close();
 
@@ -177,7 +176,7 @@ public class TestIndexer
         assertKeyValuePair(iter.next(), bytes("ghi"), "cf_arr", "row1", "");
         assertKeyValuePair(iter.next(), bytes("ghi"), "cf_arr", "row2", "");
         assertKeyValuePair(iter.next(), bytes("mno"), "cf_arr", "row2", "");
-        assertFalse(iter.hasNext());
+        assertThat(iter.hasNext()).isFalse();
 
         scan.close();
 
@@ -195,7 +194,7 @@ public class TestIndexer
         assertKeyValuePair(iter.next(), bytes("def"), "cf_arr", "___card___", "1");
         assertKeyValuePair(iter.next(), bytes("ghi"), "cf_arr", "___card___", "2");
         assertKeyValuePair(iter.next(), bytes("mno"), "cf_arr", "___card___", "1");
-        assertFalse(iter.hasNext());
+        assertThat(iter.hasNext()).isFalse();
 
         scan.close();
     }
@@ -233,7 +232,7 @@ public class TestIndexer
         assertKeyValuePair(iter.next(), bytes("def"), "cf_arr", "row1", "moreprivate", "");
         assertKeyValuePair(iter.next(), bytes("ghi"), "cf_arr", "row1", "");
         assertKeyValuePair(iter.next(), bytes("ghi"), "cf_arr", "row1", "moreprivate", "");
-        assertFalse(iter.hasNext());
+        assertThat(iter.hasNext()).isFalse();
 
         scan.close();
 
@@ -254,7 +253,7 @@ public class TestIndexer
         assertKeyValuePair(iter.next(), bytes("def"), "cf_arr", "___card___", "moreprivate", "1");
         assertKeyValuePair(iter.next(), bytes("ghi"), "cf_arr", "___card___", "1");
         assertKeyValuePair(iter.next(), bytes("ghi"), "cf_arr", "___card___", "moreprivate", "1");
-        assertFalse(iter.hasNext());
+        assertThat(iter.hasNext()).isFalse();
 
         scan.close();
 
@@ -285,7 +284,7 @@ public class TestIndexer
         assertKeyValuePair(iter.next(), bytes("ghi"), "cf_arr", "row2", "moreprivate", "");
         assertKeyValuePair(iter.next(), bytes("mno"), "cf_arr", "row2", "");
         assertKeyValuePair(iter.next(), bytes("mno"), "cf_arr", "row2", "moreprivate", "");
-        assertFalse(iter.hasNext());
+        assertThat(iter.hasNext()).isFalse();
 
         scan.close();
 
@@ -310,26 +309,26 @@ public class TestIndexer
         assertKeyValuePair(iter.next(), bytes("ghi"), "cf_arr", "___card___", "moreprivate", "2");
         assertKeyValuePair(iter.next(), bytes("mno"), "cf_arr", "___card___", "1");
         assertKeyValuePair(iter.next(), bytes("mno"), "cf_arr", "___card___", "moreprivate", "1");
-        assertFalse(iter.hasNext());
+        assertThat(iter.hasNext()).isFalse();
 
         scan.close();
     }
 
     private static void assertKeyValuePair(Entry<Key, Value> e, byte[] row, String cf, String cq, String value)
     {
-        assertEquals(row, e.getKey().getRow().copyBytes());
-        assertEquals(cf, e.getKey().getColumnFamily().toString());
-        assertEquals(cq, e.getKey().getColumnQualifier().toString());
-        assertEquals(value, e.getValue().toString());
+        assertThat(row).isEqualTo(e.getKey().getRow().copyBytes());
+        assertThat(cf).isEqualTo(e.getKey().getColumnFamily().toString());
+        assertThat(cq).isEqualTo(e.getKey().getColumnQualifier().toString());
+        assertThat(value).isEqualTo(e.getValue().toString());
     }
 
     private static void assertKeyValuePair(Entry<Key, Value> e, byte[] row, String cf, String cq, String cv, String value)
     {
-        assertEquals(row, e.getKey().getRow().copyBytes());
-        assertEquals(cf, e.getKey().getColumnFamily().toString());
-        assertEquals(cq, e.getKey().getColumnQualifier().toString());
-        assertEquals(cv, e.getKey().getColumnVisibility().toString());
-        assertEquals(value, e.getValue().toString());
+        assertThat(row).isEqualTo(e.getKey().getRow().copyBytes());
+        assertThat(cf).isEqualTo(e.getKey().getColumnFamily().toString());
+        assertThat(cq).isEqualTo(e.getKey().getColumnQualifier().toString());
+        assertThat(cv).isEqualTo(e.getKey().getColumnVisibility().toString());
+        assertThat(value).isEqualTo(e.getValue().toString());
     }
 
     private static byte[] bytes(String s)

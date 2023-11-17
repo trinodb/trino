@@ -68,12 +68,9 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Fail.fail;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -131,11 +128,11 @@ public class TestJdbcConnection
             throws SQLException
     {
         try (Connection connection = createConnection()) {
-            assertTrue(connection.getAutoCommit());
+            assertThat(connection.getAutoCommit()).isTrue();
             connection.setAutoCommit(false);
-            assertFalse(connection.getAutoCommit());
+            assertThat(connection.getAutoCommit()).isFalse();
             connection.setAutoCommit(true);
-            assertTrue(connection.getAutoCommit());
+            assertThat(connection.getAutoCommit()).isTrue();
         }
     }
 
@@ -360,8 +357,8 @@ public class TestJdbcConnection
                     .put("colon", "-::-")
                     .buildOrThrow();
             TrinoConnection trinoConnection = connection.unwrap(TrinoConnection.class);
-            assertEquals(trinoConnection.getExtraCredentials(), expectedCredentials);
-            assertEquals(listExtraCredentials(connection), expectedCredentials);
+            assertThat(trinoConnection.getExtraCredentials()).isEqualTo(expectedCredentials);
+            assertThat(listExtraCredentials(connection)).isEqualTo(expectedCredentials);
         }
     }
 
@@ -370,7 +367,7 @@ public class TestJdbcConnection
             throws SQLException
     {
         try (Connection connection = createConnection("clientInfo=hello%20world")) {
-            assertEquals(connection.getClientInfo("ClientInfo"), "hello world");
+            assertThat(connection.getClientInfo("ClientInfo")).isEqualTo("hello world");
         }
     }
 
@@ -379,7 +376,7 @@ public class TestJdbcConnection
             throws SQLException
     {
         try (Connection connection = createConnection("clientTags=c2,c3")) {
-            assertEquals(connection.getClientInfo("ClientTags"), "c2,c3");
+            assertThat(connection.getClientInfo("ClientTags")).isEqualTo("c2,c3");
         }
     }
 
@@ -388,7 +385,7 @@ public class TestJdbcConnection
             throws SQLException
     {
         try (Connection connection = createConnection("traceToken=trace%20me")) {
-            assertEquals(connection.getClientInfo("TraceToken"), "trace me");
+            assertThat(connection.getClientInfo("TraceToken")).isEqualTo("trace me");
         }
     }
 
@@ -418,8 +415,8 @@ public class TestJdbcConnection
     {
         try (Connection connection = createConnection("roles=hive:" + roleParameterValue)) {
             TrinoConnection trinoConnection = connection.unwrap(TrinoConnection.class);
-            assertEquals(trinoConnection.getRoles(), ImmutableMap.of("hive", clientSelectedRole));
-            assertEquals(listCurrentRoles(connection), currentRoles);
+            assertThat(trinoConnection.getRoles()).isEqualTo(ImmutableMap.of("hive", clientSelectedRole));
+            assertThat(listCurrentRoles(connection)).isEqualTo(currentRoles);
         }
     }
 
@@ -626,9 +623,9 @@ public class TestJdbcConnection
                 "SELECT source FROM system.runtime.queries WHERE query_id = ?")) {
             statement.setString(1, queryId);
             try (ResultSet rs = statement.executeQuery()) {
-                assertTrue(rs.next());
+                assertThat(rs.next()).isTrue();
                 assertThat(rs.getString("source")).isEqualTo(expectedSource);
-                assertFalse(rs.next());
+                assertThat(rs.next()).isFalse();
             }
         }
     }

@@ -98,7 +98,6 @@ import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExcept
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_METHOD)
 public class TestCreateMaterializedViewTask
@@ -187,7 +186,7 @@ public class TestCreateMaterializedViewTask
 
         getFutureValue(new CreateMaterializedViewTask(plannerContext, new AllowAllAccessControl(), parser, analyzerFactory, materializedViewPropertyManager)
                 .execute(statement, queryStateMachine, ImmutableList.of(), WarningCollector.NOOP));
-        assertEquals(metadata.getCreateMaterializedViewCallCount(), 1);
+        assertThat(metadata.getCreateMaterializedViewCallCount()).isEqualTo(1);
     }
 
     @Test
@@ -208,7 +207,7 @@ public class TestCreateMaterializedViewTask
                 .hasErrorCode(ALREADY_EXISTS)
                 .hasMessage("Materialized view already exists");
 
-        assertEquals(metadata.getCreateMaterializedViewCallCount(), 1);
+        assertThat(metadata.getCreateMaterializedViewCallCount()).isEqualTo(1);
     }
 
     @Test
@@ -229,7 +228,7 @@ public class TestCreateMaterializedViewTask
                 .hasErrorCode(INVALID_MATERIALIZED_VIEW_PROPERTY)
                 .hasMessage("Catalog 'test_catalog' materialized view property 'baz' does not exist");
 
-        assertEquals(metadata.getCreateMaterializedViewCallCount(), 0);
+        assertThat(metadata.getCreateMaterializedViewCallCount()).isEqualTo(0);
     }
 
     @Test

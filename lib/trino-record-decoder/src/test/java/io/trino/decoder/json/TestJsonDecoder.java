@@ -52,9 +52,8 @@ import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.util.Arrays.asList;
 import static java.util.Collections.emptyMap;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestJsonDecoder
 {
@@ -78,7 +77,7 @@ public class TestJsonDecoder
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(json)
                 .orElseThrow(AssertionError::new);
 
-        assertEquals(decodedRow.size(), columns.size());
+        assertThat(decodedRow.size()).isEqualTo(columns.size());
 
         checkValue(decodedRow, column1, "<a href=\"http://twitterfeed.com\" rel=\"nofollow\">twitterfeed</a>");
         checkValue(decodedRow, column2, "EKentuckyN");
@@ -103,7 +102,7 @@ public class TestJsonDecoder
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(json)
                 .orElseThrow(AssertionError::new);
 
-        assertEquals(decodedRow.size(), columns.size());
+        assertThat(decodedRow.size()).isEqualTo(columns.size());
 
         checkIsNull(decodedRow, column1);
         checkIsNull(decodedRow, column2);
@@ -125,9 +124,9 @@ public class TestJsonDecoder
         RowDecoder rowDecoder = DECODER_FACTORY.create(TESTING_SESSION, new RowDecoderSpec(JsonRowDecoder.NAME, emptyMap(), columns));
 
         Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedRow = rowDecoder.decodeRow(json);
-        assertTrue(decodedRow.isPresent());
+        assertThat(decodedRow.isPresent()).isTrue();
 
-        assertEquals(decodedRow.get().size(), columns.size());
+        assertThat(decodedRow.get().size()).isEqualTo(columns.size());
 
         checkValue(decodedRow.get(), column1, "481516");
         checkValue(decodedRow.get(), column2, 481516);

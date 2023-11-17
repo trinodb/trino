@@ -19,7 +19,7 @@ import io.trino.spi.block.BlockBuilder;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.BigintType.BIGINT;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCyclingGroupByHash
 {
@@ -30,12 +30,12 @@ public class TestCyclingGroupByHash
         Page page = createPage(1);
         int[] groupByIds = computeGroupByIdBlock(groupByHash, page);
         assertGrouping(groupByIds, 0);
-        assertEquals(groupByHash.getGroupCount(), 1);
+        assertThat(groupByHash.getGroupCount()).isEqualTo(1);
 
         page = createPage(2);
         groupByIds = computeGroupByIdBlock(groupByHash, page);
         assertGrouping(groupByIds, 0, 0);
-        assertEquals(groupByHash.getGroupCount(), 1);
+        assertThat(groupByHash.getGroupCount()).isEqualTo(1);
     }
 
     @Test
@@ -45,12 +45,12 @@ public class TestCyclingGroupByHash
         Page page = createPage(3);
         int[] groupByIds = computeGroupByIdBlock(groupByHash, page);
         assertGrouping(groupByIds, 0, 1, 0);
-        assertEquals(groupByHash.getGroupCount(), 2);
+        assertThat(groupByHash.getGroupCount()).isEqualTo(2);
 
         page = createPage(2);
         groupByIds = computeGroupByIdBlock(groupByHash, page);
         assertGrouping(groupByIds, 1, 0);
-        assertEquals(groupByHash.getGroupCount(), 2);
+        assertThat(groupByHash.getGroupCount()).isEqualTo(2);
     }
 
     @Test
@@ -62,12 +62,12 @@ public class TestCyclingGroupByHash
         assertGrouping(groupByIds, 0, 1);
 
         // Only 2 groups generated out of max 3
-        assertEquals(groupByHash.getGroupCount(), 2);
+        assertThat(groupByHash.getGroupCount()).isEqualTo(2);
     }
 
     private static void assertGrouping(int[] groupIds, int... expectedGroupIds)
     {
-        assertEquals(groupIds, expectedGroupIds);
+        assertThat(groupIds).isEqualTo(expectedGroupIds);
     }
 
     private static int[] computeGroupByIdBlock(GroupByHash groupByHash, Page page)

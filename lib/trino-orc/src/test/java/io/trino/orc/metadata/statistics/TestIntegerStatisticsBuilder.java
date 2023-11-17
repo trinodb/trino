@@ -27,11 +27,7 @@ import static io.trino.orc.metadata.statistics.ColumnStatistics.mergeColumnStati
 import static io.trino.orc.metadata.statistics.IntegerStatistics.INTEGER_VALUE_BYTES;
 import static java.lang.Long.MAX_VALUE;
 import static java.lang.Long.MIN_VALUE;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIntegerStatisticsBuilder
         extends AbstractStatisticsBuilderTest<IntegerStatisticsBuilder, Long>
@@ -169,12 +165,12 @@ public class TestIntegerStatisticsBuilder
     private static void assertIntegerStatistics(ColumnStatistics columnStatistics, int expectedNumberOfValues, Long expectedSum)
     {
         if (expectedNumberOfValues > 0) {
-            assertEquals(columnStatistics.getNumberOfValues(), expectedNumberOfValues);
-            assertEquals(columnStatistics.getIntegerStatistics().getSum(), expectedSum);
+            assertThat(columnStatistics.getNumberOfValues()).isEqualTo(expectedNumberOfValues);
+            assertThat(columnStatistics.getIntegerStatistics().getSum()).isEqualTo(expectedSum);
         }
         else {
-            assertNull(columnStatistics.getIntegerStatistics());
-            assertEquals(columnStatistics.getNumberOfValues(), 0);
+            assertThat(columnStatistics.getIntegerStatistics()).isNull();
+            assertThat(columnStatistics.getNumberOfValues()).isEqualTo(0);
         }
     }
 
@@ -186,10 +182,10 @@ public class TestIntegerStatisticsBuilder
         statisticsBuilder.addValue(1011);
         statisticsBuilder.addValue(4242);
         BloomFilter bloomFilter = statisticsBuilder.buildColumnStatistics().getBloomFilter();
-        assertNotNull(bloomFilter);
-        assertTrue(bloomFilter.testLong(314));
-        assertTrue(bloomFilter.testLong(1011));
-        assertTrue(bloomFilter.testLong(4242));
-        assertFalse(bloomFilter.testLong(100));
+        assertThat(bloomFilter).isNotNull();
+        assertThat(bloomFilter.testLong(314)).isTrue();
+        assertThat(bloomFilter.testLong(1011)).isTrue();
+        assertThat(bloomFilter.testLong(4242)).isTrue();
+        assertThat(bloomFilter.testLong(100)).isFalse();
     }
 }

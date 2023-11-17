@@ -71,7 +71,6 @@ import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_METHOD)
 @Execution(SAME_THREAD)
@@ -120,7 +119,7 @@ public class TestShardCompactor
         List<Type> columnTypes = ImmutableList.of(BIGINT, createVarcharType(20), DOUBLE, DATE, TIMESTAMP_MILLIS);
 
         List<ShardInfo> inputShards = createShards(storageManager, columnIds, columnTypes, 3);
-        assertEquals(inputShards.size(), 3);
+        assertThat(inputShards.size()).isEqualTo(3);
 
         long totalRows = inputShards.stream()
                 .mapToLong(ShardInfo::getRowCount)
@@ -131,7 +130,7 @@ public class TestShardCompactor
 
         long transactionId = 1;
         List<ShardInfo> outputShards = compactor.compact(transactionId, OptionalInt.empty(), inputUuids, getColumnInfo(columnIds, columnTypes));
-        assertEquals(outputShards.size(), expectedOutputShards);
+        assertThat(outputShards.size()).isEqualTo(expectedOutputShards);
 
         Set<UUID> outputUuids = outputShards.stream().map(ShardInfo::getShardUuid).collect(toSet());
         assertShardEqualsIgnoreOrder(inputUuids, outputUuids, columnIds, columnTypes);
@@ -150,7 +149,7 @@ public class TestShardCompactor
                 .collect(toList());
 
         List<ShardInfo> inputShards = createSortedShards(storageManager, columnIds, columnTypes, sortIndexes, sortOrders, 2);
-        assertEquals(inputShards.size(), 2);
+        assertThat(inputShards.size()).isEqualTo(2);
 
         long totalRows = inputShards.stream().mapToLong(ShardInfo::getRowCount).sum();
         long expectedOutputShards = computeExpectedOutputShards(totalRows);
@@ -162,7 +161,7 @@ public class TestShardCompactor
         List<UUID> outputUuids = outputShards.stream()
                 .map(ShardInfo::getShardUuid)
                 .collect(toList());
-        assertEquals(outputShards.size(), expectedOutputShards);
+        assertThat(outputShards.size()).isEqualTo(expectedOutputShards);
 
         assertShardEqualsSorted(inputUuids, outputUuids, columnIds, columnTypes, sortIndexes, sortOrders);
     }

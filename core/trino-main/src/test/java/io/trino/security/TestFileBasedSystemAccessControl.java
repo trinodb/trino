@@ -53,9 +53,9 @@ import static io.trino.testing.TestingEventListenerManager.emptyEventListenerMan
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.Thread.sleep;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.util.Files.newTemporaryFile;
-import static org.testng.Assert.assertEquals;
 
 public class TestFileBasedSystemAccessControl
 {
@@ -226,13 +226,13 @@ public class TestFileBasedSystemAccessControl
 
         transaction(transactionManager, metadata, accessControlManager)
                 .execute(transactionId -> {
-                    assertEquals(accessControlManager.filterCatalogs(new SecurityContext(transactionId, admin, queryId, queryStart), allCatalogs), allCatalogs);
+                    assertThat(accessControlManager.filterCatalogs(new SecurityContext(transactionId, admin, queryId, queryStart), allCatalogs)).isEqualTo(allCatalogs);
                     Set<String> aliceCatalogs = ImmutableSet.of("open-to-all", "alice-catalog", "all-allowed", "staff-catalog");
-                    assertEquals(accessControlManager.filterCatalogs(new SecurityContext(transactionId, alice, queryId, queryStart), allCatalogs), aliceCatalogs);
+                    assertThat(accessControlManager.filterCatalogs(new SecurityContext(transactionId, alice, queryId, queryStart), allCatalogs)).isEqualTo(aliceCatalogs);
                     Set<String> bobCatalogs = ImmutableSet.of("open-to-all", "all-allowed", "staff-catalog");
-                    assertEquals(accessControlManager.filterCatalogs(new SecurityContext(transactionId, bob, queryId, queryStart), allCatalogs), bobCatalogs);
+                    assertThat(accessControlManager.filterCatalogs(new SecurityContext(transactionId, bob, queryId, queryStart), allCatalogs)).isEqualTo(bobCatalogs);
                     Set<String> nonAsciiUserCatalogs = ImmutableSet.of("open-to-all", "all-allowed", "\u0200\u0200\u0200");
-                    assertEquals(accessControlManager.filterCatalogs(new SecurityContext(transactionId, nonAsciiUser, queryId, queryStart), allCatalogs), nonAsciiUserCatalogs);
+                    assertThat(accessControlManager.filterCatalogs(new SecurityContext(transactionId, nonAsciiUser, queryId, queryStart), allCatalogs)).isEqualTo(nonAsciiUserCatalogs);
                 });
     }
 
@@ -245,13 +245,13 @@ public class TestFileBasedSystemAccessControl
 
         transaction(transactionManager, metadata, accessControlManager)
                 .execute(transactionId -> {
-                    assertEquals(accessControlManager.filterCatalogs(new SecurityContext(transactionId, admin, queryId, queryStart), allCatalogs), allCatalogs);
+                    assertThat(accessControlManager.filterCatalogs(new SecurityContext(transactionId, admin, queryId, queryStart), allCatalogs)).isEqualTo(allCatalogs);
                     Set<String> aliceCatalogs = ImmutableSet.of("open-to-all", "alice-catalog", "all-allowed");
-                    assertEquals(accessControlManager.filterCatalogs(new SecurityContext(transactionId, alice, queryId, queryStart), allCatalogs), aliceCatalogs);
+                    assertThat(accessControlManager.filterCatalogs(new SecurityContext(transactionId, alice, queryId, queryStart), allCatalogs)).isEqualTo(aliceCatalogs);
                     Set<String> bobCatalogs = ImmutableSet.of("open-to-all", "all-allowed");
-                    assertEquals(accessControlManager.filterCatalogs(new SecurityContext(transactionId, bob, queryId, queryStart), allCatalogs), bobCatalogs);
+                    assertThat(accessControlManager.filterCatalogs(new SecurityContext(transactionId, bob, queryId, queryStart), allCatalogs)).isEqualTo(bobCatalogs);
                     Set<String> nonAsciiUserCatalogs = ImmutableSet.of("open-to-all", "all-allowed", "\u0200\u0200\u0200");
-                    assertEquals(accessControlManager.filterCatalogs(new SecurityContext(transactionId, nonAsciiUser, queryId, queryStart), allCatalogs), nonAsciiUserCatalogs);
+                    assertThat(accessControlManager.filterCatalogs(new SecurityContext(transactionId, nonAsciiUser, queryId, queryStart), allCatalogs)).isEqualTo(nonAsciiUserCatalogs);
                 });
     }
 
@@ -265,8 +265,8 @@ public class TestFileBasedSystemAccessControl
         transaction(transactionManager, metadata, accessControlManager)
                 .execute(transactionId -> {
                     Set<String> aliceSchemas = ImmutableSet.of("schema");
-                    assertEquals(accessControlManager.filterSchemas(new SecurityContext(transactionId, alice, queryId, queryStart), "alice-catalog", aliceSchemas), aliceSchemas);
-                    assertEquals(accessControlManager.filterSchemas(new SecurityContext(transactionId, bob, queryId, queryStart), "alice-catalog", aliceSchemas), ImmutableSet.of());
+                    assertThat(accessControlManager.filterSchemas(new SecurityContext(transactionId, alice, queryId, queryStart), "alice-catalog", aliceSchemas)).isEqualTo(aliceSchemas);
+                    assertThat(accessControlManager.filterSchemas(new SecurityContext(transactionId, bob, queryId, queryStart), "alice-catalog", aliceSchemas)).isEqualTo(ImmutableSet.of());
 
                     accessControlManager.checkCanCreateSchema(new SecurityContext(transactionId, alice, queryId, queryStart), aliceSchema, ImmutableMap.of());
                     accessControlManager.checkCanDropSchema(new SecurityContext(transactionId, alice, queryId, queryStart), aliceSchema);
@@ -289,8 +289,8 @@ public class TestFileBasedSystemAccessControl
         transaction(transactionManager, metadata, accessControlManager)
                 .execute(transactionId -> {
                     Set<String> aliceSchemas = ImmutableSet.of("schema");
-                    assertEquals(accessControlManager.filterSchemas(new SecurityContext(transactionId, alice, queryId, queryStart), "alice-catalog", aliceSchemas), aliceSchemas);
-                    assertEquals(accessControlManager.filterSchemas(new SecurityContext(transactionId, bob, queryId, queryStart), "alice-catalog", aliceSchemas), ImmutableSet.of());
+                    assertThat(accessControlManager.filterSchemas(new SecurityContext(transactionId, alice, queryId, queryStart), "alice-catalog", aliceSchemas)).isEqualTo(aliceSchemas);
+                    assertThat(accessControlManager.filterSchemas(new SecurityContext(transactionId, bob, queryId, queryStart), "alice-catalog", aliceSchemas)).isEqualTo(ImmutableSet.of());
 
                     accessControlManager.checkCanShowSchemas(new SecurityContext(transactionId, alice, queryId, queryStart), "alice-catalog");
                 });
@@ -330,12 +330,12 @@ public class TestFileBasedSystemAccessControl
                     SecurityContext bobContext = new SecurityContext(transactionId, bob, queryId, queryStart);
                     SecurityContext nonAsciiContext = new SecurityContext(transactionId, nonAsciiUser, queryId, queryStart);
 
-                    assertEquals(accessControlManager.filterTables(aliceContext, "alice-catalog", aliceTables), aliceTables);
-                    assertEquals(accessControlManager.filterTables(aliceContext, "staff-catalog", aliceTables), aliceTables);
-                    assertEquals(accessControlManager.filterTables(bobContext, "alice-catalog", aliceTables), ImmutableSet.of());
-                    assertEquals(accessControlManager.filterTables(bobContext, "staff-catalog", aliceTables), aliceTables);
-                    assertEquals(accessControlManager.filterTables(nonAsciiContext, "alice-catalog", aliceTables), ImmutableSet.of());
-                    assertEquals(accessControlManager.filterTables(nonAsciiContext, "staff-catalog", aliceTables), ImmutableSet.of());
+                    assertThat(accessControlManager.filterTables(aliceContext, "alice-catalog", aliceTables)).isEqualTo(aliceTables);
+                    assertThat(accessControlManager.filterTables(aliceContext, "staff-catalog", aliceTables)).isEqualTo(aliceTables);
+                    assertThat(accessControlManager.filterTables(bobContext, "alice-catalog", aliceTables)).isEqualTo(ImmutableSet.of());
+                    assertThat(accessControlManager.filterTables(bobContext, "staff-catalog", aliceTables)).isEqualTo(aliceTables);
+                    assertThat(accessControlManager.filterTables(nonAsciiContext, "alice-catalog", aliceTables)).isEqualTo(ImmutableSet.of());
+                    assertThat(accessControlManager.filterTables(nonAsciiContext, "staff-catalog", aliceTables)).isEqualTo(ImmutableSet.of());
 
                     accessControlManager.checkCanCreateTable(aliceContext, aliceTable, Map.of());
                     accessControlManager.checkCanDropTable(aliceContext, aliceTable);
@@ -475,8 +475,8 @@ public class TestFileBasedSystemAccessControl
         transaction(transactionManager, metadata, accessControlManager)
                 .execute(transactionId -> {
                     Set<SchemaTableName> aliceTables = ImmutableSet.of(new SchemaTableName("schema", "table"));
-                    assertEquals(accessControlManager.filterTables(new SecurityContext(transactionId, alice, queryId, queryStart), "alice-catalog", aliceTables), aliceTables);
-                    assertEquals(accessControlManager.filterTables(new SecurityContext(transactionId, bob, queryId, queryStart), "alice-catalog", aliceTables), ImmutableSet.of());
+                    assertThat(accessControlManager.filterTables(new SecurityContext(transactionId, alice, queryId, queryStart), "alice-catalog", aliceTables)).isEqualTo(aliceTables);
+                    assertThat(accessControlManager.filterTables(new SecurityContext(transactionId, bob, queryId, queryStart), "alice-catalog", aliceTables)).isEqualTo(ImmutableSet.of());
 
                     accessControlManager.checkCanSelectFromColumns(new SecurityContext(transactionId, alice, queryId, queryStart), aliceTable, ImmutableSet.of());
                 });

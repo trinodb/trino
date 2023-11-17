@@ -26,8 +26,8 @@ import org.junit.jupiter.api.Test;
 import static io.trino.operator.TestDriverStats.assertExpectedDriverStats;
 import static io.trino.operator.TestOperatorStats.assertExpectedOperatorStats;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.joda.time.DateTimeZone.UTC;
-import static org.testng.Assert.assertEquals;
 
 public class TestPipelineStats
 {
@@ -101,58 +101,58 @@ public class TestPipelineStats
 
     public static void assertExpectedPipelineStats(PipelineStats actual)
     {
-        assertEquals(actual.getFirstStartTime(), new DateTime(100, UTC));
-        assertEquals(actual.getLastStartTime(), new DateTime(101, UTC));
-        assertEquals(actual.getLastEndTime(), new DateTime(102, UTC));
-        assertEquals(actual.isInputPipeline(), true);
-        assertEquals(actual.isOutputPipeline(), false);
+        assertThat(actual.getFirstStartTime()).isEqualTo(new DateTime(100, UTC));
+        assertThat(actual.getLastStartTime()).isEqualTo(new DateTime(101, UTC));
+        assertThat(actual.getLastEndTime()).isEqualTo(new DateTime(102, UTC));
+        assertThat(actual.isInputPipeline()).isEqualTo(true);
+        assertThat(actual.isOutputPipeline()).isEqualTo(false);
 
-        assertEquals(actual.getTotalDrivers(), 1);
-        assertEquals(actual.getQueuedDrivers(), 2);
-        assertEquals(actual.getQueuedPartitionedDrivers(), 1);
-        assertEquals(actual.getQueuedPartitionedSplitsWeight(), 21L);
-        assertEquals(actual.getRunningDrivers(), 3);
-        assertEquals(actual.getRunningPartitionedDrivers(), 2);
-        assertEquals(actual.getRunningPartitionedSplitsWeight(), 22L);
-        assertEquals(actual.getBlockedDrivers(), 19);
-        assertEquals(actual.getCompletedDrivers(), 4);
+        assertThat(actual.getTotalDrivers()).isEqualTo(1);
+        assertThat(actual.getQueuedDrivers()).isEqualTo(2);
+        assertThat(actual.getQueuedPartitionedDrivers()).isEqualTo(1);
+        assertThat(actual.getQueuedPartitionedSplitsWeight()).isEqualTo(21L);
+        assertThat(actual.getRunningDrivers()).isEqualTo(3);
+        assertThat(actual.getRunningPartitionedDrivers()).isEqualTo(2);
+        assertThat(actual.getRunningPartitionedSplitsWeight()).isEqualTo(22L);
+        assertThat(actual.getBlockedDrivers()).isEqualTo(19);
+        assertThat(actual.getCompletedDrivers()).isEqualTo(4);
 
-        assertEquals(actual.getUserMemoryReservation(), DataSize.ofBytes(5));
-        assertEquals(actual.getRevocableMemoryReservation(), DataSize.ofBytes(6));
+        assertThat(actual.getUserMemoryReservation()).isEqualTo(DataSize.ofBytes(5));
+        assertThat(actual.getRevocableMemoryReservation()).isEqualTo(DataSize.ofBytes(6));
 
-        assertEquals(actual.getQueuedTime().getCount(), 8.0);
-        assertEquals(actual.getElapsedTime().getCount(), 9.0);
+        assertThat(actual.getQueuedTime().getCount()).isEqualTo(8.0);
+        assertThat(actual.getElapsedTime().getCount()).isEqualTo(9.0);
 
-        assertEquals(actual.getTotalScheduledTime(), new Duration(10, NANOSECONDS));
-        assertEquals(actual.getTotalCpuTime(), new Duration(11, NANOSECONDS));
-        assertEquals(actual.getTotalBlockedTime(), new Duration(13, NANOSECONDS));
+        assertThat(actual.getTotalScheduledTime()).isEqualTo(new Duration(10, NANOSECONDS));
+        assertThat(actual.getTotalCpuTime()).isEqualTo(new Duration(11, NANOSECONDS));
+        assertThat(actual.getTotalBlockedTime()).isEqualTo(new Duration(13, NANOSECONDS));
 
-        assertEquals(actual.getPhysicalInputDataSize(), DataSize.ofBytes(141));
-        assertEquals(actual.getPhysicalInputPositions(), 151);
-        assertEquals(actual.getPhysicalInputReadTime(), new Duration(14, NANOSECONDS));
+        assertThat(actual.getPhysicalInputDataSize()).isEqualTo(DataSize.ofBytes(141));
+        assertThat(actual.getPhysicalInputPositions()).isEqualTo(151);
+        assertThat(actual.getPhysicalInputReadTime()).isEqualTo(new Duration(14, NANOSECONDS));
 
-        assertEquals(actual.getInternalNetworkInputDataSize(), DataSize.ofBytes(142));
-        assertEquals(actual.getInternalNetworkInputPositions(), 152);
+        assertThat(actual.getInternalNetworkInputDataSize()).isEqualTo(DataSize.ofBytes(142));
+        assertThat(actual.getInternalNetworkInputPositions()).isEqualTo(152);
 
-        assertEquals(actual.getRawInputDataSize(), DataSize.ofBytes(14));
-        assertEquals(actual.getRawInputPositions(), 15);
+        assertThat(actual.getRawInputDataSize()).isEqualTo(DataSize.ofBytes(14));
+        assertThat(actual.getRawInputPositions()).isEqualTo(15);
 
-        assertEquals(actual.getProcessedInputDataSize(), DataSize.ofBytes(16));
-        assertEquals(actual.getProcessedInputPositions(), 17);
+        assertThat(actual.getProcessedInputDataSize()).isEqualTo(DataSize.ofBytes(16));
+        assertThat(actual.getProcessedInputPositions()).isEqualTo(17);
 
-        assertEquals(actual.getInputBlockedTime(), new Duration(101, NANOSECONDS));
+        assertThat(actual.getInputBlockedTime()).isEqualTo(new Duration(101, NANOSECONDS));
 
-        assertEquals(actual.getOutputDataSize(), DataSize.ofBytes(18));
-        assertEquals(actual.getOutputPositions(), 19);
+        assertThat(actual.getOutputDataSize()).isEqualTo(DataSize.ofBytes(18));
+        assertThat(actual.getOutputPositions()).isEqualTo(19);
 
-        assertEquals(actual.getOutputBlockedTime(), new Duration(102, NANOSECONDS));
+        assertThat(actual.getOutputBlockedTime()).isEqualTo(new Duration(102, NANOSECONDS));
 
-        assertEquals(actual.getPhysicalWrittenDataSize(), DataSize.ofBytes(20));
+        assertThat(actual.getPhysicalWrittenDataSize()).isEqualTo(DataSize.ofBytes(20));
 
-        assertEquals(actual.getOperatorSummaries().size(), 1);
+        assertThat(actual.getOperatorSummaries().size()).isEqualTo(1);
         assertExpectedOperatorStats(actual.getOperatorSummaries().get(0));
 
-        assertEquals(actual.getDrivers().size(), 1);
+        assertThat(actual.getDrivers().size()).isEqualTo(1);
         assertExpectedDriverStats(actual.getDrivers().get(0));
     }
 

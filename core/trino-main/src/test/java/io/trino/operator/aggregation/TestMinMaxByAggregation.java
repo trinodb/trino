@@ -50,7 +50,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.util.Arrays.asList;
-import static org.testng.Assert.assertNotNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMinMaxByAggregation
 {
@@ -66,8 +66,8 @@ public class TestMinMaxByAggregation
 
         for (Type keyType : orderableTypes) {
             for (Type valueType : getTypes()) {
-                assertNotNull(FUNCTION_RESOLUTION.getAggregateFunction("min_by", fromTypes(valueType, keyType)));
-                assertNotNull(FUNCTION_RESOLUTION.getAggregateFunction("max_by", fromTypes(valueType, keyType)));
+                assertThat(FUNCTION_RESOLUTION.getAggregateFunction("min_by", fromTypes(valueType, keyType))).isNotNull();
+                assertThat(FUNCTION_RESOLUTION.getAggregateFunction("max_by", fromTypes(valueType, keyType))).isNotNull();
             }
         }
     }

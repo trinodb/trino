@@ -33,7 +33,6 @@ import static io.trino.testing.MaterializedResult.DEFAULT_PRECISION;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
 public abstract class BaseIcebergSystemTables
@@ -116,20 +115,20 @@ public abstract class BaseIcebergSystemTables
                         "('data', 'row(_bigint row(min bigint, max bigint, null_count bigint, nan_count bigint))', '', '')");
 
         MaterializedResult result = computeActual("SELECT * from test_schema.\"test_table$partitions\"");
-        assertEquals(result.getRowCount(), 3);
+        assertThat(result.getRowCount()).isEqualTo(3);
 
         Map<LocalDate, MaterializedRow> rowsByPartition = result.getMaterializedRows().stream()
                 .collect(toImmutableMap(row -> ((LocalDate) ((MaterializedRow) row.getField(0)).getField(0)), Function.identity()));
 
         // Test if row counts are computed correctly
-        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-08")).getField(1), 1L);
-        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-09")).getField(1), 3L);
-        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-10")).getField(1), 2L);
+        assertThat(rowsByPartition.get(LocalDate.parse("2019-09-08")).getField(1)).isEqualTo(1L);
+        assertThat(rowsByPartition.get(LocalDate.parse("2019-09-09")).getField(1)).isEqualTo(3L);
+        assertThat(rowsByPartition.get(LocalDate.parse("2019-09-10")).getField(1)).isEqualTo(2L);
 
         // Test if min/max values, null value count and nan value count are computed correctly.
-        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-08")).getField(4), new MaterializedRow(DEFAULT_PRECISION, new MaterializedRow(DEFAULT_PRECISION, 0L, 0L, 0L, null)));
-        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-09")).getField(4), new MaterializedRow(DEFAULT_PRECISION, new MaterializedRow(DEFAULT_PRECISION, 1L, 3L, 0L, null)));
-        assertEquals(rowsByPartition.get(LocalDate.parse("2019-09-10")).getField(4), new MaterializedRow(DEFAULT_PRECISION, new MaterializedRow(DEFAULT_PRECISION, 4L, 5L, 0L, null)));
+        assertThat(rowsByPartition.get(LocalDate.parse("2019-09-08")).getField(4)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION, new MaterializedRow(DEFAULT_PRECISION, 0L, 0L, 0L, null)));
+        assertThat(rowsByPartition.get(LocalDate.parse("2019-09-09")).getField(4)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION, new MaterializedRow(DEFAULT_PRECISION, 1L, 3L, 0L, null)));
+        assertThat(rowsByPartition.get(LocalDate.parse("2019-09-10")).getField(4)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION, new MaterializedRow(DEFAULT_PRECISION, 4L, 5L, 0L, null)));
     }
 
     @Test
@@ -138,52 +137,44 @@ public abstract class BaseIcebergSystemTables
         assertQuery("SELECT count(*) FROM test_schema.test_table_nan", "VALUES 6");
 
         MaterializedResult result = computeActual("SELECT * from test_schema.\"test_table_nan$partitions\"");
-        assertEquals(result.getRowCount(), 4);
+        assertThat(result.getRowCount()).isEqualTo(4);
 
         Map<LocalDate, MaterializedRow> rowsByPartition = result.getMaterializedRows().stream()
                 .collect(toImmutableMap(row -> ((LocalDate) ((MaterializedRow) row.getField(0)).getField(0)), Function.identity()));
 
         // Test if row counts are computed correctly
-        assertEquals(rowsByPartition.get(LocalDate.parse("2022-01-01")).getField(1), 1L);
-        assertEquals(rowsByPartition.get(LocalDate.parse("2022-01-02")).getField(1), 1L);
-        assertEquals(rowsByPartition.get(LocalDate.parse("2022-01-03")).getField(1), 1L);
-        assertEquals(rowsByPartition.get(LocalDate.parse("2022-01-04")).getField(1), 3L);
+        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-01")).getField(1)).isEqualTo(1L);
+        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-02")).getField(1)).isEqualTo(1L);
+        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-03")).getField(1)).isEqualTo(1L);
+        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-04")).getField(1)).isEqualTo(3L);
 
         // Test if min/max values, null value count and nan value count are computed correctly.
-        assertEquals(
-                rowsByPartition.get(LocalDate.parse("2022-01-01")).getField(4),
-                new MaterializedRow(DEFAULT_PRECISION,
-                        new MaterializedRow(DEFAULT_PRECISION, 1L, 1L, 0L, null),
-                        new MaterializedRow(DEFAULT_PRECISION, 1.1d, 1.1d, 0L, null),
-                        new MaterializedRow(DEFAULT_PRECISION, 1.2f, 1.2f, 0L, null)));
-        assertEquals(
-                rowsByPartition.get(LocalDate.parse("2022-01-02")).getField(4),
-                new MaterializedRow(DEFAULT_PRECISION,
-                        new MaterializedRow(DEFAULT_PRECISION, 2L, 2L, 0L, null),
-                        new MaterializedRow(DEFAULT_PRECISION, null, null, 0L, nanCount(1L)),
-                        new MaterializedRow(DEFAULT_PRECISION, 2.2f, 2.2f, 0L, null)));
-        assertEquals(
-                rowsByPartition.get(LocalDate.parse("2022-01-03")).getField(4),
-                new MaterializedRow(DEFAULT_PRECISION,
-                        new MaterializedRow(DEFAULT_PRECISION, 3L, 3L, 0L, null),
-                        new MaterializedRow(DEFAULT_PRECISION, 3.3, 3.3d, 0L, null),
-                        new MaterializedRow(DEFAULT_PRECISION, null, null, 0L, nanCount(1L))));
-        assertEquals(
-                rowsByPartition.get(LocalDate.parse("2022-01-04")).getField(4),
-                new MaterializedRow(DEFAULT_PRECISION,
-                        new MaterializedRow(DEFAULT_PRECISION, 4L, 6L, 0L, null),
-                        new MaterializedRow(DEFAULT_PRECISION, null, null, 0L, nanCount(2L)),
-                        new MaterializedRow(DEFAULT_PRECISION, null, null, 0L, nanCount(2L))));
+        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-01")).getField(4)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION,
+                new MaterializedRow(DEFAULT_PRECISION, 1L, 1L, 0L, null),
+                new MaterializedRow(DEFAULT_PRECISION, 1.1d, 1.1d, 0L, null),
+                new MaterializedRow(DEFAULT_PRECISION, 1.2f, 1.2f, 0L, null)));
+        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-02")).getField(4)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION,
+                new MaterializedRow(DEFAULT_PRECISION, 2L, 2L, 0L, null),
+                new MaterializedRow(DEFAULT_PRECISION, null, null, 0L, nanCount(1L)),
+                new MaterializedRow(DEFAULT_PRECISION, 2.2f, 2.2f, 0L, null)));
+        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-03")).getField(4)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION,
+                new MaterializedRow(DEFAULT_PRECISION, 3L, 3L, 0L, null),
+                new MaterializedRow(DEFAULT_PRECISION, 3.3, 3.3d, 0L, null),
+                new MaterializedRow(DEFAULT_PRECISION, null, null, 0L, nanCount(1L))));
+        assertThat(rowsByPartition.get(LocalDate.parse("2022-01-04")).getField(4)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION,
+                new MaterializedRow(DEFAULT_PRECISION, 4L, 6L, 0L, null),
+                new MaterializedRow(DEFAULT_PRECISION, null, null, 0L, nanCount(2L)),
+                new MaterializedRow(DEFAULT_PRECISION, null, null, 0L, nanCount(2L))));
     }
 
     @Test
     public void testPartitionTableOnDropColumn()
     {
         MaterializedResult resultAfterDrop = computeActual("SELECT * from test_schema.\"test_table_drop_column$partitions\"");
-        assertEquals(resultAfterDrop.getRowCount(), 3);
+        assertThat(resultAfterDrop.getRowCount()).isEqualTo(3);
         Map<LocalDate, MaterializedRow> rowsByPartitionAfterDrop = resultAfterDrop.getMaterializedRows().stream()
                 .collect(toImmutableMap(row -> ((LocalDate) ((MaterializedRow) row.getField(0)).getField(0)), Function.identity()));
-        assertEquals(rowsByPartitionAfterDrop.get(LocalDate.parse("2019-09-08")).getField(4), new MaterializedRow(DEFAULT_PRECISION,
+        assertThat(rowsByPartitionAfterDrop.get(LocalDate.parse("2019-09-08")).getField(4)).isEqualTo(new MaterializedRow(DEFAULT_PRECISION,
                 new MaterializedRow(DEFAULT_PRECISION, 0L, 0L, 0L, null)));
     }
 

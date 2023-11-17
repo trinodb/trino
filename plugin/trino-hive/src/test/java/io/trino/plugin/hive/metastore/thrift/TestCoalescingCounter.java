@@ -26,7 +26,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCoalescingCounter
 {
@@ -36,20 +36,20 @@ public class TestCoalescingCounter
         TestingClock clock = new TestingClock();
         CoalescingCounter counter = new CoalescingCounter(clock, new Duration(1, SECONDS));
 
-        assertEquals(counter.get(), 0);
-        assertEquals(counter.incrementAndGet(), 1);
-        assertEquals(counter.incrementAndGet(), 1);
-        assertEquals(counter.get(), 1);
+        assertThat(counter.get()).isEqualTo(0);
+        assertThat(counter.incrementAndGet()).isEqualTo(1);
+        assertThat(counter.incrementAndGet()).isEqualTo(1);
+        assertThat(counter.get()).isEqualTo(1);
 
         clock.increment(100, MILLISECONDS);
-        assertEquals(counter.incrementAndGet(), 1);
-        assertEquals(counter.incrementAndGet(), 1);
-        assertEquals(counter.get(), 1);
+        assertThat(counter.incrementAndGet()).isEqualTo(1);
+        assertThat(counter.incrementAndGet()).isEqualTo(1);
+        assertThat(counter.get()).isEqualTo(1);
 
         clock.increment(1000, MILLISECONDS);
-        assertEquals(counter.incrementAndGet(), 2);
-        assertEquals(counter.incrementAndGet(), 2);
-        assertEquals(counter.get(), 2);
+        assertThat(counter.incrementAndGet()).isEqualTo(2);
+        assertThat(counter.incrementAndGet()).isEqualTo(2);
+        assertThat(counter.get()).isEqualTo(2);
     }
 
     // TODO replace with https://github.com/airlift/airlift/pull/780

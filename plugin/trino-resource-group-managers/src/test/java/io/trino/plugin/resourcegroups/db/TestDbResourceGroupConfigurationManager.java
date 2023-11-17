@@ -26,6 +26,7 @@ import io.trino.spi.resourcegroups.SchedulingPolicy;
 import io.trino.spi.resourcegroups.SelectionContext;
 import io.trino.spi.resourcegroups.SelectionCriteria;
 import io.trino.spi.session.ResourceEstimates;
+import org.h2.jdbc.JdbcException;
 import org.jdbi.v3.core.statement.UnableToExecuteStatementException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -46,9 +47,6 @@ import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExcept
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestDbResourceGroupConfigurationManager
 {
@@ -81,25 +79,25 @@ public class TestDbResourceGroupConfigurationManager
         // check the prod configuration
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(listener -> {}, new DbResourceGroupConfig(), daoProvider.get(), prodEnvironment);
         List<ResourceGroupSpec> groups = manager.getRootGroups();
-        assertEquals(groups.size(), 1);
+        assertThat(groups.size()).isEqualTo(1);
         InternalResourceGroup prodGlobal = new InternalResourceGroup("prod_global", (group, export) -> {}, directExecutor());
         manager.configure(prodGlobal, new SelectionContext<>(prodGlobal.getId(), new ResourceGroupIdTemplate("prod_global")));
         assertEqualsResourceGroup(prodGlobal, "10MB", 1000, 100, 100, WEIGHTED, DEFAULT_WEIGHT, true, Duration.ofHours(1), Duration.ofDays(1));
-        assertEquals(manager.getSelectors().size(), 1);
+        assertThat(manager.getSelectors().size()).isEqualTo(1);
         ResourceGroupSelector prodSelector = manager.getSelectors().get(0);
         ResourceGroupId prodResourceGroupId = prodSelector.match(new SelectionCriteria(true, "prod_user", ImmutableSet.of(), Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty())).get().getResourceGroupId();
-        assertEquals(prodResourceGroupId.toString(), "prod_global");
+        assertThat(prodResourceGroupId.toString()).isEqualTo("prod_global");
 
         // check the dev configuration
         manager = new DbResourceGroupConfigurationManager(listener -> {}, new DbResourceGroupConfig(), daoProvider.get(), devEnvironment);
-        assertEquals(groups.size(), 1);
+        assertThat(groups.size()).isEqualTo(1);
         InternalResourceGroup devGlobal = new InternalResourceGroup("dev_global", (group, export) -> {}, directExecutor());
         manager.configure(devGlobal, new SelectionContext<>(prodGlobal.getId(), new ResourceGroupIdTemplate("dev_global")));
         assertEqualsResourceGroup(devGlobal, "1MB", 1000, 100, 100, WEIGHTED, DEFAULT_WEIGHT, true, Duration.ofHours(1), Duration.ofDays(1));
-        assertEquals(manager.getSelectors().size(), 1);
+        assertThat(manager.getSelectors().size()).isEqualTo(1);
         ResourceGroupSelector devSelector = manager.getSelectors().get(0);
         ResourceGroupId devResourceGroupId = devSelector.match(new SelectionCriteria(true, "dev_user", ImmutableSet.of(), Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty())).get().getResourceGroupId();
-        assertEquals(devResourceGroupId.toString(), "dev_global");
+        assertThat(devResourceGroupId.toString()).isEqualTo("dev_global");
     }
 
     @Test
@@ -134,8 +132,8 @@ public class TestDbResourceGroupConfigurationManager
         dao.insertResourceGroup(1, "global", "1MB", 1000, 100, 100, null, null, null, null, null, null, ENVIRONMENT);
         assertThatThrownBy(() -> dao.insertResourceGroup(1, "global", "1MB", 1000, 100, 100, null, null, null, null, null, null, ENVIRONMENT))
                 .isInstanceOfSatisfying(UnableToExecuteStatementException.class, ex -> {
-                    assertTrue(ex.getCause() instanceof org.h2.jdbc.JdbcException);
-                    assertTrue(ex.getCause().getMessage().startsWith("Unique index or primary key violation"));
+                    assertThat(ex.getCause() instanceof JdbcException).isTrue();
+                    assertThat(ex.getCause().getMessage().startsWith("Unique index or primary key violation")).isTrue();
                 });
         dao.insertSelector(1, 1, null, null, null, null, null, null);
     }
@@ -152,8 +150,8 @@ public class TestDbResourceGroupConfigurationManager
         dao.insertResourceGroup(2, "sub", "1MB", 1000, 100, 100, null, null, null, null, null, 1L, ENVIRONMENT);
         assertThatThrownBy(() -> dao.insertResourceGroup(2, "sub", "1MB", 1000, 100, 100, null, null, null, null, null, 1L, ENVIRONMENT))
                 .isInstanceOfSatisfying(UnableToExecuteStatementException.class, ex -> {
-                    assertTrue(ex.getCause() instanceof org.h2.jdbc.JdbcException);
-                    assertTrue(ex.getCause().getMessage().startsWith("Unique index or primary key violation"));
+                    assertThat(ex.getCause() instanceof JdbcException).isTrue();
+                    assertThat(ex.getCause().getMessage().startsWith("Unique index or primary key violation")).isTrue();
                 });
         dao.insertSelector(2, 2, null, null, null, null, null, null);
     }
@@ -233,14 +231,14 @@ public class TestDbResourceGroupConfigurationManager
         config.setExactMatchSelectorEnabled(true);
         DbResourceGroupConfigurationManager manager = new DbResourceGroupConfigurationManager(listener -> {}, config, daoProvider.get(), ENVIRONMENT);
         manager.load();
-        assertEquals(manager.getSelectors().size(), 2);
-        assertTrue(manager.getSelectors().get(0) instanceof DbSourceExactMatchSelector);
+        assertThat(manager.getSelectors().size()).isEqualTo(2);
+        assertThat(manager.getSelectors().get(0) instanceof DbSourceExactMatchSelector).isTrue();
 
         config.setExactMatchSelectorEnabled(false);
         manager = new DbResourceGroupConfigurationManager(listener -> {}, config, daoProvider.get(), ENVIRONMENT);
         manager.load();
-        assertEquals(manager.getSelectors().size(), 1);
-        assertFalse(manager.getSelectors().get(0) instanceof DbSourceExactMatchSelector);
+        assertThat(manager.getSelectors().size()).isEqualTo(1);
+        assertThat(manager.getSelectors().get(0) instanceof DbSourceExactMatchSelector).isFalse();
     }
 
     @Test
@@ -274,15 +272,15 @@ public class TestDbResourceGroupConfigurationManager
         manager.load();
 
         List<ResourceGroupSelector> selectors = manager.getSelectors();
-        assertEquals(selectors.size(), expectedUsers.size());
+        assertThat(selectors.size()).isEqualTo(expectedUsers.size());
 
         // when we load the selectors we expect the selector list to be ordered by priority
         expectedUsers.sort(Comparator.<String>comparingInt(Integer::parseInt).reversed());
 
         for (int i = 0; i < numberOfUsers; i++) {
             Optional<Pattern> user = ((StaticSelector) selectors.get(i)).getUserRegex();
-            assertTrue(user.isPresent());
-            assertEquals(user.get().pattern(), expectedUsers.get(i));
+            assertThat(user.isPresent()).isTrue();
+            assertThat(user.get().pattern()).isEqualTo(expectedUsers.get(i));
         }
     }
 
@@ -393,15 +391,15 @@ public class TestDbResourceGroupConfigurationManager
             Duration softCpuLimit,
             Duration hardCpuLimit)
     {
-        assertEquals(group.getSoftMemoryLimitBytes(), DataSize.valueOf(softMemoryLimit).toBytes());
-        assertEquals(group.getMaxQueuedQueries(), maxQueued);
-        assertEquals(group.getHardConcurrencyLimit(), hardConcurrencyLimit);
-        assertEquals(group.getSoftConcurrencyLimit(), softConcurrencyLimit);
-        assertEquals(group.getSchedulingPolicy(), schedulingPolicy);
-        assertEquals(group.getSchedulingWeight(), schedulingWeight);
-        assertEquals(group.getJmxExport(), jmxExport);
-        assertEquals(group.getSoftCpuLimit(), softCpuLimit);
-        assertEquals(group.getHardCpuLimit(), hardCpuLimit);
+        assertThat(group.getSoftMemoryLimitBytes()).isEqualTo(DataSize.valueOf(softMemoryLimit).toBytes());
+        assertThat(group.getMaxQueuedQueries()).isEqualTo(maxQueued);
+        assertThat(group.getHardConcurrencyLimit()).isEqualTo(hardConcurrencyLimit);
+        assertThat(group.getSoftConcurrencyLimit()).isEqualTo(softConcurrencyLimit);
+        assertThat(group.getSchedulingPolicy()).isEqualTo(schedulingPolicy);
+        assertThat(group.getSchedulingWeight()).isEqualTo(schedulingWeight);
+        assertThat(group.getJmxExport()).isEqualTo(jmxExport);
+        assertThat(group.getSoftCpuLimit()).isEqualTo(softCpuLimit);
+        assertThat(group.getHardCpuLimit()).isEqualTo(hardCpuLimit);
     }
 
     private static SelectionCriteria userGroupsSelectionCriteria(String... groups)

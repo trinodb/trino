@@ -39,8 +39,6 @@ import static java.time.Instant.ofEpochMilli;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -61,9 +59,9 @@ public class TestPrometheusRecordSet
                         new PrometheusColumnHandle("value", DoubleType.DOUBLE, 2)));
         RecordCursor cursor = recordSet.cursor();
 
-        assertEquals(cursor.getType(0), varcharMapType);
-        assertEquals(cursor.getType(1), TIMESTAMP_COLUMN_TYPE);
-        assertEquals(cursor.getType(2), DoubleType.DOUBLE);
+        assertThat(cursor.getType(0)).isEqualTo(varcharMapType);
+        assertThat(cursor.getType(1)).isEqualTo(TIMESTAMP_COLUMN_TYPE);
+        assertThat(cursor.getType(2)).isEqualTo(DoubleType.DOUBLE);
 
         List<PrometheusStandardizedRow> actual = new ArrayList<>();
         while (cursor.advanceNextPosition()) {
@@ -72,9 +70,9 @@ public class TestPrometheusRecordSet
                             .collect(toImmutableMap(entry -> (String) entry.getKey(), entry -> (String) entry.getValue())),
                     (Instant) cursor.getObject(1),
                     cursor.getDouble(2)));
-            assertFalse(cursor.isNull(0));
-            assertFalse(cursor.isNull(1));
-            assertFalse(cursor.isNull(2));
+            assertThat(cursor.isNull(0)).isFalse();
+            assertThat(cursor.isNull(1)).isFalse();
+            assertThat(cursor.isNull(2)).isFalse();
         }
         List<PrometheusStandardizedRow> expected = ImmutableList.<PrometheusStandardizedRow>builder()
                 .add(new PrometheusStandardizedRow(
@@ -92,9 +90,9 @@ public class TestPrometheusRecordSet
         for (int i = 0; i < actual.size(); i++) {
             PrometheusStandardizedRow actualRow = actual.get(i);
             PrometheusStandardizedRow expectedRow = expected.get(i);
-            assertEquals(getMapFromSqlMap(varcharMapType, getSqlMapFromMap(varcharMapType, actualRow.getLabels())), getMapFromSqlMap(varcharMapType, getSqlMapFromMap(varcharMapType, expectedRow.getLabels())));
-            assertEquals(actualRow.getTimestamp(), expectedRow.getTimestamp());
-            assertEquals(actualRow.getValue(), expectedRow.getValue());
+            assertThat(getMapFromSqlMap(varcharMapType, getSqlMapFromMap(varcharMapType, actualRow.getLabels()))).isEqualTo(getMapFromSqlMap(varcharMapType, getSqlMapFromMap(varcharMapType, expectedRow.getLabels())));
+            assertThat(actualRow.getTimestamp()).isEqualTo(expectedRow.getTimestamp());
+            assertThat(actualRow.getValue()).isEqualTo(expectedRow.getValue());
         }
     }
 

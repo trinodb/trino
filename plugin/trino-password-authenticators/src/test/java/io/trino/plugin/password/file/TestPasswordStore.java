@@ -16,9 +16,8 @@ package io.trino.plugin.password.file;
 import com.google.common.collect.ImmutableList;
 import org.junit.jupiter.api.Test;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestPasswordStore
 {
@@ -30,16 +29,16 @@ public class TestPasswordStore
     {
         PasswordStore store = createStore("userbcrypt:" + BCRYPT_PASSWORD, "userpbkdf2:" + PBKDF2_PASSWORD);
 
-        assertTrue(store.authenticate("userbcrypt", "user123"));
-        assertFalse(store.authenticate("userbcrypt", "user999"));
-        assertFalse(store.authenticate("userbcrypt", "password"));
+        assertThat(store.authenticate("userbcrypt", "user123")).isTrue();
+        assertThat(store.authenticate("userbcrypt", "user999")).isFalse();
+        assertThat(store.authenticate("userbcrypt", "password")).isFalse();
 
-        assertTrue(store.authenticate("userpbkdf2", "password"));
-        assertFalse(store.authenticate("userpbkdf2", "password999"));
-        assertFalse(store.authenticate("userpbkdf2", "user123"));
+        assertThat(store.authenticate("userpbkdf2", "password")).isTrue();
+        assertThat(store.authenticate("userpbkdf2", "password999")).isFalse();
+        assertThat(store.authenticate("userpbkdf2", "user123")).isFalse();
 
-        assertFalse(store.authenticate("baduser", "user123"));
-        assertFalse(store.authenticate("baduser", "password"));
+        assertThat(store.authenticate("baduser", "user123")).isFalse();
+        assertThat(store.authenticate("baduser", "password")).isFalse();
     }
 
     @Test

@@ -18,8 +18,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.OptionalDouble;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestQueryProgressStats
 {
@@ -42,15 +41,15 @@ public class TestQueryProgressStats
         String json = codec.toJson(expected);
         QueryProgressStats actual = codec.fromJson(json);
 
-        assertEquals(actual.getElapsedTimeMillis(), 123456);
-        assertEquals(actual.getQueuedTimeMillis(), 1111);
-        assertEquals(actual.getCpuTimeMillis(), 22222);
-        assertEquals(actual.getScheduledTimeMillis(), 3333);
-        assertEquals(actual.getCurrentMemoryBytes(), 100000);
-        assertEquals(actual.getPeakMemoryBytes(), 34230492);
-        assertEquals(actual.getInputRows(), 1000);
-        assertEquals(actual.getInputBytes(), 100000);
-        assertFalse(actual.isBlocked());
-        assertEquals(actual.getProgressPercentage(), OptionalDouble.of(33.33));
+        assertThat(actual.getElapsedTimeMillis()).isEqualTo(123456);
+        assertThat(actual.getQueuedTimeMillis()).isEqualTo(1111);
+        assertThat(actual.getCpuTimeMillis()).isEqualTo(22222);
+        assertThat(actual.getScheduledTimeMillis()).isEqualTo(3333);
+        assertThat(actual.getCurrentMemoryBytes()).isEqualTo(100000);
+        assertThat(actual.getPeakMemoryBytes()).isEqualTo(34230492);
+        assertThat(actual.getInputRows()).isEqualTo(1000);
+        assertThat(actual.getInputBytes()).isEqualTo(100000);
+        assertThat(actual.isBlocked()).isFalse();
+        assertThat(actual.getProgressPercentage()).isEqualTo(OptionalDouble.of(33.33));
     }
 }

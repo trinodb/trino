@@ -47,9 +47,9 @@ import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -138,6 +138,6 @@ public class TestResetSessionTask
                 WarningCollector.NOOP));
 
         Set<String> sessionProperties = stateMachine.getResetSessionProperties();
-        assertEquals(sessionProperties, ImmutableSet.of(CATALOG_NAME + ".baz"));
+        assertThat(sessionProperties).isEqualTo(ImmutableSet.of(CATALOG_NAME + ".baz"));
     }
 }
