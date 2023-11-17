@@ -4415,11 +4415,14 @@ class StatementAnalyzer
 
             tableFieldsMap.asMap().forEach((table, tableFields) -> {
                 Set<String> accessibleColumns = accessControl.filterColumns(
-                        session.toSecurityContext(),
-                        table.asCatalogSchemaTableName(),
-                        tableFields.stream()
-                                .map(field -> field.getOriginColumnName().get())
-                                .collect(toImmutableSet()));
+                                session.toSecurityContext(),
+                                table.getCatalogName(),
+                                ImmutableMap.of(
+                                        table.asSchemaTableName(),
+                                        tableFields.stream()
+                                                .map(field -> field.getOriginColumnName().get())
+                                                .collect(toImmutableSet())))
+                        .getOrDefault(table.asSchemaTableName(), ImmutableSet.of());
                 accessibleFields.addAll(tableFields.stream()
                         .filter(field -> accessibleColumns.contains(field.getOriginColumnName().get()))
                         .collect(toImmutableList()));

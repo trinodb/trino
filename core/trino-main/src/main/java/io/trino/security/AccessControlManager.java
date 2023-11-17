@@ -628,32 +628,6 @@ public class AccessControlManager
     }
 
     @Override
-    public Set<String> filterColumns(SecurityContext securityContext, CatalogSchemaTableName table, Set<String> columns)
-    {
-        requireNonNull(securityContext, "securityContext is null");
-        requireNonNull(table, "tableName is null");
-
-        if (columns.isEmpty()) {
-            // Do not call plugin-provided implementation unnecessarily.
-            return ImmutableSet.of();
-        }
-
-        if (filterTables(securityContext, table.getCatalogName(), ImmutableSet.of(table.getSchemaTableName())).isEmpty()) {
-            return ImmutableSet.of();
-        }
-
-        for (SystemAccessControl systemAccessControl : getSystemAccessControls()) {
-            columns = systemAccessControl.filterColumns(securityContext.toSystemSecurityContext(), table, columns);
-        }
-
-        ConnectorAccessControl connectorAccessControl = getConnectorAccessControl(securityContext.getTransactionId(), table.getCatalogName());
-        if (connectorAccessControl != null) {
-            columns = connectorAccessControl.filterColumns(toConnectorSecurityContext(table.getCatalogName(), securityContext), table.getSchemaTableName(), columns);
-        }
-        return columns;
-    }
-
-    @Override
     public Map<SchemaTableName, Set<String>> filterColumns(SecurityContext securityContext, String catalogName, Map<SchemaTableName, Set<String>> tableColumns)
     {
         requireNonNull(securityContext, "securityContext is null");
