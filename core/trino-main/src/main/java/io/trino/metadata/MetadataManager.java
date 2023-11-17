@@ -1658,7 +1658,7 @@ public final class MetadataManager
             ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
             return metadata.getMaterializedViewFreshness(connectorSession, viewName.asSchemaTableName());
         }
-        return new MaterializedViewFreshness(STALE);
+        return new MaterializedViewFreshness(STALE, Optional.empty());
     }
 
     @Override
