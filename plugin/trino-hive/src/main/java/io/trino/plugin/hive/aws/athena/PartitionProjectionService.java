@@ -27,9 +27,9 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 
 import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -64,10 +64,10 @@ import static io.trino.plugin.hive.aws.athena.ProjectionType.DATE;
 import static io.trino.plugin.hive.aws.athena.ProjectionType.ENUM;
 import static io.trino.plugin.hive.aws.athena.ProjectionType.INJECTED;
 import static io.trino.plugin.hive.aws.athena.ProjectionType.INTEGER;
+import static java.lang.Boolean.parseBoolean;
 import static java.lang.String.format;
 import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Function.identity;
 
 public final class PartitionProjectionService
 {
@@ -119,7 +119,7 @@ public final class PartitionProjectionService
 
     public Map<String, String> getPartitionProjectionHiveTableProperties(ConnectorTableMetadata tableMetadata)
     {
-        // If partition projection is globally disabled we don't allow defining its properties
+        // If partition projection is globally disabled, we don't allow defining its properties
         if (!partitionProjectionEnabled && isAnyPartitionProjectionPropertyUsed(tableMetadata)) {
             throw new InvalidProjectionException("Partition projection is disabled. Enable it in configuration by setting "
                     + HiveConfig.CONFIGURATION_HIVE_PARTITION_PROJECTION_ENABLED + "=true");
@@ -182,11 +182,12 @@ public final class PartitionProjectionService
 
         // We initialize partition projection to validate properties.
         Map<String, String> metastoreTableProperties = metastoreTablePropertiesBuilder.buildOrThrow();
-        List<String> partitionColumnNames = getPartitionedBy(tableMetadata.getProperties());
+        Set<String> partitionColumnNames = ImmutableSet.copyOf(getPartitionedBy(tableMetadata.getProperties()));
         createPartitionProjection(
                 tableMetadata.getColumns()
                         .stream()
                         .map(ColumnMetadata::getName)
+                        .filter(name -> !partitionColumnNames.contains(name))
                         .collect(toImmutableList()),
                 tableMetadata.getColumns().stream()
                         .filter(columnMetadata -> partitionColumnNames.contains(columnMetadata.getName()))
@@ -215,77 +216,60 @@ public final class PartitionProjectionService
         }
 
         Map<String, String> tableProperties = table.getParameters();
-        if (Optional.ofNullable(tableProperties.get(METASTORE_PROPERTY_PROJECTION_IGNORE))
-                .map(Boolean::valueOf)
-                .orElse(false)) {
+        if (parseBoolean(tableProperties.get(METASTORE_PROPERTY_PROJECTION_IGNORE)) ||
+                !parseBoolean(tableProperties.get(METASTORE_PROPERTY_PROJECTION_ENABLED))) {
             return Optional.empty();
         }
 
-        return Optional.of(
-                createPartitionProjection(
-                        table.getDataColumns()
-                                .stream()
-                                .map(Column::getName)
-                                .collect(toImmutableList()),
-                        table.getPartitionColumns()
-                                .stream().collect(toImmutableMap(
-                                        Column::getName,
-                                        column -> column.getType().getType(
-                                                typeManager,
-                                                DEFAULT_PRECISION))),
-                        tableProperties));
+        Set<String> partitionColumnNames = table.getPartitionColumns().stream().map(Column::getName).collect(Collectors.toSet());
+        return Optional.of(createPartitionProjection(
+                table.getDataColumns().stream()
+                        .map(Column::getName)
+                        .filter(partitionColumnNames::contains)
+                        .collect(toImmutableList()),
+                table.getPartitionColumns().stream()
+                        .collect(toImmutableMap(Column::getName, column -> column.getType().getType(typeManager, DEFAULT_PRECISION))),
+                tableProperties));
     }
 
     private PartitionProjection createPartitionProjection(List<String> dataColumns, Map<String, Type> partitionColumns, Map<String, String> tableProperties)
     {
-        Optional<Boolean> projectionEnabledProperty = Optional.ofNullable(tableProperties.get(METASTORE_PROPERTY_PROJECTION_ENABLED)).map(Boolean::valueOf);
-        if (projectionEnabledProperty.orElse(false) && partitionColumns.isEmpty()) {
-            throw new InvalidProjectionException("Partition projection can't be enabled when no partition columns are defined.");
+        // This method is used during table creation to validate the properties. The validation is performed even if the projection is disabled.
+        boolean enabled = parseBoolean(tableProperties.get(METASTORE_PROPERTY_PROJECTION_ENABLED));
+
+        if (!tableProperties.containsKey(METASTORE_PROPERTY_PROJECTION_ENABLED) &&
+                partitionColumns.keySet().stream().anyMatch(columnName -> !rewriteColumnProjectionProperties(tableProperties, columnName).isEmpty())) {
+            throw new InvalidProjectionException("Columns partition projection properties cannot be set when '%s' is not set".formatted(PARTITION_PROJECTION_ENABLED));
         }
 
-        Map<String, Projection> columnProjections = ImmutableSet.<String>builder()
-                .addAll(partitionColumns.keySet())
-                .addAll(dataColumns)
-                .build()
-                .stream()
-                .collect(toImmutableMap(
-                        identity(),
-                        columnName -> rewriteColumnProjectionProperties(tableProperties, columnName)))
-                .entrySet()
-                .stream()
-                .filter(entry -> !entry.getValue().isEmpty())
-                .collect(toImmutableMap(
-                        Map.Entry::getKey,
-                        entry -> {
-                            String columnName = entry.getKey();
-                            if (partitionColumns.containsKey(columnName)) {
-                                return parseColumnProjection(columnName, partitionColumns.get(columnName), entry.getValue());
-                            }
-                            throw new InvalidProjectionException("Partition projection can't be defined for non partition column: '" + columnName + "'");
-                        }));
+        if (enabled && partitionColumns.isEmpty()) {
+            throw new InvalidProjectionException("Partition projection cannot be enabled on a table that is not partitioned");
+        }
 
-        Optional<String> storageLocationTemplate = Optional.ofNullable(tableProperties.get(METASTORE_PROPERTY_PROJECTION_LOCATION_TEMPLATE));
-        if (projectionEnabledProperty.isPresent()) {
-            for (String columnName : partitionColumns.keySet()) {
-                if (!columnProjections.containsKey(columnName)) {
-                    throw new InvalidProjectionException("Partition projection definition for column: '" + columnName + "' missing");
-                }
-                if (storageLocationTemplate.isPresent()) {
-                    String locationTemplate = storageLocationTemplate.get();
-                    if (!locationTemplate.contains("${" + columnName + "}")) {
-                        throw new InvalidProjectionException(format("Partition projection location template: %s is missing partition column: '%s' placeholder", locationTemplate, columnName));
-                    }
-                }
+        for (String columnName : dataColumns) {
+            if (!rewriteColumnProjectionProperties(tableProperties, columnName).isEmpty()) {
+                throw new InvalidProjectionException("Partition projection cannot be defined for non-partition column: '" + columnName + "'");
             }
         }
-        else if (!columnProjections.isEmpty()) {
-            throw new InvalidProjectionException(format(
-                    "Columns %s projections are disallowed when partition projection property '%s' is missing",
-                    columnProjections.keySet().stream().collect(Collectors.joining("', '", "['", "']")),
-                    PARTITION_PROJECTION_ENABLED));
-        }
 
-        return new PartitionProjection(projectionEnabledProperty.orElse(false), storageLocationTemplate, columnProjections);
+        Map<String, Projection> columnProjections = new HashMap<>();
+        partitionColumns.forEach((columnName, type) -> {
+            Map<String, Object> columnProperties = rewriteColumnProjectionProperties(tableProperties, columnName);
+            if (enabled) {
+                columnProjections.put(columnName, parseColumnProjection(columnName, type, columnProperties));
+            }
+        });
+
+        Optional<String> storageLocationTemplate = Optional.ofNullable(tableProperties.get(METASTORE_PROPERTY_PROJECTION_LOCATION_TEMPLATE));
+        storageLocationTemplate.ifPresent(locationTemplate -> {
+            for (String columnName : partitionColumns.keySet()) {
+                if (!locationTemplate.contains("${" + columnName + "}")) {
+                    throw new InvalidProjectionException(format("Partition projection location template: %s is missing partition column: '%s' placeholder", locationTemplate, columnName));
+                }
+            }
+        });
+
+        return new PartitionProjection(enabled, storageLocationTemplate, columnProjections);
     }
 
     private static Map<String, Object> rewriteColumnProjectionProperties(Map<String, String> metastoreTableProperties, String columnName)
@@ -333,11 +317,13 @@ public final class PartitionProjectionService
     private Projection parseColumnProjection(String columnName, Type columnType, Map<String, Object> columnProperties)
     {
         ProjectionType projectionType = (ProjectionType) columnProperties.get(COLUMN_PROJECTION_TYPE);
-        if (Objects.isNull(projectionType)) {
-            throw new InvalidProjectionException(columnName, "Projection type property missing for column: '" + columnName + "'");
+        if (projectionType == null) {
+            throw new InvalidProjectionException(columnName, "Projection type property missing");
         }
-        ProjectionFactory projectionFactory = Optional.ofNullable(projectionFactories.get(projectionType))
-                .orElseThrow(() -> new InvalidProjectionException(columnName, format("Partition projection type %s for column: '%s' not supported", projectionType, columnName)));
+        ProjectionFactory projectionFactory = projectionFactories.get(projectionType);
+        if (projectionFactory == null) {
+            throw new InvalidProjectionException(columnName, format("Partition projection type %s for column: '%s' not supported", projectionType, columnName));
+        }
         if (!projectionFactory.isSupportedColumnType(columnType)) {
             throw new InvalidProjectionException(columnName, columnType);
         }

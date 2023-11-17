@@ -1331,7 +1331,7 @@ public class TestHive3OnDataLake
                         ") WITH ( " +
                         "  partition_projection_enabled=true " +
                         ")"))
-                .hasMessage("Partition projection can't be enabled when no partition columns are defined.");
+                .hasMessage("Partition projection cannot be enabled on a table that is not partitioned");
 
         assertThatThrownBy(() -> getQueryRunner().execute(
                 "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomNameSuffix()) + " ( " +
@@ -1344,7 +1344,7 @@ public class TestHive3OnDataLake
                         "  partitioned_by=ARRAY['short_name1'], " +
                         "  partition_projection_enabled=true " +
                         ")"))
-                .hasMessage("Partition projection can't be defined for non partition column: 'name'");
+                .hasMessage("Partition projection cannot be defined for non-partition column: 'name'");
 
         assertThatThrownBy(() -> getQueryRunner().execute(
                 "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomNameSuffix()) + " ( " +
@@ -1358,7 +1358,7 @@ public class TestHive3OnDataLake
                         "  partitioned_by=ARRAY['short_name1', 'short_name2'], " +
                         "  partition_projection_enabled=true " +
                         ")"))
-                .hasMessage("Partition projection definition for column: 'short_name2' missing");
+                .hasMessage("Column projection for column 'short_name2' failed. Projection type property missing");
 
         assertThatThrownBy(() -> getQueryRunner().execute(
                 "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomNameSuffix()) + " ( " +
@@ -1496,7 +1496,7 @@ public class TestHive3OnDataLake
                         ") WITH ( " +
                         "  partitioned_by=ARRAY['short_name1'] " +
                         ")"))
-                .hasMessage("Columns ['short_name1'] projections are disallowed when partition projection property 'partition_projection_enabled' is missing");
+                .hasMessage("Columns partition projection properties cannot be set when 'partition_projection_enabled' is not set");
 
         // Verify that ignored flag is only interpreted for pre-existing tables where configuration is loaded from metastore.
         // It should not allow creating corrupted config via Trino. It's a kill switch to run away when we have compatibility issues.
@@ -1510,7 +1510,7 @@ public class TestHive3OnDataLake
                         "  )" +
                         ") WITH ( " +
                         "  partitioned_by=ARRAY['short_name1'], " +
-                        "  partition_projection_enabled=false, " +
+                        "  partition_projection_enabled=true, " +
                         "  partition_projection_ignore=true " + // <-- Even if this is set we disallow creating corrupted configuration via Trino
                         ")"))
                 .hasMessage("Column projection for column 'short_name1' failed. Property: 'partition_projection_interval_unit' " +
