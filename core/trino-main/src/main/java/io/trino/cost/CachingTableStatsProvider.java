@@ -13,6 +13,7 @@
  */
 package io.trino.cost;
 
+import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
@@ -46,5 +47,10 @@ public class CachingTableStatsProvider
             cache.put(tableHandle, stats);
         }
         return stats;
+    }
+
+    public Map<TableHandle, TableStatistics> getCachedTableStatistics()
+    {
+        return ImmutableMap.copyOf(cache);
     }
 }
