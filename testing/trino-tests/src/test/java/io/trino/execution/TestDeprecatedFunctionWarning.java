@@ -47,9 +47,9 @@ import java.util.Set;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static org.assertj.core.api.Fail.fail;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.fail;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)

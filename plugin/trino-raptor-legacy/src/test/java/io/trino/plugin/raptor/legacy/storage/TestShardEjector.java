@@ -57,11 +57,9 @@ import static java.nio.file.Files.createTempDirectory;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.stream.Collectors.toSet;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_METHOD)
 @Execution(SAME_THREAD)
@@ -143,7 +141,7 @@ public class TestShardEjector
         for (ShardInfo shard : shards.subList(0, 8)) {
             File file = storageService.getStorageFile(shard.getShardUuid());
             storageService.createParents(file);
-            assertTrue(file.createNewFile());
+            assertThat(file.createNewFile()).isTrue();
         }
 
         ejector.process();
@@ -160,13 +158,13 @@ public class TestShardEjector
         Set<UUID> remaining = uuids(shardManager.getNodeShards("node1"));
 
         for (UUID uuid : ejectedShards) {
-            assertFalse(remaining.contains(uuid));
-            assertFalse(storageService.getStorageFile(uuid).exists());
+            assertThat(remaining.contains(uuid)).isFalse();
+            assertThat(storageService.getStorageFile(uuid).exists()).isFalse();
         }
 
-        assertEquals(remaining, keptShards);
+        assertThat(remaining).isEqualTo(keptShards);
         for (UUID uuid : keptShards) {
-            assertTrue(storageService.getStorageFile(uuid).exists());
+            assertThat(storageService.getStorageFile(uuid).exists()).isTrue();
         }
 
         Set<UUID> others = ImmutableSet.<UUID>builder()
@@ -176,7 +174,7 @@ public class TestShardEjector
                 .addAll(uuids(shardManager.getNodeShards("node5")))
                 .build();
 
-        assertTrue(others.containsAll(ejectedShards));
+        assertThat(others.containsAll(ejectedShards)).isTrue();
     }
 
     private long createTable(String name)

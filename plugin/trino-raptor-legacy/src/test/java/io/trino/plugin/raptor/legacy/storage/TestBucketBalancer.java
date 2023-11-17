@@ -52,9 +52,9 @@ import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesW
 import static io.trino.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.concurrent.TimeUnit.DAYS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_METHOD)
 @Execution(SAME_THREAD)
@@ -192,10 +192,10 @@ public class TestBucketBalancer
 
         assertBalancing(balancer, 1);
 
-        assertEquals(balancer.fetchClusterState().getAssignedBytes().values()
+        assertThat(balancer.fetchClusterState().getAssignedBytes().values()
                 .stream()
                 .distinct()
-                .count(), 1);
+                .count()).isEqualTo(1);
     }
 
     @Test
@@ -242,7 +242,7 @@ public class TestBucketBalancer
     private static void assertBalancing(BucketBalancer balancer, int expectedMoves)
     {
         int actualMoves = balancer.balance();
-        assertEquals(actualMoves, expectedMoves);
+        assertThat(actualMoves).isEqualTo(expectedMoves);
 
         // check that number of buckets per node is within bounds
         ClusterState clusterState = balancer.fetchClusterState();
@@ -260,7 +260,7 @@ public class TestBucketBalancer
         }
 
         // check stability
-        assertEquals(balancer.balance(), 0);
+        assertThat(balancer.balance()).isEqualTo(0);
     }
 
     private long createDistribution(String distributionName, int bucketCount)

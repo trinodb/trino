@@ -48,10 +48,7 @@ import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public final class GroupByHashYieldAssertion
 {
@@ -116,7 +113,7 @@ public final class GroupByHashYieldAssertion
             }
 
             // unblocked
-            assertTrue(operator.needsInput());
+            assertThat(operator.needsInput()).isTrue();
 
             // reserve the most of the memory pool, except for the space necessary for the variable with data
             // a small bit of memory is left unallocated for the aggregators
@@ -156,10 +153,10 @@ public final class GroupByHashYieldAssertion
                 // The page processing completed
 
                 // Assert we are not blocked
-                assertTrue(operator.getOperatorContext().isWaitingForMemory().isDone());
+                assertThat(operator.getOperatorContext().isWaitingForMemory().isDone()).isTrue();
 
                 // assert the hash capacity is not changed; otherwise, we should have yielded
-                assertEquals((int) getHashCapacity.apply(operator), oldCapacity);
+                assertThat((int) getHashCapacity.apply(operator)).isEqualTo(oldCapacity);
 
                 // We are not going to rehash; therefore, assert the memory increase only comes from the aggregator
                 assertLessThan(actualHashIncreased, additionalMemoryInBytes);
@@ -172,10 +169,10 @@ public final class GroupByHashYieldAssertion
                 yieldCount++;
 
                 // Assert we are blocked waiting for memory
-                assertFalse(operator.getOperatorContext().isWaitingForMemory().isDone());
+                assertThat(operator.getOperatorContext().isWaitingForMemory().isDone()).isFalse();
 
                 // Hash table capacity should not have changed, because memory must be allocated first
-                assertEquals(oldCapacity, (long) getHashCapacity.apply(operator));
+                assertThat(oldCapacity).isEqualTo((long) getHashCapacity.apply(operator));
 
                 long expectedHashBytes;
                 if (hashKeyType == BIGINT) {
@@ -189,7 +186,7 @@ public final class GroupByHashYieldAssertion
                 assertBetweenInclusive(actualHashIncreased, expectedHashBytes, expectedHashBytes + additionalMemoryInBytes);
 
                 // Output should be blocked as well
-                assertNull(operator.getOutput());
+                assertThat(operator.getOutput()).isNull();
 
                 // Free the pool to unblock
                 memoryPool.free(anotherTaskId, "test", memoryPool.getTaskMemoryReservations().get(anotherTaskId));
@@ -199,7 +196,7 @@ public final class GroupByHashYieldAssertion
                 if (output != null) {
                     result.add(output);
                 }
-                assertTrue(operator.needsInput());
+                assertThat(operator.needsInput()).isTrue();
 
                 // Hash table capacity has increased
                 assertGreaterThan(getHashCapacity.apply(operator), oldCapacity);
@@ -223,8 +220,8 @@ public final class GroupByHashYieldAssertion
                 }
 
                 // unblocked
-                assertTrue(operator.needsInput());
-                assertTrue(operator.getOperatorContext().isWaitingForMemory().isDone());
+                assertThat(operator.needsInput()).isTrue();
+                assertThat(operator.getOperatorContext().isWaitingForMemory().isDone()).isTrue();
             }
         }
 

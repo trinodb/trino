@@ -38,9 +38,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.data.Percentage.withPercentage;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestPagesIndex
 {
@@ -51,26 +48,31 @@ public class TestPagesIndex
 
         PagesIndex pagesIndex = newPagesIndex(types, 30, false);
         long initialEstimatedSize = pagesIndex.getEstimatedSize().toBytes();
-        assertTrue(initialEstimatedSize > 0, format("Initial estimated size must be positive, got %s", initialEstimatedSize));
+        assertThat(initialEstimatedSize > 0)
+                .describedAs(format("Initial estimated size must be positive, got %s", initialEstimatedSize))
+                .isTrue();
 
         pagesIndex.addPage(somePage(types));
         long estimatedSizeWithOnePage = pagesIndex.getEstimatedSize().toBytes();
-        assertTrue(estimatedSizeWithOnePage > initialEstimatedSize, "Estimated size should grow after adding a page");
+        assertThat(estimatedSizeWithOnePage > initialEstimatedSize)
+                .describedAs("Estimated size should grow after adding a page")
+                .isTrue();
 
         pagesIndex.addPage(somePage(types));
         long estimatedSizeWithTwoPages = pagesIndex.getEstimatedSize().toBytes();
-        assertEquals(
-                estimatedSizeWithTwoPages,
-                initialEstimatedSize + (estimatedSizeWithOnePage - initialEstimatedSize) * 2,
-                "Estimated size should grow linearly as long as we don't pass expectedPositions");
+        assertThat(estimatedSizeWithTwoPages)
+                .describedAs("Estimated size should grow linearly as long as we don't pass expectedPositions")
+                .isEqualTo(initialEstimatedSize + (estimatedSizeWithOnePage - initialEstimatedSize) * 2);
 
         pagesIndex.compact();
         long estimatedSizeAfterCompact = pagesIndex.getEstimatedSize().toBytes();
         // We can expect compact to reduce size because VARCHAR sequence pages are compactable.
-        assertTrue(estimatedSizeAfterCompact < estimatedSizeWithTwoPages, format(
-                "Compact should reduce (or retain) size, but changed from %s to %s",
-                estimatedSizeWithTwoPages,
-                estimatedSizeAfterCompact));
+        assertThat(estimatedSizeAfterCompact < estimatedSizeWithTwoPages)
+                .describedAs(format(
+                        "Compact should reduce (or retain) size, but changed from %s to %s",
+                        estimatedSizeWithTwoPages,
+                        estimatedSizeAfterCompact))
+                .isTrue();
     }
 
     @Test
@@ -87,13 +89,13 @@ public class TestPagesIndex
 
             // We can expect eagerCompactPagesIndex retained less data than lazyCompactPagesIndex because
             // the pages used in the test (VARCHAR sequence pages) are compactable.
-            assertTrue(
-                    eagerCompactPagesIndex.getEstimatedSize().toBytes() < lazyCompactPagesIndex.getEstimatedSize().toBytes(),
-                    "Expect eagerCompactPagesIndex retained less data than lazyCompactPagesIndex after adding the page, because the pages used in the test are compactable.");
+            assertThat(eagerCompactPagesIndex.getEstimatedSize().toBytes() < lazyCompactPagesIndex.getEstimatedSize().toBytes())
+                    .describedAs("Expect eagerCompactPagesIndex retained less data than lazyCompactPagesIndex after adding the page, because the pages used in the test are compactable.")
+                    .isTrue();
         }
 
         lazyCompactPagesIndex.compact();
-        assertEquals(lazyCompactPagesIndex.getEstimatedSize(), eagerCompactPagesIndex.getEstimatedSize());
+        assertThat(lazyCompactPagesIndex.getEstimatedSize()).isEqualTo(eagerCompactPagesIndex.getEstimatedSize());
     }
 
     @Test
@@ -105,7 +107,7 @@ public class TestPagesIndex
 
         index.compact();
 
-        assertEquals(index.getPositionCount(), 30);
+        assertThat(index.getPositionCount()).isEqualTo(30);
     }
 
     @Test
@@ -116,9 +118,9 @@ public class TestPagesIndex
         index.addPage(new Page(20));
 
         Iterator<Page> pages = index.getPages();
-        assertEquals(pages.next().getPositionCount(), 10);
-        assertEquals(pages.next().getPositionCount(), 20);
-        assertFalse(pages.hasNext());
+        assertThat(pages.next().getPositionCount()).isEqualTo(10);
+        assertThat(pages.next().getPositionCount()).isEqualTo(20);
+        assertThat(pages.hasNext()).isFalse();
     }
 
     @Test

@@ -64,11 +64,6 @@ import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
 
 public class TestPageReader
 {
@@ -306,16 +301,16 @@ public class TestPageReader
     {
         PageReader pageReader = createPageReader(valueCount, compressionCodec, hasDictionary, slices);
         DictionaryPage dictionaryPage = pageReader.readDictionaryPage();
-        assertEquals(dictionaryPage != null, hasDictionary);
+        assertThat(dictionaryPage != null).isEqualTo(hasDictionary);
 
         for (int i = 0; i < pageCount; i++) {
-            assertTrue(pageReader.hasNext());
+            assertThat(pageReader.hasNext()).isTrue();
             DataPage decompressedPage = pageReader.readPage();
-            assertNotNull(decompressedPage);
+            assertThat(decompressedPage).isNotNull();
             assertDataPageEquals(pageHeader, DATA_PAGE, compressedDataPage, decompressedPage);
         }
-        assertFalse(pageReader.hasNext());
-        assertNull(pageReader.readPage());
+        assertThat(pageReader.hasNext()).isFalse();
+        assertThat(pageReader.readPage()).isNull();
     }
 
     @DataProvider

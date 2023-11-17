@@ -26,9 +26,7 @@ import java.util.function.Consumer;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public final class WorkProcessorAssertion
 {
@@ -36,44 +34,44 @@ public final class WorkProcessorAssertion
 
     public static <T> void assertBlocks(WorkProcessor<T> processor)
     {
-        assertFalse(processor.process());
-        assertTrue(processor.isBlocked());
-        assertFalse(processor.isFinished());
-        assertFalse(processor.process());
+        assertThat(processor.process()).isFalse();
+        assertThat(processor.isBlocked()).isTrue();
+        assertThat(processor.isFinished()).isFalse();
+        assertThat(processor.process()).isFalse();
     }
 
     public static <T, V> void assertUnblocks(WorkProcessor<T> processor, SettableFuture<V> future)
     {
         future.set(null);
-        assertFalse(processor.isBlocked());
+        assertThat(processor.isBlocked()).isFalse();
     }
 
     public static <T> void assertYields(WorkProcessor<T> processor)
     {
-        assertFalse(processor.process());
-        assertFalse(processor.isBlocked());
-        assertFalse(processor.isFinished());
+        assertThat(processor.process()).isFalse();
+        assertThat(processor.isBlocked()).isFalse();
+        assertThat(processor.isFinished()).isFalse();
     }
 
     public static <T> void assertResult(WorkProcessor<T> processor, T result)
     {
-        validateResult(processor, actualResult -> assertEquals(processor.getResult(), result));
+        validateResult(processor, actualResult -> assertThat(processor.getResult()).isEqualTo(result));
     }
 
     public static <T> void validateResult(WorkProcessor<T> processor, Consumer<T> validator)
     {
-        assertTrue(processor.process());
-        assertFalse(processor.isBlocked());
-        assertFalse(processor.isFinished());
+        assertThat(processor.process()).isTrue();
+        assertThat(processor.isBlocked()).isFalse();
+        assertThat(processor.isFinished()).isFalse();
         validator.accept(processor.getResult());
     }
 
     public static <T> void assertFinishes(WorkProcessor<T> processor)
     {
-        assertTrue(processor.process());
-        assertFalse(processor.isBlocked());
-        assertTrue(processor.isFinished());
-        assertTrue(processor.process());
+        assertThat(processor.process()).isTrue();
+        assertThat(processor.isBlocked()).isFalse();
+        assertThat(processor.isFinished()).isTrue();
+        assertThat(processor.process()).isTrue();
     }
 
     public static <T, R> WorkProcessor.Transformation<T, R> transformationFrom(List<Transform<T, R>> transformations)
@@ -85,7 +83,7 @@ public final class WorkProcessorAssertion
     {
         Iterator<Transform<T, R>> iterator = transformations.iterator();
         return element -> {
-            assertTrue(iterator.hasNext());
+            assertThat(iterator.hasNext()).isTrue();
             return iterator.next().transform(
                     Optional.ofNullable(element),
                     (left, right) -> left.isPresent() == right.isPresent()
@@ -97,7 +95,7 @@ public final class WorkProcessorAssertion
     {
         Iterator<ProcessState<T>> iterator = states.iterator();
         return WorkProcessorUtils.create(() -> {
-            assertTrue(iterator.hasNext());
+            assertThat(iterator.hasNext()).isTrue();
             return iterator.next();
         });
     }
@@ -120,7 +118,9 @@ public final class WorkProcessorAssertion
 
         private TransformationState<R> transform(Optional<T> from, BiPredicate<Optional<T>, Optional<T>> equalsPredicate)
         {
-            assertTrue(equalsPredicate.test(from, this.from), format("Expected %s to be equal to %s", from, this.from));
+            assertThat(equalsPredicate.test(from, this.from))
+                    .describedAs(format("Expected %s to be equal to %s", from, this.from))
+                    .isTrue();
             return to;
         }
     }

@@ -32,9 +32,7 @@ import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static java.util.stream.Collectors.toList;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestUnion
         extends BasePlanTest
@@ -61,8 +59,10 @@ public class TestUnion
                 .where(TestUnion::isRemoteExchange)
                 .findAll();
 
-        assertEquals(remotes.size(), 1, "There should be exactly one RemoteExchange");
-        assertEquals(((ExchangeNode) Iterables.getOnlyElement(remotes)).getType(), GATHER);
+        assertThat(remotes.size())
+                .describedAs("There should be exactly one RemoteExchange")
+                .isEqualTo(1);
+        assertThat(((ExchangeNode) Iterables.getOnlyElement(remotes)).getType()).isEqualTo(GATHER);
         assertPlanIsFullyDistributed(plan);
     }
 
@@ -83,13 +83,17 @@ public class TestUnion
                 .where(TestUnion::isRemoteExchange)
                 .findAll();
 
-        assertEquals(remotes.size(), 1, "There should be exactly one RemoteExchange");
-        assertEquals(((ExchangeNode) Iterables.getOnlyElement(remotes)).getType(), GATHER);
+        assertThat(remotes.size())
+                .describedAs("There should be exactly one RemoteExchange")
+                .isEqualTo(1);
+        assertThat(((ExchangeNode) Iterables.getOnlyElement(remotes)).getType()).isEqualTo(GATHER);
 
         int numberOfpartialTopN = searchFrom(plan.getRoot())
                 .where(planNode -> planNode instanceof TopNNode && ((TopNNode) planNode).getStep() == TopNNode.Step.PARTIAL)
                 .count();
-        assertEquals(numberOfpartialTopN, 2, "There should be exactly two partial TopN nodes");
+        assertThat(numberOfpartialTopN)
+                .describedAs("There should be exactly two partial TopN nodes")
+                .isEqualTo(2);
         assertPlanIsFullyDistributed(plan);
     }
 
@@ -110,9 +114,11 @@ public class TestUnion
                 .where(TestUnion::isRemoteExchange)
                 .findAll();
 
-        assertEquals(remotes.size(), 2, "There should be exactly two RemoteExchanges");
-        assertEquals(((ExchangeNode) remotes.get(0)).getType(), GATHER);
-        assertEquals(((ExchangeNode) remotes.get(1)).getType(), REPARTITION);
+        assertThat(remotes.size())
+                .describedAs("There should be exactly two RemoteExchanges")
+                .isEqualTo(2);
+        assertThat(((ExchangeNode) remotes.get(0)).getType()).isEqualTo(GATHER);
+        assertThat(((ExchangeNode) remotes.get(1)).getType()).isEqualTo(REPARTITION);
     }
 
     @Test
@@ -172,15 +178,17 @@ public class TestUnion
             return;
         }
 
-        assertTrue(
-                searchFrom(plan.getRoot())
-                        .recurseOnlyWhen(TestUnion::isNotRemoteGatheringExchange)
-                        .findAll()
-                        .stream()
-                        .noneMatch(this::shouldBeDistributed),
-                "There is a node that should be distributed between output and first REMOTE GATHER ExchangeNode");
+        assertThat(searchFrom(plan.getRoot())
+                .recurseOnlyWhen(TestUnion::isNotRemoteGatheringExchange)
+                .findAll()
+                .stream()
+                .noneMatch(this::shouldBeDistributed))
+                .describedAs("There is a node that should be distributed between output and first REMOTE GATHER ExchangeNode")
+                .isTrue();
 
-        assertEquals(numberOfGathers, 1, "Only a single REMOTE GATHER was expected");
+        assertThat(numberOfGathers)
+                .describedAs("Only a single REMOTE GATHER was expected")
+                .isEqualTo(1);
     }
 
     private boolean shouldBeDistributed(PlanNode planNode)
@@ -213,7 +221,9 @@ public class TestUnion
                     .recurseOnlyWhen(TestUnion::isNotRemoteExchange)
                     .findAll();
 
-            assertFalse(aggregations.size() > 1, "More than a single AggregationNode between remote exchanges");
+            assertThat(aggregations.size() > 1)
+                    .describedAs("More than a single AggregationNode between remote exchanges")
+                    .isFalse();
         }
     }
 

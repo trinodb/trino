@@ -81,11 +81,9 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Fail.fail;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -333,11 +331,11 @@ public class TestEventDrivenTaskSource
         }
 
         for (TestingExchangeSourceHandleSource handleSource : handleSources) {
-            assertTrue(handleSource.isClosed());
+            assertThat(handleSource.isClosed()).isTrue();
         }
         for (SplitSource splitSource : splitSources.values()) {
             if (splitSource instanceof TestingSplitSource source) {
-                assertTrue(source.isClosed());
+                assertThat(source.isClosed()).isTrue();
             }
             else {
                 fail("unexpected split source: " + splitSource.getClass());
@@ -369,20 +367,20 @@ public class TestEventDrivenTaskSource
                     RemoteSplit remoteSplit = (RemoteSplit) entry.getValue().getConnectorSplit();
                     SpoolingExchangeInput input = (SpoolingExchangeInput) remoteSplit.getExchangeInput();
                     for (ExchangeSourceHandle handle : input.getExchangeSourceHandles()) {
-                        assertEquals(handle.getPartitionId(), partitionId);
+                        assertThat(handle.getPartitionId()).isEqualTo(partitionId);
                         actualHandles.computeIfAbsent(partitionId, key -> HashMultimap.create()).put(entry.getKey(), (TestingExchangeSourceHandle) handle);
                     }
                 }
                 else {
                     TestingConnectorSplit split = (TestingConnectorSplit) entry.getValue().getConnectorSplit();
-                    assertEquals(split.getBucket().orElseThrow(), partitionId);
+                    assertThat(split.getBucket().orElseThrow()).isEqualTo(partitionId);
                     actualSplits.computeIfAbsent(partitionId, key -> HashMultimap.create()).put(entry.getKey(), split);
                 }
             }
         }
 
-        assertEquals(actualHandles, expectedHandles);
-        assertEquals(actualSplits, expectedSplits);
+        assertThat(actualHandles).isEqualTo(expectedHandles);
+        assertThat(actualSplits).isEqualTo(expectedSplits);
     }
 
     private static FaultTolerantPartitioningScheme createPartitioningScheme(int partitionCount)

@@ -30,7 +30,6 @@ import java.util.Set;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestMetricsWrapper
 {
@@ -51,13 +50,13 @@ public class TestMetricsWrapper
 
         Metrics actual = CODEC.fromJson(CODEC.toJson(new MetricsWrapper(expected))).metrics();
 
-        assertEquals(actual.recordCount(), recordCount);
-        assertEquals(actual.columnSizes(), columnSizes);
-        assertEquals(actual.valueCounts(), valueCounts);
-        assertEquals(actual.nullValueCounts(), nullValueCounts);
-        assertEquals(actual.nanValueCounts(), nanValueCounts);
-        assertEquals(actual.lowerBounds(), lowerBounds);
-        assertEquals(actual.upperBounds(), upperBounds);
+        assertThat(actual.recordCount()).isEqualTo(recordCount);
+        assertThat(actual.columnSizes()).isEqualTo(columnSizes);
+        assertThat(actual.valueCounts()).isEqualTo(valueCounts);
+        assertThat(actual.nullValueCounts()).isEqualTo(nullValueCounts);
+        assertThat(actual.nanValueCounts()).isEqualTo(nanValueCounts);
+        assertThat(actual.lowerBounds()).isEqualTo(lowerBounds);
+        assertThat(actual.upperBounds()).isEqualTo(upperBounds);
     }
 
     @Test

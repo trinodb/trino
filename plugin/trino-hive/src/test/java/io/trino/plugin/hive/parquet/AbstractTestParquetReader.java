@@ -123,8 +123,8 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampObjectInspector;
 import static org.apache.parquet.schema.MessageTypeParser.parseMessageType;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractTestParquetReader
 {
@@ -144,7 +144,7 @@ public abstract class AbstractTestParquetReader
     @BeforeClass
     public void setUp()
     {
-        assertEquals(DateTimeZone.getDefault(), DateTimeZone.forID("America/Bahia_Banderas"));
+        assertThat(DateTimeZone.getDefault()).isEqualTo(DateTimeZone.forID("America/Bahia_Banderas"));
 
         // Parquet has excessive logging at INFO level
         parquetLogger = Logger.getLogger("org.apache.parquet.hadoop");

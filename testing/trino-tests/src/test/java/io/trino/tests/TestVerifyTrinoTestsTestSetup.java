@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 import java.time.ZoneId;
 import java.util.Locale;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestVerifyTrinoTestsTestSetup
 {
@@ -26,13 +26,13 @@ public class TestVerifyTrinoTestsTestSetup
     public void testJvmZone()
     {
         // Ensure that the zone defined in the POM is correctly set in the test JVM
-        assertEquals(ZoneId.systemDefault().getId(), "America/Bahia_Banderas");
+        assertThat(ZoneId.systemDefault().getId()).isEqualTo("America/Bahia_Banderas");
     }
 
     @Test
     public void testJvmLocale()
     {
         // Ensure that locale defined in the POM is correctly set in the test JVM
-        assertEquals(Locale.getDefault(), Locale.US);
+        assertThat(Locale.getDefault()).isEqualTo(Locale.US);
     }
 }

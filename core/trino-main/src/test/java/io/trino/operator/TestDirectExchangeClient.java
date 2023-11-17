@@ -87,11 +87,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -157,33 +152,35 @@ public class TestDirectExchangeClient
         assertThat(buffer.getPages().asMap()).isEmpty();
         assertThat(buffer.getFinishedTasks()).isEmpty();
         assertThat(buffer.getFailedTasks().asMap()).isEmpty();
-        assertFalse(buffer.isNoMoreTasks());
+        assertThat(buffer.isNoMoreTasks()).isFalse();
 
         TaskId taskId = new TaskId(new StageId("query", 1), 0, 0);
         exchangeClient.addLocation(taskId, location);
         assertThat(buffer.getAllTasks()).containsExactly(taskId);
         exchangeClient.noMoreLocations();
-        assertTrue(buffer.isNoMoreTasks());
+        assertThat(buffer.isNoMoreTasks()).isTrue();
 
         buffer.whenTaskFinished(taskId).get(10, SECONDS);
         assertThat(buffer.getFinishedTasks()).containsExactly(taskId);
         assertThat(buffer.getPages().get(taskId)).hasSize(3);
         assertThat(buffer.getFailedTasks().asMap()).isEmpty();
 
-        assertFalse(exchangeClient.isFinished());
+        assertThat(exchangeClient.isFinished()).isFalse();
         buffer.setFinished(true);
-        assertTrue(exchangeClient.isFinished());
+        assertThat(exchangeClient.isFinished()).isTrue();
 
         DirectExchangeClientStatus status = exchangeClient.getStatus();
-        assertEquals(status.getBufferedPages(), 0);
+        assertThat(status.getBufferedPages()).isEqualTo(0);
 
         // client should have sent only 3 requests: one to get all pages, one to acknowledge and one to get the done signal
         assertStatus(status.getPageBufferClientStatuses().get(0), location, "closed", 3, 3, 3, "not scheduled");
-        assertEquals(status.getRequestDuration().getDigest().getCount(), 2.0);
+        assertThat(status.getRequestDuration().getDigest().getCount()).isEqualTo(2.0);
 
         exchangeClient.close();
 
-        assertEventually(() -> assertEquals(exchangeClient.getStatus().getPageBufferClientStatuses().get(0).getHttpRequestState(), "not scheduled", "httpRequestState"));
+        assertEventually(() -> assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(0).getHttpRequestState())
+                .describedAs("httpRequestState")
+                .isEqualTo("not scheduled"));
 
         assertThat(buffer.getFinishedTasks()).containsExactly(taskId);
         assertThat(buffer.getFailedTasks().asMap()).isEmpty();
@@ -220,17 +217,17 @@ public class TestDirectExchangeClient
         exchangeClient.addLocation(new TaskId(new StageId("query", 1), 0, 0), location);
         exchangeClient.noMoreLocations();
 
-        assertFalse(exchangeClient.isFinished());
+        assertThat(exchangeClient.isFinished()).isFalse();
         assertPageEquals(getNextPage(exchangeClient), createPage(1));
-        assertFalse(exchangeClient.isFinished());
+        assertThat(exchangeClient.isFinished()).isFalse();
         assertPageEquals(getNextPage(exchangeClient), createPage(2));
-        assertFalse(exchangeClient.isFinished());
+        assertThat(exchangeClient.isFinished()).isFalse();
         assertPageEquals(getNextPage(exchangeClient), createPage(3));
-        assertNull(getNextPage(exchangeClient));
-        assertTrue(exchangeClient.isFinished());
+        assertThat(getNextPage(exchangeClient)).isNull();
+        assertThat(exchangeClient.isFinished()).isTrue();
 
         DirectExchangeClientStatus status = exchangeClient.getStatus();
-        assertEquals(status.getBufferedPages(), 0);
+        assertThat(status.getBufferedPages()).isEqualTo(0);
 
         // client should have sent only 3 requests: one to get all pages, one to acknowledge and one to get the done signal
         assertStatus(status.getPageBufferClientStatuses().get(0), location, "closed", 3, 3, 3, "not scheduled");
@@ -277,7 +274,7 @@ public class TestDirectExchangeClient
         assertThat(buffer.getPages().asMap()).isEmpty();
         assertThat(buffer.getFinishedTasks()).isEmpty();
         assertThat(buffer.getFailedTasks().asMap()).isEmpty();
-        assertFalse(buffer.isNoMoreTasks());
+        assertThat(buffer.isNoMoreTasks()).isFalse();
 
         exchangeClient.addLocation(task1, location1);
         assertThat(buffer.getAllTasks()).containsExactly(task1);
@@ -302,7 +299,7 @@ public class TestDirectExchangeClient
         assertTaskIsNotFinished(buffer, task3);
 
         exchangeClient.noMoreLocations();
-        assertTrue(buffer.isNoMoreTasks());
+        assertThat(buffer.isNoMoreTasks()).isTrue();
 
         assertThat(buffer.getAllTasks()).containsExactlyInAnyOrder(task1, task2, task3);
         assertTaskIsNotFinished(buffer, task3);
@@ -312,11 +309,17 @@ public class TestDirectExchangeClient
         assertThat(buffer.getFinishedTasks()).containsExactlyInAnyOrder(task1, task2, task3);
         assertThat(buffer.getFailedTasks().asMap()).isEmpty();
 
-        assertEventually(() -> assertEquals(exchangeClient.getStatus().getPageBufferClientStatuses().get(0).getHttpRequestState(), "not scheduled", "httpRequestState"));
-        assertEventually(() -> assertEquals(exchangeClient.getStatus().getPageBufferClientStatuses().get(1).getHttpRequestState(), "not scheduled", "httpRequestState"));
-        assertEventually(() -> assertEquals(exchangeClient.getStatus().getPageBufferClientStatuses().get(2).getHttpRequestState(), "not scheduled", "httpRequestState"));
+        assertEventually(() -> assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(0).getHttpRequestState())
+                .describedAs("httpRequestState")
+                .isEqualTo("not scheduled"));
+        assertEventually(() -> assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(1).getHttpRequestState())
+                .describedAs("httpRequestState")
+                .isEqualTo("not scheduled"));
+        assertEventually(() -> assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(2).getHttpRequestState())
+                .describedAs("httpRequestState")
+                .isEqualTo("not scheduled"));
 
-        assertTrue(exchangeClient.isFinished());
+        assertThat(exchangeClient.isFinished()).isTrue();
     }
 
     @Test
@@ -349,36 +352,36 @@ public class TestDirectExchangeClient
         processor.setComplete(location1);
         exchangeClient.addLocation(new TaskId(new StageId("query", 1), 0, 0), location1);
 
-        assertFalse(exchangeClient.isFinished());
+        assertThat(exchangeClient.isFinished()).isFalse();
         assertPageEquals(getNextPage(exchangeClient), createPage(1));
-        assertFalse(exchangeClient.isFinished());
+        assertThat(exchangeClient.isFinished()).isFalse();
         assertPageEquals(getNextPage(exchangeClient), createPage(2));
-        assertFalse(exchangeClient.isFinished());
+        assertThat(exchangeClient.isFinished()).isFalse();
         assertPageEquals(getNextPage(exchangeClient), createPage(3));
 
-        assertNull(exchangeClient.pollPage());
+        assertThat(exchangeClient.pollPage()).isNull();
         ListenableFuture<Void> firstBlocked = exchangeClient.isBlocked();
-        assertFalse(tryGetFutureValue(firstBlocked, 10, MILLISECONDS).isPresent());
-        assertFalse(firstBlocked.isDone());
+        assertThat(tryGetFutureValue(firstBlocked, 10, MILLISECONDS).isPresent()).isFalse();
+        assertThat(firstBlocked.isDone()).isFalse();
 
-        assertNull(exchangeClient.pollPage());
+        assertThat(exchangeClient.pollPage()).isNull();
         ListenableFuture<Void> secondBlocked = exchangeClient.isBlocked();
-        assertFalse(tryGetFutureValue(secondBlocked, 10, MILLISECONDS).isPresent());
-        assertFalse(secondBlocked.isDone());
+        assertThat(tryGetFutureValue(secondBlocked, 10, MILLISECONDS).isPresent()).isFalse();
+        assertThat(secondBlocked.isDone()).isFalse();
 
-        assertNull(exchangeClient.pollPage());
+        assertThat(exchangeClient.pollPage()).isNull();
         ListenableFuture<Void> thirdBlocked = exchangeClient.isBlocked();
-        assertFalse(tryGetFutureValue(thirdBlocked, 10, MILLISECONDS).isPresent());
-        assertFalse(thirdBlocked.isDone());
+        assertThat(tryGetFutureValue(thirdBlocked, 10, MILLISECONDS).isPresent()).isFalse();
+        assertThat(thirdBlocked.isDone()).isFalse();
 
         thirdBlocked.cancel(true);
-        assertTrue(thirdBlocked.isDone());
-        assertFalse(tryGetFutureValue(firstBlocked, 10, MILLISECONDS).isPresent());
-        assertFalse(firstBlocked.isDone());
-        assertFalse(tryGetFutureValue(secondBlocked, 10, MILLISECONDS).isPresent());
-        assertFalse(secondBlocked.isDone());
+        assertThat(thirdBlocked.isDone()).isTrue();
+        assertThat(tryGetFutureValue(firstBlocked, 10, MILLISECONDS).isPresent()).isFalse();
+        assertThat(firstBlocked.isDone()).isFalse();
+        assertThat(tryGetFutureValue(secondBlocked, 10, MILLISECONDS).isPresent()).isFalse();
+        assertThat(secondBlocked.isDone()).isFalse();
 
-        assertFalse(exchangeClient.isFinished());
+        assertThat(exchangeClient.isFinished()).isFalse();
 
         URI location2 = URI.create("http://localhost:8082/bar");
         processor.addPage(location2, createPage(4));
@@ -388,19 +391,19 @@ public class TestDirectExchangeClient
         exchangeClient.addLocation(new TaskId(new StageId("query", 1), 1, 0), location2);
 
         tryGetFutureValue(firstBlocked, 5, SECONDS);
-        assertTrue(firstBlocked.isDone());
+        assertThat(firstBlocked.isDone()).isTrue();
         tryGetFutureValue(secondBlocked, 5, SECONDS);
-        assertTrue(secondBlocked.isDone());
+        assertThat(secondBlocked.isDone()).isTrue();
 
-        assertFalse(exchangeClient.isFinished());
+        assertThat(exchangeClient.isFinished()).isFalse();
         assertPageEquals(getNextPage(exchangeClient), createPage(4));
-        assertFalse(exchangeClient.isFinished());
+        assertThat(exchangeClient.isFinished()).isFalse();
         assertPageEquals(getNextPage(exchangeClient), createPage(5));
-        assertFalse(exchangeClient.isFinished());
+        assertThat(exchangeClient.isFinished()).isFalse();
         assertPageEquals(getNextPage(exchangeClient), createPage(6));
 
-        assertFalse(tryGetFutureValue(exchangeClient.isBlocked(), 10, MILLISECONDS).isPresent());
-        assertFalse(exchangeClient.isFinished());
+        assertThat(tryGetFutureValue(exchangeClient.isBlocked(), 10, MILLISECONDS).isPresent()).isFalse();
+        assertThat(exchangeClient.isFinished()).isFalse();
 
         exchangeClient.noMoreLocations();
         // The transition to closed may happen asynchronously, since it requires that all the HTTP clients
@@ -452,14 +455,14 @@ public class TestDirectExchangeClient
 
         processor.setComplete(location1);
 
-        assertFalse(tryGetFutureValue(exchangeClient.isBlocked(), 10, MILLISECONDS).isPresent());
+        assertThat(tryGetFutureValue(exchangeClient.isBlocked(), 10, MILLISECONDS).isPresent()).isFalse();
 
         RuntimeException randomException = new RuntimeException("randomfailure");
         processor.setFailed(location2, randomException);
 
         assertThatThrownBy(() -> getNextPage(exchangeClient)).hasMessageContaining("Encountered too many errors talking to a worker node");
 
-        assertFalse(exchangeClient.isFinished());
+        assertThat(exchangeClient.isFinished()).isFalse();
     }
 
     @Test
@@ -505,18 +508,18 @@ public class TestDirectExchangeClient
                 (taskId, failure) -> {});
 
         exchangeClient.addLocation(attempt0Task1, attempt0Task1Location);
-        assertFalse(tryGetFutureValue(exchangeClient.isBlocked(), 10, MILLISECONDS).isPresent());
+        assertThat(tryGetFutureValue(exchangeClient.isBlocked(), 10, MILLISECONDS).isPresent()).isFalse();
 
         exchangeClient.addLocation(attempt1Task1, attempt1Task1Location);
         exchangeClient.addLocation(attempt1Task2, attempt1Task2Location);
-        assertFalse(tryGetFutureValue(exchangeClient.isBlocked(), 10, MILLISECONDS).isPresent());
+        assertThat(tryGetFutureValue(exchangeClient.isBlocked(), 10, MILLISECONDS).isPresent()).isFalse();
 
         exchangeClient.noMoreLocations();
         exchangeClient.isBlocked().get(10, SECONDS);
 
         assertThatThrownBy(() -> getNextPage(exchangeClient)).hasMessageContaining("Encountered too many errors talking to a worker node");
 
-        assertFalse(exchangeClient.isFinished());
+        assertThat(exchangeClient.isFinished()).isFalse();
     }
 
     @Test
@@ -568,7 +571,7 @@ public class TestDirectExchangeClient
         processor.setFailed(locationP1A0, new RuntimeException("failure"));
         processor.setComplete(locationP0A1);
 
-        assertFalse(exchangeClient.isFinished());
+        assertThat(exchangeClient.isFinished()).isFalse();
         assertThatThrownBy(() -> exchangeClient.isBlocked().get(50, MILLISECONDS))
                 .isInstanceOf(TimeoutException.class);
 
@@ -587,12 +590,18 @@ public class TestDirectExchangeClient
 
         assertThat(pages).hasSize(2);
         assertThat(pages.stream().map(Page::getPositionCount).collect(toImmutableSet())).containsAll(ImmutableList.of(2, 3));
-        assertEventually(() -> assertTrue(exchangeClient.isFinished()));
+        assertEventually(() -> assertThat(exchangeClient.isFinished()).isTrue());
 
         assertEventually(() -> {
-            assertEquals(exchangeClient.getStatus().getPageBufferClientStatuses().get(0).getHttpRequestState(), "not scheduled", "httpRequestState");
-            assertEquals(exchangeClient.getStatus().getPageBufferClientStatuses().get(1).getHttpRequestState(), "not scheduled", "httpRequestState");
-            assertEquals(exchangeClient.getStatus().getPageBufferClientStatuses().get(2).getHttpRequestState(), "not scheduled", "httpRequestState");
+            assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(0).getHttpRequestState())
+                    .describedAs("httpRequestState")
+                    .isEqualTo("not scheduled");
+            assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(1).getHttpRequestState())
+                    .describedAs("httpRequestState")
+                    .isEqualTo("not scheduled");
+            assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(2).getHttpRequestState())
+                    .describedAs("httpRequestState")
+                    .isEqualTo("not scheduled");
         });
 
         exchangeClient.close();
@@ -646,7 +655,7 @@ public class TestDirectExchangeClient
         assertThat(buffer.getPages().asMap()).isEmpty();
         assertThat(buffer.getFinishedTasks()).isEmpty();
         assertThat(buffer.getFailedTasks().asMap()).isEmpty();
-        assertFalse(buffer.isNoMoreTasks());
+        assertThat(buffer.isNoMoreTasks()).isFalse();
 
         exchangeClient.addLocation(task1, location1);
         assertThat(buffer.getAllTasks()).containsExactly(task1);
@@ -683,8 +692,8 @@ public class TestDirectExchangeClient
         assertThat(buffer.getPages().get(task2)).hasSize(0);
         assertThat(buffer.getPages().get(task3)).hasSize(0);
 
-        assertTrue(latch.await(10, SECONDS));
-        assertEquals(failedTasks, ImmutableSet.of(task2, task3));
+        assertThat(latch.await(10, SECONDS)).isTrue();
+        assertThat(failedTasks).isEqualTo(ImmutableSet.of(task2, task3));
 
         exchangeClient.addLocation(task4, location4);
         assertThat(buffer.getAllTasks()).containsExactlyInAnyOrder(task1, task2, task3, task4);
@@ -695,16 +704,24 @@ public class TestDirectExchangeClient
         assertThat(buffer.getPages().get(task4)).hasSize(2);
         assertThat(buffer.getFinishedTasks()).containsExactlyInAnyOrder(task1, task4);
 
-        assertFalse(exchangeClient.isFinished());
+        assertThat(exchangeClient.isFinished()).isFalse();
         buffer.setFinished(true);
-        assertTrue(exchangeClient.isFinished());
+        assertThat(exchangeClient.isFinished()).isTrue();
 
         exchangeClient.close();
 
-        assertEventually(() -> assertEquals(exchangeClient.getStatus().getPageBufferClientStatuses().get(0).getHttpRequestState(), "not scheduled", "httpRequestState"));
-        assertEventually(() -> assertEquals(exchangeClient.getStatus().getPageBufferClientStatuses().get(1).getHttpRequestState(), "not scheduled", "httpRequestState"));
-        assertEventually(() -> assertEquals(exchangeClient.getStatus().getPageBufferClientStatuses().get(2).getHttpRequestState(), "not scheduled", "httpRequestState"));
-        assertEventually(() -> assertEquals(exchangeClient.getStatus().getPageBufferClientStatuses().get(3).getHttpRequestState(), "not scheduled", "httpRequestState"));
+        assertEventually(() -> assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(0).getHttpRequestState())
+                .describedAs("httpRequestState")
+                .isEqualTo("not scheduled"));
+        assertEventually(() -> assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(1).getHttpRequestState())
+                .describedAs("httpRequestState")
+                .isEqualTo("not scheduled"));
+        assertEventually(() -> assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(2).getHttpRequestState())
+                .describedAs("httpRequestState")
+                .isEqualTo("not scheduled"));
+        assertEventually(() -> assertThat(exchangeClient.getStatus().getPageBufferClientStatuses().get(3).getHttpRequestState())
+                .describedAs("httpRequestState")
+                .isEqualTo("not scheduled"));
 
         assertThat(buffer.getFinishedTasks()).containsExactlyInAnyOrder(task1, task4);
         assertThat(buffer.getFailedTasks().keySet()).containsExactlyInAnyOrder(task2, task3);
@@ -713,7 +730,7 @@ public class TestDirectExchangeClient
         assertThat(buffer.getFailedTasks().asMap().get(task3)).hasSize(1);
         assertThat(buffer.getFailedTasks().asMap().get(task3).iterator().next()).isEqualTo(trinoException);
 
-        assertTrue(exchangeClient.isFinished());
+        assertThat(exchangeClient.isFinished()).isTrue();
     }
 
     private static void assertTaskIsNotFinished(TestingDirectExchangeBuffer buffer, TaskId task)
@@ -753,7 +770,7 @@ public class TestDirectExchangeClient
 
         exchangeClient.addLocation(new TaskId(new StageId("query", 1), 0, 0), location);
         exchangeClient.noMoreLocations();
-        assertFalse(exchangeClient.isFinished());
+        assertThat(exchangeClient.isFinished()).isFalse();
 
         long start = System.nanoTime();
 
@@ -766,8 +783,8 @@ public class TestDirectExchangeClient
         while (exchangeClient.getStatus().getBufferedPages() == 0);
 
         // client should have sent a single request for a single page
-        assertEquals(exchangeClient.getStatus().getBufferedPages(), 1);
-        assertTrue(exchangeClient.getStatus().getBufferedBytes() > 0);
+        assertThat(exchangeClient.getStatus().getBufferedPages()).isEqualTo(1);
+        assertThat(exchangeClient.getStatus().getBufferedBytes() > 0).isTrue();
         assertStatus(exchangeClient.getStatus().getPageBufferClientStatuses().get(0), location, "queued", 1, 1, 1, "not scheduled");
 
         // remove the page and wait for the client to fetch another page
@@ -780,8 +797,8 @@ public class TestDirectExchangeClient
 
         // client should have sent a single request for a single page
         assertStatus(exchangeClient.getStatus().getPageBufferClientStatuses().get(0), location, "queued", 2, 2, 2, "not scheduled");
-        assertEquals(exchangeClient.getStatus().getBufferedPages(), 1);
-        assertTrue(exchangeClient.getStatus().getBufferedBytes() > 0);
+        assertThat(exchangeClient.getStatus().getBufferedPages()).isEqualTo(1);
+        assertThat(exchangeClient.getStatus().getBufferedBytes() > 0).isTrue();
 
         // remove the page and wait for the client to fetch another page
         assertPageEquals(exchangeClient.pollPage(), createPage(2));
@@ -793,16 +810,16 @@ public class TestDirectExchangeClient
 
         // client should have sent a single request for a single page
         assertStatus(exchangeClient.getStatus().getPageBufferClientStatuses().get(0), location, "queued", 3, 3, 3, "not scheduled");
-        assertEquals(exchangeClient.getStatus().getBufferedPages(), 1);
-        assertTrue(exchangeClient.getStatus().getBufferedBytes() > 0);
+        assertThat(exchangeClient.getStatus().getBufferedPages()).isEqualTo(1);
+        assertThat(exchangeClient.getStatus().getBufferedBytes() > 0).isTrue();
 
         // remove last page
         assertPageEquals(getNextPage(exchangeClient), createPage(3));
 
         //  wait for client to decide there are no more pages
-        assertNull(getNextPage(exchangeClient));
-        assertEquals(exchangeClient.getStatus().getBufferedPages(), 0);
-        assertTrue(exchangeClient.isFinished());
+        assertThat(getNextPage(exchangeClient)).isNull();
+        assertThat(exchangeClient.getStatus().getBufferedPages()).isEqualTo(0);
+        assertThat(exchangeClient.isFinished()).isTrue();
         exchangeClient.close();
         assertStatus(exchangeClient.getStatus().getPageBufferClientStatuses().get(0), location, "closed", 3, 5, 5, "not scheduled");
     }
@@ -826,17 +843,17 @@ public class TestDirectExchangeClient
         URI location = URI.create("http://localhost:8080");
         DirectExchangeClient exchangeClient = setUpDataCorruption(DataIntegrityVerification.RETRY, location);
 
-        assertFalse(exchangeClient.isFinished());
+        assertThat(exchangeClient.isFinished()).isFalse();
         assertPageEquals(getNextPage(exchangeClient), createPage(1));
-        assertFalse(exchangeClient.isFinished());
+        assertThat(exchangeClient.isFinished()).isFalse();
         assertPageEquals(getNextPage(exchangeClient), createPage(2));
-        assertNull(getNextPage(exchangeClient));
-        assertTrue(exchangeClient.isFinished());
+        assertThat(getNextPage(exchangeClient)).isNull();
+        assertThat(exchangeClient.isFinished()).isTrue();
         exchangeClient.close();
 
         DirectExchangeClientStatus status = exchangeClient.getStatus();
-        assertEquals(status.getBufferedPages(), 0);
-        assertEquals(status.getBufferedBytes(), 0);
+        assertThat(status.getBufferedPages()).isEqualTo(0);
+        assertThat(status.getBufferedBytes()).isEqualTo(0);
 
         assertStatus(status.getPageBufferClientStatuses().get(0), location, "closed", 2, 4, 4, "not scheduled");
     }
@@ -937,7 +954,7 @@ public class TestDirectExchangeClient
         exchangeClient.noMoreLocations();
 
         // fetch a page
-        assertFalse(exchangeClient.isFinished());
+        assertThat(exchangeClient.isFinished()).isFalse();
         assertPageEquals(getNextPage(exchangeClient), createPage(1));
 
         // close client while pages are still available
@@ -945,14 +962,18 @@ public class TestDirectExchangeClient
         while (!exchangeClient.isFinished()) {
             MILLISECONDS.sleep(10);
         }
-        assertTrue(exchangeClient.isFinished());
-        assertNull(exchangeClient.pollPage());
-        assertEquals(exchangeClient.getStatus().getBufferedPages(), 0);
+        assertThat(exchangeClient.isFinished()).isTrue();
+        assertThat(exchangeClient.pollPage()).isNull();
+        assertThat(exchangeClient.getStatus().getBufferedPages()).isEqualTo(0);
 
         PageBufferClientStatus clientStatus = exchangeClient.getStatus().getPageBufferClientStatuses().get(0);
-        assertEquals(clientStatus.getUri(), location);
-        assertEquals(clientStatus.getState(), "closed", "status");
-        assertEquals(clientStatus.getHttpRequestState(), "not scheduled", "httpRequestState");
+        assertThat(clientStatus.getUri()).isEqualTo(location);
+        assertThat(clientStatus.getState())
+                .describedAs("status")
+                .isEqualTo("closed");
+        assertThat(clientStatus.getHttpRequestState())
+                .describedAs("httpRequestState")
+                .isEqualTo("not scheduled");
     }
 
     @Test
@@ -988,7 +1009,7 @@ public class TestDirectExchangeClient
 
         int clientCount = exchangeClient.scheduleRequestIfNecessary();
         // The first client filled the buffer. There is no place for the another one
-        assertEquals(clientCount, 1);
+        assertThat(clientCount).isEqualTo(1);
     }
 
     @Test
@@ -1021,7 +1042,7 @@ public class TestDirectExchangeClient
         exchangeClient.getQueuedClients().addAll(ImmutableList.of(firstClient, secondClient));
 
         int clientCount = exchangeClient.scheduleRequestIfNecessary();
-        assertEquals(clientCount, 2);
+        assertThat(clientCount).isEqualTo(2);
     }
 
     @Test
@@ -1058,7 +1079,7 @@ public class TestDirectExchangeClient
 
         int clientCount = exchangeClient.scheduleRequestIfNecessary();
         // The first client is pending and it reserved the space in the buffer. There is no place for the another one
-        assertEquals(clientCount, 0);
+        assertThat(clientCount).isEqualTo(0);
     }
 
     private HttpPageBufferClient createHttpPageBufferClient(TestingHttpClient.Processor processor, DataSize expectedMaxSize, URI location, HttpPageBufferClient.ClientCallback callback)
@@ -1095,9 +1116,9 @@ public class TestDirectExchangeClient
 
     private void assertPageEquals(Slice actualPage, Page expectedPage)
     {
-        assertNotNull(actualPage);
-        assertEquals(getSerializedPagePositionCount(actualPage), expectedPage.getPositionCount());
-        assertEquals(serdeFactory.createDeserializer(Optional.empty()).deserialize(actualPage).getChannelCount(), expectedPage.getChannelCount());
+        assertThat(actualPage).isNotNull();
+        assertThat(getSerializedPagePositionCount(actualPage)).isEqualTo(expectedPage.getPositionCount());
+        assertThat(serdeFactory.createDeserializer(Optional.empty()).deserialize(actualPage).getChannelCount()).isEqualTo(expectedPage.getChannelCount());
     }
 
     private static void assertStatus(
@@ -1109,12 +1130,22 @@ public class TestDirectExchangeClient
             int requestsCompleted,
             String httpRequestState)
     {
-        assertEquals(clientStatus.getUri(), location);
-        assertEquals(clientStatus.getState(), status, "status");
-        assertEquals(clientStatus.getPagesReceived(), pagesReceived, "pagesReceived");
-        assertEquals(clientStatus.getRequestsScheduled(), requestsScheduled, "requestsScheduled");
-        assertEquals(clientStatus.getRequestsCompleted(), requestsCompleted, "requestsCompleted");
-        assertEquals(clientStatus.getHttpRequestState(), httpRequestState, "httpRequestState");
+        assertThat(clientStatus.getUri()).isEqualTo(location);
+        assertThat(clientStatus.getState())
+                .describedAs("status")
+                .isEqualTo(status);
+        assertThat(clientStatus.getPagesReceived())
+                .describedAs("pagesReceived")
+                .isEqualTo(pagesReceived);
+        assertThat(clientStatus.getRequestsScheduled())
+                .describedAs("requestsScheduled")
+                .isEqualTo(requestsScheduled);
+        assertThat(clientStatus.getRequestsCompleted())
+                .describedAs("requestsCompleted")
+                .isEqualTo(requestsCompleted);
+        assertThat(clientStatus.getHttpRequestState())
+                .describedAs("httpRequestState")
+                .isEqualTo(httpRequestState);
     }
 
     private static class MockClientCallback

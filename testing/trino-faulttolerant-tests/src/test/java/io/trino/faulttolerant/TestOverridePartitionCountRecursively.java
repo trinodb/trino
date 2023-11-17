@@ -61,8 +61,6 @@ import static io.trino.tpch.TpchTable.getTables;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestOverridePartitionCountRecursively
         extends AbstractTestQueryFramework
@@ -230,10 +228,10 @@ public class TestOverridePartitionCountRecursively
             PlanFragment fragment = subPlan.getFragment();
             int fragmentIdAsInt = Integer.parseInt(fragment.getId().toString());
             FragmentPartitioningInfo fragmentPartitioningInfo = fragmentPartitioningInfoBefore.get(fragmentIdAsInt);
-            assertEquals(fragment.getPartitionCount(), fragmentPartitioningInfo.inputPartitionCount());
-            assertEquals(fragment.getPartitioning(), fragmentPartitioningInfo.inputPartitioning());
-            assertEquals(fragment.getOutputPartitioningScheme().getPartitionCount(), fragmentPartitioningInfo.outputPartitionCount());
-            assertEquals(fragment.getOutputPartitioningScheme().getPartitioning().getHandle(), fragmentPartitioningInfo.outputPartitioning());
+            assertThat(fragment.getPartitionCount()).isEqualTo(fragmentPartitioningInfo.inputPartitionCount());
+            assertThat(fragment.getPartitioning()).isEqualTo(fragmentPartitioningInfo.inputPartitioning());
+            assertThat(fragment.getOutputPartitioningScheme().getPartitionCount()).isEqualTo(fragmentPartitioningInfo.outputPartitionCount());
+            assertThat(fragment.getOutputPartitioningScheme().getPartitioning().getHandle()).isEqualTo(fragmentPartitioningInfo.outputPartitioning());
         }
 
         PlanFragmentIdAllocator planFragmentIdAllocator = new PlanFragmentIdAllocator(getMaxPlanFragmentId(planInTopologicalOrder) + 1);
@@ -250,7 +248,7 @@ public class TestOverridePartitionCountRecursively
                 })
                 .max()
                 .orElseThrow();
-        assertTrue(oldPartitionCount > 0);
+        assertThat(oldPartitionCount > 0).isTrue();
 
         SubPlan newPlan = overridePartitionCountRecursively(
                 plan,
@@ -265,10 +263,10 @@ public class TestOverridePartitionCountRecursively
             PlanFragment fragment = subPlan.getFragment();
             int fragmentIdAsInt = Integer.parseInt(fragment.getId().toString());
             FragmentPartitioningInfo fragmentPartitioningInfo = fragmentPartitioningInfoAfter.get(fragmentIdAsInt);
-            assertEquals(fragment.getPartitionCount(), fragmentPartitioningInfo.inputPartitionCount());
-            assertEquals(fragment.getPartitioning(), fragmentPartitioningInfo.inputPartitioning());
-            assertEquals(fragment.getOutputPartitioningScheme().getPartitionCount(), fragmentPartitioningInfo.outputPartitionCount());
-            assertEquals(fragment.getOutputPartitioningScheme().getPartitioning().getHandle(), fragmentPartitioningInfo.outputPartitioning());
+            assertThat(fragment.getPartitionCount()).isEqualTo(fragmentPartitioningInfo.inputPartitionCount());
+            assertThat(fragment.getPartitioning()).isEqualTo(fragmentPartitioningInfo.inputPartitioning());
+            assertThat(fragment.getOutputPartitioningScheme().getPartitionCount()).isEqualTo(fragmentPartitioningInfo.outputPartitionCount());
+            assertThat(fragment.getOutputPartitioningScheme().getPartitioning().getHandle()).isEqualTo(fragmentPartitioningInfo.outputPartitioning());
         }
     }
 

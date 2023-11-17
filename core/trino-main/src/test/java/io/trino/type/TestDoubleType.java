@@ -25,7 +25,6 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Double.doubleToRawLongBits;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestDoubleType
         extends AbstractTestType
@@ -71,16 +70,16 @@ public class TestDoubleType
         Block block = blockBuilder.build();
 
         BlockPositionHashCode hashCodeOperator = blockTypeOperators.getHashCodeOperator(DOUBLE);
-        assertEquals(hashCodeOperator.hashCode(block, 0), hashCodeOperator.hashCode(block, 1));
-        assertEquals(hashCodeOperator.hashCode(block, 0), hashCodeOperator.hashCode(block, 2));
-        assertEquals(hashCodeOperator.hashCode(block, 0), hashCodeOperator.hashCode(block, 3));
-        assertEquals(hashCodeOperator.hashCode(block, 0), hashCodeOperator.hashCode(block, 4));
+        assertThat(hashCodeOperator.hashCode(block, 0)).isEqualTo(hashCodeOperator.hashCode(block, 1));
+        assertThat(hashCodeOperator.hashCode(block, 0)).isEqualTo(hashCodeOperator.hashCode(block, 2));
+        assertThat(hashCodeOperator.hashCode(block, 0)).isEqualTo(hashCodeOperator.hashCode(block, 3));
+        assertThat(hashCodeOperator.hashCode(block, 0)).isEqualTo(hashCodeOperator.hashCode(block, 4));
 
         BlockPositionXxHash64 xxHash64Operator = blockTypeOperators.getXxHash64Operator(DOUBLE);
-        assertEquals(xxHash64Operator.xxHash64(block, 0), xxHash64Operator.xxHash64(block, 1));
-        assertEquals(xxHash64Operator.xxHash64(block, 0), xxHash64Operator.xxHash64(block, 2));
-        assertEquals(xxHash64Operator.xxHash64(block, 0), xxHash64Operator.xxHash64(block, 3));
-        assertEquals(xxHash64Operator.xxHash64(block, 0), xxHash64Operator.xxHash64(block, 4));
+        assertThat(xxHash64Operator.xxHash64(block, 0)).isEqualTo(xxHash64Operator.xxHash64(block, 1));
+        assertThat(xxHash64Operator.xxHash64(block, 0)).isEqualTo(xxHash64Operator.xxHash64(block, 2));
+        assertThat(xxHash64Operator.xxHash64(block, 0)).isEqualTo(xxHash64Operator.xxHash64(block, 3));
+        assertThat(xxHash64Operator.xxHash64(block, 0)).isEqualTo(xxHash64Operator.xxHash64(block, 4));
     }
 
     @Test

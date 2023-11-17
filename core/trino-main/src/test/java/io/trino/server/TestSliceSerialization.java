@@ -32,9 +32,9 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -90,7 +90,7 @@ public class TestSliceSerialization
         Container expected = new Container(slice);
         String json = objectMapper.writeValueAsString(expected);
         Container actual = objectMapper.readValue(json, Container.class);
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     public static class Container

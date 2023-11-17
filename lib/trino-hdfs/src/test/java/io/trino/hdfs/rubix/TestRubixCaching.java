@@ -95,7 +95,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
 @Execution(SAME_THREAD)
@@ -331,11 +330,11 @@ public class TestRubixCaching
         BlockLocation[] file1Locations = cachingFileSystem.getFileBlockLocations(file1, 0, 3);
         BlockLocation[] file2Locations = cachingFileSystem.getFileBlockLocations(file2, 0, 3);
 
-        assertEquals(file1Locations.length, 1);
-        assertEquals(file2Locations.length, 1);
+        assertThat(file1Locations.length).isEqualTo(1);
+        assertThat(file2Locations.length).isEqualTo(1);
 
-        assertEquals(file1Locations[0].getHosts()[0], "127.0.0.3");
-        assertEquals(file2Locations[0].getHosts()[0], "127.0.0.2");
+        assertThat(file1Locations[0].getHosts()[0]).isEqualTo("127.0.0.3");
+        assertThat(file2Locations[0].getHosts()[0]).isEqualTo("127.0.0.2");
     }
 
     @Test
@@ -363,7 +362,7 @@ public class TestRubixCaching
                 // wait for async Rubix requests to complete
                 assertEventually(
                         new Duration(10, SECONDS),
-                        () -> assertEquals(getAsyncDownloadedMb(ASYNC), beforeAsyncDownloadedMb + 1));
+                        () -> assertThat(getAsyncDownloadedMb(ASYNC)).isEqualTo(beforeAsyncDownloadedMb + 1));
             }
 
             // stats are propagated asynchronously
@@ -372,7 +371,7 @@ public class TestRubixCaching
                     () -> {
                         // data should be read from remote source only
                         assertGreaterThan(getRemoteReadsCount(), beforeRemoteReadsCount);
-                        assertEquals(getCachedReadsCount(), beforeCachedReadsCount);
+                        assertThat(getCachedReadsCount()).isEqualTo(beforeCachedReadsCount);
                     });
 
             // ensure that subsequent read uses cache exclusively
@@ -382,7 +381,7 @@ public class TestRubixCaching
                         long remoteReadsCount = getRemoteReadsCount();
                         assertFileContents(cachingFileSystem, file, randomData);
                         assertGreaterThan(getCachedReadsCount(), beforeCachedReadsCount);
-                        assertEquals(getRemoteReadsCount(), remoteReadsCount);
+                        assertThat(getRemoteReadsCount()).isEqualTo(remoteReadsCount);
                     });
 
             closeRubix();
@@ -431,7 +430,7 @@ public class TestRubixCaching
                 // wait for async Rubix requests to complete
                 assertEventually(
                         new Duration(10, SECONDS),
-                        () -> assertEquals(getAsyncDownloadedMb(ASYNC), beforeAsyncDownloadedMb + 100));
+                        () -> assertThat(getAsyncDownloadedMb(ASYNC)).isEqualTo(beforeAsyncDownloadedMb + 100));
             }
 
             // stats are propagated asynchronously
@@ -449,7 +448,7 @@ public class TestRubixCaching
                         long remoteReadsCount = getRemoteReadsCount();
                         assertFileContents(cachingFileSystem, file, randomData);
                         assertGreaterThan(getCachedReadsCount(), beforeCachedReadsCount);
-                        assertEquals(getRemoteReadsCount(), remoteReadsCount);
+                        assertThat(getRemoteReadsCount()).isEqualTo(remoteReadsCount);
                     });
             long secondCachedReadsCount = getCachedReadsCount();
             long secondRemoteReadsCount = getRemoteReadsCount();
@@ -480,7 +479,7 @@ public class TestRubixCaching
                     () -> {
                         // data should be read from cache only
                         assertGreaterThan(getCachedReadsCount(), secondCachedReadsCount);
-                        assertEquals(getRemoteReadsCount(), secondRemoteReadsCount);
+                        assertThat(getRemoteReadsCount()).isEqualTo(secondRemoteReadsCount);
                     });
 
             closeRubix();
@@ -560,7 +559,9 @@ public class TestRubixCaching
                 @Override
                 public Void getResult()
                 {
-                    assertEquals(readOffset, expected.length, "Read different amount of data");
+                    assertThat(readOffset)
+                            .describedAs("Read different amount of data")
+                            .isEqualTo(expected.length);
                     return null;
                 }
             });

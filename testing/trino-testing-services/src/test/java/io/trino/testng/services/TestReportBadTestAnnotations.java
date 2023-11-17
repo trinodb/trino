@@ -26,8 +26,6 @@ import static io.trino.testng.services.ReportBadTestAnnotations.classWithMeaning
 import static io.trino.testng.services.ReportBadTestAnnotations.findUnannotatedTestMethods;
 import static io.trino.testng.services.ReportBadTestAnnotations.isTemptoClass;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestReportBadTestAnnotations
 {
@@ -62,9 +60,9 @@ public class TestReportBadTestAnnotations
     @Test
     public void testTemptoPackage()
     {
-        assertTrue(isTemptoClass(RequirementsProvider.class));
-        assertTrue(isTemptoClass(WithName.class));
-        assertFalse(isTemptoClass(getClass()));
+        assertThat(isTemptoClass(RequirementsProvider.class)).isTrue();
+        assertThat(isTemptoClass(WithName.class)).isTrue();
+        assertThat(isTemptoClass(getClass())).isFalse();
     }
 
     @Test

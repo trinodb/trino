@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Test;
 import static io.trino.plugin.prometheus.MetadataUtil.TABLE_CODEC;
 import static io.trino.plugin.prometheus.MetadataUtil.varcharMapType;
 import static io.trino.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPrometheusTable
 {
@@ -34,7 +34,7 @@ public class TestPrometheusTable
     @Test
     public void testColumnMetadata()
     {
-        assertEquals(prometheusTable.getColumnsMetadata(), ImmutableList.of(
+        assertThat(prometheusTable.getColumnsMetadata()).isEqualTo(ImmutableList.of(
                 new ColumnMetadata("labels", varcharMapType),
                 new ColumnMetadata("timestamp", TIMESTAMP_COLUMN_TYPE),
                 new ColumnMetadata("value", DoubleType.DOUBLE)));
@@ -46,7 +46,7 @@ public class TestPrometheusTable
         String json = TABLE_CODEC.toJson(prometheusTable);
         PrometheusTable prometheusTableCopy = TABLE_CODEC.fromJson(json);
 
-        assertEquals(prometheusTableCopy.getName(), prometheusTable.getName());
-        assertEquals(prometheusTableCopy.getColumns(), prometheusTable.getColumns());
+        assertThat(prometheusTableCopy.getName()).isEqualTo(prometheusTable.getName());
+        assertThat(prometheusTableCopy.getColumns()).isEqualTo(prometheusTable.getColumns());
     }
 }

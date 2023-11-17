@@ -48,9 +48,9 @@ import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static jakarta.servlet.http.HttpServletResponse.SC_OK;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -70,7 +70,7 @@ public class TestGenerateTokenFilter
 
         // extract the filter
         List<HttpRequestFilter> filters = httpClient.getRequestFilters();
-        assertEquals(filters.size(), 2);
+        assertThat(filters.size()).isEqualTo(2);
         assertInstanceOf(filters.get(1), GenerateTraceTokenRequestFilter.class);
         filter = (GenerateTraceTokenRequestFilter) filters.get(1);
     }
@@ -89,8 +89,8 @@ public class TestGenerateTokenFilter
     {
         Request request = prepareGet().setUri(server.getBaseUrl().resolve("/testing/echo_token")).build();
         StringResponse response = httpClient.execute(request, createStringResponseHandler());
-        assertEquals(response.getStatusCode(), SC_OK);
-        assertEquals(response.getBody(), filter.getLastToken());
+        assertThat(response.getStatusCode()).isEqualTo(SC_OK);
+        assertThat(response.getBody()).isEqualTo(filter.getLastToken());
     }
 
     @Retention(RUNTIME)

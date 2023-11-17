@@ -42,7 +42,7 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestArrayAggregation
 {
@@ -145,7 +145,7 @@ public class TestArrayAggregation
         BlockBuilder blockBuilder = bigIntAgg.getFinalType().createBlockBuilder(null, 1000);
 
         groupedAggregator.evaluate(0, blockBuilder);
-        assertTrue(blockBuilder.build().isNull(0));
+        assertThat(blockBuilder.build().isNull(0)).isTrue();
     }
 
     @Test

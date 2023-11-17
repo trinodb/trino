@@ -17,8 +17,8 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import static io.trino.testng.services.FlakyTestRetryAnalyzer.ALLOWED_RETRIES_COUNT;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Fail.fail;
 
 @Test(singleThreaded = true)
 public class TestFlakyTestRetryAnalyzer
@@ -36,14 +36,14 @@ public class TestFlakyTestRetryAnalyzer
         if (testRetryingCount <= ALLOWED_RETRIES_COUNT) {
             fail("I am trying hard to fail!");
         }
-        assertEquals(testRetryingCount, 3);
+        assertThat(testRetryingCount).isEqualTo(3);
     }
 
     @Test
     public void testNoRetrying()
     {
         testNoRetryingCount++;
-        assertEquals(testNoRetryingCount, 1);
+        assertThat(testNoRetryingCount).isEqualTo(1);
     }
 
     @Override
@@ -62,7 +62,7 @@ public class TestFlakyTestRetryAnalyzer
         if (testRetryingParametricTestCount[index] <= ALLOWED_RETRIES_COUNT) {
             fail("I am trying hard to fail!");
         }
-        assertEquals(testRetryingParametricTestCount[index], 3);
+        assertThat(testRetryingParametricTestCount[index]).isEqualTo(3);
     }
 
     @DataProvider
@@ -84,6 +84,6 @@ abstract class TestingOverridesTest
         if (testRetryingOverriddenTestCount <= ALLOWED_RETRIES_COUNT) {
             fail("I am trying hard to fail!");
         }
-        assertEquals(testRetryingOverriddenTestCount, 3);
+        assertThat(testRetryingOverriddenTestCount).isEqualTo(3);
     }
 }

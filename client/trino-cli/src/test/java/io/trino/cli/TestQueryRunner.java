@@ -50,9 +50,8 @@ import static io.trino.cli.TerminalUtils.getTerminal;
 import static io.trino.client.ClientStandardTypes.BIGINT;
 import static io.trino.client.auth.external.ExternalRedirectStrategy.PRINT;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
 
 @TestInstance(PER_METHOD)
 public class TestQueryRunner
@@ -101,9 +100,9 @@ public class TestQueryRunner
             query.renderOutput(getTerminal(), nullPrintStream(), nullPrintStream(), CSV, Optional.of(""), false);
         }
 
-        assertNull(server.takeRequest().getHeader("Cookie"));
-        assertEquals(server.takeRequest().getHeader("Cookie"), "a=apple");
-        assertEquals(server.takeRequest().getHeader("Cookie"), "a=apple");
+        assertThat(server.takeRequest().getHeader("Cookie")).isNull();
+        assertThat(server.takeRequest().getHeader("Cookie")).isEqualTo("a=apple");
+        assertThat(server.takeRequest().getHeader("Cookie")).isEqualTo("a=apple");
     }
 
     static TrinoUri createTrinoUri(MockWebServer server, boolean insecureSsl)

@@ -36,8 +36,8 @@ import static io.trino.plugin.hive.HiveQueryRunner.HIVE_CATALOG;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
-import static org.testng.Assert.assertEquals;
 
 @Execution(SAME_THREAD)
 abstract class AbstractTestHiveRoles
@@ -70,8 +70,8 @@ abstract class AbstractTestHiveRoles
     public void testCreateRole()
     {
         executeFromAdmin(createRoleSql("role1"));
-        assertEquals(listRoles(), ImmutableSet.of("role1", "admin"));
-        assertEquals(listRoles(), ImmutableSet.of("role1", "admin"));
+        assertThat(listRoles()).isEqualTo(ImmutableSet.of("role1", "admin"));
+        assertThat(listRoles()).isEqualTo(ImmutableSet.of("role1", "admin"));
         cleanup();
     }
 
@@ -111,9 +111,9 @@ abstract class AbstractTestHiveRoles
     public void testDropRole()
     {
         executeFromAdmin(createRoleSql("role1"));
-        assertEquals(listRoles(), ImmutableSet.of("role1", "admin"));
+        assertThat(listRoles()).isEqualTo(ImmutableSet.of("role1", "admin"));
         executeFromAdmin(dropRoleSql("role1"));
-        assertEquals(listRoles(), ImmutableSet.of("admin"));
+        assertThat(listRoles()).isEqualTo(ImmutableSet.of("admin"));
         cleanup();
     }
 

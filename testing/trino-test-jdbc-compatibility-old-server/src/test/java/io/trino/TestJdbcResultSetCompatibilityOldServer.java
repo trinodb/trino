@@ -40,8 +40,7 @@ import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Test(singleThreaded = true)
 public class TestJdbcResultSetCompatibilityOldServer
@@ -109,9 +108,11 @@ public class TestJdbcResultSetCompatibilityOldServer
         // verify that version reported by Trino server matches requested one.
         try (ConnectedStatement statementWrapper = newStatement()) {
             try (ResultSet rs = statementWrapper.getStatement().executeQuery("SELECT node_version FROM system.runtime.nodes")) {
-                assertTrue(rs.next());
+                assertThat(rs.next()).isTrue();
                 String actualTrinoVersion = rs.getString(1);
-                assertEquals(actualTrinoVersion, getTestedTrinoVersion(), "Trino server version reported by container does not match expected one");
+                assertThat(actualTrinoVersion)
+                        .describedAs("Trino server version reported by container does not match expected one")
+                        .isEqualTo(getTestedTrinoVersion());
             }
         }
         catch (SQLException e) {

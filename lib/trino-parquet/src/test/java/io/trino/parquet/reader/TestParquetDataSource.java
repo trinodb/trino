@@ -34,7 +34,6 @@ import java.util.stream.IntStream;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestParquetDataSource
 {
@@ -88,25 +87,25 @@ public class TestParquetDataSource
         ChunkReader firstReader = Iterables.getOnlyElement(chunkReaders.get("1"));
         ChunkReader secondReader = Iterables.getOnlyElement(chunkReaders.get("2"));
         ChunkReader thirdReader = Iterables.getOnlyElement(chunkReaders.get("3"));
-        assertEquals(memoryContext.getBytes(), 0);
+        assertThat(memoryContext.getBytes()).isEqualTo(0);
         firstReader.read();
         // first and second range are merged
-        assertEquals(memoryContext.getBytes(), 500);
+        assertThat(memoryContext.getBytes()).isEqualTo(500);
         firstReader.free();
         // since the second reader is not freed, the memory is still retained
-        assertEquals(memoryContext.getBytes(), 500);
+        assertThat(memoryContext.getBytes()).isEqualTo(500);
         thirdReader.read();
         // third reader is standalone so only retains its size
-        assertEquals(memoryContext.getBytes(), 700);
+        assertThat(memoryContext.getBytes()).isEqualTo(700);
         thirdReader.free();
         // third reader is standalone, free releases the memory
-        assertEquals(memoryContext.getBytes(), 500);
+        assertThat(memoryContext.getBytes()).isEqualTo(500);
         secondReader.read();
         // second reader is merged with the first, read only accesses already cached data
-        assertEquals(memoryContext.getBytes(), 500);
+        assertThat(memoryContext.getBytes()).isEqualTo(500);
         secondReader.free();
         // both readers using merged reader are freed, all memory is released
-        assertEquals(memoryContext.getBytes(), 0);
+        assertThat(memoryContext.getBytes()).isEqualTo(0);
     }
 
     @Test

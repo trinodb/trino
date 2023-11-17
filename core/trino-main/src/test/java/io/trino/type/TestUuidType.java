@@ -34,7 +34,6 @@ import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.type.UuidOperators.castFromVarcharToUuid;
 import static java.lang.Long.reverseBytes;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestUuidType
         extends AbstractTestType
@@ -73,7 +72,7 @@ public class TestUuidType
     @Test
     public void testDisplayName()
     {
-        assertEquals(UUID.getDisplayName(), "uuid");
+        assertThat(UUID.getDisplayName()).isEqualTo("uuid");
     }
 
     @Test

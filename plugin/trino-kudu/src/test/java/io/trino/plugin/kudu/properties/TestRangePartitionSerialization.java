@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRangePartitionSerialization
 {
@@ -41,7 +41,7 @@ public class TestRangePartitionSerialization
             RangePartition partition = mapper.readValue(input, RangePartition.class);
 
             String serialized = mapper.writeValueAsString(partition);
-            assertEquals(serialized, input);
+            assertThat(serialized).isEqualTo(input);
         }
     }
 }

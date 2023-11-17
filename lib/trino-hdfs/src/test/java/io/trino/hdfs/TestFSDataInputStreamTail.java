@@ -34,12 +34,10 @@ import java.nio.file.Files;
 import java.util.Arrays;
 
 import static io.airlift.testing.Closeables.closeAll;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertSame;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 @Execution(SAME_THREAD) // e.g. test methods operate on shared, mutated tempFile
@@ -83,9 +81,9 @@ public class TestFSDataInputStreamTail
     {
         try (FSDataInputStream is = fs.open(tempFile)) {
             FSDataInputStreamTail tail = FSDataInputStreamTail.readTail(tempFile.toString(), FSDataInputStreamTail.MAX_SUPPORTED_PADDING_BYTES, is, FSDataInputStreamTail.MAX_SUPPORTED_PADDING_BYTES);
-            assertEquals(tail.getFileSize(), 0);
-            assertEquals(tail.getTailSlice().length(), 0);
-            assertSame(tail.getTailSlice(), Slices.EMPTY_SLICE);
+            assertThat(tail.getFileSize()).isEqualTo(0);
+            assertThat(tail.getTailSlice().length()).isEqualTo(0);
+            assertThat(tail.getTailSlice()).isSameAs(Slices.EMPTY_SLICE);
         }
     }
 
@@ -116,10 +114,10 @@ public class TestFSDataInputStreamTail
             }
         }
 
-        assertEquals(fs.getFileLinkStatus(tempFile).getLen(), fileSize);
+        assertThat(fs.getFileLinkStatus(tempFile).getLen()).isEqualTo(fileSize);
 
         try (FSDataInputStream is = fs.open(tempFile)) {
-            assertEquals(FSDataInputStreamTail.readTailForFileSize(tempFile.toString(), paddedFileSize, is), fileSize);
+            assertThat(FSDataInputStreamTail.readTailForFileSize(tempFile.toString(), paddedFileSize, is)).isEqualTo(fileSize);
         }
     }
 
@@ -150,15 +148,15 @@ public class TestFSDataInputStreamTail
             }
         }
 
-        assertEquals(fs.getFileLinkStatus(tempFile).getLen(), fileSize);
+        assertThat(fs.getFileLinkStatus(tempFile).getLen()).isEqualTo(fileSize);
 
         try (FSDataInputStream is = fs.open(tempFile)) {
             FSDataInputStreamTail tail = FSDataInputStreamTail.readTail(tempFile.toString(), paddedFileSize, is, fileSize);
-            assertEquals(tail.getFileSize(), fileSize);
+            assertThat(tail.getFileSize()).isEqualTo(fileSize);
             Slice tailSlice = tail.getTailSlice();
-            assertEquals(tailSlice.length(), fileSize);
+            assertThat(tailSlice.length()).isEqualTo(fileSize);
             byte[] tailContents = tailSlice.getBytes();
-            assertEquals(tailContents, countingTestFileContentsWithLength(tailContents.length));
+            assertThat(tailContents).isEqualTo(countingTestFileContentsWithLength(tailContents.length));
         }
     }
 
@@ -171,15 +169,15 @@ public class TestFSDataInputStreamTail
             os.write(contents);
         }
 
-        assertEquals(fs.getFileLinkStatus(tempFile).getLen(), contents.length);
+        assertThat(fs.getFileLinkStatus(tempFile).getLen()).isEqualTo(contents.length);
 
         try (FSDataInputStream is = fs.open(tempFile)) {
             FSDataInputStreamTail tail = FSDataInputStreamTail.readTail(tempFile.toString(), contents.length + 32, is, 16);
-            assertEquals(tail.getFileSize(), contents.length);
+            assertThat(tail.getFileSize()).isEqualTo(contents.length);
             Slice tailSlice = tail.getTailSlice();
 
-            assertTrue(tailSlice.length() < contents.length);
-            assertEquals(tailSlice.getBytes(), Arrays.copyOfRange(contents, contents.length - tailSlice.length(), contents.length));
+            assertThat(tailSlice.length() < contents.length).isTrue();
+            assertThat(tailSlice.getBytes()).isEqualTo(Arrays.copyOfRange(contents, contents.length - tailSlice.length(), contents.length));
         }
     }
 
@@ -192,7 +190,7 @@ public class TestFSDataInputStreamTail
             os.write(contents);
         }
 
-        assertEquals(fs.getFileLinkStatus(tempFile).getLen(), contents.length);
+        assertThat(fs.getFileLinkStatus(tempFile).getLen()).isEqualTo(contents.length);
 
         try (FSDataInputStream is = fs.open(tempFile)) {
             assertThatThrownBy(() -> FSDataInputStreamTail.readTail(tempFile.toString(), 128, is, 16))
@@ -210,7 +208,7 @@ public class TestFSDataInputStreamTail
             os.write(contents);
         }
 
-        assertEquals(fs.getFileLinkStatus(tempFile).getLen(), contents.length);
+        assertThat(fs.getFileLinkStatus(tempFile).getLen()).isEqualTo(contents.length);
 
         try (FSDataInputStream is = fs.open(tempFile)) {
             assertThatThrownBy(() -> FSDataInputStreamTail.readTailForFileSize(tempFile.toString(), 128, is))

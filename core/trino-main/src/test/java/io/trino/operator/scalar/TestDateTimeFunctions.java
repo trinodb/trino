@@ -47,7 +47,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -115,7 +114,7 @@ public class TestDateTimeFunctions
                 .setTimeZoneKey(timeZoneKey)
                 .build();
         long dateTimeCalculation = currentDate(connectorSession);
-        assertEquals(dateTimeCalculation, expectedDays);
+        assertThat(dateTimeCalculation).isEqualTo(expectedDays);
     }
 
     private static long epochDaysInZone(TimeZoneKey timeZoneKey, Instant instant)

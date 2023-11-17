@@ -36,7 +36,7 @@ import java.io.File;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIcebergMergeAppend
         extends AbstractTestQueryFramework
@@ -79,9 +79,9 @@ public class TestIcebergMergeAppend
                 .commit();
         assertUpdate("INSERT INTO table_to_insert VALUES (1, 'a'), (2, 'b'), (3, 'c')", 3);
         MaterializedResult result = computeActual("select * from \"table_to_insert$manifests\"");
-        assertEquals(result.getRowCount(), 1);
+        assertThat(result.getRowCount()).isEqualTo(1);
         assertUpdate("INSERT INTO table_to_insert VALUES (4, 'd')", 1);
         result = computeActual("select * from \"table_to_insert$manifests\"");
-        assertEquals(result.getRowCount(), 1);
+        assertThat(result.getRowCount()).isEqualTo(1);
     }
 }

@@ -44,10 +44,10 @@ import static io.trino.testing.TestingSession.testSession;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -89,7 +89,7 @@ public class TestSetPathTask
         QueryStateMachine stateMachine = createQueryStateMachine("SET PATH foo");
         executeSetPathTask(pathSpecification, stateMachine);
 
-        assertEquals(stateMachine.getSetPath(), "foo");
+        assertThat(stateMachine.getSetPath()).isEqualTo("foo");
     }
 
     @Test

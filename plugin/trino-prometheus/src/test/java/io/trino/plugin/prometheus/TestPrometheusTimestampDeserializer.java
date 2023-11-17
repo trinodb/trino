@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Instant;
 
 import static java.time.temporal.ChronoUnit.MILLIS;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPrometheusTimestampDeserializer
 {
@@ -29,6 +29,6 @@ public class TestPrometheusTimestampDeserializer
         long nowEpochMillis = now.toEpochMilli();
         String nowTimeStr = PrometheusSplitManager.decimalSecondString(nowEpochMillis);
         Instant nowTimestampActual = PrometheusTimestampDeserializer.decimalEpochTimestampToSQLTimestamp(nowTimeStr);
-        assertEquals(nowTimestampActual, now.truncatedTo(MILLIS));
+        assertThat(nowTimestampActual).isEqualTo(now.truncatedTo(MILLIS));
     }
 }

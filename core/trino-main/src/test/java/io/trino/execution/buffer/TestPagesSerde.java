@@ -55,8 +55,6 @@ import static io.trino.util.Ciphers.createRandomAesEncryptionKey;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -188,20 +186,20 @@ public class TestPagesSerde
         // empty page
         Page page = new Page(builder.build());
         int pageSize = serializedSize(ImmutableList.of(BIGINT), page);
-        assertEquals(pageSize, 40);
+        assertThat(pageSize).isEqualTo(40);
 
         // page with one value
         BIGINT.writeLong(builder, 123);
         pageSize = 35; // Now we have moved to the normal block implementation so the page size overhead is 35
         page = new Page(builder.build());
         int firstValueSize = serializedSize(ImmutableList.of(BIGINT), page) - pageSize;
-        assertEquals(firstValueSize, 9); // value size + value overhead
+        assertThat(firstValueSize).isEqualTo(9); // value size + value overhead
 
         // page with two values
         BIGINT.writeLong(builder, 456);
         page = new Page(builder.build());
         int secondValueSize = serializedSize(ImmutableList.of(BIGINT), page) - (pageSize + firstValueSize);
-        assertEquals(secondValueSize, 8); // value size (value overhead is shared with previous value)
+        assertThat(secondValueSize).isEqualTo(8); // value size (value overhead is shared with previous value)
     }
 
     @Test
@@ -212,20 +210,20 @@ public class TestPagesSerde
         // empty page
         Page page = new Page(builder.build());
         int pageSize = serializedSize(ImmutableList.of(VARCHAR), page);
-        assertEquals(pageSize, 48);
+        assertThat(pageSize).isEqualTo(48);
 
         // page with one value
         VARCHAR.writeString(builder, "alice");
         pageSize = 44; // Now we have moved to the normal block implementation so the page size overhead is 44
         page = new Page(builder.build());
         int firstValueSize = serializedSize(ImmutableList.of(VARCHAR), page) - pageSize;
-        assertEquals(firstValueSize, 8 + 5); // length + nonNullsCount + "alice"
+        assertThat(firstValueSize).isEqualTo(8 + 5); // length + nonNullsCount + "alice"
 
         // page with two values
         VARCHAR.writeString(builder, "bob");
         page = new Page(builder.build());
         int secondValueSize = serializedSize(ImmutableList.of(VARCHAR), page) - (pageSize + firstValueSize);
-        assertEquals(secondValueSize, 4 + 3); // length + "bob" (null shared with first entry)
+        assertThat(secondValueSize).isEqualTo(4 + 3); // length + "bob" (null shared with first entry)
     }
 
     private int serializedSize(List<? extends Type> types, Page expectedPage)
@@ -242,9 +240,9 @@ public class TestPagesSerde
             assertPageEquals(types, pageIterator.next(), expectedPage);
         }
         else {
-            assertEquals(expectedPage.getPositionCount(), 0);
+            assertThat(expectedPage.getPositionCount()).isEqualTo(0);
         }
-        assertFalse(pageIterator.hasNext());
+        assertThat(pageIterator.hasNext()).isFalse();
 
         return slice.length();
     }
@@ -278,7 +276,7 @@ public class TestPagesSerde
         Page page = createTestPage(numberOfEntries);
         Slice serialized = serializer.serialize(page);
         Page deserialized = deserializer.deserialize(serialized);
-        assertEquals(deserialized.getChannelCount(), 1);
+        assertThat(deserialized.getChannelCount()).isEqualTo(1);
 
         VariableWidthBlock expected = (VariableWidthBlock) page.getBlock(0);
         VariableWidthBlock actual = (VariableWidthBlock) deserialized.getBlock(0);

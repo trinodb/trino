@@ -35,7 +35,6 @@ import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestTrinoS3FileSystem
 {
@@ -56,7 +55,7 @@ public abstract class AbstractTestTrinoS3FileSystem
         try (TrinoS3FileSystem fs = createFileSystem()) {
             // Follow Amazon S3 behavior if attempting to delete an object that does not exist
             // and return a success message
-            assertTrue(fs.delete(new Path("s3://%s/%s".formatted(getBucketName(), prefix)), true));
+            assertThat(fs.delete(new Path("s3://%s/%s".formatted(getBucketName(), prefix)), true)).isTrue();
         }
     }
 
@@ -69,7 +68,7 @@ public abstract class AbstractTestTrinoS3FileSystem
         try (TrinoS3FileSystem fs = createFileSystem()) {
             // Follow Amazon S3 behavior if attempting to delete an object that does not exist
             // and return a success message
-            assertTrue(fs.delete(new Path("s3://%s/%s".formatted(getBucketName(), prefix)), false));
+            assertThat(fs.delete(new Path("s3://%s/%s".formatted(getBucketName(), prefix)), false)).isTrue();
         }
     }
 
@@ -89,7 +88,7 @@ public abstract class AbstractTestTrinoS3FileSystem
                 List<String> paths = listPaths(fs.getS3Client(), getBucketName(), prefix, true);
                 assertThat(paths).containsOnly(fileKey);
 
-                assertTrue(fs.delete(new Path(filePath), true));
+                assertThat(fs.delete(new Path(filePath), true)).isTrue();
 
                 assertThat(listPaths(fs.getS3Client(), getBucketName(), prefix, true)).isEmpty();
             }
@@ -115,7 +114,7 @@ public abstract class AbstractTestTrinoS3FileSystem
                 List<String> paths = listPaths(fs.getS3Client(), getBucketName(), prefix, true);
                 assertThat(paths).containsOnly(fileKey);
 
-                assertTrue(fs.delete(new Path(filePath), false));
+                assertThat(fs.delete(new Path(filePath), false)).isTrue();
 
                 assertThat(listPaths(fs.getS3Client(), getBucketName(), prefix, true)).isEmpty();
             }
@@ -141,7 +140,7 @@ public abstract class AbstractTestTrinoS3FileSystem
                         "%s/foo".formatted(prefix),
                         "%s/foobar".formatted(prefix));
 
-                assertTrue(fs.delete(new Path("s3://%s/%s/foo".formatted(getBucketName(), prefix)), false));
+                assertThat(fs.delete(new Path("s3://%s/%s/foo".formatted(getBucketName(), prefix)), false)).isTrue();
 
                 paths = listPaths(fs.getS3Client(), getBucketName(), prefix, true);
                 assertThat(paths).containsOnly(
@@ -169,7 +168,7 @@ public abstract class AbstractTestTrinoS3FileSystem
                         "%s/foo/".formatted(prefix),
                         "%s/foobar/".formatted(prefix));
 
-                assertTrue(fs.delete(new Path("s3://%s/%s/foo".formatted(getBucketName(), prefix)), true));
+                assertThat(fs.delete(new Path("s3://%s/%s/foo".formatted(getBucketName(), prefix)), true)).isTrue();
 
                 paths = listPaths(fs.getS3Client(), getBucketName(), prefix, true);
                 assertThat(paths).containsOnly(
@@ -194,7 +193,7 @@ public abstract class AbstractTestTrinoS3FileSystem
                 List<String> paths = listPaths(fs.getS3Client(), getBucketName(), prefix, false);
                 assertThat(paths).containsOnly(prefix + PATH_SEPARATOR);
 
-                assertTrue(fs.delete(new Path(prefixPath), false));
+                assertThat(fs.delete(new Path(prefixPath), false)).isTrue();
 
                 assertThat(listPaths(fs.getS3Client(), getBucketName(), prefix, true)).isEmpty();
             }
@@ -220,7 +219,7 @@ public abstract class AbstractTestTrinoS3FileSystem
                         directoryName + PATH_SEPARATOR,
                         directoryName + DIRECTORY_SUFFIX);
 
-                assertTrue(fs.delete(new Path(directoryPath), false));
+                assertThat(fs.delete(new Path(directoryPath), false)).isTrue();
 
                 assertThat(listPaths(fs.getS3Client(), getBucketName(), directoryName, true)).isEmpty();
             }
@@ -246,7 +245,7 @@ public abstract class AbstractTestTrinoS3FileSystem
                         "%s/foo".formatted(prefix),
                         "%s/foobar".formatted(prefix));
 
-                assertTrue(fs.delete(new Path("s3://%s/%s/foo".formatted(getBucketName(), prefix)), true));
+                assertThat(fs.delete(new Path("s3://%s/%s/foo".formatted(getBucketName(), prefix)), true)).isTrue();
 
                 paths = listPaths(fs.getS3Client(), getBucketName(), prefix, true);
                 assertThat(paths).containsOnly(
@@ -274,7 +273,7 @@ public abstract class AbstractTestTrinoS3FileSystem
                         "%s/foo/".formatted(prefix),
                         "%s/foobar/".formatted(prefix));
 
-                assertTrue(fs.delete(new Path("s3://%s/%s/foo".formatted(getBucketName(), prefix)), true));
+                assertThat(fs.delete(new Path("s3://%s/%s/foo".formatted(getBucketName(), prefix)), true)).isTrue();
 
                 paths = listPaths(fs.getS3Client(), getBucketName(), prefix, true);
                 assertThat(paths).containsOnly("%s/foobar/".formatted(prefix));
@@ -303,7 +302,7 @@ public abstract class AbstractTestTrinoS3FileSystem
                         "%s/%s".formatted(prefix, filename1),
                         "%s/%s".formatted(prefix, filename2));
 
-                assertTrue(fs.delete(new Path(prefixPath), true));
+                assertThat(fs.delete(new Path(prefixPath), true)).isTrue();
 
                 assertThat(listPaths(fs.getS3Client(), getBucketName(), prefix, true)).isEmpty();
             }
@@ -331,7 +330,7 @@ public abstract class AbstractTestTrinoS3FileSystem
                         "%s/%s".formatted(prefix, filename1),
                         "%s/%s".formatted(prefix, filename2));
 
-                assertTrue(fs.delete(new Path(prefixPath), true));
+                assertThat(fs.delete(new Path(prefixPath), true)).isTrue();
 
                 assertThat(listPaths(fs.getS3Client(), getBucketName(), prefix, true)).isEmpty();
             }
@@ -362,7 +361,7 @@ public abstract class AbstractTestTrinoS3FileSystem
                 fs.createNewFile(new Path(directoryPath + "/dir3", filename3));
                 createDirectory(fs.getS3Client(), getBucketName(), directoryKey + "/dir4");
 
-                assertTrue(fs.delete(new Path(directoryPath), true));
+                assertThat(fs.delete(new Path(directoryPath), true)).isTrue();
 
                 assertThat(listPaths(fs.getS3Client(), getBucketName(), prefix, true)).isEmpty();
             }
@@ -389,7 +388,7 @@ public abstract class AbstractTestTrinoS3FileSystem
                         directoryKey + PATH_SEPARATOR,
                         directoryKey + DIRECTORY_SUFFIX);
 
-                assertTrue(fs.delete(new Path(prefixPath + "/directory"), true));
+                assertThat(fs.delete(new Path(prefixPath + "/directory"), true)).isTrue();
 
                 assertThat(listPaths(fs.getS3Client(), getBucketName(), prefix, true)).isEmpty();
             }
@@ -423,7 +422,7 @@ public abstract class AbstractTestTrinoS3FileSystem
                 createDirectory(fs.getS3Client(), getBucketName(), directoryKey + "/dir4");
                 fs.createNewFile(new Path(directoryPath + "/dir4" + DIRECTORY_SUFFIX));
 
-                assertTrue(fs.delete(new Path(directoryPath), true));
+                assertThat(fs.delete(new Path(directoryPath), true)).isTrue();
 
                 assertThat(listPaths(fs.getS3Client(), getBucketName(), prefix, true)).isEmpty();
             }
@@ -454,7 +453,7 @@ public abstract class AbstractTestTrinoS3FileSystem
                         "%s/dir2/dir22/%s".formatted(prefix, filename2),
                         "%s/dir3/dir33/dir333/%s".formatted(prefix, filename3));
 
-                assertTrue(fs.delete(new Path(prefixPath), true));
+                assertThat(fs.delete(new Path(prefixPath), true)).isTrue();
 
                 assertThat(listPaths(fs.getS3Client(), getBucketName(), prefix, true)).isEmpty();
             }

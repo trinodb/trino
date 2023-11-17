@@ -20,7 +20,8 @@ import java.math.BigInteger;
 
 import static java.math.BigInteger.ONE;
 import static java.math.BigInteger.ZERO;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.offset;
 
 public class TestRandomPartitionerTokenRing
 {
@@ -29,25 +30,25 @@ public class TestRandomPartitionerTokenRing
     @Test
     public void testGetRingFraction()
     {
-        assertEquals(tokenRing.getTokenCountInRange(randomToken(0), randomToken(1)), ONE);
-        assertEquals(tokenRing.getTokenCountInRange(randomToken(0), randomToken(200)), new BigInteger("200"));
-        assertEquals(tokenRing.getTokenCountInRange(randomToken(0), randomToken(10)), new BigInteger("10"));
-        assertEquals(tokenRing.getTokenCountInRange(randomToken(1), randomToken(11)), new BigInteger("10"));
-        assertEquals(tokenRing.getTokenCountInRange(randomToken(0), randomToken(0)), ZERO);
-        assertEquals(tokenRing.getTokenCountInRange(randomToken(-1), randomToken(-1)), BigInteger.valueOf(2).pow(127).add(ONE));
-        assertEquals(tokenRing.getTokenCountInRange(randomToken(1), randomToken(0)), BigInteger.valueOf(2).pow(127));
+        assertThat(tokenRing.getTokenCountInRange(randomToken(0), randomToken(1))).isEqualTo(ONE);
+        assertThat(tokenRing.getTokenCountInRange(randomToken(0), randomToken(200))).isEqualTo(new BigInteger("200"));
+        assertThat(tokenRing.getTokenCountInRange(randomToken(0), randomToken(10))).isEqualTo(new BigInteger("10"));
+        assertThat(tokenRing.getTokenCountInRange(randomToken(1), randomToken(11))).isEqualTo(new BigInteger("10"));
+        assertThat(tokenRing.getTokenCountInRange(randomToken(0), randomToken(0))).isEqualTo(ZERO);
+        assertThat(tokenRing.getTokenCountInRange(randomToken(-1), randomToken(-1))).isEqualTo(BigInteger.valueOf(2).pow(127).add(ONE));
+        assertThat(tokenRing.getTokenCountInRange(randomToken(1), randomToken(0))).isEqualTo(BigInteger.valueOf(2).pow(127));
     }
 
     @Test
     public void testGetTokenCountInRange()
     {
-        assertEquals(tokenRing.getRingFraction(randomToken(0), randomToken(0)), 0.0, 0.001);
-        assertEquals(tokenRing.getRingFraction(randomToken(1), randomToken(0)), 1.0, 0.001);
-        assertEquals(tokenRing.getRingFraction(randomToken(-1), randomToken(-1)), 1.0, 0.001);
-        assertEquals(tokenRing.getRingFraction(randomToken(0), randomToken(BigInteger.valueOf(2).pow(126))), 0.5, 0.001);
-        assertEquals(tokenRing.getRingFraction(randomToken(BigInteger.valueOf(2).pow(126)), randomToken(BigInteger.valueOf(2).pow(127))), 0.5, 0.001);
-        assertEquals(tokenRing.getRingFraction(randomToken(0), randomToken(BigInteger.valueOf(2).pow(126))), 0.5, 0.001);
-        assertEquals(tokenRing.getRingFraction(randomToken(0), randomToken(BigInteger.valueOf(2).pow(127))), 1.0, 0.001);
+        assertThat(tokenRing.getRingFraction(randomToken(0), randomToken(0))).isCloseTo(0.0, offset(0.001));
+        assertThat(tokenRing.getRingFraction(randomToken(1), randomToken(0))).isCloseTo(1.0, offset(0.001));
+        assertThat(tokenRing.getRingFraction(randomToken(-1), randomToken(-1))).isCloseTo(1.0, offset(0.001));
+        assertThat(tokenRing.getRingFraction(randomToken(0), randomToken(BigInteger.valueOf(2).pow(126)))).isCloseTo(0.5, offset(0.001));
+        assertThat(tokenRing.getRingFraction(randomToken(BigInteger.valueOf(2).pow(126)), randomToken(BigInteger.valueOf(2).pow(127)))).isCloseTo(0.5, offset(0.001));
+        assertThat(tokenRing.getRingFraction(randomToken(0), randomToken(BigInteger.valueOf(2).pow(126)))).isCloseTo(0.5, offset(0.001));
+        assertThat(tokenRing.getRingFraction(randomToken(0), randomToken(BigInteger.valueOf(2).pow(127)))).isCloseTo(1.0, offset(0.001));
     }
 
     private static RandomToken randomToken(long value)

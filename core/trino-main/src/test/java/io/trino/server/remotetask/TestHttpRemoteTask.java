@@ -151,9 +151,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHttpRemoteTask
 {
@@ -274,29 +272,29 @@ public class TestHttpRemoteTask
         remoteTask.start();
         future.get();
 
-        assertEquals(
-                dynamicFilter.getCurrentPredicate(),
-                TupleDomain.withColumnDomains(ImmutableMap.of(
-                        handle1, Domain.singleValue(BIGINT, 1L))));
-        assertEquals(testingTaskResource.getDynamicFiltersFetchCounter(), 1);
+        assertThat(dynamicFilter.getCurrentPredicate()).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(
+                handle1, Domain.singleValue(BIGINT, 1L))));
+        assertThat(testingTaskResource.getDynamicFiltersFetchCounter()).isEqualTo(1);
 
         // make sure dynamic filters are not collected for every status update
         assertEventually(
                 new Duration(15, SECONDS),
                 () -> assertGreaterThanOrEqual(testingTaskResource.getStatusFetchCounter(), 3L));
-        assertEquals(testingTaskResource.getDynamicFiltersFetchCounter(), 1L, testingTaskResource.getDynamicFiltersFetchRequests().toString());
+        assertThat(testingTaskResource.getDynamicFiltersFetchCounter())
+                .describedAs(testingTaskResource.getDynamicFiltersFetchRequests().toString())
+                .isEqualTo(1L);
 
         future = dynamicFilter.isBlocked();
         testingTaskResource.setDynamicFilterDomains(new VersionedDynamicFilterDomains(
                 2L,
                 ImmutableMap.of(filterId2, Domain.singleValue(BIGINT, 2L))));
         future.get();
-        assertEquals(
-                dynamicFilter.getCurrentPredicate(),
-                TupleDomain.withColumnDomains(ImmutableMap.of(
-                        handle1, Domain.singleValue(BIGINT, 1L),
-                        handle2, Domain.singleValue(BIGINT, 2L))));
-        assertEquals(testingTaskResource.getDynamicFiltersFetchCounter(), 2L, testingTaskResource.getDynamicFiltersFetchRequests().toString());
+        assertThat(dynamicFilter.getCurrentPredicate()).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(
+                handle1, Domain.singleValue(BIGINT, 1L),
+                handle2, Domain.singleValue(BIGINT, 2L))));
+        assertThat(testingTaskResource.getDynamicFiltersFetchCounter())
+                .describedAs(testingTaskResource.getDynamicFiltersFetchRequests().toString())
+                .isEqualTo(2L);
         assertGreaterThanOrEqual(testingTaskResource.getStatusFetchCounter(), 4L);
 
         httpRemoteTaskFactory.stop();
@@ -348,10 +346,8 @@ public class TestHttpRemoteTask
                 new TaskId(new StageId(queryId.getId(), 1), 1, 0),
                 ImmutableMap.of(filterId1, Domain.singleValue(BIGINT, 1L)));
         future.get();
-        assertEquals(
-                dynamicFilter.getCurrentPredicate(),
-                TupleDomain.withColumnDomains(ImmutableMap.of(
-                        handle1, Domain.singleValue(BIGINT, 1L))));
+        assertThat(dynamicFilter.getCurrentPredicate()).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(
+                handle1, Domain.singleValue(BIGINT, 1L))));
 
         // Create remote task after dynamic filter is created to simulate new nodes joining
         HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource, dynamicFilterService);
@@ -360,39 +356,33 @@ public class TestHttpRemoteTask
         remoteTask.start();
         assertEventually(
                 new Duration(10, SECONDS),
-                () -> assertEquals(testingTaskResource.getDynamicFiltersSentCounter(), 1L));
-        assertEquals(testingTaskResource.getCreateOrUpdateCounter(), 1L);
+                () -> assertThat(testingTaskResource.getDynamicFiltersSentCounter()).isEqualTo(1L));
+        assertThat(testingTaskResource.getCreateOrUpdateCounter()).isEqualTo(1L);
 
         // schedule a couple of splits to trigger task updates
         addSplit(remoteTask, testingTaskResource, 1);
         addSplit(remoteTask, testingTaskResource, 2);
         // make sure dynamic filter was sent in task updates only once
-        assertEquals(testingTaskResource.getDynamicFiltersSentCounter(), 1L);
-        assertEquals(testingTaskResource.getCreateOrUpdateCounter(), 3L);
-        assertEquals(
-                testingTaskResource.getLatestDynamicFilterFromCoordinator(),
-                ImmutableMap.of(filterId1, Domain.singleValue(BIGINT, 1L)));
+        assertThat(testingTaskResource.getDynamicFiltersSentCounter()).isEqualTo(1L);
+        assertThat(testingTaskResource.getCreateOrUpdateCounter()).isEqualTo(3L);
+        assertThat(testingTaskResource.getLatestDynamicFilterFromCoordinator()).isEqualTo(ImmutableMap.of(filterId1, Domain.singleValue(BIGINT, 1L)));
 
         future = dynamicFilter.isBlocked();
         dynamicFilterService.addTaskDynamicFilters(
                 new TaskId(new StageId(queryId.getId(), 1), 1, 0),
                 ImmutableMap.of(filterId2, Domain.singleValue(BIGINT, 2L)));
         future.get();
-        assertEquals(
-                dynamicFilter.getCurrentPredicate(),
-                TupleDomain.withColumnDomains(ImmutableMap.of(
-                        handle1, Domain.singleValue(BIGINT, 1L),
-                        handle2, Domain.singleValue(BIGINT, 2L))));
+        assertThat(dynamicFilter.getCurrentPredicate()).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(
+                handle1, Domain.singleValue(BIGINT, 1L),
+                handle2, Domain.singleValue(BIGINT, 2L))));
 
         // dynamic filter should be sent even though there were no further splits scheduled
         assertEventually(
                 new Duration(10, SECONDS),
-                () -> assertEquals(testingTaskResource.getDynamicFiltersSentCounter(), 2L));
-        assertEquals(testingTaskResource.getCreateOrUpdateCounter(), 4L);
+                () -> assertThat(testingTaskResource.getDynamicFiltersSentCounter()).isEqualTo(2L));
+        assertThat(testingTaskResource.getCreateOrUpdateCounter()).isEqualTo(4L);
         // previously sent dynamic filter should not be repeated
-        assertEquals(
-                testingTaskResource.getLatestDynamicFilterFromCoordinator(),
-                ImmutableMap.of(filterId2, Domain.singleValue(BIGINT, 2L)));
+        assertThat(testingTaskResource.getLatestDynamicFilterFromCoordinator()).isEqualTo(ImmutableMap.of(filterId2, Domain.singleValue(BIGINT, 2L)));
 
         httpRemoteTaskFactory.stop();
     }
@@ -429,7 +419,7 @@ public class TestHttpRemoteTask
         poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID) != null);
 
         poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID).getSplits().size() == 100); // to check whether all the splits are sent or not
-        assertTrue(testingTaskResource.getCreateOrUpdateCounter() > 1); // to check whether the splits are divided or not
+        assertThat(testingTaskResource.getCreateOrUpdateCounter() > 1).isTrue(); // to check whether the splits are divided or not
 
         remoteTask.noMoreSplits(TABLE_SCAN_NODE_ID);
         poll(() -> testingTaskResource.getTaskSplitAssignment(TABLE_SCAN_NODE_ID).isNoMoreSplits());
@@ -467,11 +457,11 @@ public class TestHttpRemoteTask
         }
 
         // decrease splitBatchSize
-        assertTrue(((HttpRemoteTask) remoteTask).adjustSplitBatchSize(ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, splits, true)), 1000000, 500));
+        assertThat(((HttpRemoteTask) remoteTask).adjustSplitBatchSize(ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, splits, true)), 1000000, 500)).isTrue();
         assertLessThan(((HttpRemoteTask) remoteTask).splitBatchSize.get(), 250);
 
         // increase splitBatchSize
-        assertFalse(((HttpRemoteTask) remoteTask).adjustSplitBatchSize(ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, splits, true)), 1000, 100));
+        assertThat(((HttpRemoteTask) remoteTask).adjustSplitBatchSize(ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, splits, true)), 1000, 100)).isFalse();
         assertGreaterThan(((HttpRemoteTask) remoteTask).splitBatchSize.get(), 250);
     }
 
@@ -490,18 +480,22 @@ public class TestHttpRemoteTask
         waitUntilIdle(lastActivityNanos);
 
         httpRemoteTaskFactory.stop();
-        assertTrue(remoteTask.getTaskStatus().getState().isDone(), format("TaskStatus is not in a done state: %s", remoteTask.getTaskStatus()));
+        assertThat(remoteTask.getTaskStatus().getState().isDone())
+                .describedAs(format("TaskStatus is not in a done state: %s", remoteTask.getTaskStatus()))
+                .isTrue();
 
         ErrorCode actualErrorCode = getOnlyElement(remoteTask.getTaskStatus().getFailures()).getErrorCode();
         switch (failureScenario) {
             case TASK_MISMATCH:
             case TASK_MISMATCH_WHEN_VERSION_IS_HIGH:
-                assertTrue(remoteTask.getTaskInfo().getTaskStatus().getState().isDone(), format("TaskInfo is not in a done state: %s", remoteTask.getTaskInfo()));
-                assertEquals(actualErrorCode, REMOTE_TASK_MISMATCH.toErrorCode());
+                assertThat(remoteTask.getTaskInfo().getTaskStatus().getState().isDone())
+                        .describedAs(format("TaskInfo is not in a done state: %s", remoteTask.getTaskInfo()))
+                        .isTrue();
+                assertThat(actualErrorCode).isEqualTo(REMOTE_TASK_MISMATCH.toErrorCode());
                 break;
             case REJECTED_EXECUTION:
                 // for a rejection to occur, the http client must be shutdown, which means we will not be able to ge the final task info
-                assertEquals(actualErrorCode, REMOTE_TASK_ERROR.toErrorCode());
+                assertThat(actualErrorCode).isEqualTo(REMOTE_TASK_ERROR.toErrorCode());
                 break;
             default:
                 throw new UnsupportedOperationException();

@@ -91,8 +91,6 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestHivePageSink
 {
@@ -140,7 +138,9 @@ public class TestHivePageSink
                 }
 
                 long length = writeTestFile(fileSystemFactory, config, sortingFileWriterConfig, metastore, makeFileName(config));
-                assertTrue(uncompressedLength > length, format("%s with %s compressed to %s which is not less than %s", format, codec, length, uncompressedLength));
+                assertThat(uncompressedLength > length)
+                        .describedAs(format("%s with %s compressed to %s which is not less than %s", format, codec, length, uncompressedLength))
+                        .isTrue();
             }
         }
     }
@@ -224,7 +224,7 @@ public class TestHivePageSink
         MaterializedResult expectedResults = toMaterializedResult(getHiveSession(config), columnTypes, ImmutableList.of(page));
         MaterializedResult results = toMaterializedResult(getHiveSession(config), columnTypes, pages);
         assertThat(results).containsExactlyElementsOf(expectedResults);
-        assertEquals(round(stats.getInputPageSizeInBytes().getAllTime().getMax()), page.getRetainedSizeInBytes());
+        assertThat(round(stats.getInputPageSizeInBytes().getAllTime().getMax())).isEqualTo(page.getRetainedSizeInBytes());
         return fileEntry.length();
     }
 

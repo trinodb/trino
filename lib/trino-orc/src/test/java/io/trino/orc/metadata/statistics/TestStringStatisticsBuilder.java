@@ -29,11 +29,6 @@ import static io.trino.orc.metadata.statistics.ColumnStatistics.mergeColumnStati
 import static io.trino.orc.metadata.statistics.StringStatistics.STRING_VALUE_BYTES_OVERHEAD;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
 
 public class TestStringStatisticsBuilder
         extends AbstractStatisticsBuilderTest<StringStatisticsBuilder, Slice>
@@ -247,8 +242,8 @@ public class TestStringStatisticsBuilder
         Slice stats = statisticsBuilder.buildColumnStatistics().getStringStatistics().getMax();
 
         // assert we only spend 1 byte for stats
-        assertNotNull(stats);
-        assertEquals(stats.getRetainedSize(), Slices.wrappedBuffer(new byte[1]).getRetainedSize());
+        assertThat(stats).isNotNull();
+        assertThat(stats.getRetainedSize()).isEqualTo(Slices.wrappedBuffer(new byte[1]).getRetainedSize());
     }
 
     @Test
@@ -282,13 +277,13 @@ public class TestStringStatisticsBuilder
     private static void assertMinMax(StringStatistics actualStringStatistics, Slice expectedMin, Slice expectedMax)
     {
         if (expectedMax == null && expectedMin == null) {
-            assertNull(actualStringStatistics);
+            assertThat(actualStringStatistics).isNull();
             return;
         }
 
-        assertNotNull(actualStringStatistics);
-        assertEquals(actualStringStatistics.getMin(), expectedMin);
-        assertEquals(actualStringStatistics.getMax(), expectedMax);
+        assertThat(actualStringStatistics).isNotNull();
+        assertThat(actualStringStatistics.getMin()).isEqualTo(expectedMin);
+        assertThat(actualStringStatistics.getMax()).isEqualTo(expectedMax);
     }
 
     private static ColumnStatistics stringColumnStatistics(Slice minimum, Slice maximum)
@@ -311,12 +306,12 @@ public class TestStringStatisticsBuilder
     private void assertStringStatistics(ColumnStatistics columnStatistics, int expectedNumberOfValues, long expectedSum)
     {
         if (expectedNumberOfValues > 0) {
-            assertEquals(columnStatistics.getNumberOfValues(), expectedNumberOfValues);
-            assertEquals(columnStatistics.getStringStatistics().getSum(), expectedSum);
+            assertThat(columnStatistics.getNumberOfValues()).isEqualTo(expectedNumberOfValues);
+            assertThat(columnStatistics.getStringStatistics().getSum()).isEqualTo(expectedSum);
         }
         else {
-            assertNull(columnStatistics.getStringStatistics());
-            assertEquals(columnStatistics.getNumberOfValues(), 0);
+            assertThat(columnStatistics.getStringStatistics()).isNull();
+            assertThat(columnStatistics.getNumberOfValues()).isEqualTo(0);
         }
     }
 
@@ -328,11 +323,11 @@ public class TestStringStatisticsBuilder
         statisticsBuilder.addValue(MEDIUM_BOTTOM_VALUE);
         statisticsBuilder.addValue(MEDIUM_BOTTOM_VALUE);
         BloomFilter bloomFilter = statisticsBuilder.buildColumnStatistics().getBloomFilter();
-        assertNotNull(bloomFilter);
-        assertTrue(bloomFilter.testSlice(LOW_BOTTOM_VALUE));
-        assertTrue(bloomFilter.testSlice(MEDIUM_BOTTOM_VALUE));
-        assertTrue(bloomFilter.testSlice(MEDIUM_BOTTOM_VALUE));
-        assertFalse(bloomFilter.testSlice(LOW_TOP_VALUE));
+        assertThat(bloomFilter).isNotNull();
+        assertThat(bloomFilter.testSlice(LOW_BOTTOM_VALUE)).isTrue();
+        assertThat(bloomFilter.testSlice(MEDIUM_BOTTOM_VALUE)).isTrue();
+        assertThat(bloomFilter.testSlice(MEDIUM_BOTTOM_VALUE)).isTrue();
+        assertThat(bloomFilter.testSlice(LOW_TOP_VALUE)).isFalse();
     }
 
     @Test

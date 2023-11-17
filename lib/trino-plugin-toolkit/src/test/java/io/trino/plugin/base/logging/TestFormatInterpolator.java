@@ -16,8 +16,6 @@ package io.trino.plugin.base.logging;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestFormatInterpolator
 {
@@ -52,11 +50,11 @@ public class TestFormatInterpolator
     @Test
     public void testValidation()
     {
-        assertFalse(FormatInterpolator.hasValidPlaceholders("$UNKNOWN_VALUE", MultipleTestValues.values()));
-        assertTrue(FormatInterpolator.hasValidPlaceholders("$TEST_VALUE", MultipleTestValues.values()));
-        assertFalse(FormatInterpolator.hasValidPlaceholders("$TEST_VALUE and $UNKNOWN_VALUE", MultipleTestValues.values()));
-        assertTrue(FormatInterpolator.hasValidPlaceholders("$TEST_VALUE and $ANOTHER_VALUE", MultipleTestValues.values()));
-        assertTrue(FormatInterpolator.hasValidPlaceholders("$TEST_VALUE and $TEST_VALUE", MultipleTestValues.values()));
+        assertThat(FormatInterpolator.hasValidPlaceholders("$UNKNOWN_VALUE", MultipleTestValues.values())).isFalse();
+        assertThat(FormatInterpolator.hasValidPlaceholders("$TEST_VALUE", MultipleTestValues.values())).isTrue();
+        assertThat(FormatInterpolator.hasValidPlaceholders("$TEST_VALUE and $UNKNOWN_VALUE", MultipleTestValues.values())).isFalse();
+        assertThat(FormatInterpolator.hasValidPlaceholders("$TEST_VALUE and $ANOTHER_VALUE", MultipleTestValues.values())).isTrue();
+        assertThat(FormatInterpolator.hasValidPlaceholders("$TEST_VALUE and $TEST_VALUE", MultipleTestValues.values())).isTrue();
     }
 
     public enum SingleTestValue

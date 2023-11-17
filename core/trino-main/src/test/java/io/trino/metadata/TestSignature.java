@@ -29,7 +29,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSignature
 {
@@ -52,7 +52,7 @@ public class TestSignature
         String json = codec.toJson(expected);
         Signature actual = codec.fromJson(json);
 
-        assertEquals(actual.getReturnType(), expected.getReturnType());
-        assertEquals(actual.getArgumentTypes(), expected.getArgumentTypes());
+        assertThat(actual.getReturnType()).isEqualTo(expected.getReturnType());
+        assertThat(actual.getArgumentTypes()).isEqualTo(expected.getArgumentTypes());
     }
 }

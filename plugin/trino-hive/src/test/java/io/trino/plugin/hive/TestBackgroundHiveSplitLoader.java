@@ -118,9 +118,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -159,7 +156,7 @@ public class TestBackgroundHiveSplitLoader
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
 
-        assertEquals(drain(hiveSplitSource).size(), 2);
+        assertThat(drain(hiveSplitSource).size()).isEqualTo(2);
     }
 
     @Test
@@ -196,7 +193,7 @@ public class TestBackgroundHiveSplitLoader
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
 
-        assertEquals(drainSplits(hiveSplitSource).size(), expectedSplitCount);
+        assertThat(drainSplits(hiveSplitSource).size()).isEqualTo(expectedSplitCount);
     }
 
     @Test
@@ -210,8 +207,8 @@ public class TestBackgroundHiveSplitLoader
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
         List<String> paths = drain(hiveSplitSource);
-        assertEquals(paths.size(), 1);
-        assertEquals(paths.get(0), LOCATION.toString());
+        assertThat(paths.size()).isEqualTo(1);
+        assertThat(paths.get(0)).isEqualTo(LOCATION.toString());
     }
 
     @Test
@@ -228,8 +225,8 @@ public class TestBackgroundHiveSplitLoader
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
         List<String> paths = drain(hiveSplitSource);
-        assertEquals(paths.size(), 1);
-        assertEquals(paths.get(0), LOCATION.toString());
+        assertThat(paths.size()).isEqualTo(1);
+        assertThat(paths.get(0)).isEqualTo(LOCATION.toString());
     }
 
     @Test
@@ -252,8 +249,8 @@ public class TestBackgroundHiveSplitLoader
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
         List<String> paths = drain(hiveSplitSource);
-        assertEquals(paths.size(), 1);
-        assertEquals(paths.get(0), LOCATION.toString());
+        assertThat(paths.size()).isEqualTo(1);
+        assertThat(paths.get(0)).isEqualTo(LOCATION.toString());
     }
 
     @Test
@@ -276,7 +273,7 @@ public class TestBackgroundHiveSplitLoader
         backgroundHiveSplitLoader.start(hiveSplitSource);
 
         List<HiveSplit> splits = drainSplits(hiveSplitSource);
-        assertEquals(splits.size(), 0);
+        assertThat(splits.size()).isEqualTo(0);
     }
 
     @Test
@@ -344,8 +341,8 @@ public class TestBackgroundHiveSplitLoader
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
 
-        assertEquals(drain(hiveSplitSource).size(), 2);
-        assertTrue(hiveSplitSource.isFinished());
+        assertThat(drain(hiveSplitSource).size()).isEqualTo(2);
+        assertThat(hiveSplitSource.isFinished()).isTrue();
     }
 
     @Test
@@ -353,7 +350,7 @@ public class TestBackgroundHiveSplitLoader
             throws Exception
     {
         CachingDirectoryLister cachingDirectoryLister = new CachingDirectoryLister(new Duration(5, TimeUnit.MINUTES), DataSize.of(100, KILOBYTE), List.of("test_dbname.test_table"));
-        assertEquals(cachingDirectoryLister.getRequestCount(), 0);
+        assertThat(cachingDirectoryLister.getRequestCount()).isEqualTo(0);
 
         int totalCount = 100;
         CountDownLatch firstVisit = new CountDownLatch(1);
@@ -382,51 +379,51 @@ public class TestBackgroundHiveSplitLoader
         }
 
         for (Future<List<HiveSplit>> future : futures) {
-            assertEquals(future.get().size(), TEST_LOCATIONS.size());
+            assertThat(future.get().size()).isEqualTo(TEST_LOCATIONS.size());
         }
-        assertEquals(cachingDirectoryLister.getRequestCount(), totalCount);
-        assertEquals(cachingDirectoryLister.getHitCount(), totalCount - 1);
-        assertEquals(cachingDirectoryLister.getMissCount(), 1);
+        assertThat(cachingDirectoryLister.getRequestCount()).isEqualTo(totalCount);
+        assertThat(cachingDirectoryLister.getHitCount()).isEqualTo(totalCount - 1);
+        assertThat(cachingDirectoryLister.getMissCount()).isEqualTo(1);
     }
 
     @Test
     public void testGetBucketNumber()
     {
         // legacy Presto naming pattern
-        assertEquals(getBucketNumber("20190526_072952_00009_fn7s5_bucket-00234"), OptionalInt.of(234));
-        assertEquals(getBucketNumber("20190526_072952_00009_fn7s5_bucket-00234.txt"), OptionalInt.of(234));
-        assertEquals(getBucketNumber("20190526_235847_87654_fn7s5_bucket-56789"), OptionalInt.of(56789));
+        assertThat(getBucketNumber("20190526_072952_00009_fn7s5_bucket-00234")).isEqualTo(OptionalInt.of(234));
+        assertThat(getBucketNumber("20190526_072952_00009_fn7s5_bucket-00234.txt")).isEqualTo(OptionalInt.of(234));
+        assertThat(getBucketNumber("20190526_235847_87654_fn7s5_bucket-56789")).isEqualTo(OptionalInt.of(56789));
 
         // Hive
-        assertEquals(getBucketNumber("0234_0"), OptionalInt.of(234));
-        assertEquals(getBucketNumber("000234_0"), OptionalInt.of(234));
-        assertEquals(getBucketNumber("0234_99"), OptionalInt.of(234));
-        assertEquals(getBucketNumber("0234_0.txt"), OptionalInt.of(234));
-        assertEquals(getBucketNumber("0234_0_copy_1"), OptionalInt.of(234));
+        assertThat(getBucketNumber("0234_0")).isEqualTo(OptionalInt.of(234));
+        assertThat(getBucketNumber("000234_0")).isEqualTo(OptionalInt.of(234));
+        assertThat(getBucketNumber("0234_99")).isEqualTo(OptionalInt.of(234));
+        assertThat(getBucketNumber("0234_0.txt")).isEqualTo(OptionalInt.of(234));
+        assertThat(getBucketNumber("0234_0_copy_1")).isEqualTo(OptionalInt.of(234));
         // starts with non-zero
-        assertEquals(getBucketNumber("234_99"), OptionalInt.of(234));
-        assertEquals(getBucketNumber("1234_0_copy_1"), OptionalInt.of(1234));
+        assertThat(getBucketNumber("234_99")).isEqualTo(OptionalInt.of(234));
+        assertThat(getBucketNumber("1234_0_copy_1")).isEqualTo(OptionalInt.of(1234));
 
         // Hive ACID
-        assertEquals(getBucketNumber("bucket_1234"), OptionalInt.of(1234));
-        assertEquals(getBucketNumber("bucket_01234"), OptionalInt.of(1234));
+        assertThat(getBucketNumber("bucket_1234")).isEqualTo(OptionalInt.of(1234));
+        assertThat(getBucketNumber("bucket_01234")).isEqualTo(OptionalInt.of(1234));
 
         // not matching
-        assertEquals(getBucketNumber("0234.txt"), OptionalInt.empty());
-        assertEquals(getBucketNumber("0234.txt"), OptionalInt.empty());
+        assertThat(getBucketNumber("0234.txt")).isEqualTo(OptionalInt.empty());
+        assertThat(getBucketNumber("0234.txt")).isEqualTo(OptionalInt.empty());
     }
 
     @Test
     public void testGetAttemptId()
     {
-        assertFalse(hasAttemptId("bucket_00000"));
-        assertTrue(hasAttemptId("bucket_00000_0"));
-        assertTrue(hasAttemptId("bucket_00000_10"));
-        assertTrue(hasAttemptId("bucket_00000_1000"));
-        assertFalse(hasAttemptId("bucket_00000__1000"));
-        assertFalse(hasAttemptId("bucket_00000_a"));
-        assertFalse(hasAttemptId("bucket_00000_ad"));
-        assertFalse(hasAttemptId("base_00000_00"));
+        assertThat(hasAttemptId("bucket_00000")).isFalse();
+        assertThat(hasAttemptId("bucket_00000_0")).isTrue();
+        assertThat(hasAttemptId("bucket_00000_10")).isTrue();
+        assertThat(hasAttemptId("bucket_00000_1000")).isTrue();
+        assertThat(hasAttemptId("bucket_00000__1000")).isFalse();
+        assertThat(hasAttemptId("bucket_00000_a")).isFalse();
+        assertThat(hasAttemptId("bucket_00000_ad")).isFalse();
+        assertThat(hasAttemptId("base_00000_00")).isFalse();
     }
 
     @Test
@@ -498,7 +495,7 @@ public class TestBackgroundHiveSplitLoader
                 .hasMessageEndingWith("loading error occurred");
 
         if (threads == 1) {
-            assertFalse(iteratorUsedAfterException.get());
+            assertThat(iteratorUsedAfterException.get()).isFalse();
         }
     }
 
@@ -518,7 +515,7 @@ public class TestBackgroundHiveSplitLoader
         HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
         backgroundHiveSplitLoader.start(hiveSplitSource);
 
-        assertEquals(drainSplits(hiveSplitSource).size(), 17);
+        assertThat(drainSplits(hiveSplitSource).size()).isEqualTo(17);
     }
 
     @Test
@@ -811,9 +808,9 @@ public class TestBackgroundHiveSplitLoader
                 locations,
                 true);
         List<InternalHiveSplit> splits = ImmutableList.copyOf(splitIterator);
-        assertEquals(splits.size(), 2);
-        assertEquals(splits.get(0).getPath(), firstFilePath.toString());
-        assertEquals(splits.get(1).getPath(), secondFilePath.toString());
+        assertThat(splits.size()).isEqualTo(2);
+        assertThat(splits.get(0).getPath()).isEqualTo(firstFilePath.toString());
+        assertThat(splits.get(1).getPath()).isEqualTo(secondFilePath.toString());
     }
 
     @Test
@@ -853,9 +850,9 @@ public class TestBackgroundHiveSplitLoader
                 locations,
                 false);
         List<InternalHiveSplit> splits = ImmutableList.copyOf(splitIterator);
-        assertEquals(splits.size(), 2);
-        assertEquals(splits.get(0).getPath(), filePath.toString());
-        assertEquals(splits.get(1).getPath(), directoryPath.toString());
+        assertThat(splits.size()).isEqualTo(2);
+        assertThat(splits.get(0).getPath()).isEqualTo(filePath.toString());
+        assertThat(splits.get(1).getPath()).isEqualTo(directoryPath.toString());
     }
 
     @Test

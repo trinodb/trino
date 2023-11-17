@@ -59,9 +59,9 @@ import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExcept
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -83,7 +83,7 @@ public class TestPrepareTask
         Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("foo")));
         String sqlString = "PREPARE my_query FROM SELECT * FROM foo";
         Map<String, String> statements = executePrepare("my_query", query, sqlString, TEST_SESSION);
-        assertEquals(statements, ImmutableMap.of("my_query", "SELECT *\nFROM\n  foo\n"));
+        assertThat(statements).isEqualTo(ImmutableMap.of("my_query", "SELECT *\nFROM\n  foo\n"));
     }
 
     @Test
@@ -96,7 +96,7 @@ public class TestPrepareTask
         Query query = simpleQuery(selectList(new AllColumns()), table(QualifiedName.of("foo")));
         String sqlString = "PREPARE my_query FROM SELECT * FROM foo";
         Map<String, String> statements = executePrepare("my_query", query, sqlString, session);
-        assertEquals(statements, ImmutableMap.of("my_query", "SELECT *\nFROM\n  foo\n"));
+        assertThat(statements).isEqualTo(ImmutableMap.of("my_query", "SELECT *\nFROM\n  foo\n"));
     }
 
     @Test

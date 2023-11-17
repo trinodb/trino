@@ -17,31 +17,29 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.hive.HiveBooleanParser.parseHiveBoolean;
 import static java.nio.charset.StandardCharsets.US_ASCII;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveBooleanParser
 {
     @Test
     public void testParse()
     {
-        assertTrue(parseBoolean("true"));
-        assertTrue(parseBoolean("TRUE"));
-        assertTrue(parseBoolean("tRuE"));
+        assertThat(parseBoolean("true")).isTrue();
+        assertThat(parseBoolean("TRUE")).isTrue();
+        assertThat(parseBoolean("tRuE")).isTrue();
 
-        assertFalse(parseBoolean("false"));
-        assertFalse(parseBoolean("FALSE"));
-        assertFalse(parseBoolean("fAlSe"));
+        assertThat(parseBoolean("false")).isFalse();
+        assertThat(parseBoolean("FALSE")).isFalse();
+        assertThat(parseBoolean("fAlSe")).isFalse();
 
-        assertNull(parseBoolean("true "));
-        assertNull(parseBoolean(" true"));
-        assertNull(parseBoolean("false "));
-        assertNull(parseBoolean(" false"));
-        assertNull(parseBoolean("t"));
-        assertNull(parseBoolean("f"));
-        assertNull(parseBoolean(""));
-        assertNull(parseBoolean("blah"));
+        assertThat(parseBoolean("true ")).isNull();
+        assertThat(parseBoolean(" true")).isNull();
+        assertThat(parseBoolean("false ")).isNull();
+        assertThat(parseBoolean(" false")).isNull();
+        assertThat(parseBoolean("t")).isNull();
+        assertThat(parseBoolean("f")).isNull();
+        assertThat(parseBoolean("")).isNull();
+        assertThat(parseBoolean("blah")).isNull();
     }
 
     private static Boolean parseBoolean(String s)

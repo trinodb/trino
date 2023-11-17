@@ -59,9 +59,6 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_METHOD)
 public class TestMemoryPools
@@ -157,8 +154,8 @@ public class TestMemoryPools
         }));
 
         userPool.reserve(fakeTaskId, "test", 3);
-        assertEquals(notifiedPool.get(), userPool);
-        assertEquals(notifiedBytes.get(), 3L);
+        assertThat(notifiedPool.get()).isEqualTo(userPool);
+        assertThat(notifiedBytes.get()).isEqualTo(3L);
     }
 
     @Test
@@ -166,52 +163,56 @@ public class TestMemoryPools
     {
         setUpCountStarFromOrdersWithJoin();
         ListenableFuture<Void> future = userPool.reserve(fakeTaskId, "test", TEN_MEGABYTES.toBytes());
-        assertTrue(!future.isDone());
+        assertThat(!future.isDone()).isTrue();
         assertThatThrownBy(() -> future.cancel(true))
                 .isInstanceOf(UnsupportedOperationException.class)
                 .hasMessage("cancellation is not supported");
         userPool.free(fakeTaskId, "test", TEN_MEGABYTES.toBytes());
-        assertTrue(future.isDone());
+        assertThat(future.isDone()).isTrue();
     }
 
     @Test
     public void testBlockingOnRevocableMemoryFreeUser()
     {
         setupConsumeRevocableMemory(ONE_BYTE, 10);
-        assertTrue(userPool.tryReserve(fakeTaskId, "test", TEN_MEGABYTES_WITHOUT_TWO_BYTES.toBytes()));
+        assertThat(userPool.tryReserve(fakeTaskId, "test", TEN_MEGABYTES_WITHOUT_TWO_BYTES.toBytes())).isTrue();
 
         // we expect 2 iterations as we have 2 bytes remaining in memory pool and we allocate 1 byte per page
-        assertEquals(runDriversUntilBlocked(waitingForRevocableMemory()), 2);
-        assertTrue(userPool.getFreeBytes() <= 0, format("Expected empty pool but got [%d]", userPool.getFreeBytes()));
+        assertThat(runDriversUntilBlocked(waitingForRevocableMemory())).isEqualTo(2);
+        assertThat(userPool.getFreeBytes() <= 0)
+                .describedAs(format("Expected empty pool but got [%d]", userPool.getFreeBytes()))
+                .isTrue();
 
         // lets free 5 bytes
         userPool.free(fakeTaskId, "test", 5);
-        assertEquals(runDriversUntilBlocked(waitingForRevocableMemory()), 5);
-        assertTrue(userPool.getFreeBytes() <= 0, format("Expected empty pool but got [%d]", userPool.getFreeBytes()));
+        assertThat(runDriversUntilBlocked(waitingForRevocableMemory())).isEqualTo(5);
+        assertThat(userPool.getFreeBytes() <= 0)
+                .describedAs(format("Expected empty pool but got [%d]", userPool.getFreeBytes()))
+                .isTrue();
 
         // 3 more bytes is enough for driver to finish
         userPool.free(fakeTaskId, "test", 3);
         assertDriversProgress(waitingForRevocableMemory());
-        assertEquals(userPool.getFreeBytes(), 10);
+        assertThat(userPool.getFreeBytes()).isEqualTo(10);
     }
 
     @Test
     public void testBlockingOnRevocableMemoryFreeViaRevoke()
     {
         RevocableMemoryOperator revocableMemoryOperator = setupConsumeRevocableMemory(ONE_BYTE, 5);
-        assertTrue(userPool.tryReserve(fakeTaskId, "test", TEN_MEGABYTES_WITHOUT_TWO_BYTES.toBytes()));
+        assertThat(userPool.tryReserve(fakeTaskId, "test", TEN_MEGABYTES_WITHOUT_TWO_BYTES.toBytes())).isTrue();
 
         // we expect 2 iterations as we have 2 bytes remaining in memory pool and we allocate 1 byte per page
-        assertEquals(runDriversUntilBlocked(waitingForRevocableMemory()), 2);
+        assertThat(runDriversUntilBlocked(waitingForRevocableMemory())).isEqualTo(2);
         revocableMemoryOperator.getOperatorContext().requestMemoryRevoking();
 
         // 2 more iterations
-        assertEquals(runDriversUntilBlocked(waitingForRevocableMemory()), 2);
+        assertThat(runDriversUntilBlocked(waitingForRevocableMemory())).isEqualTo(2);
         revocableMemoryOperator.getOperatorContext().requestMemoryRevoking();
 
         // 3 more bytes is enough for driver to finish
         assertDriversProgress(waitingForRevocableMemory());
-        assertEquals(userPool.getFreeBytes(), 2);
+        assertThat(userPool.getFreeBytes()).isEqualTo(2);
     }
 
     @Test
@@ -223,22 +224,22 @@ public class TestMemoryPools
         testPool.reserve(testTask, "test_tag", 10);
 
         Map<String, Long> allocations = testPool.getTaggedMemoryAllocations().get(new QueryId("test_query"));
-        assertEquals(allocations, ImmutableMap.of("test_tag", 10L));
+        assertThat(allocations).isEqualTo(ImmutableMap.of("test_tag", 10L));
 
         // free 5 bytes for test_tag
         testPool.free(testTask, "test_tag", 5);
-        assertEquals(allocations, ImmutableMap.of("test_tag", 5L));
+        assertThat(allocations).isEqualTo(ImmutableMap.of("test_tag", 5L));
 
         testPool.reserve(testTask, "test_tag2", 20);
-        assertEquals(allocations, ImmutableMap.of("test_tag", 5L, "test_tag2", 20L));
+        assertThat(allocations).isEqualTo(ImmutableMap.of("test_tag", 5L, "test_tag2", 20L));
 
         // free the remaining 5 bytes for test_tag
         testPool.free(testTask, "test_tag", 5);
-        assertEquals(allocations, ImmutableMap.of("test_tag2", 20L));
+        assertThat(allocations).isEqualTo(ImmutableMap.of("test_tag2", 20L));
 
         // free all for test_tag2
         testPool.free(testTask, "test_tag2", 20);
-        assertEquals(testPool.getTaggedMemoryAllocations().size(), 0);
+        assertThat(testPool.getTaggedMemoryAllocations().size()).isEqualTo(0);
     }
 
     @Test
@@ -458,7 +459,7 @@ public class TestMemoryPools
 
         // driver should be blocked waiting for memory
         for (Driver driver : drivers) {
-            assertFalse(driver.isFinished());
+            assertThat(driver.isFinished()).isFalse();
         }
         return iterationsCount;
     }
@@ -466,14 +467,14 @@ public class TestMemoryPools
     private void assertDriversProgress(Predicate<OperatorContext> reason)
     {
         do {
-            assertFalse(isOperatorBlocked(drivers, reason));
+            assertThat(isOperatorBlocked(drivers, reason)).isFalse();
             boolean progress = false;
             for (Driver driver : drivers) {
                 ListenableFuture<Void> blocked = driver.processUntilBlocked();
                 progress = progress | blocked.isDone();
             }
             // query should not block
-            assertTrue(progress);
+            assertThat(progress).isTrue();
         }
         while (!drivers.stream().allMatch(Driver::isFinished));
     }

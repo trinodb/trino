@@ -51,8 +51,7 @@ import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.execution.TaskTestUtils.createTestSplitMonitor;
 import static io.trino.execution.TaskTestUtils.createTestingPlanner;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTaskExecutorStuckSplits
 {
@@ -100,10 +99,10 @@ public class TestTaskExecutorStuckSplits
 
                 mockSplitRunner.waitForFinish();
                 List<TaskInfo> taskInfos = sqlTaskManager.getAllTaskInfo();
-                assertEquals(taskInfos.size(), 1);
+                assertThat(taskInfos.size()).isEqualTo(1);
 
                 TaskInfo taskInfo = pollTerminatingTaskInfoUntilDone(sqlTaskManager, taskInfos.get(0));
-                assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FAILED);
+                assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.FAILED);
             }
         }
         finally {
@@ -143,7 +142,7 @@ public class TestTaskExecutorStuckSplits
     private static TaskInfo pollTerminatingTaskInfoUntilDone(SqlTaskManager taskManager, TaskInfo taskInfo)
             throws InterruptedException, ExecutionException, TimeoutException
     {
-        assertTrue(taskInfo.getTaskStatus().getState().isTerminatingOrDone());
+        assertThat(taskInfo.getTaskStatus().getState().isTerminatingOrDone()).isTrue();
         int attempts = 3;
         while (attempts > 0 && taskInfo.getTaskStatus().getState().isTerminating()) {
             taskInfo = taskManager.getTaskInfo(taskInfo.getTaskStatus().getTaskId(), taskInfo.getTaskStatus().getVersion()).get(5, SECONDS);

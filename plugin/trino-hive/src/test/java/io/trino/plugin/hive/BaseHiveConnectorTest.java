@@ -44,7 +44,6 @@ import io.trino.spi.security.SelectedRole;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.VarcharType;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.planprinter.IoPlanPrinter;
@@ -188,15 +187,9 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Fail.fail;
 import static org.assertj.core.data.Offset.offset;
 import static org.junit.jupiter.api.Assumptions.abort;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
-import static org.testng.FileAssert.assertFile;
 
 public abstract class BaseHiveConnectorTest
         extends BaseConnectorTest
@@ -1171,48 +1164,46 @@ public abstract class BaseHiveConnectorTest
 
         EstimatedStatsAndCost estimate = new EstimatedStatsAndCost(2.0, 40.0, 40.0, 0.0, 0.0);
         MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_io_explain SELECT custkey, orderkey, processing FROM test_io_explain WHERE custkey <= 10");
-        assertEquals(
-                getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
-                new IoPlan(
-                        ImmutableSet.of(
-                                new TableColumnInfo(
-                                        new CatalogSchemaTableName(catalog, "tpch", "test_io_explain"),
-                                        new IoPlanPrinter.Constraint(
-                                                false,
-                                                ImmutableSet.of(
-                                                        new ColumnConstraint(
-                                                                "orderkey",
-                                                                BIGINT,
-                                                                new FormattedDomain(
-                                                                        false,
-                                                                        ImmutableSet.of(
-                                                                                new FormattedRange(
-                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY),
-                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY)),
-                                                                                new FormattedRange(
-                                                                                        new FormattedMarker(Optional.of("2"), EXACTLY),
-                                                                                        new FormattedMarker(Optional.of("2"), EXACTLY))))),
-                                                        new ColumnConstraint(
-                                                                "processing",
-                                                                BOOLEAN,
-                                                                new FormattedDomain(
-                                                                        false,
-                                                                        ImmutableSet.of(
-                                                                                new FormattedRange(
-                                                                                        new FormattedMarker(Optional.of("false"), EXACTLY),
-                                                                                        new FormattedMarker(Optional.of("false"), EXACTLY))))),
-                                                        new ColumnConstraint(
-                                                                "custkey",
-                                                                BIGINT,
-                                                                new FormattedDomain(
-                                                                        false,
-                                                                        ImmutableSet.of(
-                                                                                new FormattedRange(
-                                                                                        new FormattedMarker(Optional.empty(), ABOVE),
-                                                                                        new FormattedMarker(Optional.of("10"), EXACTLY))))))),
-                                        estimate)),
-                        Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_io_explain")),
-                        estimate));
+        assertThat(getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet()))).isEqualTo(new IoPlan(
+                ImmutableSet.of(
+                        new TableColumnInfo(
+                                new CatalogSchemaTableName(catalog, "tpch", "test_io_explain"),
+                                new IoPlanPrinter.Constraint(
+                                        false,
+                                        ImmutableSet.of(
+                                                new ColumnConstraint(
+                                                        "orderkey",
+                                                        BIGINT,
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("1"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("1"), EXACTLY)),
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("2"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("2"), EXACTLY))))),
+                                                new ColumnConstraint(
+                                                        "processing",
+                                                        BOOLEAN,
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("false"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("false"), EXACTLY))))),
+                                                new ColumnConstraint(
+                                                        "custkey",
+                                                        BIGINT,
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.empty(), ABOVE),
+                                                                                new FormattedMarker(Optional.of("10"), EXACTLY))))))),
+                                estimate)),
+                Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_io_explain")),
+                estimate));
 
         assertUpdate("DROP TABLE test_io_explain");
 
@@ -1221,61 +1212,57 @@ public abstract class BaseHiveConnectorTest
 
         estimate = new EstimatedStatsAndCost(55.0, 990.0, 990.0, 0.0, 0.0);
         result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_io_explain SELECT custkey, orderkey + 10 FROM test_io_explain WHERE custkey <= 10");
-        assertEquals(
-                getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
-                new IoPlan(
-                        ImmutableSet.of(
-                                new TableColumnInfo(
-                                        new CatalogSchemaTableName(catalog, "tpch", "test_io_explain"),
-                                        new IoPlanPrinter.Constraint(
-                                                false,
-                                                ImmutableSet.of(
-                                                        new ColumnConstraint(
-                                                                "orderkey",
-                                                                BIGINT,
-                                                                new FormattedDomain(
-                                                                        false,
-                                                                        ImmutableSet.of(
-                                                                                new FormattedRange(
-                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY),
-                                                                                        new FormattedMarker(Optional.of("199"), EXACTLY))))),
-                                                        new ColumnConstraint(
-                                                                "custkey",
-                                                                BIGINT,
-                                                                new FormattedDomain(
-                                                                        false,
-                                                                        ImmutableSet.of(
-                                                                                new FormattedRange(
-                                                                                        new FormattedMarker(Optional.empty(), ABOVE),
-                                                                                        new FormattedMarker(Optional.of("10"), EXACTLY))))))),
-                                        estimate)),
-                        Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_io_explain")),
-                        estimate));
+        assertThat(getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet()))).isEqualTo(new IoPlan(
+                ImmutableSet.of(
+                        new TableColumnInfo(
+                                new CatalogSchemaTableName(catalog, "tpch", "test_io_explain"),
+                                new IoPlanPrinter.Constraint(
+                                        false,
+                                        ImmutableSet.of(
+                                                new ColumnConstraint(
+                                                        "orderkey",
+                                                        BIGINT,
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("1"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("199"), EXACTLY))))),
+                                                new ColumnConstraint(
+                                                        "custkey",
+                                                        BIGINT,
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.empty(), ABOVE),
+                                                                                new FormattedMarker(Optional.of("10"), EXACTLY))))))),
+                                estimate)),
+                Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_io_explain")),
+                estimate));
 
         EstimatedStatsAndCost finalEstimate = new EstimatedStatsAndCost(Double.NaN, Double.NaN, Double.NaN, Double.NaN, Double.NaN);
         estimate = new EstimatedStatsAndCost(1.0, 18.0, 18, 0.0, 0.0);
         result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_io_explain SELECT custkey, orderkey FROM test_io_explain WHERE orderkey = 100");
-        assertEquals(
-                getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
-                new IoPlan(
-                        ImmutableSet.of(
-                                new TableColumnInfo(
-                                        new CatalogSchemaTableName(catalog, "tpch", "test_io_explain"),
-                                        new IoPlanPrinter.Constraint(
-                                                false,
-                                                ImmutableSet.of(
-                                                        new ColumnConstraint(
-                                                                "orderkey",
-                                                                BIGINT,
-                                                                new FormattedDomain(
-                                                                        false,
-                                                                        ImmutableSet.of(
-                                                                                new FormattedRange(
-                                                                                        new FormattedMarker(Optional.of("100"), EXACTLY),
-                                                                                        new FormattedMarker(Optional.of("100"), EXACTLY))))))),
-                                        estimate)),
-                        Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_io_explain")),
-                        finalEstimate));
+        assertThat(getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet()))).isEqualTo(new IoPlan(
+                ImmutableSet.of(
+                        new TableColumnInfo(
+                                new CatalogSchemaTableName(catalog, "tpch", "test_io_explain"),
+                                new IoPlanPrinter.Constraint(
+                                        false,
+                                        ImmutableSet.of(
+                                                new ColumnConstraint(
+                                                        "orderkey",
+                                                        BIGINT,
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("100"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("100"), EXACTLY))))))),
+                                estimate)),
+                Optional.of(new CatalogSchemaTableName(catalog, "tpch", "test_io_explain")),
+                finalEstimate));
 
         assertUpdate("DROP TABLE test_io_explain");
     }
@@ -1289,128 +1276,122 @@ public abstract class BaseHiveConnectorTest
         EstimatedStatsAndCost estimate = new EstimatedStatsAndCost(2.0, 48.0, 48.0, 0.0, 0.0);
         EstimatedStatsAndCost finalEstimate = new EstimatedStatsAndCost(0.0, 0.0, 96.0, 0.0, 0.0);
         MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT custkey, orderkey, orderstatus FROM test_io_explain_column_filters WHERE custkey <= 10 and orderstatus='P'");
-        assertEquals(
-                getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
-                new IoPlan(
-                        ImmutableSet.of(
-                                new TableColumnInfo(
-                                        new CatalogSchemaTableName(catalog, "tpch", "test_io_explain_column_filters"),
-                                        new IoPlanPrinter.Constraint(
-                                                false,
-                                                ImmutableSet.of(
-                                                        new ColumnConstraint(
-                                                                "orderkey",
-                                                                BIGINT,
-                                                                new FormattedDomain(
-                                                                        false,
-                                                                        ImmutableSet.of(
-                                                                                new FormattedRange(
-                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY),
-                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY)),
-                                                                                new FormattedRange(
-                                                                                        new FormattedMarker(Optional.of("2"), EXACTLY),
-                                                                                        new FormattedMarker(Optional.of("2"), EXACTLY))))),
-                                                        new ColumnConstraint(
-                                                                "custkey",
-                                                                BIGINT,
-                                                                new FormattedDomain(
-                                                                        false,
-                                                                        ImmutableSet.of(
-                                                                                new FormattedRange(
-                                                                                        new FormattedMarker(Optional.empty(), ABOVE),
-                                                                                        new FormattedMarker(Optional.of("10"), EXACTLY))))),
-                                                        new ColumnConstraint(
-                                                                "orderstatus",
-                                                                VarcharType.createVarcharType(1),
-                                                                new FormattedDomain(
-                                                                        false,
-                                                                        ImmutableSet.of(
-                                                                                new FormattedRange(
-                                                                                        new FormattedMarker(Optional.of("P"), EXACTLY),
-                                                                                        new FormattedMarker(Optional.of("P"), EXACTLY))))))),
-                                        estimate)),
-                        Optional.empty(),
-                        finalEstimate));
+        assertThat(getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet()))).isEqualTo(new IoPlan(
+                ImmutableSet.of(
+                        new TableColumnInfo(
+                                new CatalogSchemaTableName(catalog, "tpch", "test_io_explain_column_filters"),
+                                new IoPlanPrinter.Constraint(
+                                        false,
+                                        ImmutableSet.of(
+                                                new ColumnConstraint(
+                                                        "orderkey",
+                                                        BIGINT,
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("1"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("1"), EXACTLY)),
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("2"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("2"), EXACTLY))))),
+                                                new ColumnConstraint(
+                                                        "custkey",
+                                                        BIGINT,
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.empty(), ABOVE),
+                                                                                new FormattedMarker(Optional.of("10"), EXACTLY))))),
+                                                new ColumnConstraint(
+                                                        "orderstatus",
+                                                        createVarcharType(1),
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("P"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("P"), EXACTLY))))))),
+                                estimate)),
+                Optional.empty(),
+                finalEstimate));
         result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT custkey, orderkey, orderstatus FROM test_io_explain_column_filters WHERE custkey <= 10 and (orderstatus='P' or orderstatus='S')");
-        assertEquals(
-                getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
-                new IoPlan(
-                        ImmutableSet.of(
-                                new TableColumnInfo(
-                                        new CatalogSchemaTableName(catalog, "tpch", "test_io_explain_column_filters"),
-                                        new IoPlanPrinter.Constraint(
-                                                false,
-                                                ImmutableSet.of(
-                                                        new ColumnConstraint(
-                                                                "orderkey",
-                                                                BIGINT,
-                                                                new FormattedDomain(
-                                                                        false,
-                                                                        ImmutableSet.of(
-                                                                                new FormattedRange(
-                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY),
-                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY)),
-                                                                                new FormattedRange(
-                                                                                        new FormattedMarker(Optional.of("2"), EXACTLY),
-                                                                                        new FormattedMarker(Optional.of("2"), EXACTLY))))),
-                                                        new ColumnConstraint(
-                                                                "orderstatus",
-                                                                VarcharType.createVarcharType(1),
-                                                                new FormattedDomain(
-                                                                        false,
-                                                                        ImmutableSet.of(
-                                                                                new FormattedRange(
-                                                                                        new FormattedMarker(Optional.of("P"), EXACTLY),
-                                                                                        new FormattedMarker(Optional.of("P"), EXACTLY)),
-                                                                                new FormattedRange(
-                                                                                        new FormattedMarker(Optional.of("S"), EXACTLY),
-                                                                                        new FormattedMarker(Optional.of("S"), EXACTLY))))),
-                                                        new ColumnConstraint(
-                                                                "custkey",
-                                                                BIGINT,
-                                                                new FormattedDomain(
-                                                                        false,
-                                                                        ImmutableSet.of(
-                                                                                new FormattedRange(
-                                                                                        new FormattedMarker(Optional.empty(), ABOVE),
-                                                                                        new FormattedMarker(Optional.of("10"), EXACTLY))))))),
-                                        estimate)),
-                        Optional.empty(),
-                        finalEstimate));
+        assertThat(getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet()))).isEqualTo(new IoPlan(
+                ImmutableSet.of(
+                        new TableColumnInfo(
+                                new CatalogSchemaTableName(catalog, "tpch", "test_io_explain_column_filters"),
+                                new IoPlanPrinter.Constraint(
+                                        false,
+                                        ImmutableSet.of(
+                                                new ColumnConstraint(
+                                                        "orderkey",
+                                                        BIGINT,
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("1"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("1"), EXACTLY)),
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("2"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("2"), EXACTLY))))),
+                                                new ColumnConstraint(
+                                                        "orderstatus",
+                                                        createVarcharType(1),
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("P"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("P"), EXACTLY)),
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("S"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("S"), EXACTLY))))),
+                                                new ColumnConstraint(
+                                                        "custkey",
+                                                        BIGINT,
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.empty(), ABOVE),
+                                                                                new FormattedMarker(Optional.of("10"), EXACTLY))))))),
+                                estimate)),
+                Optional.empty(),
+                finalEstimate));
         result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT custkey, orderkey, orderstatus FROM test_io_explain_column_filters WHERE custkey <= 10 and cast(orderstatus as integer) = 5");
-        assertEquals(
-                getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
-                new IoPlan(
-                        ImmutableSet.of(
-                                new TableColumnInfo(
-                                        new CatalogSchemaTableName(catalog, "tpch", "test_io_explain_column_filters"),
-                                        new IoPlanPrinter.Constraint(
-                                                false,
-                                                ImmutableSet.of(
-                                                        new ColumnConstraint(
-                                                                "orderkey",
-                                                                BIGINT,
-                                                                new FormattedDomain(
-                                                                        false,
-                                                                        ImmutableSet.of(
-                                                                                new FormattedRange(
-                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY),
-                                                                                        new FormattedMarker(Optional.of("1"), EXACTLY)),
-                                                                                new FormattedRange(
-                                                                                        new FormattedMarker(Optional.of("2"), EXACTLY),
-                                                                                        new FormattedMarker(Optional.of("2"), EXACTLY))))),
-                                                        new ColumnConstraint(
-                                                                "custkey",
-                                                                BIGINT,
-                                                                new FormattedDomain(
-                                                                        false,
-                                                                        ImmutableSet.of(
-                                                                                new FormattedRange(
-                                                                                        new FormattedMarker(Optional.empty(), ABOVE),
-                                                                                        new FormattedMarker(Optional.of("10"), EXACTLY))))))),
-                                        estimate)),
-                        Optional.empty(),
-                        finalEstimate));
+        assertThat(getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet()))).isEqualTo(new IoPlan(
+                ImmutableSet.of(
+                        new TableColumnInfo(
+                                new CatalogSchemaTableName(catalog, "tpch", "test_io_explain_column_filters"),
+                                new IoPlanPrinter.Constraint(
+                                        false,
+                                        ImmutableSet.of(
+                                                new ColumnConstraint(
+                                                        "orderkey",
+                                                        BIGINT,
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("1"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("1"), EXACTLY)),
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("2"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("2"), EXACTLY))))),
+                                                new ColumnConstraint(
+                                                        "custkey",
+                                                        BIGINT,
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.empty(), ABOVE),
+                                                                                new FormattedMarker(Optional.of("10"), EXACTLY))))))),
+                                estimate)),
+                Optional.empty(),
+                finalEstimate));
 
         assertUpdate("DROP TABLE test_io_explain_column_filters");
     }
@@ -1423,16 +1404,14 @@ public abstract class BaseHiveConnectorTest
 
         EstimatedStatsAndCost estimate = new EstimatedStatsAndCost(0.0, 0.0, 0.0, 0.0, 0.0);
         MaterializedResult result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT custkey, orderkey FROM test_io_explain_with_empty_partitioned_table");
-        assertEquals(
-                getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
-                new IoPlan(
-                        ImmutableSet.of(
-                                new TableColumnInfo(
-                                        new CatalogSchemaTableName(catalog, "tpch", "test_io_explain_with_empty_partitioned_table"),
-                                        new IoPlanPrinter.Constraint(true, ImmutableSet.of()),
-                                        estimate)),
-                        Optional.empty(),
-                        estimate));
+        assertThat(getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet()))).isEqualTo(new IoPlan(
+                ImmutableSet.of(
+                        new TableColumnInfo(
+                                new CatalogSchemaTableName(catalog, "tpch", "test_io_explain_with_empty_partitioned_table"),
+                                new IoPlanPrinter.Constraint(true, ImmutableSet.of()),
+                                estimate)),
+                Optional.empty(),
+                estimate));
 
         assertUpdate("DROP TABLE test_io_explain_with_empty_partitioned_table");
     }
@@ -1460,27 +1439,25 @@ public abstract class BaseHiveConnectorTest
         EstimatedStatsAndCost finalEstimate = new EstimatedStatsAndCost(1.0, 22.0, 22.0, 0.0, 22.0);
         MaterializedResult result =
                 computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT * FROM io_explain_test_no_filter");
-        assertEquals(
-                getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
-                new IoPlan(
-                        ImmutableSet.of(
-                                new TableColumnInfo(
-                                        new CatalogSchemaTableName(catalog, "tpch", "io_explain_test_no_filter"),
-                                        new IoPlanPrinter.Constraint(
-                                                false,
-                                                ImmutableSet.of(
-                                                        new ColumnConstraint(
-                                                                "ds",
-                                                                VARCHAR,
-                                                                new FormattedDomain(
-                                                                        false,
-                                                                        ImmutableSet.of(
-                                                                                new FormattedRange(
-                                                                                        new FormattedMarker(Optional.of("a"), EXACTLY),
-                                                                                        new FormattedMarker(Optional.of("a"), EXACTLY))))))),
-                                        estimate)),
-                        Optional.empty(),
-                        finalEstimate));
+        assertThat(getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet()))).isEqualTo(new IoPlan(
+                ImmutableSet.of(
+                        new TableColumnInfo(
+                                new CatalogSchemaTableName(catalog, "tpch", "io_explain_test_no_filter"),
+                                new IoPlanPrinter.Constraint(
+                                        false,
+                                        ImmutableSet.of(
+                                                new ColumnConstraint(
+                                                        "ds",
+                                                        VARCHAR,
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("a"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("a"), EXACTLY))))))),
+                                estimate)),
+                Optional.empty(),
+                finalEstimate));
         assertUpdate("DROP TABLE io_explain_test_no_filter");
     }
 
@@ -1507,36 +1484,34 @@ public abstract class BaseHiveConnectorTest
         EstimatedStatsAndCost finalEstimate = new EstimatedStatsAndCost(Double.NaN, Double.NaN, Double.NaN, Double.NaN, Double.NaN);
         MaterializedResult result =
                 computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT * FROM (SELECT COUNT(*) cnt FROM io_explain_test_filter_on_agg WHERE b = 'b') WHERE cnt > 0");
-        assertEquals(
-                getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
-                new IoPlan(
-                        ImmutableSet.of(
-                                new TableColumnInfo(
-                                        new CatalogSchemaTableName(catalog, "tpch", "io_explain_test_filter_on_agg"),
-                                        new IoPlanPrinter.Constraint(
-                                                false,
-                                                ImmutableSet.of(
-                                                        new ColumnConstraint(
-                                                                "ds",
-                                                                VARCHAR,
-                                                                new FormattedDomain(
-                                                                        false,
-                                                                        ImmutableSet.of(
-                                                                                new FormattedRange(
-                                                                                        new FormattedMarker(Optional.of("a"), EXACTLY),
-                                                                                        new FormattedMarker(Optional.of("a"), EXACTLY))))),
-                                                        new ColumnConstraint(
-                                                                "b",
-                                                                VARCHAR,
-                                                                new FormattedDomain(
-                                                                        false,
-                                                                        ImmutableSet.of(
-                                                                                new FormattedRange(
-                                                                                        new FormattedMarker(Optional.of("b"), EXACTLY),
-                                                                                        new FormattedMarker(Optional.of("b"), EXACTLY))))))),
-                                        estimate)),
-                        Optional.empty(),
-                        finalEstimate));
+        assertThat(getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet()))).isEqualTo(new IoPlan(
+                ImmutableSet.of(
+                        new TableColumnInfo(
+                                new CatalogSchemaTableName(catalog, "tpch", "io_explain_test_filter_on_agg"),
+                                new IoPlanPrinter.Constraint(
+                                        false,
+                                        ImmutableSet.of(
+                                                new ColumnConstraint(
+                                                        "ds",
+                                                        VARCHAR,
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("a"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("a"), EXACTLY))))),
+                                                new ColumnConstraint(
+                                                        "b",
+                                                        VARCHAR,
+                                                        new FormattedDomain(
+                                                                false,
+                                                                ImmutableSet.of(
+                                                                        new FormattedRange(
+                                                                                new FormattedMarker(Optional.of("b"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("b"), EXACTLY))))))),
+                                estimate)),
+                Optional.empty(),
+                finalEstimate));
         assertUpdate("DROP TABLE io_explain_test_filter_on_agg");
     }
 
@@ -1570,9 +1545,9 @@ public abstract class BaseHiveConnectorTest
 
             assertUpdate(query, 1);
 
-            assertEquals(
-                    getIoPlanCodec().fromJson((String) getOnlyElement(computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT * FROM test_types_table").getOnlyColumnAsSet())),
-                    new IoPlan(
+            assertThat(getIoPlanCodec().fromJson((String) getOnlyElement(computeActual("EXPLAIN (TYPE IO, FORMAT JSON) SELECT * FROM test_types_table").getOnlyColumnAsSet())))
+                    .describedAs(format("%d) Type %s ", index, type))
+                    .isEqualTo(new IoPlan(
                             ImmutableSet.of(new TableColumnInfo(
                                     new CatalogSchemaTableName(catalog, "tpch", "test_types_table"),
                                     new IoPlanPrinter.Constraint(
@@ -1589,8 +1564,7 @@ public abstract class BaseHiveConnectorTest
                                                                                     new FormattedMarker(Optional.of(entry.getKey().toString()), EXACTLY))))))),
                                     estimate)),
                             Optional.empty(),
-                            estimate),
-                    format("%d) Type %s ", index, type));
+                            estimate));
 
             assertUpdate("DROP TABLE test_types_table");
         }
@@ -1630,22 +1604,22 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(query, 1);
 
         MaterializedResult results = getQueryRunner().execute(getSession(), "SELECT * FROM test_types_table").toTestTypes();
-        assertEquals(results.getRowCount(), 1);
+        assertThat(results.getRowCount()).isEqualTo(1);
         MaterializedRow row = results.getMaterializedRows().get(0);
-        assertEquals(row.getField(0), "foo");
-        assertEquals(row.getField(1), "bar".getBytes(UTF_8));
-        assertEquals(row.getField(2), 1L);
-        assertEquals(row.getField(3), 2);
-        assertEquals(row.getField(4), 3.14);
-        assertEquals(row.getField(5), true);
-        assertEquals(row.getField(6), LocalDate.of(1980, 5, 7));
-        assertEquals(row.getField(7), LocalDateTime.of(1980, 5, 7, 11, 22, 33, 456_000_000));
-        assertEquals(row.getField(8), new BigDecimal("3.14"));
-        assertEquals(row.getField(9), new BigDecimal("12345678901234567890.0123456789"));
-        assertEquals(row.getField(10), "bar       ");
+        assertThat(row.getField(0)).isEqualTo("foo");
+        assertThat(row.getField(1)).isEqualTo("bar".getBytes(UTF_8));
+        assertThat(row.getField(2)).isEqualTo(1L);
+        assertThat(row.getField(3)).isEqualTo(2);
+        assertThat(row.getField(4)).isEqualTo(3.14);
+        assertThat(row.getField(5)).isEqualTo(true);
+        assertThat(row.getField(6)).isEqualTo(LocalDate.of(1980, 5, 7));
+        assertThat(row.getField(7)).isEqualTo(LocalDateTime.of(1980, 5, 7, 11, 22, 33, 456_000_000));
+        assertThat(row.getField(8)).isEqualTo(new BigDecimal("3.14"));
+        assertThat(row.getField(9)).isEqualTo(new BigDecimal("12345678901234567890.0123456789"));
+        assertThat(row.getField(10)).isEqualTo("bar       ");
         assertUpdate("DROP TABLE test_types_table");
 
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_types_table"));
+        assertThat(getQueryRunner().tableExists(getSession(), "test_types_table")).isFalse();
     }
 
     @Test
@@ -1696,7 +1670,7 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(session, createTable);
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_partitioned_table");
-        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
+        assertThat(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY)).isEqualTo(storageFormat);
 
         List<String> partitionedBy = ImmutableList.of(
                 "_partition_string",
@@ -1711,10 +1685,10 @@ public abstract class BaseHiveConnectorTest
                 "_partition_decimal_long",
                 "_partition_date",
                 "_partition_timestamp");
-        assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), partitionedBy);
+        assertThat(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY)).isEqualTo(partitionedBy);
         for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
             boolean partitionKey = partitionedBy.contains(columnMetadata.getName());
-            assertEquals(columnMetadata.getExtraInfo(), columnExtraInfo(partitionKey));
+            assertThat(columnMetadata.getExtraInfo()).isEqualTo(columnExtraInfo(partitionKey));
         }
 
         assertColumnType(tableMetadata, "_string", createUnboundedVarcharType());
@@ -1724,7 +1698,7 @@ public abstract class BaseHiveConnectorTest
         assertColumnType(tableMetadata, "_partition_varchar", createVarcharType(65535));
 
         MaterializedResult result = computeActual("SELECT * FROM test_partitioned_table");
-        assertEquals(result.getRowCount(), 0);
+        assertThat(result.getRowCount()).isEqualTo(0);
 
         @Language("SQL") String select = "" +
                 "SELECT" +
@@ -1778,7 +1752,7 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate(session, "DROP TABLE test_partitioned_table");
 
-        assertFalse(getQueryRunner().tableExists(session, "test_partitioned_table"));
+        assertThat(getQueryRunner().tableExists(session, "test_partitioned_table")).isFalse();
     }
 
     @Test
@@ -1822,7 +1796,7 @@ public abstract class BaseHiveConnectorTest
 
         // Verify the partition keys are correctly created
         List<String> partitionedBy = ImmutableList.of("partition_bigint", "partition_decimal_long");
-        assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), partitionedBy);
+        assertThat(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY)).isEqualTo(partitionedBy);
 
         // Verify the column types
         assertColumnType(tableMetadata, "string_col", createUnboundedVarcharType());
@@ -1923,7 +1897,7 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(session, createTableAs, 1);
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_format_table");
-        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
+        assertThat(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY)).isEqualTo(storageFormat);
 
         assertColumnType(tableMetadata, "_varchar", createVarcharType(3));
         assertColumnType(tableMetadata, "_char", createCharType(10));
@@ -1935,7 +1909,7 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate(session, "DROP TABLE test_format_table");
 
-        assertFalse(getQueryRunner().tableExists(session, "test_format_table"));
+        assertThat(getQueryRunner().tableExists(session, "test_format_table")).isFalse();
     }
 
     @Test
@@ -1959,17 +1933,17 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(session, createTable, "SELECT count(*) FROM orders");
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_create_partitioned_table_as");
-        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
-        assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), ImmutableList.of("ship_priority", "order_status"));
+        assertThat(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY)).isEqualTo(storageFormat);
+        assertThat(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY)).isEqualTo(ImmutableList.of("ship_priority", "order_status"));
 
         List<?> partitions = getPartitions("test_create_partitioned_table_as");
-        assertEquals(partitions.size(), 3);
+        assertThat(partitions.size()).isEqualTo(3);
 
         assertQuery(session, "SELECT * FROM test_create_partitioned_table_as", "SELECT orderkey, shippriority, orderstatus FROM orders");
 
         assertUpdate(session, "DROP TABLE test_create_partitioned_table_as");
 
-        assertFalse(getQueryRunner().tableExists(session, "test_create_partitioned_table_as"));
+        assertThat(getQueryRunner().tableExists(session, "test_create_partitioned_table_as")).isFalse();
     }
 
     @Test
@@ -2197,13 +2171,13 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(createTable);
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
-        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
+        assertThat(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY)).isEqualTo(storageFormat);
 
-        assertNull(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY));
-        assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY), ImmutableList.of("bucket_key"));
-        assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKET_COUNT_PROPERTY), 11);
+        assertThat(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY)).isNull();
+        assertThat(tableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY)).isEqualTo(ImmutableList.of("bucket_key"));
+        assertThat(tableMetadata.getMetadata().getProperties().get(BUCKET_COUNT_PROPERTY)).isEqualTo(11);
 
-        assertEquals(computeActual("SELECT * from " + tableName).getRowCount(), 0);
+        assertThat(computeActual("SELECT * from " + tableName).getRowCount()).isEqualTo(0);
 
         // make sure that we will get one file per bucket regardless of writer count configured
         Session session = Session.builder(baseSession)
@@ -2216,7 +2190,7 @@ public abstract class BaseHiveConnectorTest
         assertQuery("SELECT * from " + tableName, "VALUES ('a0', 'b0', 'c0'), ('a1', 'b1', 'c1')");
 
         assertUpdate(session, "DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(session, tableName));
+        assertThat(getQueryRunner().tableExists(session, tableName)).isFalse();
     }
 
     @Test
@@ -2259,11 +2233,11 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(parallelWriter, createTable, 3);
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
-        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
+        assertThat(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY)).isEqualTo(storageFormat);
 
-        assertNull(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY));
-        assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY), ImmutableList.of("bucket_key"));
-        assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKET_COUNT_PROPERTY), 11);
+        assertThat(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY)).isNull();
+        assertThat(tableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY)).isEqualTo(ImmutableList.of("bucket_key"));
+        assertThat(tableMetadata.getMetadata().getProperties().get(BUCKET_COUNT_PROPERTY)).isEqualTo(11);
 
         assertQuery("SELECT * from " + tableName, "VALUES ('a', 'b', 'c'), ('aa', 'bb', 'cc'), ('aaa', 'bbb', 'ccc')");
 
@@ -2278,7 +2252,7 @@ public abstract class BaseHiveConnectorTest
         assertQuery("SELECT * from " + tableName, "VALUES ('a', 'b', 'c'), ('aa', 'bb', 'cc'), ('aaa', 'bbb', 'ccc'), ('a0', 'b0', 'c0'), ('a1', 'b1', 'c1')");
 
         assertUpdate(session, "DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(session, tableName));
+        assertThat(getQueryRunner().tableExists(session, tableName)).isFalse();
     }
 
     @Test
@@ -2501,7 +2475,7 @@ public abstract class BaseHiveConnectorTest
         verifyPartitionedBucketedTableAsFewRows(storageFormat, tableName);
 
         assertUpdate(session, "DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(session, tableName));
+        assertThat(getQueryRunner().tableExists(session, tableName)).isFalse();
     }
 
     @Test
@@ -2535,7 +2509,7 @@ public abstract class BaseHiveConnectorTest
         verifyPartitionedBucketedTable(storageFormat, tableName);
 
         assertUpdate("DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
     }
 
     @Test
@@ -2589,7 +2563,7 @@ public abstract class BaseHiveConnectorTest
         assertQuery("SELECT * FROM " + tableName, "SELECT custkey, orderkey, comment, nullif(orderpriority, '1-URGENT') orderpriority_nulls, orderstatus FROM orders");
 
         assertUpdate("DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
     }
 
     @Test
@@ -2710,20 +2684,20 @@ public abstract class BaseHiveConnectorTest
         verifyPartitionedBucketedTable(storageFormat, tableName);
 
         assertUpdate("DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
     }
 
     private void verifyPartitionedBucketedTable(HiveStorageFormat storageFormat, String tableName)
     {
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
-        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
+        assertThat(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY)).isEqualTo(storageFormat);
 
-        assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), ImmutableList.of("orderstatus"));
-        assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY), ImmutableList.of("custkey", "custkey2"));
-        assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKET_COUNT_PROPERTY), 11);
+        assertThat(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY)).isEqualTo(ImmutableList.of("orderstatus"));
+        assertThat(tableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY)).isEqualTo(ImmutableList.of("custkey", "custkey2"));
+        assertThat(tableMetadata.getMetadata().getProperties().get(BUCKET_COUNT_PROPERTY)).isEqualTo(11);
 
         List<?> partitions = getPartitions(tableName);
-        assertEquals(partitions.size(), 3);
+        assertThat(partitions.size()).isEqualTo(3);
 
         // verify that we create bucket_count files in each partition
         assertEqualsIgnoreOrder(
@@ -2832,7 +2806,7 @@ public abstract class BaseHiveConnectorTest
                 "FROM tpch.tiny.orders"))
                 .hasMessage("Sorting columns [custkey3] not present in schema");
 
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
     }
 
     @Test
@@ -2878,20 +2852,20 @@ public abstract class BaseHiveConnectorTest
         verifyPartitionedBucketedTableAsFewRows(storageFormat, tableName);
 
         assertUpdate(session, "DROP TABLE test_insert_partitioned_bucketed_table_few_rows");
-        assertFalse(getQueryRunner().tableExists(session, tableName));
+        assertThat(getQueryRunner().tableExists(session, tableName)).isFalse();
     }
 
     private void verifyPartitionedBucketedTableAsFewRows(HiveStorageFormat storageFormat, String tableName)
     {
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
-        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
+        assertThat(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY)).isEqualTo(storageFormat);
 
-        assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), ImmutableList.of("partition_key"));
-        assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY), ImmutableList.of("bucket_key"));
-        assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKET_COUNT_PROPERTY), 11);
+        assertThat(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY)).isEqualTo(ImmutableList.of("partition_key"));
+        assertThat(tableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY)).isEqualTo(ImmutableList.of("bucket_key"));
+        assertThat(tableMetadata.getMetadata().getProperties().get(BUCKET_COUNT_PROPERTY)).isEqualTo(11);
 
         List<?> partitions = getPartitions(tableName);
-        assertEquals(partitions.size(), 3);
+        assertThat(partitions.size()).isEqualTo(3);
 
         MaterializedResult actual = computeActual("SELECT * FROM " + tableName);
         MaterializedResult expected = resultBuilder(getSession(), canonicalizeType(createUnboundedVarcharType()), canonicalizeType(createUnboundedVarcharType()), canonicalizeType(createUnboundedVarcharType()))
@@ -2963,7 +2937,7 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate(format("INSERT INTO %s (dummy_col, part) VALUES (1, 'first'), (2, 'second'), (3, 'third')", tableName), 3);
         List<MaterializedRow> paths = getQueryRunner().execute(getSession(), "SELECT \"$path\" FROM " + tableName + " ORDER BY \"$path\" ASC").toTestTypes().getMaterializedRows();
-        assertEquals(paths.size(), 3);
+        assertThat(paths.size()).isEqualTo(3);
 
         String firstPartition = Location.of((String) paths.get(0).getField(0)).parentDirectory().toString();
 
@@ -3033,7 +3007,7 @@ public abstract class BaseHiveConnectorTest
         }
 
         assertUpdate(session, "DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(session, tableName));
+        assertThat(getQueryRunner().tableExists(session, tableName)).isFalse();
     }
 
     @Test
@@ -3082,7 +3056,7 @@ public abstract class BaseHiveConnectorTest
         verifyPartitionedBucketedTable(storageFormat, tableName);
 
         assertUpdate("DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
     }
 
     private void createPartitionedBucketedTable(Session session, String tableName, HiveStorageFormat storageFormat)
@@ -3145,7 +3119,7 @@ public abstract class BaseHiveConnectorTest
         verifyPartitionedBucketedTable(storageFormat, tableName);
 
         assertUpdate("DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
     }
 
     @Test
@@ -3204,7 +3178,7 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(session, createTable);
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_insert_format_table");
-        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
+        assertThat(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY)).isEqualTo(storageFormat);
 
         assertColumnType(tableMetadata, "_string", createUnboundedVarcharType());
         assertColumnType(tableMetadata, "_varchar", createVarcharType(65535));
@@ -3249,7 +3223,7 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate(session, "DROP TABLE test_insert_format_table");
 
-        assertFalse(getQueryRunner().tableExists(session, "test_insert_format_table"));
+        assertThat(getQueryRunner().tableExists(session, "test_insert_format_table")).isFalse();
     }
 
     @Test
@@ -3275,8 +3249,8 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(session, createTable);
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_insert_partitioned_table");
-        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
-        assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), ImmutableList.of("ship_priority", "order_status"));
+        assertThat(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY)).isEqualTo(storageFormat);
+        assertThat(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY)).isEqualTo(ImmutableList.of("ship_priority", "order_status"));
 
         String partitionsTable = "\"test_insert_partitioned_table$partitions\"";
 
@@ -3296,7 +3270,7 @@ public abstract class BaseHiveConnectorTest
 
         // verify the partitions
         List<?> partitions = getPartitions("test_insert_partitioned_table");
-        assertEquals(partitions.size(), 3);
+        assertThat(partitions.size()).isEqualTo(3);
 
         assertQuery(session, "SELECT * FROM test_insert_partitioned_table", "SELECT orderkey, shippriority, orderstatus FROM orders");
 
@@ -3320,7 +3294,7 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate(session, "DROP TABLE test_insert_partitioned_table");
 
-        assertFalse(getQueryRunner().tableExists(session, "test_insert_partitioned_table"));
+        assertThat(getQueryRunner().tableExists(session, "test_insert_partitioned_table")).isFalse();
     }
 
     @Test
@@ -3348,8 +3322,8 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(session, createTable);
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
-        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
-        assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), ImmutableList.of("order_status"));
+        assertThat(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY)).isEqualTo(storageFormat);
+        assertThat(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY)).isEqualTo(ImmutableList.of("order_status"));
 
         for (int i = 0; i < 3; i++) {
             assertUpdate(
@@ -3365,7 +3339,7 @@ public abstract class BaseHiveConnectorTest
 
         // verify the partitions
         List<?> partitions = getPartitions(tableName);
-        assertEquals(partitions.size(), 3);
+        assertThat(partitions.size()).isEqualTo(3);
 
         assertQuery(
                 session,
@@ -3374,7 +3348,7 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate(session, "DROP TABLE " + tableName);
 
-        assertFalse(getQueryRunner().tableExists(session, tableName));
+        assertThat(getQueryRunner().tableExists(session, tableName)).isFalse();
     }
 
     @Test
@@ -3406,8 +3380,8 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(session, createTable);
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
-        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
-        assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), ImmutableList.of("order_status"));
+        assertThat(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY)).isEqualTo(storageFormat);
+        assertThat(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY)).isEqualTo(ImmutableList.of("order_status"));
 
         for (int i = 0; i < 3; i++) {
             assertUpdate(
@@ -3422,7 +3396,7 @@ public abstract class BaseHiveConnectorTest
 
             // verify the partitions
             List<?> partitions = getPartitions(tableName);
-            assertEquals(partitions.size(), 3);
+            assertThat(partitions.size()).isEqualTo(3);
 
             assertQuery(
                     session,
@@ -3431,7 +3405,7 @@ public abstract class BaseHiveConnectorTest
         }
         assertUpdate(session, "DROP TABLE " + tableName);
 
-        assertFalse(getQueryRunner().tableExists(session, tableName));
+        assertThat(getQueryRunner().tableExists(session, tableName)).isFalse();
     }
 
     @Test
@@ -3521,7 +3495,7 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(createTable);
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
-        assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), ImmutableList.of("part"));
+        assertThat(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY)).isEqualTo(ImmutableList.of("part"));
 
         // insert 1200 partitions
         for (int i = 0; i < 12; i++) {
@@ -3723,7 +3697,7 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(session, createTable);
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
-        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
+        assertThat(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY)).isEqualTo(storageFormat);
 
         for (int i = 0; i < 3; i++) {
             assertUpdate(
@@ -3744,7 +3718,7 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate(session, "DROP TABLE " + tableName);
 
-        assertFalse(getQueryRunner().tableExists(session, tableName));
+        assertThat(getQueryRunner().tableExists(session, tableName)).isFalse();
     }
 
     @Test
@@ -3755,11 +3729,11 @@ public abstract class BaseHiveConnectorTest
         assertUpdate("DELETE FROM test_delete_unpartitioned");
 
         MaterializedResult result = computeActual("SELECT * FROM test_delete_unpartitioned");
-        assertEquals(result.getRowCount(), 0);
+        assertThat(result.getRowCount()).isEqualTo(0);
 
         assertUpdate("DROP TABLE test_delete_unpartitioned");
 
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_delete_unpartitioned"));
+        assertThat(getQueryRunner().tableExists(getSession(), "test_delete_unpartitioned")).isFalse();
     }
 
     @Test
@@ -3802,7 +3776,7 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate("DROP TABLE test_metadata_delete");
 
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_metadata_delete"));
+        assertThat(getQueryRunner().tableExists(getSession(), "test_metadata_delete")).isFalse();
     }
 
     private TableMetadata getTableMetadata(String catalog, String schema, String tableName)
@@ -3814,7 +3788,7 @@ public abstract class BaseHiveConnectorTest
                 .readOnly()
                 .execute(session, transactionSession -> {
                     Optional<TableHandle> tableHandle = metadata.getTableHandle(transactionSession, new QualifiedObjectName(catalog, schema, tableName));
-                    assertTrue(tableHandle.isPresent());
+                    assertThat(tableHandle.isPresent()).isTrue();
                     return metadata.getTableMetadata(transactionSession, tableHandle.get());
                 });
     }
@@ -4083,12 +4057,12 @@ public abstract class BaseHiveConnectorTest
         String bucketedSchema = bucketedSession.getSchema().get();
 
         TableMetadata ordersTableMetadata = getTableMetadata(bucketedCatalog, bucketedSchema, "orders");
-        assertEquals(ordersTableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY), ImmutableList.of("custkey"));
-        assertEquals(ordersTableMetadata.getMetadata().getProperties().get(BUCKET_COUNT_PROPERTY), 11);
+        assertThat(ordersTableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY)).isEqualTo(ImmutableList.of("custkey"));
+        assertThat(ordersTableMetadata.getMetadata().getProperties().get(BUCKET_COUNT_PROPERTY)).isEqualTo(11);
 
         TableMetadata customerTableMetadata = getTableMetadata(bucketedCatalog, bucketedSchema, "customer");
-        assertEquals(customerTableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY), ImmutableList.of("custkey"));
-        assertEquals(customerTableMetadata.getMetadata().getProperties().get(BUCKET_COUNT_PROPERTY), 11);
+        assertThat(customerTableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY)).isEqualTo(ImmutableList.of("custkey"));
+        assertThat(customerTableMetadata.getMetadata().getProperties().get(BUCKET_COUNT_PROPERTY)).isEqualTo(11);
     }
 
     @Test
@@ -4119,7 +4093,7 @@ public abstract class BaseHiveConnectorTest
                     createTableSql,
                     (long) computeActual("SELECT count(*) FROM tpch.tiny.orders").getOnlyValue());
 
-            assertEquals(computeActual("SELECT count(DISTINCT \"$path\") FROM scale_writers_small").getOnlyValue(), 1L);
+            assertThat(computeActual("SELECT count(DISTINCT \"$path\") FROM scale_writers_small").getOnlyValue()).isEqualTo(1L);
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS scale_writers_small");
@@ -4267,7 +4241,7 @@ public abstract class BaseHiveConnectorTest
         try {
             assertUpdate(session, createTableSql, (long) computeActual("SELECT count(*) FROM tpch.sf2.orders").getOnlyValue());
             long files = (long) computeScalar("SELECT count(DISTINCT \"$path\") FROM %s".formatted(tableName));
-            assertEquals(files, expectedFilesCount);
+            assertThat(files).isEqualTo(expectedFilesCount);
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS %s".formatted(tableName));
@@ -4364,7 +4338,7 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate(createTableSql);
         MaterializedResult actualResult = computeActual("SHOW CREATE TABLE test_show_create_table");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+        assertThat(getOnlyElement(actualResult.getOnlyColumnAsSet())).isEqualTo(createTableSql);
 
         createTableSql = format("" +
                         "CREATE TABLE %s.%s.%s (\n" +
@@ -4389,7 +4363,7 @@ public abstract class BaseHiveConnectorTest
                 "\"test_show_create_table'2\"");
         assertUpdate(createTableSql);
         actualResult = computeActual("SHOW CREATE TABLE \"test_show_create_table'2\"");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+        assertThat(getOnlyElement(actualResult.getOnlyColumnAsSet())).isEqualTo(createTableSql);
 
         createTableSql = format("" +
                         "CREATE TABLE %s.%s.%s (\n" +
@@ -4402,7 +4376,7 @@ public abstract class BaseHiveConnectorTest
                 "test_show_create_table_with_special_characters");
         assertUpdate(createTableSql);
         actualResult = computeActual("SHOW CREATE TABLE test_show_create_table_with_special_characters");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+        assertThat(getOnlyElement(actualResult.getOnlyColumnAsSet())).isEqualTo(createTableSql);
     }
 
     @Test
@@ -4417,18 +4391,16 @@ public abstract class BaseHiveConnectorTest
                         "    partitioned_by = ARRAY['b']," +
                         "    partition_projection_location_template = 's3://example/${b}')")) {
             String result = (String) computeScalar("SHOW CREATE TABLE " + table.getName());
-            assertEquals(
-                    result,
-                    "CREATE TABLE hive.tpch." + table.getName() + " (\n" +
-                            "   a integer,\n" +
-                            "   b integer WITH ( partition_projection_range = ARRAY['0','10'], partition_projection_type = 'INTEGER' )\n" +
-                            ")\n" +
-                            "WITH (\n" +
-                            "   format = 'ORC',\n" +
-                            "   partition_projection_enabled = true,\n" +
-                            "   partition_projection_location_template = 's3://example/${b}',\n" +
-                            "   partitioned_by = ARRAY['b']\n" +
-                            ")");
+            assertThat(result).isEqualTo("CREATE TABLE hive.tpch." + table.getName() + " (\n" +
+                    "   a integer,\n" +
+                    "   b integer WITH ( partition_projection_range = ARRAY['0','10'], partition_projection_type = 'INTEGER' )\n" +
+                    ")\n" +
+                    "WITH (\n" +
+                    "   format = 'ORC',\n" +
+                    "   partition_projection_enabled = true,\n" +
+                    "   partition_projection_location_template = 's3://example/${b}',\n" +
+                    "   partitioned_by = ARRAY['b']\n" +
+                    ")");
         }
     }
 
@@ -4464,11 +4436,11 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate(createTableSql);
         MaterializedResult actual = computeActual(format("SHOW CREATE TABLE %s", tableName));
-        assertEquals(actual.getOnlyValue(), createTableSql);
+        assertThat(actual.getOnlyValue()).isEqualTo(createTableSql);
 
         assertQuery(format("SELECT col1, col2 from %s", tableName), expectedResults);
         assertUpdate(format("DROP TABLE %s", tableName));
-        assertFile(dataFile); // file should still exist after drop
+        assertThat(dataFile).exists(); // file should still exist after drop
         deleteRecursively(tempDir, ALLOW_INSECURE);
     }
 
@@ -4564,7 +4536,7 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(createTableSql);
 
         MaterializedResult actual = computeActual(format("SHOW CREATE TABLE %s_table_skip_header", format));
-        assertEquals(actual.getOnlyValue(), createTableSql);
+        assertThat(actual.getOnlyValue()).isEqualTo(createTableSql);
         assertUpdate(format("DROP TABLE %s_table_skip_header", format));
 
         createTableSql = format("" +
@@ -4580,7 +4552,7 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(createTableSql);
 
         actual = computeActual(format("SHOW CREATE TABLE %s_table_skip_footer", format));
-        assertEquals(actual.getOnlyValue(), createTableSql);
+        assertThat(actual.getOnlyValue()).isEqualTo(createTableSql);
         assertUpdate(format("DROP TABLE %s_table_skip_footer", format));
 
         createTableSql = format("" +
@@ -4597,7 +4569,7 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(createTableSql);
 
         actual = computeActual(format("SHOW CREATE TABLE %s_table_skip_header_footer", format));
-        assertEquals(actual.getOnlyValue(), createTableSql);
+        assertThat(actual.getOnlyValue()).isEqualTo(createTableSql);
         assertUpdate(format("DROP TABLE %s_table_skip_header_footer", format));
 
         createTableSql = format("" +
@@ -4752,23 +4724,23 @@ public abstract class BaseHiveConnectorTest
                 "(2, 2), (5, 2) " +
                 " ) t(col0, col1) ";
         assertUpdate(session, createTable, 8);
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_path"));
+        assertThat(getQueryRunner().tableExists(getSession(), "test_path")).isTrue();
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_path");
-        assertEquals(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY), storageFormat);
+        assertThat(tableMetadata.getMetadata().getProperties().get(STORAGE_FORMAT_PROPERTY)).isEqualTo(storageFormat);
 
         List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME, PARTITION_COLUMN_NAME);
         List<ColumnMetadata> columnMetadatas = tableMetadata.getColumns();
-        assertEquals(columnMetadatas.size(), columnNames.size());
+        assertThat(columnMetadatas.size()).isEqualTo(columnNames.size());
         for (int i = 0; i < columnMetadatas.size(); i++) {
             ColumnMetadata columnMetadata = columnMetadatas.get(i);
-            assertEquals(columnMetadata.getName(), columnNames.get(i));
+            assertThat(columnMetadata.getName()).isEqualTo(columnNames.get(i));
             if (columnMetadata.getName().equals(PATH_COLUMN_NAME)) {
                 // $path should be hidden column
-                assertTrue(columnMetadata.isHidden());
+                assertThat(columnMetadata.isHidden()).isTrue();
             }
         }
-        assertEquals(getPartitions("test_path").size(), 3);
+        assertThat(getPartitions("test_path").size()).isEqualTo(3);
 
         MaterializedResult results = computeActual(session, format("SELECT *, \"%s\" FROM test_path", PATH_COLUMN_NAME));
         Map<Integer, String> partitionPathMap = new HashMap<>();
@@ -4779,20 +4751,20 @@ public abstract class BaseHiveConnectorTest
             String pathName = (String) row.getField(2);
             String parentDirectory = Location.of(pathName).parentDirectory().toString();
 
-            assertTrue(pathName.length() > 0);
-            assertEquals(col0 % 3, col1);
+            assertThat(pathName.length() > 0).isTrue();
+            assertThat(col0 % 3).isEqualTo(col1);
             if (partitionPathMap.containsKey(col1)) {
                 // the rows in the same partition should be in the same partition directory
-                assertEquals(partitionPathMap.get(col1), parentDirectory);
+                assertThat(partitionPathMap.get(col1)).isEqualTo(parentDirectory);
             }
             else {
                 partitionPathMap.put(col1, parentDirectory);
             }
         }
-        assertEquals(partitionPathMap.size(), 3);
+        assertThat(partitionPathMap.size()).isEqualTo(3);
 
         assertUpdate(session, "DROP TABLE test_path");
-        assertFalse(getQueryRunner().tableExists(session, "test_path"));
+        assertThat(getQueryRunner().tableExists(session, "test_path")).isFalse();
     }
 
     @Test
@@ -4809,24 +4781,24 @@ public abstract class BaseHiveConnectorTest
                 "(6, 17), (7, 18), (8, 19)" +
                 " ) t (col0, col1) ";
         assertUpdate(createTable, 9);
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_bucket_hidden_column"));
+        assertThat(getQueryRunner().tableExists(getSession(), "test_bucket_hidden_column")).isTrue();
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_bucket_hidden_column");
-        assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY), ImmutableList.of("col0"));
-        assertEquals(tableMetadata.getMetadata().getProperties().get(BUCKET_COUNT_PROPERTY), 2);
+        assertThat(tableMetadata.getMetadata().getProperties().get(BUCKETED_BY_PROPERTY)).isEqualTo(ImmutableList.of("col0"));
+        assertThat(tableMetadata.getMetadata().getProperties().get(BUCKET_COUNT_PROPERTY)).isEqualTo(2);
 
         List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, BUCKET_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME);
         List<ColumnMetadata> columnMetadatas = tableMetadata.getColumns();
-        assertEquals(columnMetadatas.size(), columnNames.size());
+        assertThat(columnMetadatas.size()).isEqualTo(columnNames.size());
         for (int i = 0; i < columnMetadatas.size(); i++) {
             ColumnMetadata columnMetadata = columnMetadatas.get(i);
-            assertEquals(columnMetadata.getName(), columnNames.get(i));
+            assertThat(columnMetadata.getName()).isEqualTo(columnNames.get(i));
             if (columnMetadata.getName().equals(BUCKET_COLUMN_NAME)) {
                 // $bucket_number should be hidden column
-                assertTrue(columnMetadata.isHidden());
+                assertThat(columnMetadata.isHidden()).isTrue();
             }
         }
-        assertEquals(getBucketCount("test_bucket_hidden_column"), 2);
+        assertThat(getBucketCount("test_bucket_hidden_column")).isEqualTo(2);
 
         MaterializedResult results = computeActual(format("SELECT *, \"%1$s\" FROM test_bucket_hidden_column WHERE \"%1$s\" = 1",
                 BUCKET_COLUMN_NAME));
@@ -4836,16 +4808,16 @@ public abstract class BaseHiveConnectorTest
             int col1 = (int) row.getField(1);
             int bucket = (int) row.getField(2);
 
-            assertEquals(col1, col0 + 11);
-            assertTrue(col1 % 2 == 0);
+            assertThat(col1).isEqualTo(col0 + 11);
+            assertThat(col1 % 2 == 0).isTrue();
 
             // Because Hive's hash function for integer n is h(n) = n.
-            assertEquals(bucket, col0 % 2);
+            assertThat(bucket).isEqualTo(col0 % 2);
         }
-        assertEquals(results.getRowCount(), 4);
+        assertThat(results.getRowCount()).isEqualTo(4);
 
         assertUpdate("DROP TABLE test_bucket_hidden_column");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_bucket_hidden_column"));
+        assertThat(getQueryRunner().tableExists(getSession(), "test_bucket_hidden_column")).isFalse();
     }
 
     @Test
@@ -4861,21 +4833,21 @@ public abstract class BaseHiveConnectorTest
                 "(2, 2), (5, 2) " +
                 " ) t(col0, col1) ";
         assertUpdate(createTable, 8);
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_file_size"));
+        assertThat(getQueryRunner().tableExists(getSession(), "test_file_size")).isTrue();
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_file_size");
 
         List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME, PARTITION_COLUMN_NAME);
         List<ColumnMetadata> columnMetadatas = tableMetadata.getColumns();
-        assertEquals(columnMetadatas.size(), columnNames.size());
+        assertThat(columnMetadatas.size()).isEqualTo(columnNames.size());
         for (int i = 0; i < columnMetadatas.size(); i++) {
             ColumnMetadata columnMetadata = columnMetadatas.get(i);
-            assertEquals(columnMetadata.getName(), columnNames.get(i));
+            assertThat(columnMetadata.getName()).isEqualTo(columnNames.get(i));
             if (columnMetadata.getName().equals(FILE_SIZE_COLUMN_NAME)) {
-                assertTrue(columnMetadata.isHidden());
+                assertThat(columnMetadata.isHidden()).isTrue();
             }
         }
-        assertEquals(getPartitions("test_file_size").size(), 3);
+        assertThat(getPartitions("test_file_size").size()).isEqualTo(3);
 
         MaterializedResult results = computeActual(format("SELECT *, \"%s\" FROM test_file_size", FILE_SIZE_COLUMN_NAME));
         Map<Integer, Long> fileSizeMap = new HashMap<>();
@@ -4885,16 +4857,16 @@ public abstract class BaseHiveConnectorTest
             int col1 = (int) row.getField(1);
             long fileSize = (Long) row.getField(2);
 
-            assertTrue(fileSize > 0);
-            assertEquals(col0 % 3, col1);
+            assertThat(fileSize > 0).isTrue();
+            assertThat(col0 % 3).isEqualTo(col1);
             if (fileSizeMap.containsKey(col1)) {
-                assertEquals(fileSizeMap.get(col1).longValue(), fileSize);
+                assertThat(fileSizeMap.get(col1).longValue()).isEqualTo(fileSize);
             }
             else {
                 fileSizeMap.put(col1, fileSize);
             }
         }
-        assertEquals(fileSizeMap.size(), 3);
+        assertThat(fileSizeMap.size()).isEqualTo(3);
 
         assertUpdate("DROP TABLE test_file_size");
     }
@@ -4921,21 +4893,21 @@ public abstract class BaseHiveConnectorTest
                 "(2, 2), (5, 2) " +
                 " ) t(col0, col1) ";
         assertUpdate(createTable, 8);
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_file_modified_time"));
+        assertThat(getQueryRunner().tableExists(getSession(), "test_file_modified_time")).isTrue();
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_file_modified_time");
 
         List<String> columnNames = ImmutableList.of("col0", "col1", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME, PARTITION_COLUMN_NAME);
         List<ColumnMetadata> columnMetadatas = tableMetadata.getColumns();
-        assertEquals(columnMetadatas.size(), columnNames.size());
+        assertThat(columnMetadatas.size()).isEqualTo(columnNames.size());
         for (int i = 0; i < columnMetadatas.size(); i++) {
             ColumnMetadata columnMetadata = columnMetadatas.get(i);
-            assertEquals(columnMetadata.getName(), columnNames.get(i));
+            assertThat(columnMetadata.getName()).isEqualTo(columnNames.get(i));
             if (columnMetadata.getName().equals(FILE_MODIFIED_TIME_COLUMN_NAME)) {
-                assertTrue(columnMetadata.isHidden());
+                assertThat(columnMetadata.isHidden()).isTrue();
             }
         }
-        assertEquals(getPartitions("test_file_modified_time").size(), 3);
+        assertThat(getPartitions("test_file_modified_time").size()).isEqualTo(3);
 
         Session sessionWithTimestampPrecision = withTimestampPrecision(getSession(), precision);
         MaterializedResult results = computeActual(
@@ -4949,15 +4921,15 @@ public abstract class BaseHiveConnectorTest
             Instant fileModifiedTime = ((ZonedDateTime) row.getField(2)).toInstant();
 
             assertThat(fileModifiedTime.toEpochMilli()).isCloseTo(testStartTime, offset(2000L));
-            assertEquals(col0 % 3, col1);
+            assertThat(col0 % 3).isEqualTo(col1);
             if (fileModifiedTimeMap.containsKey(col1)) {
-                assertEquals(fileModifiedTimeMap.get(col1), fileModifiedTime);
+                assertThat(fileModifiedTimeMap.get(col1)).isEqualTo(fileModifiedTime);
             }
             else {
                 fileModifiedTimeMap.put(col1, fileModifiedTime);
             }
         }
-        assertEquals(fileModifiedTimeMap.size(), 3);
+        assertThat(fileModifiedTimeMap.size()).isEqualTo(3);
 
         assertUpdate("DROP TABLE test_file_modified_time");
     }
@@ -4975,30 +4947,30 @@ public abstract class BaseHiveConnectorTest
                 "(6, 17, 27), (7, 18, 28), (8, 19, 29)" +
                 " ) t (col0, col1, col2) ";
         assertUpdate(createTable, 9);
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_partition_hidden_column"));
+        assertThat(getQueryRunner().tableExists(getSession(), "test_partition_hidden_column")).isTrue();
 
         TableMetadata tableMetadata = getTableMetadata(catalog, TPCH_SCHEMA, "test_partition_hidden_column");
-        assertEquals(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY), ImmutableList.of("col1", "col2"));
+        assertThat(tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY)).isEqualTo(ImmutableList.of("col1", "col2"));
 
         List<String> columnNames = ImmutableList.of("col0", "col1", "col2", PATH_COLUMN_NAME, FILE_SIZE_COLUMN_NAME, FILE_MODIFIED_TIME_COLUMN_NAME, PARTITION_COLUMN_NAME);
         List<ColumnMetadata> columnMetadatas = tableMetadata.getColumns();
-        assertEquals(columnMetadatas.size(), columnNames.size());
+        assertThat(columnMetadatas.size()).isEqualTo(columnNames.size());
         for (int i = 0; i < columnMetadatas.size(); i++) {
             ColumnMetadata columnMetadata = columnMetadatas.get(i);
-            assertEquals(columnMetadata.getName(), columnNames.get(i));
+            assertThat(columnMetadata.getName()).isEqualTo(columnNames.get(i));
             if (columnMetadata.getName().equals(PARTITION_COLUMN_NAME)) {
-                assertTrue(columnMetadata.isHidden());
+                assertThat(columnMetadata.isHidden()).isTrue();
             }
         }
-        assertEquals(getPartitions("test_partition_hidden_column").size(), 9);
+        assertThat(getPartitions("test_partition_hidden_column").size()).isEqualTo(9);
 
         MaterializedResult results = computeActual(format("SELECT *, \"%s\" FROM test_partition_hidden_column", PARTITION_COLUMN_NAME));
         for (MaterializedRow row : results.getMaterializedRows()) {
             String actualPartition = (String) row.getField(3);
             String expectedPartition = format("col1=%s/col2=%s", row.getField(1), row.getField(2));
-            assertEquals(actualPartition, expectedPartition);
+            assertThat(actualPartition).isEqualTo(expectedPartition);
         }
-        assertEquals(results.getRowCount(), 9);
+        assertThat(results.getRowCount()).isEqualTo(9);
 
         assertUpdate("DROP TABLE test_partition_hidden_column");
     }
@@ -5343,12 +5315,12 @@ public abstract class BaseHiveConnectorTest
         MaterializedResultWithQueryId queryResult = queryRunner.executeWithQueryId(
                 session,
                 format("SELECT * FROM %s WHERE t < %s", tableName, formatTimestamp(value)));
-        assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
+        assertThat(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes()).isEqualTo(0);
 
         queryResult = queryRunner.executeWithQueryId(
                 session,
                 format("SELECT * FROM %s WHERE t > %s", tableName, formatTimestamp(value)));
-        assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
+        assertThat(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes()).isEqualTo(0);
 
         assertQueryStats(
                 session,
@@ -5388,12 +5360,12 @@ public abstract class BaseHiveConnectorTest
         MaterializedResultWithQueryId queryResult = queryRunner.executeWithQueryId(
                 session,
                 format("SELECT * FROM test_orc_timestamp_predicate_pushdown WHERE t < %s", formatTimestamp(value.minusNanos(MILLISECONDS.toNanos(1)))));
-        assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
+        assertThat(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes()).isEqualTo(0);
 
         queryResult = queryRunner.executeWithQueryId(
                 session,
                 format("SELECT * FROM test_orc_timestamp_predicate_pushdown WHERE t > %s", formatTimestamp(value.plusNanos(MILLISECONDS.toNanos(1)))));
-        assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
+        assertThat(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes()).isEqualTo(0);
 
         assertQuery(session, "SELECT * FROM test_orc_timestamp_predicate_pushdown WHERE t < " + formatTimestamp(value.plusNanos(1)), format("VALUES (%s)", formatTimestamp(value)));
 
@@ -5961,8 +5933,8 @@ public abstract class BaseHiveConnectorTest
         assertQuery("SELECT foo FROM " + tableName + " WHERE root.foo = 'b'", "VALUES ('a')");
         assertQuery("SELECT foo FROM " + tableName + " WHERE foo = 'a' AND root.foo = 'b'", "VALUES ('a')");
 
-        assertTrue(computeActual("SELECT foo FROM " + tableName + " WHERE foo = 'a' AND root.foo = 'a'").getMaterializedRows().isEmpty());
-        assertTrue(computeActual("SELECT foo FROM " + tableName + " WHERE foo = 'b' AND root.foo = 'b'").getMaterializedRows().isEmpty());
+        assertThat(computeActual("SELECT foo FROM " + tableName + " WHERE foo = 'a' AND root.foo = 'a'").getMaterializedRows().isEmpty()).isTrue();
+        assertThat(computeActual("SELECT foo FROM " + tableName + " WHERE foo = 'b' AND root.foo = 'b'").getMaterializedRows().isEmpty()).isTrue();
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -6371,7 +6343,7 @@ public abstract class BaseHiveConnectorTest
                 "SELECT lower(column_name) " +
                 "FROM information_schema.columns " +
                 "WHERE table_name = '" + tableName + "'";
-        assertEquals(computeActual(getColumnsSql).getOnlyColumnAsSet(), ImmutableSet.of("a", "b", "c"));
+        assertThat(computeActual(getColumnsSql).getOnlyColumnAsSet()).isEqualTo(ImmutableSet.of("a", "b", "c"));
 
         // verify with no SELECT privileges on table, querying information_schema will return empty columns
         executeExclusively(() -> {
@@ -7797,7 +7769,7 @@ public abstract class BaseHiveConnectorTest
 
         try {
             MaterializedResult actual = computeActual("SHOW CREATE TABLE " + tableName);
-            assertEquals(actual.getOnlyValue(), expectedShowCreateTable);
+            assertThat(actual.getOnlyValue()).isEqualTo(expectedShowCreateTable);
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
@@ -8113,7 +8085,7 @@ public abstract class BaseHiveConnectorTest
                 tableName,
                 storageFormat);
         assertUpdate(session, createTable, 3);
-        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
 
         assertQuery("SELECT 1 FROM " + tableName, "VALUES 1, 1, 1");
         assertQuery("SELECT count(*) FROM " + tableName, "SELECT 3");
@@ -8250,9 +8222,9 @@ public abstract class BaseHiveConnectorTest
                 getQueryRunner()::execute,
                 "test_coercion_create_table_varchar",
                 "(var_column_0 varchar(0), var_column_1 varchar(1), var_column_10 varchar(10))")) {
-            assertEquals(getColumnType(testTable.getName(), "var_column_0"), "varchar(1)");
-            assertEquals(getColumnType(testTable.getName(), "var_column_1"), "varchar(1)");
-            assertEquals(getColumnType(testTable.getName(), "var_column_10"), "varchar(10)");
+            assertThat(getColumnType(testTable.getName(), "var_column_0")).isEqualTo("varchar(1)");
+            assertThat(getColumnType(testTable.getName(), "var_column_1")).isEqualTo("varchar(1)");
+            assertThat(getColumnType(testTable.getName(), "var_column_10")).isEqualTo("varchar(10)");
         }
     }
 
@@ -8263,7 +8235,7 @@ public abstract class BaseHiveConnectorTest
                 getQueryRunner()::execute,
                 "test_coercion_ctas_varchar",
                 "AS SELECT '' AS var_column")) {
-            assertEquals(getColumnType(testTable.getName(), "var_column"), "varchar(1)");
+            assertThat(getColumnType(testTable.getName(), "var_column")).isEqualTo("varchar(1)");
         }
     }
 
@@ -8274,7 +8246,7 @@ public abstract class BaseHiveConnectorTest
                 getQueryRunner()::execute,
                 "test_coercion_ctas_nd_varchar",
                 "AS SELECT '' AS var_column WITH NO DATA")) {
-            assertEquals(getColumnType(testTable.getName(), "var_column"), "varchar(1)");
+            assertThat(getColumnType(testTable.getName(), "var_column")).isEqualTo("varchar(1)");
         }
     }
 
@@ -8810,7 +8782,7 @@ public abstract class BaseHiveConnectorTest
     {
         String query = "CREATE TABLE copy_orders AS SELECT * FROM orders";
         MaterializedResult result = computeActual("EXPLAIN " + query);
-        assertEquals(getOnlyElement(result.getOnlyColumnAsSet()), getExplainPlan(query, DISTRIBUTED));
+        assertThat(getOnlyElement(result.getOnlyColumnAsSet())).isEqualTo(getExplainPlan(query, DISTRIBUTED));
     }
 
     @Test
@@ -8825,7 +8797,7 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(createTableSql, 1500L);
 
         TableMetadata tableMetadataDefaults = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
-        assertEquals(tableMetadataDefaults.getMetadata().getProperties().get(AUTO_PURGE), null);
+        assertThat(tableMetadataDefaults.getMetadata().getProperties().get(AUTO_PURGE)).isEqualTo(null);
 
         assertUpdate("DROP TABLE " + tableName);
 
@@ -8839,7 +8811,7 @@ public abstract class BaseHiveConnectorTest
         assertUpdate(createTableSqlWithAutoPurge, 1500L);
 
         TableMetadata tableMetadataWithPurge = getTableMetadata(catalog, TPCH_SCHEMA, tableName);
-        assertEquals(tableMetadataWithPurge.getMetadata().getProperties().get(AUTO_PURGE), true);
+        assertThat(tableMetadataWithPurge.getMetadata().getProperties().get(AUTO_PURGE)).isEqualTo(true);
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -9026,9 +8998,9 @@ public abstract class BaseHiveConnectorTest
     private void assertOneNotNullResult(Session session, @Language("SQL") String query)
     {
         MaterializedResult results = getQueryRunner().execute(session, query).toTestTypes();
-        assertEquals(results.getRowCount(), 1);
-        assertEquals(results.getMaterializedRows().get(0).getFieldCount(), 1);
-        assertNotNull(results.getMaterializedRows().get(0).getField(0));
+        assertThat(results.getRowCount()).isEqualTo(1);
+        assertThat(results.getMaterializedRows().get(0).getFieldCount()).isEqualTo(1);
+        assertThat(results.getMaterializedRows().get(0).getField(0)).isNotNull();
     }
 
     private Type canonicalizeType(Type type)
@@ -9038,7 +9010,7 @@ public abstract class BaseHiveConnectorTest
 
     private void assertColumnType(TableMetadata tableMetadata, String columnName, Type expectedType)
     {
-        assertEquals(tableMetadata.getColumn(columnName).getType(), canonicalizeType(expectedType));
+        assertThat(tableMetadata.getColumn(columnName).getType()).isEqualTo(canonicalizeType(expectedType));
     }
 
     private void assertConstraints(@Language("SQL") String query, Set<ColumnConstraint> expected)
@@ -9050,21 +9022,21 @@ public abstract class BaseHiveConnectorTest
                 .getConstraint()
                 .getColumnConstraints();
 
-        assertTrue(constraints.containsAll(expected));
+        assertThat(constraints.containsAll(expected)).isTrue();
     }
 
     private void verifyPartition(boolean hasPartition, TableMetadata tableMetadata, List<String> partitionKeys)
     {
         Object partitionByProperty = tableMetadata.getMetadata().getProperties().get(PARTITIONED_BY_PROPERTY);
         if (hasPartition) {
-            assertEquals(partitionByProperty, partitionKeys);
+            assertThat(partitionByProperty).isEqualTo(partitionKeys);
             for (ColumnMetadata columnMetadata : tableMetadata.getColumns()) {
                 boolean partitionKey = partitionKeys.contains(columnMetadata.getName());
-                assertEquals(columnMetadata.getExtraInfo(), columnExtraInfo(partitionKey));
+                assertThat(columnMetadata.getExtraInfo()).isEqualTo(columnExtraInfo(partitionKey));
             }
         }
         else {
-            assertNull(partitionByProperty);
+            assertThat(partitionByProperty).isNull();
         }
     }
 

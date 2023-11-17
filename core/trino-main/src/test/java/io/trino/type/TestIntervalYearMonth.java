@@ -35,7 +35,6 @@ import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExcept
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -61,14 +60,14 @@ public class TestIntervalYearMonth
     @Test
     public void testObject()
     {
-        assertEquals(new SqlIntervalYearMonth(3, 11), new SqlIntervalYearMonth(47));
-        assertEquals(new SqlIntervalYearMonth(-3, -11), new SqlIntervalYearMonth(-47));
+        assertThat(new SqlIntervalYearMonth(3, 11)).isEqualTo(new SqlIntervalYearMonth(47));
+        assertThat(new SqlIntervalYearMonth(-3, -11)).isEqualTo(new SqlIntervalYearMonth(-47));
 
-        assertEquals(new SqlIntervalYearMonth(MAX_SHORT, 0), new SqlIntervalYearMonth(393_204));
-        assertEquals(new SqlIntervalYearMonth(MAX_SHORT, MAX_SHORT), new SqlIntervalYearMonth(425_971));
+        assertThat(new SqlIntervalYearMonth(MAX_SHORT, 0)).isEqualTo(new SqlIntervalYearMonth(393_204));
+        assertThat(new SqlIntervalYearMonth(MAX_SHORT, MAX_SHORT)).isEqualTo(new SqlIntervalYearMonth(425_971));
 
-        assertEquals(new SqlIntervalYearMonth(-MAX_SHORT, 0), new SqlIntervalYearMonth(-393_204));
-        assertEquals(new SqlIntervalYearMonth(-MAX_SHORT, -MAX_SHORT), new SqlIntervalYearMonth(-425_971));
+        assertThat(new SqlIntervalYearMonth(-MAX_SHORT, 0)).isEqualTo(new SqlIntervalYearMonth(-393_204));
+        assertThat(new SqlIntervalYearMonth(-MAX_SHORT, -MAX_SHORT)).isEqualTo(new SqlIntervalYearMonth(-425_971));
     }
 
     @Test

@@ -24,9 +24,8 @@ import org.junit.jupiter.api.Test;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 
 public class TestResourceGroupIdTemplate
 {
@@ -37,9 +36,9 @@ public class TestResourceGroupIdTemplate
     {
         ResourceGroupIdTemplate template = new ResourceGroupIdTemplate("test.${USER}.${SOURCE}");
         ResourceGroupId expected = new ResourceGroupId(new ResourceGroupId(new ResourceGroupId("test"), "u"), "s");
-        assertEquals(template.expandTemplate(new VariableMap(ImmutableMap.of("USER", "u", "SOURCE", "s"))), expected);
+        assertThat(template.expandTemplate(new VariableMap(ImmutableMap.of("USER", "u", "SOURCE", "s")))).isEqualTo(expected);
         template = new ResourceGroupIdTemplate("test.${USER}");
-        assertEquals(template.expandTemplate(new VariableMap(ImmutableMap.of("USER", "alice.smith", "SOURCE", "s"))), new ResourceGroupId(new ResourceGroupId("test"), "alice.smith"));
+        assertThat(template.expandTemplate(new VariableMap(ImmutableMap.of("USER", "alice.smith", "SOURCE", "s")))).isEqualTo(new ResourceGroupId(new ResourceGroupId("test"), "alice.smith"));
     }
 
     @Test
@@ -52,7 +51,7 @@ public class TestResourceGroupIdTemplate
         StaticSelector selector = new StaticSelector(Optional.empty(), Optional.empty(), Optional.of(sourcePattern), Optional.empty(), Optional.empty(), Optional.empty(), template);
         SelectionCriteria context = new SelectionCriteria(true, "user", ImmutableSet.of(), Optional.of("scheduler.important.testpipeline[5]"), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty());
 
-        assertEquals(selector.match(context).map(SelectionContext::getResourceGroupId), Optional.of(expected));
+        assertThat(selector.match(context).map(SelectionContext::getResourceGroupId)).isEqualTo(Optional.of(expected));
     }
 
     @Test
@@ -65,7 +64,7 @@ public class TestResourceGroupIdTemplate
         StaticSelector selector = new StaticSelector(Optional.of(userPattern), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), template);
         SelectionCriteria context = new SelectionCriteria(true, "scheduler.important.testpipeline[5]", ImmutableSet.of(), Optional.empty(), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty());
 
-        assertEquals(selector.match(context).map(SelectionContext::getResourceGroupId), Optional.of(expected));
+        assertThat(selector.match(context).map(SelectionContext::getResourceGroupId)).isEqualTo(Optional.of(expected));
     }
 
     @Test
@@ -76,7 +75,7 @@ public class TestResourceGroupIdTemplate
         StaticSelector selector = new StaticSelector(Optional.empty(), Optional.empty(), Optional.of(sourcePattern), Optional.empty(), Optional.empty(), Optional.empty(), template);
         SelectionCriteria context = new SelectionCriteria(true, "user", ImmutableSet.of(), Optional.of("scheduler.testpipeline[5]"), ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES, Optional.empty());
 
-        assertFalse(selector.match(context).isPresent());
+        assertThat(selector.match(context).isPresent()).isFalse();
     }
 
     @Test

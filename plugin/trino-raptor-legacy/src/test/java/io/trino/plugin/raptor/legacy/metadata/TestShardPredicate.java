@@ -35,7 +35,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.sql.JDBCType.VARBINARY;
 import static java.util.UUID.randomUUID;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestShardPredicate
 {
@@ -48,9 +48,9 @@ public class TestShardPredicate
 
         ShardPredicate shardPredicate = ShardPredicate.create(tupleDomain);
 
-        assertEquals(shardPredicate.getPredicate(), "shard_uuid = ?");
-        assertEquals(shardPredicate.getTypes(), ImmutableList.of(VARBINARY));
-        assertEquals(shardPredicate.getValues(), ImmutableList.of(uuidStringToBytes(utf8Slice(uuid))));
+        assertThat(shardPredicate.getPredicate()).isEqualTo("shard_uuid = ?");
+        assertThat(shardPredicate.getTypes()).isEqualTo(ImmutableList.of(VARBINARY));
+        assertThat(shardPredicate.getValues()).isEqualTo(ImmutableList.of(uuidStringToBytes(utf8Slice(uuid))));
     }
 
     @Test
@@ -64,9 +64,9 @@ public class TestShardPredicate
 
         ShardPredicate shardPredicate = ShardPredicate.create(tupleDomain);
 
-        assertEquals(shardPredicate.getPredicate(), "shard_uuid = ? OR shard_uuid = ?");
-        assertEquals(shardPredicate.getTypes(), ImmutableList.of(VARBINARY, VARBINARY));
-        assertEquals(ImmutableSet.copyOf(shardPredicate.getValues()), ImmutableSet.of(uuidStringToBytes(uuid0), uuidStringToBytes(uuid1)));
+        assertThat(shardPredicate.getPredicate()).isEqualTo("shard_uuid = ? OR shard_uuid = ?");
+        assertThat(shardPredicate.getTypes()).isEqualTo(ImmutableList.of(VARBINARY, VARBINARY));
+        assertThat(ImmutableSet.copyOf(shardPredicate.getValues())).isEqualTo(ImmutableSet.of(uuidStringToBytes(uuid0), uuidStringToBytes(uuid1)));
     }
 
     @Test
@@ -80,7 +80,7 @@ public class TestShardPredicate
 
         ShardPredicate shardPredicate = ShardPredicate.create(tupleDomain);
 
-        assertEquals(shardPredicate.getPredicate(), "true");
+        assertThat(shardPredicate.getPredicate()).isEqualTo("true");
     }
 
     @Test
@@ -92,7 +92,7 @@ public class TestShardPredicate
                 create(SortedRangeSet.copyOf(VARCHAR, ImmutableList.of(greaterThanOrEqual(VARCHAR, uuid0))), false)));
 
         ShardPredicate shardPredicate = ShardPredicate.create(tupleDomain);
-        assertEquals(shardPredicate.getPredicate(), "true");
+        assertThat(shardPredicate.getPredicate()).isEqualTo("true");
     }
 
     @Test
@@ -103,7 +103,7 @@ public class TestShardPredicate
                 create(SortedRangeSet.copyOf(INTEGER, ImmutableList.of(equal(INTEGER, 1L))), false)));
 
         ShardPredicate shardPredicate = ShardPredicate.create(tupleDomain);
-        assertEquals(shardPredicate.getPredicate(), "(((bucket_number >= ? OR bucket_number IS NULL) AND (bucket_number <= ? OR bucket_number IS NULL)))");
+        assertThat(shardPredicate.getPredicate()).isEqualTo("(((bucket_number >= ? OR bucket_number IS NULL) AND (bucket_number <= ? OR bucket_number IS NULL)))");
     }
 
     @Test
@@ -114,9 +114,8 @@ public class TestShardPredicate
                 create(SortedRangeSet.copyOf(INTEGER, ImmutableList.of(equal(INTEGER, 1L), equal(INTEGER, 3L))), false)));
 
         ShardPredicate shardPredicate = ShardPredicate.create(tupleDomain);
-        assertEquals(shardPredicate.getPredicate(),
-                "(((bucket_number >= ? OR bucket_number IS NULL) AND (bucket_number <= ? OR bucket_number IS NULL))" +
-                        " OR ((bucket_number >= ? OR bucket_number IS NULL) AND (bucket_number <= ? OR bucket_number IS NULL)))");
+        assertThat(shardPredicate.getPredicate()).isEqualTo("(((bucket_number >= ? OR bucket_number IS NULL) AND (bucket_number <= ? OR bucket_number IS NULL))" +
+                " OR ((bucket_number >= ? OR bucket_number IS NULL) AND (bucket_number <= ? OR bucket_number IS NULL)))");
     }
 
     @Test
@@ -128,11 +127,9 @@ public class TestShardPredicate
                 new RaptorColumnHandle("col", 1, INTEGER),
                 create(SortedRangeSet.copyOf(INTEGER, ImmutableList.of(equal(INTEGER, 1L), equal(INTEGER, 3L))), false)));
         ShardPredicate shardPredicate = ShardPredicate.create(tupleDomain);
-        assertEquals(
-                shardPredicate.getPredicate(),
-                "(((bucket_number >= ? OR bucket_number IS NULL) AND (bucket_number <= ? OR bucket_number IS NULL)) " +
-                        "OR ((bucket_number >= ? OR bucket_number IS NULL) AND (bucket_number <= ? OR bucket_number IS NULL))) " +
-                        "AND (((c1_max >= ? OR c1_max IS NULL) AND (c1_min <= ? OR c1_min IS NULL)) " +
-                        "OR ((c1_max >= ? OR c1_max IS NULL) AND (c1_min <= ? OR c1_min IS NULL)))");
+        assertThat(shardPredicate.getPredicate()).isEqualTo("(((bucket_number >= ? OR bucket_number IS NULL) AND (bucket_number <= ? OR bucket_number IS NULL)) " +
+                "OR ((bucket_number >= ? OR bucket_number IS NULL) AND (bucket_number <= ? OR bucket_number IS NULL))) " +
+                "AND (((c1_max >= ? OR c1_max IS NULL) AND (c1_min <= ? OR c1_min IS NULL)) " +
+                "OR ((c1_max >= ? OR c1_max IS NULL) AND (c1_min <= ? OR c1_min IS NULL)))");
     }
 }

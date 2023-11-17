@@ -29,7 +29,7 @@ import static io.trino.cli.TestAlignedTablePrinter.map;
 import static io.trino.cli.TestAlignedTablePrinter.row;
 import static io.trino.cli.TestAlignedTablePrinter.rows;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCsvPrinter
 {
@@ -61,7 +61,7 @@ public class TestCsvPrinter
                 "text\",\"4567\"\n" +
                 "\"bye\",\"done\",\"-15\"\n";
 
-        assertEquals(writer.getBuffer().toString(), expected);
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 
     @Test
@@ -74,7 +74,7 @@ public class TestCsvPrinter
 
         printer.finish();
 
-        assertEquals(writer.getBuffer().toString(), "\"first\",\"last\"\n");
+        assertThat(writer.getBuffer().toString()).isEqualTo("\"first\",\"last\"\n");
     }
 
     @Test
@@ -95,7 +95,7 @@ public class TestCsvPrinter
                 "\"hello\",\"world\",\"123\"\n" +
                 "\"a\",\"\",\"4.5\"\n";
 
-        assertEquals(writer.getBuffer().toString(), expected);
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 
     @Test
@@ -117,7 +117,7 @@ public class TestCsvPrinter
                 "hello,world,123\n" +
                 "a,,4.5\n";
 
-        assertEquals(writer.getBuffer().toString(), expected);
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 
     @Test
@@ -130,7 +130,7 @@ public class TestCsvPrinter
 
         printer.finish();
 
-        assertEquals(writer.getBuffer().toString(), "first,last\n");
+        assertThat(writer.getBuffer().toString()).isEqualTo("first,last\n");
     }
 
     @Test
@@ -151,7 +151,7 @@ public class TestCsvPrinter
                 "hello,world,123\n" +
                 "a,,4.5\n";
 
-        assertEquals(writer.getBuffer().toString(), expected);
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 
     @Test
@@ -166,7 +166,7 @@ public class TestCsvPrinter
 
         String expected = "";
 
-        assertEquals(writer.getBuffer().toString(), expected);
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 
     @Test
@@ -182,7 +182,7 @@ public class TestCsvPrinter
 
         String expected = "\"68 65 6c 6c 6f\",\"\",\"123\"\n";
 
-        assertEquals(writer.getBuffer().toString(), expected);
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 
     @Test
@@ -198,7 +198,7 @@ public class TestCsvPrinter
         String expected = "\"map\",\"value\"\n" +
                 "\"{key=76 61 6c 75 65}\",\"value\"\n";
 
-        assertEquals(writer.getBuffer().toString(), expected);
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 
     @Test
@@ -214,7 +214,7 @@ public class TestCsvPrinter
         String expected = "\"list\",\"value\"\n" +
                 "\"[76 61 6c 75 65]\",\"value\"\n";
 
-        assertEquals(writer.getBuffer().toString(), expected);
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 
     private static void printRows(OutputPrinter printer, List<?>... rows)

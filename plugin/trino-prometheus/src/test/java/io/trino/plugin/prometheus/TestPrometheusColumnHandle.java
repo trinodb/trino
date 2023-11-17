@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
 import static io.trino.plugin.prometheus.MetadataUtil.COLUMN_CODEC;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPrometheusColumnHandle
 {
@@ -30,7 +30,7 @@ public class TestPrometheusColumnHandle
     {
         String json = COLUMN_CODEC.toJson(columnHandle);
         PrometheusColumnHandle copy = COLUMN_CODEC.fromJson(json);
-        assertEquals(copy, columnHandle);
+        assertThat(copy).isEqualTo(columnHandle);
     }
 
     @Test

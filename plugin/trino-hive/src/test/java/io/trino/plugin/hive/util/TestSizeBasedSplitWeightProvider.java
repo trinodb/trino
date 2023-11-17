@@ -18,8 +18,8 @@ import io.trino.spi.SplitWeight;
 import org.junit.jupiter.api.Test;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestSizeBasedSplitWeightProvider
 {
@@ -27,9 +27,9 @@ public class TestSizeBasedSplitWeightProvider
     public void testSimpleProportions()
     {
         SizeBasedSplitWeightProvider provider = new SizeBasedSplitWeightProvider(0.01, DataSize.of(64, MEGABYTE));
-        assertEquals(provider.weightForSplitSizeInBytes(DataSize.of(64, MEGABYTE).toBytes()), SplitWeight.fromProportion(1));
-        assertEquals(provider.weightForSplitSizeInBytes(DataSize.of(32, MEGABYTE).toBytes()), SplitWeight.fromProportion(0.5));
-        assertEquals(provider.weightForSplitSizeInBytes(DataSize.of(16, MEGABYTE).toBytes()), SplitWeight.fromProportion(0.25));
+        assertThat(provider.weightForSplitSizeInBytes(DataSize.of(64, MEGABYTE).toBytes())).isEqualTo(SplitWeight.fromProportion(1));
+        assertThat(provider.weightForSplitSizeInBytes(DataSize.of(32, MEGABYTE).toBytes())).isEqualTo(SplitWeight.fromProportion(0.5));
+        assertThat(provider.weightForSplitSizeInBytes(DataSize.of(16, MEGABYTE).toBytes())).isEqualTo(SplitWeight.fromProportion(0.25));
     }
 
     @Test
@@ -38,10 +38,10 @@ public class TestSizeBasedSplitWeightProvider
         double minimumWeight = 0.05;
         DataSize targetSplitSize = DataSize.of(64, MEGABYTE);
         SizeBasedSplitWeightProvider provider = new SizeBasedSplitWeightProvider(minimumWeight, targetSplitSize);
-        assertEquals(provider.weightForSplitSizeInBytes(1), SplitWeight.fromProportion(minimumWeight));
+        assertThat(provider.weightForSplitSizeInBytes(1)).isEqualTo(SplitWeight.fromProportion(minimumWeight));
 
         DataSize largerThanTarget = DataSize.of(128, MEGABYTE);
-        assertEquals(provider.weightForSplitSizeInBytes(largerThanTarget.toBytes()), SplitWeight.standard());
+        assertThat(provider.weightForSplitSizeInBytes(largerThanTarget.toBytes())).isEqualTo(SplitWeight.standard());
     }
 
     @Test

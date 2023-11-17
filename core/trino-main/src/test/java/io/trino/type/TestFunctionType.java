@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Test;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.RowType.field;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestFunctionType
 {
@@ -32,6 +32,6 @@ public class TestFunctionType
                 ImmutableList.of(RowType.from(ImmutableList.of(field("field", DOUBLE)))),
                 BIGINT);
 
-        assertEquals(function.getDisplayName(), "function(row(field double),bigint)");
+        assertThat(function.getDisplayName()).isEqualTo("function(row(field double),bigint)");
     }
 }

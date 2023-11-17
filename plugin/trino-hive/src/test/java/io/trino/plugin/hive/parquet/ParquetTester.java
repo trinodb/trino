@@ -150,9 +150,7 @@ import static org.apache.parquet.format.CompressionCodec.ZSTD;
 import static org.apache.parquet.hadoop.ParquetOutputFormat.COMPRESSION;
 import static org.apache.parquet.hadoop.ParquetOutputFormat.ENABLE_DICTIONARY;
 import static org.apache.parquet.hadoop.ParquetOutputFormat.WRITER_VERSION;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class ParquetTester
 {
@@ -468,7 +466,7 @@ class ParquetTester
                         expectedValues,
                         pageSource,
                         Optional.of(getParquetMaxReadBlockSize(session).toBytes()));
-                assertFalse(stream(expectedValues).allMatch(Iterator::hasNext));
+                assertThat(stream(expectedValues).allMatch(Iterator::hasNext)).isFalse();
             }
         }
     }
@@ -492,7 +490,7 @@ class ParquetTester
             else {
                 assertPageSource(columnTypes, expectedValues, pageSource);
             }
-            assertFalse(stream(expectedValues).allMatch(Iterator::hasNext));
+            assertThat(stream(expectedValues).allMatch(Iterator::hasNext)).isFalse();
         }
     }
 
@@ -510,15 +508,15 @@ class ParquetTester
             }
 
             maxReadBlockSize.ifPresent(max ->
-                    assertTrue(page.getPositionCount() == 1 || page.getSizeInBytes() <= max));
+                    assertThat(page.getPositionCount() == 1 || page.getSizeInBytes() <= max).isTrue());
 
             for (int field = 0; field < page.getChannelCount(); field++) {
                 Block block = page.getBlock(field);
                 for (int i = 0; i < block.getPositionCount(); i++) {
-                    assertTrue(valuesByField[field].hasNext());
+                    assertThat(valuesByField[field].hasNext()).isTrue();
                     Object expected = valuesByField[field].next();
                     Object actual = decodeObject(types.get(field), block, i);
-                    assertEquals(actual, expected);
+                    assertThat(actual).isEqualTo(expected);
                 }
             }
         }
@@ -528,10 +526,10 @@ class ParquetTester
     {
         while (cursor.advanceNextPosition()) {
             for (int field = 0; field < types.size(); field++) {
-                assertTrue(valuesByField[field].hasNext());
+                assertThat(valuesByField[field].hasNext()).isTrue();
                 Object expected = valuesByField[field].next();
                 Object actual = getActualCursorValue(cursor, types.get(field), field);
-                assertEquals(actual, expected);
+                assertThat(actual).isEqualTo(expected);
             }
         }
     }

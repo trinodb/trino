@@ -38,7 +38,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.util.StructuralTestUtil.mapType;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestTypedHistogram
 {
@@ -92,7 +91,7 @@ public class TestTypedHistogram
                 }));
         Block expectedBlock = expectedBuilder.build();
         assertBlockEquals(mapType, actualBlock, expectedBlock);
-        assertEquals(typedHistogram.size(), 1999);
+        assertThat(typedHistogram.size()).isEqualTo(1999);
 
         if (grouped) {
             actualBuilder = mapType.createBlockBuilder(null, 1);

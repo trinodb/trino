@@ -51,8 +51,6 @@ import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestSliceDictionaryColumnWriter
 {
@@ -75,7 +73,7 @@ public class TestSliceDictionaryColumnWriter
         writer.writeBlock(data);
         writer.finishRowGroup();
 
-        assertFalse(writer.tryConvertToDirect(megabytes(64)).isPresent());
+        assertThat(writer.tryConvertToDirect(megabytes(64)).isPresent()).isFalse();
     }
 
     @Test
@@ -120,7 +118,7 @@ public class TestSliceDictionaryColumnWriter
             boolean contains = metadataWriter.getBloomFilters().stream().anyMatch(filter -> filter.testSlice(testValue));
             if (i % 9 == 0) {
                 // No false negatives
-                assertTrue(contains);
+                assertThat(contains).isTrue();
             }
             hits += contains ? 1 : 0;
         }

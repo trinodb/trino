@@ -35,8 +35,8 @@ import java.util.Map;
 
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertNotNull;
 
 @TestInstance(PER_CLASS)
 public class TestAccumuloClient
@@ -83,7 +83,7 @@ public class TestAccumuloClient
             properties.put("external", true);
             properties.put("column_mapping", "a:a:a,b::b,c:c:,d::");
             client.createTable(new ConnectorTableMetadata(tableName, columns, properties));
-            assertNotNull(client.getTable(tableName));
+            assertThat(client.getTable(tableName)).isNotNull();
         }
         finally {
             AccumuloTable table = zooKeeperMetadataManager.getTable(tableName);
