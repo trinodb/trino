@@ -15,6 +15,7 @@ package io.trino.plugin.hive.aws.athena;
 
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.predicate.Domain;
@@ -107,7 +108,7 @@ final class PartitionProjection
                                 .map(template -> expandStorageLocationTemplate(
                                         template,
                                         table.getPartitionColumns().stream()
-                                                .map(column -> column.getName()).collect(Collectors.toList()),
+                                                .map(Column::getName).collect(Collectors.toList()),
                                         partitionValues))
                                 .orElseGet(() -> format("%s/%s/", table.getStorage().getLocation(), partitionName)))
                         .setBucketProperty(table.getStorage().getBucketProperty())
@@ -115,7 +116,7 @@ final class PartitionProjection
                 .build();
     }
 
-    private String expandStorageLocationTemplate(String template, List<String> partitionColumns, List<String> partitionValues)
+    private static String expandStorageLocationTemplate(String template, List<String> partitionColumns, List<String> partitionValues)
     {
         Matcher matcher = PROJECTION_LOCATION_TEMPLATE_PLACEHOLDER_PATTERN.matcher(template);
         StringBuilder location = new StringBuilder();
