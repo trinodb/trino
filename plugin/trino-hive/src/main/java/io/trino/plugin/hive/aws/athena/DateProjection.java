@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.aws.athena.projection;
+package io.trino.plugin.hive.aws.athena;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.predicate.Domain;
@@ -31,7 +31,7 @@ import java.util.Optional;
 import java.util.function.Supplier;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.plugin.hive.aws.athena.projection.DateProjectionFactory.UTC_TIME_ZONE_ID;
+import static io.trino.plugin.hive.aws.athena.DateProjectionFactory.UTC_TIME_ZONE_ID;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
