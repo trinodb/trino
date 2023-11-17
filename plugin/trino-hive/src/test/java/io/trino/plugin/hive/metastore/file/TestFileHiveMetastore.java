@@ -28,6 +28,7 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -94,7 +95,7 @@ public class TestFileHiveMetastore
                 .setTableName("some_table_name" + randomNameSuffix())
                 .setTableType(EXTERNAL_TABLE.name())
                 .setOwner(Optional.of("public"))
-                .addDataColumn(new Column("foo", HIVE_INT, Optional.empty()))
+                .addDataColumn(new Column("foo", HIVE_INT, Optional.empty(), Map.of()))
                 .setParameters(ImmutableMap.of("serialization.format", "1", "EXTERNAL", "TRUE"))
                 .withStorage(storageBuilder -> storageBuilder
                         .setStorageFormat(storageFormat)
