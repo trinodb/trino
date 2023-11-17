@@ -15,8 +15,5 @@ package io.trino.plugin.hive.aws.athena;
 
 public enum ProjectionType
 {
-    ENUM,
-    INTEGER,
-    DATE,
-    INJECTED;
+    ENUM, INTEGER, DATE, INJECTED
 }
