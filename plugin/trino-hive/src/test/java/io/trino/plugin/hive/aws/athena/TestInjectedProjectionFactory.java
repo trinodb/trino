@@ -15,7 +15,6 @@ package io.trino.plugin.hive.aws.athena;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
-import io.trino.spi.TrinoException;
 import io.trino.spi.predicate.Domain;
 import org.junit.jupiter.api.Test;
 
@@ -49,13 +48,13 @@ class TestInjectedProjectionFactory
         assertThat(projection.getProjectedValues(Optional.of(Domain.singleValue(VARCHAR, Slices.utf8Slice("x"))))).containsExactly("x");
 
         assertThatThrownBy(() -> assertThat(projection.getProjectedValues(Optional.empty())).containsExactly("a", "b", "c"))
-                .isInstanceOf(TrinoException.class)
+                .isInstanceOf(InvalidProjectionException.class)
                 .hasMessage("Column projection for column 'test' failed. Injected projection requires single predicate for it's column in where clause");
         assertThatThrownBy(() -> assertThat(projection.getProjectedValues(Optional.of(Domain.all(VARCHAR)))).containsExactly("a", "b", "c"))
-                .isInstanceOf(TrinoException.class)
+                .isInstanceOf(InvalidProjectionException.class)
                 .hasMessage("Column projection for column 'test' failed. Injected projection requires single predicate for it's column in where clause. Currently provided can't be converted to single partition.");
         assertThatThrownBy(() -> assertThat(projection.getProjectedValues(Optional.of(Domain.none(VARCHAR)))).isEmpty())
-                .isInstanceOf(TrinoException.class)
+                .isInstanceOf(InvalidProjectionException.class)
                 .hasMessage("Column projection for column 'test' failed. Injected projection requires single predicate for it's column in where clause. Currently provided can't be converted to single partition.");
     }
 }

@@ -76,6 +76,6 @@ class IntegerProjection
         if (type instanceof IntegerType || type instanceof BigintType) {
             return domain.contains(singleValue(type, Long.valueOf(value)));
         }
-        throw unsupportedProjectionColumnTypeException(type);
+        throw new InvalidProjectionException(getColumnName(), type);
     }
 }

@@ -16,7 +16,6 @@ package io.trino.plugin.hive.aws.athena;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
-import io.trino.spi.TrinoException;
 import io.trino.spi.predicate.Domain;
 import org.junit.jupiter.api.Test;
 
@@ -48,7 +47,7 @@ class TestEnumProjectionFactory
         assertThat(projection.getProjectedValues(Optional.of(Domain.singleValue(VARCHAR, Slices.utf8Slice("x"))))).isEmpty();
 
         assertThatThrownBy(() -> new EnumProjectionFactory().create("test", VARCHAR, ImmutableMap.of("ignored", ImmutableList.of("a", "b", "c"))))
-                .isInstanceOf(TrinoException.class)
+                .isInstanceOf(InvalidProjectionException.class)
                 .hasMessage("Column projection for column 'test' failed. Missing required property: 'partition_projection_values'");
 
         assertThatThrownBy(() -> new EnumProjectionFactory().create("test", VARCHAR, ImmutableMap.of(COLUMN_PROJECTION_VALUES, "invalid")))

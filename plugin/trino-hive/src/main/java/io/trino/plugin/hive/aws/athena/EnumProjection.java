@@ -54,6 +54,6 @@ class EnumProjection
         if (type instanceof VarcharType) {
             return valueDomain.contains(singleValue(type, utf8Slice(value)));
         }
-        throw unsupportedProjectionColumnTypeException(type);
+        throw new InvalidProjectionException(getColumnName(), type);
     }
 }

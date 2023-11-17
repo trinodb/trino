@@ -27,7 +27,6 @@ import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.COLU
 import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.COLUMN_PROJECTION_RANGE;
 import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.getProjectionPropertyRequiredValue;
 import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.getProjectionPropertyValue;
-import static io.trino.plugin.hive.aws.athena.Projection.invalidProjectionException;
 import static java.lang.String.format;
 
 final class IntegerProjectionFactory
@@ -52,9 +51,7 @@ final class IntegerProjectionFactory
                         .map(element -> Integer.valueOf((String) element))
                         .collect(toImmutableList()));
         if (range.size() != 2) {
-            invalidProjectionException(
-                    columnName,
-                    format("Property: '%s' needs to be list of 2 integers", COLUMN_PROJECTION_RANGE));
+            throw new InvalidProjectionException(columnName, format("Property: '%s' needs to be list of 2 integers", COLUMN_PROJECTION_RANGE));
         }
         return new IntegerProjection(
                 columnName,
