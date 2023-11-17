@@ -41,7 +41,6 @@ import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.COLU
 import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.COLUMN_PROJECTION_RANGE;
 import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.getProjectionPropertyRequiredValue;
 import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.getProjectionPropertyValue;
-import static io.trino.plugin.hive.aws.athena.Projection.invalidProjectionException;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.DAYS;
 import static java.time.temporal.ChronoUnit.HOURS;
@@ -105,7 +104,7 @@ final class DateProjectionFactory
                 .orElseGet(() -> resolveDefaultChronoUnit(columnName, dateFormatPattern));
 
         if (!DATE_PROJECTION_INTERVAL_UNITS.contains(intervalUnit)) {
-            throw invalidProjectionException(
+            throw new InvalidProjectionException(
                     columnName,
                     format(
                             "Property: '%s' value '%s' is invalid. Available options: %s",
@@ -123,7 +122,7 @@ final class DateProjectionFactory
         if (datePatternWithoutText.contains("S") || datePatternWithoutText.contains("s")
                 || datePatternWithoutText.contains("m") || datePatternWithoutText.contains("H")) {
             // When the provided dates are at single-day or single-month precision.
-            throw invalidProjectionException(
+            throw new InvalidProjectionException(
                     columnName,
                     format(
                             "Property: '%s' needs to be set when provided '%s' is less that single-day precision. Interval defaults to 1 day or 1 month, respectively. Otherwise, interval is required",
@@ -174,7 +173,7 @@ final class DateProjectionFactory
 
     private TrinoException invalidRangeProperty(String columnName, String dateFormatPattern, Optional<String> errorDetail)
     {
-        return invalidProjectionException(
+        throw new InvalidProjectionException(
                 columnName,
                 format(
                         "Property: '%s' needs to be a list of 2 valid dates formatted as '%s' or '%s' that are sequential%s",

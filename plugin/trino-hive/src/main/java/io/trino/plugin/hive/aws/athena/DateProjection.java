@@ -84,7 +84,7 @@ class DateProjection
             return dateFormat.parse(formatted).toInstant();
         }
         catch (ParseException e) {
-            throw invalidProjectionException(formatted, e.getMessage());
+            throw new InvalidProjectionException(formatted, e.getMessage());
         }
     }
 
@@ -109,6 +109,6 @@ class DateProjection
         if (type instanceof TimestampType && ((TimestampType) type).isShort()) {
             return domain.contains(singleValue(type, MILLISECONDS.toMicros(value.toEpochMilli())));
         }
-        throw unsupportedProjectionColumnTypeException(type);
+        throw new InvalidProjectionException(getColumnName(), type);
     }
 }

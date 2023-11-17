@@ -15,7 +15,6 @@ package io.trino.plugin.hive.aws.athena;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.spi.TrinoException;
 import io.trino.spi.predicate.Domain;
 import org.junit.jupiter.api.Test;
 
@@ -53,7 +52,7 @@ class TestIntegerProjectionFactory
         assertThat(projection.getProjectedValues(Optional.of(Domain.singleValue(INTEGER, 7L)))).isEmpty();
 
         assertThatThrownBy(() -> new IntegerProjectionFactory().create("test", INTEGER, ImmutableMap.of("ignored", ImmutableList.of("1", "3"))))
-                .isInstanceOf(TrinoException.class)
+                .isInstanceOf(InvalidProjectionException.class)
                 .hasMessage("Column projection for column 'test' failed. Missing required property: 'partition_projection_range'");
 
         assertThatThrownBy(() -> new IntegerProjectionFactory().create("test", INTEGER, ImmutableMap.of(COLUMN_PROJECTION_RANGE, "invalid")))

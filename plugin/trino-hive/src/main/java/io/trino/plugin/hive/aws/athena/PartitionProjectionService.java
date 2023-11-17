@@ -63,7 +63,6 @@ import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.PART
 import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.PARTITION_PROJECTION_LOCATION_TEMPLATE;
 import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.PROPERTY_KEY_PREFIX;
 import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.getMetastoreProjectionPropertyKey;
-import static io.trino.plugin.hive.aws.athena.Projection.unsupportedProjectionColumnTypeException;
 import static io.trino.plugin.hive.aws.athena.ProjectionType.DATE;
 import static io.trino.plugin.hive.aws.athena.ProjectionType.ENUM;
 import static io.trino.plugin.hive.aws.athena.ProjectionType.INJECTED;
@@ -353,7 +352,7 @@ public final class PartitionProjectionService
         ProjectionFactory projectionFactory = Optional.ofNullable(projectionFactories.get(projectionType))
                 .orElseThrow(() -> columnProjectionException(format("Partition projection type %s for column: '%s' not supported", projectionType, columnName)));
         if (!projectionFactory.isSupportedColumnType(columnType)) {
-            throw unsupportedProjectionColumnTypeException(columnName, columnType);
+            throw new InvalidProjectionException(columnName, columnType);
         }
         return projectionFactory.create(columnName, columnType, columnProperties);
     }
