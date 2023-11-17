@@ -198,7 +198,7 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampTZObjectInspector;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getCharTypeInfo;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.data.Offset.offset;
 
 public class OrcTester
 {
@@ -602,7 +602,7 @@ public class OrcTester
                         .isTrue();
             }
             else {
-                assertEquals(actualDouble, expectedDouble, 0.001);
+                assertThat(actualDouble).isCloseTo(expectedDouble, offset(0.001));
             }
         }
         else if (type.equals(UUID)) {
