@@ -60,12 +60,9 @@ import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.Files.readAllBytes;
 import static java.util.UUID.randomUUID;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 @Execution(SAME_THREAD)
@@ -117,72 +114,72 @@ public class TestOrcFileRewriter
         try (OrcDataSource dataSource = fileOrcDataSource(file)) {
             OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);
 
-            assertEquals(reader.getReaderRowCount(), 5);
-            assertEquals(reader.getFileRowCount(), 5);
-            assertEquals(reader.getSplitLength(), file.length());
+            assertThat(reader.getReaderRowCount()).isEqualTo(5);
+            assertThat(reader.getFileRowCount()).isEqualTo(5);
+            assertThat(reader.getSplitLength()).isEqualTo(file.length());
 
             Page page = reader.nextPage();
-            assertEquals(page.getPositionCount(), 5);
+            assertThat(page.getPositionCount()).isEqualTo(5);
 
             Block column0 = page.getBlock(0);
-            assertEquals(column0.getPositionCount(), 5);
+            assertThat(column0.getPositionCount()).isEqualTo(5);
             for (int i = 0; i < 5; i++) {
-                assertEquals(column0.isNull(i), false);
+                assertThat(column0.isNull(i)).isEqualTo(false);
             }
-            assertEquals(BIGINT.getLong(column0, 0), 123L);
-            assertEquals(BIGINT.getLong(column0, 1), 777L);
-            assertEquals(BIGINT.getLong(column0, 2), 456L);
-            assertEquals(BIGINT.getLong(column0, 3), 888L);
-            assertEquals(BIGINT.getLong(column0, 4), 999L);
+            assertThat(BIGINT.getLong(column0, 0)).isEqualTo(123L);
+            assertThat(BIGINT.getLong(column0, 1)).isEqualTo(777L);
+            assertThat(BIGINT.getLong(column0, 2)).isEqualTo(456L);
+            assertThat(BIGINT.getLong(column0, 3)).isEqualTo(888L);
+            assertThat(BIGINT.getLong(column0, 4)).isEqualTo(999L);
 
             Block column1 = page.getBlock(1);
-            assertEquals(column1.getPositionCount(), 5);
+            assertThat(column1.getPositionCount()).isEqualTo(5);
             for (int i = 0; i < 5; i++) {
-                assertEquals(column1.isNull(i), false);
+                assertThat(column1.isNull(i)).isEqualTo(false);
             }
-            assertEquals(createVarcharType(20).getSlice(column1, 0), utf8Slice("hello"));
-            assertEquals(createVarcharType(20).getSlice(column1, 1), utf8Slice("sky"));
-            assertEquals(createVarcharType(20).getSlice(column1, 2), utf8Slice("bye"));
-            assertEquals(createVarcharType(20).getSlice(column1, 3), utf8Slice("world"));
-            assertEquals(createVarcharType(20).getSlice(column1, 4), utf8Slice("done"));
+            assertThat(createVarcharType(20).getSlice(column1, 0)).isEqualTo(utf8Slice("hello"));
+            assertThat(createVarcharType(20).getSlice(column1, 1)).isEqualTo(utf8Slice("sky"));
+            assertThat(createVarcharType(20).getSlice(column1, 2)).isEqualTo(utf8Slice("bye"));
+            assertThat(createVarcharType(20).getSlice(column1, 3)).isEqualTo(utf8Slice("world"));
+            assertThat(createVarcharType(20).getSlice(column1, 4)).isEqualTo(utf8Slice("done"));
 
             Block column2 = page.getBlock(2);
-            assertEquals(column2.getPositionCount(), 5);
+            assertThat(column2.getPositionCount()).isEqualTo(5);
             for (int i = 0; i < 5; i++) {
-                assertEquals(column2.isNull(i), false);
+                assertThat(column2.isNull(i)).isEqualTo(false);
             }
-            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(column2, 0), arrayBlockOf(BIGINT, 1, 2)));
-            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(column2, 1), arrayBlockOf(BIGINT, 3, 4)));
-            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(column2, 2), arrayBlockOf(BIGINT, 5, 6)));
-            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(column2, 3), arrayBlockOf(BIGINT, 7, 8)));
-            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(column2, 4), arrayBlockOf(BIGINT, 9, 10)));
+            assertThat(arrayBlocksEqual(BIGINT, arrayType.getObject(column2, 0), arrayBlockOf(BIGINT, 1, 2))).isTrue();
+            assertThat(arrayBlocksEqual(BIGINT, arrayType.getObject(column2, 1), arrayBlockOf(BIGINT, 3, 4))).isTrue();
+            assertThat(arrayBlocksEqual(BIGINT, arrayType.getObject(column2, 2), arrayBlockOf(BIGINT, 5, 6))).isTrue();
+            assertThat(arrayBlocksEqual(BIGINT, arrayType.getObject(column2, 3), arrayBlockOf(BIGINT, 7, 8))).isTrue();
+            assertThat(arrayBlocksEqual(BIGINT, arrayType.getObject(column2, 4), arrayBlockOf(BIGINT, 9, 10))).isTrue();
 
             Block column3 = page.getBlock(3);
-            assertEquals(column3.getPositionCount(), 5);
+            assertThat(column3.getPositionCount()).isEqualTo(5);
             for (int i = 0; i < 5; i++) {
-                assertEquals(column3.isNull(i), false);
+                assertThat(column3.isNull(i)).isEqualTo(false);
             }
-            assertTrue(sqlMapEqual(createVarcharType(5), BOOLEAN, (SqlMap) mapType.getObject(column3, 0), sqlMapOf(createVarcharType(5), BOOLEAN, "k1", true)));
-            assertTrue(sqlMapEqual(createVarcharType(5), BOOLEAN, (SqlMap) mapType.getObject(column3, 1), sqlMapOf(createVarcharType(5), BOOLEAN, "k2", false)));
-            assertTrue(sqlMapEqual(createVarcharType(5), BOOLEAN, (SqlMap) mapType.getObject(column3, 2), sqlMapOf(createVarcharType(5), BOOLEAN, "k3", true)));
-            assertTrue(sqlMapEqual(createVarcharType(5), BOOLEAN, (SqlMap) mapType.getObject(column3, 3), sqlMapOf(createVarcharType(5), BOOLEAN, "k4", true)));
-            assertTrue(sqlMapEqual(createVarcharType(5), BOOLEAN, (SqlMap) mapType.getObject(column3, 4), sqlMapOf(createVarcharType(5), BOOLEAN, "k5", true)));
+            assertThat(sqlMapEqual(createVarcharType(5), BOOLEAN, (SqlMap) mapType.getObject(column3, 0), sqlMapOf(createVarcharType(5), BOOLEAN, "k1", true))).isTrue();
+            assertThat(sqlMapEqual(createVarcharType(5), BOOLEAN, (SqlMap) mapType.getObject(column3, 1), sqlMapOf(createVarcharType(5), BOOLEAN, "k2", false))).isTrue();
+            assertThat(sqlMapEqual(createVarcharType(5), BOOLEAN, (SqlMap) mapType.getObject(column3, 2), sqlMapOf(createVarcharType(5), BOOLEAN, "k3", true))).isTrue();
+            assertThat(sqlMapEqual(createVarcharType(5), BOOLEAN, (SqlMap) mapType.getObject(column3, 3), sqlMapOf(createVarcharType(5), BOOLEAN, "k4", true))).isTrue();
+            assertThat(sqlMapEqual(createVarcharType(5), BOOLEAN, (SqlMap) mapType.getObject(column3, 4), sqlMapOf(createVarcharType(5), BOOLEAN, "k5", true))).isTrue();
 
             Block column4 = page.getBlock(4);
-            assertEquals(column4.getPositionCount(), 5);
+            assertThat(column4.getPositionCount()).isEqualTo(5);
             for (int i = 0; i < 5; i++) {
-                assertEquals(column4.isNull(i), false);
+                assertThat(column4.isNull(i)).isEqualTo(false);
             }
-            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column4, 0), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 5))));
-            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column4, 1), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 6))));
-            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column4, 2), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 7))));
-            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column4, 3), arrayBlockOf(arrayType, null, arrayBlockOf(BIGINT, 8), null)));
-            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column4, 4), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 9, 10))));
+            assertThat(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column4, 0), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 5)))).isTrue();
+            assertThat(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column4, 1), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 6)))).isTrue();
+            assertThat(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column4, 2), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 7)))).isTrue();
+            assertThat(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column4, 3), arrayBlockOf(arrayType, null, arrayBlockOf(BIGINT, 8), null))).isTrue();
+            assertThat(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column4, 4), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 9, 10)))).isTrue();
 
-            assertNull(reader.nextPage());
+            assertThat(reader.nextPage()).isNull();
 
             OrcFileMetadata orcFileMetadata = METADATA_CODEC.fromJson(reader.getUserMetadata().get(OrcFileMetadata.KEY).getBytes());
-            assertEquals(orcFileMetadata, new OrcFileMetadata(ImmutableMap.<Long, TypeId>builder()
+            assertThat(orcFileMetadata).isEqualTo(new OrcFileMetadata(ImmutableMap.<Long, TypeId>builder()
                     .put(3L, BIGINT.getTypeId())
                     .put(7L, createVarcharType(20).getTypeId())
                     .put(9L, arrayType.getTypeId())
@@ -199,63 +196,63 @@ public class TestOrcFileRewriter
 
         File newFile = temporary.resolve(randomUUID().toString()).toFile();
         OrcFileInfo info = OrcFileRewriter.rewrite(TESTING_TYPE_MANAGER, file, newFile, rowsToDelete);
-        assertEquals(info.getRowCount(), 2);
-        assertEquals(info.getUncompressedSize(), 182);
+        assertThat(info.getRowCount()).isEqualTo(2);
+        assertThat(info.getUncompressedSize()).isEqualTo(182);
 
         try (OrcDataSource dataSource = fileOrcDataSource(newFile)) {
             OrcRecordReader reader = createReader(dataSource, columnIds, columnTypes);
 
-            assertEquals(reader.getReaderRowCount(), 2);
-            assertEquals(reader.getFileRowCount(), 2);
-            assertEquals(reader.getSplitLength(), newFile.length());
+            assertThat(reader.getReaderRowCount()).isEqualTo(2);
+            assertThat(reader.getFileRowCount()).isEqualTo(2);
+            assertThat(reader.getSplitLength()).isEqualTo(newFile.length());
 
             Page page = reader.nextPage();
-            assertEquals(page.getPositionCount(), 2);
+            assertThat(page.getPositionCount()).isEqualTo(2);
 
             Block column0 = page.getBlock(0);
-            assertEquals(column0.getPositionCount(), 2);
+            assertThat(column0.getPositionCount()).isEqualTo(2);
             for (int i = 0; i < 2; i++) {
-                assertEquals(column0.isNull(i), false);
+                assertThat(column0.isNull(i)).isEqualTo(false);
             }
-            assertEquals(BIGINT.getLong(column0, 0), 123L);
-            assertEquals(BIGINT.getLong(column0, 1), 456L);
+            assertThat(BIGINT.getLong(column0, 0)).isEqualTo(123L);
+            assertThat(BIGINT.getLong(column0, 1)).isEqualTo(456L);
 
             Block column1 = page.getBlock(1);
-            assertEquals(column1.getPositionCount(), 2);
+            assertThat(column1.getPositionCount()).isEqualTo(2);
             for (int i = 0; i < 2; i++) {
-                assertEquals(column1.isNull(i), false);
+                assertThat(column1.isNull(i)).isEqualTo(false);
             }
-            assertEquals(createVarcharType(20).getSlice(column1, 0), utf8Slice("hello"));
-            assertEquals(createVarcharType(20).getSlice(column1, 1), utf8Slice("bye"));
+            assertThat(createVarcharType(20).getSlice(column1, 0)).isEqualTo(utf8Slice("hello"));
+            assertThat(createVarcharType(20).getSlice(column1, 1)).isEqualTo(utf8Slice("bye"));
 
             Block column2 = page.getBlock(2);
-            assertEquals(column2.getPositionCount(), 2);
+            assertThat(column2.getPositionCount()).isEqualTo(2);
             for (int i = 0; i < 2; i++) {
-                assertEquals(column2.isNull(i), false);
+                assertThat(column2.isNull(i)).isEqualTo(false);
             }
-            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(column2, 0), arrayBlockOf(BIGINT, 1, 2)));
-            assertTrue(arrayBlocksEqual(BIGINT, arrayType.getObject(column2, 1), arrayBlockOf(BIGINT, 5, 6)));
+            assertThat(arrayBlocksEqual(BIGINT, arrayType.getObject(column2, 0), arrayBlockOf(BIGINT, 1, 2))).isTrue();
+            assertThat(arrayBlocksEqual(BIGINT, arrayType.getObject(column2, 1), arrayBlockOf(BIGINT, 5, 6))).isTrue();
 
             Block column3 = page.getBlock(3);
-            assertEquals(column3.getPositionCount(), 2);
+            assertThat(column3.getPositionCount()).isEqualTo(2);
             for (int i = 0; i < 2; i++) {
-                assertEquals(column3.isNull(i), false);
+                assertThat(column3.isNull(i)).isEqualTo(false);
             }
-            assertTrue(sqlMapEqual(createVarcharType(5), BOOLEAN, (SqlMap) mapType.getObject(column3, 0), sqlMapOf(createVarcharType(5), BOOLEAN, "k1", true)));
-            assertTrue(sqlMapEqual(createVarcharType(5), BOOLEAN, (SqlMap) mapType.getObject(column3, 1), sqlMapOf(createVarcharType(5), BOOLEAN, "k3", true)));
+            assertThat(sqlMapEqual(createVarcharType(5), BOOLEAN, (SqlMap) mapType.getObject(column3, 0), sqlMapOf(createVarcharType(5), BOOLEAN, "k1", true))).isTrue();
+            assertThat(sqlMapEqual(createVarcharType(5), BOOLEAN, (SqlMap) mapType.getObject(column3, 1), sqlMapOf(createVarcharType(5), BOOLEAN, "k3", true))).isTrue();
 
             Block column4 = page.getBlock(4);
-            assertEquals(column4.getPositionCount(), 2);
+            assertThat(column4.getPositionCount()).isEqualTo(2);
             for (int i = 0; i < 2; i++) {
-                assertEquals(column4.isNull(i), false);
+                assertThat(column4.isNull(i)).isEqualTo(false);
             }
-            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column4, 0), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 5))));
-            assertTrue(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column4, 1), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 7))));
+            assertThat(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column4, 0), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 5)))).isTrue();
+            assertThat(arrayBlocksEqual(arrayType, arrayOfArrayType.getObject(column4, 1), arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 7)))).isTrue();
 
-            assertEquals(reader.nextPage(), null);
+            assertThat(reader.nextPage()).isEqualTo(null);
 
             OrcFileMetadata orcFileMetadata = METADATA_CODEC.fromJson(reader.getUserMetadata().get(OrcFileMetadata.KEY).getBytes());
-            assertEquals(orcFileMetadata, new OrcFileMetadata(ImmutableMap.<Long, TypeId>builder()
+            assertThat(orcFileMetadata).isEqualTo(new OrcFileMetadata(ImmutableMap.<Long, TypeId>builder()
                     .put(3L, BIGINT.getTypeId())
                     .put(7L, createVarcharType(20).getTypeId())
                     .put(9L, arrayType.getTypeId())
@@ -284,10 +281,10 @@ public class TestOrcFileRewriter
 
         File newFile = temporary.resolve(randomUUID().toString()).toFile();
         OrcFileInfo info = OrcFileRewriter.rewrite(TESTING_TYPE_MANAGER, file, newFile, rowsToDelete);
-        assertEquals(info.getRowCount(), 0);
-        assertEquals(info.getUncompressedSize(), 0);
+        assertThat(info.getRowCount()).isEqualTo(0);
+        assertThat(info.getUncompressedSize()).isEqualTo(0);
 
-        assertFalse(newFile.exists());
+        assertThat(newFile.exists()).isFalse();
     }
 
     @Test
@@ -306,10 +303,10 @@ public class TestOrcFileRewriter
 
         File newFile = temporary.resolve(randomUUID().toString()).toFile();
         OrcFileInfo info = OrcFileRewriter.rewrite(TESTING_TYPE_MANAGER, file, newFile, rowsToDelete);
-        assertEquals(info.getRowCount(), 2);
-        assertEquals(info.getUncompressedSize(), 18);
+        assertThat(info.getRowCount()).isEqualTo(2);
+        assertThat(info.getUncompressedSize()).isEqualTo(18);
 
-        assertEquals(readAllBytes(newFile.toPath()), readAllBytes(file.toPath()));
+        assertThat(readAllBytes(newFile.toPath())).isEqualTo(readAllBytes(file.toPath()));
     }
 
     @Test
@@ -331,7 +328,7 @@ public class TestOrcFileRewriter
 
         File newFile = temporary.resolve(randomUUID().toString()).toFile();
         OrcFileInfo info = OrcFileRewriter.rewrite(TESTING_TYPE_MANAGER, file, newFile, new BitSet());
-        assertEquals(info.getRowCount(), 3);
-        assertEquals(info.getUncompressedSize(), 106);
+        assertThat(info.getRowCount()).isEqualTo(3);
+        assertThat(info.getUncompressedSize()).isEqualTo(106);
     }
 }

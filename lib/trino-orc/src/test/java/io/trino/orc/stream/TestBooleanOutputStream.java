@@ -24,9 +24,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static io.trino.orc.metadata.CompressionKind.NONE;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestBooleanOutputStream
 {
@@ -71,26 +69,26 @@ public class TestBooleanOutputStream
             buffer.writeDataTo(slice);
             Slice singleWriteBuffer = slice.slice();
 
-            assertEquals(batchWriteCheckpoints.size(), singleWriteCheckpoints.size());
+            assertThat(batchWriteCheckpoints.size()).isEqualTo(singleWriteCheckpoints.size());
             for (int i = 0; i < batchWriteCheckpoints.size(); i++) {
-                assertTrue(checkpointsEqual(batchWriteCheckpoints.get(i), singleWriteCheckpoints.get(i)));
+                assertThat(checkpointsEqual(batchWriteCheckpoints.get(i), singleWriteCheckpoints.get(i))).isTrue();
             }
-            assertEquals(batchWriteBuffer, singleWriteBuffer);
+            assertThat(batchWriteBuffer).isEqualTo(singleWriteBuffer);
         }
     }
 
     private static boolean checkpointsEqual(BooleanStreamCheckpoint left, BooleanStreamCheckpoint right)
     {
-        assertNotNull(left);
-        assertNotNull(right);
+        assertThat(left).isNotNull();
+        assertThat(right).isNotNull();
         if (left.getOffset() != right.getOffset()) {
             return false;
         }
 
         ByteStreamCheckpoint leftCheckpoint = left.getByteStreamCheckpoint();
         ByteStreamCheckpoint rightCheckpoint = right.getByteStreamCheckpoint();
-        assertNotNull(leftCheckpoint);
-        assertNotNull(rightCheckpoint);
+        assertThat(leftCheckpoint).isNotNull();
+        assertThat(rightCheckpoint).isNotNull();
 
         return leftCheckpoint.getInputStreamCheckpoint() == rightCheckpoint.getInputStreamCheckpoint() &&
                 leftCheckpoint.getOffset() == rightCheckpoint.getOffset();

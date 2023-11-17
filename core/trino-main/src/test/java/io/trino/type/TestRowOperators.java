@@ -79,7 +79,6 @@ import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -117,8 +116,8 @@ public class TestRowOperators
     {
         TypeSignature signature = RowType.from(ImmutableList.of(field("b", BIGINT))).getTypeSignature();
         Type type = ((LocalQueryRunner) assertions.getQueryRunner()).getPlannerContext().getTypeManager().getType(signature);
-        assertEquals(type.getTypeSignature().getParameters().size(), 1);
-        assertEquals(type.getTypeSignature().getParameters().get(0).getNamedTypeSignature().getName().get(), "b");
+        assertThat(type.getTypeSignature().getParameters().size()).isEqualTo(1);
+        assertThat(type.getTypeSignature().getParameters().get(0).getNamedTypeSignature().getName().get()).isEqualTo("b");
     }
 
     @Test

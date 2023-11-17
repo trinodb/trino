@@ -88,11 +88,8 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Fail.fail;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 @TestInstance(PER_CLASS)
 @Isolated
@@ -158,14 +155,14 @@ public class TestCassandraConnector
     public void testGetDatabaseNames()
     {
         List<String> databases = metadata.listSchemaNames(SESSION);
-        assertTrue(databases.contains(database.toLowerCase(ENGLISH)));
+        assertThat(databases.contains(database.toLowerCase(ENGLISH))).isTrue();
     }
 
     @Test
     public void testGetTableNames()
     {
         List<SchemaTableName> tables = metadata.listTables(SESSION, Optional.of(database));
-        assertTrue(tables.contains(table));
+        assertThat(tables.contains(table)).isTrue();
     }
 
     @Test
@@ -178,9 +175,9 @@ public class TestCassandraConnector
     @Test
     public void testListUnknownSchema()
     {
-        assertNull(metadata.getTableHandle(SESSION, new SchemaTableName("totally_invalid_database_name", "dual")));
-        assertEquals(metadata.listTables(SESSION, Optional.of("totally_invalid_database_name")), ImmutableList.of());
-        assertEquals(metadata.listTableColumns(SESSION, new SchemaTablePrefix("totally_invalid_database_name", "dual")), ImmutableMap.of());
+        assertThat(metadata.getTableHandle(SESSION, new SchemaTableName("totally_invalid_database_name", "dual"))).isNull();
+        assertThat(metadata.listTables(SESSION, Optional.of("totally_invalid_database_name"))).isEqualTo(ImmutableList.of());
+        assertThat(metadata.listTableColumns(SESSION, new SchemaTablePrefix("totally_invalid_database_name", "dual"))).isEqualTo(ImmutableMap.of());
     }
 
     @Test
@@ -214,29 +211,29 @@ public class TestCassandraConnector
                     rowNumber++;
 
                     String keyValue = cursor.getSlice(columnIndex.get("key")).toStringUtf8();
-                    assertTrue(keyValue.startsWith("key "));
+                    assertThat(keyValue.startsWith("key ")).isTrue();
                     int rowId = Integer.parseInt(keyValue.substring(4));
 
-                    assertEquals(keyValue, "key " + rowId);
+                    assertThat(keyValue).isEqualTo("key " + rowId);
 
-                    assertEquals(Bytes.toHexString(cursor.getSlice(columnIndex.get("typebytes")).getBytes()), format("0x%08X", rowId));
+                    assertThat(Bytes.toHexString(cursor.getSlice(columnIndex.get("typebytes")).getBytes())).isEqualTo(format("0x%08X", rowId));
 
                     // VARINT is returned as a string
-                    assertEquals(cursor.getSlice(columnIndex.get("typeinteger")).toStringUtf8(), String.valueOf(rowId));
+                    assertThat(cursor.getSlice(columnIndex.get("typeinteger")).toStringUtf8()).isEqualTo(String.valueOf(rowId));
 
-                    assertEquals(cursor.getLong(columnIndex.get("typelong")), 1000 + rowId);
+                    assertThat(cursor.getLong(columnIndex.get("typelong"))).isEqualTo(1000 + rowId);
 
-                    assertEquals(trinoUuidToJavaUuid(cursor.getSlice(columnIndex.get("typeuuid"))).toString(), format("00000000-0000-0000-0000-%012d", rowId));
+                    assertThat(trinoUuidToJavaUuid(cursor.getSlice(columnIndex.get("typeuuid"))).toString()).isEqualTo(format("00000000-0000-0000-0000-%012d", rowId));
 
-                    assertEquals(cursor.getLong(columnIndex.get("typetimestamp")), packDateTimeWithZone(DATE.getTime(), UTC_KEY));
+                    assertThat(cursor.getLong(columnIndex.get("typetimestamp"))).isEqualTo(packDateTimeWithZone(DATE.getTime(), UTC_KEY));
 
                     long newCompletedBytes = cursor.getCompletedBytes();
-                    assertTrue(newCompletedBytes >= completedBytes);
+                    assertThat(newCompletedBytes >= completedBytes).isTrue();
                     completedBytes = newCompletedBytes;
                 }
             }
         }
-        assertEquals(rowNumber, 9);
+        assertThat(rowNumber).isEqualTo(9);
     }
 
     @Test
@@ -286,7 +283,7 @@ public class TestCassandraConnector
                     rowNumber++;
 
                     String keyValue = cursor.getSlice(columnIndex.get("key")).toStringUtf8();
-                    assertEquals(keyValue, Long.toString(rowNumber));
+                    assertThat(keyValue).isEqualTo(Long.toString(rowNumber));
 
                     SqlRow tupleValueBlock = (SqlRow) cursor.getObject(columnIndex.get("typetuple"));
                     assertThat(tupleValueBlock.getFieldCount()).isEqualTo(3);
@@ -299,12 +296,12 @@ public class TestCassandraConnector
                     assertThat(tupleArgumentTypes.get(2).getTrinoType().getLong(tupleValueBlock.getRawFieldBlock(2), rawIndex)).isEqualTo(Float.floatToRawIntBits(1.11f * rowNumber));
 
                     long newCompletedBytes = cursor.getCompletedBytes();
-                    assertTrue(newCompletedBytes >= completedBytes);
+                    assertThat(newCompletedBytes >= completedBytes).isTrue();
                     completedBytes = newCompletedBytes;
                 }
             }
         }
-        assertEquals(rowNumber, 2);
+        assertThat(rowNumber).isEqualTo(2);
     }
 
     @Test
@@ -342,25 +339,25 @@ public class TestCassandraConnector
                     SqlRow value = (SqlRow) cursor.getObject(columnIndex.get("typeudt"));
                     int valueRawIndex = value.getRawIndex();
 
-                    assertEquals(key, "key");
-                    assertEquals(VARCHAR.getSlice(value.getRawFieldBlock(0), valueRawIndex).toStringUtf8(), "text");
-                    assertEquals(trinoUuidToJavaUuid(UUID.getSlice(value.getRawFieldBlock(1), valueRawIndex)).toString(), "01234567-0123-0123-0123-0123456789ab");
-                    assertEquals(INTEGER.getInt(value.getRawFieldBlock(2), valueRawIndex), -2147483648);
-                    assertEquals(BIGINT.getLong(value.getRawFieldBlock(3), valueRawIndex), -9223372036854775808L);
-                    assertEquals(VARBINARY.getSlice(value.getRawFieldBlock(4), valueRawIndex).toStringUtf8(), "01234");
-                    assertEquals(TIMESTAMP_MILLIS.getLong(value.getRawFieldBlock(5), valueRawIndex), 117964800000L);
-                    assertEquals(VARCHAR.getSlice(value.getRawFieldBlock(6), valueRawIndex).toStringUtf8(), "ansi");
-                    assertTrue(BOOLEAN.getBoolean(value.getRawFieldBlock(7), valueRawIndex));
-                    assertEquals(DOUBLE.getDouble(value.getRawFieldBlock(8), valueRawIndex), 99999999999999997748809823456034029568D);
-                    assertEquals(DOUBLE.getDouble(value.getRawFieldBlock(9), valueRawIndex), 4.9407e-324);
-                    assertEquals(REAL.getObjectValue(SESSION, value.getRawFieldBlock(10), valueRawIndex), 1.4E-45f);
-                    assertEquals(InetAddresses.toAddrString(InetAddress.getByAddress(IpAddressType.IPADDRESS.getSlice(value.getRawFieldBlock(11), valueRawIndex).getBytes())), "0.0.0.0");
-                    assertEquals(VARCHAR.getSlice(value.getRawFieldBlock(12), valueRawIndex).toStringUtf8(), "varchar");
-                    assertEquals(VARCHAR.getSlice(value.getRawFieldBlock(13), valueRawIndex).toStringUtf8(), "-9223372036854775808");
-                    assertEquals(trinoUuidToJavaUuid(UUID.getSlice(value.getRawFieldBlock(14), valueRawIndex)).toString(), "d2177dd0-eaa2-11de-a572-001b779c76e3");
-                    assertEquals(VARCHAR.getSlice(value.getRawFieldBlock(15), valueRawIndex).toStringUtf8(), "[\"list\"]");
-                    assertEquals(VARCHAR.getSlice(value.getRawFieldBlock(16), valueRawIndex).toStringUtf8(), "{\"map\":1}");
-                    assertEquals(VARCHAR.getSlice(value.getRawFieldBlock(17), valueRawIndex).toStringUtf8(), "[true]");
+                    assertThat(key).isEqualTo("key");
+                    assertThat(VARCHAR.getSlice(value.getRawFieldBlock(0), valueRawIndex).toStringUtf8()).isEqualTo("text");
+                    assertThat(trinoUuidToJavaUuid(UUID.getSlice(value.getRawFieldBlock(1), valueRawIndex)).toString()).isEqualTo("01234567-0123-0123-0123-0123456789ab");
+                    assertThat(INTEGER.getInt(value.getRawFieldBlock(2), valueRawIndex)).isEqualTo(-2147483648);
+                    assertThat(BIGINT.getLong(value.getRawFieldBlock(3), valueRawIndex)).isEqualTo(-9223372036854775808L);
+                    assertThat(VARBINARY.getSlice(value.getRawFieldBlock(4), valueRawIndex).toStringUtf8()).isEqualTo("01234");
+                    assertThat(TIMESTAMP_MILLIS.getLong(value.getRawFieldBlock(5), valueRawIndex)).isEqualTo(117964800000L);
+                    assertThat(VARCHAR.getSlice(value.getRawFieldBlock(6), valueRawIndex).toStringUtf8()).isEqualTo("ansi");
+                    assertThat(BOOLEAN.getBoolean(value.getRawFieldBlock(7), valueRawIndex)).isTrue();
+                    assertThat(DOUBLE.getDouble(value.getRawFieldBlock(8), valueRawIndex)).isEqualTo(99999999999999997748809823456034029568D);
+                    assertThat(DOUBLE.getDouble(value.getRawFieldBlock(9), valueRawIndex)).isEqualTo(4.9407e-324);
+                    assertThat(REAL.getObjectValue(SESSION, value.getRawFieldBlock(10), valueRawIndex)).isEqualTo(1.4E-45f);
+                    assertThat(InetAddresses.toAddrString(InetAddress.getByAddress(IpAddressType.IPADDRESS.getSlice(value.getRawFieldBlock(11), valueRawIndex).getBytes()))).isEqualTo("0.0.0.0");
+                    assertThat(VARCHAR.getSlice(value.getRawFieldBlock(12), valueRawIndex).toStringUtf8()).isEqualTo("varchar");
+                    assertThat(VARCHAR.getSlice(value.getRawFieldBlock(13), valueRawIndex).toStringUtf8()).isEqualTo("-9223372036854775808");
+                    assertThat(trinoUuidToJavaUuid(UUID.getSlice(value.getRawFieldBlock(14), valueRawIndex)).toString()).isEqualTo("d2177dd0-eaa2-11de-a572-001b779c76e3");
+                    assertThat(VARCHAR.getSlice(value.getRawFieldBlock(15), valueRawIndex).toStringUtf8()).isEqualTo("[\"list\"]");
+                    assertThat(VARCHAR.getSlice(value.getRawFieldBlock(16), valueRawIndex).toStringUtf8()).isEqualTo("{\"map\":1}");
+                    assertThat(VARCHAR.getSlice(value.getRawFieldBlock(17), valueRawIndex).toStringUtf8()).isEqualTo("[true]");
                     SqlRow tupleValue = value.getRawFieldBlock(18).getObject(valueRawIndex, SqlRow.class);
                     assertThat(tupleValue.getFieldCount()).isEqualTo(1);
                     assertThat(INTEGER.getInt(tupleValue.getRawFieldBlock(0), tupleValue.getRawIndex())).isEqualTo(123);
@@ -369,12 +366,12 @@ public class TestCassandraConnector
                     assertThat(INTEGER.getInt(udtValue.getRawFieldBlock(0), tupleValue.getRawIndex())).isEqualTo(999);
 
                     long newCompletedBytes = cursor.getCompletedBytes();
-                    assertTrue(newCompletedBytes >= completedBytes);
+                    assertThat(newCompletedBytes >= completedBytes).isTrue();
                     completedBytes = newCompletedBytes;
                 }
             }
         }
-        assertEquals(rowNumber, 1);
+        assertThat(rowNumber).isEqualTo(1);
     }
 
     @SuppressWarnings({"ResultOfMethodCallIgnored", "CheckReturnValue"}) // we only check if the values are valid, we don't need them otherwise
@@ -484,6 +481,6 @@ public class TestCassandraConnector
     private void assertNumberOfRows(SchemaTableName tableName, int rowsCount)
     {
         CassandraSession session = server.getSession();
-        assertEquals(session.execute("SELECT COUNT(*) FROM " + tableName).all().get(0).getLong(0), rowsCount);
+        assertThat(session.execute("SELECT COUNT(*) FROM " + tableName).all().get(0).getLong(0)).isEqualTo(rowsCount);
     }
 }

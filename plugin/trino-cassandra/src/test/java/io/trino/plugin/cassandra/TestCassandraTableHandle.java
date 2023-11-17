@@ -16,7 +16,7 @@ package io.trino.plugin.cassandra;
 import io.airlift.json.JsonCodec;
 import org.junit.jupiter.api.Test;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCassandraTableHandle
 {
@@ -30,7 +30,7 @@ public class TestCassandraTableHandle
         String json = codec.toJson(expected);
         CassandraTableHandle actual = codec.fromJson(json);
 
-        assertEquals(actual.getRequiredNamedRelation().getSchemaTableName(), expected.getRequiredNamedRelation().getSchemaTableName());
+        assertThat(actual.getRequiredNamedRelation().getSchemaTableName()).isEqualTo(expected.getRequiredNamedRelation().getSchemaTableName());
     }
 
     @Test
@@ -41,6 +41,6 @@ public class TestCassandraTableHandle
         String json = codec.toJson(expected);
         CassandraTableHandle actual = codec.fromJson(json);
 
-        assertEquals(actual.getRelationHandle(), new CassandraQueryRelationHandle("SELECT * FROM tpch.region"));
+        assertThat(actual.getRelationHandle()).isEqualTo(new CassandraQueryRelationHandle("SELECT * FROM tpch.region"));
     }
 }

@@ -31,7 +31,7 @@ import java.util.regex.Pattern;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.airlift.units.DataSize.Unit.TERABYTE;
 import static java.util.concurrent.TimeUnit.MINUTES;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestStaticSelector
 {
@@ -49,9 +49,9 @@ public class TestStaticSelector
                 Optional.empty(),
                 Optional.empty(),
                 new ResourceGroupIdTemplate("global.foo"));
-        assertEquals(selector.match(newSelectionCriteria("userA", null, ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
-        assertEquals(selector.match(newSelectionCriteria("userB", "source", ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
-        assertEquals(selector.match(newSelectionCriteria("A.user", null, ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES)), Optional.empty());
+        assertThat(selector.match(newSelectionCriteria("userA", null, ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId)).isEqualTo(Optional.of(resourceGroupId));
+        assertThat(selector.match(newSelectionCriteria("userB", "source", ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId)).isEqualTo(Optional.of(resourceGroupId));
+        assertThat(selector.match(newSelectionCriteria("A.user", null, ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES))).isEqualTo(Optional.empty());
     }
 
     @Test
@@ -66,9 +66,9 @@ public class TestStaticSelector
                 Optional.empty(),
                 Optional.empty(),
                 new ResourceGroupIdTemplate("global.foo"));
-        assertEquals(selector.match(newSelectionCriteria("userA", null, ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES)), Optional.empty());
-        assertEquals(selector.match(newSelectionCriteria("userB", "source", ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
-        assertEquals(selector.match(newSelectionCriteria("A.user", "a source b", ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
+        assertThat(selector.match(newSelectionCriteria("userA", null, ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES))).isEqualTo(Optional.empty());
+        assertThat(selector.match(newSelectionCriteria("userB", "source", ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId)).isEqualTo(Optional.of(resourceGroupId));
+        assertThat(selector.match(newSelectionCriteria("A.user", "a source b", ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId)).isEqualTo(Optional.of(resourceGroupId));
     }
 
     @Test
@@ -83,10 +83,10 @@ public class TestStaticSelector
                 Optional.empty(),
                 Optional.empty(),
                 new ResourceGroupIdTemplate("global.foo"));
-        assertEquals(selector.match(newSelectionCriteria("userA", null, ImmutableSet.of("tag1", "tag2"), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
-        assertEquals(selector.match(newSelectionCriteria("userB", "source", ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES)), Optional.empty());
-        assertEquals(selector.match(newSelectionCriteria("A.user", "a source b", ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES)), Optional.empty());
-        assertEquals(selector.match(newSelectionCriteria("A.user", "a source b", ImmutableSet.of("tag1", "tag2", "tag3"), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId), Optional.of(resourceGroupId));
+        assertThat(selector.match(newSelectionCriteria("userA", null, ImmutableSet.of("tag1", "tag2"), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId)).isEqualTo(Optional.of(resourceGroupId));
+        assertThat(selector.match(newSelectionCriteria("userB", "source", ImmutableSet.of(), EMPTY_RESOURCE_ESTIMATES))).isEqualTo(Optional.empty());
+        assertThat(selector.match(newSelectionCriteria("A.user", "a source b", ImmutableSet.of("tag1"), EMPTY_RESOURCE_ESTIMATES))).isEqualTo(Optional.empty());
+        assertThat(selector.match(newSelectionCriteria("A.user", "a source b", ImmutableSet.of("tag1", "tag2", "tag3"), EMPTY_RESOURCE_ESTIMATES)).map(SelectionContext::getResourceGroupId)).isEqualTo(Optional.of(resourceGroupId));
     }
 
     @Test
@@ -110,8 +110,7 @@ public class TestStaticSelector
                 Optional.empty(),
                 new ResourceGroupIdTemplate("global.foo"));
 
-        assertEquals(
-                smallQuerySelector.match(
+        assertThat(smallQuerySelector.match(
                         newSelectionCriteria(
                                 "userA",
                                 null,
@@ -120,11 +119,9 @@ public class TestStaticSelector
                                         Optional.of(java.time.Duration.ofMinutes(4)),
                                         Optional.empty(),
                                         Optional.of(DataSize.of(400, MEGABYTE).toBytes()))))
-                        .map(SelectionContext::getResourceGroupId),
-                Optional.of(resourceGroupId));
+                .map(SelectionContext::getResourceGroupId)).isEqualTo(Optional.of(resourceGroupId));
 
-        assertEquals(
-                smallQuerySelector.match(
+        assertThat(smallQuerySelector.match(
                         newSelectionCriteria(
                                 "A.user",
                                 "a source b",
@@ -133,11 +130,9 @@ public class TestStaticSelector
                                         Optional.of(java.time.Duration.ofMinutes(4)),
                                         Optional.empty(),
                                         Optional.of(DataSize.of(600, MEGABYTE).toBytes()))))
-                        .map(SelectionContext::getResourceGroupId),
-                Optional.empty());
+                .map(SelectionContext::getResourceGroupId)).isEqualTo(Optional.empty());
 
-        assertEquals(
-                smallQuerySelector.match(
+        assertThat(smallQuerySelector.match(
                         newSelectionCriteria(
                                 "userB",
                                 "source",
@@ -146,8 +141,7 @@ public class TestStaticSelector
                                         Optional.of(java.time.Duration.ofMinutes(4)),
                                         Optional.empty(),
                                         Optional.empty())))
-                        .map(SelectionContext::getResourceGroupId),
-                Optional.empty());
+                .map(SelectionContext::getResourceGroupId)).isEqualTo(Optional.empty());
 
         StaticSelector largeQuerySelector = new StaticSelector(
                 Optional.empty(),
@@ -163,8 +157,7 @@ public class TestStaticSelector
                 Optional.empty(),
                 new ResourceGroupIdTemplate("global.foo"));
 
-        assertEquals(
-                largeQuerySelector.match(
+        assertThat(largeQuerySelector.match(
                         newSelectionCriteria(
                                 "userA",
                                 null,
@@ -173,11 +166,9 @@ public class TestStaticSelector
                                         Optional.of(java.time.Duration.ofHours(100)),
                                         Optional.empty(),
                                         Optional.of(DataSize.of(4, TERABYTE).toBytes()))))
-                        .map(SelectionContext::getResourceGroupId),
-                Optional.empty());
+                .map(SelectionContext::getResourceGroupId)).isEqualTo(Optional.empty());
 
-        assertEquals(
-                largeQuerySelector.match(
+        assertThat(largeQuerySelector.match(
                         newSelectionCriteria(
                                 "A.user",
                                 "a source b",
@@ -186,11 +177,9 @@ public class TestStaticSelector
                                         Optional.empty(),
                                         Optional.empty(),
                                         Optional.of(DataSize.of(6, TERABYTE).toBytes()))))
-                        .map(SelectionContext::getResourceGroupId),
-                Optional.of(resourceGroupId));
+                .map(SelectionContext::getResourceGroupId)).isEqualTo(Optional.of(resourceGroupId));
 
-        assertEquals(
-                largeQuerySelector.match(
+        assertThat(largeQuerySelector.match(
                         newSelectionCriteria(
                                 "userB",
                                 "source",
@@ -199,8 +188,7 @@ public class TestStaticSelector
                                         Optional.of(java.time.Duration.ofSeconds(1)),
                                         Optional.of(java.time.Duration.ofSeconds(1)),
                                         Optional.of(DataSize.of(6, TERABYTE).toBytes()))))
-                        .map(SelectionContext::getResourceGroupId),
-                Optional.of(resourceGroupId));
+                .map(SelectionContext::getResourceGroupId)).isEqualTo(Optional.of(resourceGroupId));
     }
 
     private SelectionCriteria newSelectionCriteria(String user, String source, Set<String> tags, ResourceEstimates resourceEstimates)

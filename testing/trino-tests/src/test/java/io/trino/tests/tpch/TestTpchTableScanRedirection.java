@@ -20,7 +20,7 @@ import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTpchTableScanRedirection
         extends AbstractTestQueryFramework
@@ -51,7 +51,7 @@ public class TestTpchTableScanRedirection
         // F           |  7304
         assertUpdate("CREATE TABLE memory.test.orders AS SELECT * FROM tpch_data_load.tiny.orders WHERE orderstatus IN ('O', 'P')", 7696L);
         // row count of 7333L verifies that filter was coorectly re-materialized during redirection and that redirection has taken place
-        assertEquals(computeActual("SELECT * FROM tpch.tiny.orders WHERE orderstatus IN ('O', 'F')").getRowCount(), 7333L);
+        assertThat(computeActual("SELECT * FROM tpch.tiny.orders WHERE orderstatus IN ('O', 'F')").getRowCount()).isEqualTo(7333L);
     }
 
     @Test

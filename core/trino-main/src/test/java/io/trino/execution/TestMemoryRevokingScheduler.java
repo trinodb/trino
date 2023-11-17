@@ -63,10 +63,8 @@ import static io.trino.execution.TestSqlTask.OUT;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
 import static java.util.Collections.singletonList;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_METHOD)
 public class TestMemoryRevokingScheduler
@@ -152,7 +150,7 @@ public class TestMemoryRevokingScheduler
         assertMemoryRevokingNotRequested();
 
         requestMemoryRevoking(scheduler);
-        assertEquals(10, memoryPool.getFreeBytes());
+        assertThat(10).isEqualTo(memoryPool.getFreeBytes());
         assertMemoryRevokingNotRequested();
 
         LocalMemoryContext revocableMemory1 = operatorContext1.localRevocableMemoryContext();
@@ -162,13 +160,13 @@ public class TestMemoryRevokingScheduler
 
         revocableMemory1.setBytes(3);
         revocableMemory3.setBytes(6);
-        assertEquals(1, memoryPool.getFreeBytes());
+        assertThat(1).isEqualTo(memoryPool.getFreeBytes());
         requestMemoryRevoking(scheduler);
         // we are still good - no revoking needed
         assertMemoryRevokingNotRequested();
 
         revocableMemory4.setBytes(7);
-        assertEquals(-6, memoryPool.getFreeBytes());
+        assertThat(-6).isEqualTo(memoryPool.getFreeBytes());
         requestMemoryRevoking(scheduler);
         // we need to revoke 3 and 6
         assertMemoryRevokingRequestedFor(operatorContext1, operatorContext3);
@@ -182,18 +180,18 @@ public class TestMemoryRevokingScheduler
         operatorContext1.resetMemoryRevokingRequested();
         requestMemoryRevoking(scheduler);
         assertMemoryRevokingRequestedFor(operatorContext3);
-        assertEquals(-3, memoryPool.getFreeBytes());
+        assertThat(-3).isEqualTo(memoryPool.getFreeBytes());
 
         // and allocate some more
         revocableMemory5.setBytes(3);
-        assertEquals(-6, memoryPool.getFreeBytes());
+        assertThat(-6).isEqualTo(memoryPool.getFreeBytes());
         requestMemoryRevoking(scheduler);
         // we are still good with just OC3 in process of revoking
         assertMemoryRevokingRequestedFor(operatorContext3);
 
         // and allocate some more
         revocableMemory5.setBytes(4);
-        assertEquals(-7, memoryPool.getFreeBytes());
+        assertThat(-7).isEqualTo(memoryPool.getFreeBytes());
         requestMemoryRevoking(scheduler);
         // no we have to trigger revoking for OC4
         assertMemoryRevokingRequestedFor(operatorContext3, operatorContext4);
@@ -250,9 +248,13 @@ public class TestMemoryRevokingScheduler
     {
         ImmutableSet<OperatorContext> operatorContextsSet = ImmutableSet.copyOf(operatorContexts);
         operatorContextsSet.forEach(
-                operatorContext -> assertTrue(operatorContext.isMemoryRevokingRequested(), "expected memory requested for operator " + operatorContext.getOperatorId()));
+                operatorContext -> assertThat(operatorContext.isMemoryRevokingRequested())
+                        .describedAs("expected memory requested for operator " + operatorContext.getOperatorId())
+                        .isTrue());
         Sets.difference(allOperatorContexts, operatorContextsSet).forEach(
-                operatorContext -> assertFalse(operatorContext.isMemoryRevokingRequested(), "expected memory  not requested for operator " + operatorContext.getOperatorId()));
+                operatorContext -> assertThat(operatorContext.isMemoryRevokingRequested())
+                        .describedAs("expected memory  not requested for operator " + operatorContext.getOperatorId())
+                        .isFalse());
     }
 
     private void assertMemoryRevokingNotRequested()

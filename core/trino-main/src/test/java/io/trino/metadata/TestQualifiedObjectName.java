@@ -16,8 +16,8 @@ package io.trino.metadata;
 import io.airlift.json.JsonCodec;
 import org.junit.jupiter.api.Test;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestQualifiedObjectName
 {
@@ -48,6 +48,6 @@ public class TestQualifiedObjectName
     {
         String json = codec.toJson(value);
         QualifiedObjectName parsed = codec.fromJson(json);
-        assertEquals(parsed, value);
+        assertThat(parsed).isEqualTo(value);
     }
 }

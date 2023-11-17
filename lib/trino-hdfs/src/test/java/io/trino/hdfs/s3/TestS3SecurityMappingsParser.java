@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
 import java.net.URI;
 import java.util.Optional;
 
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestS3SecurityMappingsParser
 {
@@ -34,7 +34,7 @@ public class TestS3SecurityMappingsParser
                 provider.parseJSONString("{\"data\": {\"mappings\": [{\"iamRole\":\"arn:aws:iam::test\",\"user\":\"test\"}]}, \"time\": \"30s\"}");
 
         Optional<S3SecurityMapping> mapping = mappings.getMapping(ConnectorIdentity.ofUser("test"), URI.create("http://trino"));
-        assertTrue(mapping.isPresent());
+        assertThat(mapping.isPresent()).isTrue();
     }
 
     @Test
@@ -47,6 +47,6 @@ public class TestS3SecurityMappingsParser
                 provider.parseJSONString("{\"mappings\": [{\"iamRole\":\"arn:aws:iam::test\",\"user\":\"test\"}]}");
 
         Optional<S3SecurityMapping> mapping = mappings.getMapping(ConnectorIdentity.ofUser("test"), URI.create("http://trino"));
-        assertTrue(mapping.isPresent());
+        assertThat(mapping.isPresent()).isTrue();
     }
 }

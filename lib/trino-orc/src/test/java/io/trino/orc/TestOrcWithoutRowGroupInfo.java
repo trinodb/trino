@@ -32,7 +32,7 @@ import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.trino.orc.OrcReader.createOrcReader;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOrcWithoutRowGroupInfo
 {
@@ -60,8 +60,8 @@ public class TestOrcWithoutRowGroupInfo
 
         OrcReader orcReader = createOrcReader(new FileOrcDataSource(file, new OrcReaderOptions()), new OrcReaderOptions()).orElseThrow();
 
-        assertEquals(orcReader.getFooter().getNumberOfRows(), 2);
-        assertEquals(orcReader.getFooter().getRowsInRowGroup(), OptionalInt.empty());
+        assertThat(orcReader.getFooter().getNumberOfRows()).isEqualTo(2);
+        assertThat(orcReader.getFooter().getRowsInRowGroup()).isEqualTo(OptionalInt.empty());
 
         RowType rowType = RowType.from(ImmutableList.of(RowType.field("a", BIGINT)));
         OrcRecordReader reader = orcReader.createRecordReader(
@@ -90,6 +90,6 @@ public class TestOrcWithoutRowGroupInfo
             }
         }
 
-        assertEquals(rows, reader.getFileRowCount());
+        assertThat(rows).isEqualTo(reader.getFileRowCount());
     }
 }

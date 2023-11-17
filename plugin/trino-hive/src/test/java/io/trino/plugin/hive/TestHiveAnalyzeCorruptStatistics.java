@@ -23,8 +23,8 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestHiveAnalyzeCorruptStatistics
         extends AbstractTestQueryFramework
@@ -71,7 +71,7 @@ public class TestHiveAnalyzeCorruptStatistics
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 col", 1);
 
         // Insert duplicated row to simulate broken column statistics status https://github.com/trinodb/trino/issues/13787
-        assertEquals(onMetastore("SELECT COUNT(1) FROM TAB_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'"), "1");
+        assertThat(onMetastore("SELECT COUNT(1) FROM TAB_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'")).isEqualTo("1");
         onMetastore("""
                 INSERT INTO TAB_COL_STATS
                 SELECT
@@ -99,7 +99,7 @@ public class TestHiveAnalyzeCorruptStatistics
                 FROM TAB_COL_STATS
                 WHERE db_name = 'tpch' AND table_name = '%s'
                 """.formatted(tableName));
-        assertEquals(onMetastore("SELECT COUNT(1) FROM TAB_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'"), "2");
+        assertThat(onMetastore("SELECT COUNT(1) FROM TAB_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'")).isEqualTo("2");
     }
 
     @Test
@@ -126,7 +126,7 @@ public class TestHiveAnalyzeCorruptStatistics
         assertUpdate("CREATE TABLE " + tableName + " WITH(partitioned_by = ARRAY['part']) AS SELECT 1 col, 'test_partition' part", 1);
 
         // Insert duplicated row to simulate broken partition statistics status https://github.com/trinodb/trino/issues/13787
-        assertEquals(onMetastore("SELECT COUNT(1) FROM PART_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'"), "1");
+        assertThat(onMetastore("SELECT COUNT(1) FROM PART_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'")).isEqualTo("1");
         onMetastore("""
                 INSERT INTO PART_COL_STATS
                 SELECT
@@ -155,7 +155,7 @@ public class TestHiveAnalyzeCorruptStatistics
                 FROM PART_COL_STATS
                 WHERE db_name = 'tpch' AND table_name = '%s'
                 """.formatted(tableName));
-        assertEquals(onMetastore("SELECT COUNT(1) FROM PART_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'"), "2");
+        assertThat(onMetastore("SELECT COUNT(1) FROM PART_COL_STATS WHERE db_name = 'tpch' AND table_name = '" + tableName + "'")).isEqualTo("2");
     }
 
     private String onMetastore(@Language("SQL") String sql)

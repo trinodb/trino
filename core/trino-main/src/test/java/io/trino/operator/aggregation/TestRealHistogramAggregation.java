@@ -37,9 +37,8 @@ import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.util.StructuralTestUtil.mapType;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestRealHistogramAggregation
 {
@@ -68,7 +67,7 @@ public class TestRealHistogramAggregation
         finalStep.processPage(new Page(partialBlock));
         Block actual = getFinalBlock(function.getFinalType(), finalStep);
 
-        assertEquals(extractSingleValue(actual), extractSingleValue(expected));
+        assertThat(extractSingleValue(actual)).isEqualTo(extractSingleValue(expected));
     }
 
     @Test
@@ -90,7 +89,7 @@ public class TestRealHistogramAggregation
 
         Map<Float, Float> expected = Maps.transformValues(extractSingleValue(singleStepResult), value -> value * 2);
 
-        assertEquals(extractSingleValue(actual), expected);
+        assertThat(extractSingleValue(actual)).isEqualTo(expected);
     }
 
     private Aggregator createAggregator(Step step)
@@ -104,8 +103,8 @@ public class TestRealHistogramAggregation
         Aggregator aggregator = createAggregator(SINGLE);
         Block result = getFinalBlock(function.getFinalType(), aggregator);
 
-        assertEquals(result.getPositionCount(), 1);
-        assertTrue(result.isNull(0));
+        assertThat(result.getPositionCount()).isEqualTo(1);
+        assertThat(result.isNull(0)).isTrue();
     }
 
     @Test

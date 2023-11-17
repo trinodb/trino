@@ -36,7 +36,7 @@ import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveType.HIVE_LONG;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveSplit
 {
@@ -86,18 +86,18 @@ public class TestHiveSplit
         String json = codec.toJson(expected);
         HiveSplit actual = codec.fromJson(json);
 
-        assertEquals(actual.getPartitionName(), expected.getPartitionName());
-        assertEquals(actual.getPath(), expected.getPath());
-        assertEquals(actual.getStart(), expected.getStart());
-        assertEquals(actual.getLength(), expected.getLength());
-        assertEquals(actual.getEstimatedFileSize(), expected.getEstimatedFileSize());
-        assertEquals(actual.getSchema(), expected.getSchema());
-        assertEquals(actual.getPartitionKeys(), expected.getPartitionKeys());
-        assertEquals(actual.getTableToPartitionMapping().getPartitionColumnCoercions(), expected.getTableToPartitionMapping().getPartitionColumnCoercions());
-        assertEquals(actual.getTableToPartitionMapping().getTableToPartitionColumns(), expected.getTableToPartitionMapping().getTableToPartitionColumns());
-        assertEquals(actual.getBucketConversion(), expected.getBucketConversion());
-        assertEquals(actual.isForceLocalScheduling(), expected.isForceLocalScheduling());
-        assertEquals(actual.getAcidInfo().get(), expected.getAcidInfo().get());
-        assertEquals(actual.getSplitWeight(), expected.getSplitWeight());
+        assertThat(actual.getPartitionName()).isEqualTo(expected.getPartitionName());
+        assertThat(actual.getPath()).isEqualTo(expected.getPath());
+        assertThat(actual.getStart()).isEqualTo(expected.getStart());
+        assertThat(actual.getLength()).isEqualTo(expected.getLength());
+        assertThat(actual.getEstimatedFileSize()).isEqualTo(expected.getEstimatedFileSize());
+        assertThat(actual.getSchema()).isEqualTo(expected.getSchema());
+        assertThat(actual.getPartitionKeys()).isEqualTo(expected.getPartitionKeys());
+        assertThat(actual.getTableToPartitionMapping().getPartitionColumnCoercions()).isEqualTo(expected.getTableToPartitionMapping().getPartitionColumnCoercions());
+        assertThat(actual.getTableToPartitionMapping().getTableToPartitionColumns()).isEqualTo(expected.getTableToPartitionMapping().getTableToPartitionColumns());
+        assertThat(actual.getBucketConversion()).isEqualTo(expected.getBucketConversion());
+        assertThat(actual.isForceLocalScheduling()).isEqualTo(expected.isForceLocalScheduling());
+        assertThat(actual.getAcidInfo().get()).isEqualTo(expected.getAcidInfo().get());
+        assertThat(actual.getSplitWeight()).isEqualTo(expected.getSplitWeight());
     }
 }

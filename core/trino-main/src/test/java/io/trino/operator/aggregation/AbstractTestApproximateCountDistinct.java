@@ -37,7 +37,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.testing.Assertions.assertLessThan;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class AbstractTestApproximateCountDistinct
 {
@@ -122,17 +122,17 @@ public abstract class AbstractTestApproximateCountDistinct
         for (int i = 0; i < 100; ++i) {
             int uniques = ThreadLocalRandom.current().nextInt(getUniqueValuesCount()) + 1;
             List<Object> values = createRandomSample(uniques, (int) (uniques * 1.5));
-            assertEquals(estimateCountPartial(values, maxStandardError), estimateGroupByCount(values, maxStandardError));
+            assertThat(estimateCountPartial(values, maxStandardError)).isEqualTo(estimateGroupByCount(values, maxStandardError));
         }
     }
 
     protected void assertCount(List<?> values, double maxStandardError, long expectedCount)
     {
         if (!values.isEmpty()) {
-            assertEquals(estimateGroupByCount(values, maxStandardError), expectedCount);
+            assertThat(estimateGroupByCount(values, maxStandardError)).isEqualTo(expectedCount);
         }
-        assertEquals(estimateCount(values, maxStandardError), expectedCount);
-        assertEquals(estimateCountPartial(values, maxStandardError), expectedCount);
+        assertThat(estimateCount(values, maxStandardError)).isEqualTo(expectedCount);
+        assertThat(estimateCountPartial(values, maxStandardError)).isEqualTo(expectedCount);
     }
 
     private long estimateGroupByCount(List<?> values, double maxStandardError)

@@ -24,9 +24,7 @@ import java.util.UUID;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestShardOrganizer
 {
@@ -42,14 +40,14 @@ public class TestShardOrganizer
 
         organizer.enqueue(organizationSet);
 
-        assertTrue(organizer.inProgress(getOnlyElement(shards)));
-        assertEquals(organizer.getShardsInProgress(), 1);
+        assertThat(organizer.inProgress(getOnlyElement(shards))).isTrue();
+        assertThat(organizer.getShardsInProgress()).isEqualTo(1);
 
         while (organizer.inProgress(getOnlyElement(shards))) {
             MILLISECONDS.sleep(10);
         }
-        assertFalse(organizer.inProgress(getOnlyElement(shards)));
-        assertEquals(organizer.getShardsInProgress(), 0);
+        assertThat(organizer.inProgress(getOnlyElement(shards))).isFalse();
+        assertThat(organizer.getShardsInProgress()).isEqualTo(0);
         organizer.shutdown();
     }
 

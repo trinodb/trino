@@ -34,7 +34,7 @@ import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.QUEUED;
 import static io.trino.execution.QueryState.RUNNING;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExecutionJmxMetrics
 {
@@ -61,21 +61,21 @@ public class TestExecutionJmxMetrics
             QueryId firstDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_RUNNING_QUERY);
             waitForQueryState(queryRunner, firstDashboardQuery, RUNNING);
 
-            assertEquals(getMbeanAttribute(mbeanServer, "RunningQueries"), 1);
-            assertEquals(getMbeanAttribute(mbeanServer, "QueuedQueries"), 0);
+            assertThat(getMbeanAttribute(mbeanServer, "RunningQueries")).isEqualTo(1);
+            assertThat(getMbeanAttribute(mbeanServer, "QueuedQueries")).isEqualTo(0);
 
             // the second "dashboard" query can't run right away because the resource group has a hardConcurrencyLimit of 1
             QueryId secondDashboardQuery = createQuery(queryRunner, dashboardSession(), LONG_RUNNING_QUERY);
             waitForQueryState(queryRunner, secondDashboardQuery, QUEUED);
 
-            assertEquals(getMbeanAttribute(mbeanServer, "RunningQueries"), 1);
-            assertEquals(getMbeanAttribute(mbeanServer, "QueuedQueries"), 1);
+            assertThat(getMbeanAttribute(mbeanServer, "RunningQueries")).isEqualTo(1);
+            assertThat(getMbeanAttribute(mbeanServer, "QueuedQueries")).isEqualTo(1);
 
             cancelQuery(queryRunner, secondDashboardQuery);
             waitForQueryState(queryRunner, secondDashboardQuery, FAILED);
 
-            assertEquals(getMbeanAttribute(mbeanServer, "RunningQueries"), 1);
-            assertEquals(getMbeanAttribute(mbeanServer, "QueuedQueries"), 0);
+            assertThat(getMbeanAttribute(mbeanServer, "RunningQueries")).isEqualTo(1);
+            assertThat(getMbeanAttribute(mbeanServer, "QueuedQueries")).isEqualTo(0);
 
             // cancel the running query to avoid polluting the logs with meaningless stack traces
             try {

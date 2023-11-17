@@ -19,8 +19,7 @@ import io.trino.testing.tpch.TpchIndexSpec;
 import io.trino.testing.tpch.TpchIndexSpec.Builder;
 import org.junit.jupiter.api.Test;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class AbstractTestIndexedQueries
         extends AbstractTestQueryFramework
@@ -39,10 +38,10 @@ public abstract class AbstractTestIndexedQueries
         assertQuery("SELECT name FROM sys.example", "SELECT 'test' AS name");
 
         MaterializedResult result = computeActual("SHOW SCHEMAS");
-        assertTrue(result.getOnlyColumnAsSet().containsAll(ImmutableSet.of("sf100", "tiny", "sys")));
+        assertThat(result.getOnlyColumnAsSet().containsAll(ImmutableSet.of("sf100", "tiny", "sys"))).isTrue();
 
         result = computeActual("SHOW TABLES FROM sys");
-        assertEquals(result.getOnlyColumnAsSet(), ImmutableSet.of("example"));
+        assertThat(result.getOnlyColumnAsSet()).isEqualTo(ImmutableSet.of("example"));
     }
 
     @Test

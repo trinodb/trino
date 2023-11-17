@@ -36,7 +36,7 @@ import java.util.stream.Stream;
 
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static java.lang.String.format;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Fail.fail;
 
 public class TestClassLoaderSafeWrappers
 {

@@ -76,8 +76,8 @@ import static java.lang.Double.NaN;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_METHOD)
 public class TestUnnestOperator
@@ -535,7 +535,7 @@ public class TestUnnestOperator
                     break;
                 }
 
-                assertTrue(outputPage.getPositionCount() <= 1000);
+                assertThat(outputPage.getPositionCount() <= 1000).isTrue();
 
                 outputPages.add(outputPage);
             }

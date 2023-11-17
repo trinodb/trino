@@ -24,7 +24,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOutput
 {
@@ -48,7 +48,7 @@ public class TestOutput
         String json = codec.toJson(expected);
         Output actual = codec.fromJson(json);
 
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -69,6 +69,6 @@ public class TestOutput
         String json = codec.toJson(expected);
         Output actual = codec.fromJson(json);
 
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 }

@@ -27,12 +27,10 @@ import java.net.URL;
 import java.util.List;
 
 import static java.time.Instant.ofEpochMilli;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_METHOD)
 @Execution(SAME_THREAD)
@@ -45,7 +43,7 @@ public class TestPrometheusQueryMatrixResponseParse
     public void trueStatusOnSuccessResponse()
             throws IOException
     {
-        assertTrue(new PrometheusQueryResponseParse(promMatrixResponse).getStatus());
+        assertThat(new PrometheusQueryResponseParse(promMatrixResponse).getStatus()).isTrue();
     }
 
     @Test
@@ -53,7 +51,7 @@ public class TestPrometheusQueryMatrixResponseParse
             throws IOException
     {
         List<PrometheusMetricResult> results = new PrometheusQueryResponseParse(promMatrixResponse).getResults();
-        assertEquals(results.get(0).getMetricHeader().get("__name__"), "up");
+        assertThat(results.get(0).getMetricHeader().get("__name__")).isEqualTo("up");
     }
 
     @Test
@@ -61,7 +59,7 @@ public class TestPrometheusQueryMatrixResponseParse
             throws IOException
     {
         List<PrometheusMetricResult> results = new PrometheusQueryResponseParse(promMatrixResponse).getResults();
-        assertEquals(results.get(0).getTimeSeriesValues().getValues().get(0).getTimestamp(), ofEpochMilli(1565962969044L));
+        assertThat(results.get(0).getTimeSeriesValues().getValues().get(0).getTimestamp()).isEqualTo(ofEpochMilli(1565962969044L));
     }
 
     @Test
@@ -69,7 +67,7 @@ public class TestPrometheusQueryMatrixResponseParse
             throws IOException
     {
         List<PrometheusMetricResult> results = new PrometheusQueryResponseParse(promMatrixResponse).getResults();
-        assertEquals(results.get(0).getTimeSeriesValues().getValues().get(0).getValue(), "1");
+        assertThat(results.get(0).getTimeSeriesValues().getValues().get(0).getValue()).isEqualTo("1");
     }
 
     @Test
@@ -85,11 +83,15 @@ public class TestPrometheusQueryMatrixResponseParse
             throws Exception
     {
         URL promMatrixResponse = Resources.getResource(getClass(), "/prometheus-data/up_matrix_response.json");
-        assertNotNull(promMatrixResponse, "metadataUrl is null");
+        assertThat(promMatrixResponse)
+                .describedAs("metadataUrl is null")
+                .isNotNull();
         this.promMatrixResponse = promMatrixResponse.openStream();
 
         URL promErrorResponse = Resources.getResource(getClass(), "/prometheus-data/prom_error_response.json");
-        assertNotNull(promMatrixResponse, "metadataUrl is null");
+        assertThat(promMatrixResponse)
+                .describedAs("metadataUrl is null")
+                .isNotNull();
         this.promErrorResponse = promErrorResponse.openStream();
     }
 

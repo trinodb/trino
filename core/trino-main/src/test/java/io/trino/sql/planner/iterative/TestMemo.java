@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMemo
 {
@@ -38,7 +38,7 @@ public class TestMemo
         PlanNode plan = node(node());
         Memo memo = new Memo(idAllocator, plan);
 
-        assertEquals(memo.getGroupCount(), 2);
+        assertThat(memo.getGroupCount()).isEqualTo(2);
         assertMatchesStructure(plan, memo.extract());
     }
 
@@ -52,12 +52,12 @@ public class TestMemo
         PlanNode plan = node(node(node()));
 
         Memo memo = new Memo(idAllocator, plan);
-        assertEquals(memo.getGroupCount(), 3);
+        assertThat(memo.getGroupCount()).isEqualTo(3);
 
         // replace child of root node with subtree
         PlanNode transformed = node(node());
         memo.replace(getChildGroup(memo, memo.getRootGroup()), transformed, "rule");
-        assertEquals(memo.getGroupCount(), 3);
+        assertThat(memo.getGroupCount()).isEqualTo(3);
         assertMatchesStructure(memo.extract(), node(plan.getId(), transformed));
     }
 
@@ -73,14 +73,14 @@ public class TestMemo
         PlanNode x = node(y);
 
         Memo memo = new Memo(idAllocator, x);
-        assertEquals(memo.getGroupCount(), 3);
+        assertThat(memo.getGroupCount()).isEqualTo(3);
 
         // replace child of root node with another node, retaining child's child
         int yGroup = getChildGroup(memo, memo.getRootGroup());
         GroupReference zRef = (GroupReference) getOnlyElement(memo.getNode(yGroup).getSources());
         PlanNode transformed = node(zRef);
         memo.replace(yGroup, transformed, "rule");
-        assertEquals(memo.getGroupCount(), 3);
+        assertThat(memo.getGroupCount()).isEqualTo(3);
         assertMatchesStructure(memo.extract(), node(x.getId(), node(transformed.getId(), z)));
     }
 
@@ -98,7 +98,7 @@ public class TestMemo
 
         Memo memo = new Memo(idAllocator, x);
 
-        assertEquals(memo.getGroupCount(), 4);
+        assertThat(memo.getGroupCount()).isEqualTo(4);
 
         int yGroup = getChildGroup(memo, memo.getRootGroup());
         int zGroup = getChildGroup(memo, yGroup);
@@ -110,7 +110,7 @@ public class TestMemo
 
         memo.replace(yGroup, newY, "rule");
 
-        assertEquals(memo.getGroupCount(), 4);
+        assertThat(memo.getGroupCount()).isEqualTo(4);
 
         assertMatchesStructure(
                 memo.extract(),
@@ -133,12 +133,12 @@ public class TestMemo
 
         Memo memo = new Memo(idAllocator, x);
 
-        assertEquals(memo.getGroupCount(), 3);
+        assertThat(memo.getGroupCount()).isEqualTo(3);
 
         int yGroup = getChildGroup(memo, memo.getRootGroup());
         memo.replace(yGroup, memo.getNode(yGroup).getSources().get(0), "rule");
 
-        assertEquals(memo.getGroupCount(), 2);
+        assertThat(memo.getGroupCount()).isEqualTo(2);
 
         assertMatchesStructure(
                 memo.extract(),
@@ -158,13 +158,13 @@ public class TestMemo
 
         Memo memo = new Memo(idAllocator, x);
 
-        assertEquals(memo.getGroupCount(), 2);
+        assertThat(memo.getGroupCount()).isEqualTo(2);
 
         int zGroup = getChildGroup(memo, memo.getRootGroup());
         PlanNode y = node(memo.getNode(zGroup));
         memo.replace(zGroup, y, "rule");
 
-        assertEquals(memo.getGroupCount(), 3);
+        assertThat(memo.getGroupCount()).isEqualTo(3);
 
         assertMatchesStructure(
                 memo.extract(),
@@ -186,7 +186,7 @@ public class TestMemo
         PlanNode x = node(y);
 
         Memo memo = new Memo(idAllocator, x);
-        assertEquals(memo.getGroupCount(), 3);
+        assertThat(memo.getGroupCount()).isEqualTo(3);
 
         int yGroup = getChildGroup(memo, memo.getRootGroup());
 
@@ -196,7 +196,7 @@ public class TestMemo
 
         PlanNode newX = node(y1, y2);
         memo.replace(memo.getRootGroup(), newX, "rule");
-        assertEquals(memo.getGroupCount(), 4);
+        assertThat(memo.getGroupCount()).isEqualTo(4);
 
         assertMatchesStructure(
                 memo.extract(),
@@ -220,13 +220,13 @@ public class TestMemo
         memo.storeStats(yGroup, yStats);
         memo.storeStats(xGroup, xStats);
 
-        assertEquals(memo.getStats(yGroup), Optional.of(yStats));
-        assertEquals(memo.getStats(xGroup), Optional.of(xStats));
+        assertThat(memo.getStats(yGroup)).isEqualTo(Optional.of(yStats));
+        assertThat(memo.getStats(xGroup)).isEqualTo(Optional.of(xStats));
 
         memo.replace(yGroup, node(), "rule");
 
-        assertEquals(memo.getStats(yGroup), Optional.empty());
-        assertEquals(memo.getStats(xGroup), Optional.empty());
+        assertThat(memo.getStats(yGroup)).isEqualTo(Optional.empty());
+        assertThat(memo.getStats(xGroup)).isEqualTo(Optional.empty());
     }
 
     @Test
@@ -244,20 +244,20 @@ public class TestMemo
         memo.storeCost(yGroup, yCost);
         memo.storeCost(xGroup, xCost);
 
-        assertEquals(memo.getCost(yGroup), Optional.of(yCost));
-        assertEquals(memo.getCost(xGroup), Optional.of(xCost));
+        assertThat(memo.getCost(yGroup)).isEqualTo(Optional.of(yCost));
+        assertThat(memo.getCost(xGroup)).isEqualTo(Optional.of(xCost));
 
         memo.replace(yGroup, node(), "rule");
 
-        assertEquals(memo.getCost(yGroup), Optional.empty());
-        assertEquals(memo.getCost(xGroup), Optional.empty());
+        assertThat(memo.getCost(yGroup)).isEqualTo(Optional.empty());
+        assertThat(memo.getCost(xGroup)).isEqualTo(Optional.empty());
     }
 
     private static void assertMatchesStructure(PlanNode actual, PlanNode expected)
     {
-        assertEquals(actual.getClass(), expected.getClass());
-        assertEquals(actual.getId(), expected.getId());
-        assertEquals(actual.getSources().size(), expected.getSources().size());
+        assertThat(actual.getClass()).isEqualTo(expected.getClass());
+        assertThat(actual.getId()).isEqualTo(expected.getId());
+        assertThat(actual.getSources().size()).isEqualTo(expected.getSources().size());
 
         for (int i = 0; i < actual.getSources().size(); i++) {
             assertMatchesStructure(actual.getSources().get(i), expected.getSources().get(i));

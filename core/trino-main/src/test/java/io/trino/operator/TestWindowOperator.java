@@ -71,9 +71,7 @@ import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Test(singleThreaded = true)
 public class TestWindowOperator
@@ -162,9 +160,11 @@ public class TestWindowOperator
         assertGreaterThan(pages.size(), 1, "Expected more than one output page");
 
         MaterializedResult actual = toMaterializedResult(driverContext.getSession(), expected.getTypes(), pages);
-        assertEquals(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertThat(actual.getMaterializedRows()).isEqualTo(expected.getMaterializedRows());
 
-        assertTrue(spillEnabled == (spillerFactory.getSpillsCount() > 0), format("Spill state mismatch. Expected spill: %s, spill count: %s", spillEnabled, spillerFactory.getSpillsCount()));
+        assertThat(spillEnabled == (spillerFactory.getSpillsCount() > 0))
+                .describedAs(format("Spill state mismatch. Expected spill: %s, spill count: %s", spillEnabled, spillerFactory.getSpillsCount()))
+                .isTrue();
     }
 
     @Test(dataProvider = "spillEnabled")
@@ -459,8 +459,8 @@ public class TestWindowOperator
         DriverContext driverContext = createDriverContext(1000);
         Operator operator = operatorFactory.createOperator(driverContext);
         operatorFactory.noMoreOperators();
-        assertFalse(operator.isFinished());
-        assertTrue(operator.needsInput());
+        assertThat(operator.isFinished()).isFalse();
+        assertThat(operator.needsInput()).isTrue();
         operator.addInput(input.get(0));
         operator.finish();
         operator.getOutput();
@@ -834,7 +834,7 @@ public class TestWindowOperator
     private static void assertFindEndPosition(String values, int expected)
     {
         char[] array = values.toCharArray();
-        assertEquals(findEndPosition(0, array.length, (first, second) -> array[first] == array[second]), expected);
+        assertThat(findEndPosition(0, array.length, (first, second) -> array[first] == array[second])).isEqualTo(expected);
     }
 
     private WindowOperatorFactory createFactoryUnbounded(

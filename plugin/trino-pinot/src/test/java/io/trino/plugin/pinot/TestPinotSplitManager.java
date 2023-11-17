@@ -37,10 +37,8 @@ import static io.trino.plugin.pinot.query.DynamicTableBuilder.buildFromPql;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestPinotSplitManager
         extends TestPinotQueryBase
@@ -101,15 +99,15 @@ public class TestPinotSplitManager
 
     private void assertSplits(List<PinotSplit> splits, int numSplitsExpected, PinotSplit.SplitType splitType)
     {
-        assertEquals(splits.size(), numSplitsExpected);
-        splits.forEach(s -> assertEquals(s.getSplitType(), splitType));
+        assertThat(splits.size()).isEqualTo(numSplitsExpected);
+        splits.forEach(s -> assertThat(s.getSplitType()).isEqualTo(splitType));
     }
 
     private void assertSegmentSplitWellFormed(PinotSplit split)
     {
-        assertEquals(split.getSplitType(), SEGMENT);
-        assertTrue(split.getSegmentHost().isPresent());
-        assertFalse(split.getSegments().isEmpty());
+        assertThat(split.getSplitType()).isEqualTo(SEGMENT);
+        assertThat(split.getSegmentHost().isPresent()).isTrue();
+        assertThat(split.getSegments().isEmpty()).isFalse();
     }
 
     public static ConnectorSession createSessionWithNumSplits(int numSegmentsPerSplit, boolean forbidSegmentQueries, PinotConfig pinotConfig)

@@ -37,7 +37,7 @@ import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.MaterializedResult.resultBuilder;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOrcDeletedRows
 {
@@ -75,13 +75,13 @@ public class TestOrcDeletedRows
                 .build()
                 .getOnlyColumnAsSet();
 
-        assertEquals(validRows.size(), 8);
-        assertEquals(validRows, ImmutableSet.of(0L, 1L, 3L, 4L, 5L, 7L, 8L, 9L));
+        assertThat(validRows.size()).isEqualTo(8);
+        assertThat(validRows).isEqualTo(ImmutableSet.of(0L, 1L, 3L, 4L, 5L, 7L, 8L, 9L));
 
         // page with no deleted rows
         testPage = createTestPage(10, 20);
         block = deletedRows.getMaskDeletedRowsFunction(testPage, OptionalLong.empty()).apply(testPage.getBlock(1));
-        assertEquals(block.getPositionCount(), 10);
+        assertThat(block.getPositionCount()).isEqualTo(10);
     }
 
     @Test
@@ -104,13 +104,13 @@ public class TestOrcDeletedRows
                 .build()
                 .getOnlyColumnAsSet();
 
-        assertEquals(validRows.size(), 7);
-        assertEquals(validRows, ImmutableSet.of(0L, 1L, 3L, 4L, 5L, 6L, 7L));
+        assertThat(validRows.size()).isEqualTo(7);
+        assertThat(validRows).isEqualTo(ImmutableSet.of(0L, 1L, 3L, 4L, 5L, 6L, 7L));
 
         // page with no deleted rows
         testPage = createTestPage(5, 9);
         block = deletedRows.getMaskDeletedRowsFunction(testPage, OptionalLong.empty()).apply(testPage.getBlock(1));
-        assertEquals(block.getPositionCount(), 4);
+        assertThat(block.getPositionCount()).isEqualTo(4);
     }
 
     @Test
@@ -129,13 +129,13 @@ public class TestOrcDeletedRows
                 .build()
                 .getOnlyColumnAsSet();
 
-        assertEquals(validRows.size(), 9);
-        assertEquals(validRows, ImmutableSet.of(0L, 1L, 3L, 4L, 5L, 6L, 7L, 8L, 9L));
+        assertThat(validRows.size()).isEqualTo(9);
+        assertThat(validRows).isEqualTo(ImmutableSet.of(0L, 1L, 3L, 4L, 5L, 6L, 7L, 8L, 9L));
 
         // page with no deleted rows
         testPage = createTestPage(10, 20);
         block = deletedRows.getMaskDeletedRowsFunction(testPage, OptionalLong.empty()).apply(testPage.getBlock(1));
-        assertEquals(block.getPositionCount(), 10);
+        assertThat(block.getPositionCount()).isEqualTo(10);
     }
 
     private static void addDeleteDelta(AcidInfo.Builder acidInfoBuilder, long minWriteId, long maxWriteId, OptionalInt statementId, Location path)

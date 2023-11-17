@@ -17,20 +17,18 @@ import com.google.common.primitives.UnsignedBytes;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.thrift.api.TrinoThriftId.summarize;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTrinoThriftId
 {
     @Test
     public void testSummarize()
     {
-        assertEquals(summarize(bytes()), "");
-        assertEquals(summarize(bytes(1)), "01");
-        assertEquals(summarize(bytes(255, 254, 253, 252, 251, 250, 249)), "FFFEFDFCFBFAF9");
-        assertEquals(summarize(bytes(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 249, 250, 251, 252, 253, 254, 255)),
-                "00010203040506070809F9FAFBFCFDFEFF");
-        assertEquals(summarize(bytes(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 247, 248, 249, 250, 251, 252, 253, 254, 255)),
-                "0001020304050607..F8F9FAFBFCFDFEFF");
+        assertThat(summarize(bytes())).isEqualTo("");
+        assertThat(summarize(bytes(1))).isEqualTo("01");
+        assertThat(summarize(bytes(255, 254, 253, 252, 251, 250, 249))).isEqualTo("FFFEFDFCFBFAF9");
+        assertThat(summarize(bytes(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 249, 250, 251, 252, 253, 254, 255))).isEqualTo("00010203040506070809F9FAFBFCFDFEFF");
+        assertThat(summarize(bytes(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 247, 248, 249, 250, 251, 252, 253, 254, 255))).isEqualTo("0001020304050607..F8F9FAFBFCFDFEFF");
     }
 
     private static byte[] bytes(int... values)

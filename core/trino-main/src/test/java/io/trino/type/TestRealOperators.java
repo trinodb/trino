@@ -47,8 +47,6 @@ import static java.lang.Float.isNaN;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -794,9 +792,9 @@ public class TestRealOperators
     {
         int[] nanRepresentations = {floatToIntBits(Float.NaN), 0xffc00000, 0x7fc00000, 0x7fc01234, 0xffc01234};
         for (int nanRepresentation : nanRepresentations) {
-            assertTrue(isNaN(intBitsToFloat(nanRepresentation)));
-            assertEquals(executeHashOperator(nanRepresentation), executeHashOperator(nanRepresentations[0]));
-            assertEquals(executeXxHas64hOperator(nanRepresentation), executeXxHas64hOperator(nanRepresentations[0]));
+            assertThat(isNaN(intBitsToFloat(nanRepresentation))).isTrue();
+            assertThat(executeHashOperator(nanRepresentation)).isEqualTo(executeHashOperator(nanRepresentations[0]));
+            assertThat(executeXxHas64hOperator(nanRepresentation)).isEqualTo(executeXxHas64hOperator(nanRepresentations[0]));
         }
     }
 
@@ -807,9 +805,9 @@ public class TestRealOperators
         int[] zeroes = {floatToIntBits(0.0f), floatToIntBits(-0.0f)};
         for (int zero : zeroes) {
             //noinspection SimplifiedTestNGAssertion
-            assertTrue(intBitsToFloat(zero) == 0f);
-            assertEquals(executeHashOperator(zero), executeHashOperator(zeroes[0]));
-            assertEquals(executeXxHas64hOperator(zero), executeXxHas64hOperator(zeroes[0]));
+            assertThat(intBitsToFloat(zero) == 0f).isTrue();
+            assertThat(executeHashOperator(zero)).isEqualTo(executeHashOperator(zeroes[0]));
+            assertThat(executeXxHas64hOperator(zero)).isEqualTo(executeXxHas64hOperator(zeroes[0]));
         }
     }
 

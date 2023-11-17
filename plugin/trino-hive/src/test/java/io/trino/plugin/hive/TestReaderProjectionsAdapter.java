@@ -43,8 +43,6 @@ import static io.trino.plugin.hive.TestReaderProjectionsAdapter.RowData.rowData;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestReaderProjectionsAdapter
 {
@@ -103,22 +101,22 @@ public class TestReaderProjectionsAdapter
 
         // Assertion for "col"
         Block lazyBlockLevel1 = inputPage.getBlock(0);
-        assertTrue(lazyBlockLevel1 instanceof LazyBlock);
-        assertFalse(lazyBlockLevel1.isLoaded());
+        assertThat(lazyBlockLevel1 instanceof LazyBlock).isTrue();
+        assertThat(lazyBlockLevel1.isLoaded()).isFalse();
         RowBlock rowBlockLevel1 = ((RowBlock) (((LazyBlock) lazyBlockLevel1).getBlock()));
-        assertFalse(rowBlockLevel1.isLoaded());
+        assertThat(rowBlockLevel1.isLoaded()).isFalse();
 
         // Assertion for "col.f_row_0" and col.f_bigint_0"
-        assertFalse(rowBlockLevel1.getFieldBlock(0).isLoaded());
-        assertFalse(rowBlockLevel1.getFieldBlock(1).isLoaded());
+        assertThat(rowBlockLevel1.getFieldBlock(0).isLoaded()).isFalse();
+        assertThat(rowBlockLevel1.getFieldBlock(1).isLoaded()).isFalse();
 
         Block lazyBlockLevel2 = rowBlockLevel1.getFieldBlock(0);
-        assertTrue(lazyBlockLevel2 instanceof LazyBlock);
+        assertThat(lazyBlockLevel2 instanceof LazyBlock).isTrue();
         RowBlock rowBlockLevel2 = ((RowBlock) (((LazyBlock) lazyBlockLevel2).getBlock()));
-        assertFalse(rowBlockLevel2.isLoaded());
+        assertThat(rowBlockLevel2.isLoaded()).isFalse();
         // Assertion for "col.f_row_0.f_bigint_0" and "col.f_row_0.f_bigint_1"
-        assertTrue(rowBlockLevel2.getFieldBlock(0).isLoaded());
-        assertFalse(rowBlockLevel2.getFieldBlock(1).isLoaded());
+        assertThat(rowBlockLevel2.getFieldBlock(0).isLoaded()).isTrue();
+        assertThat(rowBlockLevel2.getFieldBlock(1).isLoaded()).isFalse();
     }
 
     private void verifyPageAdaptation(ReaderProjectionsAdapter adapter, List<List<Object>> inputPageData)

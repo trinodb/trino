@@ -32,8 +32,7 @@ import java.util.UUID;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCompactionSetCreator
 {
@@ -55,8 +54,8 @@ public class TestCompactionSetCreator
                 shardWithSize(10, 10));
 
         Set<OrganizationSet> compactionSets = compactionSetCreator.createCompactionSets(tableInfo, inputShards);
-        assertEquals(compactionSets.size(), 1);
-        assertEquals(getOnlyElement(compactionSets).getShards(), extractIndexes(inputShards, 0, 1, 2));
+        assertThat(compactionSets.size()).isEqualTo(1);
+        assertThat(getOnlyElement(compactionSets).getShards()).isEqualTo(extractIndexes(inputShards, 0, 1, 2));
     }
 
     @Test
@@ -74,7 +73,7 @@ public class TestCompactionSetCreator
         for (OrganizationSet set : compactionSets) {
             actual.addAll(set.getShards());
         }
-        assertTrue(extractIndexes(inputShards, 0, 1, 2).containsAll(actual));
+        assertThat(extractIndexes(inputShards, 0, 1, 2).containsAll(actual)).isTrue();
     }
 
     @Test
@@ -93,7 +92,7 @@ public class TestCompactionSetCreator
             actual.addAll(set.getShards());
         }
 
-        assertTrue(extractIndexes(inputShards, 0, 2, 3).containsAll(actual));
+        assertThat(extractIndexes(inputShards, 0, 2, 3).containsAll(actual)).isTrue();
     }
 
     @Test
@@ -111,12 +110,12 @@ public class TestCompactionSetCreator
                 shardWithTemporalRange(TIMESTAMP_MILLIS, day3, day3));
 
         Set<OrganizationSet> actual = compactionSetCreator.createCompactionSets(temporalTableInfo, inputShards);
-        assertEquals(actual.size(), 2);
+        assertThat(actual.size()).isEqualTo(2);
 
         Set<OrganizationSet> expected = ImmutableSet.of(
                 new OrganizationSet(temporalTableInfo.getTableId(), extractIndexes(inputShards, 0, 3), OptionalInt.empty()),
                 new OrganizationSet(temporalTableInfo.getTableId(), extractIndexes(inputShards, 1, 2), OptionalInt.empty()));
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -139,12 +138,12 @@ public class TestCompactionSetCreator
         long tableId = temporalTableInfo.getTableId();
         Set<OrganizationSet> compactionSets = compactionSetCreator.createCompactionSets(temporalTableInfo, inputShards);
 
-        assertEquals(compactionSets.size(), 2);
+        assertThat(compactionSets.size()).isEqualTo(2);
 
         Set<OrganizationSet> expected = ImmutableSet.of(
                 new OrganizationSet(tableId, extractIndexes(inputShards, 0, 1, 5, 6), OptionalInt.empty()),
                 new OrganizationSet(tableId, extractIndexes(inputShards, 2, 3, 4), OptionalInt.empty()));
-        assertEquals(compactionSets, expected);
+        assertThat(compactionSets).isEqualTo(expected);
     }
 
     @Test
@@ -165,12 +164,12 @@ public class TestCompactionSetCreator
         long tableId = temporalTableInfo.getTableId();
         Set<OrganizationSet> actual = compactionSetCreator.createCompactionSets(temporalTableInfo, inputShards);
 
-        assertEquals(actual.size(), 2);
+        assertThat(actual.size()).isEqualTo(2);
 
         Set<OrganizationSet> expected = ImmutableSet.of(
                 new OrganizationSet(tableId, extractIndexes(inputShards, 0, 3, 5), OptionalInt.empty()),
                 new OrganizationSet(tableId, extractIndexes(inputShards, 1, 4), OptionalInt.empty()));
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -187,12 +186,12 @@ public class TestCompactionSetCreator
         long tableId = bucketedTableInfo.getTableId();
         Set<OrganizationSet> actual = compactionSetCreator.createCompactionSets(bucketedTableInfo, inputShards);
 
-        assertEquals(actual.size(), 2);
+        assertThat(actual.size()).isEqualTo(2);
 
         Set<OrganizationSet> expected = ImmutableSet.of(
                 new OrganizationSet(tableId, extractIndexes(inputShards, 0, 3, 5), OptionalInt.of(1)),
                 new OrganizationSet(tableId, extractIndexes(inputShards, 1, 2, 4), OptionalInt.of(2)));
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     static Set<UUID> extractIndexes(List<ShardIndexInfo> inputShards, int... indexes)
@@ -223,12 +222,12 @@ public class TestCompactionSetCreator
         long tableId = bucketedTemporalTableInfo.getTableId();
         Set<OrganizationSet> actual = compactionSetCreator.createCompactionSets(bucketedTemporalTableInfo, inputShards);
 
-        assertEquals(actual.size(), 2);
+        assertThat(actual.size()).isEqualTo(2);
 
         Set<OrganizationSet> expected = ImmutableSet.of(
                 new OrganizationSet(tableId, extractIndexes(inputShards, 0, 2), OptionalInt.of(1)),
                 new OrganizationSet(tableId, extractIndexes(inputShards, 1, 3), OptionalInt.of(2)));
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     private static ShardIndexInfo shardWithSize(long rows, long size)

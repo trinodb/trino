@@ -134,9 +134,6 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -348,12 +345,24 @@ public abstract class AbstractTestHiveFileSystem
         Path filePath = new Path(tablePath, "test_table.csv");
         FileSystem fs = hdfsEnvironment.getFileSystem(TESTING_CONTEXT, basePath);
 
-        assertTrue(fs.getFileStatus(basePath).isDirectory(), "basePath should be considered a directory");
-        assertTrue(fs.getFileStatus(tablePath).isDirectory(), "tablePath should be considered a directory");
-        assertTrue(fs.getFileStatus(filePath).isFile(), "filePath should be considered a file");
-        assertFalse(fs.getFileStatus(filePath).isDirectory(), "filePath should not be considered a directory");
-        assertFalse(fs.exists(new Path(basePath, "foo-" + randomUUID())), "foo-random path should be found not to exist");
-        assertFalse(fs.exists(new Path(basePath, "foo")), "foo path should be found not to exist");
+        assertThat(fs.getFileStatus(basePath).isDirectory())
+                .describedAs("basePath should be considered a directory")
+                .isTrue();
+        assertThat(fs.getFileStatus(tablePath).isDirectory())
+                .describedAs("tablePath should be considered a directory")
+                .isTrue();
+        assertThat(fs.getFileStatus(filePath).isFile())
+                .describedAs("filePath should be considered a file")
+                .isTrue();
+        assertThat(fs.getFileStatus(filePath).isDirectory())
+                .describedAs("filePath should not be considered a directory")
+                .isFalse();
+        assertThat(fs.exists(new Path(basePath, "foo-" + randomUUID())))
+                .describedAs("foo-random path should be found not to exist")
+                .isFalse();
+        assertThat(fs.exists(new Path(basePath, "foo")))
+                .describedAs("foo path should be found not to exist")
+                .isFalse();
     }
 
     @Test
@@ -362,60 +371,60 @@ public abstract class AbstractTestHiveFileSystem
     {
         Path basePath = new Path(getBasePath(), randomUUID().toString());
         FileSystem fs = hdfsEnvironment.getFileSystem(TESTING_CONTEXT, basePath);
-        assertFalse(fs.exists(basePath));
+        assertThat(fs.exists(basePath)).isFalse();
 
         // create file foo.txt
         Path path = new Path(basePath, "foo.txt");
-        assertTrue(fs.createNewFile(path));
-        assertTrue(fs.exists(path));
+        assertThat(fs.createNewFile(path)).isTrue();
+        assertThat(fs.exists(path)).isTrue();
 
         // rename foo.txt to bar.txt when bar does not exist
         Path newPath = new Path(basePath, "bar.txt");
-        assertFalse(fs.exists(newPath));
-        assertTrue(fs.rename(path, newPath));
-        assertFalse(fs.exists(path));
-        assertTrue(fs.exists(newPath));
+        assertThat(fs.exists(newPath)).isFalse();
+        assertThat(fs.rename(path, newPath)).isTrue();
+        assertThat(fs.exists(path)).isFalse();
+        assertThat(fs.exists(newPath)).isTrue();
 
         // rename foo.txt to foo.txt when foo.txt does not exist
-        assertFalse(fs.rename(path, path));
+        assertThat(fs.rename(path, path)).isFalse();
 
         // create file foo.txt and rename to existing bar.txt
-        assertTrue(fs.createNewFile(path));
-        assertFalse(fs.rename(path, newPath));
+        assertThat(fs.createNewFile(path)).isTrue();
+        assertThat(fs.rename(path, newPath)).isFalse();
 
         // rename foo.txt to foo.txt when foo.txt exists
-        assertEquals(fs.rename(path, path), getRawFileSystem(fs) instanceof AzureBlobFileSystem);
+        assertThat(fs.rename(path, path)).isEqualTo(getRawFileSystem(fs) instanceof AzureBlobFileSystem);
 
         // delete foo.txt
-        assertTrue(fs.delete(path, false));
-        assertFalse(fs.exists(path));
+        assertThat(fs.delete(path, false)).isTrue();
+        assertThat(fs.exists(path)).isFalse();
 
         // create directory source with file
         Path source = new Path(basePath, "source");
-        assertTrue(fs.createNewFile(new Path(source, "test.txt")));
+        assertThat(fs.createNewFile(new Path(source, "test.txt"))).isTrue();
 
         // rename source to non-existing target
         Path target = new Path(basePath, "target");
-        assertFalse(fs.exists(target));
-        assertTrue(fs.rename(source, target));
-        assertFalse(fs.exists(source));
-        assertTrue(fs.exists(target));
+        assertThat(fs.exists(target)).isFalse();
+        assertThat(fs.rename(source, target)).isTrue();
+        assertThat(fs.exists(source)).isFalse();
+        assertThat(fs.exists(target)).isTrue();
 
         // create directory source with file
-        assertTrue(fs.createNewFile(new Path(source, "test.txt")));
+        assertThat(fs.createNewFile(new Path(source, "test.txt"))).isTrue();
 
         // rename source to existing target
-        assertTrue(fs.rename(source, target));
-        assertFalse(fs.exists(source));
+        assertThat(fs.rename(source, target)).isTrue();
+        assertThat(fs.exists(source)).isFalse();
         target = new Path(target, "source");
-        assertTrue(fs.exists(target));
-        assertTrue(fs.exists(new Path(target, "test.txt")));
+        assertThat(fs.exists(target)).isTrue();
+        assertThat(fs.exists(new Path(target, "test.txt"))).isTrue();
 
         // delete target
         target = new Path(basePath, "target");
-        assertTrue(fs.exists(target));
-        assertTrue(fs.delete(target, true));
-        assertFalse(fs.exists(target));
+        assertThat(fs.exists(target)).isTrue();
+        assertThat(fs.delete(target, true)).isTrue();
+        assertThat(fs.exists(target)).isFalse();
 
         // cleanup
         fs.delete(basePath, true);
@@ -627,17 +636,17 @@ public abstract class AbstractTestHiveFileSystem
     {
         Path basePath = new Path(getBasePath(), randomUUID().toString());
         FileSystem fs = hdfsEnvironment.getFileSystem(TESTING_CONTEXT, basePath);
-        assertFalse(fs.exists(basePath));
+        assertThat(fs.exists(basePath)).isFalse();
 
         Path path = new Path(new Path(basePath, "dir_with_space "), "foo.txt");
         try (OutputStream outputStream = fs.create(path)) {
             outputStream.write("test".getBytes(UTF_8));
         }
-        assertTrue(fs.exists(path));
+        assertThat(fs.exists(path)).isTrue();
 
         try (InputStream inputStream = fs.open(path)) {
             String content = new BufferedReader(new InputStreamReader(inputStream, UTF_8)).readLine();
-            assertEquals(content, "test");
+            assertThat(content).isEqualTo("test");
         }
 
         fs.delete(basePath, true);
@@ -727,7 +736,7 @@ public abstract class AbstractTestHiveFileSystem
 
             // verify the metadata
             ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session, getTableHandle(metadata, tableName));
-            assertEquals(filterNonHiddenColumnMetadata(tableMetadata.getColumns()), columns);
+            assertThat(filterNonHiddenColumnMetadata(tableMetadata.getColumns())).isEqualTo(columns);
 
             // verify the data
             metadata.beginQuery(session);
@@ -804,8 +813,8 @@ public abstract class AbstractTestHiveFileSystem
 
             // verify the metadata
             ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session, getTableHandle(metadata, tableName));
-            assertEquals(filterNonHiddenColumnMetadata(tableMetadata.getColumns()), columns);
-            assertEquals(tableMetadata.getProperties().get("external_location"), externalLocation);
+            assertThat(filterNonHiddenColumnMetadata(tableMetadata.getColumns())).isEqualTo(columns);
+            assertThat(tableMetadata.getProperties().get("external_location")).isEqualTo(externalLocation);
 
             // verify the data
             metadata.beginQuery(session);

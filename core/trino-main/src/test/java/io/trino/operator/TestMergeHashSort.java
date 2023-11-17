@@ -23,8 +23,7 @@ import static io.trino.RowPagesBuilder.rowPagesBuilder;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.WorkProcessorAssertion.assertFinishes;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMergeHashSort
 {
@@ -60,11 +59,11 @@ public class TestMergeHashSort
                         .collect(toImmutableList()),
                 new DriverYieldSignal());
 
-        assertTrue(mergedPage.process());
+        assertThat(mergedPage.process()).isTrue();
         Page actualPage = mergedPage.getResult();
-        assertEquals(actualPage.getPositionCount(), 1);
-        assertEquals(actualPage.getChannelCount(), 1);
-        assertEquals(actualPage.getBlock(0).getLong(0, 0), 42);
+        assertThat(actualPage.getPositionCount()).isEqualTo(1);
+        assertThat(actualPage.getChannelCount()).isEqualTo(1);
+        assertThat(actualPage.getBlock(0).getLong(0, 0)).isEqualTo(42);
 
         assertFinishes(mergedPage);
     }
@@ -83,11 +82,11 @@ public class TestMergeHashSort
                         .collect(toImmutableList()),
                 new DriverYieldSignal());
 
-        assertTrue(mergedPage.process());
+        assertThat(mergedPage.process()).isTrue();
         Page actualPage = mergedPage.getResult();
-        assertEquals(actualPage.getPositionCount(), 1);
-        assertEquals(actualPage.getChannelCount(), 1);
-        assertEquals(actualPage.getBlock(0).getLong(0, 0), 42);
+        assertThat(actualPage.getPositionCount()).isEqualTo(1);
+        assertThat(actualPage.getChannelCount()).isEqualTo(1);
+        assertThat(actualPage.getBlock(0).getLong(0, 0)).isEqualTo(42);
 
         assertFinishes(mergedPage);
     }
@@ -110,13 +109,13 @@ public class TestMergeHashSort
                         .collect(toImmutableList()),
                 new DriverYieldSignal());
 
-        assertTrue(mergedPages.process());
+        assertThat(mergedPages.process()).isTrue();
         Page resultPage = mergedPages.getResult();
-        assertEquals(resultPage.getPositionCount(), 4);
-        assertEquals(resultPage.getBlock(0).getLong(0, 0), 42);
-        assertEquals(resultPage.getBlock(0).getLong(1, 0), 42);
-        assertEquals(resultPage.getBlock(0).getLong(2, 0), 52);
-        assertEquals(resultPage.getBlock(0).getLong(3, 0), 60);
+        assertThat(resultPage.getPositionCount()).isEqualTo(4);
+        assertThat(resultPage.getBlock(0).getLong(0, 0)).isEqualTo(42);
+        assertThat(resultPage.getBlock(0).getLong(1, 0)).isEqualTo(42);
+        assertThat(resultPage.getBlock(0).getLong(2, 0)).isEqualTo(52);
+        assertThat(resultPage.getBlock(0).getLong(3, 0)).isEqualTo(60);
 
         assertFinishes(mergedPages);
     }

@@ -51,11 +51,8 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 @Execution(SAME_THREAD)
@@ -109,7 +106,7 @@ public class TestJdbcWarnings
     {
         try (Connection connection = createConnection();
                 Statement statement = connection.createStatement()) {
-            assertFalse(statement.execute("CREATE SCHEMA blackhole.test_schema"));
+            assertThat(statement.execute("CREATE SCHEMA blackhole.test_schema")).isFalse();
             SQLWarning warning = statement.getWarnings();
             assertNotNull(warning);
             TestingWarningCollectorConfig warningCollectorConfig = new TestingWarningCollectorConfig().setPreloadedWarnings(PRELOADED_WARNINGS);
@@ -171,7 +168,7 @@ public class TestJdbcWarnings
             TestingWarningCollector warningCollector = new TestingWarningCollector(new WarningCollectorConfig(), warningCollectorConfig);
             List<TrinoWarning> expectedWarnings = warningCollector.getWarnings();
             for (TrinoWarning trinoWarning : expectedWarnings) {
-                assertTrue(currentWarnings.contains(new WarningEntry(toTrinoSqlWarning(trinoWarning))));
+                assertThat(currentWarnings.contains(new WarningEntry(toTrinoSqlWarning(trinoWarning)))).isTrue();
             }
         }
     }
@@ -186,7 +183,7 @@ public class TestJdbcWarnings
         }
         List<TrinoWarning> warnings = builder.build();
         SQLWarning warning = fromTrinoWarnings(warnings);
-        assertEquals(Iterators.size(warning.iterator()), warnings.size());
+        assertThat(Iterators.size(warning.iterator())).isEqualTo(warnings.size());
         assertWarningsEqual(warning, toTrinoSqlWarning(warnings.get(0)));
         assertWarningsEqual(warning.getNextWarning(), toTrinoSqlWarning(warnings.get(1)));
         assertWarningsEqual(warning.getNextWarning().getNextWarning(), toTrinoSqlWarning(warnings.get(2)));
@@ -204,10 +201,10 @@ public class TestJdbcWarnings
         SQLWarning warning = statement.getWarnings();
 
         // collect initial set of warnings
-        assertTrue(warnings.add(new WarningEntry(warning)));
+        assertThat(warnings.add(new WarningEntry(warning))).isTrue();
         while (warning.getNextWarning() != null) {
             warning = warning.getNextWarning();
-            assertTrue(warnings.add(new WarningEntry(warning)));
+            assertThat(warnings.add(new WarningEntry(warning))).isTrue();
         }
 
         int initialSize = warnings.size();
@@ -220,7 +217,7 @@ public class TestJdbcWarnings
                 continue;
             }
             warning = warning.getNextWarning();
-            assertTrue(warnings.add(new WarningEntry(warning)));
+            assertThat(warnings.add(new WarningEntry(warning))).isTrue();
         }
 
         int finalSize = warnings.size();
@@ -232,7 +229,7 @@ public class TestJdbcWarnings
     private static SQLWarning fromTrinoWarnings(List<TrinoWarning> warnings)
     {
         requireNonNull(warnings, "warnings is null");
-        assertFalse(warnings.isEmpty());
+        assertThat(warnings.isEmpty()).isFalse();
         Iterator<TrinoWarning> iterator = warnings.iterator();
         TrinoSqlWarning first = toTrinoSqlWarning(iterator.next());
         SQLWarning current = first;
@@ -256,9 +253,9 @@ public class TestJdbcWarnings
 
     private static void assertWarningsEqual(SQLWarning actual, SQLWarning expected)
     {
-        assertEquals(actual.getMessage(), expected.getMessage());
-        assertEquals(actual.getSQLState(), expected.getSQLState());
-        assertEquals(actual.getErrorCode(), expected.getErrorCode());
+        assertThat(actual.getMessage()).isEqualTo(expected.getMessage());
+        assertThat(actual.getSQLState()).isEqualTo(expected.getSQLState());
+        assertThat(actual.getErrorCode()).isEqualTo(expected.getErrorCode());
     }
 
     private static void addWarnings(Set<WarningEntry> currentWarnings, SQLWarning newWarning)
@@ -286,7 +283,7 @@ public class TestJdbcWarnings
         }
         int previousSize = currentWarnings.size();
         addWarnings(currentWarnings, warning);
-        assertTrue(currentWarnings.size() >= previousSize);
+        assertThat(currentWarnings.size() >= previousSize).isTrue();
     }
 
     private static void assertStartsWithExpectedWarnings(SQLWarning warning, SQLWarning expected)
@@ -313,7 +310,7 @@ public class TestJdbcWarnings
         public WarningEntry(Throwable throwable)
         {
             requireNonNull(throwable, "throwable is null");
-            assertTrue(throwable instanceof SQLWarning);
+            assertThat(throwable instanceof SQLWarning).isTrue();
             SQLWarning warning = (SQLWarning) throwable;
             this.vendorCode = warning.getErrorCode();
             this.sqlState = requireNonNull(warning.getSQLState(), "SQLState is null");

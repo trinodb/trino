@@ -56,8 +56,6 @@ import static java.util.Collections.singletonList;
 import static java.util.Collections.singletonMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestQueryResultRows
 {
@@ -191,10 +189,12 @@ public class TestQueryResultRows
                 .addPages(pages)
                 .build();
 
-        assertFalse(rows.isEmpty(), "rows are empty");
+        assertThat(rows.isEmpty())
+                .describedAs("rows are empty")
+                .isFalse();
         assertThat(rows.getTotalRowsCount()).isEqualTo(5);
         assertThat(rows.getColumns()).isEqualTo(Optional.of(columns));
-        assertTrue(rows.getUpdateCount().isEmpty());
+        assertThat(rows.getUpdateCount().isEmpty()).isTrue();
 
         assertThat(getAllValues(rows))
                 .containsExactly(ImmutableList.of(0, 0));
@@ -249,7 +249,9 @@ public class TestQueryResultRows
                 .addPages(pages)
                 .build();
 
-        assertFalse(rows.isEmpty(), "rows are empty");
+        assertThat(rows.isEmpty())
+                .describedAs("rows are empty")
+                .isFalse();
         assertThat(rows.getTotalRowsCount()).isEqualTo(3);
 
         assertThat(getAllValues(rows))
@@ -277,7 +279,9 @@ public class TestQueryResultRows
                 .build();
 
         assertThat(exceptionConsumer.getExceptions()).isEmpty();
-        assertFalse(rows.isEmpty(), "rows are empty");
+        assertThat(rows.isEmpty())
+                .describedAs("rows are empty")
+                .isFalse();
         assertThat(rows.getTotalRowsCount()).isEqualTo(1);
 
         assertThat(getAllValues(rows))
@@ -303,7 +307,9 @@ public class TestQueryResultRows
                 .build();
 
         assertThat(exceptionConsumer.getExceptions()).isEmpty();
-        assertFalse(rows.isEmpty(), "rows are empty");
+        assertThat(rows.isEmpty())
+                .describedAs("rows are empty")
+                .isFalse();
         assertThat(rows.getTotalRowsCount()).isEqualTo(1);
 
         assertThat(getAllValues(rows))
@@ -331,7 +337,9 @@ public class TestQueryResultRows
                 .build();
 
         assertThat(exceptionConsumer.getExceptions()).isEmpty();
-        assertFalse(rows.isEmpty(), "rows are empty");
+        assertThat(rows.isEmpty())
+                .describedAs("rows are empty")
+                .isFalse();
         assertThat(rows.getTotalRowsCount()).isEqualTo(1);
 
         assertThat(getAllValues(rows))
@@ -363,7 +371,9 @@ public class TestQueryResultRows
                 .build();
 
         assertThat(exceptionConsumer.getExceptions()).isEmpty();
-        assertFalse(rows.isEmpty(), "rows are empty");
+        assertThat(rows.isEmpty())
+                .describedAs("rows are empty")
+                .isFalse();
         assertThat(rows.getTotalRowsCount()).isEqualTo(1);
 
         List<List<Object>> allValues = getAllValues(rows);

@@ -15,6 +15,7 @@ package io.trino.plugin.hive;
 
 import io.trino.filesystem.Location;
 import io.trino.plugin.hive.LocationService.WriteInfo;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
@@ -22,7 +23,6 @@ import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_EXI
 import static io.trino.plugin.hive.LocationHandle.WriteMode.DIRECT_TO_TARGET_NEW_DIRECTORY;
 import static io.trino.plugin.hive.LocationHandle.WriteMode.STAGE_AND_MOVE_TO_TARGET_DIRECTORY;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestHiveLocationService
 {
@@ -86,9 +86,9 @@ public class TestHiveLocationService
 
         public void producesWriteInfo(WriteInfo expected)
         {
-            assertEquals(actual.writePath(), expected.writePath());
-            assertEquals(actual.targetPath(), expected.targetPath());
-            assertEquals(actual.writeMode(), expected.writeMode());
+            Assertions.assertThat(actual.writePath()).isEqualTo(expected.writePath());
+            Assertions.assertThat(actual.targetPath()).isEqualTo(expected.targetPath());
+            Assertions.assertThat(actual.writeMode()).isEqualTo(expected.writeMode());
         }
     }
 

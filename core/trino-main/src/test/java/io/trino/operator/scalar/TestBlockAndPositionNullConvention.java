@@ -40,7 +40,6 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -70,20 +69,20 @@ public class TestBlockAndPositionNullConvention
     {
         assertThat(assertions.function("test_block_position", "BIGINT '1234'"))
                 .isEqualTo(1234L);
-        assertTrue(FunctionWithBlockAndPositionConvention.hitBlockPositionBigint.get());
+        assertThat(FunctionWithBlockAndPositionConvention.hitBlockPositionBigint.get()).isTrue();
 
         assertThat(assertions.function("test_block_position", "12.34e0"))
                 .isEqualTo(12.34);
-        assertTrue(FunctionWithBlockAndPositionConvention.hitBlockPositionDouble.get());
+        assertThat(FunctionWithBlockAndPositionConvention.hitBlockPositionDouble.get()).isTrue();
 
         assertThat(assertions.function("test_block_position", "'hello'"))
                 .hasType(createVarcharType(5))
                 .isEqualTo("hello");
-        assertTrue(FunctionWithBlockAndPositionConvention.hitBlockPositionSlice.get());
+        assertThat(FunctionWithBlockAndPositionConvention.hitBlockPositionSlice.get()).isTrue();
 
         assertThat(assertions.function("test_block_position", "true"))
                 .isEqualTo(true);
-        assertTrue(FunctionWithBlockAndPositionConvention.hitBlockPositionBoolean.get());
+        assertThat(FunctionWithBlockAndPositionConvention.hitBlockPositionBoolean.get()).isTrue();
     }
 
     @ScalarFunction("test_block_position")
@@ -189,20 +188,20 @@ public class TestBlockAndPositionNullConvention
     {
         assertThat(assertions.function("test_value_block_position", "BIGINT '1234'"))
                 .isEqualTo(1234L);
-        assertTrue(FunctionWithValueBlockAndPositionConvention.hitBlockPositionBigint.get());
+        assertThat(FunctionWithValueBlockAndPositionConvention.hitBlockPositionBigint.get()).isTrue();
 
         assertThat(assertions.function("test_value_block_position", "12.34e0"))
                 .isEqualTo(12.34);
-        assertTrue(FunctionWithValueBlockAndPositionConvention.hitBlockPositionDouble.get());
+        assertThat(FunctionWithValueBlockAndPositionConvention.hitBlockPositionDouble.get()).isTrue();
 
         assertThat(assertions.function("test_value_block_position", "'hello'"))
                 .hasType(createVarcharType(5))
                 .isEqualTo("hello");
-        assertTrue(FunctionWithValueBlockAndPositionConvention.hitBlockPositionSlice.get());
+        assertThat(FunctionWithValueBlockAndPositionConvention.hitBlockPositionSlice.get()).isTrue();
 
         assertThat(assertions.function("test_value_block_position", "true"))
                 .isEqualTo(true);
-        assertTrue(FunctionWithValueBlockAndPositionConvention.hitBlockPositionBoolean.get());
+        assertThat(FunctionWithValueBlockAndPositionConvention.hitBlockPositionBoolean.get()).isTrue();
     }
 
     @ScalarFunction("test_value_block_position")

@@ -50,7 +50,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -281,40 +280,40 @@ public abstract class BaseIcebergMaterializedViewTest
         // 4. Select the data from refreshed materialized view, verify the number of rows in the result
         // 5. Ensure that the plan uses the storage table
         // 6. In some cases validate the result data
-        assertEquals(computeActual("SELECT * FROM materialized_view_no_part").getRowCount(), 6);
+        assertThat(computeActual("SELECT * FROM materialized_view_no_part").getRowCount()).isEqualTo(6);
         assertThat(getExplainPlan("SELECT * FROM materialized_view_no_part", ExplainType.Type.IO))
                 .contains("base_table1");
         assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_no_part", 6);
-        assertEquals(computeActual("SELECT * FROM materialized_view_no_part").getRowCount(), 6);
+        assertThat(computeActual("SELECT * FROM materialized_view_no_part").getRowCount()).isEqualTo(6);
         assertThat(getExplainPlan("SELECT * FROM materialized_view_no_part", ExplainType.Type.IO)).doesNotContain("base_table1");
 
-        assertEquals(computeActual("SELECT * FROM materialized_view_agg").getRowCount(), 3);
+        assertThat(computeActual("SELECT * FROM materialized_view_agg").getRowCount()).isEqualTo(3);
         assertThat(getExplainPlan("SELECT * FROM materialized_view_agg", ExplainType.Type.IO))
                 .contains("base_table1");
         assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_agg", 3);
-        assertEquals(computeActual("SELECT * FROM materialized_view_agg").getRowCount(), 3);
+        assertThat(computeActual("SELECT * FROM materialized_view_agg").getRowCount()).isEqualTo(3);
         assertThat(getExplainPlan("SELECT * FROM materialized_view_agg", ExplainType.Type.IO))
                 .doesNotContain("base_table1");
         assertQuery(session, "SELECT * FROM materialized_view_agg", "VALUES (DATE '2019-09-10', 2)," +
                 "(DATE '2019-09-08', 1), (DATE '2019-09-09', 3)");
 
-        assertEquals(computeActual("SELECT * FROM materialized_view_part").getRowCount(), 3);
+        assertThat(computeActual("SELECT * FROM materialized_view_part").getRowCount()).isEqualTo(3);
         assertThat(getExplainPlan("SELECT * FROM materialized_view_part", ExplainType.Type.IO))
                 .contains("base_table1");
         assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_part", 3);
-        assertEquals(computeActual("SELECT * FROM materialized_view_part").getRowCount(), 3);
+        assertThat(computeActual("SELECT * FROM materialized_view_part").getRowCount()).isEqualTo(3);
         assertThat(getExplainPlan("SELECT * FROM materialized_view_part", ExplainType.Type.IO)).doesNotContain("base_table1");
 
-        assertEquals(computeActual("SELECT * FROM materialized_view_join").getRowCount(), 5);
+        assertThat(computeActual("SELECT * FROM materialized_view_join").getRowCount()).isEqualTo(5);
         assertThat(getExplainPlan("SELECT * FROM materialized_view_join", ExplainType.Type.IO)).contains("base_table1", "base_table2");
         assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_join", 5);
-        assertEquals(computeActual("SELECT * FROM materialized_view_join").getRowCount(), 5);
+        assertThat(computeActual("SELECT * FROM materialized_view_join").getRowCount()).isEqualTo(5);
         assertThat(getExplainPlan("SELECT * FROM materialized_view_join", ExplainType.Type.IO)).doesNotContain("base_table1", "base_table2");
 
-        assertEquals(computeActual("SELECT * FROM materialized_view_join_part").getRowCount(), 4);
+        assertThat(computeActual("SELECT * FROM materialized_view_join_part").getRowCount()).isEqualTo(4);
         assertThat(getExplainPlan("SELECT * FROM materialized_view_join_part", ExplainType.Type.IO)).contains("base_table1", "base_table2");
         assertUpdate("REFRESH MATERIALIZED VIEW materialized_view_join_part", 4);
-        assertEquals(computeActual("SELECT * FROM materialized_view_join_part").getRowCount(), 4);
+        assertThat(computeActual("SELECT * FROM materialized_view_join_part").getRowCount()).isEqualTo(4);
         assertThat(getExplainPlan("SELECT * FROM materialized_view_join_part", ExplainType.Type.IO)).doesNotContain("base_table1", "base_table2");
         assertQuery(session, "SELECT * FROM materialized_view_join_part", "VALUES (2, 'a', DATE '2019-09-09', 1), " +
                 "(0, 'a', DATE '2019-09-08', 2), (3, 'a', DATE '2019-09-09', 1), (1, 'a', DATE '2019-09-09', 1)");

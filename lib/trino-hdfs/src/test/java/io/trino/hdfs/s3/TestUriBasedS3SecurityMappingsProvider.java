@@ -20,7 +20,7 @@ import org.junit.jupiter.api.Test;
 
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static io.airlift.http.client.testing.TestingResponse.mockResponse;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestUriBasedS3SecurityMappingsProvider
 {
@@ -34,6 +34,6 @@ public class TestUriBasedS3SecurityMappingsProvider
         S3SecurityMappingConfig conf = new S3SecurityMappingConfig().setConfigFilePath("http://test:1234/api/endpoint");
         UriBasedS3SecurityMappingsProvider provider = new UriBasedS3SecurityMappingsProvider(conf, new TestingHttpClient(request -> response));
         String result = provider.getRawJsonString();
-        assertEquals(result, MOCK_MAPPINGS_RESPONSE);
+        assertThat(result).isEqualTo(MOCK_MAPPINGS_RESPONSE);
     }
 }

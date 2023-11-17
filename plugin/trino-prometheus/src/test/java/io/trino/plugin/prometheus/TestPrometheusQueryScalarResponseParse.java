@@ -22,9 +22,7 @@ import java.net.URL;
 import java.util.List;
 
 import static java.time.Instant.ofEpochMilli;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPrometheusQueryScalarResponseParse
 {
@@ -33,7 +31,7 @@ public class TestPrometheusQueryScalarResponseParse
             throws IOException
     {
         try (InputStream promVectorResponse = openStream()) {
-            assertTrue(new PrometheusQueryResponseParse(promVectorResponse).getStatus());
+            assertThat(new PrometheusQueryResponseParse(promVectorResponse).getStatus()).isTrue();
         }
     }
 
@@ -43,7 +41,7 @@ public class TestPrometheusQueryScalarResponseParse
     {
         try (InputStream promVectorResponse = openStream()) {
             List<PrometheusMetricResult> results = new PrometheusQueryResponseParse(promVectorResponse).getResults();
-            assertEquals(results.get(0).getMetricHeader().get("__name__"), "scalar");
+            assertThat(results.get(0).getMetricHeader().get("__name__")).isEqualTo("scalar");
         }
     }
 
@@ -53,7 +51,7 @@ public class TestPrometheusQueryScalarResponseParse
     {
         try (InputStream promVectorResponse = openStream()) {
             List<PrometheusMetricResult> results = new PrometheusQueryResponseParse(promVectorResponse).getResults();
-            assertEquals(results.get(0).getTimeSeriesValues().getValues().get(0).getTimestamp(), ofEpochMilli(1566306405073L));
+            assertThat(results.get(0).getTimeSeriesValues().getValues().get(0).getTimestamp()).isEqualTo(ofEpochMilli(1566306405073L));
         }
     }
 
@@ -63,7 +61,7 @@ public class TestPrometheusQueryScalarResponseParse
     {
         try (InputStream promVectorResponse = openStream()) {
             List<PrometheusMetricResult> results = new PrometheusQueryResponseParse(promVectorResponse).getResults();
-            assertEquals(results.get(0).getTimeSeriesValues().getValues().get(0).getValue(), "1");
+            assertThat(results.get(0).getTimeSeriesValues().getValues().get(0).getValue()).isEqualTo("1");
         }
     }
 
@@ -71,7 +69,9 @@ public class TestPrometheusQueryScalarResponseParse
             throws IOException
     {
         URL promMatrixResponse = Resources.getResource(TestPrometheusQueryScalarResponseParse.class, "/prometheus-data/up_scalar_response.json");
-        assertNotNull(promMatrixResponse, "metadataUrl is null");
+        assertThat(promMatrixResponse)
+                .describedAs("metadataUrl is null")
+                .isNotNull();
         return promMatrixResponse.openStream();
     }
 }

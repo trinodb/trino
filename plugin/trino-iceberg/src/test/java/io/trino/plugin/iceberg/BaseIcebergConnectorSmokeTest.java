@@ -59,8 +59,6 @@ import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 public abstract class BaseIcebergConnectorSmokeTest
@@ -166,7 +164,7 @@ public abstract class BaseIcebergConnectorSmokeTest
         }
         finally {
             executor.shutdownNow();
-            assertTrue(executor.awaitTermination(10, SECONDS));
+            assertThat(executor.awaitTermination(10, SECONDS)).isTrue();
         }
     }
 
@@ -524,7 +522,7 @@ public abstract class BaseIcebergConnectorSmokeTest
                 "WITH (sorted_by = ARRAY['comment'], format = '" + format.name() + "') AS SELECT * FROM nation WITH NO DATA")) {
             assertUpdate(withSmallRowGroups, "INSERT INTO " + table.getName() + " SELECT * FROM nation", 25);
             for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
-                assertTrue(isFileSorted(Location.of((String) filePath), "comment"));
+                assertThat(isFileSorted(Location.of((String) filePath), "comment")).isTrue();
             }
             assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM nation");
         }
@@ -544,7 +542,7 @@ public abstract class BaseIcebergConnectorSmokeTest
                     "INSERT INTO " + table.getName() + " TABLE tpch.tiny.lineitem",
                     "VALUES 60175");
             for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
-                assertTrue(isFileSorted(Location.of((String) filePath), "comment"));
+                assertThat(isFileSorted(Location.of((String) filePath), "comment")).isTrue();
             }
             assertQuery("SELECT * FROM " + table.getName(), "SELECT * FROM lineitem");
         }
@@ -562,12 +560,16 @@ public abstract class BaseIcebergConnectorSmokeTest
 
         // Delete current metadata file
         fileSystem.deleteFile(metadataLocation);
-        assertFalse(fileSystem.newInputFile(metadataLocation).exists(), "Current metadata file should not exist");
+        assertThat(fileSystem.newInputFile(metadataLocation).exists())
+                .describedAs("Current metadata file should not exist")
+                .isFalse();
 
         // try to drop table
         assertUpdate("DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-        assertFalse(fileSystem.listFiles(tableLocation).hasNext(), "Table location should not exist");
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        assertThat(fileSystem.listFiles(tableLocation).hasNext())
+                .describedAs("Table location should not exist")
+                .isFalse();
     }
 
     @Test
@@ -584,12 +586,16 @@ public abstract class BaseIcebergConnectorSmokeTest
 
         // Delete current snapshot file
         fileSystem.deleteFile(currentSnapshotFile);
-        assertFalse(fileSystem.newInputFile(currentSnapshotFile).exists(), "Current snapshot file should not exist");
+        assertThat(fileSystem.newInputFile(currentSnapshotFile).exists())
+                .describedAs("Current snapshot file should not exist")
+                .isFalse();
 
         // try to drop table
         assertUpdate("DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-        assertFalse(fileSystem.listFiles(tableLocation).hasNext(), "Table location should not exist");
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        assertThat(fileSystem.listFiles(tableLocation).hasNext())
+                .describedAs("Table location should not exist")
+                .isFalse();
     }
 
     @Test
@@ -607,12 +613,16 @@ public abstract class BaseIcebergConnectorSmokeTest
 
         // Delete Manifest List file
         fileSystem.deleteFile(manifestListFile);
-        assertFalse(fileSystem.newInputFile(manifestListFile).exists(), "Manifest list file should not exist");
+        assertThat(fileSystem.newInputFile(manifestListFile).exists())
+                .describedAs("Manifest list file should not exist")
+                .isFalse();
 
         // try to drop table
         assertUpdate("DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-        assertFalse(fileSystem.listFiles(tableLocation).hasNext(), "Table location should not exist");
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        assertThat(fileSystem.listFiles(tableLocation).hasNext())
+                .describedAs("Table location should not exist")
+                .isFalse();
     }
 
     @Test
@@ -626,17 +636,21 @@ public abstract class BaseIcebergConnectorSmokeTest
         Location tableLocation = Location.of(getTableLocation(tableName));
         Location tableDataPath = tableLocation.appendPath("data");
         FileIterator fileIterator = fileSystem.listFiles(tableDataPath);
-        assertTrue(fileIterator.hasNext());
+        assertThat(fileIterator.hasNext()).isTrue();
         Location dataFile = fileIterator.next().location();
 
         // Delete data file
         fileSystem.deleteFile(dataFile);
-        assertFalse(fileSystem.newInputFile(dataFile).exists(), "Data file should not exist");
+        assertThat(fileSystem.newInputFile(dataFile).exists())
+                .describedAs("Data file should not exist")
+                .isFalse();
 
         // try to drop table
         assertUpdate("DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-        assertFalse(fileSystem.listFiles(tableLocation).hasNext(), "Table location should not exist");
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        assertThat(fileSystem.listFiles(tableLocation).hasNext())
+                .describedAs("Table location should not exist")
+                .isFalse();
     }
 
     @Test
@@ -651,11 +665,13 @@ public abstract class BaseIcebergConnectorSmokeTest
 
         // Delete table location
         fileSystem.deleteDirectory(tableLocation);
-        assertFalse(fileSystem.listFiles(tableLocation).hasNext(), "Table location should not exist");
+        assertThat(fileSystem.listFiles(tableLocation).hasNext())
+                .describedAs("Table location should not exist")
+                .isFalse();
 
         // try to drop table
         assertUpdate("DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
     }
 
     // Verify the accuracy of Trino metadata tables while retrieving Iceberg table metadata from the underlying `TrinoCatalog` implementation

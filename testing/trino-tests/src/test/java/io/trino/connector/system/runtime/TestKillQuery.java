@@ -42,9 +42,9 @@ import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertFalse;
 
 @TestInstance(PER_CLASS)
 public class TestKillQuery
@@ -101,7 +101,7 @@ public class TestKillQuery
         }
         String queryId = queryIdValue.get().toString();
 
-        assertFalse(queryFuture.isDone());
+        assertThat(queryFuture.isDone()).isFalse();
 
         getQueryRunner().getAccessControl().deny(privilege("query", KILL_QUERY));
         try {

@@ -29,7 +29,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.StandardTypes.ROW;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRowParametricType
 {
@@ -45,6 +45,6 @@ public class TestRowParametricType
                 .collect(Collectors.toList());
         Type rowType = RowParametricType.ROW.createType(TESTING_TYPE_MANAGER, parameters);
 
-        assertEquals(rowType.getTypeSignature(), typeSignature);
+        assertThat(rowType.getTypeSignature()).isEqualTo(typeSignature);
     }
 }

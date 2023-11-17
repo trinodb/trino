@@ -23,7 +23,6 @@ import org.junit.jupiter.api.Test;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.type.IpAddressType.IPADDRESS;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestIpAddressType
         extends AbstractTestType
@@ -66,7 +65,7 @@ public class TestIpAddressType
     @Test
     public void testDisplayName()
     {
-        assertEquals((IPADDRESS).getDisplayName(), "ipaddress");
+        assertThat((IPADDRESS).getDisplayName()).isEqualTo("ipaddress");
     }
 
     private static Slice getSliceForAddress(String address)

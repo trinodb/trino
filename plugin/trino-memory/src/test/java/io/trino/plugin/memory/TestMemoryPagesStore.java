@@ -34,12 +34,10 @@ import java.util.OptionalLong;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingPageSinkId.TESTING_PAGE_SINK_ID;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_METHOD)
 @Execution(SAME_THREAD)
@@ -61,7 +59,7 @@ public class TestMemoryPagesStore
     public void testCreateEmptyTable()
     {
         createTable(0L, 0L);
-        assertEquals(pagesStore.getPages(0L, 0, 1, new int[] {0}, 0, OptionalLong.empty(), OptionalDouble.empty()), ImmutableList.of());
+        assertThat(pagesStore.getPages(0L, 0, 1, new int[] {0}, 0, OptionalLong.empty(), OptionalDouble.empty())).isEqualTo(ImmutableList.of());
     }
 
     @Test
@@ -69,14 +67,14 @@ public class TestMemoryPagesStore
     {
         createTable(0L, 0L);
         insertToTable(0L, 0L);
-        assertEquals(pagesStore.getPages(0L, 0, 1, new int[] {0}, POSITIONS_PER_PAGE, OptionalLong.empty(), OptionalDouble.empty()).size(), 1);
+        assertThat(pagesStore.getPages(0L, 0, 1, new int[] {0}, POSITIONS_PER_PAGE, OptionalLong.empty(), OptionalDouble.empty()).size()).isEqualTo(1);
     }
 
     @Test
     public void testInsertPageWithoutCreate()
     {
         insertToTable(0L, 0L);
-        assertEquals(pagesStore.getPages(0L, 0, 1, new int[] {0}, POSITIONS_PER_PAGE, OptionalLong.empty(), OptionalDouble.empty()).size(), 1);
+        assertThat(pagesStore.getPages(0L, 0, 1, new int[] {0}, POSITIONS_PER_PAGE, OptionalLong.empty(), OptionalDouble.empty()).size()).isEqualTo(1);
     }
 
     @Test
@@ -92,7 +90,7 @@ public class TestMemoryPagesStore
     public void testTryToReadFromEmptyTable()
     {
         createTable(0L, 0L);
-        assertEquals(pagesStore.getPages(0L, 0, 1, new int[] {0}, 0, OptionalLong.empty(), OptionalDouble.empty()), ImmutableList.of());
+        assertThat(pagesStore.getPages(0L, 0, 1, new int[] {0}, 0, OptionalLong.empty(), OptionalDouble.empty())).isEqualTo(ImmutableList.of());
         assertThatThrownBy(() -> pagesStore.getPages(0L, 0, 1, new int[] {0}, 42, OptionalLong.empty(), OptionalDouble.empty()))
                 .isInstanceOf(TrinoException.class)
                 .hasMessageMatching("Expected to find.*");
@@ -105,21 +103,21 @@ public class TestMemoryPagesStore
         createTable(1L, 0L, 1L);
         createTable(2L, 0L, 1L, 2L);
 
-        assertTrue(pagesStore.contains(0L));
-        assertTrue(pagesStore.contains(1L));
-        assertTrue(pagesStore.contains(2L));
+        assertThat(pagesStore.contains(0L)).isTrue();
+        assertThat(pagesStore.contains(1L)).isTrue();
+        assertThat(pagesStore.contains(2L)).isTrue();
 
         insertToTable(1L, 0L, 1L);
 
-        assertTrue(pagesStore.contains(0L));
-        assertTrue(pagesStore.contains(1L));
-        assertTrue(pagesStore.contains(2L));
+        assertThat(pagesStore.contains(0L)).isTrue();
+        assertThat(pagesStore.contains(1L)).isTrue();
+        assertThat(pagesStore.contains(2L)).isTrue();
 
         insertToTable(2L, 0L, 2L);
 
-        assertTrue(pagesStore.contains(0L));
-        assertFalse(pagesStore.contains(1L));
-        assertTrue(pagesStore.contains(2L));
+        assertThat(pagesStore.contains(0L)).isTrue();
+        assertThat(pagesStore.contains(1L)).isFalse();
+        assertThat(pagesStore.contains(2L)).isTrue();
     }
 
     @Test

@@ -29,10 +29,6 @@ import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -59,14 +55,14 @@ public class TestPrometheusCaseInsensitiveNameMatching
 
         Set<String> tableNames = client.getTableNames(DEFAULT_SCHEMA);
         assertThat(tableNames).hasSize(1);
-        assertTrue(tableNames.contains(UPPER_CASE_METRIC));
+        assertThat(tableNames.contains(UPPER_CASE_METRIC)).isTrue();
 
         PrometheusMetadata metadata = new PrometheusMetadata(client);
         List<SchemaTableName> tables = metadata.listTables(null, Optional.of(DEFAULT_SCHEMA));
         assertThat(tableNames).hasSize(1);
-        assertEquals(UPPER_CASE_METRIC.toLowerCase(ENGLISH), tables.get(0).getTableName());
+        assertThat(UPPER_CASE_METRIC.toLowerCase(ENGLISH)).isEqualTo(tables.get(0).getTableName());
 
-        assertNull(client.getTable(DEFAULT_SCHEMA, tables.get(0).getTableName()));
+        assertThat(client.getTable(DEFAULT_SCHEMA, tables.get(0).getTableName())).isNull();
     }
 
     @Test
@@ -80,15 +76,15 @@ public class TestPrometheusCaseInsensitiveNameMatching
 
         Set<String> tableNames = client.getTableNames(DEFAULT_SCHEMA);
         assertThat(tableNames).hasSize(1);
-        assertTrue(tableNames.contains(UPPER_CASE_METRIC));
+        assertThat(tableNames.contains(UPPER_CASE_METRIC)).isTrue();
 
         PrometheusMetadata metadata = new PrometheusMetadata(client);
         List<SchemaTableName> tables = metadata.listTables(null, Optional.of(DEFAULT_SCHEMA));
         assertThat(tableNames).hasSize(1);
         SchemaTableName table = tables.get(0);
-        assertEquals(UPPER_CASE_METRIC.toLowerCase(ENGLISH), table.getTableName());
+        assertThat(UPPER_CASE_METRIC.toLowerCase(ENGLISH)).isEqualTo(table.getTableName());
 
-        assertNotNull(client.getTable(DEFAULT_SCHEMA, tables.get(0).getTableName()));
-        assertEquals(UPPER_CASE_METRIC, client.getTable(DEFAULT_SCHEMA, tables.get(0).getTableName()).getName());
+        assertThat(client.getTable(DEFAULT_SCHEMA, tables.get(0).getTableName())).isNotNull();
+        assertThat(UPPER_CASE_METRIC).isEqualTo(client.getTable(DEFAULT_SCHEMA, tables.get(0).getTableName()).getName());
     }
 }

@@ -47,11 +47,10 @@ import static io.trino.orc.OrcTester.writeOrcColumnsHiveFile;
 import static io.trino.orc.metadata.CompressionKind.ZLIB;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Fail.fail;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.fail;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -140,9 +139,9 @@ public class TestCachingOrcDataSource
                         maxMergeDistance,
                         tinyStripeThreshold));
         cachingOrcDataSource.readCacheAt(3);
-        assertEquals(testingOrcDataSource.getLastReadRanges(), ImmutableList.of(new DiskRange(3, 60)));
+        assertThat(testingOrcDataSource.getLastReadRanges()).isEqualTo(ImmutableList.of(new DiskRange(3, 60)));
         cachingOrcDataSource.readCacheAt(63);
-        assertEquals(testingOrcDataSource.getLastReadRanges(), ImmutableList.of(new DiskRange(63, 8 * 1048576)));
+        assertThat(testingOrcDataSource.getLastReadRanges()).isEqualTo(ImmutableList.of(new DiskRange(63, 8 * 1048576)));
 
         testingOrcDataSource = new TestingOrcDataSource(FakeOrcDataSource.INSTANCE);
         cachingOrcDataSource = new CachingOrcDataSource(
@@ -152,9 +151,9 @@ public class TestCachingOrcDataSource
                         maxMergeDistance,
                         tinyStripeThreshold));
         cachingOrcDataSource.readCacheAt(62); // read at the end of a stripe
-        assertEquals(testingOrcDataSource.getLastReadRanges(), ImmutableList.of(new DiskRange(3, 60)));
+        assertThat(testingOrcDataSource.getLastReadRanges()).isEqualTo(ImmutableList.of(new DiskRange(3, 60)));
         cachingOrcDataSource.readCacheAt(63);
-        assertEquals(testingOrcDataSource.getLastReadRanges(), ImmutableList.of(new DiskRange(63, 8 * 1048576)));
+        assertThat(testingOrcDataSource.getLastReadRanges()).isEqualTo(ImmutableList.of(new DiskRange(63, 8 * 1048576)));
 
         testingOrcDataSource = new TestingOrcDataSource(FakeOrcDataSource.INSTANCE);
         cachingOrcDataSource = new CachingOrcDataSource(
@@ -164,9 +163,9 @@ public class TestCachingOrcDataSource
                         maxMergeDistance,
                         tinyStripeThreshold));
         cachingOrcDataSource.readCacheAt(3);
-        assertEquals(testingOrcDataSource.getLastReadRanges(), ImmutableList.of(new DiskRange(3, 1 + 1048576 * 5)));
+        assertThat(testingOrcDataSource.getLastReadRanges()).isEqualTo(ImmutableList.of(new DiskRange(3, 1 + 1048576 * 5)));
         cachingOrcDataSource.readCacheAt(4 + 1048576 * 5);
-        assertEquals(testingOrcDataSource.getLastReadRanges(), ImmutableList.of(new DiskRange(4 + 1048576 * 5, 3 * 1048576)));
+        assertThat(testingOrcDataSource.getLastReadRanges()).isEqualTo(ImmutableList.of(new DiskRange(4 + 1048576 * 5, 3 * 1048576)));
     }
 
     @Test
@@ -176,12 +175,12 @@ public class TestCachingOrcDataSource
         // tiny file
         TestingOrcDataSource orcDataSource = new TestingOrcDataSource(new FileOrcDataSource(tempFile.getFile(), READER_OPTIONS));
         doIntegration(orcDataSource, DataSize.of(1, Unit.MEGABYTE), DataSize.of(1, Unit.MEGABYTE));
-        assertEquals(orcDataSource.getReadCount(), 1); // read entire file at once
+        assertThat(orcDataSource.getReadCount()).isEqualTo(1); // read entire file at once
 
         // tiny stripes
         orcDataSource = new TestingOrcDataSource(new FileOrcDataSource(tempFile.getFile(), READER_OPTIONS));
         doIntegration(orcDataSource, DataSize.of(400, Unit.KILOBYTE), DataSize.of(400, Unit.KILOBYTE));
-        assertEquals(orcDataSource.getReadCount(), 3); // footer, first few stripes, last few stripes
+        assertThat(orcDataSource.getReadCount()).isEqualTo(3); // footer, first few stripes, last few stripes
     }
 
     private void doIntegration(TestingOrcDataSource orcDataSource, DataSize maxMergeDistance, DataSize tinyStripeThreshold)
@@ -194,7 +193,7 @@ public class TestCachingOrcDataSource
         OrcReader orcReader = OrcReader.createOrcReader(orcDataSource, options)
                 .orElseThrow(() -> new RuntimeException("File is empty"));
         // 1 for reading file footer
-        assertEquals(orcDataSource.getReadCount(), 1);
+        assertThat(orcDataSource.getReadCount()).isEqualTo(1);
         List<StripeInformation> stripes = orcReader.getFooter().getStripes();
         // Sanity check number of stripes. This can be three or higher because of orc writer low memory mode.
         assertGreaterThanOrEqual(stripes.size(), 3);
@@ -219,13 +218,17 @@ public class TestCachingOrcDataSource
             Block block = page.getBlock(0);
             positionCount += block.getPositionCount();
         }
-        assertEquals(positionCount, POSITION_COUNT);
+        assertThat(positionCount).isEqualTo(POSITION_COUNT);
     }
 
     private static <T, U extends T> void assertNotInstanceOf(T actual, Class<U> expectedType)
     {
-        assertNotNull(actual, "actual is null");
-        assertNotNull(expectedType, "expectedType is null");
+        assertThat(actual)
+                .describedAs("actual is null")
+                .isNotNull();
+        assertThat(expectedType)
+                .describedAs("expectedType is null")
+                .isNotNull();
         if (expectedType.isInstance(actual)) {
             fail(format("expected:<%s> to not be an instance of <%s>", actual, expectedType.getName()));
         }

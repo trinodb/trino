@@ -77,8 +77,6 @@ import static io.trino.tpch.TpchTable.NATION;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 public class TestIcebergSplitSource
@@ -223,7 +221,7 @@ public class TestIcebergSplitSource
                         .forEach(splits::add);
             }
             assertThat(splits.build().size()).isGreaterThan(0);
-            assertTrue(splitSource.isFinished());
+            assertThat(splitSource.isFinished()).isTrue();
             assertThat(System.currentTimeMillis() - startMillis)
                     .as("IcebergSplitSource failed to wait for dynamicFilteringWaitTimeout")
                     .isGreaterThanOrEqualTo(2000);
@@ -239,18 +237,18 @@ public class TestIcebergSplitSource
                 ImmutableList.of(),
                 BIGINT,
                 Optional.empty());
-        assertFalse(IcebergSplitSource.partitionMatchesPredicate(
+        assertThat(IcebergSplitSource.partitionMatchesPredicate(
                 ImmutableSet.of(bigintColumn),
                 () -> ImmutableMap.of(bigintColumn, NullableValue.of(BIGINT, 1000L)),
-                TupleDomain.fromFixedValues(ImmutableMap.of(bigintColumn, NullableValue.of(BIGINT, 100L)))));
-        assertTrue(IcebergSplitSource.partitionMatchesPredicate(
+                TupleDomain.fromFixedValues(ImmutableMap.of(bigintColumn, NullableValue.of(BIGINT, 100L))))).isFalse();
+        assertThat(IcebergSplitSource.partitionMatchesPredicate(
                 ImmutableSet.of(bigintColumn),
                 () -> ImmutableMap.of(bigintColumn, NullableValue.of(BIGINT, 1000L)),
-                TupleDomain.fromFixedValues(ImmutableMap.of(bigintColumn, NullableValue.of(BIGINT, 1000L)))));
-        assertFalse(IcebergSplitSource.partitionMatchesPredicate(
+                TupleDomain.fromFixedValues(ImmutableMap.of(bigintColumn, NullableValue.of(BIGINT, 1000L))))).isTrue();
+        assertThat(IcebergSplitSource.partitionMatchesPredicate(
                 ImmutableSet.of(bigintColumn),
                 () -> ImmutableMap.of(bigintColumn, NullableValue.of(BIGINT, 1000L)),
-                TupleDomain.fromFixedValues(ImmutableMap.of(bigintColumn, NullableValue.asNull(BIGINT)))));
+                TupleDomain.fromFixedValues(ImmutableMap.of(bigintColumn, NullableValue.asNull(BIGINT))))).isFalse();
     }
 
     @Test
@@ -266,92 +264,92 @@ public class TestIcebergSplitSource
         Map<Integer, ByteBuffer> lowerBound = ImmutableMap.of(1, Conversions.toByteBuffer(Types.LongType.get(), 1000L));
         Map<Integer, ByteBuffer> upperBound = ImmutableMap.of(1, Conversions.toByteBuffer(Types.LongType.get(), 2000L));
 
-        assertFalse(IcebergSplitSource.fileMatchesPredicate(
+        assertThat(IcebergSplitSource.fileMatchesPredicate(
                 primitiveTypes,
                 TupleDomain.fromFixedValues(ImmutableMap.of(bigintColumn, NullableValue.of(BIGINT, 0L))),
                 lowerBound,
                 upperBound,
-                ImmutableMap.of(1, 0L)));
-        assertTrue(IcebergSplitSource.fileMatchesPredicate(
+                ImmutableMap.of(1, 0L))).isFalse();
+        assertThat(IcebergSplitSource.fileMatchesPredicate(
                 primitiveTypes,
                 TupleDomain.fromFixedValues(ImmutableMap.of(bigintColumn, NullableValue.of(BIGINT, 1000L))),
                 lowerBound,
                 upperBound,
-                ImmutableMap.of(1, 0L)));
-        assertTrue(IcebergSplitSource.fileMatchesPredicate(
+                ImmutableMap.of(1, 0L))).isTrue();
+        assertThat(IcebergSplitSource.fileMatchesPredicate(
                 primitiveTypes,
                 TupleDomain.fromFixedValues(ImmutableMap.of(bigintColumn, NullableValue.of(BIGINT, 1500L))),
                 lowerBound,
                 upperBound,
-                ImmutableMap.of(1, 0L)));
-        assertTrue(IcebergSplitSource.fileMatchesPredicate(
+                ImmutableMap.of(1, 0L))).isTrue();
+        assertThat(IcebergSplitSource.fileMatchesPredicate(
                 primitiveTypes,
                 TupleDomain.fromFixedValues(ImmutableMap.of(bigintColumn, NullableValue.of(BIGINT, 2000L))),
                 lowerBound,
                 upperBound,
-                ImmutableMap.of(1, 0L)));
-        assertFalse(IcebergSplitSource.fileMatchesPredicate(
+                ImmutableMap.of(1, 0L))).isTrue();
+        assertThat(IcebergSplitSource.fileMatchesPredicate(
                 primitiveTypes,
                 TupleDomain.fromFixedValues(ImmutableMap.of(bigintColumn, NullableValue.of(BIGINT, 3000L))),
                 lowerBound,
                 upperBound,
-                ImmutableMap.of(1, 0L)));
+                ImmutableMap.of(1, 0L))).isFalse();
 
         Domain outsideStatisticsRangeAllowNulls = Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 0L, true, 100L, true)), true);
-        assertFalse(IcebergSplitSource.fileMatchesPredicate(
+        assertThat(IcebergSplitSource.fileMatchesPredicate(
                 primitiveTypes,
                 TupleDomain.withColumnDomains(ImmutableMap.of(bigintColumn, outsideStatisticsRangeAllowNulls)),
                 lowerBound,
                 upperBound,
-                ImmutableMap.of(1, 0L)));
-        assertTrue(IcebergSplitSource.fileMatchesPredicate(
+                ImmutableMap.of(1, 0L))).isFalse();
+        assertThat(IcebergSplitSource.fileMatchesPredicate(
                 primitiveTypes,
                 TupleDomain.withColumnDomains(ImmutableMap.of(bigintColumn, outsideStatisticsRangeAllowNulls)),
                 lowerBound,
                 upperBound,
-                ImmutableMap.of(1, 1L)));
+                ImmutableMap.of(1, 1L))).isTrue();
 
         Domain outsideStatisticsRangeNoNulls = Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 0L, true, 100L, true)), false);
-        assertFalse(IcebergSplitSource.fileMatchesPredicate(
+        assertThat(IcebergSplitSource.fileMatchesPredicate(
                 primitiveTypes,
                 TupleDomain.withColumnDomains(ImmutableMap.of(bigintColumn, outsideStatisticsRangeNoNulls)),
                 lowerBound,
                 upperBound,
-                ImmutableMap.of(1, 0L)));
-        assertFalse(IcebergSplitSource.fileMatchesPredicate(
+                ImmutableMap.of(1, 0L))).isFalse();
+        assertThat(IcebergSplitSource.fileMatchesPredicate(
                 primitiveTypes,
                 TupleDomain.withColumnDomains(ImmutableMap.of(bigintColumn, outsideStatisticsRangeNoNulls)),
                 lowerBound,
                 upperBound,
-                ImmutableMap.of(1, 1L)));
+                ImmutableMap.of(1, 1L))).isFalse();
 
         Domain insideStatisticsRange = Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1001L, true, 1002L, true)), false);
-        assertTrue(IcebergSplitSource.fileMatchesPredicate(
+        assertThat(IcebergSplitSource.fileMatchesPredicate(
                 primitiveTypes,
                 TupleDomain.withColumnDomains(ImmutableMap.of(bigintColumn, insideStatisticsRange)),
                 lowerBound,
                 upperBound,
-                ImmutableMap.of(1, 0L)));
-        assertTrue(IcebergSplitSource.fileMatchesPredicate(
+                ImmutableMap.of(1, 0L))).isTrue();
+        assertThat(IcebergSplitSource.fileMatchesPredicate(
                 primitiveTypes,
                 TupleDomain.withColumnDomains(ImmutableMap.of(bigintColumn, insideStatisticsRange)),
                 lowerBound,
                 upperBound,
-                ImmutableMap.of(1, 1L)));
+                ImmutableMap.of(1, 1L))).isTrue();
 
         Domain overlappingStatisticsRange = Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 990L, true, 1010L, true)), false);
-        assertTrue(IcebergSplitSource.fileMatchesPredicate(
+        assertThat(IcebergSplitSource.fileMatchesPredicate(
                 primitiveTypes,
                 TupleDomain.withColumnDomains(ImmutableMap.of(bigintColumn, overlappingStatisticsRange)),
                 lowerBound,
                 upperBound,
-                ImmutableMap.of(1, 0L)));
-        assertTrue(IcebergSplitSource.fileMatchesPredicate(
+                ImmutableMap.of(1, 0L))).isTrue();
+        assertThat(IcebergSplitSource.fileMatchesPredicate(
                 primitiveTypes,
                 TupleDomain.withColumnDomains(ImmutableMap.of(bigintColumn, overlappingStatisticsRange)),
                 lowerBound,
                 upperBound,
-                ImmutableMap.of(1, 1L)));
+                ImmutableMap.of(1, 1L))).isTrue();
     }
 
     @Test
@@ -368,44 +366,44 @@ public class TestIcebergSplitSource
         Map<Integer, ByteBuffer> upperBound = ImmutableMap.of(1, Conversions.toByteBuffer(Types.LongType.get(), 2000L));
         TupleDomain<IcebergColumnHandle> domainOfZero = TupleDomain.fromFixedValues(ImmutableMap.of(bigintColumn, NullableValue.of(BIGINT, 0L)));
 
-        assertTrue(IcebergSplitSource.fileMatchesPredicate(
+        assertThat(IcebergSplitSource.fileMatchesPredicate(
                 primitiveTypes,
                 domainOfZero,
                 null,
                 upperBound,
-                ImmutableMap.of(1, 0L)));
-        assertTrue(IcebergSplitSource.fileMatchesPredicate(
+                ImmutableMap.of(1, 0L))).isTrue();
+        assertThat(IcebergSplitSource.fileMatchesPredicate(
                 primitiveTypes,
                 domainOfZero,
                 ImmutableMap.of(),
                 upperBound,
-                ImmutableMap.of(1, 0L)));
+                ImmutableMap.of(1, 0L))).isTrue();
 
-        assertTrue(IcebergSplitSource.fileMatchesPredicate(
+        assertThat(IcebergSplitSource.fileMatchesPredicate(
                 primitiveTypes,
                 domainOfZero,
                 lowerBound,
                 null,
-                ImmutableMap.of(1, 0L)));
-        assertTrue(IcebergSplitSource.fileMatchesPredicate(
+                ImmutableMap.of(1, 0L))).isTrue();
+        assertThat(IcebergSplitSource.fileMatchesPredicate(
                 primitiveTypes,
                 domainOfZero,
                 lowerBound,
                 ImmutableMap.of(),
-                ImmutableMap.of(1, 0L)));
+                ImmutableMap.of(1, 0L))).isTrue();
 
         TupleDomain<IcebergColumnHandle> onlyNull = TupleDomain.withColumnDomains(ImmutableMap.of(bigintColumn, Domain.onlyNull(BIGINT)));
-        assertTrue(IcebergSplitSource.fileMatchesPredicate(
+        assertThat(IcebergSplitSource.fileMatchesPredicate(
                 primitiveTypes,
                 onlyNull,
                 ImmutableMap.of(),
                 ImmutableMap.of(),
-                null));
-        assertTrue(IcebergSplitSource.fileMatchesPredicate(
+                null)).isTrue();
+        assertThat(IcebergSplitSource.fileMatchesPredicate(
                 primitiveTypes,
                 onlyNull,
                 ImmutableMap.of(),
                 ImmutableMap.of(),
-                ImmutableMap.of()));
+                ImmutableMap.of())).isTrue();
     }
 }
