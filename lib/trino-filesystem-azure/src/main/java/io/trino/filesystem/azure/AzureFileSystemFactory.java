@@ -15,9 +15,12 @@ package io.trino.filesystem.azure;
 
 import com.azure.core.http.HttpClient;
 import com.azure.core.http.okhttp.OkHttpAsyncClientProvider;
+import com.azure.core.tracing.opentelemetry.OpenTelemetryTracingOptions;
 import com.azure.core.util.HttpClientOptions;
+import com.azure.core.util.TracingOptions;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
+import io.opentelemetry.api.OpenTelemetry;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
@@ -33,12 +36,13 @@ public class AzureFileSystemFactory
     private final DataSize writeBlockSize;
     private final int maxWriteConcurrency;
     private final DataSize maxSingleUploadSize;
+    private final TracingOptions tracingOptions;
     private final HttpClient httpClient;
 
     @Inject
-    public AzureFileSystemFactory(AzureAuth azureAuth, AzureFileSystemConfig config)
+    public AzureFileSystemFactory(OpenTelemetry openTelemetry, AzureAuth azureAuth, AzureFileSystemConfig config)
     {
-        this(
+        this(openTelemetry,
                 azureAuth,
                 config.getReadBlockSize(),
                 config.getWriteBlockSize(),
@@ -46,7 +50,13 @@ public class AzureFileSystemFactory
                 config.getMaxSingleUploadSize());
     }
 
-    public AzureFileSystemFactory(AzureAuth azureAuth, DataSize readBlockSize, DataSize writeBlockSize, int maxWriteConcurrency, DataSize maxSingleUploadSize)
+    public AzureFileSystemFactory(
+            OpenTelemetry openTelemetry,
+            AzureAuth azureAuth,
+            DataSize readBlockSize,
+            DataSize writeBlockSize,
+            int maxWriteConcurrency,
+            DataSize maxSingleUploadSize)
     {
         this.auth = requireNonNull(azureAuth, "azureAuth is null");
         this.readBlockSize = requireNonNull(readBlockSize, "readBlockSize is null");
@@ -54,12 +64,15 @@ public class AzureFileSystemFactory
         checkArgument(maxWriteConcurrency >= 0, "maxWriteConcurrency is negative");
         this.maxWriteConcurrency = maxWriteConcurrency;
         this.maxSingleUploadSize = requireNonNull(maxSingleUploadSize, "maxSingleUploadSize is null");
-        this.httpClient = HttpClient.createDefault(new HttpClientOptions().setHttpClientProvider(OkHttpAsyncClientProvider.class));
+        this.tracingOptions = new OpenTelemetryTracingOptions().setOpenTelemetry(openTelemetry);
+        this.httpClient = HttpClient.createDefault((HttpClientOptions) new HttpClientOptions()
+                .setHttpClientProvider(OkHttpAsyncClientProvider.class)
+                .setTracingOptions(tracingOptions));
     }
 
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
-        return new AzureFileSystem(httpClient, auth, readBlockSize, writeBlockSize, maxWriteConcurrency, maxSingleUploadSize);
+        return new AzureFileSystem(httpClient, tracingOptions, auth, readBlockSize, writeBlockSize, maxWriteConcurrency, maxSingleUploadSize);
     }
 }
