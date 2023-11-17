@@ -83,6 +83,7 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ex
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.isDeletionVectorEnabled;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.columnsWithStats;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.START_OF_MODERN_ERA_EPOCH_DAY;
+import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.canonicalizePartitionValues;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.ADD;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.COMMIT;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.METADATA;
@@ -472,8 +473,13 @@ public class CheckpointEntryIterator
         log.debug("Block %s has %s fields", block, addEntryRow.getFieldCount());
         CheckpointFieldReader add = new CheckpointFieldReader(session, addEntryRow, type);
 
-        String path = add.getString("path");
         Map<String, String> partitionValues = add.getMap(stringMap, "partitionValues");
+        Map<String, Optional<String>> canonicalPartitionValues = canonicalizePartitionValues(partitionValues);
+        if (!partitionConstraint.isAll() && !partitionMatchesPredicate(canonicalPartitionValues, partitionConstraint.getDomains().orElseThrow())) {
+            return null;
+        }
+
+        String path = add.getString("path");
         long size = add.getLong("size");
         long modificationTime = add.getLong("modificationTime");
         boolean dataChange = add.getBoolean("dataChange");
@@ -500,6 +506,7 @@ public class CheckpointEntryIterator
         AddFileEntry result = new AddFileEntry(
                 path,
                 partitionValues,
+                canonicalPartitionValues,
                 size,
                 modificationTime,
                 dataChange,
@@ -689,15 +696,7 @@ public class CheckpointEntryIterator
             for (int i = 0; i < extractors.size(); ++i) {
                 DeltaLakeTransactionLogEntry entry = extractors.get(i).getEntry(session, page.getBlock(i).getLoadedBlock(), pagePosition);
                 if (entry != null) {
-                    if (entry.getAdd() != null) {
-                        if (partitionConstraint.isAll() ||
-                                partitionMatchesPredicate(entry.getAdd().getCanonicalPartitionValues(), partitionConstraint.getDomains().orElseThrow())) {
-                            nextEntries.add(entry);
-                        }
-                    }
-                    else {
-                        nextEntries.add(entry);
-                    }
+                    nextEntries.add(entry);
                 }
             }
             pagePosition++;
@@ -719,6 +718,12 @@ public class CheckpointEntryIterator
     @FunctionalInterface
     private interface CheckpointFieldExtractor
     {
+        /**
+         * Returns the transaction log entry instance corresponding to the requested position in the memory block.
+         * The output of the operation may be `null` in case the block has no information at the requested position
+         * or if the during the retrieval process it is observed that the log entry does not correspond to the
+         * checkpoint filter criteria.
+         */
         @Nullable
         DeltaLakeTransactionLogEntry getEntry(ConnectorSession session, Block block, int pagePosition);
     }
