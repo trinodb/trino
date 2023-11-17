@@ -18,9 +18,10 @@ import io.trino.connector.MockConnectorFactory;
 import io.trino.testing.AbstractTestEngineOnlyQueries;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.QueryRunner;
-import org.testng.SkipException;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestLocalEngineOnlyQueries
         extends AbstractTestEngineOnlyQueries
@@ -45,15 +46,17 @@ public class TestLocalEngineOnlyQueries
         return queryRunner;
     }
 
+    @Test
     @Override
     public void testSetSession()
     {
-        throw new SkipException("SET SESSION is not supported by LocalQueryRunner");
+        abort("SET SESSION is not supported by LocalQueryRunner");
     }
 
+    @Test
     @Override
     public void testResetSession()
     {
-        throw new SkipException("RESET SESSION is not supported by LocalQueryRunner");
+        abort("RESET SESSION is not supported by LocalQueryRunner");
     }
 }
