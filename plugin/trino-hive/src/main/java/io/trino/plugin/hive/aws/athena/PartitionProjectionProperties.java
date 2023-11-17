@@ -183,7 +183,7 @@ public final class PartitionProjectionProperties
                 .anyMatch(propertyKey -> propertyKey.startsWith(PROPERTY_KEY_PREFIX));
     }
 
-    static Optional<PartitionProjection> getPartitionProjectionFromTable(Table table, TypeManager typeManager)
+    public static Optional<PartitionProjection> getPartitionProjectionFromTable(Table table, TypeManager typeManager)
     {
         Map<String, String> tableProperties = table.getParameters();
         if (parseBoolean(tableProperties.get(METASTORE_PROPERTY_PROJECTION_IGNORE)) ||

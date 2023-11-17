@@ -39,7 +39,6 @@ import io.trino.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
-import io.trino.plugin.hive.aws.athena.PartitionProjectionModule;
 import io.trino.plugin.hive.fs.CachingDirectoryListerModule;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -106,7 +105,6 @@ public final class InternalHiveConnectorFactory
                     new JsonModule(),
                     new TypeDeserializerModule(context.getTypeManager()),
                     new HiveModule(),
-                    new PartitionProjectionModule(),
                     new CachingDirectoryListerModule(directoryLister),
                     new HiveMetastoreModule(metastore),
                     new HiveSecurityModule(),
