@@ -21,6 +21,7 @@ import io.trino.spi.type.Type;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -142,6 +143,32 @@ public class PositionsAppenderPageBuilder
     public boolean isEmpty()
     {
         return declaredPositions == 0;
+    }
+
+    public Optional<Page> flushOrFlattenBeforeRelease()
+    {
+        if (declaredPositions == 0) {
+            return Optional.empty();
+        }
+
+        for (UnnestingPositionsAppender positionsAppender : channelAppenders) {
+            if (positionsAppender.shouldForceFlushBeforeRelease()) {
+                // dictionary encoding will be preserved, so force the current page to be flushed
+                return Optional.of(build());
+            }
+        }
+
+        // transition from dictionary to direct mode if necessary, since we won't be able to reuse the
+        // same dictionary from the new operator
+        for (UnnestingPositionsAppender positionsAppender : channelAppenders) {
+            positionsAppender.flattenPendingDictionary();
+        }
+
+        // flush the current page if forced or if the builder is now full as a result of transitioning dictionaries to direct mode
+        if (isFull()) {
+            return Optional.of(build());
+        }
+        return Optional.empty();
     }
 
     public Page build()
