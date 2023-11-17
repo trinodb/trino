@@ -23,7 +23,7 @@ import java.util.Optional;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.canConvertSqlTypeToStringForParts;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.sqlScalarToString;
 
-public class InjectedProjection
+class InjectedProjection
         extends Projection
 {
     public InjectedProjection(String columnName)
