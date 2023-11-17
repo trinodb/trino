@@ -35,8 +35,11 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.containers.Minio;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import java.io.File;
 
@@ -48,8 +51,10 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static java.util.stream.Collectors.toCollection;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-@Test(singleThreaded = true) // S3 request counters shares mutable state so can't be run from many threads simultaneously
+@TestInstance(PER_CLASS)
+@Execution(ExecutionMode.SAME_THREAD) // S3 request counters shares mutable state so can't be run from many threads simultaneously
 public class TestTrinoS3FileSystemAccessOperations
         extends AbstractTestQueryFramework
 {
@@ -100,7 +105,7 @@ public class TestTrinoS3FileSystemAccessOperations
                 .build();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         // closed by closeAfterClass

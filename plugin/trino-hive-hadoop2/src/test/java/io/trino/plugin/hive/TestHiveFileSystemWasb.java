@@ -27,8 +27,8 @@ import org.junit.jupiter.api.TestInstance;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
+import static org.assertj.core.util.Strings.isNullOrEmpty;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.util.Strings.isNullOrEmpty;
 
 @TestInstance(PER_CLASS)
 public class TestHiveFileSystemWasb

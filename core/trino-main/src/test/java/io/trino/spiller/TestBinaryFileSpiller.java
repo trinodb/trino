@@ -25,10 +25,12 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.type.Type;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.io.IOException;
@@ -47,8 +49,11 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public class TestBinaryFileSpiller
 {
     private static final List<Type> TYPES = ImmutableList.of(BIGINT, VARCHAR, DOUBLE, BIGINT);
@@ -60,14 +65,14 @@ public class TestBinaryFileSpiller
     private PageSerializer serializer;
     private AggregatedMemoryContext memoryContext;
 
-    @BeforeClass(alwaysRun = true)
+    @BeforeAll
     public void setUpClass()
             throws IOException
     {
         spillPath = Files.createTempDirectory("tmp").toFile();
     }
 
-    @BeforeMethod
+    @BeforeEach
     public void setUp()
     {
         spillerStats = new SpillerStats();
@@ -83,7 +88,7 @@ public class TestBinaryFileSpiller
         memoryContext = newSimpleAggregatedMemoryContext();
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
             throws Exception
     {
