@@ -100,8 +100,7 @@ public class PartitionProjectionMetastoreDecorator
             if (!partitionProjectionEnabled) {
                 return Optional.empty();
             }
-            return getPartitionProjectionFromTable(table, typeManager)
-                    .filter(PartitionProjection::isEnabled);
+            return getPartitionProjectionFromTable(table, typeManager);
         }
     }
 }
