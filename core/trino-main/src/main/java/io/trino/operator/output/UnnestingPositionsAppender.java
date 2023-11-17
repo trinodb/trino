@@ -20,6 +20,7 @@ import io.trino.spi.block.ValueBlock;
 import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntArrays;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import jakarta.annotation.Nullable;
 
 import java.util.Optional;
@@ -52,6 +53,7 @@ public class UnnestingPositionsAppender
 
     private State state = State.UNINITIALIZED;
 
+    @Nullable
     private ValueBlock dictionary;
     private DictionaryIdsBuilder dictionaryIdsBuilder;
 
@@ -217,6 +219,28 @@ public class UnnestingPositionsAppender
         // dictionary size is not included due to the expense of the calculation, so this will under-report for dictionaries
         long directSizeInBytes = (rleValue == null) ? sizeInBytes : (rleValue.getSizeInBytes() * rlePositionCount);
         accumulator.accumulate(sizeInBytes, directSizeInBytes);
+    }
+
+    public void flattenPendingDictionary()
+    {
+        if (state == State.DICTIONARY && dictionary != null) {
+            transitionToDirect();
+        }
+    }
+
+    public boolean shouldForceFlushBeforeRelease()
+    {
+        if (state == State.DICTIONARY && dictionary != null) {
+            IntOpenHashSet uniqueIdsSet = new IntOpenHashSet();
+            int[] dictionaryIds = dictionaryIdsBuilder.getDictionaryIds();
+            for (int i = 0; i < dictionaryIdsBuilder.size(); i++) {
+                // At least one position is referenced multiple times, preserve the dictionary encoding and force the current page to flush
+                if (!uniqueIdsSet.add(dictionaryIds[i])) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static class DictionaryIdsBuilder
