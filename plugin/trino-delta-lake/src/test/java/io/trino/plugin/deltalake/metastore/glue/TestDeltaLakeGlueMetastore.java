@@ -289,7 +289,7 @@ public class TestDeltaLakeGlueMetastore
                 .setTableName(tableName.getTableName())
                 .setOwner(Optional.of(session.getUser()))
                 .setTableType(EXTERNAL_TABLE.name())
-                .setDataColumns(List.of(new Column("a_column", HIVE_STRING, Optional.empty())));
+                .setDataColumns(List.of(new Column("a_column", HIVE_STRING, Optional.empty(), Map.of())));
 
         table.getStorageBuilder()
                 .setStorageFormat(fromHiveStorageFormat(PARQUET))
@@ -308,7 +308,7 @@ public class TestDeltaLakeGlueMetastore
                 .setTableName(viewName.getTableName())
                 .setOwner(Optional.of(session.getUser()))
                 .setTableType(VIRTUAL_VIEW.name())
-                .setDataColumns(List.of(new Column("a_column", HIVE_STRING, Optional.empty())));
+                .setDataColumns(List.of(new Column("a_column", HIVE_STRING, Optional.empty(), Map.of())));
 
         table.getStorageBuilder()
                 .setStorageFormat(fromHiveStorageFormat(PARQUET))

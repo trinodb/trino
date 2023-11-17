@@ -8642,7 +8642,7 @@ public abstract class BaseHiveConnectorTest
                                 Optional.empty(),
                                 false,
                                 Collections.emptyMap()),
-                        List.of(new Column("t", HiveType.HIVE_TIMESTAMPLOCALTZ, Optional.empty())),
+                        List.of(new Column("t", HiveType.HIVE_TIMESTAMPLOCALTZ, Optional.empty(), Map.of())),
                         List.of(),
                         Collections.emptyMap(),
                         Optional.empty(),

@@ -82,11 +82,11 @@ public class TestIcebergNodeLocalDynamicSplitPruning
 {
     private static final String SCHEMA_NAME = "test";
     private static final String TABLE_NAME = "test";
-    private static final Column KEY_COLUMN = new Column("a_integer", HIVE_INT, Optional.empty());
+    private static final Column KEY_COLUMN = new Column("a_integer", HIVE_INT, Optional.empty(), Map.of());
     private static final ColumnIdentity KEY_COLUMN_IDENTITY = new ColumnIdentity(1, KEY_COLUMN.getName(), PRIMITIVE, ImmutableList.of());
     private static final IcebergColumnHandle KEY_ICEBERG_COLUMN_HANDLE = new IcebergColumnHandle(KEY_COLUMN_IDENTITY, INTEGER, ImmutableList.of(), INTEGER, Optional.empty());
     private static final int KEY_COLUMN_VALUE = 42;
-    private static final Column DATA_COLUMN = new Column("a_varchar", HIVE_STRING, Optional.empty());
+    private static final Column DATA_COLUMN = new Column("a_varchar", HIVE_STRING, Optional.empty(), Map.of());
     private static final ColumnIdentity DATA_COLUMN_IDENTITY = new ColumnIdentity(2, DATA_COLUMN.getName(), PRIMITIVE, ImmutableList.of());
     private static final IcebergColumnHandle DATA_ICEBERG_COLUMN_HANDLE = new IcebergColumnHandle(DATA_COLUMN_IDENTITY, VARCHAR, ImmutableList.of(), VARCHAR, Optional.empty());
     private static final String DATA_COLUMN_VALUE = "hello world";
