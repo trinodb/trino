@@ -126,7 +126,7 @@ public final class TestingMetastoreObjects
 
     // --------------- Trino Objects ---------------
 
-    public static io.trino.plugin.hive.metastore.Database getPrestoTestDatabase()
+    public static io.trino.plugin.hive.metastore.Database getTrinoTestDatabase()
     {
         return io.trino.plugin.hive.metastore.Database.builder()
                 .setDatabaseName("test-db" + generateRandom())
@@ -138,7 +138,7 @@ public final class TestingMetastoreObjects
                 .build();
     }
 
-    public static io.trino.plugin.hive.metastore.Table getPrestoTestTable(String dbName)
+    public static io.trino.plugin.hive.metastore.Table getTrinoTestTable(String dbName)
     {
         return io.trino.plugin.hive.metastore.Table.builder()
                 .setDatabaseName(dbName)
@@ -146,25 +146,25 @@ public final class TestingMetastoreObjects
                 .setOwner(Optional.of("owner"))
                 .setParameters(ImmutableMap.of())
                 .setTableType(TableType.EXTERNAL_TABLE.name())
-                .setDataColumns(ImmutableList.of(getPrestoTestColumn()))
-                .setPartitionColumns(ImmutableList.of(getPrestoTestColumn()))
+                .setDataColumns(ImmutableList.of(getTrinoTestColumn()))
+                .setPartitionColumns(ImmutableList.of(getTrinoTestColumn()))
                 .setViewOriginalText(Optional.of("originalText"))
                 .setViewExpandedText(Optional.of("expandedText"))
                 .withStorage(STORAGE_CONSUMER).build();
     }
 
-    public static io.trino.plugin.hive.metastore.Partition getPrestoTestPartition(String dbName, String tblName, List<String> values)
+    public static io.trino.plugin.hive.metastore.Partition getTrinoTestPartition(String dbName, String tblName, List<String> values)
     {
         return io.trino.plugin.hive.metastore.Partition.builder()
                 .setDatabaseName(dbName)
                 .setTableName(tblName)
                 .setValues(values)
-                .setColumns(ImmutableList.of(getPrestoTestColumn()))
+                .setColumns(ImmutableList.of(getTrinoTestColumn()))
                 .setParameters(ImmutableMap.of())
                 .withStorage(STORAGE_CONSUMER).build();
     }
 
-    public static io.trino.plugin.hive.metastore.Column getPrestoTestColumn()
+    public static io.trino.plugin.hive.metastore.Column getTrinoTestColumn()
     {
         return new io.trino.plugin.hive.metastore.Column("test-col" + generateRandom(), HiveType.HIVE_STRING, Optional.of("column comment"));
     }
