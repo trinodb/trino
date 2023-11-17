@@ -116,7 +116,7 @@ final class DateProjectionFactory
         return new DateProjection(columnName, dateFormat, leftBound, rangeBound, interval, intervalUnit);
     }
 
-    private ChronoUnit resolveDefaultChronoUnit(String columnName, String dateFormatPattern)
+    private static ChronoUnit resolveDefaultChronoUnit(String columnName, String dateFormatPattern)
     {
         String datePatternWithoutText = dateFormatPattern.replaceAll("'.*?'", "");
         if (datePatternWithoutText.contains("S") || datePatternWithoutText.contains("s")
@@ -135,7 +135,7 @@ final class DateProjectionFactory
         return MONTHS;
     }
 
-    private Supplier<Instant> parseDateRangerBound(String columnName, String value, SimpleDateFormat dateFormat)
+    private static Supplier<Instant> parseDateRangerBound(String columnName, String value, SimpleDateFormat dateFormat)
     {
         Matcher matcher = DATE_RANGE_BOUND_EXPRESSION_PATTERN.matcher(value);
         if (matcher.matches()) {
@@ -166,12 +166,12 @@ final class DateProjectionFactory
         return () -> dateBound;
     }
 
-    private TrinoException invalidRangeProperty(String columnName, String dateFormatPattern)
+    private static TrinoException invalidRangeProperty(String columnName, String dateFormatPattern)
     {
         return invalidRangeProperty(columnName, dateFormatPattern, Optional.empty());
     }
 
-    private TrinoException invalidRangeProperty(String columnName, String dateFormatPattern, Optional<String> errorDetail)
+    private static TrinoException invalidRangeProperty(String columnName, String dateFormatPattern, Optional<String> errorDetail)
     {
         throw new InvalidProjectionException(
                 columnName,
@@ -183,20 +183,9 @@ final class DateProjectionFactory
                         errorDetail.map(error -> ". " + error).orElse("")));
     }
 
-    private static class DateExpressionBound
+    private record DateExpressionBound(int multiplier, ChronoUnit unit, boolean increment)
             implements Supplier<Instant>
     {
-        private final int multiplier;
-        private final ChronoUnit unit;
-        private final boolean increment;
-
-        public DateExpressionBound(int multiplier, ChronoUnit unit, boolean increment)
-        {
-            this.multiplier = multiplier;
-            this.unit = unit;
-            this.increment = increment;
-        }
-
         @Override
         public Instant get()
         {

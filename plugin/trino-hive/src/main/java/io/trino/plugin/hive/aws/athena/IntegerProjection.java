@@ -75,7 +75,7 @@ final class IntegerProjection
             return domain.contains(singleValue(type, utf8Slice(formattedValue)));
         }
         if (type instanceof IntegerType || type instanceof BigintType) {
-            return domain.contains(singleValue(type, Long.valueOf(value)));
+            return domain.contains(singleValue(type, (long) value));
         }
         throw new InvalidProjectionException(columnName, type);
     }

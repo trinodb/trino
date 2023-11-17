@@ -91,7 +91,7 @@ public final class PartitionProjectionService
                 .buildOrThrow();
     }
 
-    public Map<String, Object> getPartitionProjectionTrinoTableProperties(Table table)
+    public static Map<String, Object> getPartitionProjectionTrinoTableProperties(Table table)
     {
         Map<String, String> metastoreTableProperties = table.getParameters();
         ImmutableMap.Builder<String, Object> trinoTablePropertiesBuilder = ImmutableMap.builder();
@@ -203,7 +203,7 @@ public final class PartitionProjectionService
         return metastoreTableProperties;
     }
 
-    private boolean isAnyPartitionProjectionPropertyUsed(ConnectorTableMetadata tableMetadata)
+    private static boolean isAnyPartitionProjectionPropertyUsed(ConnectorTableMetadata tableMetadata)
     {
         if (tableMetadata.getProperties().keySet().stream()
                 .anyMatch(propertyKey -> propertyKey.startsWith(PROPERTY_KEY_PREFIX))) {
@@ -215,7 +215,7 @@ public final class PartitionProjectionService
                 .anyMatch(propertyKey -> propertyKey.startsWith(PROPERTY_KEY_PREFIX));
     }
 
-    public Optional<PartitionProjection> getPartitionProjectionFromTable(Table table)
+    Optional<PartitionProjection> getPartitionProjectionFromTable(Table table)
     {
         if (!partitionProjectionEnabled) {
             return Optional.empty();
@@ -246,7 +246,7 @@ public final class PartitionProjectionService
     private PartitionProjection createPartitionProjection(List<String> dataColumns, Map<String, Type> partitionColumns, Map<String, String> tableProperties)
     {
         Optional<Boolean> projectionEnabledProperty = Optional.ofNullable(tableProperties.get(METASTORE_PROPERTY_PROJECTION_ENABLED)).map(Boolean::valueOf);
-        if (projectionEnabledProperty.orElse(false) && partitionColumns.size() < 1) {
+        if (projectionEnabledProperty.orElse(false) && partitionColumns.isEmpty()) {
             throw columnProjectionException("Partition projection can't be enabled when no partition columns are defined.");
         }
 
@@ -368,7 +368,7 @@ public final class PartitionProjectionService
                 .ifPresent(value -> targetPropertiesBuilder.put(targetPropertyKey, valueMapper.apply(value)));
     }
 
-    private TrinoException columnProjectionException(String message)
+    private static TrinoException columnProjectionException(String message)
     {
         return new TrinoException(INVALID_COLUMN_PROPERTY, message);
     }

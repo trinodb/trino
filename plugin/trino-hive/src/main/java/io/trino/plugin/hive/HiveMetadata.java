@@ -741,7 +741,7 @@ public class HiveMetadata
         }
 
         // Partition Projection specific properties
-        properties.putAll(partitionProjectionService.getPartitionProjectionTrinoTableProperties(table));
+        properties.putAll(PartitionProjectionService.getPartitionProjectionTrinoTableProperties(table));
 
         return new ConnectorTableMetadata(tableName, columns, properties.buildOrThrow(), comment);
     }

@@ -67,7 +67,7 @@ public class PartitionProjectionMetastoreDecorator
         @Override
         public Optional<List<String>> getPartitionNamesByFilter(String databaseName, String tableName, List<String> columnNames, TupleDomain<String> partitionKeysFilter)
         {
-            Table table = super.getTable(databaseName, tableName)
+            Table table = getTable(databaseName, tableName)
                     .orElseThrow(() -> new TrinoException(HIVE_TABLE_DROPPED_DURING_QUERY, "Table does not exists: " + tableName));
 
             Optional<PartitionProjection> projection = getPartitionProjection(table);
