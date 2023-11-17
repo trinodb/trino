@@ -58,7 +58,7 @@ public class TestTestingMetadata
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
-                ImmutableList.of(new Column("test", BIGINT.getTypeId())),
+                ImmutableList.of(new Column("test", BIGINT.getTypeId(), Optional.empty())),
                 Optional.of(Duration.ZERO),
                 Optional.empty(),
                 Optional.of("owner"),
