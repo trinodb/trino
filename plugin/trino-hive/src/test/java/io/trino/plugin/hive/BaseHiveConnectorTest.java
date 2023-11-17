@@ -115,7 +115,7 @@ import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_ARBITRAR
 import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_WRITE_TASK_TARGET_SIZE_MIN;
 import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE;
 import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TARGET_SIZE;
-import static io.trino.SystemSessionProperties.MAX_WRITER_TASKS_COUNT;
+import static io.trino.SystemSessionProperties.MAX_WRITER_TASK_COUNT;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY_PER_NODE;
 import static io.trino.SystemSessionProperties.REDISTRIBUTE_WRITES;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
@@ -4201,7 +4201,7 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
-    public void testWriterTasksCountLimitUnpartitioned()
+    public void testWriterTaskCountLimitUnpartitioned()
     {
         testLimitWriterTasks(2, 2, true, true, false, DataSize.of(1, MEGABYTE));
         testLimitWriterTasks(2, 2, false, true, false, DataSize.of(1, MEGABYTE));
@@ -4209,13 +4209,13 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
-    public void testWriterTasksCountLimitPartitionedScaleWritersDisabled()
+    public void testWriterTaskCountLimitPartitionedScaleWritersDisabled()
     {
         testLimitWriterTasks(2, 2, false, true, true, DataSize.of(1, MEGABYTE));
     }
 
     @Test
-    public void testWriterTasksCountLimitPartitionedScaleWritersEnabled()
+    public void testWriterTaskCountLimitPartitionedScaleWritersEnabled()
     {
         testLimitWriterTasks(2, 4, true, true, true, DataSize.of(1, MEGABYTE));
         // Since we track page size for scaling writer instead of actual compressed output file size, we need to have a
@@ -4227,7 +4227,7 @@ public abstract class BaseHiveConnectorTest
     {
         Session session = Session.builder(getSession())
                 .setSystemProperty(SCALE_WRITERS, Boolean.toString(scaleWritersEnabled))
-                .setSystemProperty(MAX_WRITER_TASKS_COUNT, Integer.toString(maxWriterTasks))
+                .setSystemProperty(MAX_WRITER_TASK_COUNT, Integer.toString(maxWriterTasks))
                 .setSystemProperty(REDISTRIBUTE_WRITES, Boolean.toString(redistributeWrites))
                 .setSystemProperty(TASK_MIN_WRITER_COUNT, "1")
                 .setSystemProperty(WRITER_SCALING_MIN_DATA_PROCESSED, writerScalingMinDataProcessed.toString())
@@ -8318,7 +8318,7 @@ public abstract class BaseHiveConnectorTest
                 .setSystemProperty("task_min_writer_count", "1");
 
         if (!scaleWriters) {
-            writerScalingSessionBuilder.setSystemProperty("max_writer_tasks_count", "1");
+            writerScalingSessionBuilder.setSystemProperty("max_writer_task_count", "1");
         }
 
         assertUpdate(writerScalingSessionBuilder.build(), "ALTER TABLE " + tableName + " EXECUTE optimize(file_size_threshold => '10kB')");

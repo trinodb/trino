@@ -83,7 +83,7 @@ public final class SystemSessionProperties
     public static final String USE_PREFERRED_WRITE_PARTITIONING = "use_preferred_write_partitioning";
     public static final String SCALE_WRITERS = "scale_writers";
     public static final String TASK_SCALE_WRITERS_ENABLED = "task_scale_writers_enabled";
-    public static final String MAX_WRITER_TASKS_COUNT = "max_writer_tasks_count";
+    public static final String MAX_WRITER_TASK_COUNT = "max_writer_task_count";
     public static final String WRITER_SCALING_MIN_DATA_PROCESSED = "writer_scaling_min_data_processed";
     public static final String SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD = "skewed_partition_min_data_processed_rebalance_threshold";
     public static final String MAX_MEMORY_PER_PARTITION_WRITER = "max_memory_per_partition_writer";
@@ -320,10 +320,10 @@ public final class SystemSessionProperties
                         featuresConfig.isScaleWriters(),
                         false),
                 integerProperty(
-                        MAX_WRITER_TASKS_COUNT,
+                        MAX_WRITER_TASK_COUNT,
                         "Maximum number of tasks that will participate in writing data",
-                        queryManagerConfig.getMaxWriterTasksCount(),
-                        value -> validateIntegerValue(value, MAX_WRITER_TASKS_COUNT, 1, false),
+                        queryManagerConfig.getMaxWriterTaskCount(),
+                        value -> validateIntegerValue(value, MAX_WRITER_TASK_COUNT, 1, false),
                         false),
                 booleanProperty(
                         TASK_SCALE_WRITERS_ENABLED,
@@ -1149,7 +1149,7 @@ public final class SystemSessionProperties
 
     public static int getMaxWriterTaskCount(Session session)
     {
-        return session.getSystemProperty(MAX_WRITER_TASKS_COUNT, Integer.class);
+        return session.getSystemProperty(MAX_WRITER_TASK_COUNT, Integer.class);
     }
 
     public static DataSize getWriterScalingMinDataProcessed(Session session)
