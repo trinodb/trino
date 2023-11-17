@@ -17,7 +17,7 @@ database.
 
 To connect to MariaDB, you need:
 
-- MariaDB version 10.2 or higher.
+- MariaDB version 10.10 or higher.
 - Network access from the Trino coordinator and workers to MariaDB. Port
   3306 is the default port.
 
