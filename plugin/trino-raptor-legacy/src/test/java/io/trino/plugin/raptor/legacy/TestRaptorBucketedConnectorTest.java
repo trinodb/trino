@@ -27,7 +27,7 @@ public class TestRaptorBucketedConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        return createRaptorQueryRunner(ImmutableMap.of(), REQUIRED_TPCH_TABLES, true, ImmutableMap.of());
+        return createRaptorQueryRunner(ImmutableMap.of(), REQUIRED_TPCH_TABLES, true, ImmutableMap.of("storage.compaction-enabled", "false"));
     }
 
     @Test
