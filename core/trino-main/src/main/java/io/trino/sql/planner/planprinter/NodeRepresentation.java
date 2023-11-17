@@ -13,7 +13,7 @@
  */
 package io.trino.sql.planner.planprinter;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.FormatMethod;
@@ -21,6 +21,7 @@ import io.trino.cost.LocalCostEstimate;
 import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsAndCostSummary;
 import io.trino.cost.PlanNodeStatsEstimate;
+import io.trino.spi.type.Type;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.PlanFragmentId;
@@ -33,6 +34,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -151,7 +153,7 @@ public class NodeRepresentation
         return reorderJoinStatsAndCost;
     }
 
-    public List<PlanNodeStatsAndCostSummary> getEstimates(TypeProvider typeProvider)
+    public List<PlanNodeStatsAndCostSummary> getEstimates()
     {
         if (getEstimatedStats().stream().allMatch(PlanNodeStatsEstimate::isOutputRowCountUnknown) &&
                 getEstimatedCost().stream().allMatch(c -> c.getRootNodeLocalCostEstimate().equals(LocalCostEstimate.unknown()))) {
@@ -159,6 +161,8 @@ public class NodeRepresentation
         }
 
         ImmutableList.Builder<PlanNodeStatsAndCostSummary> estimates = ImmutableList.builder();
+        TypeProvider typeProvider = TypeProvider.copyOf(outputs.stream()
+                .collect(toImmutableMap(TypedSymbol::getSymbol, TypedSymbol::getTrinoType)));
         for (int i = 0; i < getEstimatedStats().size(); i++) {
             PlanNodeStatsEstimate stats = getEstimatedStats().get(i);
             LocalCostEstimate cost = getEstimatedCost().get(i).getRootNodeLocalCostEstimate();
@@ -181,13 +185,12 @@ public class NodeRepresentation
     public static class TypedSymbol
     {
         private final Symbol symbol;
-        private final String type;
+        private final Type trinoType;
 
-        @JsonCreator
-        public TypedSymbol(@JsonProperty("symbol") Symbol symbol, @JsonProperty("type") String type)
+        public TypedSymbol(Symbol symbol, Type trinoType)
         {
             this.symbol = symbol;
-            this.type = type;
+            this.trinoType = trinoType;
         }
 
         @JsonProperty
@@ -199,10 +202,16 @@ public class NodeRepresentation
         @JsonProperty
         public String getType()
         {
-            return type;
+            return trinoType.getDisplayName();
         }
 
-        public static TypedSymbol typedSymbol(String symbol, String type)
+        @JsonIgnore
+        public Type getTrinoType()
+        {
+            return trinoType;
+        }
+
+        public static TypedSymbol typedSymbol(String symbol, Type type)
         {
             return new TypedSymbol(new Symbol(symbol), type);
         }
@@ -218,13 +227,13 @@ public class NodeRepresentation
             }
             TypedSymbol that = (TypedSymbol) o;
             return symbol.equals(that.symbol)
-                    && type.equals(that.type);
+                    && trinoType.equals(that.trinoType);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(symbol, type);
+            return Objects.hash(symbol, trinoType);
         }
     }
 }

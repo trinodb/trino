@@ -47,6 +47,7 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.operator.RetryPolicy.NONE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
@@ -96,14 +97,14 @@ public class TestJsonRepresentation
                         "6",
                         "Output",
                         ImmutableMap.of("columnNames", "[quantity]"),
-                        ImmutableList.of(typedSymbol("quantity", "double")),
+                        ImmutableList.of(typedSymbol("quantity", DOUBLE)),
                         ImmutableList.of(),
                         ImmutableList.of(new PlanNodeStatsAndCostSummary(10, 90, 0, 0, 0)),
                         ImmutableList.of(new JsonRenderedNode(
                                 "100",
                                 "Limit",
                                 ImmutableMap.of("count", "10", "withTies", "", "inputPreSortedBy", "[]"),
-                                ImmutableList.of(typedSymbol("quantity", "double")),
+                                ImmutableList.of(typedSymbol("quantity", DOUBLE)),
                                 ImmutableList.of(),
                                 ImmutableList.of(new PlanNodeStatsAndCostSummary(10, 90, 90, 0, 0)),
                                 ImmutableList.of(new JsonRenderedNode(
@@ -114,14 +115,14 @@ public class TestJsonRepresentation
                                                 "isReplicateNullsAndAny", "",
                                                 "hashColumn", "[]",
                                                 "arguments", "[]"),
-                                        ImmutableList.of(typedSymbol("quantity", "double")),
+                                        ImmutableList.of(typedSymbol("quantity", DOUBLE)),
                                         ImmutableList.of(),
                                         ImmutableList.of(new PlanNodeStatsAndCostSummary(60175, 541575, 0, 0, 0)),
                                         ImmutableList.of(new JsonRenderedNode(
                                                 "0",
                                                 "TableScan",
                                                 ImmutableMap.of("table", "tpch:tiny:lineitem"),
-                                                ImmutableList.of(typedSymbol("quantity", "double")),
+                                                ImmutableList.of(typedSymbol("quantity", DOUBLE)),
                                                 ImmutableList.of("quantity := tpch:quantity"),
                                                 ImmutableList.of(new PlanNodeStatsAndCostSummary(60175, 541575, 541575, 0, 0)),
                                                 ImmutableList.of()))))))));
@@ -139,14 +140,14 @@ public class TestJsonRepresentation
                 "6",
                 "Output",
                 ImmutableMap.of("columnNames", "[quantity]"),
-                ImmutableList.of(typedSymbol("quantity", "double")),
+                ImmutableList.of(typedSymbol("quantity", DOUBLE)),
                 ImmutableList.of(),
                 ImmutableList.of(new PlanNodeStatsAndCostSummary(10, 90, 0, 0, 0)),
                 ImmutableList.of(new JsonRenderedNode(
                         "100",
                         "Limit",
                         ImmutableMap.of("count", "10", "withTies", "", "inputPreSortedBy", "[]"),
-                        ImmutableList.of(typedSymbol("quantity", "double")),
+                        ImmutableList.of(typedSymbol("quantity", DOUBLE)),
                         ImmutableList.of(),
                         ImmutableList.of(new PlanNodeStatsAndCostSummary(10, 90, 90, 0, 0)),
                         ImmutableList.of(new JsonRenderedNode(
@@ -157,14 +158,14 @@ public class TestJsonRepresentation
                                         "isReplicateNullsAndAny", "",
                                         "hashColumn", "[]",
                                         "arguments", "[]"),
-                                ImmutableList.of(typedSymbol("quantity", "double")),
+                                ImmutableList.of(typedSymbol("quantity", DOUBLE)),
                                 ImmutableList.of(),
                                 ImmutableList.of(new PlanNodeStatsAndCostSummary(60175, 541575, 0, 0, 0)),
                                 ImmutableList.of(new JsonRenderedNode(
                                         "0",
                                         "TableScan",
                                         ImmutableMap.of("table", "tpch:tiny:lineitem"),
-                                        ImmutableList.of(typedSymbol("quantity", "double")),
+                                        ImmutableList.of(typedSymbol("quantity", DOUBLE)),
                                         ImmutableList.of("quantity := tpch:quantity"),
                                         ImmutableList.of(new PlanNodeStatsAndCostSummary(60175, 541575, 541575, 0, 0)),
                                         ImmutableList.of())))))));
@@ -191,14 +192,14 @@ public class TestJsonRepresentation
                                 "keys", "[y, z]",
                                 "hash", "[]"),
                         ImmutableList.of(
-                                typedSymbol("y", "bigint"),
-                                typedSymbol("z", "bigint"),
-                                typedSymbol("sum", "bigint")),
+                                typedSymbol("y", BIGINT),
+                                typedSymbol("z", BIGINT),
+                                typedSymbol("sum", BIGINT)),
                         ImmutableList.of("sum := sum(\"x\")"),
                         ImmutableList.of(),
                         ImmutableList.of(valuesRepresentation(
                                 "0",
-                                ImmutableList.of(typedSymbol("x", "bigint"), typedSymbol("y", "bigint"), typedSymbol("z", "bigint"))))));
+                                ImmutableList.of(typedSymbol("x", BIGINT), typedSymbol("y", BIGINT), typedSymbol("z", BIGINT))))));
     }
 
     @Test
@@ -220,12 +221,12 @@ public class TestJsonRepresentation
                         "2",
                         "InnerJoin",
                         ImmutableMap.of("criteria", "(\"a\" = \"d\")", "filter", "(\"a\" < \"c\")", "hash", "[]"),
-                        ImmutableList.of(typedSymbol("b", "bigint")),
+                        ImmutableList.of(typedSymbol("b", BIGINT)),
                         ImmutableList.of("dynamicFilterAssignments = {d -> #DF}"),
                         ImmutableList.of(),
                         ImmutableList.of(
-                                valuesRepresentation("0", ImmutableList.of(typedSymbol("a", "bigint"), typedSymbol("b", "bigint"))),
-                                valuesRepresentation("1", ImmutableList.of(typedSymbol("c", "bigint"), typedSymbol("d", "bigint"))))));
+                                valuesRepresentation("0", ImmutableList.of(typedSymbol("a", BIGINT), typedSymbol("b", BIGINT))),
+                                valuesRepresentation("1", ImmutableList.of(typedSymbol("c", BIGINT), typedSymbol("d", BIGINT))))));
     }
 
     @Test
@@ -244,7 +245,7 @@ public class TestJsonRepresentation
                         "0",
                         "RemoteSource",
                         ImmutableMap.of("sourceFragmentIds", "[1, 2]"),
-                        ImmutableList.of(typedSymbol("a", "bigint"), typedSymbol("b", "bigint")),
+                        ImmutableList.of(typedSymbol("a", BIGINT), typedSymbol("b", BIGINT)),
                         ImmutableList.of(),
                         ImmutableList.of(),
                         ImmutableList.of()));
