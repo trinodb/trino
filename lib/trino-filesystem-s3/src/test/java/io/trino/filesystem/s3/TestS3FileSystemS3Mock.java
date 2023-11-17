@@ -15,6 +15,7 @@ package io.trino.filesystem.s3;
 
 import com.adobe.testing.s3mock.testcontainers.S3MockContainer;
 import io.airlift.units.DataSize;
+import io.opentelemetry.api.OpenTelemetry;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -55,7 +56,7 @@ public class TestS3FileSystemS3Mock
     @Override
     protected S3FileSystemFactory createS3FileSystemFactory()
     {
-        return new S3FileSystemFactory(new S3FileSystemConfig()
+        return new S3FileSystemFactory(OpenTelemetry.noop(), new S3FileSystemConfig()
                 .setAwsAccessKey("accesskey")
                 .setAwsSecretKey("secretkey")
                 .setEndpoint(S3_MOCK.getHttpEndpoint())
