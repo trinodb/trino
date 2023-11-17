@@ -35,34 +35,36 @@ class TestIntegerProjectionFactory
     @Test
     void testIsSupported()
     {
-        assertThat(new IntegerProjectionFactory().isSupportedColumnType(VARCHAR)).isTrue();
-        assertThat(new IntegerProjectionFactory().isSupportedColumnType(INTEGER)).isTrue();
-        assertThat(new IntegerProjectionFactory().isSupportedColumnType(BIGINT)).isTrue();
-        assertThat(new IntegerProjectionFactory().isSupportedColumnType(DATE)).isFalse();
+        new IntegerProjection("test", VARCHAR, ImmutableMap.of(COLUMN_PROJECTION_RANGE, ImmutableList.of("1", "3")));
+        new IntegerProjection("test", INTEGER, ImmutableMap.of(COLUMN_PROJECTION_RANGE, ImmutableList.of("1", "3")));
+        new IntegerProjection("test", BIGINT, ImmutableMap.of(COLUMN_PROJECTION_RANGE, ImmutableList.of("1", "3")));
+        assertThatThrownBy(() -> new IntegerProjection("test", DATE, ImmutableMap.of(COLUMN_PROJECTION_RANGE, ImmutableList.of("1", "3"))))
+                .isInstanceOf(InvalidProjectionException.class)
+                .hasMessage("Column projection for column 'test' failed. Unsupported column type: date");
     }
 
     @Test
     void testCreateBasic()
     {
-        Projection projection = new IntegerProjectionFactory().create("test", INTEGER, ImmutableMap.of(COLUMN_PROJECTION_RANGE, ImmutableList.of("1", "3")));
+        Projection projection = new IntegerProjection("test", INTEGER, ImmutableMap.of(COLUMN_PROJECTION_RANGE, ImmutableList.of("1", "3")));
         assertThat(projection.getProjectedValues(Optional.empty())).containsExactly("1", "2", "3");
         assertThat(projection.getProjectedValues(Optional.of(Domain.all(INTEGER)))).containsExactly("1", "2", "3");
         assertThat(projection.getProjectedValues(Optional.of(Domain.none(INTEGER)))).isEmpty();
         assertThat(projection.getProjectedValues(Optional.of(Domain.singleValue(INTEGER, 2L)))).containsExactly("2");
         assertThat(projection.getProjectedValues(Optional.of(Domain.singleValue(INTEGER, 7L)))).isEmpty();
 
-        assertThatThrownBy(() -> new IntegerProjectionFactory().create("test", INTEGER, ImmutableMap.of("ignored", ImmutableList.of("1", "3"))))
+        assertThatThrownBy(() -> new IntegerProjection("test", INTEGER, ImmutableMap.of("ignored", ImmutableList.of("1", "3"))))
                 .isInstanceOf(InvalidProjectionException.class)
                 .hasMessage("Column projection for column 'test' failed. Missing required property: 'partition_projection_range'");
 
-        assertThatThrownBy(() -> new IntegerProjectionFactory().create("test", INTEGER, ImmutableMap.of(COLUMN_PROJECTION_RANGE, "invalid")))
+        assertThatThrownBy(() -> new IntegerProjection("test", INTEGER, ImmutableMap.of(COLUMN_PROJECTION_RANGE, "invalid")))
                 .isInstanceOf(ClassCastException.class);
     }
 
     @Test
     void testInterval()
     {
-        Projection projection = new IntegerProjectionFactory().create("test", INTEGER, ImmutableMap.of(COLUMN_PROJECTION_RANGE, ImmutableList.of("10", "30"), COLUMN_PROJECTION_INTERVAL, 10));
+        Projection projection = new IntegerProjection("test", INTEGER, ImmutableMap.of(COLUMN_PROJECTION_RANGE, ImmutableList.of("10", "30"), COLUMN_PROJECTION_INTERVAL, 10));
         assertThat(projection.getProjectedValues(Optional.empty())).containsExactly("10", "20", "30");
         assertThat(projection.getProjectedValues(Optional.of(Domain.all(INTEGER)))).containsExactly("10", "20", "30");
         assertThat(projection.getProjectedValues(Optional.of(Domain.none(INTEGER)))).isEmpty();
@@ -73,7 +75,7 @@ class TestIntegerProjectionFactory
     @Test
     void testCreateDigits()
     {
-        Projection projection = new IntegerProjectionFactory().create("test", INTEGER, ImmutableMap.of(COLUMN_PROJECTION_RANGE, ImmutableList.of("1", "3"), COLUMN_PROJECTION_DIGITS, 3));
+        Projection projection = new IntegerProjection("test", INTEGER, ImmutableMap.of(COLUMN_PROJECTION_RANGE, ImmutableList.of("1", "3"), COLUMN_PROJECTION_DIGITS, 3));
         assertThat(projection.getProjectedValues(Optional.empty())).containsExactly("001", "002", "003");
         assertThat(projection.getProjectedValues(Optional.of(Domain.all(INTEGER)))).containsExactly("001", "002", "003");
         assertThat(projection.getProjectedValues(Optional.of(Domain.none(INTEGER)))).isEmpty();

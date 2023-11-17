@@ -22,10 +22,18 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.COLUMN_PROJECTION_DIGITS;
+import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.COLUMN_PROJECTION_INTERVAL;
+import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.COLUMN_PROJECTION_RANGE;
+import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.getProjectionPropertyRequiredValue;
+import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.getProjectionPropertyValue;
 import static io.trino.spi.predicate.Domain.singleValue;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 final class IntegerProjection
@@ -37,13 +45,29 @@ final class IntegerProjection
     private final int interval;
     private final Optional<Integer> digits;
 
-    public IntegerProjection(String columnName, int leftBound, int rightBound, int interval, Optional<Integer> digits)
+    public IntegerProjection(String columnName, Type columnType, Map<String, Object> columnProperties)
     {
+        if (!(columnType instanceof VarcharType) && !(columnType instanceof IntegerType) && !(columnType instanceof BigintType)) {
+            throw new InvalidProjectionException(columnName, columnType);
+        }
+
         this.columnName = requireNonNull(columnName, "columnName is null");
-        this.leftBound = leftBound;
-        this.rightBound = rightBound;
-        this.interval = interval;
-        this.digits = requireNonNull(digits, "digits is null");
+
+        List<Integer> range = getProjectionPropertyRequiredValue(
+                columnName,
+                columnProperties,
+                COLUMN_PROJECTION_RANGE,
+                value -> ((List<?>) value).stream()
+                        .map(element -> Integer.valueOf((String) element))
+                        .collect(toImmutableList()));
+        if (range.size() != 2) {
+            throw new InvalidProjectionException(columnName, format("Property: '%s' needs to be list of 2 integers", COLUMN_PROJECTION_RANGE));
+        }
+        this.leftBound = range.get(0);
+        this.rightBound = range.get(1);
+
+        this.interval = getProjectionPropertyValue(columnProperties, COLUMN_PROJECTION_INTERVAL, Integer.class::cast).orElse(1);
+        this.digits = getProjectionPropertyValue(columnProperties, COLUMN_PROJECTION_DIGITS, Integer.class::cast);
     }
 
     @Override
@@ -54,7 +78,7 @@ final class IntegerProjection
         while (current <= rightBound) {
             int currentValue = current;
             String currentValueFormatted = digits
-                    .map(digits -> String.format("%0" + digits + "d", currentValue))
+                    .map(digits -> format("%0" + digits + "d", currentValue))
                     .orElseGet(() -> Integer.toString(currentValue));
             if (isValueInDomain(partitionValueFilter, current, currentValueFormatted)) {
                 builder.add(currentValueFormatted);
