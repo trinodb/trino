@@ -130,7 +130,7 @@ public class ResourceHudiTablesInitializer
 
     private static Column column(String name, HiveType type)
     {
-        return new Column(name, type, Optional.empty());
+        return new Column(name, type, Optional.empty(), Map.of());
     }
 
     private static void copyDir(Path srcDir, Path dstDir)
@@ -161,11 +161,11 @@ public class ResourceHudiTablesInitializer
         /**/;
 
         private static final List<Column> HUDI_META_COLUMNS = ImmutableList.of(
-                new Column("_hoodie_commit_time", HIVE_STRING, Optional.empty()),
-                new Column("_hoodie_commit_seqno", HIVE_STRING, Optional.empty()),
-                new Column("_hoodie_record_key", HIVE_STRING, Optional.empty()),
-                new Column("_hoodie_partition_path", HIVE_STRING, Optional.empty()),
-                new Column("_hoodie_file_name", HIVE_STRING, Optional.empty()));
+                new Column("_hoodie_commit_time", HIVE_STRING, Optional.empty(), Map.of()),
+                new Column("_hoodie_commit_seqno", HIVE_STRING, Optional.empty(), Map.of()),
+                new Column("_hoodie_record_key", HIVE_STRING, Optional.empty(), Map.of()),
+                new Column("_hoodie_partition_path", HIVE_STRING, Optional.empty(), Map.of()),
+                new Column("_hoodie_file_name", HIVE_STRING, Optional.empty(), Map.of()));
 
         private final List<Column> regularColumns;
         private final List<Column> partitionColumns;

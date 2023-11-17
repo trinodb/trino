@@ -28,6 +28,7 @@ import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.spi.security.PrincipalType;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
@@ -166,7 +167,7 @@ public final class TestingMetastoreObjects
 
     public static io.trino.plugin.hive.metastore.Column getTrinoTestColumn()
     {
-        return new io.trino.plugin.hive.metastore.Column("test-col" + generateRandom(), HiveType.HIVE_STRING, Optional.of("column comment"));
+        return new io.trino.plugin.hive.metastore.Column("test-col" + generateRandom(), HiveType.HIVE_STRING, Optional.of("column comment"), Map.of());
     }
 
     private static final Consumer<Storage.Builder> STORAGE_CONSUMER = storage ->

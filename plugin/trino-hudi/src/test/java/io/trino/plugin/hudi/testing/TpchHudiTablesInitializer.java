@@ -60,6 +60,7 @@ import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
@@ -92,11 +93,11 @@ public class TpchHudiTablesInitializer
     private static final String PARTITION_PATH = "";
     private static final Logger log = Logger.get(TpchHudiTablesInitializer.class);
     private static final List<Column> HUDI_META_COLUMNS = ImmutableList.of(
-            new Column("_hoodie_commit_time", HIVE_STRING, Optional.empty()),
-            new Column("_hoodie_commit_seqno", HIVE_STRING, Optional.empty()),
-            new Column("_hoodie_record_key", HIVE_STRING, Optional.empty()),
-            new Column("_hoodie_partition_path", HIVE_STRING, Optional.empty()),
-            new Column("_hoodie_file_name", HIVE_STRING, Optional.empty()));
+            new Column("_hoodie_commit_time", HIVE_STRING, Optional.empty(), Map.of()),
+            new Column("_hoodie_commit_seqno", HIVE_STRING, Optional.empty(), Map.of()),
+            new Column("_hoodie_record_key", HIVE_STRING, Optional.empty(), Map.of()),
+            new Column("_hoodie_partition_path", HIVE_STRING, Optional.empty(), Map.of()),
+            new Column("_hoodie_file_name", HIVE_STRING, Optional.empty(), Map.of()));
     private static final HdfsContext CONTEXT = new HdfsContext(SESSION);
 
     private final HoodieTableType tableType;
@@ -291,9 +292,9 @@ public class TpchHudiTablesInitializer
         List<Column> columns = new ArrayList<>(tpchColumns.size() + 1);
         for (TpchColumn<?> c : tpchColumns) {
             HiveType hiveType = TpchColumnTypeAdapter.toHiveType(c.getType());
-            columns.add(new Column(c.getSimplifiedColumnName(), hiveType, Optional.empty()));
+            columns.add(new Column(c.getSimplifiedColumnName(), hiveType, Optional.empty(), Map.of()));
         }
-        columns.add(new Column(FIELD_UUID, HIVE_STRING, Optional.empty()));
+        columns.add(new Column(FIELD_UUID, HIVE_STRING, Optional.empty(), Map.of()));
         return unmodifiableList(columns);
     }
 

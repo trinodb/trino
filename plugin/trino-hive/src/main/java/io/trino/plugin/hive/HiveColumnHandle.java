@@ -15,6 +15,7 @@ package io.trino.plugin.hive;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.SizeOf;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.spi.connector.ColumnHandle;
@@ -254,7 +255,7 @@ public class HiveColumnHandle
 
     public Column toMetastoreColumn()
     {
-        return new Column(name, getHiveType(), comment);
+        return new Column(name, getHiveType(), comment, ImmutableMap.of());
     }
 
     public static HiveColumnHandle mergeRowIdColumnHandle()

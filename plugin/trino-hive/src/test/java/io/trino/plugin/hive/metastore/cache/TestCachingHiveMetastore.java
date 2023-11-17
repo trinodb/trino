@@ -554,12 +554,12 @@ public class TestCachingHiveMetastore
                 "col1", ColumnStatisticsData.longStats(new LongColumnStatsData().setNumNulls(1)),
                 "col2", ColumnStatisticsData.longStats(new LongColumnStatsData().setNumNulls(2)),
                 "col3", ColumnStatisticsData.longStats(new LongColumnStatsData().setNumNulls(3))));
-        Table tableCol1 = Table.builder(table).setDataColumns(ImmutableList.of(new Column("col1", HIVE_LONG, Optional.empty()))).build();
+        Table tableCol1 = Table.builder(table).setDataColumns(ImmutableList.of(new Column("col1", HIVE_LONG, Optional.empty(), Map.of()))).build();
         assertThat(metastore.getTableStatistics(tableCol1).getColumnStatistics()).containsEntry("col1", intColumnStats(1));
-        Table tableCol2 = Table.builder(table).setDataColumns(ImmutableList.of(new Column("col2", HIVE_LONG, Optional.empty()))).build();
+        Table tableCol2 = Table.builder(table).setDataColumns(ImmutableList.of(new Column("col2", HIVE_LONG, Optional.empty(), Map.of()))).build();
         assertThat(metastore.getTableStatistics(tableCol2).getColumnStatistics()).containsEntry("col2", intColumnStats(2));
         Table tableCol23 = Table.builder(table)
-                .setDataColumns(ImmutableList.of(new Column("col2", HIVE_LONG, Optional.empty()), new Column("col3", HIVE_LONG, Optional.empty())))
+                .setDataColumns(ImmutableList.of(new Column("col2", HIVE_LONG, Optional.empty(), Map.of()), new Column("col3", HIVE_LONG, Optional.empty(), Map.of())))
                 .build();
         assertThat(metastore.getTableStatistics(tableCol23).getColumnStatistics())
                 .containsEntry("col2", intColumnStats(2))
@@ -706,16 +706,16 @@ public class TestCachingHiveMetastore
                 "col2", ColumnStatisticsData.longStats(new LongColumnStatsData().setNumNulls(2)),
                 "col3", ColumnStatisticsData.longStats(new LongColumnStatsData().setNumNulls(3))));
 
-        Table tableCol1 = Table.builder(table).setDataColumns(ImmutableList.of(new Column("col1", HIVE_LONG, Optional.empty()))).build();
+        Table tableCol1 = Table.builder(table).setDataColumns(ImmutableList.of(new Column("col1", HIVE_LONG, Optional.empty(), Map.of()))).build();
         Map<String, PartitionStatistics> tableCol1PartitionStatistics = metastore.getPartitionStatistics(tableCol1, ImmutableList.of(partition));
         assertThat(tableCol1PartitionStatistics).containsOnlyKeys(partitionName);
         assertThat(tableCol1PartitionStatistics.get(partitionName).getColumnStatistics()).containsEntry("col1", intColumnStats(1));
-        Table tableCol2 = Table.builder(table).setDataColumns(ImmutableList.of(new Column("col2", HIVE_LONG, Optional.empty()))).build();
+        Table tableCol2 = Table.builder(table).setDataColumns(ImmutableList.of(new Column("col2", HIVE_LONG, Optional.empty(), Map.of()))).build();
         Map<String, PartitionStatistics> tableCol2PartitionStatistics = metastore.getPartitionStatistics(tableCol2, ImmutableList.of(partition));
         assertThat(tableCol2PartitionStatistics).containsOnlyKeys(partitionName);
         assertThat(tableCol2PartitionStatistics.get(partitionName).getColumnStatistics()).containsEntry("col2", intColumnStats(2));
         Table tableCol23 = Table.builder(table)
-                .setDataColumns(ImmutableList.of(new Column("col2", HIVE_LONG, Optional.empty()), new Column("col3", HIVE_LONG, Optional.empty())))
+                .setDataColumns(ImmutableList.of(new Column("col2", HIVE_LONG, Optional.empty(), Map.of()), new Column("col3", HIVE_LONG, Optional.empty(), Map.of())))
                 .build();
         Map<String, PartitionStatistics> tableCol23PartitionStatistics = metastore.getPartitionStatistics(tableCol23, ImmutableList.of(partition));
         assertThat(tableCol23PartitionStatistics).containsOnlyKeys(partitionName);
@@ -954,8 +954,8 @@ public class TestCachingHiveMetastore
         String databaseName = "my_database";
         String tableName = "my_table_name";
 
-        tableColumns.add(new Column("value", toHiveType(VARCHAR), Optional.empty() /* comment */));
-        tableColumns.add(new Column("pk", toHiveType(VARCHAR), Optional.empty() /* comment */));
+        tableColumns.add(new Column("value", toHiveType(VARCHAR), Optional.empty() /* comment */, Map.of()));
+        tableColumns.add(new Column("pk", toHiveType(VARCHAR), Optional.empty() /* comment */, Map.of()));
 
         List<String> partitionNames = new ArrayList<>();
         for (int i = 0; i < 10; i++) {

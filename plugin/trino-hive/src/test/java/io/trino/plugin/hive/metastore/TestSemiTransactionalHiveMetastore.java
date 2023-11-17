@@ -25,6 +25,7 @@ import io.trino.plugin.hive.fs.FileSystemDirectoryLister;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.concurrent.CountDownLatch;
@@ -50,7 +51,8 @@ public class TestSemiTransactionalHiveMetastore
     private static final Column TABLE_COLUMN = new Column(
             "column",
             HiveType.HIVE_INT,
-            Optional.of("comment"));
+            Optional.of("comment"),
+            Map.of());
     private static final Storage TABLE_STORAGE = new Storage(
             StorageFormat.create("serde", "input", "output"),
             Optional.of("/test"),
