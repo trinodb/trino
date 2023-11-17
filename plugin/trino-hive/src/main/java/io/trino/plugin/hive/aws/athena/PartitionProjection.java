@@ -43,21 +43,13 @@ final class PartitionProjection
 {
     private static final Pattern PROJECTION_LOCATION_TEMPLATE_PLACEHOLDER_PATTERN = Pattern.compile("(\\$\\{[^}]+\\})");
 
-    private final boolean enabled;
-
     private final Optional<String> storageLocationTemplate;
     private final Map<String, Projection> columnProjections;
 
-    public PartitionProjection(boolean enabled, Optional<String> storageLocationTemplate, Map<String, Projection> columnProjections)
+    public PartitionProjection(Optional<String> storageLocationTemplate, Map<String, Projection> columnProjections)
     {
-        this.enabled = enabled;
         this.storageLocationTemplate = requireNonNull(storageLocationTemplate, "storageLocationTemplate is null");
         this.columnProjections = ImmutableMap.copyOf(requireNonNull(columnProjections, "columnProjections is null"));
-    }
-
-    public boolean isEnabled()
-    {
-        return enabled;
     }
 
     public Optional<List<String>> getProjectedPartitionNamesByFilter(List<String> columnNames, TupleDomain<String> partitionKeysFilter)
