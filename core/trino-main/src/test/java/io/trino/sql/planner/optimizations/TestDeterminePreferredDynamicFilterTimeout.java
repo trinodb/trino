@@ -21,8 +21,8 @@ import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -63,7 +63,7 @@ public class TestDeterminePreferredDynamicFilterTimeout
                 JOIN_DISTRIBUTION_TYPE, BROADCAST.name()));
     }
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
     {
         waitForCascadingDynamicFiltersTimeout = getSmallDynamicFilterWaitTimeout(getQueryRunner().getDefaultSession()).toMillis();

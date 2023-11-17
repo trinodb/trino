@@ -17,7 +17,7 @@ import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Range;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.DATE;
 import static io.trino.orc.metadata.statistics.DateStatistics.DATE_VALUE_BYTES;

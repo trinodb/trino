@@ -30,9 +30,11 @@ import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.net.CookieManager;
 import java.net.CookieStore;
@@ -48,7 +50,11 @@ import static io.trino.server.ui.OAuthIdTokenCookie.ID_TOKEN_COOKIE;
 import static jakarta.servlet.http.HttpServletResponse.SC_OK;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestOAuth2WebUiAuthenticationFilterWithRefreshTokens
 {
     protected static final Duration TTL_ACCESS_TOKEN_IN_SECONDS = Duration.ofSeconds(5);
@@ -65,7 +71,7 @@ public class TestOAuth2WebUiAuthenticationFilterWithRefreshTokens
     private URI serverUri;
     private URI uiUri;
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
             throws Exception
     {
@@ -121,7 +127,7 @@ public class TestOAuth2WebUiAuthenticationFilterWithRefreshTokens
                 serverUri + "/ui/logout/logout.html");
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
             throws Exception
     {

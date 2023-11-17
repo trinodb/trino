@@ -34,8 +34,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 
 import java.util.List;
 import java.util.Map;
@@ -91,14 +89,12 @@ public class BasePlanTest
     }
 
     @BeforeAll
-    @BeforeClass
     public final void initPlanTest()
     {
         this.queryRunner = createLocalQueryRunner();
     }
 
     @AfterAll
-    @AfterClass(alwaysRun = true)
     public final void destroyPlanTest()
     {
         closeAllRuntimeException(queryRunner);

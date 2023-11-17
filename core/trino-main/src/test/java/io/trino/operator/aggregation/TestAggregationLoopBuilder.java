@@ -24,8 +24,10 @@ import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
@@ -36,7 +38,11 @@ import static io.trino.operator.aggregation.AggregationLoopBuilder.buildLoop;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodType.methodType;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestAggregationLoopBuilder
 {
     private static final MethodHandle INPUT_FUNCTION;
@@ -59,7 +65,7 @@ public class TestAggregationLoopBuilder
     private List<TestParameter> keyBlocks;
     private List<TestParameter> valueBlocks;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
             throws ReflectiveOperationException
     {

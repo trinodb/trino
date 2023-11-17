@@ -23,7 +23,9 @@ import io.trino.execution.QueryManager;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.tests.tpch.TpchQueryRunnerBuilder;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.SystemSessionProperties.REQUIRED_WORKERS_COUNT;
 import static io.trino.SystemSessionProperties.REQUIRED_WORKERS_MAX_WAIT_TIME;
@@ -34,42 +36,51 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Fail.fail;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 // run single threaded to avoid creating multiple query runners at once
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public class TestMinWorkerRequirement
 {
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Insufficient active worker nodes. Waited 1.00ns for at least 5 workers, but only 4 workers are active")
+    @Test
     public void testInsufficientWorkerNodes()
-            throws Exception
     {
-        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
-                .setCoordinatorProperties(ImmutableMap.<String, String>builder()
-                        .put("query-manager.required-workers", "5")
-                        .put("query-manager.required-workers-max-wait", "1ns")
-                        .buildOrThrow())
-                .setNodeCount(4)
-                .build()) {
-            queryRunner.execute("SELECT COUNT(*) from lineitem");
-            fail("Expected exception due to insufficient active worker nodes");
-        }
+        assertThatThrownBy(() -> {
+            try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
+                    .setCoordinatorProperties(ImmutableMap.<String, String>builder()
+                            .put("query-manager.required-workers", "5")
+                            .put("query-manager.required-workers-max-wait", "1ns")
+                            .buildOrThrow())
+                    .setNodeCount(4)
+                    .build()) {
+                queryRunner.execute("SELECT COUNT(*) from lineitem");
+                fail("Expected exception due to insufficient active worker nodes");
+            }
+        })
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Insufficient active worker nodes. Waited 1.00ns for at least 5 workers, but only 4 workers are active");
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Insufficient active worker nodes. Waited 1.00ns for at least 4 workers, but only 3 workers are active")
+    @Test
     public void testInsufficientWorkerNodesWithCoordinatorExcluded()
-            throws Exception
     {
-        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
-                .setCoordinatorProperties(ImmutableMap.<String, String>builder()
-                        .put("node-scheduler.include-coordinator", "false")
-                        .put("query-manager.required-workers", "4")
-                        .put("query-manager.required-workers-max-wait", "1ns")
-                        .buildOrThrow())
-                .setNodeCount(4)
-                .build()) {
-            queryRunner.execute("SELECT COUNT(*) from lineitem");
-            fail("Expected exception due to insufficient active worker nodes");
-        }
+        assertThatThrownBy(() -> {
+            try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
+                    .setCoordinatorProperties(ImmutableMap.<String, String>builder()
+                            .put("node-scheduler.include-coordinator", "false")
+                            .put("query-manager.required-workers", "4")
+                            .put("query-manager.required-workers-max-wait", "1ns")
+                            .buildOrThrow())
+                    .setNodeCount(4)
+                    .build()) {
+                queryRunner.execute("SELECT COUNT(*) from lineitem");
+                fail("Expected exception due to insufficient active worker nodes");
+            }
+        })
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Insufficient active worker nodes. Waited 1.00ns for at least 4 workers, but only 3 workers are active");
     }
 
     @Test
@@ -116,26 +127,29 @@ public class TestMinWorkerRequirement
         }
     }
 
-    @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Insufficient active worker nodes. Waited 99.00ns for at least 3 workers, but only 2 workers are active")
+    @Test
     public void testRequiredNodesMaxWaitSessionOverride()
-            throws Exception
     {
-        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
-                .setCoordinatorProperties(ImmutableMap.<String, String>builder()
-                        .put("query-manager.required-workers", "3")
-                        .put("query-manager.required-workers-max-wait", "1ns")
-                        .buildOrThrow())
-                .setNodeCount(2)
-                .build()) {
-            Session session = testSessionBuilder()
-                    .setSystemProperty(REQUIRED_WORKERS_COUNT, "3")
-                    .setSystemProperty(REQUIRED_WORKERS_MAX_WAIT_TIME, "99ns")
-                    .setCatalog("tpch")
-                    .setSchema("tiny")
-                    .build();
-            queryRunner.execute(session, "SELECT COUNT(*) from lineitem");
-            fail("Expected exception due to insufficient active worker nodes");
-        }
+        assertThatThrownBy(() -> {
+            try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
+                    .setCoordinatorProperties(ImmutableMap.<String, String>builder()
+                            .put("query-manager.required-workers", "3")
+                            .put("query-manager.required-workers-max-wait", "1ns")
+                            .buildOrThrow())
+                    .setNodeCount(2)
+                    .build()) {
+                Session session = testSessionBuilder()
+                        .setSystemProperty(REQUIRED_WORKERS_COUNT, "3")
+                        .setSystemProperty(REQUIRED_WORKERS_MAX_WAIT_TIME, "99ns")
+                        .setCatalog("tpch")
+                        .setSchema("tiny")
+                        .build();
+                queryRunner.execute(session, "SELECT COUNT(*) from lineitem");
+                fail("Expected exception due to insufficient active worker nodes");
+            }
+        })
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Insufficient active worker nodes. Waited 99.00ns for at least 3 workers, but only 2 workers are active");
     }
 
     @Test

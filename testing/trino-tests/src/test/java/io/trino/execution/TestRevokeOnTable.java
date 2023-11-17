@@ -27,9 +27,11 @@ import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.DistributedQueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.EnumSet;
 
@@ -39,7 +41,11 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestRevokeOnTable
 {
     private static final Session admin = sessionOf("admin");
@@ -52,7 +58,7 @@ public class TestRevokeOnTable
     private DistributedQueryRunner queryRunner;
     private QueryAssertions assertions;
 
-    @BeforeClass
+    @BeforeAll
     public void initClass()
             throws Exception
     {
@@ -78,7 +84,7 @@ public class TestRevokeOnTable
         assertions = new QueryAssertions(queryRunner);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void teardown()
     {
         assertions.close();
