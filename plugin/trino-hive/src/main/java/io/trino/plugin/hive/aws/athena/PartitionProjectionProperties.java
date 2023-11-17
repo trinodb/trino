@@ -192,17 +192,17 @@ public final class PartitionProjectionProperties
         }
 
         Set<String> partitionColumnNames = table.getPartitionColumns().stream().map(Column::getName).collect(Collectors.toSet());
-        return Optional.of(createPartitionProjection(
+        return createPartitionProjection(
                 table.getDataColumns().stream()
                         .map(Column::getName)
                         .filter(partitionColumnNames::contains)
                         .collect(toImmutableList()),
                 table.getPartitionColumns().stream()
                         .collect(toImmutableMap(Column::getName, column -> column.getType().getType(typeManager, DEFAULT_PRECISION))),
-                tableProperties));
+                tableProperties);
     }
 
-    private static PartitionProjection createPartitionProjection(List<String> dataColumns, Map<String, Type> partitionColumns, Map<String, String> tableProperties)
+    private static Optional<PartitionProjection> createPartitionProjection(List<String> dataColumns, Map<String, Type> partitionColumns, Map<String, String> tableProperties)
     {
         // This method is used during table creation to validate the properties. The validation is performed even if the projection is disabled.
         boolean enabled = parseBoolean(tableProperties.get(METASTORE_PROPERTY_PROJECTION_ENABLED));
@@ -239,7 +239,10 @@ public final class PartitionProjectionProperties
             }
         });
 
-        return new PartitionProjection(enabled, storageLocationTemplate, columnProjections);
+        if (!enabled) {
+            return Optional.empty();
+        }
+        return Optional.of(new PartitionProjection(storageLocationTemplate, columnProjections));
     }
 
     private static Map<String, Object> rewriteColumnProjectionProperties(Map<String, String> metastoreTableProperties, String columnName)
