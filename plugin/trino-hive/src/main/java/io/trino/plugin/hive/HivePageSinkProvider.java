@@ -172,7 +172,7 @@ public class HivePageSinkProvider
                 handle.getLocationHandle(),
                 locationService,
                 session.getQueryId(),
-                new HivePageSinkMetadataProvider(handle.getPageSinkMetadata(), new HiveMetastoreClosure(cachingHiveMetastore)),
+                new HivePageSinkMetadataProvider(handle.getPageSinkMetadata(), new HiveMetastoreClosure(cachingHiveMetastore, typeManager, false)),
                 typeManager,
                 pageSorter,
                 writerSortBufferSize,
