@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.hive.thrift.metastore.DataOperationType;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
+import io.trino.plugin.hive.aws.athena.PartitionProjection;
 import io.trino.plugin.hive.metastore.AcidTransactionOwner;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
@@ -28,6 +29,7 @@ import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.function.LanguageFunction;
@@ -35,6 +37,7 @@ import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.type.Type;
+import io.trino.spi.type.TypeManager;
 
 import java.util.Collection;
 import java.util.List;
@@ -47,20 +50,26 @@ import java.util.function.Function;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Maps.immutableEntry;
+import static io.trino.plugin.hive.HiveErrorCode.HIVE_TABLE_DROPPED_DURING_QUERY;
 import static io.trino.plugin.hive.HivePartitionManager.extractPartitionValues;
+import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.getPartitionProjectionFromTable;
 import static java.util.Objects.requireNonNull;
 
 public class HiveMetastoreClosure
 {
     private final HiveMetastore delegate;
+    private final TypeManager typeManager;
+    private final boolean partitionProjectionEnabled;
 
     /**
      * Do not use this directly.  Instead, the closure should be fetched from the current SemiTransactionalHiveMetastore,
      * which can be fetched from the current HiveMetadata.
      */
-    public HiveMetastoreClosure(HiveMetastore delegate)
+    public HiveMetastoreClosure(HiveMetastore delegate, TypeManager typeManager, boolean partitionProjectionEnabled)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.partitionProjectionEnabled = partitionProjectionEnabled;
     }
 
     public Optional<Database> getDatabase(String databaseName)
@@ -247,12 +256,21 @@ public class HiveMetastoreClosure
             List<String> columnNames,
             TupleDomain<String> partitionKeysFilter)
     {
+        if (partitionProjectionEnabled) {
+            Table table = getTable(databaseName, tableName)
+                    .orElseThrow(() -> new TrinoException(HIVE_TABLE_DROPPED_DURING_QUERY, "Table does not exists: " + tableName));
+
+            Optional<PartitionProjection> projection = getPartitionProjectionFromTable(table, typeManager);
+            if (projection.isPresent()) {
+                return projection.get().getProjectedPartitionNamesByFilter(columnNames, partitionKeysFilter);
+            }
+        }
         return delegate.getPartitionNamesByFilter(databaseName, tableName, columnNames, partitionKeysFilter);
     }
 
     private List<Partition> getExistingPartitionsByNames(Table table, List<String> partitionNames)
     {
-        Map<String, Partition> partitions = delegate.getPartitionsByNames(table, partitionNames).entrySet().stream()
+        Map<String, Partition> partitions = getPartitionsByNames(table, partitionNames).entrySet().stream()
                 .map(entry -> immutableEntry(entry.getKey(), entry.getValue().orElseThrow(() ->
                         new PartitionNotFoundException(table.getSchemaTableName(), extractPartitionValues(entry.getKey())))))
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -265,9 +283,20 @@ public class HiveMetastoreClosure
     public Map<String, Optional<Partition>> getPartitionsByNames(String databaseName, String tableName, List<String> partitionNames)
     {
         return delegate.getTable(databaseName, tableName)
-                .map(table -> delegate.getPartitionsByNames(table, partitionNames))
+                .map(table -> getPartitionsByNames(table, partitionNames))
                 .orElseGet(() -> partitionNames.stream()
                         .collect(toImmutableMap(name -> name, name -> Optional.empty())));
+    }
+
+    private Map<String, Optional<Partition>> getPartitionsByNames(Table table, List<String> partitionNames)
+    {
+        if (partitionProjectionEnabled) {
+            Optional<PartitionProjection> projection = getPartitionProjectionFromTable(table, typeManager);
+            if (projection.isPresent()) {
+                return projection.get().getProjectedPartitionsByNames(table, partitionNames);
+            }
+        }
+        return delegate.getPartitionsByNames(table, partitionNames);
     }
 
     public void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions)

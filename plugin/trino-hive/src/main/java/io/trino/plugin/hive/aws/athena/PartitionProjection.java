@@ -39,7 +39,7 @@ import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-final class PartitionProjection
+public final class PartitionProjection
 {
     private static final Pattern PROJECTION_LOCATION_TEMPLATE_PLACEHOLDER_PATTERN = Pattern.compile("(\\$\\{[^}]+\\})");
 

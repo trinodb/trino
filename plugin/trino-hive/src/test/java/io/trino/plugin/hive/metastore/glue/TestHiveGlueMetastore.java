@@ -114,6 +114,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.testing.TestingPageSinkId.TESTING_PAGE_SINK_ID;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.lang.System.currentTimeMillis;
 import static java.util.Collections.unmodifiableList;
@@ -212,7 +213,7 @@ public class TestHiveGlueMetastore
 //        Logging logging = Logging.initialize();
 //        logging.setLevel("com.amazonaws.request", Level.DEBUG);
 
-        metastore = new HiveMetastoreClosure(metastoreClient);
+        metastore = new HiveMetastoreClosure(metastoreClient, TESTING_TYPE_MANAGER, false);
         glueClient = AWSGlueAsyncClientBuilder.defaultClient();
     }
 
@@ -384,7 +385,7 @@ public class TestHiveGlueMetastore
 
             doCreateEmptyTable(tableName, ORC, columns, partitionedBy);
 
-            HiveMetastoreClosure metastoreClient = new HiveMetastoreClosure(getMetastoreClient());
+            HiveMetastoreClosure metastoreClient = new HiveMetastoreClosure(getMetastoreClient(), TESTING_TYPE_MANAGER, false);
             Table table = metastoreClient.getTable(tableName.getSchemaName(), tableName.getTableName())
                     .orElseThrow(() -> new TableNotFoundException(tableName));
 
@@ -1542,7 +1543,7 @@ public class TestHiveGlueMetastore
     {
         doCreateEmptyTable(tableName, ORC, columns, partitionColumnNames);
 
-        HiveMetastoreClosure metastoreClient = new HiveMetastoreClosure(getMetastoreClient());
+        HiveMetastoreClosure metastoreClient = new HiveMetastoreClosure(getMetastoreClient(), TESTING_TYPE_MANAGER, false);
         Table table = metastoreClient.getTable(tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
         List<PartitionWithStatistics> partitions = new ArrayList<>();

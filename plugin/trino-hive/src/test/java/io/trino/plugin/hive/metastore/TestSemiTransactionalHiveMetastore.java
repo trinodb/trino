@@ -39,6 +39,7 @@ import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.acid.AcidOperation.INSERT;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.testing.TestingConnectorSession.SESSION;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.testng.Assert.assertTrue;
@@ -80,7 +81,7 @@ public class TestSemiTransactionalHiveMetastore
     {
         return new SemiTransactionalHiveMetastore(
                 HDFS_FILE_SYSTEM_FACTORY,
-                new HiveMetastoreClosure(new TestingHiveMetastore()),
+                new HiveMetastoreClosure(new TestingHiveMetastore(), TESTING_TYPE_MANAGER, false),
                 directExecutor(),
                 dropExecutor,
                 directExecutor(),
@@ -121,7 +122,7 @@ public class TestSemiTransactionalHiveMetastore
     {
         return new SemiTransactionalHiveMetastore(
                 HDFS_FILE_SYSTEM_FACTORY,
-                new HiveMetastoreClosure(new TestingHiveMetastore()),
+                new HiveMetastoreClosure(new TestingHiveMetastore(), TESTING_TYPE_MANAGER, false),
                 directExecutor(),
                 directExecutor(),
                 updateExecutor,
