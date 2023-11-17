@@ -35,13 +35,13 @@ class InjectedProjection
     public List<String> getProjectedValues(Optional<Domain> partitionValueFilter)
     {
         Domain domain = partitionValueFilter
-                .orElseThrow(() -> invalidProjectionException(getColumnName(), "Injected projection requires single predicate for it's column in where clause"));
+                .orElseThrow(() -> new InvalidProjectionException(getColumnName(), "Injected projection requires single predicate for it's column in where clause"));
         Type type = domain.getType();
         if (!domain.isNullableSingleValue() || !canConvertSqlTypeToStringForParts(type, true)) {
-            throw invalidProjectionException(getColumnName(), "Injected projection requires single predicate for it's column in where clause. Currently provided can't be converted to single partition.");
+            throw new InvalidProjectionException(getColumnName(), "Injected projection requires single predicate for it's column in where clause. Currently provided can't be converted to single partition.");
         }
         return Optional.ofNullable(sqlScalarToString(type, domain.getNullableSingleValue(), null))
                 .map(ImmutableList::of)
-                .orElseThrow(() -> unsupportedProjectionColumnTypeException(type));
+                .orElseThrow(() -> new InvalidProjectionException(getColumnName(), type));
     }
 }

@@ -17,7 +17,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
-import static io.trino.plugin.hive.aws.athena.Projection.invalidProjectionException;
 import static java.lang.String.format;
 
 public final class PartitionProjectionProperties
@@ -61,7 +60,7 @@ public final class PartitionProjectionProperties
             Function<I, T> decoder)
     {
         return getProjectionPropertyValue(columnProjectionProperties, propertyKey, decoder)
-                .orElseThrow(() -> invalidProjectionException(columnName, format("Missing required property: '%s'", propertyKey)));
+                .orElseThrow(() -> new InvalidProjectionException(columnName, format("Missing required property: '%s'", propertyKey)));
     }
 
     public static <T, I> Optional<T> getProjectionPropertyValue(
