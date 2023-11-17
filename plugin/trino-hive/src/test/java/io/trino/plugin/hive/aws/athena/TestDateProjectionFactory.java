@@ -35,27 +35,31 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class TestDateProjectionFactory
 {
     @Test
-    void testIsSupported()
+    void testTypeSupport()
     {
-        assertThat(new DateProjectionFactory().isSupportedColumnType(VARCHAR)).isTrue();
-        assertThat(new DateProjectionFactory().isSupportedColumnType(DATE)).isTrue();
-        assertThat(new DateProjectionFactory().isSupportedColumnType(TIMESTAMP_SECONDS)).isTrue();
-        assertThat(new DateProjectionFactory().isSupportedColumnType(TIMESTAMP_MICROS)).isTrue();
-        assertThat(new DateProjectionFactory().isSupportedColumnType(TIMESTAMP_NANOS)).isFalse();
-        assertThat(new DateProjectionFactory().isSupportedColumnType(BIGINT)).isFalse();
+        new DateProjection("test", VARCHAR, ImmutableMap.of(COLUMN_PROJECTION_FORMAT, "yyyy-MM-dd", COLUMN_PROJECTION_RANGE, ImmutableList.of("2020-01-01", "2020-01-03")));
+        new DateProjection("test", DATE, ImmutableMap.of(COLUMN_PROJECTION_FORMAT, "yyyy-MM-dd", COLUMN_PROJECTION_RANGE, ImmutableList.of("2020-01-01", "2020-01-03")));
+        new DateProjection("test", TIMESTAMP_SECONDS, ImmutableMap.of(COLUMN_PROJECTION_FORMAT, "yyyy-MM-dd", COLUMN_PROJECTION_RANGE, ImmutableList.of("2020-01-01", "2020-01-03")));
+        new DateProjection("test", TIMESTAMP_MICROS, ImmutableMap.of(COLUMN_PROJECTION_FORMAT, "yyyy-MM-dd", COLUMN_PROJECTION_RANGE, ImmutableList.of("2020-01-01", "2020-01-03")));
+        assertThatThrownBy(() -> new DateProjection("test", TIMESTAMP_NANOS, ImmutableMap.of(COLUMN_PROJECTION_FORMAT, "yyyy-MM-dd", COLUMN_PROJECTION_RANGE, ImmutableList.of("2020-01-01", "2020-01-03"))))
+                .isInstanceOf(InvalidProjectionException.class)
+                .hasMessage("Column projection for column 'test' failed. Unsupported column type: timestamp(9)");
+        assertThatThrownBy(() -> new DateProjection("test", BIGINT, ImmutableMap.of(COLUMN_PROJECTION_FORMAT, "yyyy-MM-dd", COLUMN_PROJECTION_RANGE, ImmutableList.of("2020-01-01", "2020-01-03"))))
+                .isInstanceOf(InvalidProjectionException.class)
+                .hasMessage("Column projection for column 'test' failed. Unsupported column type: bigint");
     }
 
     @Test
     void testCreate()
     {
-        Projection projection = new DateProjectionFactory().create("test", VARCHAR, ImmutableMap.of(COLUMN_PROJECTION_FORMAT, "yyyy-MM-dd", COLUMN_PROJECTION_RANGE, ImmutableList.of("2020-01-01", "2020-01-03")));
+        Projection projection = new DateProjection("test", VARCHAR, ImmutableMap.of(COLUMN_PROJECTION_FORMAT, "yyyy-MM-dd", COLUMN_PROJECTION_RANGE, ImmutableList.of("2020-01-01", "2020-01-03")));
         assertThat(projection.getProjectedValues(Optional.empty())).containsExactly("2020-01-01", "2020-01-02", "2020-01-03");
         assertThat(projection.getProjectedValues(Optional.of(Domain.all(VARCHAR)))).containsExactly("2020-01-01", "2020-01-02", "2020-01-03");
         assertThat(projection.getProjectedValues(Optional.of(Domain.none(VARCHAR)))).isEmpty();
         assertThat(projection.getProjectedValues(Optional.of(Domain.singleValue(VARCHAR, Slices.utf8Slice("2020-01-02"))))).containsExactly("2020-01-02");
         assertThat(projection.getProjectedValues(Optional.of(Domain.singleValue(VARCHAR, Slices.utf8Slice("2222-01-01"))))).isEmpty();
 
-        assertThatThrownBy(() -> new DateProjectionFactory().create("test", VARCHAR, ImmutableMap.of("ignored", ImmutableList.of("2020-01-01", "2020-01-02", "2020-01-03"))))
+        assertThatThrownBy(() -> new DateProjection("test", VARCHAR, ImmutableMap.of("ignored", ImmutableList.of("2020-01-01", "2020-01-02", "2020-01-03"))))
                 .isInstanceOf(InvalidProjectionException.class)
                 .hasMessage("Column projection for column 'test' failed. Missing required property: 'partition_projection_format'");
     }

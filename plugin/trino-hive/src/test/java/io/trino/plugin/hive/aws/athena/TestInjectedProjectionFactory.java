@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.hive.aws.athena;
 
-import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.trino.spi.predicate.Domain;
 import org.junit.jupiter.api.Test;
@@ -33,17 +32,21 @@ class TestInjectedProjectionFactory
     @Test
     void testIsSupported()
     {
-        assertThat(new InjectedProjectionFactory().isSupportedColumnType(VARCHAR)).isTrue();
-        assertThat(new InjectedProjectionFactory().isSupportedColumnType(createCharType(10))).isTrue();
-        assertThat(new InjectedProjectionFactory().isSupportedColumnType(BIGINT)).isTrue();
-        assertThat(new InjectedProjectionFactory().isSupportedColumnType(TIMESTAMP_SECONDS)).isFalse();
-        assertThat(new InjectedProjectionFactory().isSupportedColumnType(TIMESTAMP_PICOS)).isFalse();
+        new InjectedProjection("test", VARCHAR);
+        new InjectedProjection("test", createCharType(10));
+        new InjectedProjection("test", BIGINT);
+        assertThatThrownBy(() -> new InjectedProjection("test", TIMESTAMP_SECONDS))
+                .isInstanceOf(InvalidProjectionException.class)
+                .hasMessage("Column projection for column 'test' failed. Unsupported column type: timestamp(0)");
+        assertThatThrownBy(() -> new InjectedProjection("test", TIMESTAMP_PICOS))
+                .isInstanceOf(InvalidProjectionException.class)
+                .hasMessage("Column projection for column 'test' failed. Unsupported column type: timestamp(12)");
     }
 
     @Test
     void testCreate()
     {
-        Projection projection = new InjectedProjectionFactory().create("test", VARCHAR, ImmutableMap.of());
+        Projection projection = new InjectedProjection("test", VARCHAR);
         assertThat(projection.getProjectedValues(Optional.of(Domain.singleValue(VARCHAR, Slices.utf8Slice("b"))))).containsExactly("b");
         assertThat(projection.getProjectedValues(Optional.of(Domain.singleValue(VARCHAR, Slices.utf8Slice("x"))))).containsExactly("x");
 

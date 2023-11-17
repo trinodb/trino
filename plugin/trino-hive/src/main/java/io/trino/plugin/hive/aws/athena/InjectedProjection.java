@@ -29,8 +29,11 @@ final class InjectedProjection
 {
     private final String columnName;
 
-    public InjectedProjection(String columnName)
+    public InjectedProjection(String columnName, Type columnType)
     {
+        if (!canConvertSqlTypeToStringForParts(columnType, true)) {
+            throw new InvalidProjectionException(columnName, columnType);
+        }
         this.columnName = requireNonNull(columnName, "columnName is null");
     }
 

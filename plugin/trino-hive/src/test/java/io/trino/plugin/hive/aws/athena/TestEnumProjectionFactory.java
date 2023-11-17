@@ -32,25 +32,27 @@ class TestEnumProjectionFactory
     @Test
     void testIsSupported()
     {
-        assertThat(new EnumProjectionFactory().isSupportedColumnType(VARCHAR)).isTrue();
-        assertThat(new EnumProjectionFactory().isSupportedColumnType(BIGINT)).isFalse();
+        new EnumProjection("test", VARCHAR, ImmutableMap.of(COLUMN_PROJECTION_VALUES, ImmutableList.of("a", "b", "c")));
+        assertThatThrownBy(() -> new EnumProjection("test", BIGINT, ImmutableMap.of(COLUMN_PROJECTION_VALUES, ImmutableList.of("a", "b", "c"))))
+                .isInstanceOf(InvalidProjectionException.class)
+                .hasMessage("Column projection for column 'test' failed. Unsupported column type: bigint");
     }
 
     @Test
     void testCreate()
     {
-        Projection projection = new EnumProjectionFactory().create("test", VARCHAR, ImmutableMap.of(COLUMN_PROJECTION_VALUES, ImmutableList.of("a", "b", "c")));
+        Projection projection = new EnumProjection("test", VARCHAR, ImmutableMap.of(COLUMN_PROJECTION_VALUES, ImmutableList.of("a", "b", "c")));
         assertThat(projection.getProjectedValues(Optional.empty())).containsExactly("a", "b", "c");
         assertThat(projection.getProjectedValues(Optional.of(Domain.all(VARCHAR)))).containsExactly("a", "b", "c");
         assertThat(projection.getProjectedValues(Optional.of(Domain.none(VARCHAR)))).isEmpty();
         assertThat(projection.getProjectedValues(Optional.of(Domain.singleValue(VARCHAR, Slices.utf8Slice("b"))))).containsExactly("b");
         assertThat(projection.getProjectedValues(Optional.of(Domain.singleValue(VARCHAR, Slices.utf8Slice("x"))))).isEmpty();
 
-        assertThatThrownBy(() -> new EnumProjectionFactory().create("test", VARCHAR, ImmutableMap.of("ignored", ImmutableList.of("a", "b", "c"))))
+        assertThatThrownBy(() -> new EnumProjection("test", VARCHAR, ImmutableMap.of("ignored", ImmutableList.of("a", "b", "c"))))
                 .isInstanceOf(InvalidProjectionException.class)
                 .hasMessage("Column projection for column 'test' failed. Missing required property: 'partition_projection_values'");
 
-        assertThatThrownBy(() -> new EnumProjectionFactory().create("test", VARCHAR, ImmutableMap.of(COLUMN_PROJECTION_VALUES, "invalid")))
+        assertThatThrownBy(() -> new EnumProjection("test", VARCHAR, ImmutableMap.of(COLUMN_PROJECTION_VALUES, "invalid")))
                 .isInstanceOf(ClassCastException.class);
     }
 }

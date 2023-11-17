@@ -60,10 +60,6 @@ import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.PART
 import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.PARTITION_PROJECTION_LOCATION_TEMPLATE;
 import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.PROPERTY_KEY_PREFIX;
 import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.getMetastoreProjectionPropertyKey;
-import static io.trino.plugin.hive.aws.athena.ProjectionType.DATE;
-import static io.trino.plugin.hive.aws.athena.ProjectionType.ENUM;
-import static io.trino.plugin.hive.aws.athena.ProjectionType.INJECTED;
-import static io.trino.plugin.hive.aws.athena.ProjectionType.INTEGER;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.String.format;
 import static java.util.Locale.ROOT;
@@ -72,7 +68,6 @@ import static java.util.Objects.requireNonNull;
 public final class PartitionProjectionService
 {
     private final boolean partitionProjectionEnabled;
-    private final Map<ProjectionType, ProjectionFactory> projectionFactories;
     private final TypeManager typeManager;
 
     @Inject
@@ -80,12 +75,6 @@ public final class PartitionProjectionService
     {
         this.partitionProjectionEnabled = hiveConfig.isPartitionProjectionEnabled();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.projectionFactories = ImmutableMap.<ProjectionType, ProjectionFactory>builder()
-                .put(ENUM, new EnumProjectionFactory())
-                .put(INTEGER, new IntegerProjectionFactory())
-                .put(DATE, new DateProjectionFactory())
-                .put(INJECTED, new InjectedProjectionFactory())
-                .buildOrThrow();
     }
 
     public static Map<String, Object> getPartitionProjectionTrinoTableProperties(Table table)
@@ -232,7 +221,7 @@ public final class PartitionProjectionService
                 tableProperties));
     }
 
-    private PartitionProjection createPartitionProjection(List<String> dataColumns, Map<String, Type> partitionColumns, Map<String, String> tableProperties)
+    private static PartitionProjection createPartitionProjection(List<String> dataColumns, Map<String, Type> partitionColumns, Map<String, String> tableProperties)
     {
         // This method is used during table creation to validate the properties. The validation is performed even if the projection is disabled.
         boolean enabled = parseBoolean(tableProperties.get(METASTORE_PROPERTY_PROJECTION_ENABLED));
@@ -314,20 +303,18 @@ public final class PartitionProjectionService
         return trinoTablePropertiesBuilder.buildOrThrow();
     }
 
-    private Projection parseColumnProjection(String columnName, Type columnType, Map<String, Object> columnProperties)
+    private static Projection parseColumnProjection(String columnName, Type columnType, Map<String, Object> columnProperties)
     {
         ProjectionType projectionType = (ProjectionType) columnProperties.get(COLUMN_PROJECTION_TYPE);
         if (projectionType == null) {
             throw new InvalidProjectionException(columnName, "Projection type property missing");
         }
-        ProjectionFactory projectionFactory = projectionFactories.get(projectionType);
-        if (projectionFactory == null) {
-            throw new InvalidProjectionException(columnName, format("Partition projection type %s for column: '%s' not supported", projectionType, columnName));
-        }
-        if (!projectionFactory.isSupportedColumnType(columnType)) {
-            throw new InvalidProjectionException(columnName, columnType);
-        }
-        return projectionFactory.create(columnName, columnType, columnProperties);
+        return switch (projectionType) {
+            case ENUM -> new EnumProjection(columnName, columnType, columnProperties);
+            case INTEGER -> new IntegerProjection(columnName, columnType, columnProperties);
+            case DATE -> new DateProjection(columnName, columnType, columnProperties);
+            case INJECTED -> new InjectedProjection(columnName, columnType);
+        };
     }
 
     private static List<String> splitCommaSeparatedString(String value)
