@@ -29,12 +29,10 @@ import io.trino.spi.type.TypeManager;
 
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -69,6 +67,7 @@ import static io.trino.plugin.hive.aws.athena.ProjectionType.INJECTED;
 import static io.trino.plugin.hive.aws.athena.ProjectionType.INTEGER;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static java.lang.String.format;
+import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
@@ -95,9 +94,22 @@ public final class PartitionProjectionService
     {
         Map<String, String> metastoreTableProperties = table.getParameters();
         ImmutableMap.Builder<String, Object> trinoTablePropertiesBuilder = ImmutableMap.builder();
-        rewriteProperty(metastoreTableProperties, trinoTablePropertiesBuilder, METASTORE_PROPERTY_PROJECTION_IGNORE, PARTITION_PROJECTION_IGNORE, Boolean::valueOf);
-        rewriteProperty(metastoreTableProperties, trinoTablePropertiesBuilder, METASTORE_PROPERTY_PROJECTION_ENABLED, PARTITION_PROJECTION_ENABLED, Boolean::valueOf);
-        rewriteProperty(metastoreTableProperties, trinoTablePropertiesBuilder, METASTORE_PROPERTY_PROJECTION_LOCATION_TEMPLATE, PARTITION_PROJECTION_LOCATION_TEMPLATE, String::valueOf);
+
+        String ignore = metastoreTableProperties.get(METASTORE_PROPERTY_PROJECTION_IGNORE);
+        if (ignore != null) {
+            trinoTablePropertiesBuilder.put(PARTITION_PROJECTION_IGNORE, Boolean.valueOf(ignore));
+        }
+
+        String enabled = metastoreTableProperties.get(METASTORE_PROPERTY_PROJECTION_ENABLED);
+        if (enabled != null) {
+            trinoTablePropertiesBuilder.put(PARTITION_PROJECTION_ENABLED, Boolean.valueOf(enabled));
+        }
+
+        String locationTemplate = metastoreTableProperties.get(METASTORE_PROPERTY_PROJECTION_LOCATION_TEMPLATE);
+        if (locationTemplate != null) {
+            trinoTablePropertiesBuilder.put(PARTITION_PROJECTION_LOCATION_TEMPLATE, locationTemplate);
+        }
+
         return trinoTablePropertiesBuilder.buildOrThrow();
     }
 
@@ -118,24 +130,21 @@ public final class PartitionProjectionService
         ImmutableMap.Builder<String, String> metastoreTablePropertiesBuilder = ImmutableMap.builder();
         // Handle Table Properties
         Map<String, Object> trinoTableProperties = tableMetadata.getProperties();
-        rewriteProperty(
-                trinoTableProperties,
-                metastoreTablePropertiesBuilder,
-                PARTITION_PROJECTION_IGNORE,
-                METASTORE_PROPERTY_PROJECTION_IGNORE,
-                value -> value.toString().toLowerCase(Locale.ENGLISH));
-        rewriteProperty(
-                trinoTableProperties,
-                metastoreTablePropertiesBuilder,
-                PARTITION_PROJECTION_ENABLED,
-                METASTORE_PROPERTY_PROJECTION_ENABLED,
-                value -> value.toString().toLowerCase(Locale.ENGLISH));
-        rewriteProperty(
-                trinoTableProperties,
-                metastoreTablePropertiesBuilder,
-                PARTITION_PROJECTION_LOCATION_TEMPLATE,
-                METASTORE_PROPERTY_PROJECTION_LOCATION_TEMPLATE,
-                Object::toString);
+
+        Object ignore = trinoTableProperties.get(PARTITION_PROJECTION_IGNORE);
+        if (ignore != null) {
+            metastoreTablePropertiesBuilder.put(METASTORE_PROPERTY_PROJECTION_IGNORE, ignore.toString().toLowerCase(ROOT));
+        }
+
+        Object enabled = trinoTableProperties.get(PARTITION_PROJECTION_ENABLED);
+        if (enabled != null) {
+            metastoreTablePropertiesBuilder.put(METASTORE_PROPERTY_PROJECTION_ENABLED, enabled.toString().toLowerCase(ROOT));
+        }
+
+        Object locationTemplate = trinoTableProperties.get(PARTITION_PROJECTION_LOCATION_TEMPLATE);
+        if (locationTemplate != null) {
+            metastoreTablePropertiesBuilder.put(METASTORE_PROPERTY_PROJECTION_LOCATION_TEMPLATE, locationTemplate.toString());
+        }
 
         // Handle Column Properties
         tableMetadata.getColumns().stream()
@@ -143,48 +152,34 @@ public final class PartitionProjectionService
                 .forEach(columnMetadata -> {
                     Map<String, Object> columnProperties = columnMetadata.getProperties();
                     String columnName = columnMetadata.getName();
-                    rewriteProperty(
-                            columnProperties,
-                            metastoreTablePropertiesBuilder,
-                            COLUMN_PROJECTION_TYPE,
-                            getMetastoreProjectionPropertyKey(columnName, COLUMN_PROJECTION_TYPE_SUFFIX),
-                            value -> ((ProjectionType) value).name().toLowerCase(Locale.ENGLISH));
-                    rewriteProperty(
-                            columnProperties,
-                            metastoreTablePropertiesBuilder,
-                            COLUMN_PROJECTION_VALUES,
-                            getMetastoreProjectionPropertyKey(columnName, COLUMN_PROJECTION_VALUES_SUFFIX),
-                            value -> Joiner.on(",").join((List<String>) value));
-                    rewriteProperty(
-                            columnProperties,
-                            metastoreTablePropertiesBuilder,
-                            COLUMN_PROJECTION_RANGE,
-                            getMetastoreProjectionPropertyKey(columnName, COLUMN_PROJECTION_RANGE_SUFFIX),
-                            value -> Joiner.on(",").join((List<String>) value));
-                    rewriteProperty(
-                            columnProperties,
-                            metastoreTablePropertiesBuilder,
-                            COLUMN_PROJECTION_INTERVAL,
-                            getMetastoreProjectionPropertyKey(columnName, COLUMN_PROJECTION_INTERVAL_SUFFIX),
-                            value -> ((Integer) value).toString());
-                    rewriteProperty(
-                            columnProperties,
-                            metastoreTablePropertiesBuilder,
-                            COLUMN_PROJECTION_INTERVAL_UNIT,
-                            getMetastoreProjectionPropertyKey(columnName, METASTORE_PROPERTY_PROJECTION_INTERVAL_UNIT_SUFFIX),
-                            value -> ((ChronoUnit) value).name().toLowerCase(Locale.ENGLISH));
-                    rewriteProperty(
-                            columnProperties,
-                            metastoreTablePropertiesBuilder,
-                            COLUMN_PROJECTION_DIGITS,
-                            getMetastoreProjectionPropertyKey(columnName, COLUMN_PROJECTION_DIGITS_SUFFIX),
-                            value -> ((Integer) value).toString());
-                    rewriteProperty(
-                            columnProperties,
-                            metastoreTablePropertiesBuilder,
-                            COLUMN_PROJECTION_FORMAT,
-                            getMetastoreProjectionPropertyKey(columnName, COLUMN_PROJECTION_FORMAT_SUFFIX),
-                            String.class::cast);
+
+                    if (columnProperties.get(COLUMN_PROJECTION_TYPE) instanceof ProjectionType projectionType) {
+                        metastoreTablePropertiesBuilder.put(getMetastoreProjectionPropertyKey(columnName, COLUMN_PROJECTION_TYPE_SUFFIX), projectionType.name().toLowerCase(ROOT));
+                    }
+
+                    if (columnProperties.get(COLUMN_PROJECTION_VALUES) instanceof List<?> values) {
+                        metastoreTablePropertiesBuilder.put(getMetastoreProjectionPropertyKey(columnName, COLUMN_PROJECTION_VALUES_SUFFIX), Joiner.on(",").join(values));
+                    }
+
+                    if (columnProperties.get(COLUMN_PROJECTION_RANGE) instanceof List<?> range) {
+                        metastoreTablePropertiesBuilder.put(getMetastoreProjectionPropertyKey(columnName, COLUMN_PROJECTION_RANGE_SUFFIX), Joiner.on(",").join(range));
+                    }
+
+                    if (columnProperties.get(COLUMN_PROJECTION_INTERVAL) instanceof Integer interval) {
+                        metastoreTablePropertiesBuilder.put(getMetastoreProjectionPropertyKey(columnName, COLUMN_PROJECTION_INTERVAL_SUFFIX), interval.toString());
+                    }
+
+                    if (columnProperties.get(COLUMN_PROJECTION_INTERVAL_UNIT) instanceof ChronoUnit intervalUnit) {
+                        metastoreTablePropertiesBuilder.put(getMetastoreProjectionPropertyKey(columnName, METASTORE_PROPERTY_PROJECTION_INTERVAL_UNIT_SUFFIX), intervalUnit.name().toLowerCase(ROOT));
+                    }
+
+                    if (columnProperties.get(COLUMN_PROJECTION_DIGITS) instanceof Integer digits) {
+                        metastoreTablePropertiesBuilder.put(getMetastoreProjectionPropertyKey(columnName, COLUMN_PROJECTION_DIGITS_SUFFIX), digits.toString());
+                    }
+
+                    if (columnProperties.get(COLUMN_PROJECTION_FORMAT) instanceof String format) {
+                        metastoreTablePropertiesBuilder.put(getMetastoreProjectionPropertyKey(columnName, COLUMN_PROJECTION_FORMAT_SUFFIX), format);
+                    }
                 });
 
         // We initialize partition projection to validate properties.
@@ -298,48 +293,42 @@ public final class PartitionProjectionService
     private static Map<String, Object> rewriteColumnProjectionProperties(Map<String, String> metastoreTableProperties, String columnName)
     {
         ImmutableMap.Builder<String, Object> trinoTablePropertiesBuilder = ImmutableMap.builder();
-        rewriteProperty(
-                metastoreTableProperties,
-                trinoTablePropertiesBuilder,
-                getMetastoreProjectionPropertyKey(columnName, COLUMN_PROJECTION_TYPE_SUFFIX),
-                COLUMN_PROJECTION_TYPE,
-                value -> ProjectionType.valueOf(value.toUpperCase(Locale.ENGLISH)));
-        rewriteProperty(
-                metastoreTableProperties,
-                trinoTablePropertiesBuilder,
-                getMetastoreProjectionPropertyKey(columnName, COLUMN_PROJECTION_VALUES_SUFFIX),
-                COLUMN_PROJECTION_VALUES,
-                PartitionProjectionService::splitCommaSeparatedString);
-        rewriteProperty(
-                metastoreTableProperties,
-                trinoTablePropertiesBuilder,
-                getMetastoreProjectionPropertyKey(columnName, COLUMN_PROJECTION_RANGE_SUFFIX),
-                COLUMN_PROJECTION_RANGE,
-                PartitionProjectionService::splitCommaSeparatedString);
-        rewriteProperty(
-                metastoreTableProperties,
-                trinoTablePropertiesBuilder,
-                getMetastoreProjectionPropertyKey(columnName, COLUMN_PROJECTION_INTERVAL_SUFFIX),
-                COLUMN_PROJECTION_INTERVAL,
-                Integer::valueOf);
-        rewriteProperty(
-                metastoreTableProperties,
-                trinoTablePropertiesBuilder,
-                getMetastoreProjectionPropertyKey(columnName, METASTORE_PROPERTY_PROJECTION_INTERVAL_UNIT_SUFFIX),
-                COLUMN_PROJECTION_INTERVAL_UNIT,
-                value -> ChronoUnit.valueOf(value.toUpperCase(Locale.ENGLISH)));
-        rewriteProperty(
-                metastoreTableProperties,
-                trinoTablePropertiesBuilder,
-                getMetastoreProjectionPropertyKey(columnName, COLUMN_PROJECTION_DIGITS_SUFFIX),
-                COLUMN_PROJECTION_DIGITS,
-                Integer::valueOf);
-        rewriteProperty(
-                metastoreTableProperties,
-                trinoTablePropertiesBuilder,
-                getMetastoreProjectionPropertyKey(columnName, COLUMN_PROJECTION_FORMAT_SUFFIX),
-                COLUMN_PROJECTION_FORMAT,
-                value -> value);
+
+        String type = metastoreTableProperties.get(getMetastoreProjectionPropertyKey(columnName, COLUMN_PROJECTION_TYPE_SUFFIX));
+        if (type != null) {
+            trinoTablePropertiesBuilder.put(COLUMN_PROJECTION_TYPE, ProjectionType.valueOf(type.toUpperCase(ROOT)));
+        }
+
+        String values = metastoreTableProperties.get(getMetastoreProjectionPropertyKey(columnName, COLUMN_PROJECTION_VALUES_SUFFIX));
+        if (values != null) {
+            trinoTablePropertiesBuilder.put(COLUMN_PROJECTION_VALUES, splitCommaSeparatedString(values));
+        }
+
+        String range = metastoreTableProperties.get(getMetastoreProjectionPropertyKey(columnName, COLUMN_PROJECTION_RANGE_SUFFIX));
+        if (range != null) {
+            trinoTablePropertiesBuilder.put(COLUMN_PROJECTION_RANGE, splitCommaSeparatedString(range));
+        }
+
+        String interval = metastoreTableProperties.get(getMetastoreProjectionPropertyKey(columnName, COLUMN_PROJECTION_INTERVAL_SUFFIX));
+        if (interval != null) {
+            trinoTablePropertiesBuilder.put(COLUMN_PROJECTION_INTERVAL, Integer.valueOf(interval));
+        }
+
+        String intervalUnit = metastoreTableProperties.get(getMetastoreProjectionPropertyKey(columnName, METASTORE_PROPERTY_PROJECTION_INTERVAL_UNIT_SUFFIX));
+        if (intervalUnit != null) {
+            trinoTablePropertiesBuilder.put(COLUMN_PROJECTION_INTERVAL_UNIT, ChronoUnit.valueOf(intervalUnit.toUpperCase(ROOT)));
+        }
+
+        String digits = metastoreTableProperties.get(getMetastoreProjectionPropertyKey(columnName, COLUMN_PROJECTION_DIGITS_SUFFIX));
+        if (digits != null) {
+            trinoTablePropertiesBuilder.put(COLUMN_PROJECTION_DIGITS, Integer.valueOf(digits));
+        }
+
+        String format = metastoreTableProperties.get(getMetastoreProjectionPropertyKey(columnName, COLUMN_PROJECTION_FORMAT_SUFFIX));
+        if (format != null) {
+            trinoTablePropertiesBuilder.put(COLUMN_PROJECTION_FORMAT, format);
+        }
+
         return trinoTablePropertiesBuilder.buildOrThrow();
     }
 
@@ -355,17 +344,6 @@ public final class PartitionProjectionService
             throw new InvalidProjectionException(columnName, columnType);
         }
         return projectionFactory.create(columnName, columnType, columnProperties);
-    }
-
-    private static <I, V> void rewriteProperty(
-            Map<String, I> sourceProperties,
-            ImmutableMap.Builder<String, V> targetPropertiesBuilder,
-            String sourcePropertyKey,
-            String targetPropertyKey,
-            Function<I, V> valueMapper)
-    {
-        Optional.ofNullable(sourceProperties.get(sourcePropertyKey))
-                .ifPresent(value -> targetPropertiesBuilder.put(targetPropertyKey, valueMapper.apply(value)));
     }
 
     private static TrinoException columnProjectionException(String message)
