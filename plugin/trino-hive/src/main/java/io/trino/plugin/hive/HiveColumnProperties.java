@@ -14,7 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.plugin.hive.aws.athena.projection.ProjectionType;
+import io.trino.plugin.hive.aws.athena.ProjectionType;
 import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.ArrayType;
 

@@ -11,12 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.aws.athena.projection;
+package io.trino.plugin.hive.aws.athena;
 
-public enum ProjectionType
+import io.trino.spi.type.Type;
+
+import java.util.Map;
+
+public interface ProjectionFactory
 {
-    ENUM,
-    INTEGER,
-    DATE,
-    INJECTED;
+    boolean isSupportedColumnType(Type columnType);
+
+    Projection create(String columnName, Type columnType, Map<String, Object> columnProperties);
 }

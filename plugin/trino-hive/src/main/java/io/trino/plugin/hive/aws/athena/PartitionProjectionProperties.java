@@ -17,7 +17,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
-import static io.trino.plugin.hive.aws.athena.projection.Projection.invalidProjectionException;
+import static io.trino.plugin.hive.aws.athena.Projection.invalidProjectionException;
 import static java.lang.String.format;
 
 public final class PartitionProjectionProperties
