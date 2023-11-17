@@ -28,9 +28,10 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static java.util.Objects.requireNonNull;
 
-class IntegerProjection
-        extends Projection
+final class IntegerProjection
+        implements Projection
 {
+    private final String columnName;
     private final int leftBound;
     private final int rightBound;
     private final int interval;
@@ -38,7 +39,7 @@ class IntegerProjection
 
     public IntegerProjection(String columnName, int leftBound, int rightBound, int interval, Optional<Integer> digits)
     {
-        super(columnName);
+        this.columnName = requireNonNull(columnName, "columnName is null");
         this.leftBound = leftBound;
         this.rightBound = rightBound;
         this.interval = interval;
@@ -76,6 +77,6 @@ class IntegerProjection
         if (type instanceof IntegerType || type instanceof BigintType) {
             return domain.contains(singleValue(type, Long.valueOf(value)));
         }
-        throw new InvalidProjectionException(getColumnName(), type);
+        throw new InvalidProjectionException(columnName, type);
     }
 }

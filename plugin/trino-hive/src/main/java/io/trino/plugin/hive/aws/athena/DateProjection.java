@@ -36,9 +36,10 @@ import static io.trino.spi.predicate.Domain.singleValue;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-class DateProjection
-        extends Projection
+final class DateProjection
+        implements Projection
 {
+    private final String columnName;
     private final DateFormat dateFormat;
     private final Supplier<Instant> leftBound;
     private final Supplier<Instant> rightBound;
@@ -47,7 +48,7 @@ class DateProjection
 
     public DateProjection(String columnName, DateFormat dateFormat, Supplier<Instant> leftBound, Supplier<Instant> rightBound, int interval, ChronoUnit intervalUnit)
     {
-        super(columnName);
+        this.columnName = requireNonNull(columnName, "columnName is null");
         this.dateFormat = requireNonNull(dateFormat, "dateFormatPattern is null");
         this.leftBound = requireNonNull(leftBound, "leftBound is null");
         this.rightBound = requireNonNull(rightBound, "rightBound is null");
@@ -109,6 +110,6 @@ class DateProjection
         if (type instanceof TimestampType && ((TimestampType) type).isShort()) {
             return domain.contains(singleValue(type, MILLISECONDS.toMicros(value.toEpochMilli())));
         }
-        throw new InvalidProjectionException(getColumnName(), type);
+        throw new InvalidProjectionException(columnName, type);
     }
 }
