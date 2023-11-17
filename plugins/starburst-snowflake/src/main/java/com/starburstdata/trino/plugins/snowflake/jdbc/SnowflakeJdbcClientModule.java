@@ -112,6 +112,9 @@ public class SnowflakeJdbcClientModule
                 .toProvider(SnowflakeDefaultConnectionPropertiesProvider.class)
                 .in(SINGLETON);
 
+        newOptionalBinder(binder, Key.get(ConnectionFactory.class, ForBaseJdbc.class))
+                .setDefault().to(Key.get(ConnectionFactory.class, SnowflakeDefaultConnectionFactory.class));
+
         SnowflakeConfig snowflakeConfig = buildConfigObject(SnowflakeConfig.class);
 
         if (snowflakeConfig.isProxyEnabled()) {
@@ -162,7 +165,7 @@ public class SnowflakeJdbcClientModule
 
     @Provides
     @Singleton
-    @ForBaseJdbc
+    @SnowflakeDefaultConnectionFactory
     public ConnectionFactory getConnectionFactory(
             BaseJdbcConfig config,
             CredentialProvider credentialProvider,
