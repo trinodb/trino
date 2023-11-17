@@ -15,6 +15,7 @@
 package io.trino.plugin.hive.aws.athena;
 
 import com.google.inject.Inject;
+import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.metastore.ForwardingHiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreDecorator;
@@ -22,23 +23,27 @@ import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.TypeManager;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_TABLE_DROPPED_DURING_QUERY;
+import static io.trino.plugin.hive.aws.athena.PartitionProjectionService.getPartitionProjectionFromTable;
 import static java.util.Objects.requireNonNull;
 
 public class PartitionProjectionMetastoreDecorator
         implements HiveMetastoreDecorator
 {
-    private final PartitionProjectionService partitionProjectionService;
+    private final TypeManager typeManager;
+    private final boolean partitionProjectionEnabled;
 
     @Inject
-    public PartitionProjectionMetastoreDecorator(PartitionProjectionService partitionProjectionService)
+    public PartitionProjectionMetastoreDecorator(TypeManager typeManager, HiveConfig hiveConfig)
     {
-        this.partitionProjectionService = requireNonNull(partitionProjectionService, "partitionProjectionService is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
+        this.partitionProjectionEnabled = hiveConfig.isPartitionProjectionEnabled();
     }
 
     @Override
@@ -50,18 +55,20 @@ public class PartitionProjectionMetastoreDecorator
     @Override
     public HiveMetastore decorate(HiveMetastore hiveMetastore)
     {
-        return new PartitionProjectionMetastore(hiveMetastore, partitionProjectionService);
+        return new PartitionProjectionMetastore(hiveMetastore, typeManager, partitionProjectionEnabled);
     }
 
     private static class PartitionProjectionMetastore
             extends ForwardingHiveMetastore
     {
-        private final PartitionProjectionService partitionProjectionService;
+        private final TypeManager typeManager;
+        private final boolean partitionProjectionEnabled;
 
-        public PartitionProjectionMetastore(HiveMetastore hiveMetastore, PartitionProjectionService partitionProjectionService)
+        public PartitionProjectionMetastore(HiveMetastore hiveMetastore, TypeManager typeManager, boolean partitionProjectionEnabled)
         {
             super(hiveMetastore);
-            this.partitionProjectionService = requireNonNull(partitionProjectionService, "partitionProjectionService is null");
+            this.typeManager = typeManager;
+            this.partitionProjectionEnabled = partitionProjectionEnabled;
         }
 
         @Override
@@ -90,7 +97,10 @@ public class PartitionProjectionMetastoreDecorator
 
         private Optional<PartitionProjection> getPartitionProjection(Table table)
         {
-            return partitionProjectionService.getPartitionProjectionFromTable(table)
+            if (!partitionProjectionEnabled) {
+                return Optional.empty();
+            }
+            return getPartitionProjectionFromTable(table, typeManager)
                     .filter(PartitionProjection::isEnabled);
         }
     }

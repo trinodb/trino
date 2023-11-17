@@ -26,8 +26,6 @@ public class PartitionProjectionModule
     @Override
     public void setup(Binder binder)
     {
-        binder.bind(PartitionProjectionService.class).in(Scopes.SINGLETON);
-
         newSetBinder(binder, HiveMetastoreDecorator.class)
                 .addBinding()
                 .to(PartitionProjectionMetastoreDecorator.class)
