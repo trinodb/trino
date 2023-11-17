@@ -27,8 +27,8 @@ import static java.lang.String.format;
 public class TestingMariaDbServer
         implements AutoCloseable
 {
-    public static final String LATEST_VERSION = "10.7.1";
-    public static final String DEFAULT_VERSION = "10.2";
+    public static final String LATEST_VERSION = "11.1.3";
+    public static final String DEFAULT_VERSION = "10.10";
     private static final int MARIADB_PORT = 3306;
 
     private final MariaDBContainer<?> container;
