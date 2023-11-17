@@ -778,7 +778,7 @@ public class GlueHiveMetastore
     {
         Table oldTable = getExistingTable(databaseName, tableName);
         Table newTable = Table.builder(oldTable)
-                .addDataColumn(new Column(columnName, columnType, Optional.ofNullable(columnComment)))
+                .addDataColumn(new Column(columnName, columnType, Optional.ofNullable(columnComment), ImmutableMap.of()))
                 .build();
         replaceTable(databaseName, tableName, newTable, null);
     }
@@ -794,7 +794,7 @@ public class GlueHiveMetastore
         ImmutableList.Builder<Column> newDataColumns = ImmutableList.builder();
         for (Column column : oldTable.getDataColumns()) {
             if (column.getName().equals(oldColumnName)) {
-                newDataColumns.add(new Column(newColumnName, column.getType(), column.getComment()));
+                newDataColumns.add(new Column(newColumnName, column.getType(), column.getComment(), column.getProperties()));
             }
             else {
                 newDataColumns.add(column);

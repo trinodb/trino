@@ -437,7 +437,7 @@ public abstract class AbstractTestHiveFileSystem
         Table.Builder tableBuilder = Table.builder()
                 .setDatabaseName(table.getSchemaName())
                 .setTableName(table.getTableName())
-                .setDataColumns(ImmutableList.of(new Column("one", HIVE_LONG, Optional.empty())))
+                .setDataColumns(ImmutableList.of(new Column("one", HIVE_LONG, Optional.empty(), Map.of())))
                 .setPartitionColumns(ImmutableList.of())
                 .setOwner(Optional.empty())
                 .setTableType("fake");
@@ -515,8 +515,8 @@ public abstract class AbstractTestHiveFileSystem
         Table.Builder tableBuilder = Table.builder()
                 .setDatabaseName(table.getSchemaName())
                 .setTableName(table.getTableName())
-                .setDataColumns(ImmutableList.of(new Column("data", HIVE_LONG, Optional.empty())))
-                .setPartitionColumns(ImmutableList.of(new Column("part", HIVE_STRING, Optional.empty())))
+                .setDataColumns(ImmutableList.of(new Column("data", HIVE_LONG, Optional.empty(), Map.of())))
+                .setPartitionColumns(ImmutableList.of(new Column("part", HIVE_STRING, Optional.empty(), Map.of())))
                 .setOwner(Optional.empty())
                 .setTableType("fake");
         tableBuilder.getStorageBuilder()

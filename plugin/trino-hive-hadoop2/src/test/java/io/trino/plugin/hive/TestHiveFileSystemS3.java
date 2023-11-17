@@ -49,6 +49,7 @@ import org.junit.jupiter.api.TestInstance;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -145,8 +146,8 @@ public class TestHiveFileSystemS3
         Table.Builder tableBuilder = Table.builder()
                 .setDatabaseName(table.getSchemaName())
                 .setTableName(table.getTableName())
-                .setDataColumns(ImmutableList.of(new Column("data", HIVE_LONG, Optional.empty())))
-                .setPartitionColumns(ImmutableList.of(new Column("part", HIVE_STRING, Optional.empty())))
+                .setDataColumns(ImmutableList.of(new Column("data", HIVE_LONG, Optional.empty(), Map.of())))
+                .setPartitionColumns(ImmutableList.of(new Column("part", HIVE_STRING, Optional.empty(), Map.of())))
                 .setOwner(Optional.empty())
                 .setTableType("fake");
         tableBuilder.getStorageBuilder()

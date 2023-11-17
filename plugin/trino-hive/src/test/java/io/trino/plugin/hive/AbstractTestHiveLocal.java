@@ -246,10 +246,10 @@ public abstract class AbstractTestHiveLocal
                     tableName,
                     ORC,
                     ImmutableList.of(
-                            new Column("nationkey", HIVE_INT, Optional.empty()),
-                            new Column("name", HIVE_STRING, Optional.empty()),
-                            new Column("regionkey", HIVE_INT, Optional.empty()),
-                            new Column("comment", HIVE_STRING, Optional.empty())),
+                            new Column("nationkey", HIVE_INT, Optional.empty(), Map.of()),
+                            new Column("name", HIVE_STRING, Optional.empty(), Map.of()),
+                            new Column("regionkey", HIVE_INT, Optional.empty(), Map.of()),
+                            new Column("comment", HIVE_STRING, Optional.empty(), Map.of())),
                     ImmutableList.of(),
                     Optional.of(new HiveBucketProperty(
                             ImmutableList.of("nationkey"),

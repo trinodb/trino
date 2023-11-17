@@ -686,7 +686,7 @@ public final class ThriftMetastoreUtil
 
     private static Column fromMetastoreApiFieldSchema(FieldSchema fieldSchema)
     {
-        return new Column(fieldSchema.getName(), HiveType.valueOf(fieldSchema.getType().toLowerCase(ENGLISH)), Optional.ofNullable(fieldSchema.getComment()));
+        return new Column(fieldSchema.getName(), HiveType.valueOf(fieldSchema.getType().toLowerCase(ENGLISH)), Optional.ofNullable(fieldSchema.getComment()), ImmutableMap.of());
     }
 
     private static void fromMetastoreApiStorageDescriptor(

@@ -24,6 +24,7 @@ import io.trino.spi.type.TestingTypeManager;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 
@@ -42,8 +43,8 @@ public class TestHudiPartitionManager
     private static final String TABLE_NAME = "table";
     private static final String USER_NAME = "user";
     private static final String LOCATION = "somewhere/over/the/rainbow";
-    private static final Column PARTITION_COLUMN = new Column("ds", HIVE_STRING, Optional.empty());
-    private static final Column BUCKET_COLUMN = new Column("c1", HIVE_INT, Optional.empty());
+    private static final Column PARTITION_COLUMN = new Column("ds", HIVE_STRING, Optional.empty(), Map.of());
+    private static final Column BUCKET_COLUMN = new Column("c1", HIVE_INT, Optional.empty(), Map.of());
     private static final Table TABLE = new Table(
             SCHEMA_NAME,
             TABLE_NAME,

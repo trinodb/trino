@@ -1296,7 +1296,7 @@ public abstract class AbstractTestHive
             Table oldTable = transaction.getMetastore().getTable(schemaName, tableName).get();
             List<Column> dataColumns = tableAfter.stream()
                     .filter(columnMetadata -> !columnMetadata.getName().equals("ds"))
-                    .map(columnMetadata -> new Column(columnMetadata.getName(), toHiveType(columnMetadata.getType()), Optional.empty()))
+                    .map(columnMetadata -> new Column(columnMetadata.getName(), toHiveType(columnMetadata.getType()), Optional.empty(), Map.of()))
                     .collect(toList());
             Table.Builder newTable = Table.builder(oldTable)
                     .setDataColumns(dataColumns);
@@ -1601,7 +1601,7 @@ public abstract class AbstractTestHive
     {
         long initListCount = countingDirectoryLister.getListCount();
         SchemaTableName tableName = temporaryTable("per_transaction_listing_cache_test");
-        List<Column> columns = ImmutableList.of(new Column("test", HIVE_STRING, Optional.empty()));
+        List<Column> columns = ImmutableList.of(new Column("test", HIVE_STRING, Optional.empty(), Map.of()));
         createEmptyTable(tableName, ORC, columns, ImmutableList.of());
         try {
             try (Transaction transaction = newTransaction()) {
@@ -1826,9 +1826,9 @@ public abstract class AbstractTestHive
                 tableName,
                 storageFormat,
                 ImmutableList.of(
-                        new Column("id", HIVE_LONG, Optional.empty()),
-                        new Column("name", HIVE_STRING, Optional.empty())),
-                ImmutableList.of(new Column("pk", HIVE_STRING, Optional.empty())),
+                        new Column("id", HIVE_LONG, Optional.empty(), Map.of()),
+                        new Column("name", HIVE_STRING, Optional.empty(), Map.of())),
+                ImmutableList.of(new Column("pk", HIVE_STRING, Optional.empty(), Map.of())),
                 Optional.of(new HiveBucketProperty(ImmutableList.of("id"), BUCKETING_V1, 4, ImmutableList.of())));
         // write a 4-bucket partition
         MaterializedResult.Builder bucket8Builder = MaterializedResult.resultBuilder(SESSION, BIGINT, VARCHAR, VARCHAR);
@@ -1902,9 +1902,9 @@ public abstract class AbstractTestHive
                 tableName,
                 storageFormat,
                 ImmutableList.of(
-                        new Column("id", HIVE_LONG, Optional.empty()),
-                        new Column("name", HIVE_STRING, Optional.empty())),
-                ImmutableList.of(new Column("pk", HIVE_STRING, Optional.empty())),
+                        new Column("id", HIVE_LONG, Optional.empty(), Map.of()),
+                        new Column("name", HIVE_STRING, Optional.empty(), Map.of())),
+                ImmutableList.of(new Column("pk", HIVE_STRING, Optional.empty(), Map.of())),
                 Optional.of(new HiveBucketProperty(ImmutableList.of("id"), BUCKETING_V1, 4, ImmutableList.of())));
         // write a 4-bucket partition
         MaterializedResult.Builder bucket4Builder = MaterializedResult.resultBuilder(SESSION, BIGINT, VARCHAR, VARCHAR);
@@ -2020,9 +2020,9 @@ public abstract class AbstractTestHive
                 tableName,
                 ORC,
                 ImmutableList.of(
-                        new Column("id", HIVE_LONG, Optional.empty()),
-                        new Column("name", HIVE_STRING, Optional.empty())),
-                ImmutableList.of(new Column("pk", HIVE_STRING, Optional.empty())),
+                        new Column("id", HIVE_LONG, Optional.empty(), Map.of()),
+                        new Column("name", HIVE_STRING, Optional.empty(), Map.of())),
+                ImmutableList.of(new Column("pk", HIVE_STRING, Optional.empty(), Map.of())),
                 Optional.of(new HiveBucketProperty(
                         ImmutableList.of("id"),
                         BUCKETING_V1,
@@ -2139,8 +2139,8 @@ public abstract class AbstractTestHive
                 tableName,
                 storageFormat,
                 ImmutableList.of(
-                        new Column("id", HIVE_LONG, Optional.empty()),
-                        new Column("name", HIVE_STRING, Optional.empty())),
+                        new Column("id", HIVE_LONG, Optional.empty(), Map.of()),
+                        new Column("name", HIVE_STRING, Optional.empty(), Map.of())),
                 ImmutableList.of(),
                 Optional.of(new HiveBucketProperty(ImmutableList.of("id"), BUCKETING_V1, 8, ImmutableList.of())));
 
@@ -2511,7 +2511,7 @@ public abstract class AbstractTestHive
     {
         SchemaTableName tableName = temporaryTable("empty_file");
         try {
-            List<Column> columns = ImmutableList.of(new Column("test", HIVE_STRING, Optional.empty()));
+            List<Column> columns = ImmutableList.of(new Column("test", HIVE_STRING, Optional.empty(), Map.of()));
             createEmptyTable(tableName, format, columns, ImmutableList.of());
 
             try (Transaction transaction = newTransaction()) {
@@ -2707,7 +2707,7 @@ public abstract class AbstractTestHive
     @Test
     public void testTableCreationIgnoreExisting()
     {
-        List<Column> columns = ImmutableList.of(new Column("dummy", HiveType.valueOf("uniontype<smallint,tinyint>"), Optional.empty()));
+        List<Column> columns = ImmutableList.of(new Column("dummy", HiveType.valueOf("uniontype<smallint,tinyint>"), Optional.empty(), Map.of()));
         SchemaTableName schemaTableName = temporaryTable("create");
         ConnectorSession session = newSession();
         String schemaName = schemaTableName.getSchemaName();
@@ -2747,7 +2747,7 @@ public abstract class AbstractTestHive
             }
 
             // at this point the table should exist, now try creating the table again with a different table definition
-            columns = ImmutableList.of(new Column("new_column", HiveType.valueOf("string"), Optional.empty()));
+            columns = ImmutableList.of(new Column("new_column", HiveType.valueOf("string"), Optional.empty(), Map.of()));
             try (Transaction transaction = newTransaction()) {
                 Table table = createSimpleTable(schemaTableName, columns, session, targetPath.appendSuffix("_4"), "q4");
                 transaction.getMetastore()
@@ -3067,7 +3067,7 @@ public abstract class AbstractTestHive
         for (HiveStorageFormat storageFormat : createTableFormats) {
             SchemaTableName temporaryCreateEmptyTable = temporaryTable("create_empty");
             try {
-                List<Column> columns = ImmutableList.of(new Column("test", HIVE_STRING, Optional.empty()));
+                List<Column> columns = ImmutableList.of(new Column("test", HIVE_STRING, Optional.empty(), Map.of()));
                 try (Transaction transaction = newTransaction()) {
                     String temporaryStagingPrefix = "hive-temporary-staging-prefix-" + UUID.randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
                     ConnectorSession session = newSession();
@@ -3165,8 +3165,8 @@ public abstract class AbstractTestHive
                 .setTableName(tableName.getTableName())
                 .setOwner(Optional.of(session.getUser()))
                 .setTableType(MANAGED_TABLE.name())
-                .setPartitionColumns(List.of(new Column("a_partition_column", HIVE_INT, Optional.empty())))
-                .setDataColumns(List.of(new Column("a_column", HIVE_STRING, Optional.empty())))
+                .setPartitionColumns(List.of(new Column("a_partition_column", HIVE_INT, Optional.empty(), Map.of())))
+                .setDataColumns(List.of(new Column("a_column", HIVE_STRING, Optional.empty(), Map.of())))
                 .setParameter(SPARK_TABLE_PROVIDER_KEY, DELTA_LAKE_PROVIDER);
         table.getStorageBuilder()
                 .setStorageFormat(fromHiveStorageFormat(PARQUET))
@@ -3237,8 +3237,8 @@ public abstract class AbstractTestHive
                 .setTableName(tableName.getTableName())
                 .setOwner(Optional.of(session.getUser()))
                 .setTableType(MANAGED_TABLE.name())
-                .setPartitionColumns(List.of(new Column("a_partition_column", HIVE_INT, Optional.empty())))
-                .setDataColumns(List.of(new Column("a_column", HIVE_STRING, Optional.empty())))
+                .setPartitionColumns(List.of(new Column("a_partition_column", HIVE_INT, Optional.empty(), Map.of())))
+                .setDataColumns(List.of(new Column("a_column", HIVE_STRING, Optional.empty(), Map.of())))
                 .setParameter(ICEBERG_TABLE_TYPE_NAME, ICEBERG_TABLE_TYPE_VALUE);
         table.getStorageBuilder()
                 .setStorageFormat(fromHiveStorageFormat(PARQUET))
@@ -3544,7 +3544,7 @@ public abstract class AbstractTestHive
         SchemaTableName schemaTableName = temporaryTable("test_illegal_storage_format");
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();
-            List<Column> columns = ImmutableList.of(new Column("pk", HIVE_STRING, Optional.empty()));
+            List<Column> columns = ImmutableList.of(new Column("pk", HIVE_STRING, Optional.empty(), Map.of()));
             String tableOwner = session.getUser();
             String schemaName = schemaTableName.getSchemaName();
             String tableName = schemaTableName.getTableName();
@@ -4055,8 +4055,8 @@ public abstract class AbstractTestHive
                 tableName,
                 storageFormat,
                 ImmutableList.of(
-                        new Column("id", HIVE_LONG, Optional.empty()),
-                        new Column("name", HIVE_STRING, Optional.empty())),
+                        new Column("id", HIVE_LONG, Optional.empty(), Map.of()),
+                        new Column("name", HIVE_STRING, Optional.empty(), Map.of())),
                 ImmutableList.of());
         MaterializedResult.Builder inputDataBuilder = MaterializedResult.resultBuilder(SESSION, BIGINT, VARCHAR);
         IntStream.range(0, 100).forEach(i -> inputDataBuilder.row((long) i, String.valueOf(i)));
@@ -4721,8 +4721,8 @@ public abstract class AbstractTestHive
     private void doInsertUnsupportedWriteType(HiveStorageFormat storageFormat, SchemaTableName tableName)
             throws Exception
     {
-        List<Column> columns = ImmutableList.of(new Column("dummy", HiveType.valueOf("uniontype<smallint,tinyint>"), Optional.empty()));
-        List<Column> partitionColumns = ImmutableList.of(new Column("name", HIVE_STRING, Optional.empty()));
+        List<Column> columns = ImmutableList.of(new Column("dummy", HiveType.valueOf("uniontype<smallint,tinyint>"), Optional.empty(), Map.of()));
+        List<Column> partitionColumns = ImmutableList.of(new Column("name", HIVE_STRING, Optional.empty(), Map.of()));
 
         createEmptyTable(tableName, storageFormat, columns, partitionColumns);
 
@@ -5737,9 +5737,9 @@ public abstract class AbstractTestHive
         SchemaTableName tableName = temporaryTable("empty_partitioned_table");
 
         try {
-            Column partitioningColumn = new Column("column2", HIVE_STRING, Optional.empty());
+            Column partitioningColumn = new Column("column2", HIVE_STRING, Optional.empty(), Map.of());
             List<Column> columns = ImmutableList.of(
-                    new Column("column1", HIVE_STRING, Optional.empty()),
+                    new Column("column1", HIVE_STRING, Optional.empty(), Map.of()),
                     partitioningColumn);
             createEmptyTable(tableName, ORC, columns, ImmutableList.of(partitioningColumn));
 
@@ -5778,8 +5778,8 @@ public abstract class AbstractTestHive
         SchemaTableName tableName = temporaryTable("empty_bucketed_table");
         try {
             List<Column> columns = ImmutableList.of(
-                    new Column("column1", HIVE_STRING, Optional.empty()),
-                    new Column("column2", HIVE_LONG, Optional.empty()));
+                    new Column("column1", HIVE_STRING, Optional.empty(), Map.of()),
+                    new Column("column2", HIVE_LONG, Optional.empty(), Map.of()));
             HiveBucketProperty bucketProperty = new HiveBucketProperty(ImmutableList.of("column1"), BUCKETING_V1, 4, ImmutableList.of());
             createEmptyTable(tableName, ORC, columns, ImmutableList.of(), Optional.of(bucketProperty), transactional);
 
@@ -5826,9 +5826,9 @@ public abstract class AbstractTestHive
     {
         SchemaTableName tableName = temporaryTable("empty_partitioned_table");
         try {
-            Column partitioningColumn = new Column("column2", HIVE_LONG, Optional.empty());
+            Column partitioningColumn = new Column("column2", HIVE_LONG, Optional.empty(), Map.of());
             List<Column> columns = ImmutableList.of(
-                    new Column("column1", HIVE_STRING, Optional.empty()),
+                    new Column("column1", HIVE_STRING, Optional.empty(), Map.of()),
                     partitioningColumn);
             HiveBucketProperty bucketProperty = new HiveBucketProperty(ImmutableList.of("column1"), BUCKETING_V1, 4, ImmutableList.of());
             createEmptyTable(tableName, ORC, columns, ImmutableList.of(partitioningColumn), Optional.of(bucketProperty), transactional);
@@ -6002,8 +6002,8 @@ public abstract class AbstractTestHive
                 createEmptyTable(
                         temporaryDeleteInsert,
                         storageFormat,
-                        ImmutableList.of(new Column("col1", HIVE_LONG, Optional.empty())),
-                        ImmutableList.of(new Column("pk1", HIVE_STRING, Optional.empty()), new Column("pk2", HIVE_STRING, Optional.empty())));
+                        ImmutableList.of(new Column("col1", HIVE_LONG, Optional.empty(), Map.of())),
+                        ImmutableList.of(new Column("pk1", HIVE_STRING, Optional.empty(), Map.of()), new Column("pk2", HIVE_STRING, Optional.empty(), Map.of())));
                 insertData(temporaryDeleteInsert, beforeData);
                 try {
                     doTestTransactionDeleteInsert(

@@ -36,6 +36,7 @@ import org.apache.iceberg.types.Types.NestedField;
 import java.io.FileNotFoundException;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -306,7 +307,8 @@ public abstract class AbstractIcebergTableOperations
                 .map(column -> new Column(
                         column.name(),
                         toHiveType(HiveSchemaUtil.convert(column.type())),
-                        Optional.empty()))
+                        Optional.empty(),
+                        Map.of()))
                 .collect(toImmutableList());
     }
 }
