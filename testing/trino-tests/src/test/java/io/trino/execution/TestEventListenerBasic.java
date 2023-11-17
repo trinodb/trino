@@ -77,6 +77,7 @@ import static io.trino.connector.MockConnectorEntities.TPCH_NATION_SCHEMA;
 import static io.trino.execution.TestQueues.createResourceGroupId;
 import static io.trino.spi.metrics.Metrics.EMPTY;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.planner.planprinter.JsonRenderer.JsonRenderedNode;
 import static io.trino.sql.planner.planprinter.NodeRepresentation.TypedSymbol.typedSymbol;
@@ -1230,14 +1231,14 @@ public class TestEventListenerBasic
                         "6",
                         "Output",
                         ImmutableMap.of("columnNames", "[column_1]"),
-                        ImmutableList.of(typedSymbol("symbol_1", "double")),
+                        ImmutableList.of(typedSymbol("symbol_1", DOUBLE)),
                         ImmutableList.of(),
                         ImmutableList.of(),
                         ImmutableList.of(new JsonRenderedNode(
                                 "100",
                                 "Limit",
                                 ImmutableMap.of("count", "10", "withTies", "", "inputPreSortedBy", "[]"),
-                                ImmutableList.of(typedSymbol("symbol_1", "double")),
+                                ImmutableList.of(typedSymbol("symbol_1", DOUBLE)),
                                 ImmutableList.of(),
                                 ImmutableList.of(),
                                 ImmutableList.of(new JsonRenderedNode(
@@ -1248,14 +1249,14 @@ public class TestEventListenerBasic
                                                 "isReplicateNullsAndAny", "",
                                                 "hashColumn", "[]",
                                                 "arguments", "[]"),
-                                        ImmutableList.of(typedSymbol("symbol_1", "double")),
+                                        ImmutableList.of(typedSymbol("symbol_1", DOUBLE)),
                                         ImmutableList.of(),
                                         ImmutableList.of(),
                                         ImmutableList.of(new JsonRenderedNode(
                                                 "140",
                                                 "RemoteSource",
                                                 ImmutableMap.of("sourceFragmentIds", "[1]"),
-                                                ImmutableList.of(typedSymbol("symbol_1", "double")),
+                                                ImmutableList.of(typedSymbol("symbol_1", DOUBLE)),
                                                 ImmutableList.of(),
                                                 ImmutableList.of(),
                                                 ImmutableList.of()))))))),
@@ -1266,7 +1267,7 @@ public class TestEventListenerBasic
                                 "count", "10",
                                 "withTies", "",
                                 "inputPreSortedBy", "[]"),
-                        ImmutableList.of(typedSymbol("symbol_1", "double")),
+                        ImmutableList.of(typedSymbol("symbol_1", DOUBLE)),
                         ImmutableList.of(),
                         ImmutableList.of(),
                         ImmutableList.of(new JsonRenderedNode(
@@ -1274,7 +1275,7 @@ public class TestEventListenerBasic
                                 "TableScan",
                                 ImmutableMap.of(
                                         "table", "[table = catalog_1.schema_1.table_1, connector = tpch]"),
-                                ImmutableList.of(typedSymbol("symbol_1", "double")),
+                                ImmutableList.of(typedSymbol("symbol_1", DOUBLE)),
                                 ImmutableList.of("symbol_1 := column_2"),
                                 ImmutableList.of(),
                                 ImmutableList.of()))));
