@@ -62,9 +62,34 @@ public class AddFileEntry
             @JsonProperty("tags") @Nullable Map<String, String> tags,
             @JsonProperty("deletionVector") Optional<DeletionVectorEntry> deletionVector)
     {
+        this(
+                path,
+                partitionValues,
+                canonicalizePartitionValues(partitionValues),
+                size,
+                modificationTime,
+                dataChange,
+                stats,
+                parsedStats,
+                tags,
+                deletionVector);
+    }
+
+    public AddFileEntry(
+            String path,
+            Map<String, String> partitionValues,
+            Map<String, Optional<String>> canonicalPartitionValues,
+            long size,
+            long modificationTime,
+            boolean dataChange,
+            Optional<String> stats,
+            Optional<DeltaLakeParquetFileStatistics> parsedStats,
+            @Nullable Map<String, String> tags,
+            Optional<DeletionVectorEntry> deletionVector)
+    {
         this.path = path;
-        this.partitionValues = partitionValues;
-        this.canonicalPartitionValues = canonicalizePartitionValues(partitionValues);
+        this.partitionValues = requireNonNull(partitionValues, "partitionValues is null");
+        this.canonicalPartitionValues = requireNonNull(canonicalPartitionValues, "canonicalPartitionValues is null");
         this.size = size;
         this.modificationTime = modificationTime;
         this.dataChange = dataChange;
