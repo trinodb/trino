@@ -45,8 +45,6 @@ public final class Conversions
                 field.getType().getStandardType(),
                 columnMapping.isPushdownSupported(),
                 getMode(field),
-                field.getPrecision(),
-                field.getScale(),
                 subColumns,
                 field.getDescription(),
                 false);
