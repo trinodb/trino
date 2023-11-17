@@ -251,8 +251,6 @@ import static io.trino.plugin.iceberg.IcebergUtil.schemaFromMetadata;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
 import static io.trino.plugin.iceberg.SortFieldUtils.parseSortFields;
-import static io.trino.plugin.iceberg.TableStatisticsReader.TRINO_STATS_COLUMN_ID_PATTERN;
-import static io.trino.plugin.iceberg.TableStatisticsReader.TRINO_STATS_PREFIX;
 import static io.trino.plugin.iceberg.TableStatisticsWriter.StatsUpdateMode.INCREMENTAL_UPDATE;
 import static io.trino.plugin.iceberg.TableStatisticsWriter.StatsUpdateMode.REPLACE;
 import static io.trino.plugin.iceberg.TableType.DATA;
@@ -1499,13 +1497,6 @@ public class IcebergMetadata
             updateStatistics.removeStatistics(statisticsFile.snapshotId());
         }
         updateStatistics.commit();
-        UpdateProperties updateProperties = transaction.updateProperties();
-        for (String key : transaction.table().properties().keySet()) {
-            if (key.startsWith(TRINO_STATS_PREFIX)) {
-                updateProperties.remove(key);
-            }
-        }
-        updateProperties.commit();
         transaction.commitTransaction();
         transaction = null;
     }
@@ -2174,40 +2165,11 @@ public class IcebergMetadata
                     "Unexpected computed statistics that cannot be attached to a snapshot because none exists: %s",
                     computedStatistics);
 
-            // TODO (https://github.com/trinodb/trino/issues/15397): remove support for Trino-specific statistics properties
-            // Drop all stats. Empty table needs none
-            UpdateProperties updateProperties = transaction.updateProperties();
-            table.properties().keySet().stream()
-                    .filter(key -> key.startsWith(TRINO_STATS_PREFIX))
-                    .forEach(updateProperties::remove);
-            updateProperties.commit();
-
             transaction.commitTransaction();
             transaction = null;
             return;
         }
         long snapshotId = handle.getSnapshotId().orElseThrow();
-
-        Set<Integer> columnIds = table.schema().columns().stream()
-                .map(Types.NestedField::fieldId)
-                .collect(toImmutableSet());
-
-        // TODO (https://github.com/trinodb/trino/issues/15397): remove support for Trino-specific statistics properties
-        // Drop stats for obsolete columns
-        UpdateProperties updateProperties = transaction.updateProperties();
-        table.properties().keySet().stream()
-                .filter(key -> {
-                    if (!key.startsWith(TRINO_STATS_PREFIX)) {
-                        return false;
-                    }
-                    Matcher matcher = TRINO_STATS_COLUMN_ID_PATTERN.matcher(key);
-                    if (!matcher.matches()) {
-                        return false;
-                    }
-                    return !columnIds.contains(Integer.parseInt(matcher.group("columnId")));
-                })
-                .forEach(updateProperties::remove);
-        updateProperties.commit();
 
         CollectedStatistics collectedStatistics = processComputedTableStatistics(table, computedStatistics);
         StatisticsFile statisticsFile = tableStatisticsWriter.writeStatisticsFile(
