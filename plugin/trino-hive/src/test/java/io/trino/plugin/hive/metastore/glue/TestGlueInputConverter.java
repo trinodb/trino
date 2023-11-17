@@ -37,16 +37,16 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 
-import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getPrestoTestDatabase;
-import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getPrestoTestPartition;
-import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getPrestoTestTable;
+import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getTrinoTestDatabase;
+import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getTrinoTestPartition;
+import static io.trino.plugin.hive.metastore.glue.TestingMetastoreObjects.getTrinoTestTable;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestGlueInputConverter
 {
-    private final Database testDb = getPrestoTestDatabase();
-    private final Table testTbl = getPrestoTestTable(testDb.getDatabaseName());
-    private final Partition testPartition = getPrestoTestPartition(testDb.getDatabaseName(), testTbl.getTableName(), ImmutableList.of("val1"));
+    private final Database testDb = getTrinoTestDatabase();
+    private final Table testTbl = getTrinoTestTable(testDb.getDatabaseName());
+    private final Partition testPartition = getTrinoTestPartition(testDb.getDatabaseName(), testTbl.getTableName(), ImmutableList.of("val1"));
 
     @Test
     public void testConvertDatabase()
