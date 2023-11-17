@@ -67,6 +67,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public final class HiveQueryRunner
 {
+    static {
+        Logging logging = Logging.initialize();
+        logging.setLevel("org.apache.parquet.hadoop", WARN);
+    }
+
     private static final Logger log = Logger.get(HiveQueryRunner.class);
 
     private HiveQueryRunner() {}
@@ -234,8 +239,6 @@ public final class HiveQueryRunner
         public DistributedQueryRunner build()
                 throws Exception
         {
-            setupLogging();
-
             DistributedQueryRunner queryRunner = super.build();
 
             try {
@@ -307,12 +310,6 @@ public final class HiveQueryRunner
                 copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, session, initialTables, tpchColumnNaming);
             }
         }
-    }
-
-    private static void setupLogging()
-    {
-        Logging logging = Logging.initialize();
-        logging.setLevel("org.apache.parquet.hadoop", WARN);
     }
 
     private static Database createDatabaseMetastoreObject(String name, Optional<String> locationBase)
