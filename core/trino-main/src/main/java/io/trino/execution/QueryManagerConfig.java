@@ -265,7 +265,8 @@ public class QueryManagerConfig
         return maxWriterTasksCount;
     }
 
-    @Config("query.max-writer-task-count")
+    @Config("query.max-writer-tasks-count")
+    @LegacyConfig("query.max-writer-task-count")
     @ConfigDescription("Maximum number of tasks that will participate in writing data")
     public QueryManagerConfig setMaxWriterTasksCount(int maxWritersNodesCount)
     {

@@ -180,7 +180,7 @@ public class TestQueryManagerConfig
                 .put("fault-tolerant-execution-runtime-adaptive-partitioning-partition-count", "888")
                 .put("fault-tolerant-execution-runtime-adaptive-partitioning-max-task-size", "18GB")
                 .put("fault-tolerant-execution-min-source-stage-progress", "0.3")
-                .put("query.max-writer-task-count", "101")
+                .put("query.max-writer-tasks-count", "101")
                 .put("fault-tolerant-execution-small-stage-estimation-enabled", "false")
                 .put("fault-tolerant-execution-small-stage-estimation-threshold", "6GB")
                 .put("fault-tolerant-execution-small-stage-source-size-multiplier", "1.6")
