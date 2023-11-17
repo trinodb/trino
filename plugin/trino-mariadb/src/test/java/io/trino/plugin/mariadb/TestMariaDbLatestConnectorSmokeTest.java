@@ -14,26 +14,30 @@
 package io.trino.plugin.mariadb;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.jdbc.BaseJdbcConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
-import io.trino.testing.sql.SqlExecutor;
+import io.trino.testing.TestingConnectorBehavior;
 
 import static io.trino.plugin.mariadb.MariaDbQueryRunner.createMariaDbQueryRunner;
 import static io.trino.plugin.mariadb.TestingMariaDbServer.LATEST_VERSION;
 
-public class TestMariaDbLatestConnectorTest
-        extends BaseMariaDbConnectorTest
+public class TestMariaDbLatestConnectorSmokeTest
+        extends BaseJdbcConnectorSmokeTest
 {
+    @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        return switch (connectorBehavior) {
+            case SUPPORTS_RENAME_SCHEMA -> false;
+            default -> super.hasBehavior(connectorBehavior);
+        };
+    }
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        server = closeAfterClass(new TestingMariaDbServer(LATEST_VERSION));
+        TestingMariaDbServer server = closeAfterClass(new TestingMariaDbServer(LATEST_VERSION));
         return createMariaDbQueryRunner(server, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
-    }
-
-    @Override
-    protected SqlExecutor onRemoteDatabase()
-    {
-        return server::execute;
     }
 }
