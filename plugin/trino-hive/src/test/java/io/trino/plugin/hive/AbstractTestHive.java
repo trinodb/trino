@@ -895,7 +895,7 @@ public abstract class AbstractTestHive
                 SqlStandardAccessControlMetadata::new,
                 countingDirectoryLister,
                 new TransactionScopeCachingDirectoryListerFactory(hiveConfig),
-                new PartitionProjectionService(hiveConfig, ImmutableMap.of(), new TestingTypeManager()),
+                new PartitionProjectionService(hiveConfig, new TestingTypeManager()),
                 true,
                 HiveTimestampPrecision.DEFAULT_PRECISION);
         transactionManager = new HiveTransactionManager(metadataFactory);

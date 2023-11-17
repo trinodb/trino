@@ -242,7 +242,7 @@ public abstract class AbstractTestHiveFileSystem
                 SqlStandardAccessControlMetadata::new,
                 new FileSystemDirectoryLister(),
                 new TransactionScopeCachingDirectoryListerFactory(config),
-                new PartitionProjectionService(config, ImmutableMap.of(), new TestingTypeManager()),
+                new PartitionProjectionService(config, new TestingTypeManager()),
                 true);
         transactionManager = new HiveTransactionManager(metadataFactory);
         splitManager = new HiveSplitManager(
