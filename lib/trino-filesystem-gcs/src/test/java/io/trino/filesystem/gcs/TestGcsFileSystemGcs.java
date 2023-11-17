@@ -14,10 +14,12 @@
 package io.trino.filesystem.gcs;
 
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 
+@Disabled // TODO Re-enable once fixed the initialization failure https://github.com/trinodb/trino/issues/19785
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class TestGcsFileSystemGcs
         extends AbstractTestGcsFileSystem
