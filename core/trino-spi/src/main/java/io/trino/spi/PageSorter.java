@@ -24,7 +24,6 @@ public interface PageSorter
      * @return Sorted synthetic addresses for pages. A synthetic address is encoded as a long with
      * the high 32 bits containing the page index and the low 32 bits containing position index
      */
-    @Deprecated
     long[] sort(List<Type> types, List<Page> pages, List<Integer> sortChannels, List<SortOrder> sortOrders, int expectedPositions);
 
     int decodePageIndex(long address);
