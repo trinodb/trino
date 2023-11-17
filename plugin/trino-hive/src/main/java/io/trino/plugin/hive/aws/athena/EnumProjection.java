@@ -13,15 +13,18 @@
  */
 package io.trino.plugin.hive.aws.athena;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.COLUMN_PROJECTION_VALUES;
+import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.getProjectionPropertyRequiredValue;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -32,10 +35,20 @@ final class EnumProjection
     private final String columnName;
     private final List<String> values;
 
-    public EnumProjection(String columnName, List<String> values)
+    public EnumProjection(String columnName, Type columnType, Map<String, Object> columnProperties)
     {
+        if (!(columnType instanceof VarcharType)) {
+            throw new InvalidProjectionException(columnName, columnType);
+        }
+
         this.columnName = requireNonNull(columnName, "columnName is null");
-        this.values = ImmutableList.copyOf(requireNonNull(values, "values is null"));
+        this.values = getProjectionPropertyRequiredValue(
+                columnName,
+                columnProperties,
+                COLUMN_PROJECTION_VALUES,
+                value -> ((List<?>) value).stream()
+                        .map(String::valueOf)
+                        .collect(toImmutableList()));
     }
 
     @Override
