@@ -25,6 +25,14 @@
         <process-name>${project.artifactId}</process-name>
     </properties>
 
+    <dependencies>
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>junit-extensions</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
     <build>
         <plugins>
             <plugin>
