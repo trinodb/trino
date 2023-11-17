@@ -83,6 +83,8 @@ public class TestDeltaLakeViewsGlueMetastore
                 TestView view = new TestView(getQueryRunner()::execute, viewName, "SELECT * FROM " + table.getName())) {
             assertQuery(format("SELECT * FROM %s", view.getName()), "VALUES 'test'");
             assertQuery(format("SELECT table_type FROM information_schema.tables WHERE table_name = '%s' AND table_schema='%s'", view.getName(), SCHEMA), "VALUES 'VIEW'");
+            // Ensure all relations are being listed
+            assertQuery(format("SELECT table_type FROM information_schema.tables WHERE table_name LIKE '%%%s' AND table_schema='%s'", view.getName(), SCHEMA), "VALUES 'VIEW'");
         }
     }
 

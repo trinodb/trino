@@ -37,11 +37,14 @@ import io.trino.spi.function.LanguageFunction;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
+import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
+import static io.trino.plugin.hive.ViewReaderUtil.isTrinoView;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.metastoreFunctionName;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toResourceUris;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
@@ -64,10 +67,14 @@ public final class GlueInputConverter
 
     public static TableInput convertTable(Table table)
     {
-        Optional<String> comment = Optional.ofNullable(table.getParameters().get(TABLE_COMMENT));
-        Map<String, String> tableParameters = table.getParameters().entrySet().stream()
-                .filter(entry -> !entry.getKey().equals(TABLE_COMMENT))
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+        Map<String, String> tableParameters = table.getParameters();
+        Optional<String> comment = Optional.empty();
+        if (!isTrinoView(table) && !isTrinoMaterializedView(table)) {
+            tableParameters = tableParameters.entrySet().stream()
+                    .filter(entry -> !entry.getKey().equals(TABLE_COMMENT))
+                    .collect(toImmutableMap(Entry::getKey, Entry::getValue));
+            comment = Optional.ofNullable(table.getParameters().get(TABLE_COMMENT));
+        }
 
         TableInput input = new TableInput();
         input.setName(table.getTableName());
