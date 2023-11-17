@@ -1421,7 +1421,7 @@ public class TestHive3OnDataLake
                         "  partition_projection_enabled=true " +
                         ")"))
                 .hasMessage("Column projection for column 'short_name1' failed. Property: 'partition_projection_range' needs to be a list of 2 valid dates formatted as 'yyyy-MM-dd HH' " +
-                        "or '^\\s*NOW\\s*(([+-])\\s*([0-9]+)\\s*(DAY|HOUR|MINUTE|SECOND)S?\\s*)?$' that are sequential. Unparseable date: \"2001-01-01\"");
+                        "or '^\\s*NOW\\s*(([+-])\\s*([0-9]+)\\s*(DAY|HOUR|MINUTE|SECOND)S?\\s*)?$' that are sequential: Unparseable date: \"2001-01-01\"");
 
         assertThatThrownBy(() -> getQueryRunner().execute(
                 "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomNameSuffix()) + " ( " +
@@ -1436,7 +1436,7 @@ public class TestHive3OnDataLake
                         "  partition_projection_enabled=true " +
                         ")"))
                 .hasMessage("Column projection for column 'short_name1' failed. Property: 'partition_projection_range' needs to be a list of 2 valid dates formatted as 'yyyy-MM-dd' " +
-                        "or '^\\s*NOW\\s*(([+-])\\s*([0-9]+)\\s*(DAY|HOUR|MINUTE|SECOND)S?\\s*)?$' that are sequential. Unparseable date: \"NOW*3DAYS\"");
+                        "or '^\\s*NOW\\s*(([+-])\\s*([0-9]+)\\s*(DAY|HOUR|MINUTE|SECOND)S?\\s*)?$' that are sequential: Unparseable date: \"NOW*3DAYS\"");
 
         assertThatThrownBy(() -> getQueryRunner().execute(
                 "CREATE TABLE " + getFullyQualifiedTestTableName("nation_" + randomNameSuffix()) + " ( " +
@@ -1542,7 +1542,7 @@ public class TestHive3OnDataLake
         // Expect invalid Partition Projection properties to fail
         assertThatThrownBy(() -> getQueryRunner().execute("SELECT * FROM " + fullyQualifiedTestTableName))
                 .hasMessage("Column projection for column 'date_time' failed. Property: 'partition_projection_range' needs to be a list of 2 valid dates formatted as 'yyyy-MM-dd HH' " +
-                        "or '^\\s*NOW\\s*(([+-])\\s*([0-9]+)\\s*(DAY|HOUR|MINUTE|SECOND)S?\\s*)?$' that are sequential. Unparseable date: \"2001-01-01\"");
+                        "or '^\\s*NOW\\s*(([+-])\\s*([0-9]+)\\s*(DAY|HOUR|MINUTE|SECOND)S?\\s*)?$' that are sequential: Unparseable date: \"2001-01-01\"");
 
         // Append kill switch table property to ignore Partition Projection properties
         hiveMinioDataLake.getHiveHadoop().runOnHive(

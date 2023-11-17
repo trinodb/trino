@@ -30,7 +30,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_TABLE_DROPPED_DURING_QUERY;
-import static io.trino.plugin.hive.aws.athena.PartitionProjectionService.getPartitionProjectionFromTable;
+import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.getPartitionProjectionFromTable;
 import static java.util.Objects.requireNonNull;
 
 public class PartitionProjectionMetastoreDecorator
