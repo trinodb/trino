@@ -17,8 +17,6 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.inject.Inject;
-import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.ColumnMetadata;
@@ -63,19 +61,10 @@ import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.getM
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.String.format;
 import static java.util.Locale.ROOT;
-import static java.util.Objects.requireNonNull;
 
 public final class PartitionProjectionService
 {
-    private final boolean partitionProjectionEnabled;
-    private final TypeManager typeManager;
-
-    @Inject
-    public PartitionProjectionService(HiveConfig hiveConfig, TypeManager typeManager)
-    {
-        this.partitionProjectionEnabled = hiveConfig.isPartitionProjectionEnabled();
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-    }
+    private PartitionProjectionService() {}
 
     public static Map<String, Object> getPartitionProjectionTrinoTableProperties(Table table)
     {
@@ -106,14 +95,8 @@ public final class PartitionProjectionService
         return rewriteColumnProjectionProperties(metastoreTableProperties, columnName);
     }
 
-    public Map<String, String> getPartitionProjectionHiveTableProperties(ConnectorTableMetadata tableMetadata)
+    public static Map<String, String> getPartitionProjectionHiveTableProperties(ConnectorTableMetadata tableMetadata)
     {
-        // If partition projection is globally disabled, we don't allow defining its properties
-        if (!partitionProjectionEnabled && isAnyPartitionProjectionPropertyUsed(tableMetadata)) {
-            throw new InvalidProjectionException("Partition projection is disabled. Enable it in configuration by setting "
-                    + HiveConfig.CONFIGURATION_HIVE_PARTITION_PROJECTION_ENABLED + "=true");
-        }
-
         ImmutableMap.Builder<String, String> metastoreTablePropertiesBuilder = ImmutableMap.builder();
         // Handle Table Properties
         Map<String, Object> trinoTableProperties = tableMetadata.getProperties();
@@ -186,7 +169,7 @@ public final class PartitionProjectionService
         return metastoreTableProperties;
     }
 
-    private static boolean isAnyPartitionProjectionPropertyUsed(ConnectorTableMetadata tableMetadata)
+    public static boolean arePartitionProjectionPropertiesSet(ConnectorTableMetadata tableMetadata)
     {
         if (tableMetadata.getProperties().keySet().stream()
                 .anyMatch(propertyKey -> propertyKey.startsWith(PROPERTY_KEY_PREFIX))) {
@@ -198,12 +181,8 @@ public final class PartitionProjectionService
                 .anyMatch(propertyKey -> propertyKey.startsWith(PROPERTY_KEY_PREFIX));
     }
 
-    Optional<PartitionProjection> getPartitionProjectionFromTable(Table table)
+    static Optional<PartitionProjection> getPartitionProjectionFromTable(Table table, TypeManager typeManager)
     {
-        if (!partitionProjectionEnabled) {
-            return Optional.empty();
-        }
-
         Map<String, String> tableProperties = table.getParameters();
         if (parseBoolean(tableProperties.get(METASTORE_PROPERTY_PROJECTION_IGNORE)) ||
                 !parseBoolean(tableProperties.get(METASTORE_PROPERTY_PROJECTION_ENABLED))) {
