@@ -21,7 +21,6 @@ import com.google.inject.Inject;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Table;
-import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.type.Type;
@@ -65,7 +64,6 @@ import static io.trino.plugin.hive.aws.athena.ProjectionType.DATE;
 import static io.trino.plugin.hive.aws.athena.ProjectionType.ENUM;
 import static io.trino.plugin.hive.aws.athena.ProjectionType.INJECTED;
 import static io.trino.plugin.hive.aws.athena.ProjectionType.INTEGER;
-import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static java.lang.String.format;
 import static java.util.Locale.ROOT;
 import static java.util.Objects.requireNonNull;
@@ -123,7 +121,7 @@ public final class PartitionProjectionService
     {
         // If partition projection is globally disabled we don't allow defining its properties
         if (!partitionProjectionEnabled && isAnyPartitionProjectionPropertyUsed(tableMetadata)) {
-            throw columnProjectionException("Partition projection is disabled. Enable it in configuration by setting "
+            throw new InvalidProjectionException("Partition projection is disabled. Enable it in configuration by setting "
                     + HiveConfig.CONFIGURATION_HIVE_PARTITION_PROJECTION_ENABLED + "=true");
         }
 
@@ -242,7 +240,7 @@ public final class PartitionProjectionService
     {
         Optional<Boolean> projectionEnabledProperty = Optional.ofNullable(tableProperties.get(METASTORE_PROPERTY_PROJECTION_ENABLED)).map(Boolean::valueOf);
         if (projectionEnabledProperty.orElse(false) && partitionColumns.isEmpty()) {
-            throw columnProjectionException("Partition projection can't be enabled when no partition columns are defined.");
+            throw new InvalidProjectionException("Partition projection can't be enabled when no partition columns are defined.");
         }
 
         Map<String, Projection> columnProjections = ImmutableSet.<String>builder()
@@ -263,25 +261,25 @@ public final class PartitionProjectionService
                             if (partitionColumns.containsKey(columnName)) {
                                 return parseColumnProjection(columnName, partitionColumns.get(columnName), entry.getValue());
                             }
-                            throw columnProjectionException("Partition projection can't be defined for non partition column: '" + columnName + "'");
+                            throw new InvalidProjectionException("Partition projection can't be defined for non partition column: '" + columnName + "'");
                         }));
 
         Optional<String> storageLocationTemplate = Optional.ofNullable(tableProperties.get(METASTORE_PROPERTY_PROJECTION_LOCATION_TEMPLATE));
         if (projectionEnabledProperty.isPresent()) {
             for (String columnName : partitionColumns.keySet()) {
                 if (!columnProjections.containsKey(columnName)) {
-                    throw columnProjectionException("Partition projection definition for column: '" + columnName + "' missing");
+                    throw new InvalidProjectionException("Partition projection definition for column: '" + columnName + "' missing");
                 }
                 if (storageLocationTemplate.isPresent()) {
                     String locationTemplate = storageLocationTemplate.get();
                     if (!locationTemplate.contains("${" + columnName + "}")) {
-                        throw columnProjectionException(format("Partition projection location template: %s is missing partition column: '%s' placeholder", locationTemplate, columnName));
+                        throw new InvalidProjectionException(format("Partition projection location template: %s is missing partition column: '%s' placeholder", locationTemplate, columnName));
                     }
                 }
             }
         }
         else if (!columnProjections.isEmpty()) {
-            throw columnProjectionException(format(
+            throw new InvalidProjectionException(format(
                     "Columns %s projections are disallowed when partition projection property '%s' is missing",
                     columnProjections.keySet().stream().collect(Collectors.joining("', '", "['", "']")),
                     PARTITION_PROJECTION_ENABLED));
@@ -336,19 +334,14 @@ public final class PartitionProjectionService
     {
         ProjectionType projectionType = (ProjectionType) columnProperties.get(COLUMN_PROJECTION_TYPE);
         if (Objects.isNull(projectionType)) {
-            throw columnProjectionException("Projection type property missing for column: '" + columnName + "'");
+            throw new InvalidProjectionException(columnName, "Projection type property missing for column: '" + columnName + "'");
         }
         ProjectionFactory projectionFactory = Optional.ofNullable(projectionFactories.get(projectionType))
-                .orElseThrow(() -> columnProjectionException(format("Partition projection type %s for column: '%s' not supported", projectionType, columnName)));
+                .orElseThrow(() -> new InvalidProjectionException(columnName, format("Partition projection type %s for column: '%s' not supported", projectionType, columnName)));
         if (!projectionFactory.isSupportedColumnType(columnType)) {
             throw new InvalidProjectionException(columnName, columnType);
         }
         return projectionFactory.create(columnName, columnType, columnProperties);
-    }
-
-    private static TrinoException columnProjectionException(String message)
-    {
-        return new TrinoException(INVALID_COLUMN_PROPERTY, message);
     }
 
     private static List<String> splitCommaSeparatedString(String value)
