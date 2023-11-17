@@ -23,7 +23,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.COLUMN_PROJECTION_VALUES;
 import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.getProjectionPropertyRequiredValue;
 
-class EnumProjectionFactory
+final class EnumProjectionFactory
         implements ProjectionFactory
 {
     @Override
