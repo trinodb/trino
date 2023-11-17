@@ -24,6 +24,7 @@ import io.trino.sql.planner.plan.JoinNode.EquiJoinClause;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.LongLiteral;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -42,7 +43,6 @@ import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.Double.NaN;
-import static org.testng.Assert.assertEquals;
 
 public class TestJoinStatsRule
         extends BaseStatsCalculatorTest
@@ -237,7 +237,7 @@ public class TestJoinStatsRule
                 LEFT_STATS,
                 RIGHT_STATS,
                 TYPES);
-        assertEquals(actual, expected);
+        Assertions.assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -255,7 +255,7 @@ public class TestJoinStatsRule
                 RIGHT_STATS,
                 LEFT_STATS,
                 TYPES);
-        assertEquals(actual, expected);
+        Assertions.assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -268,7 +268,7 @@ public class TestJoinStatsRule
                 LEFT_STATS,
                 RIGHT_STATS,
                 TYPES);
-        assertEquals(actual, expected);
+        Assertions.assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -285,7 +285,7 @@ public class TestJoinStatsRule
                 LEFT_STATS,
                 RIGHT_STATS,
                 TYPES);
-        assertEquals(actual, expected);
+        Assertions.assertThat(actual).isEqualTo(expected);
     }
 
     @Test

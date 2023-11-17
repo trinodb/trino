@@ -41,10 +41,10 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -103,7 +103,7 @@ public class TestSetSessionAuthorizationTask
         QueryStateMachine stateMachine = createStateMachine(Optional.empty(), query);
         new SetSessionAuthorizationTask(accessControl, transactionManager).execute(statement, stateMachine, emptyList(), WarningCollector.NOOP);
         QueryInfo queryInfo = stateMachine.getQueryInfo(Optional.empty());
-        assertEquals(queryInfo.getSetAuthorizationUser(), expected);
+        assertThat(queryInfo.getSetAuthorizationUser()).isEqualTo(expected);
     }
 
     private QueryStateMachine createStateMachine(Optional<TransactionId> transactionId, String query)

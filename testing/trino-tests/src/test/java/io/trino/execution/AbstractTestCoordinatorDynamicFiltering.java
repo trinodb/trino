@@ -84,9 +84,6 @@ import static io.trino.testing.TestingSplit.createRemoteSplit;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public abstract class AbstractTestCoordinatorDynamicFiltering
         extends AbstractTestQueryFramework
@@ -497,9 +494,13 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                     if (!isTaskRetryMode) {
                         // In task retry mode, dynamic filter collection is done outside the join stage,
                         // so it's not necessary that dynamicFilter will be blocked initially.
-                        assertFalse(dynamicFilter.isBlocked().isDone(), "Dynamic filter should be initially blocked");
+                        assertThat(dynamicFilter.isBlocked().isDone())
+                                .describedAs("Dynamic filter should be initially blocked")
+                                .isFalse();
                     }
-                    assertEquals(dynamicFilter.getColumnsCovered(), expectedDynamicFilterColumnsCovered, "columns covered");
+                    assertThat(dynamicFilter.getColumnsCovered())
+                            .describedAs("columns covered")
+                            .isEqualTo(expectedDynamicFilterColumnsCovered);
 
                     AtomicBoolean splitProduced = new AtomicBoolean();
                     return new ConnectorSplitSource()
@@ -528,13 +529,15 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                         @Override
                         public boolean isFinished()
                         {
-                            assertEquals(dynamicFilter.getColumnsCovered(), expectedDynamicFilterColumnsCovered, "columns covered");
+                            assertThat(dynamicFilter.getColumnsCovered())
+                                    .describedAs("columns covered")
+                                    .isEqualTo(expectedDynamicFilterColumnsCovered);
 
                             if (!dynamicFilter.isComplete() || !splitProduced.get()) {
                                 return false;
                             }
 
-                            assertTrue(dynamicFilter.isBlocked().isDone());
+                            assertThat(dynamicFilter.isBlocked().isDone()).isTrue();
                             expectedCoordinatorDynamicFilterAssertion.accept(dynamicFilter.getCurrentPredicate());
 
                             return true;
@@ -558,7 +561,9 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                         List<ColumnHandle> columns,
                         DynamicFilter dynamicFilter)
                 {
-                    assertEquals(dynamicFilter.getColumnsCovered(), expectedDynamicFilterColumnsCovered, "columns covered");
+                    assertThat(dynamicFilter.getColumnsCovered())
+                            .describedAs("columns covered")
+                            .isEqualTo(expectedDynamicFilterColumnsCovered);
 
                     return new EmptyPageSource()
                     {
@@ -571,14 +576,16 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                         @Override
                         public boolean isFinished()
                         {
-                            assertEquals(dynamicFilter.getColumnsCovered(), expectedDynamicFilterColumnsCovered, "columns covered");
+                            assertThat(dynamicFilter.getColumnsCovered())
+                                    .describedAs("columns covered")
+                                    .isEqualTo(expectedDynamicFilterColumnsCovered);
 
                             if (!dynamicFilter.isComplete()) {
                                 return false;
                             }
 
                             // ConnectorPageSource is blocked until the dynamicFilter is complete
-                            assertTrue(dynamicFilter.isBlocked().isDone());
+                            assertThat(dynamicFilter.isBlocked().isDone()).isTrue();
                             expectedTableScanDynamicFilterAssertion.accept(dynamicFilter.getCurrentPredicate());
 
                             return true;

@@ -32,7 +32,6 @@ import static io.trino.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.trino.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestHiveUtil
 {
@@ -40,11 +39,11 @@ public class TestHiveUtil
     public void testParseHiveTimestamp()
     {
         DateTime time = new DateTime(2011, 5, 6, 7, 8, 9, 123, DateTimeZone.UTC);
-        assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss"), unixTime(time, 0));
-        assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss.S"), unixTime(time, 1));
-        assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss.SSS"), unixTime(time, 3));
-        assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss.SSSSSSS"), unixTime(time, 6));
-        assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss.SSSSSSSSS"), unixTime(time, 7));
+        assertThat(parse(time, "yyyy-MM-dd HH:mm:ss")).isEqualTo(unixTime(time, 0));
+        assertThat(parse(time, "yyyy-MM-dd HH:mm:ss.S")).isEqualTo(unixTime(time, 1));
+        assertThat(parse(time, "yyyy-MM-dd HH:mm:ss.SSS")).isEqualTo(unixTime(time, 3));
+        assertThat(parse(time, "yyyy-MM-dd HH:mm:ss.SSSSSSS")).isEqualTo(unixTime(time, 6));
+        assertThat(parse(time, "yyyy-MM-dd HH:mm:ss.SSSSSSSSS")).isEqualTo(unixTime(time, 7));
     }
 
     @Test
@@ -155,7 +154,7 @@ public class TestHiveUtil
         AbstractList<String> expected = new ArrayList<>();
         actual.forEach(s -> expected.add(null));
         Warehouse.makeValsFromName(partitionName, expected);
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     private static long parse(DateTime time, String pattern)

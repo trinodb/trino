@@ -42,9 +42,7 @@ import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.discovery.client.DiscoveryBinder.discoveryBinder;
 import static io.airlift.discovery.client.ServiceTypes.serviceType;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHeartbeatFailureDetector
 {
@@ -78,15 +76,15 @@ public class TestHeartbeatFailureDetector
                 .initialize();
 
         ServiceSelector selector = injector.getInstance(Key.get(ServiceSelector.class, serviceType("trino")));
-        assertEquals(selector.selectAllServices().size(), 1);
+        assertThat(selector.selectAllServices().size()).isEqualTo(1);
 
         HeartbeatFailureDetector detector = injector.getInstance(HeartbeatFailureDetector.class);
         detector.updateMonitoredServices();
 
-        assertEquals(detector.getTotalCount(), 0);
-        assertEquals(detector.getActiveCount(), 0);
-        assertEquals(detector.getFailedCount(), 0);
-        assertTrue(detector.getFailed().isEmpty());
+        assertThat(detector.getTotalCount()).isEqualTo(0);
+        assertThat(detector.getActiveCount()).isEqualTo(0);
+        assertThat(detector.getFailedCount()).isEqualTo(0);
+        assertThat(detector.getFailed().isEmpty()).isTrue();
     }
 
     @Test
@@ -97,13 +95,13 @@ public class TestHeartbeatFailureDetector
         Stats stats = new Stats(new URI("http://example.com"));
         String serialized = objectMapper.writeValueAsString(stats);
         JsonNode deserialized = objectMapper.readTree(serialized);
-        assertFalse(deserialized.has("lastFailureInfo"));
+        assertThat(deserialized.has("lastFailureInfo")).isFalse();
 
         stats.recordFailure(new SocketTimeoutException("timeout"));
         serialized = objectMapper.writeValueAsString(stats);
         deserialized = objectMapper.readTree(serialized);
-        assertFalse(deserialized.get("lastFailureInfo").isNull());
-        assertEquals(deserialized.get("lastFailureInfo").get("type").asText(), SocketTimeoutException.class.getName());
+        assertThat(deserialized.get("lastFailureInfo").isNull()).isFalse();
+        assertThat(deserialized.get("lastFailureInfo").get("type").asText()).isEqualTo(SocketTimeoutException.class.getName());
     }
 
     @Path("/foo")

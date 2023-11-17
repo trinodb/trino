@@ -82,8 +82,7 @@ import static io.trino.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLiteralEncoder
 {
@@ -284,9 +283,9 @@ public class TestLiteralEncoder
     private void assertEncode(Object value, Type type, String expected)
     {
         Expression expression = encoder.toExpression(value, type);
-        assertEquals(getExpressionType(expression), type);
-        assertEquals(getExpressionValue(expression), value);
-        assertEquals(formatSql(expression), expected);
+        assertThat(getExpressionType(expression)).isEqualTo(type);
+        assertThat(getExpressionValue(expression)).isEqualTo(value);
+        assertThat(formatSql(expression)).isEqualTo(expected);
     }
 
     /**
@@ -296,20 +295,24 @@ public class TestLiteralEncoder
     private void assertEncodeCaseInsensitively(Object value, Type type, String expected)
     {
         Expression expression = encoder.toExpression(value, type);
-        assertTrue(isEffectivelyLiteral(PLANNER_CONTEXT, TEST_SESSION, expression), "isEffectivelyLiteral returned false for: " + expression);
-        assertEquals(getExpressionType(expression), type);
-        assertEquals(getExpressionValue(expression), value);
+        assertThat(isEffectivelyLiteral(PLANNER_CONTEXT, TEST_SESSION, expression))
+                .describedAs("isEffectivelyLiteral returned false for: " + expression)
+                .isTrue();
+        assertThat(getExpressionType(expression)).isEqualTo(type);
+        assertThat(getExpressionValue(expression)).isEqualTo(value);
         assertEqualsIgnoreCase(formatSql(expression), expected);
     }
 
     private <T> void assertRoundTrip(T value, Type type, BiPredicate<T, T> predicate)
     {
         Expression expression = encoder.toExpression(value, type);
-        assertTrue(isEffectivelyLiteral(PLANNER_CONTEXT, TEST_SESSION, expression), "isEffectivelyLiteral returned false for: " + expression);
-        assertEquals(getExpressionType(expression), type);
+        assertThat(isEffectivelyLiteral(PLANNER_CONTEXT, TEST_SESSION, expression))
+                .describedAs("isEffectivelyLiteral returned false for: " + expression)
+                .isTrue();
+        assertThat(getExpressionType(expression)).isEqualTo(type);
         @SuppressWarnings("unchecked")
         T decodedValue = (T) getExpressionValue(expression);
-        assertTrue(predicate.test(value, decodedValue));
+        assertThat(predicate.test(value, decodedValue)).isTrue();
     }
 
     private Object getExpressionValue(Expression expression)

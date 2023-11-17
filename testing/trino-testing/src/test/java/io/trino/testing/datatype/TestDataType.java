@@ -18,15 +18,15 @@ import org.junit.jupiter.api.Test;
 import java.time.LocalTime;
 
 import static io.trino.testing.datatype.DataType.timeDataType;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDataType
 {
     @Test
     public void testTimeDataType()
     {
-        assertEquals(timeDataType(0).toLiteral(LocalTime.of(23, 59, 59, 0)), "TIME '23:59:59'");
-        assertEquals(timeDataType(3).toLiteral(LocalTime.of(23, 59, 59, 999_000_000)), "TIME '23:59:59.999'");
-        assertEquals(timeDataType(6).toLiteral(LocalTime.of(23, 59, 59, 999_999_000)), "TIME '23:59:59.999999'");
+        assertThat(timeDataType(0).toLiteral(LocalTime.of(23, 59, 59, 0))).isEqualTo("TIME '23:59:59'");
+        assertThat(timeDataType(3).toLiteral(LocalTime.of(23, 59, 59, 999_000_000))).isEqualTo("TIME '23:59:59.999'");
+        assertThat(timeDataType(6).toLiteral(LocalTime.of(23, 59, 59, 999_999_000))).isEqualTo("TIME '23:59:59.999999'");
     }
 }

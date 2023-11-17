@@ -31,7 +31,7 @@ import java.util.stream.Stream;
 import static io.trino.sql.planner.iterative.rule.LambdaCaptureDesugaringRewriter.rewrite;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static java.util.stream.Collectors.toList;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLambdaCaptureDesugaringRewriter
 {
@@ -41,14 +41,13 @@ public class TestLambdaCaptureDesugaringRewriter
         Map<Symbol, Type> symbols = ImmutableMap.of(new Symbol("a"), BigintType.BIGINT);
         SymbolAllocator allocator = new SymbolAllocator(symbols);
 
-        assertEquals(rewrite(expression("x -> a + x"), allocator.getTypes(), allocator),
-                new BindExpression(
-                        ImmutableList.of(expression("a")),
-                        new LambdaExpression(
-                                Stream.of("a_0", "x")
-                                        .map(Identifier::new)
-                                        .map(LambdaArgumentDeclaration::new)
-                                        .collect(toList()),
-                                expression("a_0 + x"))));
+        assertThat(rewrite(expression("x -> a + x"), allocator.getTypes(), allocator)).isEqualTo(new BindExpression(
+                ImmutableList.of(expression("a")),
+                new LambdaExpression(
+                        Stream.of("a_0", "x")
+                                .map(Identifier::new)
+                                .map(LambdaArgumentDeclaration::new)
+                                .collect(toList()),
+                        expression("a_0 + x"))));
     }
 }

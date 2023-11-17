@@ -18,7 +18,7 @@ import io.airlift.testing.EquivalenceTester;
 import org.junit.jupiter.api.Test;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPrometheusTableHandle
 {
@@ -30,7 +30,7 @@ public class TestPrometheusTableHandle
         JsonCodec<PrometheusTableHandle> codec = jsonCodec(PrometheusTableHandle.class);
         String json = codec.toJson(tableHandle);
         PrometheusTableHandle copy = codec.fromJson(json);
-        assertEquals(copy, tableHandle);
+        assertThat(copy).isEqualTo(tableHandle);
     }
 
     @Test

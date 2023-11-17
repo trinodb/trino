@@ -31,9 +31,9 @@ import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -68,7 +68,7 @@ public class TestPartitionedOutputOperator
         partitionedOutputOperator.addInput(page);
 
         OperatorContext operatorContext = partitionedOutputOperator.getOperatorContext();
-        assertEquals(operatorContext.getOutputDataSize().getTotalCount(), page.getSizeInBytes());
-        assertEquals(operatorContext.getOutputPositions().getTotalCount(), page.getPositionCount());
+        assertThat(operatorContext.getOutputDataSize().getTotalCount()).isEqualTo(page.getSizeInBytes());
+        assertThat(operatorContext.getOutputPositions().getTotalCount()).isEqualTo(page.getPositionCount());
     }
 }

@@ -43,7 +43,7 @@ import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Collections.max;
 import static java.util.Collections.min;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHivePartitionedBucketFunction
 {
@@ -153,17 +153,15 @@ public class TestHivePartitionedBucketFunction
         int maxPosition = max(positions);
 
         // assert that every bucket number was generated
-        assertEquals(maxPosition - minPosition + 1, 10);
+        assertThat(maxPosition - minPosition + 1).isEqualTo(10);
     }
 
     private static void assertBucketCount(BucketFunction bucketFunction, Page page, Collection<Integer> positions, int bucketCount)
     {
-        assertEquals(
-                positions.stream()
-                        .map(position -> bucketFunction.getBucket(page, position))
-                        .distinct()
-                        .count(),
-                bucketCount);
+        assertThat(positions.stream()
+                .map(position -> bucketFunction.getBucket(page, position))
+                .distinct()
+                .count()).isEqualTo(bucketCount);
     }
 
     private static Block createLongSequenceBlockWithNull(int numValues)

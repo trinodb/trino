@@ -59,10 +59,6 @@ import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotEquals;
-import static org.testng.Assert.assertNotNull;
 
 public abstract class BaseRaptorConnectorTest
         extends BaseConnectorTest
@@ -120,13 +116,13 @@ public abstract class BaseRaptorConnectorTest
         String renamedTable = "test_rename_new_" + randomNameSuffix();
         assertUpdate("ALTER TABLE " + tableName + " RENAME TO " + schemaName + "." + renamedTable);
 
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
         assertQuery("SELECT x FROM " + schemaName + "." + renamedTable, "VALUES 123");
 
         assertUpdate("DROP TABLE " + schemaName + "." + renamedTable);
 
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-        assertFalse(getQueryRunner().tableExists(Session.builder(getSession()).setSchema(schemaName).build(), renamedTable));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        assertThat(getQueryRunner().tableExists(Session.builder(getSession()).setSchema(schemaName).build(), renamedTable)).isFalse();
     }
 
     @Override
@@ -224,19 +220,20 @@ public abstract class BaseRaptorConnectorTest
         assertUpdate("CREATE TABLE test_shard_uuid AS SELECT orderdate, orderkey FROM orders", "SELECT count(*) FROM orders");
 
         MaterializedResult actualResults = computeActual("SELECT *, \"$shard_uuid\" FROM test_shard_uuid");
-        assertEquals(actualResults.getTypes(), ImmutableList.of(DATE, BIGINT, SHARD_UUID_COLUMN_TYPE));
+        assertThat(actualResults.getTypes()).isEqualTo(ImmutableList.of(DATE, BIGINT, SHARD_UUID_COLUMN_TYPE));
         UUID arbitraryUuid = null;
         for (MaterializedRow row : actualResults.getMaterializedRows()) {
             Object uuid = row.getField(2);
             assertInstanceOf(uuid, String.class);
             arbitraryUuid = UUID.fromString((String) uuid);
         }
-        assertNotNull(arbitraryUuid);
+        assertThat(arbitraryUuid).isNotNull();
 
         actualResults = computeActual(format("SELECT * FROM test_shard_uuid where \"$shard_uuid\" = '%s'", arbitraryUuid));
-        assertNotEquals(actualResults.getMaterializedRows().size(), 0);
+        assertThat(actualResults.getMaterializedRows().size())
+                .isNotEqualTo(0);
         actualResults = computeActual("SELECT * FROM test_shard_uuid where \"$shard_uuid\" = 'foo'");
-        assertEquals(actualResults.getMaterializedRows().size(), 0);
+        assertThat(actualResults.getMaterializedRows().size()).isEqualTo(0);
     }
 
     @Test
@@ -249,11 +246,11 @@ public abstract class BaseRaptorConnectorTest
                 "SELECT count(*) FROM orders");
 
         MaterializedResult actualResults = computeActual("SELECT DISTINCT \"$bucket_number\" FROM test_bucket_number");
-        assertEquals(actualResults.getTypes(), ImmutableList.of(INTEGER));
+        assertThat(actualResults.getTypes()).isEqualTo(ImmutableList.of(INTEGER));
         Set<Object> actual = actualResults.getMaterializedRows().stream()
                 .map(row -> row.getField(0))
                 .collect(toSet());
-        assertEquals(actual, IntStream.range(0, 50).boxed().collect(toSet()));
+        assertThat(actual).isEqualTo(IntStream.range(0, 50).boxed().collect(toSet()));
     }
 
     @Test
@@ -271,7 +268,7 @@ public abstract class BaseRaptorConnectorTest
     public void testShardingByTemporalDateColumn()
     {
         // Make sure we have at least 2 different orderdate.
-        assertEquals(computeActual("SELECT count(DISTINCT orderdate) >= 2 FROM orders WHERE orderdate < date '1992-02-08'").getOnlyValue(), true);
+        assertThat(computeActual("SELECT count(DISTINCT orderdate) >= 2 FROM orders WHERE orderdate < date '1992-02-08'").getOnlyValue()).isEqualTo(true);
 
         assertUpdate("CREATE TABLE test_shard_temporal_date " +
                         "WITH (temporal_column = 'orderdate') AS " +
@@ -291,7 +288,7 @@ public abstract class BaseRaptorConnectorTest
         }
 
         for (Collection<LocalDate> dates : shardDateMap.asMap().values()) {
-            assertEquals(dates.size(), 1);
+            assertThat(dates.size()).isEqualTo(1);
         }
 
         // Make sure we have all the rows
@@ -303,7 +300,7 @@ public abstract class BaseRaptorConnectorTest
     public void testShardingByTemporalDateColumnBucketed()
     {
         // Make sure we have at least 2 different orderdate.
-        assertEquals(computeActual("SELECT count(DISTINCT orderdate) >= 2 FROM orders WHERE orderdate < date '1992-02-08'").getOnlyValue(), true);
+        assertThat(computeActual("SELECT count(DISTINCT orderdate) >= 2 FROM orders WHERE orderdate < date '1992-02-08'").getOnlyValue()).isEqualTo(true);
 
         assertUpdate("CREATE TABLE test_shard_temporal_date_bucketed " +
                         "WITH (temporal_column = 'orderdate', bucket_count = 10, bucketed_on = ARRAY ['orderkey']) AS " +
@@ -323,7 +320,7 @@ public abstract class BaseRaptorConnectorTest
         }
 
         for (Collection<LocalDate> dates : shardDateMap.asMap().values()) {
-            assertEquals(dates.size(), 1);
+            assertThat(dates.size()).isEqualTo(1);
         }
 
         // Make sure we have all the rows
@@ -345,7 +342,7 @@ public abstract class BaseRaptorConnectorTest
         assertUpdate(joiner.toString(), format("VALUES(%s)", rows));
 
         MaterializedResult results = computeActual("SELECT cast(cast(col2 as DATE) as VARCHAR), \"$shard_uuid\" FROM test_shard_temporal_timestamp");
-        assertEquals(results.getRowCount(), rows);
+        assertThat(results.getRowCount()).isEqualTo(rows);
 
         // Each shard will only contain data of one date.
         SetMultimap<String, String> shardDateMap = HashMultimap.create();
@@ -354,7 +351,7 @@ public abstract class BaseRaptorConnectorTest
         }
 
         for (Collection<String> dates : shardDateMap.asMap().values()) {
-            assertEquals(dates.size(), 1);
+            assertThat(dates.size()).isEqualTo(1);
         }
 
         // Ensure one shard can contain different timestamps from the same day
@@ -380,7 +377,7 @@ public abstract class BaseRaptorConnectorTest
                 "SELECT cast(cast(col2 as DATE) as VARCHAR), \"$shard_uuid\" " +
                 "FROM test_shard_temporal_timestamp_bucketed");
 
-        assertEquals(results.getRowCount(), rows);
+        assertThat(results.getRowCount()).isEqualTo(rows);
 
         // Each shard will only contain data of one date.
         SetMultimap<String, String> shardDateMap = HashMultimap.create();
@@ -389,7 +386,7 @@ public abstract class BaseRaptorConnectorTest
         }
 
         for (Collection<String> dates : shardDateMap.asMap().values()) {
-            assertEquals(dates.size(), 1);
+            assertThat(dates.size()).isEqualTo(1);
         }
 
         // Ensure one shard can contain different timestamps from the same day
@@ -422,7 +419,7 @@ public abstract class BaseRaptorConnectorTest
     public void testShardsSystemTableWithTemporalColumn()
     {
         // Make sure we have rows in the selected range
-        assertEquals(computeActual("SELECT count(*) >= 1 FROM orders WHERE orderdate BETWEEN date '1992-01-01' AND date '1992-02-08'").getOnlyValue(), true);
+        assertThat(computeActual("SELECT count(*) >= 1 FROM orders WHERE orderdate BETWEEN date '1992-01-01' AND date '1992-02-08'").getOnlyValue()).isEqualTo(true);
 
         // Create a table that has DATE type temporal column
         assertUpdate("CREATE TABLE test_shards_system_table_date_temporal\n" +
@@ -444,24 +441,24 @@ public abstract class BaseRaptorConnectorTest
                         "WHERE orderdate BETWEEN date '1992-01-01' AND date '1992-02-08'");
 
         // For table with DATE type temporal column, min/max_timestamp columns must be null while min/max_date columns must not be null
-        assertEquals(computeActual("" +
+        assertThat(computeActual("" +
                 "SELECT count(*)\n" +
                 "FROM system.shards\n" +
                 "WHERE table_schema = 'tpch'\n" +
                 "AND table_name = 'test_shards_system_table_date_temporal'\n" +
                 "AND NOT \n" +
                 "(min_timestamp IS NULL AND max_timestamp IS NULL\n" +
-                "AND min_date IS NOT NULL AND max_date IS NOT NULL)").getOnlyValue(), 0L);
+                "AND min_date IS NOT NULL AND max_date IS NOT NULL)").getOnlyValue()).isEqualTo(0L);
 
         // For table with TIMESTAMP type temporal column, min/max_date columns must be null while min/max_timestamp columns must not be null
-        assertEquals(computeActual("" +
+        assertThat(computeActual("" +
                 "SELECT count(*)\n" +
                 "FROM system.shards\n" +
                 "WHERE table_schema = 'tpch'\n" +
                 "AND table_name = 'test_shards_system_table_timestamp_temporal'\n" +
                 "AND NOT\n" +
                 "(min_date IS NULL AND max_date IS NULL\n" +
-                "AND min_timestamp IS NOT NULL AND max_timestamp IS NOT NULL)").getOnlyValue(), 0L);
+                "AND min_timestamp IS NOT NULL AND max_timestamp IS NOT NULL)").getOnlyValue()).isEqualTo(0L);
 
         // Test date predicates in table with DATE temporal column
         assertQuery("" +
@@ -629,13 +626,13 @@ public abstract class BaseRaptorConnectorTest
         assertUpdate(createTableSql);
 
         MaterializedResult actualResult = computeActual("SHOW CREATE TABLE test_show_create_table");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+        assertThat(getOnlyElement(actualResult.getOnlyColumnAsSet())).isEqualTo(createTableSql);
 
         actualResult = computeActual("SHOW CREATE TABLE " + getSession().getSchema().get() + ".test_show_create_table");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+        assertThat(getOnlyElement(actualResult.getOnlyColumnAsSet())).isEqualTo(createTableSql);
 
         actualResult = computeActual("SHOW CREATE TABLE " + getSession().getCatalog().get() + "." + getSession().getSchema().get() + ".test_show_create_table");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+        assertThat(getOnlyElement(actualResult.getOnlyColumnAsSet())).isEqualTo(createTableSql);
 
         // With organization enabled
         createTableSql = format("" +
@@ -658,13 +655,13 @@ public abstract class BaseRaptorConnectorTest
         assertUpdate(createTableSql);
 
         actualResult = computeActual("SHOW CREATE TABLE test_show_create_table_organized");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+        assertThat(getOnlyElement(actualResult.getOnlyColumnAsSet())).isEqualTo(createTableSql);
 
         actualResult = computeActual("SHOW CREATE TABLE " + getSession().getSchema().get() + ".test_show_create_table_organized");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+        assertThat(getOnlyElement(actualResult.getOnlyColumnAsSet())).isEqualTo(createTableSql);
 
         actualResult = computeActual("SHOW CREATE TABLE " + getSession().getCatalog().get() + "." + getSession().getSchema().get() + ".test_show_create_table_organized");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+        assertThat(getOnlyElement(actualResult.getOnlyColumnAsSet())).isEqualTo(createTableSql);
 
         createTableSql = format("" +
                         "CREATE TABLE %s.%s.%s (\n" +
@@ -678,7 +675,7 @@ public abstract class BaseRaptorConnectorTest
         assertUpdate(createTableSql);
 
         actualResult = computeActual("SHOW CREATE TABLE \"test_show_create_table\"\"2\"");
-        assertEquals(getOnlyElement(actualResult.getOnlyColumnAsSet()), createTableSql);
+        assertThat(getOnlyElement(actualResult.getOnlyColumnAsSet())).isEqualTo(createTableSql);
     }
 
     @Test
@@ -721,59 +718,45 @@ public abstract class BaseRaptorConnectorTest
                 "WITH (ordering = ARRAY['c51', 'c52'], distribution_name = 'test_distribution', bucket_count = 50, bucketed_on = ARRAY ['c53', 'c54'], organized = true)");
 
         MaterializedResult actualResults = computeActual("SELECT * FROM system.tables");
-        assertEquals(
-                actualResults.getTypes(),
-                ImmutableList.builder()
-                        .add(VARCHAR) // table_schema
-                        .add(VARCHAR) // table_name
-                        .add(VARCHAR) // temporal_column
-                        .add(new ArrayType(VARCHAR)) // ordering_columns
-                        .add(VARCHAR) // distribution_name
-                        .add(BIGINT) // bucket_count
-                        .add(new ArrayType(VARCHAR)) // bucket_columns
-                        .add(BOOLEAN) // organized
-                        .build());
+        assertThat(actualResults.getTypes()).isEqualTo(ImmutableList.builder()
+                .add(VARCHAR) // table_schema
+                .add(VARCHAR) // table_name
+                .add(VARCHAR) // temporal_column
+                .add(new ArrayType(VARCHAR)) // ordering_columns
+                .add(VARCHAR) // distribution_name
+                .add(BIGINT) // bucket_count
+                .add(new ArrayType(VARCHAR)) // bucket_columns
+                .add(BOOLEAN) // organized
+                .build());
         Map<String, MaterializedRow> map = actualResults.getMaterializedRows().stream()
                 .filter(row -> ((String) row.getField(1)).startsWith("system_tables_test"))
                 .collect(toImmutableMap(row -> ((String) row.getField(1)), identity()));
-        assertEquals(map.size(), 6);
-        assertEquals(
-                map.get("system_tables_test0").getFields(),
-                asList("tpch", "system_tables_test0", null, null, null, null, null, Boolean.FALSE));
-        assertEquals(
-                map.get("system_tables_test1").getFields(),
-                asList("tpch", "system_tables_test1", "c10", null, null, null, null, Boolean.FALSE));
-        assertEquals(
-                map.get("system_tables_test2").getFields(),
-                asList("tpch", "system_tables_test2", "c20", ImmutableList.of("c22", "c21"), null, null, null, Boolean.FALSE));
-        assertEquals(
-                map.get("system_tables_test3").getFields(),
-                asList("tpch", "system_tables_test3", "c30", null, null, 40L, ImmutableList.of("c34", "c33"), Boolean.FALSE));
-        assertEquals(
-                map.get("system_tables_test4").getFields(),
-                asList("tpch", "system_tables_test4", "c40", ImmutableList.of("c41", "c42"), "test_distribution", 50L, ImmutableList.of("c43", "c44"), Boolean.FALSE));
-        assertEquals(
-                map.get("system_tables_test5").getFields(),
-                asList("tpch", "system_tables_test5", null, ImmutableList.of("c51", "c52"), "test_distribution", 50L, ImmutableList.of("c53", "c54"), Boolean.TRUE));
+        assertThat(map.size()).isEqualTo(6);
+        assertThat(map.get("system_tables_test0").getFields()).isEqualTo(asList("tpch", "system_tables_test0", null, null, null, null, null, Boolean.FALSE));
+        assertThat(map.get("system_tables_test1").getFields()).isEqualTo(asList("tpch", "system_tables_test1", "c10", null, null, null, null, Boolean.FALSE));
+        assertThat(map.get("system_tables_test2").getFields()).isEqualTo(asList("tpch", "system_tables_test2", "c20", ImmutableList.of("c22", "c21"), null, null, null, Boolean.FALSE));
+        assertThat(map.get("system_tables_test3").getFields()).isEqualTo(asList("tpch", "system_tables_test3", "c30", null, null, 40L, ImmutableList.of("c34", "c33"), Boolean.FALSE));
+        assertThat(map.get("system_tables_test4").getFields()).isEqualTo(asList("tpch", "system_tables_test4", "c40", ImmutableList.of("c41", "c42"), "test_distribution", 50L, ImmutableList.of("c43", "c44"), Boolean.FALSE));
+        assertThat(map.get("system_tables_test5").getFields()).isEqualTo(asList("tpch", "system_tables_test5", null, ImmutableList.of("c51", "c52"), "test_distribution", 50L, ImmutableList.of("c53", "c54"), Boolean.TRUE));
 
         actualResults = computeActual("SELECT * FROM system.tables WHERE table_schema = 'tpch'");
         long actualRowCount = actualResults.getMaterializedRows().stream()
                 .filter(row -> ((String) row.getField(1)).startsWith("system_tables_test"))
                 .count();
-        assertEquals(actualRowCount, 6);
+        assertThat(actualRowCount).isEqualTo(6);
 
         actualResults = computeActual("SELECT * FROM system.tables WHERE table_name = 'system_tables_test3'");
-        assertEquals(actualResults.getMaterializedRows().size(), 1);
+        assertThat(actualResults.getMaterializedRows().size()).isEqualTo(1);
 
         actualResults = computeActual("SELECT * FROM system.tables WHERE table_schema = 'tpch' and table_name = 'system_tables_test3'");
-        assertEquals(actualResults.getMaterializedRows().size(), 1);
+        assertThat(actualResults.getMaterializedRows().size()).isEqualTo(1);
 
         actualResults = computeActual("" +
                 "SELECT distribution_name, bucket_count, bucketing_columns, ordering_columns, temporal_column, organized " +
                 "FROM system.tables " +
                 "WHERE table_schema = 'tpch' and table_name = 'system_tables_test3'");
-        assertEquals(actualResults.getTypes(), ImmutableList.of(VARCHAR, BIGINT, new ArrayType(VARCHAR), new ArrayType(VARCHAR), VARCHAR, BOOLEAN));
-        assertEquals(actualResults.getMaterializedRows().size(), 1);
+        assertThat(actualResults.getTypes()).isEqualTo(ImmutableList.of(VARCHAR, BIGINT, new ArrayType(VARCHAR), new ArrayType(VARCHAR), VARCHAR, BOOLEAN));
+        assertThat(actualResults.getMaterializedRows().size()).isEqualTo(1);
 
         assertUpdate("DROP TABLE system_tables_test0");
         assertUpdate("DROP TABLE system_tables_test1");
@@ -782,7 +765,7 @@ public abstract class BaseRaptorConnectorTest
         assertUpdate("DROP TABLE system_tables_test4");
         assertUpdate("DROP TABLE system_tables_test5");
 
-        assertEquals(computeActual("SELECT * FROM system.tables WHERE table_schema IN ('foo', 'bar')").getRowCount(), 0);
+        assertThat(computeActual("SELECT * FROM system.tables WHERE table_schema IN ('foo', 'bar')").getRowCount()).isEqualTo(0);
     }
 
     @Test
@@ -822,24 +805,24 @@ public abstract class BaseRaptorConnectorTest
 
         LocalDateTime createTime = (LocalDateTime) row.getField(0);
         LocalDateTime updateTime1 = (LocalDateTime) row.getField(1);
-        assertEquals(createTime, updateTime1);
+        assertThat(createTime).isEqualTo(updateTime1);
 
-        assertEquals(row.getField(2), 1L);      // table_version
-        assertEquals(row.getField(3), 0L);      // shard_count
-        assertEquals(row.getField(4), 0L);      // row_count
+        assertThat(row.getField(2)).isEqualTo(1L);      // table_version
+        assertThat(row.getField(3)).isEqualTo(0L);      // shard_count
+        assertThat(row.getField(4)).isEqualTo(0L);      // row_count
         long size1 = (long) row.getField(5);    // uncompressed_size
 
         // insert
         assertUpdate("INSERT INTO test_table_stats VALUES (1), (2), (3), (4)", 4);
         row = getOnlyElement(computeActual(sql).getMaterializedRows());
 
-        assertEquals(row.getField(0), createTime);
+        assertThat(row.getField(0)).isEqualTo(createTime);
         LocalDateTime updateTime2 = (LocalDateTime) row.getField(1);
         assertLessThan(updateTime1, updateTime2);
 
-        assertEquals(row.getField(2), 2L);                    // table_version
+        assertThat(row.getField(2)).isEqualTo(2L);                    // table_version
         assertGreaterThanOrEqual((Long) row.getField(3), 1L); // shard_count
-        assertEquals(row.getField(4), 4L);                    // row_count
+        assertThat(row.getField(4)).isEqualTo(4L);                    // row_count
         long size2 = (long) row.getField(5);                  // uncompressed_size
         assertGreaterThan(size2, size1);
 
@@ -847,13 +830,13 @@ public abstract class BaseRaptorConnectorTest
         assertUpdate("DELETE FROM test_table_stats WHERE x IN (2, 4)", 2);
         row = getOnlyElement(computeActual(sql).getMaterializedRows());
 
-        assertEquals(row.getField(0), createTime);
+        assertThat(row.getField(0)).isEqualTo(createTime);
         LocalDateTime updateTime3 = (LocalDateTime) row.getField(1);
         assertLessThan(updateTime2, updateTime3);
 
-        assertEquals(row.getField(2), 3L);                    // table_version
+        assertThat(row.getField(2)).isEqualTo(3L);                    // table_version
         assertGreaterThanOrEqual((Long) row.getField(3), 1L); // shard_count
-        assertEquals(row.getField(4), 2L);                    // row_count
+        assertThat(row.getField(4)).isEqualTo(2L);                    // row_count
         long size3 = (long) row.getField(5);                  // uncompressed_Size
         assertLessThan(size3, size2);
 
@@ -861,12 +844,12 @@ public abstract class BaseRaptorConnectorTest
         assertUpdate("ALTER TABLE test_table_stats ADD COLUMN y bigint");
         row = getOnlyElement(computeActual(sql).getMaterializedRows());
 
-        assertEquals(row.getField(0), createTime);
+        assertThat(row.getField(0)).isEqualTo(createTime);
         assertLessThan(updateTime3, (LocalDateTime) row.getField(1));
 
-        assertEquals(row.getField(2), 4L);      // table_version
-        assertEquals(row.getField(4), 2L);      // row_count
-        assertEquals(row.getField(5), size3);   // uncompressed_size
+        assertThat(row.getField(2)).isEqualTo(4L);      // table_version
+        assertThat(row.getField(4)).isEqualTo(2L);      // row_count
+        assertThat(row.getField(5)).isEqualTo(size3);   // uncompressed_size
 
         // cleanup
         assertUpdate("DROP TABLE test_table_stats");

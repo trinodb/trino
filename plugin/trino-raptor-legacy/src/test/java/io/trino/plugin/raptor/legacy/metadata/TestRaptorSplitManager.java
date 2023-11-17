@@ -68,10 +68,10 @@ import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_METHOD)
 @Execution(SAME_THREAD)
@@ -150,7 +150,7 @@ public class TestRaptorSplitManager
         while (!splitSource.isFinished()) {
             splitCount += getSplits(splitSource, 1000).size();
         }
-        assertEquals(splitCount, 4);
+        assertThat(splitCount).isEqualTo(4);
     }
 
     @Test
@@ -180,7 +180,7 @@ public class TestRaptorSplitManager
 
         ConnectorSplitSource partitionSplit = getSplits(raptorSplitManagerWithBackup, tableHandle);
         List<ConnectorSplit> batch = getSplits(partitionSplit, 1);
-        assertEquals(getOnlyElement(getOnlyElement(batch).getAddresses()), node.getHostAndPort());
+        assertThat(getOnlyElement(getOnlyElement(batch).getAddresses())).isEqualTo(node.getHostAndPort());
     }
 
     @Test

@@ -65,10 +65,9 @@ import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
 import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static java.lang.Double.NaN;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -906,13 +905,11 @@ public class TestDetermineJoinDistributionType
         Symbol sourceSymbol2 = planBuilder.symbol("soruce2");
 
         // missing source stats
-        assertEquals(
-                getSourceTablesSizeInBytes(
-                        planBuilder.values(symbol),
-                        noLookup(),
-                        node -> PlanNodeStatsEstimate.unknown(),
-                        planBuilder.getTypes()),
-                NaN);
+        assertThat(getSourceTablesSizeInBytes(
+                planBuilder.values(symbol),
+                noLookup(),
+                node -> PlanNodeStatsEstimate.unknown(),
+                planBuilder.getTypes())).isNaN();
 
         // two source plan nodes
         PlanNodeStatsEstimate sourceStatsEstimate1 = PlanNodeStatsEstimate.builder()
@@ -921,56 +918,50 @@ public class TestDetermineJoinDistributionType
         PlanNodeStatsEstimate sourceStatsEstimate2 = PlanNodeStatsEstimate.builder()
                 .setOutputRowCount(20)
                 .build();
-        assertEquals(
-                getSourceTablesSizeInBytes(
-                        planBuilder.union(
-                                ImmutableListMultimap.<Symbol, Symbol>builder()
-                                        .put(symbol, sourceSymbol1)
-                                        .put(symbol, sourceSymbol2)
-                                        .build(),
-                                ImmutableList.of(
-                                        planBuilder.tableScan(
-                                                ImmutableList.of(sourceSymbol1),
-                                                ImmutableMap.of(sourceSymbol1, new TestingColumnHandle("col"))),
-                                        planBuilder.values(new PlanNodeId("valuesNode"), sourceSymbol2))),
-                        noLookup(),
-                        node -> {
-                            if (node instanceof TableScanNode) {
-                                return sourceStatsEstimate1;
-                            }
+        assertThat(getSourceTablesSizeInBytes(
+                planBuilder.union(
+                        ImmutableListMultimap.<Symbol, Symbol>builder()
+                                .put(symbol, sourceSymbol1)
+                                .put(symbol, sourceSymbol2)
+                                .build(),
+                        ImmutableList.of(
+                                planBuilder.tableScan(
+                                        ImmutableList.of(sourceSymbol1),
+                                        ImmutableMap.of(sourceSymbol1, new TestingColumnHandle("col"))),
+                                planBuilder.values(new PlanNodeId("valuesNode"), sourceSymbol2))),
+                noLookup(),
+                node -> {
+                    if (node instanceof TableScanNode) {
+                        return sourceStatsEstimate1;
+                    }
 
-                            if (node instanceof ValuesNode) {
-                                return sourceStatsEstimate2;
-                            }
+                    if (node instanceof ValuesNode) {
+                        return sourceStatsEstimate2;
+                    }
 
-                            return PlanNodeStatsEstimate.unknown();
-                        },
-                        planBuilder.getTypes()),
-                270.0);
+                    return PlanNodeStatsEstimate.unknown();
+                },
+                planBuilder.getTypes())).isEqualTo(270.0);
 
         // join node
-        assertEquals(
-                getSourceTablesSizeInBytes(
-                        planBuilder.join(
-                                INNER,
-                                planBuilder.values(sourceSymbol1),
-                                planBuilder.values(sourceSymbol2)),
-                        noLookup(),
-                        node -> sourceStatsEstimate1,
-                        planBuilder.getTypes()),
-                NaN);
+        assertThat(getSourceTablesSizeInBytes(
+                planBuilder.join(
+                        INNER,
+                        planBuilder.values(sourceSymbol1),
+                        planBuilder.values(sourceSymbol2)),
+                noLookup(),
+                node -> sourceStatsEstimate1,
+                planBuilder.getTypes())).isNaN();
 
         // unnest node
-        assertEquals(
-                getSourceTablesSizeInBytes(
-                        planBuilder.unnest(
-                                ImmutableList.of(),
-                                ImmutableList.of(new UnnestNode.Mapping(sourceSymbol1, ImmutableList.of(sourceSymbol1))),
-                                planBuilder.values(sourceSymbol1)),
-                        noLookup(),
-                        node -> sourceStatsEstimate1,
-                        planBuilder.getTypes()),
-                NaN);
+        assertThat(getSourceTablesSizeInBytes(
+                planBuilder.unnest(
+                        ImmutableList.of(),
+                        ImmutableList.of(new UnnestNode.Mapping(sourceSymbol1, ImmutableList.of(sourceSymbol1))),
+                        planBuilder.values(sourceSymbol1)),
+                noLookup(),
+                node -> sourceStatsEstimate1,
+                planBuilder.getTypes())).isNaN();
     }
 
     @Test
@@ -982,13 +973,11 @@ public class TestDetermineJoinDistributionType
         Symbol sourceSymbol2 = planBuilder.symbol("source2");
 
         // missing source stats
-        assertEquals(
-                getFirstKnownOutputSizeInBytes(
-                        planBuilder.values(symbol),
-                        noLookup(),
-                        node -> PlanNodeStatsEstimate.unknown(),
-                        planBuilder.getTypes()),
-                NaN);
+        assertThat(getFirstKnownOutputSizeInBytes(
+                planBuilder.values(symbol),
+                noLookup(),
+                node -> PlanNodeStatsEstimate.unknown(),
+                planBuilder.getTypes())).isNaN();
 
         // two source plan nodes
         PlanNodeStatsEstimate sourceStatsEstimate1 = PlanNodeStatsEstimate.builder()
@@ -1007,127 +996,117 @@ public class TestDetermineJoinDistributionType
         double unionInputRowCount = filterStatsEstimate.getOutputRowCount() + limitStatsEstimate.getOutputRowCount();
         double sourceSizeInBytes = sourceRowCount + sourceRowCount * BIGINT.getFixedSize();
         // un-estimated union with non-expanding source
-        assertEquals(
-                getFirstKnownOutputSizeInBytes(
-                        planBuilder.union(
-                                ImmutableListMultimap.<Symbol, Symbol>builder()
-                                        .put(symbol, sourceSymbol1)
-                                        .put(symbol, sourceSymbol2)
-                                        .build(),
-                                ImmutableList.of(
-                                        planBuilder.filter(
-                                                TRUE_LITERAL,
-                                                planBuilder.tableScan(
-                                                        ImmutableList.of(sourceSymbol1),
-                                                        ImmutableMap.of(sourceSymbol1, new TestingColumnHandle("col")))),
-                                        planBuilder.limit(20, planBuilder.values(sourceSymbol2)))),
-                        noLookup(),
-                        node -> {
-                            if (node instanceof TableScanNode) {
-                                return sourceStatsEstimate1;
-                            }
-                            if (node instanceof FilterNode) {
-                                return filterStatsEstimate;
-                            }
-                            if (node instanceof ValuesNode) {
-                                return sourceStatsEstimate2;
-                            }
-                            if (node instanceof LimitNode) {
-                                return limitStatsEstimate;
-                            }
+        assertThat(getFirstKnownOutputSizeInBytes(
+                planBuilder.union(
+                        ImmutableListMultimap.<Symbol, Symbol>builder()
+                                .put(symbol, sourceSymbol1)
+                                .put(symbol, sourceSymbol2)
+                                .build(),
+                        ImmutableList.of(
+                                planBuilder.filter(
+                                        TRUE_LITERAL,
+                                        planBuilder.tableScan(
+                                                ImmutableList.of(sourceSymbol1),
+                                                ImmutableMap.of(sourceSymbol1, new TestingColumnHandle("col")))),
+                                planBuilder.limit(20, planBuilder.values(sourceSymbol2)))),
+                noLookup(),
+                node -> {
+                    if (node instanceof TableScanNode) {
+                        return sourceStatsEstimate1;
+                    }
+                    if (node instanceof FilterNode) {
+                        return filterStatsEstimate;
+                    }
+                    if (node instanceof ValuesNode) {
+                        return sourceStatsEstimate2;
+                    }
+                    if (node instanceof LimitNode) {
+                        return limitStatsEstimate;
+                    }
 
-                            return PlanNodeStatsEstimate.unknown();
-                        },
-                        planBuilder.getTypes()),
-                (unionInputRowCount / sourceRowCount) * sourceSizeInBytes);
+                    return PlanNodeStatsEstimate.unknown();
+                },
+                planBuilder.getTypes())).isEqualTo((unionInputRowCount / sourceRowCount) * sourceSizeInBytes);
 
         // join node with known estimate
-        assertEquals(
-                getFirstKnownOutputSizeInBytes(
-                        planBuilder.join(
-                                INNER,
-                                planBuilder.values(sourceSymbol1),
-                                planBuilder.values(sourceSymbol2)),
-                        noLookup(),
-                        node -> sourceStatsEstimate1,
-                        planBuilder.getTypes()),
-                sourceStatsEstimate1.getOutputRowCount() * 2 * (BIGINT.getFixedSize() + 1));
+        assertThat(getFirstKnownOutputSizeInBytes(
+                planBuilder.join(
+                        INNER,
+                        planBuilder.values(sourceSymbol1),
+                        planBuilder.values(sourceSymbol2)),
+                noLookup(),
+                node -> sourceStatsEstimate1,
+                planBuilder.getTypes())).isEqualTo(sourceStatsEstimate1.getOutputRowCount() * 2 * (BIGINT.getFixedSize() + 1));
 
         // un-estimated join with non-expanding source
-        assertEquals(
-                getFirstKnownOutputSizeInBytes(
-                        planBuilder.join(
-                                INNER,
-                                planBuilder.tableScan(
-                                        ImmutableList.of(sourceSymbol1),
-                                        ImmutableMap.of(sourceSymbol1, new TestingColumnHandle("col"))),
-                                planBuilder.values(sourceSymbol2)),
-                        noLookup(),
-                        node -> {
-                            if (node instanceof TableScanNode) {
-                                return sourceStatsEstimate1;
-                            }
-                            if (node instanceof ValuesNode) {
-                                return sourceStatsEstimate2;
-                            }
+        assertThat(getFirstKnownOutputSizeInBytes(
+                planBuilder.join(
+                        INNER,
+                        planBuilder.tableScan(
+                                ImmutableList.of(sourceSymbol1),
+                                ImmutableMap.of(sourceSymbol1, new TestingColumnHandle("col"))),
+                        planBuilder.values(sourceSymbol2)),
+                noLookup(),
+                node -> {
+                    if (node instanceof TableScanNode) {
+                        return sourceStatsEstimate1;
+                    }
+                    if (node instanceof ValuesNode) {
+                        return sourceStatsEstimate2;
+                    }
 
-                            return PlanNodeStatsEstimate.unknown();
-                        },
-                        planBuilder.getTypes()),
-                NaN);
+                    return PlanNodeStatsEstimate.unknown();
+                },
+                planBuilder.getTypes())).isNaN();
 
         // un-estimated union with estimated expanding source
-        assertEquals(
-                getFirstKnownOutputSizeInBytes(
-                        planBuilder.union(
-                                ImmutableListMultimap.<Symbol, Symbol>builder()
-                                        .put(symbol, sourceSymbol1)
-                                        .put(symbol, sourceSymbol2)
-                                        .build(),
-                                ImmutableList.of(
-                                        planBuilder.unnest(
-                                                ImmutableList.of(),
-                                                ImmutableList.of(new UnnestNode.Mapping(sourceSymbol1, ImmutableList.of(sourceSymbol1))),
-                                                planBuilder.values(sourceSymbol1)),
-                                        planBuilder.values(sourceSymbol2))),
-                        noLookup(),
-                        node -> {
-                            if (node instanceof UnnestNode) {
-                                return sourceStatsEstimate1;
-                            }
-                            if (node instanceof ValuesNode) {
-                                return sourceStatsEstimate2;
-                            }
+        assertThat(getFirstKnownOutputSizeInBytes(
+                planBuilder.union(
+                        ImmutableListMultimap.<Symbol, Symbol>builder()
+                                .put(symbol, sourceSymbol1)
+                                .put(symbol, sourceSymbol2)
+                                .build(),
+                        ImmutableList.of(
+                                planBuilder.unnest(
+                                        ImmutableList.of(),
+                                        ImmutableList.of(new UnnestNode.Mapping(sourceSymbol1, ImmutableList.of(sourceSymbol1))),
+                                        planBuilder.values(sourceSymbol1)),
+                                planBuilder.values(sourceSymbol2))),
+                noLookup(),
+                node -> {
+                    if (node instanceof UnnestNode) {
+                        return sourceStatsEstimate1;
+                    }
+                    if (node instanceof ValuesNode) {
+                        return sourceStatsEstimate2;
+                    }
 
-                            return PlanNodeStatsEstimate.unknown();
-                        },
-                        planBuilder.getTypes()),
-                sourceSizeInBytes);
+                    return PlanNodeStatsEstimate.unknown();
+                },
+                planBuilder.getTypes())).isEqualTo(sourceSizeInBytes);
 
         // un-estimated union with un-estimated expanding source
-        assertEquals(
-                getFirstKnownOutputSizeInBytes(
-                        planBuilder.union(
-                                ImmutableListMultimap.<Symbol, Symbol>builder()
-                                        .put(symbol, sourceSymbol1)
-                                        .put(symbol, sourceSymbol2)
-                                        .build(),
-                                ImmutableList.of(
-                                        planBuilder.unnest(
-                                                ImmutableList.of(),
-                                                ImmutableList.of(new UnnestNode.Mapping(sourceSymbol1, ImmutableList.of(sourceSymbol1))),
-                                                planBuilder.values(sourceSymbol1)),
-                                        planBuilder.values(sourceSymbol2))),
-                        noLookup(),
-                        node -> {
-                            if (node instanceof ValuesNode) {
-                                return sourceStatsEstimate2;
-                            }
+        assertThat(getFirstKnownOutputSizeInBytes(
+                planBuilder.union(
+                        ImmutableListMultimap.<Symbol, Symbol>builder()
+                                .put(symbol, sourceSymbol1)
+                                .put(symbol, sourceSymbol2)
+                                .build(),
+                        ImmutableList.of(
+                                planBuilder.unnest(
+                                        ImmutableList.of(),
+                                        ImmutableList.of(new UnnestNode.Mapping(sourceSymbol1, ImmutableList.of(sourceSymbol1))),
+                                        planBuilder.values(sourceSymbol1)),
+                                planBuilder.values(sourceSymbol2))),
+                noLookup(),
+                node -> {
+                    if (node instanceof ValuesNode) {
+                        return sourceStatsEstimate2;
+                    }
 
-                            return PlanNodeStatsEstimate.unknown();
-                        },
-                        planBuilder.getTypes()),
-                NaN);
+                    return PlanNodeStatsEstimate.unknown();
+                },
+                planBuilder.getTypes())).isNaN();
     }
 
     private RuleBuilder assertDetermineJoinDistributionType()

@@ -76,7 +76,6 @@ import static java.nio.file.StandardOpenOption.WRITE;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestAccessControlManager
 {
@@ -124,11 +123,11 @@ public class TestAccessControlManager
                     accessControlManager.checkCanSelectFromColumns(context, tableName, ImmutableSet.of("column"));
                     accessControlManager.checkCanCreateViewWithSelectFromColumns(context, tableName, ImmutableSet.of("column"));
                     Set<String> catalogs = ImmutableSet.of(TEST_CATALOG_NAME);
-                    assertEquals(accessControlManager.filterCatalogs(context, catalogs), catalogs);
+                    assertThat(accessControlManager.filterCatalogs(context, catalogs)).isEqualTo(catalogs);
                     Set<String> schemas = ImmutableSet.of("schema");
-                    assertEquals(accessControlManager.filterSchemas(context, TEST_CATALOG_NAME, schemas), schemas);
+                    assertThat(accessControlManager.filterSchemas(context, TEST_CATALOG_NAME, schemas)).isEqualTo(schemas);
                     Set<SchemaTableName> tableNames = ImmutableSet.of(new SchemaTableName("schema", "table"));
-                    assertEquals(accessControlManager.filterTables(context, TEST_CATALOG_NAME, tableNames), tableNames);
+                    assertThat(accessControlManager.filterTables(context, TEST_CATALOG_NAME, tableNames)).isEqualTo(tableNames);
                 });
 
         assertThatThrownBy(() -> transaction(transactionManager, metadata, accessControlManager)
@@ -149,8 +148,8 @@ public class TestAccessControlManager
         accessControlManager.loadSystemAccessControl("test", ImmutableMap.of());
 
         accessControlManager.checkCanSetUser(Optional.of(PRINCIPAL), USER_NAME);
-        assertEquals(accessControlFactory.getCheckedUserName(), USER_NAME);
-        assertEquals(accessControlFactory.getCheckedPrincipal(), Optional.of(PRINCIPAL));
+        assertThat(accessControlFactory.getCheckedUserName()).isEqualTo(USER_NAME);
+        assertThat(accessControlFactory.getCheckedPrincipal()).isEqualTo(Optional.of(PRINCIPAL));
     }
 
     @Test

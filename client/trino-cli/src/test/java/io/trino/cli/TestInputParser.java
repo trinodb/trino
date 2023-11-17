@@ -16,10 +16,10 @@ package io.trino.cli;
 import org.jline.reader.EOFError;
 import org.junit.jupiter.api.Test;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.jline.reader.Parser.ParseContext.ACCEPT_LINE;
 import static org.jline.reader.Parser.ParseContext.COMPLETE;
-import static org.testng.Assert.assertNotNull;
 
 public class TestInputParser
 {
@@ -29,6 +29,6 @@ public class TestInputParser
         InputParser instance = new InputParser();
         // assert an incomplete statement throws an error if the ParseContext is not COMPLETE
         assertThatThrownBy(() -> instance.parse("show", 4, ACCEPT_LINE)).isInstanceOf(EOFError.class);
-        assertNotNull(instance.parse("show", 4, COMPLETE));
+        assertThat(instance.parse("show", 4, COMPLETE)).isNotNull();
     }
 }

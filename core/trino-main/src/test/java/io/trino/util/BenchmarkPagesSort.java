@@ -51,9 +51,9 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.util.MergeSortedPages.mergeSortedPages;
 import static java.util.Collections.nCopies;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
 import static org.openjdk.jmh.annotations.Scope.Thread;
-import static org.testng.Assert.assertEquals;
 
 @State(Thread)
 @OutputTimeUnit(MILLISECONDS)
@@ -90,7 +90,7 @@ public class BenchmarkPagesSort
         int positionCount = pages.stream()
                 .mapToInt(Page::getPositionCount)
                 .sum();
-        assertEquals(positionCount, state.getTotalPositions());
+        assertThat(positionCount).isEqualTo(state.getTotalPositions());
     }
 
     @State(Thread)
@@ -151,7 +151,7 @@ public class BenchmarkPagesSort
         int positionCount = pages.stream()
                 .mapToInt(Page::getPositionCount)
                 .sum();
-        assertEquals(positionCount, state.getTotalPositions());
+        assertThat(positionCount).isEqualTo(state.getTotalPositions());
     }
 
     @State(Thread)

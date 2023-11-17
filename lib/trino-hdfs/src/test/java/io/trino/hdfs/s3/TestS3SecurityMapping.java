@@ -43,8 +43,6 @@ import static io.trino.hdfs.s3.TrinoS3FileSystem.S3_SECRET_KEY;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
 
 public class TestS3SecurityMapping
 {
@@ -336,19 +334,19 @@ public class TestS3SecurityMapping
     {
         Configuration configuration = new Configuration(false);
 
-        assertNull(configuration.get(S3_ACCESS_KEY));
-        assertNull(configuration.get(S3_SECRET_KEY));
-        assertNull(configuration.get(S3_IAM_ROLE));
-        assertNull(configuration.get(S3_KMS_KEY_ID));
+        assertThat(configuration.get(S3_ACCESS_KEY)).isNull();
+        assertThat(configuration.get(S3_SECRET_KEY)).isNull();
+        assertThat(configuration.get(S3_IAM_ROLE)).isNull();
+        assertThat(configuration.get(S3_KMS_KEY_ID)).isNull();
 
         applyMapping(provider, selector, configuration);
 
-        assertEquals(configuration.get(S3_ACCESS_KEY), mappingResult.getAccessKey().orElse(null));
-        assertEquals(configuration.get(S3_SECRET_KEY), mappingResult.getSecretKey().orElse(null));
-        assertEquals(configuration.get(S3_IAM_ROLE), mappingResult.getRole().orElse(null));
-        assertEquals(configuration.get(S3_KMS_KEY_ID), mappingResult.getKmsKeyId().orElse(null));
-        assertEquals(configuration.get(S3_ENDPOINT), mappingResult.getEndpoint().orElse(null));
-        assertEquals(configuration.get(S3_ROLE_SESSION_NAME), mappingResult.getRoleSessionName().orElse(null));
+        assertThat(configuration.get(S3_ACCESS_KEY)).isEqualTo(mappingResult.getAccessKey().orElse(null));
+        assertThat(configuration.get(S3_SECRET_KEY)).isEqualTo(mappingResult.getSecretKey().orElse(null));
+        assertThat(configuration.get(S3_IAM_ROLE)).isEqualTo(mappingResult.getRole().orElse(null));
+        assertThat(configuration.get(S3_KMS_KEY_ID)).isEqualTo(mappingResult.getKmsKeyId().orElse(null));
+        assertThat(configuration.get(S3_ENDPOINT)).isEqualTo(mappingResult.getEndpoint().orElse(null));
+        assertThat(configuration.get(S3_ROLE_SESSION_NAME)).isEqualTo(mappingResult.getRoleSessionName().orElse(null));
     }
 
     private static void assertMappingFails(DynamicConfigurationProvider provider, MappingSelector selector, String message)

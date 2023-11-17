@@ -34,7 +34,7 @@ import java.util.Optional;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.orc.OrcDecompressor.createOrcDecompressor;
 import static io.trino.orc.metadata.CompressionKind.SNAPPY;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestBooleanStream
         extends AbstractTestValueStream<Boolean, BooleanStreamCheckpoint, BooleanOutputStream, BooleanInputStream>
@@ -94,15 +94,15 @@ public class TestBooleanStream
             StreamDataOutput streamDataOutput = outputStream.getStreamDataOutput(new OrcColumnId(33));
             streamDataOutput.writeData(sliceOutput);
             Stream stream = streamDataOutput.getStream();
-            assertEquals(stream.getStreamKind(), StreamKind.DATA);
-            assertEquals(stream.getColumnId(), new OrcColumnId(33));
-            assertEquals(stream.getLength(), sliceOutput.size());
+            assertThat(stream.getStreamKind()).isEqualTo(StreamKind.DATA);
+            assertThat(stream.getColumnId()).isEqualTo(new OrcColumnId(33));
+            assertThat(stream.getLength()).isEqualTo(sliceOutput.size());
 
             BooleanInputStream valueStream = createValueStream(sliceOutput.slice());
             for (int index = 0; index < expectedValues.size(); index++) {
                 boolean expectedValue = expectedValues.getBoolean(index);
                 boolean actualValue = readValue(valueStream);
-                assertEquals(actualValue, expectedValue);
+                assertThat(actualValue).isEqualTo(expectedValue);
             }
         }
     }

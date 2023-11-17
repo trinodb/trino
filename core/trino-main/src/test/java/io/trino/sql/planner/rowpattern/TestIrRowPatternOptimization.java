@@ -28,7 +28,7 @@ import static io.trino.sql.planner.rowpattern.Patterns.plusQuantified;
 import static io.trino.sql.planner.rowpattern.Patterns.questionMarkQuantified;
 import static io.trino.sql.planner.rowpattern.Patterns.rangeQuantified;
 import static io.trino.sql.planner.rowpattern.Patterns.starQuantified;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIrRowPatternOptimization
 {
@@ -229,19 +229,19 @@ public class TestIrRowPatternOptimization
     private void assertFlattened(IrRowPattern pattern, IrRowPattern expected)
     {
         IrRowPattern flattened = IrRowPatternFlattener.optimize(pattern);
-        assertEquals(flattened, expected);
+        assertThat(flattened).isEqualTo(expected);
     }
 
     private void assertOptimized(IrRowPattern pattern, IrRowPattern expected)
     {
         IrRowPattern optimized = IrPatternAlternationOptimizer.optimize(pattern);
-        assertEquals(optimized, expected);
+        assertThat(optimized).isEqualTo(expected);
     }
 
     private void assertFlattenedOptimized(IrRowPattern pattern, IrRowPattern expected)
     {
         IrRowPattern flattened = IrRowPatternFlattener.optimize(pattern);
         IrRowPattern optimized = IrPatternAlternationOptimizer.optimize(flattened);
-        assertEquals(optimized, expected);
+        assertThat(optimized).isEqualTo(expected);
     }
 }

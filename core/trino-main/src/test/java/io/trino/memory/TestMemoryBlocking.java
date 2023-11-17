@@ -55,10 +55,8 @@ import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertSame;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_METHOD)
 public class TestMemoryBlocking
@@ -113,8 +111,8 @@ public class TestMemoryBlocking
                 DynamicFilter.EMPTY);
         PageConsumerOperator sink = createSinkOperator(types);
         Driver driver = Driver.createDriver(driverContext, source, sink);
-        assertSame(driver.getDriverContext(), driverContext);
-        assertFalse(driver.isFinished());
+        assertThat(driver.getDriverContext()).isSameAs(driverContext);
+        assertThat(driver.isFinished()).isFalse();
         Split testSplit = new Split(TEST_CATALOG_HANDLE, new TestSplit());
         driver.updateSplitAssignment(new SplitAssignment(sourceId, ImmutableSet.of(new ScheduledSplit(0, sourceId, testSplit)), true));
 
@@ -122,26 +120,26 @@ public class TestMemoryBlocking
 
         // the driver shouldn't block in the first call as it will be able to move a page between source and the sink operator
         // but the operator should be blocked
-        assertTrue(blocked.isDone());
-        assertFalse(source.getOperatorContext().isWaitingForMemory().isDone());
+        assertThat(blocked.isDone()).isTrue();
+        assertThat(source.getOperatorContext().isWaitingForMemory().isDone()).isFalse();
 
         // in the subsequent calls both the driver and the operator should be blocked
         // and they should stay blocked until more memory becomes available
         for (int i = 0; i < 10; i++) {
             blocked = driver.processForDuration(new Duration(1, NANOSECONDS));
-            assertFalse(blocked.isDone());
-            assertFalse(source.getOperatorContext().isWaitingForMemory().isDone());
+            assertThat(blocked.isDone()).isFalse();
+            assertThat(source.getOperatorContext().isWaitingForMemory().isDone()).isFalse();
         }
 
         // free up some memory
         memoryPool.free(TASK_ID, "test", memoryPool.getReservedBytes());
 
         // the operator should be unblocked
-        assertTrue(source.getOperatorContext().isWaitingForMemory().isDone());
+        assertThat(source.getOperatorContext().isWaitingForMemory().isDone()).isTrue();
 
         // the driver shouldn't be blocked
         blocked = driver.processForDuration(new Duration(1, NANOSECONDS));
-        assertTrue(blocked.isDone());
+        assertThat(blocked.isDone()).isTrue();
     }
 
     private PageConsumerOperator createSinkOperator(List<Type> types)

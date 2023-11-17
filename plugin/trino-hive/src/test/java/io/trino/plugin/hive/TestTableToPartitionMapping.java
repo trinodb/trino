@@ -17,32 +17,31 @@ import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.hive.TableToPartitionMapping.isIdentityMapping;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTableToPartitionMapping
 {
     @Test
     public void testIsOneToOneMapping()
     {
-        assertTrue(isIdentityMapping(ImmutableMap.<Integer, Integer>builder()
+        assertThat(isIdentityMapping(ImmutableMap.<Integer, Integer>builder()
                 .put(0, 0)
                 .put(1, 1)
                 .put(2, 2)
                 .put(3, 3)
-                .buildOrThrow()));
-        assertFalse(isIdentityMapping(ImmutableMap.<Integer, Integer>builder()
+                .buildOrThrow())).isTrue();
+        assertThat(isIdentityMapping(ImmutableMap.<Integer, Integer>builder()
                 .put(0, 0)
                 .put(1, 1)
                 .put(2, 2)
                 .put(3, 3)
                 .put(5, 5)
-                .buildOrThrow()));
-        assertFalse(isIdentityMapping(ImmutableMap.<Integer, Integer>builder()
+                .buildOrThrow())).isFalse();
+        assertThat(isIdentityMapping(ImmutableMap.<Integer, Integer>builder()
                 .put(0, 0)
                 .put(1, 1)
                 .put(2, 2)
                 .put(4, 5)
-                .buildOrThrow()));
+                .buildOrThrow())).isFalse();
     }
 }

@@ -35,8 +35,8 @@ import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.client.ProtocolHeaders.createProtocolHeaders;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestHttpRequestSessionContextFactory
 {
@@ -81,11 +81,11 @@ public class TestHttpRequestSessionContextFactory
                 Optional.of(protocolHeaders.getProtocolName()),
                 Optional.of("testRemote"),
                 Optional.empty());
-        assertEquals(context.getSource().orElse(null), "testSource");
-        assertEquals(context.getCatalog().orElse(null), "testCatalog");
-        assertEquals(context.getSchema().orElse(null), "testSchema");
-        assertEquals(context.getPath().orElse(null), "testPath");
-        assertEquals(context.getIdentity(), Identity.forUser("testUser")
+        assertThat(context.getSource().orElse(null)).isEqualTo("testSource");
+        assertThat(context.getCatalog().orElse(null)).isEqualTo("testCatalog");
+        assertThat(context.getSchema().orElse(null)).isEqualTo("testSchema");
+        assertThat(context.getPath().orElse(null)).isEqualTo("testPath");
+        assertThat(context.getIdentity()).isEqualTo(Identity.forUser("testUser")
                 .withGroups(ImmutableSet.of("testUser"))
                 .withConnectorRoles(ImmutableMap.of(
                         "foo_connector", new SelectedRole(SelectedRole.Type.ALL, Optional.empty()),
@@ -93,17 +93,17 @@ public class TestHttpRequestSessionContextFactory
                         "foobar_connector", new SelectedRole(SelectedRole.Type.ROLE, Optional.of("catalog-role"))))
                 .withEnabledRoles(ImmutableSet.of("system-role"))
                 .build());
-        assertEquals(context.getClientInfo().orElse(null), "client-info");
-        assertEquals(context.getLanguage().orElse(null), "zh-TW");
-        assertEquals(context.getTimeZoneId().orElse(null), "Asia/Taipei");
-        assertEquals(context.getSystemProperties(), ImmutableMap.of(
+        assertThat(context.getClientInfo().orElse(null)).isEqualTo("client-info");
+        assertThat(context.getLanguage().orElse(null)).isEqualTo("zh-TW");
+        assertThat(context.getTimeZoneId().orElse(null)).isEqualTo("Asia/Taipei");
+        assertThat(context.getSystemProperties()).isEqualTo(ImmutableMap.of(
                 QUERY_MAX_MEMORY, "1GB",
                 JOIN_DISTRIBUTION_TYPE, "partitioned",
                 MAX_HASH_PARTITION_COUNT, "43",
                 "some_session_property", "some value with , comma"));
-        assertEquals(context.getPreparedStatements(), ImmutableMap.of("query1", "select * from foo", "query2", "select * from bar"));
-        assertEquals(context.getSelectedRole(), new SelectedRole(SelectedRole.Type.ROLE, Optional.of("system-role")));
-        assertEquals(context.getIdentity().getExtraCredentials(), ImmutableMap.of("test.token.foo", "bar", "test.token.abc", "xyz"));
+        assertThat(context.getPreparedStatements()).isEqualTo(ImmutableMap.of("query1", "select * from foo", "query2", "select * from bar"));
+        assertThat(context.getSelectedRole()).isEqualTo(new SelectedRole(SelectedRole.Type.ROLE, Optional.of("system-role")));
+        assertThat(context.getIdentity().getExtraCredentials()).isEqualTo(ImmutableMap.of("test.token.foo", "bar", "test.token.abc", "xyz"));
     }
 
     @Test
@@ -123,21 +123,21 @@ public class TestHttpRequestSessionContextFactory
                 Optional.of(protocolHeaders.getProtocolName()),
                 Optional.of("testRemote"),
                 Optional.empty());
-        assertEquals(context.getIdentity(), Identity.forUser("testUser").withGroups(ImmutableSet.of("testUser")).build());
+        assertThat(context.getIdentity()).isEqualTo(Identity.forUser("testUser").withGroups(ImmutableSet.of("testUser")).build());
 
         context = SESSION_CONTEXT_FACTORY.createSessionContext(
                 emptyHeaders,
                 Optional.of(protocolHeaders.getProtocolName()),
                 Optional.of("testRemote"),
                 Optional.of(Identity.forUser("mappedUser").withGroups(ImmutableSet.of("test")).build()));
-        assertEquals(context.getIdentity(), Identity.forUser("mappedUser").withGroups(ImmutableSet.of("test", "mappedUser")).build());
+        assertThat(context.getIdentity()).isEqualTo(Identity.forUser("mappedUser").withGroups(ImmutableSet.of("test", "mappedUser")).build());
 
         context = SESSION_CONTEXT_FACTORY.createSessionContext(
                 userHeaders,
                 Optional.of(protocolHeaders.getProtocolName()),
                 Optional.of("testRemote"),
                 Optional.of(Identity.ofUser("mappedUser")));
-        assertEquals(context.getIdentity(), Identity.forUser("testUser").withGroups(ImmutableSet.of("testUser")).build());
+        assertThat(context.getIdentity()).isEqualTo(Identity.forUser("testUser").withGroups(ImmutableSet.of("testUser")).build());
 
         assertThatThrownBy(
                 () -> SESSION_CONTEXT_FACTORY.createSessionContext(

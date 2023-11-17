@@ -45,9 +45,6 @@ import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAS
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestMemoryConnectorTest
         extends BaseConnectorTest
@@ -196,12 +193,12 @@ public class TestMemoryConnectorTest
                 getSession(),
                 "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey " +
                         "AND supplier.name = 'Supplier#000000001'");
-        assertEquals(result.getResult().getRowCount(), 615);
+        assertThat(result.getResult().getRowCount()).isEqualTo(615);
 
         OperatorStats probeStats = getScanOperatorStats(getDistributedQueryRunner(), result.getQueryId()).stream()
                 .findFirst().orElseThrow(); // there should be two: one for lineitem and one for supplier
-        assertEquals(probeStats.getInputPositions(), 615);
-        assertEquals(probeStats.getPhysicalInputPositions(), LINEITEM_COUNT);
+        assertThat(probeStats.getInputPositions()).isEqualTo(615);
+        assertThat(probeStats.getPhysicalInputPositions()).isEqualTo(LINEITEM_COUNT);
     }
 
     @Test
@@ -474,8 +471,8 @@ public class TestMemoryConnectorTest
     {
         MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(session, selectQuery);
 
-        assertEquals(result.getResult().getRowCount(), expectedRowCount);
-        assertEquals(getOperatorRowsRead(getDistributedQueryRunner(), result.getQueryId()), Ints.asList(expectedOperatorRowsRead));
+        assertThat(result.getResult().getRowCount()).isEqualTo(expectedRowCount);
+        assertThat(getOperatorRowsRead(getDistributedQueryRunner(), result.getQueryId())).isEqualTo(Ints.asList(expectedOperatorRowsRead));
     }
 
     private Session withLargeDynamicFilters(JoinDistributionType joinDistributionType)
@@ -560,11 +557,11 @@ public class TestMemoryConnectorTest
     public void testCreateTableAndViewInNotExistSchema()
     {
         assertQueryFails("CREATE TABLE schema3.test_table3 (x date)", "Schema schema3 not found");
-        assertFalse(getQueryRunner().tableExists(getSession(), "schema3.test_table3"));
+        assertThat(getQueryRunner().tableExists(getSession(), "schema3.test_table3")).isFalse();
         assertQueryFails("CREATE VIEW schema4.test_view4 AS SELECT 123 x", "Schema schema4 not found");
-        assertFalse(getQueryRunner().tableExists(getSession(), "schema4.test_view4"));
+        assertThat(getQueryRunner().tableExists(getSession(), "schema4.test_view4")).isFalse();
         assertQueryFails("CREATE OR REPLACE VIEW schema5.test_view5 AS SELECT 123 x", "Schema schema5 not found");
-        assertFalse(getQueryRunner().tableExists(getSession(), "schema5.test_view5"));
+        assertThat(getQueryRunner().tableExists(getSession(), "schema5.test_view5")).isFalse();
     }
 
     @Test
@@ -580,7 +577,7 @@ public class TestMemoryConnectorTest
 
         assertQuery("SELECT * FROM test_view", query);
 
-        assertTrue(computeActual("SHOW TABLES").getOnlyColumnAsSet().contains("test_view"));
+        assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet().contains("test_view")).isTrue();
 
         assertUpdate("DROP VIEW test_view");
         assertQueryFails("DROP VIEW test_view", "line 1:1: View 'memory.default.test_view' does not exist");

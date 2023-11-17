@@ -20,9 +20,6 @@ import java.util.Optional;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestIcebergTableName
 {
@@ -48,37 +45,37 @@ public class TestIcebergTableName
     @Test
     public void testIsDataTable()
     {
-        assertTrue(IcebergTableName.isDataTable("abc"));
+        assertThat(IcebergTableName.isDataTable("abc")).isTrue();
 
-        assertFalse(IcebergTableName.isDataTable("abc$data")); // it's invalid
-        assertFalse(IcebergTableName.isDataTable("abc$history"));
-        assertFalse(IcebergTableName.isDataTable("abc$invalid"));
+        assertThat(IcebergTableName.isDataTable("abc$data")).isFalse(); // it's invalid
+        assertThat(IcebergTableName.isDataTable("abc$history")).isFalse();
+        assertThat(IcebergTableName.isDataTable("abc$invalid")).isFalse();
     }
 
     @Test
     public void testTableNameFrom()
     {
-        assertEquals(IcebergTableName.tableNameFrom("abc"), "abc");
-        assertEquals(IcebergTableName.tableNameFrom("abc$data"), "abc");
-        assertEquals(IcebergTableName.tableNameFrom("abc$history"), "abc");
-        assertEquals(IcebergTableName.tableNameFrom("abc$invalid"), "abc");
+        assertThat(IcebergTableName.tableNameFrom("abc")).isEqualTo("abc");
+        assertThat(IcebergTableName.tableNameFrom("abc$data")).isEqualTo("abc");
+        assertThat(IcebergTableName.tableNameFrom("abc$history")).isEqualTo("abc");
+        assertThat(IcebergTableName.tableNameFrom("abc$invalid")).isEqualTo("abc");
     }
 
     @Test
     public void testTableTypeFrom()
     {
-        assertEquals(IcebergTableName.tableTypeFrom("abc"), Optional.of(TableType.DATA));
-        assertEquals(IcebergTableName.tableTypeFrom("abc$data"), Optional.empty()); // it's invalid
-        assertEquals(IcebergTableName.tableTypeFrom("abc$history"), Optional.of(TableType.HISTORY));
+        assertThat(IcebergTableName.tableTypeFrom("abc")).isEqualTo(Optional.of(TableType.DATA));
+        assertThat(IcebergTableName.tableTypeFrom("abc$data")).isEqualTo(Optional.empty()); // it's invalid
+        assertThat(IcebergTableName.tableTypeFrom("abc$history")).isEqualTo(Optional.of(TableType.HISTORY));
 
-        assertEquals(IcebergTableName.tableTypeFrom("abc$invalid"), Optional.empty());
+        assertThat(IcebergTableName.tableTypeFrom("abc$invalid")).isEqualTo(Optional.empty());
     }
 
     @Test
     public void testTableNameWithType()
     {
-        assertEquals(IcebergTableName.tableNameWithType("abc", TableType.DATA), "abc$data");
-        assertEquals(IcebergTableName.tableNameWithType("abc", TableType.HISTORY), "abc$history");
+        assertThat(IcebergTableName.tableNameWithType("abc", TableType.DATA)).isEqualTo("abc$data");
+        assertThat(IcebergTableName.tableNameWithType("abc", TableType.HISTORY)).isEqualTo("abc$history");
     }
 
     private static void assertInvalid(String inputName, String message)
@@ -96,7 +93,7 @@ public class TestIcebergTableName
 
     private static void assertParseNameAndType(String inputName, String tableName, TableType tableType)
     {
-        assertEquals(IcebergTableName.tableNameFrom(inputName), tableName);
-        assertEquals(IcebergTableName.tableTypeFrom(inputName), Optional.of(tableType));
+        assertThat(IcebergTableName.tableNameFrom(inputName)).isEqualTo(tableName);
+        assertThat(IcebergTableName.tableTypeFrom(inputName)).isEqualTo(Optional.of(tableType));
     }
 }

@@ -49,9 +49,9 @@ import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExcept
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -74,7 +74,7 @@ public class TestDeallocateTask
                 .addPreparedStatement("my_query", "SELECT bar, baz FROM foo")
                 .build();
         Set<String> statements = executeDeallocate("my_query", "DEALLOCATE PREPARE my_query", session);
-        assertEquals(statements, ImmutableSet.of("my_query"));
+        assertThat(statements).isEqualTo(ImmutableSet.of("my_query"));
     }
 
     @Test

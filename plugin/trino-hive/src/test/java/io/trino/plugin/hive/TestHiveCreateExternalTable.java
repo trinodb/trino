@@ -34,7 +34,6 @@ import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestHiveCreateExternalTable
         extends AbstractTestQueryFramework
@@ -116,7 +115,7 @@ public class TestHiveCreateExternalTable
 
         assertUpdate(createTableSql);
         String actual = (String) computeScalar("SHOW CREATE TABLE " + tableName);
-        assertEquals(actual, createTableSql);
+        assertThat(actual).isEqualTo(createTableSql);
         assertUpdate("DROP TABLE " + tableName);
         deleteRecursively(tempDir, ALLOW_INSECURE);
     }

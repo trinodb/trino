@@ -63,7 +63,7 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
-import static org.testng.Assert.assertNotNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Benchmark)
@@ -141,7 +141,7 @@ public class BenchmarkPlanner
             BenchmarkData data = new BenchmarkData();
             data.queries = queries;
             data.setup();
-            assertNotNull(benchmark.plan(data));
+            assertThat(benchmark.plan(data)).isNotNull();
         }
     }
 

@@ -35,7 +35,7 @@ import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Arrays.asList;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveColumnHandle
 {
@@ -93,16 +93,16 @@ public class TestHiveColumnHandle
         String json = codec.toJson(expected);
         HiveColumnHandle actual = codec.fromJson(json);
 
-        assertEquals(actual.getBaseColumnName(), expected.getBaseColumnName());
-        assertEquals(actual.getBaseHiveColumnIndex(), expected.getBaseHiveColumnIndex());
-        assertEquals(actual.getBaseType(), expected.getBaseType());
-        assertEquals(actual.getBaseHiveType(), expected.getBaseHiveType());
+        assertThat(actual.getBaseColumnName()).isEqualTo(expected.getBaseColumnName());
+        assertThat(actual.getBaseHiveColumnIndex()).isEqualTo(expected.getBaseHiveColumnIndex());
+        assertThat(actual.getBaseType()).isEqualTo(expected.getBaseType());
+        assertThat(actual.getBaseHiveType()).isEqualTo(expected.getBaseHiveType());
 
-        assertEquals(actual.getName(), expected.getName());
-        assertEquals(actual.getType(), expected.getType());
-        assertEquals(actual.getHiveType(), expected.getHiveType());
+        assertThat(actual.getName()).isEqualTo(expected.getName());
+        assertThat(actual.getType()).isEqualTo(expected.getType());
+        assertThat(actual.getHiveType()).isEqualTo(expected.getHiveType());
 
-        assertEquals(actual.getHiveColumnProjectionInfo(), expected.getHiveColumnProjectionInfo());
-        assertEquals(actual.isPartitionKey(), expected.isPartitionKey());
+        assertThat(actual.getHiveColumnProjectionInfo()).isEqualTo(expected.getHiveColumnProjectionInfo());
+        assertThat(actual.isPartitionKey()).isEqualTo(expected.isPartitionKey());
     }
 }

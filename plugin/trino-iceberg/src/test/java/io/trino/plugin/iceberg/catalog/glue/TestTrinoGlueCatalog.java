@@ -52,7 +52,6 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestTrinoGlueCatalog
         extends BaseTrinoCatalogTest
@@ -169,7 +168,7 @@ public class TestTrinoGlueCatalog
         try {
             File expectedSchemaDirectory = new File(tmpDirectory.toFile(), namespace + ".db");
             File expectedTableDirectory = new File(expectedSchemaDirectory, schemaTableName.getTableName());
-            assertEquals(catalogWithDefaultLocation.defaultTableLocation(SESSION, schemaTableName), expectedTableDirectory.toPath().toAbsolutePath().toString());
+            assertThat(catalogWithDefaultLocation.defaultTableLocation(SESSION, schemaTableName)).isEqualTo(expectedTableDirectory.toPath().toAbsolutePath().toString());
         }
         finally {
             try {

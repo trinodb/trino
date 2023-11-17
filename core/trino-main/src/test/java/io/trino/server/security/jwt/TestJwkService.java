@@ -30,9 +30,8 @@ import static com.google.common.net.MediaType.JSON_UTF_8;
 import static io.airlift.http.client.testing.TestingResponse.mockResponse;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestJwkService
 {
@@ -191,15 +190,15 @@ public class TestJwkService
 
     private static void assertEmptyKeys(JwkService service)
     {
-        assertEquals(service.getKeys().size(), 0);
+        assertThat(service.getKeys().size()).isEqualTo(0);
     }
 
     private static void assertTestKeys(JwkService service)
     {
         Map<String, PublicKey> keys = service.getKeys();
-        assertEquals(keys.size(), 3);
-        assertTrue(keys.containsKey("test-rsa"));
-        assertTrue(keys.containsKey("test-ec"));
-        assertTrue(keys.containsKey("test-certificate-chain"));
+        assertThat(keys.size()).isEqualTo(3);
+        assertThat(keys.containsKey("test-rsa")).isTrue();
+        assertThat(keys.containsKey("test-ec")).isTrue();
+        assertThat(keys.containsKey("test-certificate-chain")).isTrue();
     }
 }

@@ -55,8 +55,6 @@ import static org.apache.parquet.column.ParquetProperties.WriterVersion.PARQUET_
 import static org.apache.parquet.hadoop.ParquetOutputFormat.WRITER_VERSION;
 import static org.apache.parquet.schema.MessageTypeParser.parseMessageType;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestTimestamp
 {
@@ -131,7 +129,9 @@ public class TestTimestamp
         try (ConnectorPageSource pageSource = ParquetUtil.createPageSource(session, tempFile.getFile(), columnNames, ImmutableList.of(type))) {
             // skip a page to exercise the decoder's skip() logic
             Page firstPage = pageSource.getNextPage();
-            assertTrue(firstPage.getPositionCount() > 0, "Expected first page to have at least 1 row");
+            assertThat(firstPage.getPositionCount() > 0)
+                    .describedAs("Expected first page to have at least 1 row")
+                    .isTrue();
 
             for (int i = 0; i < firstPage.getPositionCount(); i++) {
                 expected.next();
@@ -155,7 +155,9 @@ public class TestTimestamp
                     .withFailMessage("Expected more than one page but processed %s", pageCount)
                     .isGreaterThan(1);
 
-            assertFalse(expected.hasNext(), "Read fewer values than expected");
+            assertThat(expected.hasNext())
+                    .describedAs("Read fewer values than expected")
+                    .isFalse();
         }
     }
 }

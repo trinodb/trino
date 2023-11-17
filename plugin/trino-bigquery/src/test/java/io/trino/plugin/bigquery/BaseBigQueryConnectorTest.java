@@ -46,8 +46,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 
 @TestInstance(PER_CLASS)
 public abstract class BaseBigQueryConnectorTest
@@ -178,9 +176,7 @@ public abstract class BaseBigQueryConnectorTest
     private void testCreateTableSupportedType(String createType, String expectedType)
     {
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_table_supported_type_" + createType.replaceAll("[^a-zA-Z0-9]", ""), format("(col1 %s)", createType))) {
-            assertEquals(
-                    computeScalar("SELECT data_type FROM information_schema.columns WHERE table_name = '" + table.getName() + "' AND column_name = 'col1'"),
-                    expectedType);
+            assertThat(computeScalar("SELECT data_type FROM information_schema.columns WHERE table_name = '" + table.getName() + "' AND column_name = 'col1'")).isEqualTo(expectedType);
         }
     }
 
@@ -547,9 +543,7 @@ public abstract class BaseBigQueryConnectorTest
         onBigQuery(format("CREATE TABLE %s.%s (a INT64, b INT64, c INT64)", schemaName, tableName));
         onBigQuery(format("CREATE VIEW %s.%s AS SELECT * FROM %s.%s", schemaName, viewName, schemaName, tableName));
 
-        assertEquals(
-                computeScalar(format("SELECT * FROM %s.\"%s$view_definition\"", schemaName, viewName)),
-                format("SELECT * FROM %s.%s", schemaName, tableName));
+        assertThat(computeScalar(format("SELECT * FROM %s.\"%s$view_definition\"", schemaName, viewName))).isEqualTo(format("SELECT * FROM %s.%s", schemaName, tableName));
 
         assertQueryFails(
                 format("SELECT * FROM %s.\"%s$view_definition\"", schemaName, tableName),
@@ -942,17 +936,17 @@ public abstract class BaseBigQueryConnectorTest
     public void testNativeQueryCreateStatement()
     {
         String tableName = "test_create" + randomNameSuffix();
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
         assertThatThrownBy(() -> query("SELECT * FROM TABLE(bigquery.system.query(query => 'CREATE TABLE test." + tableName + "(n INTEGER)'))"))
                 .hasMessage("Unsupported statement type: CREATE_TABLE");
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
     }
 
     @Test
     public void testNativeQueryInsertStatementTableDoesNotExist()
     {
         String tableName = "test_insert" + randomNameSuffix();
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
         assertThatThrownBy(() -> query("SELECT * FROM TABLE(bigquery.system.query(query => 'INSERT INTO test." + tableName + " VALUES (1)'))"))
                 .hasMessageContaining("Failed to get schema for query")
                 .hasStackTraceContaining("%s was not found", tableName);

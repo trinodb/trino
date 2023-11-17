@@ -31,7 +31,6 @@ import static java.lang.String.join;
 import static java.util.Collections.unmodifiableList;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class DataTypeTest
 {
@@ -140,7 +139,9 @@ public class DataTypeTest
         List<Object> actualResults = getOnlyElement(materializedRows).getFields();
         verify(actualResults.size() == expectedResults.size(), "lists don't have the same size");
         for (int i = 0; i < expectedResults.size(); i++) {
-            assertEquals(actualResults.get(i), expectedResults.get(i), "Element " + i);
+            assertThat(actualResults.get(i))
+                    .describedAs("Element " + i)
+                    .isEqualTo(expectedResults.get(i));
         }
     }
 

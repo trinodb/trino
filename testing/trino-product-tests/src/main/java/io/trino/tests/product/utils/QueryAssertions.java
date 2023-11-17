@@ -21,7 +21,7 @@ import io.trino.tempto.query.QueryResult;
 import java.util.function.Supplier;
 
 import static java.lang.String.format;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Fail.fail;
 
 public final class QueryAssertions
 {

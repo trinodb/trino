@@ -197,10 +197,8 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampTZObjectInspector;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getCharTypeInfo;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
 
 public class OrcTester
 {
@@ -482,7 +480,7 @@ public class OrcTester
             }
         }
 
-        assertEquals(stats.getWriterSizeInBytes(), 0);
+        assertThat(stats.getWriterSizeInBytes()).isEqualTo(0);
     }
 
     private static void assertFileContentsTrino(
@@ -494,8 +492,8 @@ public class OrcTester
             throws IOException
     {
         try (OrcRecordReader recordReader = createCustomOrcRecordReader(tempFile, createOrcPredicate(type, expectedValues), type, MAX_BATCH_SIZE)) {
-            assertEquals(recordReader.getReaderPosition(), 0);
-            assertEquals(recordReader.getFilePosition(), 0);
+            assertThat(recordReader.getReaderPosition()).isEqualTo(0);
+            assertThat(recordReader.getFilePosition()).isEqualTo(0);
 
             boolean isFirst = true;
             int rowsProcessed = 0;
@@ -503,10 +501,10 @@ public class OrcTester
             for (Page page = recordReader.nextPage(); page != null; page = recordReader.nextPage()) {
                 int batchSize = page.getPositionCount();
                 if (skipStripe && rowsProcessed < 10000) {
-                    assertEquals(advance(iterator, batchSize), batchSize);
+                    assertThat(advance(iterator, batchSize)).isEqualTo(batchSize);
                 }
                 else if (skipFirstBatch && isFirst) {
-                    assertEquals(advance(iterator, batchSize), batchSize);
+                    assertThat(advance(iterator, batchSize)).isEqualTo(batchSize);
                     isFirst = false;
                 }
                 else {
@@ -518,34 +516,34 @@ public class OrcTester
                     }
 
                     for (int i = 0; i < batchSize; i++) {
-                        assertTrue(iterator.hasNext());
+                        assertThat(iterator.hasNext()).isTrue();
                         Object expected = iterator.next();
                         Object actual = data.get(i);
                         assertColumnValueEquals(type, actual, expected);
                     }
                 }
-                assertEquals(recordReader.getReaderPosition(), rowsProcessed);
-                assertEquals(recordReader.getFilePosition(), rowsProcessed);
+                assertThat(recordReader.getReaderPosition()).isEqualTo(rowsProcessed);
+                assertThat(recordReader.getFilePosition()).isEqualTo(rowsProcessed);
                 rowsProcessed += batchSize;
             }
-            assertFalse(iterator.hasNext());
-            assertNull(recordReader.nextPage());
+            assertThat(iterator.hasNext()).isFalse();
+            assertThat(recordReader.nextPage()).isNull();
 
-            assertEquals(recordReader.getReaderPosition(), rowsProcessed);
-            assertEquals(recordReader.getFilePosition(), rowsProcessed);
+            assertThat(recordReader.getReaderPosition()).isEqualTo(rowsProcessed);
+            assertThat(recordReader.getFilePosition()).isEqualTo(rowsProcessed);
         }
     }
 
     private static void assertColumnValueEquals(Type type, Object actual, Object expected)
     {
         if (actual == null) {
-            assertNull(expected);
+            assertThat(expected).isNull();
             return;
         }
         if (type instanceof ArrayType) {
             List<?> actualArray = (List<?>) actual;
             List<?> expectedArray = (List<?>) expected;
-            assertEquals(actualArray.size(), expectedArray.size());
+            assertThat(actualArray.size()).isEqualTo(expectedArray.size());
 
             Type elementType = type.getTypeParameters().get(0);
             for (int i = 0; i < actualArray.size(); i++) {
@@ -557,7 +555,7 @@ public class OrcTester
         else if (type instanceof MapType) {
             Map<?, ?> actualMap = (Map<?, ?>) actual;
             Map<?, ?> expectedMap = (Map<?, ?>) expected;
-            assertEquals(actualMap.size(), expectedMap.size());
+            assertThat(actualMap.size()).isEqualTo(expectedMap.size());
 
             Type keyType = type.getTypeParameters().get(0);
             Type valueType = type.getTypeParameters().get(1);
@@ -576,15 +574,17 @@ public class OrcTester
                     }
                 }
             }
-            assertTrue(expectedEntries.isEmpty(), "Unmatched entries " + expectedEntries);
+            assertThat(expectedEntries.isEmpty())
+                    .describedAs("Unmatched entries " + expectedEntries)
+                    .isTrue();
         }
         else if (type instanceof RowType) {
             List<Type> fieldTypes = type.getTypeParameters();
 
             List<?> actualRow = (List<?>) actual;
             List<?> expectedRow = (List<?>) expected;
-            assertEquals(actualRow.size(), fieldTypes.size());
-            assertEquals(actualRow.size(), expectedRow.size());
+            assertThat(actualRow.size()).isEqualTo(fieldTypes.size());
+            assertThat(actualRow.size()).isEqualTo(expectedRow.size());
 
             for (int fieldId = 0; fieldId < actualRow.size(); fieldId++) {
                 Type fieldType = fieldTypes.get(fieldId);
@@ -597,7 +597,9 @@ public class OrcTester
             Double actualDouble = (Double) actual;
             Double expectedDouble = (Double) expected;
             if (actualDouble.isNaN()) {
-                assertTrue(expectedDouble.isNaN(), "expected double to be NaN");
+                assertThat(expectedDouble.isNaN())
+                        .describedAs("expected double to be NaN")
+                        .isTrue();
             }
             else {
                 assertEquals(actualDouble, expectedDouble, 0.001);
@@ -605,10 +607,10 @@ public class OrcTester
         }
         else if (type.equals(UUID)) {
             UUID actualUUID = java.util.UUID.fromString((String) actual);
-            assertEquals(actualUUID, expected);
+            assertThat(actualUUID).isEqualTo(expected);
         }
         else if (!Objects.equals(actual, expected)) {
-            assertEquals(actual, expected);
+            assertThat(actual).isEqualTo(expected);
         }
     }
 
@@ -619,8 +621,8 @@ public class OrcTester
         OrcReader orcReader = OrcReader.createOrcReader(orcDataSource, READER_OPTIONS)
                 .orElseThrow(() -> new RuntimeException("File is empty"));
 
-        assertEquals(orcReader.getColumnNames(), ImmutableList.of("test"));
-        assertEquals(orcReader.getFooter().getRowsInRowGroup().orElse(0), 10_000);
+        assertThat(orcReader.getColumnNames()).isEqualTo(ImmutableList.of("test"));
+        assertThat(orcReader.getFooter().getRowsInRowGroup().orElse(0)).isEqualTo(10_000);
 
         return orcReader.createRecordReader(
                 orcReader.getRootColumn().getNestedColumns(),
@@ -855,7 +857,7 @@ public class OrcTester
             actualValue = decodeRecordReaderValue(type, actualValue);
             assertColumnValueEquals(type, actualValue, expectedValue);
         }
-        assertFalse(iterator.hasNext());
+        assertThat(iterator.hasNext()).isFalse();
     }
 
     private static Object decodeRecordReaderValue(Type type, Object actualValue)

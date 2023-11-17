@@ -30,7 +30,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -79,7 +78,7 @@ public class TestLdapAuthenticator
             assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("unknown", "alice-pass"))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessageMatching("Access Denied: Invalid credentials");
-            assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"), new BasicPrincipal("alice"));
+            assertThat(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass")).isEqualTo(new BasicPrincipal("alice"));
         }
     }
 
@@ -97,15 +96,15 @@ public class TestLdapAuthenticator
                     new LdapAuthenticatorConfig()
                             .setUserBindSearchPatterns(format("uid=${USER},%s:uid=${USER},%s", organization.getDistinguishedName(), alternativeOrganization.getDistinguishedName())));
 
-            assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"), new BasicPrincipal("alice"));
+            assertThat(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass")).isEqualTo(new BasicPrincipal("alice"));
             ldapAuthenticator.invalidateCache();
 
-            assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("bob", "bob-pass"), new BasicPrincipal("bob"));
+            assertThat(ldapAuthenticator.createAuthenticatedPrincipal("bob", "bob-pass")).isEqualTo(new BasicPrincipal("bob"));
             ldapAuthenticator.invalidateCache();
 
-            assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alt-alice-pass"), new BasicPrincipal("alice"));
+            assertThat(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alt-alice-pass")).isEqualTo(new BasicPrincipal("alice"));
             ldapAuthenticator.invalidateCache();
-            assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"), new BasicPrincipal("alice"));
+            assertThat(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass")).isEqualTo(new BasicPrincipal("alice"));
             ldapAuthenticator.invalidateCache();
         }
     }
@@ -138,7 +137,7 @@ public class TestLdapAuthenticator
                     .hasMessageMatching("Access Denied: User \\[bob] not a member of an authorized group");
 
             openLdapServer.addUserToGroup(alice, group);
-            assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"), new BasicPrincipal("alice"));
+            assertThat(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass")).isEqualTo(new BasicPrincipal("alice"));
         }
     }
 
@@ -197,7 +196,7 @@ public class TestLdapAuthenticator
             ldapAuthenticator.invalidateCache();
 
             openLdapServer.addUserToGroup(alice, group);
-            assertEquals(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass"), new BasicPrincipal("alice"));
+            assertThat(ldapAuthenticator.createAuthenticatedPrincipal("alice", "alice-pass")).isEqualTo(new BasicPrincipal("alice"));
             ldapAuthenticator.invalidateCache();
 
             assertThatThrownBy(() -> ldapAuthenticator.createAuthenticatedPrincipal("alice", "invalid"))

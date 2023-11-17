@@ -13,13 +13,13 @@
  */
 package io.trino.cost;
 
+import org.assertj.core.api.Assertions;
+
 import static io.trino.cost.EstimateAssertion.assertEstimateEquals;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.POSITIVE_INFINITY;
 import static java.lang.Double.isNaN;
 import static java.util.Objects.requireNonNull;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class SymbolStatsAssertion
 {
@@ -43,7 +43,9 @@ public class SymbolStatsAssertion
 
     public SymbolStatsAssertion nullsFractionUnknown()
     {
-        assertTrue(isNaN(statistics.getNullsFraction()), "expected unknown nullsFraction but got " + statistics.getNullsFraction());
+        Assertions.assertThat(isNaN(statistics.getNullsFraction()))
+                .describedAs("expected unknown nullsFraction but got " + statistics.getNullsFraction())
+                .isTrue();
         return this;
     }
 
@@ -78,11 +80,18 @@ public class SymbolStatsAssertion
 
     public SymbolStatsAssertion emptyRange()
     {
-        assertTrue(isNaN(statistics.getLowValue()) && isNaN(statistics.getHighValue()),
-                "expected empty range (NaN, NaN) but got (" + statistics.getLowValue() + ", " + statistics.getHighValue() + ") instead");
-        assertEquals(statistics.getDistinctValuesCount(), 0., "expected no distinctValuesCount");
-        assertEquals(statistics.getAverageRowSize(), 0., "expected 0 average row size");
-        assertEquals(statistics.getNullsFraction(), 1., "expected all nulls");
+        Assertions.assertThat(isNaN(statistics.getLowValue()) && isNaN(statistics.getHighValue()))
+                .describedAs("expected empty range (NaN, NaN) but got (" + statistics.getLowValue() + ", " + statistics.getHighValue() + ") instead")
+                .isTrue();
+        Assertions.assertThat(statistics.getDistinctValuesCount())
+                .describedAs("expected no distinctValuesCount")
+                .isEqualTo(0.);
+        Assertions.assertThat(statistics.getAverageRowSize())
+                .describedAs("expected 0 average row size")
+                .isEqualTo(0.);
+        Assertions.assertThat(statistics.getNullsFraction())
+                .describedAs("expected all nulls")
+                .isEqualTo(1.);
         return this;
     }
 
@@ -100,7 +109,9 @@ public class SymbolStatsAssertion
 
     public SymbolStatsAssertion distinctValuesCountUnknown()
     {
-        assertTrue(isNaN(statistics.getDistinctValuesCount()), "expected unknown distinctValuesCount but got " + statistics.getDistinctValuesCount());
+        Assertions.assertThat(isNaN(statistics.getDistinctValuesCount()))
+                .describedAs("expected unknown distinctValuesCount but got " + statistics.getDistinctValuesCount())
+                .isTrue();
         return this;
     }
 
@@ -112,7 +123,9 @@ public class SymbolStatsAssertion
 
     public SymbolStatsAssertion dataSizeUnknown()
     {
-        assertTrue(isNaN(statistics.getAverageRowSize()), "expected unknown dataSize but got " + statistics.getAverageRowSize());
+        Assertions.assertThat(isNaN(statistics.getAverageRowSize()))
+                .describedAs("expected unknown dataSize but got " + statistics.getAverageRowSize())
+                .isTrue();
         return this;
     }
 

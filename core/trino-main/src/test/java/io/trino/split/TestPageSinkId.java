@@ -18,8 +18,8 @@ import io.trino.execution.TaskId;
 import io.trino.spi.QueryId;
 import org.junit.jupiter.api.Test;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestPageSinkId
 {
@@ -33,7 +33,7 @@ public class TestPageSinkId
     {
         PageSinkId pageSinkId = fromTaskId(1, 2, 3);
         long expected = (1L << 32) + (2L << 8) + 3L;
-        assertEquals(pageSinkId.getId(), expected);
+        assertThat(pageSinkId.getId()).isEqualTo(expected);
     }
 
     @Test

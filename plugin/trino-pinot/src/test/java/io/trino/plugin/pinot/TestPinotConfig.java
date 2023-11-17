@@ -23,9 +23,8 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestPinotConfig
 {
@@ -108,20 +107,20 @@ public class TestPinotConfig
     {
         PinotConfig config = new PinotConfig();
         config.setControllerUrls("my-controller-1:8443,my-controller-2:8443");
-        assertTrue(config.allUrlSchemesEqual());
-        assertFalse(config.isTlsEnabled());
+        assertThat(config.allUrlSchemesEqual()).isTrue();
+        assertThat(config.isTlsEnabled()).isFalse();
         config.setControllerUrls("http://my-controller-1:9000,http://my-controller-2:9000");
-        assertTrue(config.allUrlSchemesEqual());
-        assertFalse(config.isTlsEnabled());
+        assertThat(config.allUrlSchemesEqual()).isTrue();
+        assertThat(config.isTlsEnabled()).isFalse();
         config.setControllerUrls("https://my-controller-1:8443,https://my-controller-2:8443");
-        assertTrue(config.allUrlSchemesEqual());
-        assertTrue(config.isTlsEnabled());
+        assertThat(config.allUrlSchemesEqual()).isTrue();
+        assertThat(config.isTlsEnabled()).isTrue();
         config.setControllerUrls("my-controller-1:8443,http://my-controller-2:8443");
-        assertTrue(config.allUrlSchemesEqual());
-        assertFalse(config.isTlsEnabled());
+        assertThat(config.allUrlSchemesEqual()).isTrue();
+        assertThat(config.isTlsEnabled()).isFalse();
         config.setControllerUrls("http://my-controller-1:8443,https://my-controller-2:8443");
-        assertFalse(config.allUrlSchemesEqual());
+        assertThat(config.allUrlSchemesEqual()).isFalse();
         config.setControllerUrls("my-controller-1:8443,https://my-controller-2:8443");
-        assertFalse(config.allUrlSchemesEqual());
+        assertThat(config.allUrlSchemesEqual()).isFalse();
     }
 }

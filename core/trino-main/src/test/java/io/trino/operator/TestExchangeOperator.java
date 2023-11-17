@@ -58,11 +58,9 @@ import static io.trino.operator.TestingTaskBuffer.PAGE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -176,9 +174,9 @@ public class TestExchangeOperator
         waitForPages(operator, 3);
 
         // verify state
-        assertEquals(operator.isFinished(), false);
-        assertEquals(operator.needsInput(), false);
-        assertEquals(operator.getOutput(), null);
+        assertThat(operator.isFinished()).isEqualTo(false);
+        assertThat(operator.needsInput()).isEqualTo(false);
+        assertThat(operator.getOutput()).isEqualTo(null);
 
         // add more pages and close the buffers
         taskBuffers.getUnchecked(TASK_1_ID).addPages(2, true);
@@ -209,9 +207,9 @@ public class TestExchangeOperator
         waitForPages(operator, 1);
 
         // verify state
-        assertEquals(operator.isFinished(), false);
-        assertEquals(operator.needsInput(), false);
-        assertEquals(operator.getOutput(), null);
+        assertThat(operator.isFinished()).isEqualTo(false);
+        assertThat(operator.needsInput()).isEqualTo(false);
+        assertThat(operator.getOutput()).isEqualTo(null);
 
         // add a buffer location
         operator.addSplit(newRemoteSplit(TASK_2_ID));
@@ -249,9 +247,9 @@ public class TestExchangeOperator
         waitForPages(operator, 3);
 
         // verify state
-        assertEquals(operator.isFinished(), false);
-        assertEquals(operator.needsInput(), false);
-        assertEquals(operator.getOutput(), null);
+        assertThat(operator.isFinished()).isEqualTo(false);
+        assertThat(operator.needsInput()).isEqualTo(false);
+        assertThat(operator.getOutput()).isEqualTo(null);
 
         // finish without closing buffers
         operator.finish();
@@ -298,10 +296,10 @@ public class TestExchangeOperator
             }
             Thread.sleep(10);
         }
-        assertTrue(greaterThanZero);
+        assertThat(greaterThanZero).isTrue();
 
         while (outputPages.size() < expectedPageCount && System.nanoTime() < endTime) {
-            assertEquals(operator.needsInput(), false);
+            assertThat(operator.needsInput()).isEqualTo(false);
             if (operator.isFinished()) {
                 break;
             }
@@ -319,11 +317,11 @@ public class TestExchangeOperator
         Thread.sleep(10);
 
         // verify state
-        assertEquals(operator.needsInput(), false);
-        assertNull(operator.getOutput());
+        assertThat(operator.needsInput()).isEqualTo(false);
+        assertThat(operator.getOutput()).isNull();
 
         // verify pages
-        assertEquals(outputPages.size(), expectedPageCount);
+        assertThat(outputPages.size()).isEqualTo(expectedPageCount);
         for (Page page : outputPages) {
             assertPageEquals(TYPES, page, PAGE);
         }
@@ -337,8 +335,8 @@ public class TestExchangeOperator
         // wait for finished or until 10 seconds has passed
         long endTime = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
         while (System.nanoTime() - endTime < 0) {
-            assertEquals(operator.needsInput(), false);
-            assertNull(operator.getOutput());
+            assertThat(operator.needsInput()).isEqualTo(false);
+            assertThat(operator.getOutput()).isNull();
             if (operator.isFinished()) {
                 break;
             }
@@ -346,13 +344,13 @@ public class TestExchangeOperator
         }
 
         // verify final state
-        assertEquals(operator.isFinished(), true);
-        assertEquals(operator.needsInput(), false);
-        assertNull(operator.getOutput());
+        assertThat(operator.isFinished()).isEqualTo(true);
+        assertThat(operator.needsInput()).isEqualTo(false);
+        assertThat(operator.getOutput()).isNull();
 
         operator.close();
         operator.getOperatorContext().destroy();
 
-        assertEquals(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getUserMemoryReservation().toBytes(), 0);
+        assertThat(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getUserMemoryReservation().toBytes()).isEqualTo(0);
     }
 }

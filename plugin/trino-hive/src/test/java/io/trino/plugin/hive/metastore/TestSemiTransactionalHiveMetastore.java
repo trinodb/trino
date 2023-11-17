@@ -42,7 +42,7 @@ import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 // countDownLatch field is shared between tests
 public class TestSemiTransactionalHiveMetastore
@@ -182,7 +182,7 @@ public class TestSemiTransactionalHiveMetastore
         {
             try {
                 countDownLatch.countDown();
-                assertTrue(countDownLatch.await(10, TimeUnit.SECONDS)); //all other threads launched should count down within 10 seconds
+                assertThat(countDownLatch.await(10, TimeUnit.SECONDS)).isTrue(); //all other threads launched should count down within 10 seconds
             }
             catch (InterruptedException ie) {
                 Thread.currentThread().interrupt();

@@ -26,9 +26,8 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.EMPTY_SLICE;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestChunkedInputStream
 {
@@ -51,43 +50,43 @@ public class TestChunkedInputStream
         byte[] buffer = new byte[expectedBytes.length + 1];
 
         List<Slice> slices = chunks.stream().map(Slices::wrappedBuffer).collect(toImmutableList());
-        assertEquals(input(slices).readAllBytes(), expectedBytes);
-        assertEquals(input(slices).getSlice(expectedBytes.length).getBytes(), expectedBytes);
-        assertEquals(readAll(input(slices)), expectedBytes);
+        assertThat(input(slices).readAllBytes()).isEqualTo(expectedBytes);
+        assertThat(input(slices).getSlice(expectedBytes.length).getBytes()).isEqualTo(expectedBytes);
+        assertThat(readAll(input(slices))).isEqualTo(expectedBytes);
 
-        assertEquals(input(slices).readNBytes(expectedBytes.length), expectedBytes);
+        assertThat(input(slices).readNBytes(expectedBytes.length)).isEqualTo(expectedBytes);
 
-        assertEquals(input(slices).read(buffer, 0, 0), 0);
-        assertEquals(input(slices).getSlice(0), EMPTY_SLICE);
+        assertThat(input(slices).read(buffer, 0, 0)).isEqualTo(0);
+        assertThat(input(slices).getSlice(0)).isEqualTo(EMPTY_SLICE);
 
         if (expectedBytes.length > 0) {
             // read from one chunk only
-            assertEquals(input(slices).read(buffer, 0, 1), 1);
-            assertEquals(buffer[0], expectedBytes[0]);
+            assertThat(input(slices).read(buffer, 0, 1)).isEqualTo(1);
+            assertThat(buffer[0]).isEqualTo(expectedBytes[0]);
         }
 
         // rad more than total length
         ChunkedInputStream input = input(slices);
         int bytesRead = ByteStreams.read(input, buffer, 0, buffer.length);
-        assertEquals(bytesRead, expectedBytes.length > 0 ? expectedBytes.length : -1);
+        assertThat(bytesRead).isEqualTo(expectedBytes.length > 0 ? expectedBytes.length : -1);
 
         // read after input is done returns -1
-        assertEquals(input.read(), -1);
+        assertThat(input.read()).isEqualTo(-1);
         // getSlice(0) after input is done returns empty slice
-        assertEquals(input.getSlice(0), EMPTY_SLICE);
+        assertThat(input.getSlice(0)).isEqualTo(EMPTY_SLICE);
         assertThatThrownBy(() -> input.getSlice(1)).isInstanceOf(IllegalArgumentException.class);
 
-        assertEquals(input.read(buffer, 0, 1), -1);
+        assertThat(input.read(buffer, 0, 1)).isEqualTo(-1);
 
         // verify available
         ChunkedInputStream availableInput = input(slices);
         // nothing is read initially
-        assertEquals(availableInput.available(), 0);
+        assertThat(availableInput.available()).isEqualTo(0);
         for (byte[] chunk : chunks) {
             availableInput.read();
-            assertEquals(availableInput.available(), chunk.length - 1);
+            assertThat(availableInput.available()).isEqualTo(chunk.length - 1);
             availableInput.skipNBytes(chunk.length - 1);
-            assertEquals(availableInput.available(), 0);
+            assertThat(availableInput.available()).isEqualTo(0);
         }
     }
 
@@ -102,7 +101,7 @@ public class TestChunkedInputStream
         ChunkedInputStream input = new ChunkedInputStream(chunksReaders);
         input.close();
         for (TestingChunkReader chunksReader : chunksReaders) {
-            assertTrue(chunksReader.isFreed());
+            assertThat(chunksReader.isFreed()).isTrue();
         }
 
         // close partially read input
@@ -111,7 +110,7 @@ public class TestChunkedInputStream
         input.readNBytes(chunks.get(0).length);
         input.close();
         for (TestingChunkReader chunksReader : chunksReaders) {
-            assertTrue(chunksReader.isFreed());
+            assertThat(chunksReader.isFreed()).isTrue();
         }
 
         // close fully read input
@@ -120,7 +119,7 @@ public class TestChunkedInputStream
         input.readNBytes(chunks.stream().mapToInt(chunk -> chunk.length).sum());
         input.close();
         for (TestingChunkReader chunksReader : chunksReaders) {
-            assertTrue(chunksReader.isFreed());
+            assertThat(chunksReader.isFreed()).isTrue();
         }
     }
 
