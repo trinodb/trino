@@ -29,7 +29,12 @@ public class InvalidProjectionException
 
     public InvalidProjectionException(String columnName, String message)
     {
-        super(INVALID_COLUMN_PROPERTY, invalidProjectionMessage(columnName, message));
+        this(invalidProjectionMessage(columnName, message));
+    }
+
+    public InvalidProjectionException(String message)
+    {
+        super(INVALID_COLUMN_PROPERTY, message);
     }
 
     public static String invalidProjectionMessage(String columnName, String message)
