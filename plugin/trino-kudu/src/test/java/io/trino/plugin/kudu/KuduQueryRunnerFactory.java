@@ -23,6 +23,7 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
+import org.apache.kudu.client.KuduClient;
 
 import java.util.Map;
 import java.util.Optional;
@@ -44,7 +45,7 @@ public final class KuduQueryRunnerFactory
         try {
             runner = DistributedQueryRunner.builder(session).build();
 
-            installKuduConnector(kuduServer.getMasterAddress(), runner, session.getSchema().orElse("kudu_smoke_test"), Optional.of(""));
+            installKuduConnector(kuduServer.getMasterAddress(), runner, session.getSchema().orElse("kudu_smoke_test"), Optional.of(""), false);
 
             return runner;
         }
@@ -57,11 +58,17 @@ public final class KuduQueryRunnerFactory
     public static QueryRunner createKuduQueryRunner(TestingKuduServer kuduServer, String kuduSchema)
             throws Exception
     {
+        return createKuduQueryRunner(kuduServer, kuduSchema, false);
+    }
+
+    public static QueryRunner createKuduQueryRunner(TestingKuduServer kuduServer, String kuduSchema, boolean caseInsensitiveNameMatching)
+            throws Exception
+    {
         QueryRunner runner = null;
         try {
             runner = DistributedQueryRunner.builder(createSession(kuduSchema)).build();
 
-            installKuduConnector(kuduServer.getMasterAddress(), runner, kuduSchema, Optional.of(""));
+            installKuduConnector(kuduServer.getMasterAddress(), runner, kuduSchema, Optional.of(""), caseInsensitiveNameMatching);
 
             return runner;
         }
@@ -102,7 +109,7 @@ public final class KuduQueryRunnerFactory
             runner.installPlugin(new TpchPlugin());
             runner.createCatalog("tpch", "tpch");
 
-            installKuduConnector(kuduServer.getMasterAddress(), runner, kuduSchema, kuduSchemaEmulationPrefix);
+            installKuduConnector(kuduServer.getMasterAddress(), runner, kuduSchema, kuduSchemaEmulationPrefix, false);
 
             copyTpchTables(runner, "tpch", TINY_SCHEMA_NAME, session, tables);
 
@@ -114,19 +121,32 @@ public final class KuduQueryRunnerFactory
         }
     }
 
-    private static void installKuduConnector(HostAndPort masterAddress, QueryRunner runner, String kuduSchema, Optional<String> kuduSchemaEmulationPrefix)
+    public static KuduClient createKuduClient(TestingKuduServer kuduServer)
+    {
+        KuduClient.KuduClientBuilder builder = new KuduClient.KuduClientBuilder(kuduServer.getMasterAddress().toString());
+        return builder.build();
+    }
+
+    private static void installKuduConnector(
+            HostAndPort masterAddress,
+            QueryRunner runner,
+            String kuduSchema,
+            Optional<String> kuduSchemaEmulationPrefix,
+            boolean caseSensitiveNameMatching)
     {
         Map<String, String> properties;
         if (kuduSchemaEmulationPrefix.isPresent()) {
             properties = ImmutableMap.of(
                     "kudu.schema-emulation.enabled", "true",
                     "kudu.schema-emulation.prefix", kuduSchemaEmulationPrefix.get(),
-                    "kudu.client.master-addresses", masterAddress.toString());
+                    "kudu.client.master-addresses", masterAddress.toString(),
+                    "kudu.case-insensitive-name-matching", Boolean.toString(caseSensitiveNameMatching));
         }
         else {
             properties = ImmutableMap.of(
                     "kudu.schema-emulation.enabled", "false",
-                    "kudu.client.master-addresses", masterAddress.toString());
+                    "kudu.client.master-addresses", masterAddress.toString(),
+                    "kudu.case-insensitive-name-matching", Boolean.toString(caseSensitiveNameMatching));
         }
 
         runner.installPlugin(new KuduPlugin());

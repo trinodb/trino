@@ -89,12 +89,14 @@ public class KuduClientSession
     private final KuduClientWrapper client;
     private final SchemaEmulation schemaEmulation;
     private final boolean allowLocalScheduling;
+    private final boolean caseInsensitiveNameMatching;
 
-    public KuduClientSession(KuduClientWrapper client, SchemaEmulation schemaEmulation, boolean allowLocalScheduling)
+    public KuduClientSession(KuduClientWrapper client, SchemaEmulation schemaEmulation, boolean allowLocalScheduling, boolean caseInsensitiveNameMatching)
     {
         this.client = client;
         this.schemaEmulation = schemaEmulation;
         this.allowLocalScheduling = allowLocalScheduling;
+        this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
     }
 
     public List<String> listSchemaNames()
@@ -238,7 +240,7 @@ public class KuduClientSession
 
     public KuduTable openTable(SchemaTableName schemaTableName)
     {
-        String rawName = schemaEmulation.toRawName(schemaTableName);
+        String rawName = toRawTableName(schemaTableName);
         try {
             return client.openTable(rawName);
         }
@@ -269,7 +271,7 @@ public class KuduClientSession
     public void dropTable(SchemaTableName schemaTableName)
     {
         try {
-            String rawName = schemaEmulation.toRawName(schemaTableName);
+            String rawName = toRawTableName(schemaTableName);
             client.deleteTable(rawName);
         }
         catch (KuduException e) {
@@ -280,8 +282,8 @@ public class KuduClientSession
     public void renameTable(SchemaTableName schemaTableName, SchemaTableName newSchemaTableName)
     {
         try {
-            String rawName = schemaEmulation.toRawName(schemaTableName);
-            String newRawName = schemaEmulation.toRawName(newSchemaTableName);
+            String rawName = toRawTableName(schemaTableName);
+            String newRawName = toRawTableName(newSchemaTableName);
             AlterTableOptions alterOptions = new AlterTableOptions();
             alterOptions.renameTable(newRawName);
             client.alterTable(rawName, alterOptions);
@@ -294,7 +296,7 @@ public class KuduClientSession
     public KuduTable createTable(ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
         try {
-            String rawName = schemaEmulation.toRawName(tableMetadata.getTable());
+            String rawName = toRawTableName(tableMetadata.getTable());
             if (ignoreExisting) {
                 if (client.tableExists(rawName)) {
                     return null;
@@ -321,7 +323,7 @@ public class KuduClientSession
     public void addColumn(SchemaTableName schemaTableName, ColumnMetadata column)
     {
         try {
-            String rawName = schemaEmulation.toRawName(schemaTableName);
+            String rawName = toRawTableName(schemaTableName);
             AlterTableOptions alterOptions = new AlterTableOptions();
             Type type = TypeHelper.toKuduClientType(column.getType());
             alterOptions.addColumn(
@@ -340,7 +342,7 @@ public class KuduClientSession
     public void dropColumn(SchemaTableName schemaTableName, String name)
     {
         try {
-            String rawName = schemaEmulation.toRawName(schemaTableName);
+            String rawName = toRawTableName(schemaTableName);
             AlterTableOptions alterOptions = new AlterTableOptions();
             alterOptions.dropColumn(name);
             client.alterTable(rawName, alterOptions);
@@ -353,7 +355,7 @@ public class KuduClientSession
     public void renameColumn(SchemaTableName schemaTableName, String oldName, String newName)
     {
         try {
-            String rawName = schemaEmulation.toRawName(schemaTableName);
+            String rawName = toRawTableName(schemaTableName);
             AlterTableOptions alterOptions = new AlterTableOptions();
             alterOptions.renameColumn(oldName, newName);
             client.alterTable(rawName, alterOptions);
@@ -377,7 +379,7 @@ public class KuduClientSession
             RangePartitionChange change)
     {
         try {
-            String rawName = schemaEmulation.toRawName(schemaTableName);
+            String rawName = toRawTableName(schemaTableName);
             KuduTable table = client.openTable(rawName);
             Schema schema = table.getSchema();
             PartitionDesign design = KuduTableProperties.getPartitionDesign(table);
@@ -637,6 +639,22 @@ public class KuduClientSession
         catch (IOException e) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
         }
+    }
+
+    private String toRawTableName(SchemaTableName schemaTableName)
+    {
+        String tableName = schemaEmulation.toRawName(schemaTableName);
+        verify(tableName.equals(tableName.toLowerCase(ENGLISH)), "tableName not in lower-case: %s", tableName);
+        if (!caseInsensitiveNameMatching) {
+            return tableName;
+        }
+        String prefix = schemaEmulation.getPrefixForTablesOfSchema(schemaTableName.getSchemaName());
+        for (String remoteTableName : internalListTables(prefix)) {
+            if (tableName.equals(remoteTableName.toLowerCase(ENGLISH))) {
+                return remoteTableName;
+            }
+        }
+        return tableName;
     }
 
     @PreDestroy

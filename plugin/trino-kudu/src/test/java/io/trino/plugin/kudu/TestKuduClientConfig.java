@@ -38,7 +38,8 @@ public class TestKuduClientConfig
                 .setSchemaEmulationEnabled(false)
                 .setSchemaEmulationPrefix("presto::")
                 .setDynamicFilteringWaitTimeout(new Duration(0, MINUTES))
-                .setAllowLocalScheduling(false));
+                .setAllowLocalScheduling(false)
+                .setCaseInsensitiveNameMatching(false));
     }
 
     @Test
@@ -53,6 +54,7 @@ public class TestKuduClientConfig
                 .put("kudu.schema-emulation.prefix", "trino::")
                 .put("kudu.dynamic-filtering.wait-timeout", "30m")
                 .put("kudu.allow-local-scheduling", "true")
+                .put("kudu.case-insensitive-name-matching", "true")
                 .buildOrThrow();
 
         KuduClientConfig expected = new KuduClientConfig()
@@ -63,7 +65,8 @@ public class TestKuduClientConfig
                 .setSchemaEmulationEnabled(true)
                 .setSchemaEmulationPrefix("trino::")
                 .setDynamicFilteringWaitTimeout(new Duration(30, MINUTES))
-                .setAllowLocalScheduling(true);
+                .setAllowLocalScheduling(true)
+                .setCaseInsensitiveNameMatching(true);
 
         assertFullMapping(properties, expected);
     }

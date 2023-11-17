@@ -41,6 +41,9 @@ kudu.client.master-addresses=localhost
 ## For more details see connector documentation.
 #kudu.schema-emulation.prefix=
 
+# Match table names case insensitively.
+#kudu.case-insensitive-name-matching=false
+
 ###########################################
 ### Advanced Kudu Java client configuration
 ###########################################
@@ -596,10 +599,6 @@ This adds a range partition for a table `events` in the schema
 Use the SQL statement `SHOW CREATE TABLE` to query the existing
 range partitions (they are shown in the table property
 `range_partitions`).
-
-## Limitations
-
-- Only lower case table and column names in Kudu are supported.
 
 [apache kudu]: https://kudu.apache.org/
 [column compression]: https://kudu.apache.org/docs/schema_design.html#compression

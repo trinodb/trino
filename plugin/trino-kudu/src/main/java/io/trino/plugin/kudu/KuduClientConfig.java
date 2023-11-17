@@ -45,6 +45,7 @@ public class KuduClientConfig
     private String schemaEmulationPrefix = "presto::";
     private Duration dynamicFilteringWaitTimeout = new Duration(0, MINUTES);
     private boolean allowLocalScheduling;
+    private boolean caseInsensitiveNameMatching;
 
     @NotNull
     @Size(min = 1)
@@ -155,6 +156,18 @@ public class KuduClientConfig
     public KuduClientConfig setAllowLocalScheduling(boolean allowLocalScheduling)
     {
         this.allowLocalScheduling = allowLocalScheduling;
+        return this;
+    }
+
+    public boolean isCaseInsensitiveNameMatching()
+    {
+        return caseInsensitiveNameMatching;
+    }
+
+    @Config("kudu.case-insensitive-name-matching")
+    public KuduClientConfig setCaseInsensitiveNameMatching(boolean caseInsensitiveNameMatching)
+    {
+        this.caseInsensitiveNameMatching = caseInsensitiveNameMatching;
         return this;
     }
 }
