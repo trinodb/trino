@@ -19,6 +19,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.trino.plugin.hive.HiveConfig;
+import io.trino.plugin.hive.aws.athena.projection.DateProjectionFactory;
+import io.trino.plugin.hive.aws.athena.projection.EnumProjectionFactory;
+import io.trino.plugin.hive.aws.athena.projection.InjectedProjectionFactory;
+import io.trino.plugin.hive.aws.athena.projection.IntegerProjectionFactory;
 import io.trino.plugin.hive.aws.athena.projection.Projection;
 import io.trino.plugin.hive.aws.athena.projection.ProjectionFactory;
 import io.trino.plugin.hive.aws.athena.projection.ProjectionType;
@@ -67,6 +71,10 @@ import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.PART
 import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.PROPERTY_KEY_PREFIX;
 import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.getMetastoreProjectionPropertyKey;
 import static io.trino.plugin.hive.aws.athena.projection.Projection.unsupportedProjectionColumnTypeException;
+import static io.trino.plugin.hive.aws.athena.projection.ProjectionType.DATE;
+import static io.trino.plugin.hive.aws.athena.projection.ProjectionType.ENUM;
+import static io.trino.plugin.hive.aws.athena.projection.ProjectionType.INJECTED;
+import static io.trino.plugin.hive.aws.athena.projection.ProjectionType.INTEGER;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -79,14 +87,16 @@ public final class PartitionProjectionService
     private final TypeManager typeManager;
 
     @Inject
-    public PartitionProjectionService(
-            HiveConfig hiveConfig,
-            Map<ProjectionType, ProjectionFactory> projectionFactories,
-            TypeManager typeManager)
+    public PartitionProjectionService(HiveConfig hiveConfig, TypeManager typeManager)
     {
         this.partitionProjectionEnabled = hiveConfig.isPartitionProjectionEnabled();
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.projectionFactories = ImmutableMap.copyOf(requireNonNull(projectionFactories, "projectionFactories is null"));
+        this.projectionFactories = ImmutableMap.<ProjectionType, ProjectionFactory>builder()
+                .put(ENUM, new EnumProjectionFactory())
+                .put(INTEGER, new IntegerProjectionFactory())
+                .put(DATE, new DateProjectionFactory())
+                .put(INJECTED, new InjectedProjectionFactory())
+                .buildOrThrow();
     }
 
     public Map<String, Object> getPartitionProjectionTrinoTableProperties(Table table)
