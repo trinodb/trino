@@ -26,7 +26,7 @@ import static io.trino.spi.predicate.Domain.singleValue;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
-public class EnumProjection
+class EnumProjection
         extends Projection
 {
     private final List<String> values;

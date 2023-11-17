@@ -28,7 +28,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static java.util.Objects.requireNonNull;
 
-public class IntegerProjection
+class IntegerProjection
         extends Projection
 {
     private final int leftBound;

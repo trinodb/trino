@@ -36,7 +36,7 @@ import static io.trino.spi.predicate.Domain.singleValue;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-public class DateProjection
+class DateProjection
         extends Projection
 {
     private final DateFormat dateFormat;

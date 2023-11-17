@@ -24,7 +24,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public abstract class Projection
+abstract class Projection
 {
     private final String columnName;
 

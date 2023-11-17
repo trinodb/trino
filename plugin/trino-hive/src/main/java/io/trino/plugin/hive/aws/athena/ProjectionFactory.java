@@ -17,7 +17,7 @@ import io.trino.spi.type.Type;
 
 import java.util.Map;
 
-public interface ProjectionFactory
+interface ProjectionFactory
 {
     boolean isSupportedColumnType(Type columnType);
 

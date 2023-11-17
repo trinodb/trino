@@ -51,7 +51,7 @@ import static java.time.temporal.ChronoUnit.SECONDS;
 import static java.util.Objects.nonNull;
 import static java.util.TimeZone.getTimeZone;
 
-public class DateProjectionFactory
+class DateProjectionFactory
         implements ProjectionFactory
 {
     public static final ZoneId UTC_TIME_ZONE_ID = ZoneId.of("UTC");
