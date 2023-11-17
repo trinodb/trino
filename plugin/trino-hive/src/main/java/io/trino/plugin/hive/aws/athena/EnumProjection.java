@@ -26,14 +26,15 @@ import static io.trino.spi.predicate.Domain.singleValue;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
-class EnumProjection
-        extends Projection
+final class EnumProjection
+        implements Projection
 {
+    private final String columnName;
     private final List<String> values;
 
     public EnumProjection(String columnName, List<String> values)
     {
-        super(columnName);
+        this.columnName = requireNonNull(columnName, "columnName is null");
         this.values = ImmutableList.copyOf(requireNonNull(values, "values is null"));
     }
 
@@ -54,6 +55,6 @@ class EnumProjection
         if (type instanceof VarcharType) {
             return valueDomain.contains(singleValue(type, utf8Slice(value)));
         }
-        throw new InvalidProjectionException(getColumnName(), type);
+        throw new InvalidProjectionException(columnName, type);
     }
 }

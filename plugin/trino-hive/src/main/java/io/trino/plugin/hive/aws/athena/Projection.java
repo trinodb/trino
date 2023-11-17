@@ -18,21 +18,8 @@ import io.trino.spi.predicate.Domain;
 import java.util.List;
 import java.util.Optional;
 
-import static java.util.Objects.requireNonNull;
-
-abstract class Projection
+sealed interface Projection
+        permits DateProjection, EnumProjection, InjectedProjection, IntegerProjection
 {
-    private final String columnName;
-
-    public Projection(String columnName)
-    {
-        this.columnName = requireNonNull(columnName, "columnName is null");
-    }
-
-    public String getColumnName()
-    {
-        return columnName;
-    }
-
-    public abstract List<String> getProjectedValues(Optional<Domain> partitionValueFilter);
+    List<String> getProjectedValues(Optional<Domain> partitionValueFilter);
 }

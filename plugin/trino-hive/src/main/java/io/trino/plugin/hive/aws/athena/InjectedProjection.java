@@ -22,26 +22,29 @@ import java.util.Optional;
 
 import static io.trino.plugin.hive.metastore.MetastoreUtil.canConvertSqlTypeToStringForParts;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.sqlScalarToString;
+import static java.util.Objects.requireNonNull;
 
-class InjectedProjection
-        extends Projection
+final class InjectedProjection
+        implements Projection
 {
+    private final String columnName;
+
     public InjectedProjection(String columnName)
     {
-        super(columnName);
+        this.columnName = requireNonNull(columnName, "columnName is null");
     }
 
     @Override
     public List<String> getProjectedValues(Optional<Domain> partitionValueFilter)
     {
         Domain domain = partitionValueFilter
-                .orElseThrow(() -> new InvalidProjectionException(getColumnName(), "Injected projection requires single predicate for it's column in where clause"));
+                .orElseThrow(() -> new InvalidProjectionException(columnName, "Injected projection requires single predicate for it's column in where clause"));
         Type type = domain.getType();
         if (!domain.isNullableSingleValue() || !canConvertSqlTypeToStringForParts(type, true)) {
-            throw new InvalidProjectionException(getColumnName(), "Injected projection requires single predicate for it's column in where clause. Currently provided can't be converted to single partition.");
+            throw new InvalidProjectionException(columnName, "Injected projection requires single predicate for it's column in where clause. Currently provided can't be converted to single partition.");
         }
         return Optional.ofNullable(sqlScalarToString(type, domain.getNullableSingleValue(), null))
                 .map(ImmutableList::of)
-                .orElseThrow(() -> new InvalidProjectionException(getColumnName(), type));
+                .orElseThrow(() -> new InvalidProjectionException(columnName, type));
     }
 }
