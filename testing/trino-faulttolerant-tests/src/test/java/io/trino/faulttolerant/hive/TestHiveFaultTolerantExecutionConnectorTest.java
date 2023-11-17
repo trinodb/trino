@@ -80,21 +80,21 @@ public class TestHiveFaultTolerantExecutionConnectorTest
 
     @Test
     @Override
-    public void testWriterTasksCountLimitUnpartitioned()
+    public void testWriterTaskCountLimitUnpartitioned()
     {
         // Not applicable for fault-tolerant mode.
     }
 
     @Test
     @Override
-    public void testWriterTasksCountLimitPartitionedScaleWritersDisabled()
+    public void testWriterTaskCountLimitPartitionedScaleWritersDisabled()
     {
         // Not applicable for fault-tolerant mode.
     }
 
     @Test
     @Override
-    public void testWriterTasksCountLimitPartitionedScaleWritersEnabled()
+    public void testWriterTaskCountLimitPartitionedScaleWritersEnabled()
     {
         // Not applicable for fault-tolerant mode.
     }

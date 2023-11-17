@@ -109,7 +109,7 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionSmallStageSourceSizeMultiplier(1.2)
                 .setFaultTolerantExecutionSmallStageRequireNoMorePartitions(false)
                 .setFaultTolerantExecutionStageEstimationForEagerParentEnabled(true)
-                .setMaxWriterTasksCount(100));
+                .setMaxWriterTaskCount(100));
     }
 
     @Test
@@ -258,7 +258,7 @@ public class TestQueryManagerConfig
                 .setFaultTolerantExecutionSmallStageSourceSizeMultiplier(1.6)
                 .setFaultTolerantExecutionSmallStageRequireNoMorePartitions(true)
                 .setFaultTolerantExecutionStageEstimationForEagerParentEnabled(false)
-                .setMaxWriterTasksCount(101);
+                .setMaxWriterTaskCount(101);
 
         assertFullMapping(properties, expected);
     }

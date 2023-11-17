@@ -61,11 +61,11 @@ joins, aggregations, partitioned window functions and others.
 The minimum number of partitions to use for processing distributed operations in write queries,
 such as joins, aggregations, partitioned window functions and others.
 
-## `query.max-writer-tasks-count`
+## `query.max-writer-task-count`
 
 - **Type:** {ref}`prop-type-integer`
 - **Default value:** `100`
-- **Session property:** `max_writer_tasks_count`
+- **Session property:** `max_writer_task_count`
 
 The maximum number of tasks that will take part in writing data during
 `INSERT`, `CREATE TABLE AS SELECT` and `EXECUTE` queries.

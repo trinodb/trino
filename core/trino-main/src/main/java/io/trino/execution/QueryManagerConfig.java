@@ -65,7 +65,7 @@ public class QueryManagerConfig
     private int maxHashPartitionCount = 100;
     private int minHashPartitionCount = 4;
     private int minHashPartitionCountForWrite = 50;
-    private int maxWriterTasksCount = 100;
+    private int maxWriterTaskCount = 100;
     private Duration minQueryExpireAge = new Duration(15, TimeUnit.MINUTES);
     private int maxQueryHistory = 100;
     private int maxQueryLength = 1_000_000;
@@ -260,16 +260,16 @@ public class QueryManagerConfig
     }
 
     @Min(1)
-    public int getMaxWriterTasksCount()
+    public int getMaxWriterTaskCount()
     {
-        return maxWriterTasksCount;
+        return maxWriterTaskCount;
     }
 
     @Config("query.max-writer-task-count")
     @ConfigDescription("Maximum number of tasks that will participate in writing data")
-    public QueryManagerConfig setMaxWriterTasksCount(int maxWritersNodesCount)
+    public QueryManagerConfig setMaxWriterTaskCount(int maxWritersNodesCount)
     {
-        this.maxWriterTasksCount = maxWritersNodesCount;
+        this.maxWriterTaskCount = maxWritersNodesCount;
         return this;
     }
 
