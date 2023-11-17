@@ -19,7 +19,7 @@ import java.util.Map;
 
 import static io.trino.plugin.hive.metastore.MetastoreUtil.canConvertSqlTypeToStringForParts;
 
-class InjectedProjectionFactory
+final class InjectedProjectionFactory
         implements ProjectionFactory
 {
     @Override
