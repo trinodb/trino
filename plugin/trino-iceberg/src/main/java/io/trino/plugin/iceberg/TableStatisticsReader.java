@@ -51,8 +51,6 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -76,19 +74,6 @@ public final class TableStatisticsReader
     private TableStatisticsReader() {}
 
     private static final Logger log = Logger.get(TableStatisticsReader.class);
-
-    // TODO (https://github.com/trinodb/trino/issues/15397): remove support for Trino-specific statistics properties
-    @Deprecated
-    public static final String TRINO_STATS_PREFIX = "trino.stats.ndv.";
-    // TODO (https://github.com/trinodb/trino/issues/15397): remove support for Trino-specific statistics properties
-    @Deprecated
-    public static final String TRINO_STATS_NDV_FORMAT = TRINO_STATS_PREFIX + "%d.ndv";
-    // TODO (https://github.com/trinodb/trino/issues/15397): remove support for Trino-specific statistics properties
-    @Deprecated
-    public static final Pattern TRINO_STATS_COLUMN_ID_PATTERN = Pattern.compile(Pattern.quote(TRINO_STATS_PREFIX) + "(?<columnId>\\d+)\\..*");
-    // TODO (https://github.com/trinodb/trino/issues/15397): remove support for Trino-specific statistics properties
-    @Deprecated
-    public static final Pattern TRINO_STATS_NDV_PATTERN = Pattern.compile(Pattern.quote(TRINO_STATS_PREFIX) + "(?<columnId>\\d+)\\.ndv");
 
     public static final String APACHE_DATASKETCHES_THETA_V1_NDV_PROPERTY = "ndv";
 
@@ -255,24 +240,6 @@ public final class TableStatisticsReader
                 }
             }
         });
-
-        // TODO (https://github.com/trinodb/trino/issues/15397): remove support for Trino-specific statistics properties
-        Iterator<Entry<String, String>> properties = icebergTable.properties().entrySet().iterator();
-        while (!remainingColumnIds.isEmpty() && properties.hasNext()) {
-            Entry<String, String> entry = properties.next();
-            String key = entry.getKey();
-            String value = entry.getValue();
-            if (key.startsWith(TRINO_STATS_PREFIX)) {
-                Matcher matcher = TRINO_STATS_NDV_PATTERN.matcher(key);
-                if (matcher.matches()) {
-                    int columnId = Integer.parseInt(matcher.group("columnId"));
-                    if (remainingColumnIds.remove(columnId)) {
-                        long ndv = parseLong(value);
-                        ndvByColumnId.put(columnId, ndv);
-                    }
-                }
-            }
-        }
 
         return ndvByColumnId.buildOrThrow();
     }
