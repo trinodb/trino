@@ -58,8 +58,6 @@ public enum BigQueryPseudoColumn
                 bigqueryType,
                 true,
                 Field.Mode.REQUIRED,
-                null,
-                null,
                 ImmutableList.of(),
                 null,
                 true);
