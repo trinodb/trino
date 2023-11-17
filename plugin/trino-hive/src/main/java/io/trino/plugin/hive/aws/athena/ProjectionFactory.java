@@ -17,7 +17,8 @@ import io.trino.spi.type.Type;
 
 import java.util.Map;
 
-interface ProjectionFactory
+sealed interface ProjectionFactory
+        permits DateProjectionFactory, EnumProjectionFactory, InjectedProjectionFactory, IntegerProjectionFactory
 {
     boolean isSupportedColumnType(Type columnType);
 

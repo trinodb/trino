@@ -30,7 +30,7 @@ import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.getP
 import static io.trino.plugin.hive.aws.athena.Projection.invalidProjectionException;
 import static java.lang.String.format;
 
-class IntegerProjectionFactory
+final class IntegerProjectionFactory
         implements ProjectionFactory
 {
     @Override
