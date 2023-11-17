@@ -548,9 +548,16 @@ The {ref}`sql-schema-table-management` functionality includes support for:
 #### Schema evolution
 
 Iceberg supports schema evolution, with safe column add, drop, reorder, and
-rename operations, including in nested structures. Table partitioning can also
-be changed and the connector can still query data created before the
-partitioning change.
+rename operations, including in nested structures. 
+
+Iceberg supports updating column types only for widening operations:
+ 
+- `INTEGER` to `BIGINT`
+- `REAL` to `DOUBLE`
+- `DECIMAL(p,s)` to `DECIMAL(p2,s)` when `p2` > `p` (scale cannot change)
+
+Partitioning can also be changed and the connector can still query data 
+created before the partitioning change.
 
 (iceberg-alter-table-execute)=
 
