@@ -131,11 +131,21 @@ implementation is used:
     aggregations or joins.
   - 0.05
 * - `iceberg.table-statistics-enabled`
-  - Enables [](/optimizer/statistics). The equivalent [catalog session
+  - Enable [](/optimizer/statistics). The equivalent [catalog session
     property](/sql/set-session) is `statistics_enabled` for session specific
     use. Set to `false` to disable statistics. Disabling statistics means that
     [](/optimizer/cost-based-optimizations) cannot make better decisions about
     the query plan.
+  - `true`
+* - `iceberg.extended-statistics.enabled`
+  - Enable statistics collection with [](/sql/analyze) and use of extended
+    statistics. The equivalent catalog session property is
+    `extended_statistics_enabled`.
+  - `true`
+* - `iceberg.extended-statistics.collect-on-write`
+  - Enable collection of extended statistics for write operations. The
+    equivalent catalog session property is
+    `collect_extended_statistics_on_write`.
   - `true`
 * - `iceberg.projection-pushdown-enabled`
   - Enable [projection pushdown](/optimizer/pushdown)
