@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -50,9 +49,13 @@ public final class ResourceGroupId
     @JsonCreator
     public ResourceGroupId(List<String> segments)
     {
-        checkArgument(!segments.isEmpty(), "Resource group id is empty");
+        if (segments.isEmpty()) {
+            throw new IllegalArgumentException("Resource group id is empty");
+        }
         for (String segment : segments) {
-            checkArgument(!segment.isEmpty(), "Empty segment in resource group id");
+            if (segment.isEmpty()) {
+                throw new IllegalArgumentException("Empty segment in resource group id");
+            }
         }
         this.segments = segments;
     }
@@ -88,13 +91,6 @@ public final class ResourceGroupId
             return false;
         }
         return descendantSegments.subList(0, segments.size()).equals(segments);
-    }
-
-    private static void checkArgument(boolean argument, String format, Object... args)
-    {
-        if (!argument) {
-            throw new IllegalArgumentException(format(format, args));
-        }
     }
 
     @Override
