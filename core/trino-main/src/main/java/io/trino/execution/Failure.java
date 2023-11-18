@@ -18,6 +18,7 @@ import jakarta.annotation.Nullable;
 
 import static java.util.Objects.requireNonNull;
 
+@SuppressWarnings("ExceptionClassNameDoesntEndWithException")
 public class Failure
         extends RuntimeException
 {

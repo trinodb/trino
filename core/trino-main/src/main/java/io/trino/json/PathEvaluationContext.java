@@ -53,7 +53,7 @@ public class PathEvaluationContext
     public TypedValue getLast()
     {
         if (last.getLongValue() < 0) {
-            throw new PathEvaluationError("accessing the last array index with no enclosing array");
+            throw new PathEvaluationException("accessing the last array index with no enclosing array");
         }
         return last;
     }
@@ -61,7 +61,7 @@ public class PathEvaluationContext
     public Object getCurrentItem()
     {
         if (currentItem == null) {
-            throw new PathEvaluationError("accessing current filter item with no enclosing filter");
+            throw new PathEvaluationException("accessing current filter item with no enclosing filter");
         }
         return currentItem;
     }

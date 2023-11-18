@@ -134,7 +134,7 @@ public final class JsonOutputFunctions
                 return null;
             }
             if (errorBehavior == ERROR.ordinal()) {
-                throw new JsonOutputConversionError(e);
+                throw new JsonOutputConversionException(e);
             }
             if (errorBehavior == EMPTY_ARRAY.ordinal()) {
                 return constants.emptyArray;

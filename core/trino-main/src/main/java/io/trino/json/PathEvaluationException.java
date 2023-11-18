@@ -18,15 +18,15 @@ import io.trino.spi.TrinoException;
 import static io.trino.spi.StandardErrorCode.PATH_EVALUATION_ERROR;
 import static java.lang.String.format;
 
-public class PathEvaluationError
+public class PathEvaluationException
         extends TrinoException
 {
-    public PathEvaluationError(String message)
+    public PathEvaluationException(String message)
     {
         super(PATH_EVALUATION_ERROR, "path evaluation failed: " + message);
     }
 
-    public PathEvaluationError(Throwable cause)
+    public PathEvaluationException(Throwable cause)
     {
         super(PATH_EVALUATION_ERROR, "path evaluation failed: ", cause);
     }
@@ -46,11 +46,11 @@ public class PathEvaluationError
      */
     public static TrinoException structuralError(String format, Object... arguments)
     {
-        return new PathEvaluationError("structural error: " + format(format, arguments));
+        return new PathEvaluationException("structural error: " + format(format, arguments));
     }
 
     public static TrinoException itemTypeError(String expected, String actual)
     {
-        return new PathEvaluationError(format("invalid item type. Expected: %s, actual: %s", expected, actual));
+        return new PathEvaluationException(format("invalid item type. Expected: %s, actual: %s", expected, actual));
     }
 }

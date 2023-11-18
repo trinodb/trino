@@ -15,18 +15,18 @@ package io.trino.operator.scalar.json;
 
 import io.trino.spi.TrinoException;
 
-import static io.trino.spi.StandardErrorCode.JSON_OUTPUT_CONVERSION_ERROR;
+import static io.trino.spi.StandardErrorCode.JSON_INPUT_CONVERSION_ERROR;
 
-public class JsonOutputConversionError
+public class JsonInputConversionException
         extends TrinoException
 {
-    public JsonOutputConversionError(String message)
+    public JsonInputConversionException(String message)
     {
-        super(JSON_OUTPUT_CONVERSION_ERROR, "conversion from JSON failed: " + message);
+        super(JSON_INPUT_CONVERSION_ERROR, "conversion to JSON failed: " + message);
     }
 
-    public JsonOutputConversionError(Throwable cause)
+    public JsonInputConversionException(Throwable cause)
     {
-        super(JSON_OUTPUT_CONVERSION_ERROR, "conversion from JSON failed: ", cause);
+        super(JSON_INPUT_CONVERSION_ERROR, "conversion to JSON failed: ", cause);
     }
 }
