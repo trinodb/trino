@@ -20,7 +20,7 @@ import com.amazonaws.services.glue.model.EntityNotFoundException;
 import com.amazonaws.services.glue.model.GetDatabasesRequest;
 import com.amazonaws.services.glue.model.GetDatabasesResult;
 import io.airlift.log.Logger;
-import io.trino.plugin.hive.aws.AwsApiCallStats;
+import io.trino.plugin.hive.metastore.glue.AwsApiCallStats;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

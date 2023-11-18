@@ -23,7 +23,7 @@ import com.amazonaws.services.glue.model.TableInput;
 import com.amazonaws.services.glue.model.TableVersion;
 import com.amazonaws.services.glue.model.UpdateTableRequest;
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.hive.aws.AwsApiCallStats;
+import io.trino.plugin.hive.metastore.glue.AwsApiCallStats;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.plugin.iceberg.SchemaInitializer;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
