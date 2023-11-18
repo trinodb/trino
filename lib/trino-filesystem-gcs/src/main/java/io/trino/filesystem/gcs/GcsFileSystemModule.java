@@ -26,7 +26,7 @@ public class GcsFileSystemModule
     public void configure(Binder binder)
     {
         configBinder(binder).bindConfig(GcsFileSystemConfig.class);
-        binder.bind(GcsStorageFactory.class).to(DefaultGcsStorageFactory.class).in(Scopes.SINGLETON);
+        binder.bind(GcsStorageFactory.class).in(Scopes.SINGLETON);
         binder.bind(GcsFileSystemFactory.class).in(Scopes.SINGLETON);
     }
 }
