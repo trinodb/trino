@@ -24,11 +24,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.TestInstance;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.Base64;
-import java.util.concurrent.TimeUnit;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -57,7 +54,7 @@ public abstract class AbstractTestGcsFileSystem
         // For gcp testing this corresponds to the Cluster Storage Admin and Cluster Storage Object Admin roles
         byte[] jsonKeyBytes = Base64.getDecoder().decode(gcpCredentialKey);
         GcsFileSystemConfig config = new GcsFileSystemConfig().setJsonKey(new String(jsonKeyBytes, UTF_8));
-        GcsStorageFactory storageFactory = new TestingGcsStorageFactory(config);
+        GcsStorageFactory storageFactory = new GcsStorageFactory(config);
         this.gcsFileSystemFactory = new GcsFileSystemFactory(config, storageFactory);
         this.storage = storageFactory.create(ConnectorIdentity.ofUser("test"));
         String bucket = RemoteStorageHelper.generateBucketName();
@@ -69,17 +66,20 @@ public abstract class AbstractTestGcsFileSystem
 
     @AfterAll
     void tearDown()
-            throws Exception
     {
         try {
-            RemoteStorageHelper.forceDelete(storage, rootLocation.host().get(), 5, TimeUnit.SECONDS);
-            gcsFileSystemFactory.stop();
+            storage.delete(rootLocation.host().get());
         }
         finally {
             fileSystem = null;
             storage = null;
             rootLocation = null;
-            gcsFileSystemFactory = null;
+            try {
+                gcsFileSystemFactory.stop();
+            }
+            finally {
+                gcsFileSystemFactory = null;
+            }
         }
     }
 
@@ -125,26 +125,5 @@ public abstract class AbstractTestGcsFileSystem
     protected final boolean supportsRenameFile()
     {
         return false;
-    }
-
-    private static class TestingGcsStorageFactory
-            implements GcsStorageFactory
-    {
-        private final Storage storage;
-
-        public TestingGcsStorageFactory(GcsFileSystemConfig config)
-        {
-            requireNonNull(config, "config is null");
-            InputStream inputStream = new ByteArrayInputStream(config.getJsonKey().getBytes(UTF_8));
-            // Note: the default project id from the credentials file will be used. See StorageOptions.setProjectId()
-            RemoteStorageHelper helper = RemoteStorageHelper.create(null, inputStream);
-            this.storage = helper.getOptions().getService();
-        }
-
-        @Override
-        public Storage create(ConnectorIdentity identity)
-        {
-            return storage;
-        }
     }
 }
