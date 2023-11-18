@@ -20,9 +20,9 @@ import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.json.JsonPathEvaluator;
 import io.trino.json.JsonPathInvocationContext;
-import io.trino.json.PathEvaluationError;
+import io.trino.json.PathEvaluationException;
 import io.trino.json.ir.IrJsonPath;
-import io.trino.json.ir.SqlJsonLiteralConverter.JsonLiteralConversionError;
+import io.trino.json.ir.SqlJsonLiteralConverter.JsonLiteralConversionException;
 import io.trino.json.ir.TypedValue;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
@@ -240,12 +240,12 @@ public class JsonValueFunction
             Object errorDefault)
     {
         if (inputExpression.equals(JSON_ERROR)) {
-            return handleSpecialCase(errorBehavior, errorDefault, () -> new JsonInputConversionError("malformed input argument to JSON_VALUE function")); // ERROR ON ERROR was already handled by the input function
+            return handleSpecialCase(errorBehavior, errorDefault, () -> new JsonInputConversionException("malformed input argument to JSON_VALUE function")); // ERROR ON ERROR was already handled by the input function
         }
         Object[] parameters = getParametersArray(parametersRowType, parametersRow);
         for (Object parameter : parameters) {
             if (parameter.equals(JSON_ERROR)) {
-                return handleSpecialCase(errorBehavior, errorDefault, () -> new JsonInputConversionError("malformed JSON path parameter to JSON_VALUE function")); // ERROR ON ERROR was already handled by the input function
+                return handleSpecialCase(errorBehavior, errorDefault, () -> new JsonInputConversionException("malformed JSON path parameter to JSON_VALUE function")); // ERROR ON ERROR was already handled by the input function
             }
         }
         // The jsonPath argument is constant for every row. We use the first incoming jsonPath argument to initialize
@@ -260,16 +260,16 @@ public class JsonValueFunction
         try {
             pathResult = evaluator.evaluate(inputExpression, parameters);
         }
-        catch (PathEvaluationError e) {
+        catch (PathEvaluationException e) {
             return handleSpecialCase(errorBehavior, errorDefault, () -> e); // TODO by spec, we should cast the defaults only if they are used
         }
 
         if (pathResult.isEmpty()) {
-            return handleSpecialCase(emptyBehavior, emptyDefault, () -> new JsonValueResultError("JSON path found no items"));
+            return handleSpecialCase(emptyBehavior, emptyDefault, () -> new JsonValueResultException("JSON path found no items"));
         }
 
         if (pathResult.size() > 1) {
-            return handleSpecialCase(errorBehavior, errorDefault, () -> new JsonValueResultError("JSON path found multiple items"));
+            return handleSpecialCase(errorBehavior, errorDefault, () -> new JsonValueResultException("JSON path found multiple items"));
         }
 
         Object item = getOnlyElement(pathResult);
@@ -282,11 +282,11 @@ public class JsonValueFunction
             try {
                 itemValue = getTypedValue((JsonNode) item);
             }
-            catch (JsonLiteralConversionError e) {
-                return handleSpecialCase(errorBehavior, errorDefault, () -> new JsonValueResultError("JSON path found an item that cannot be converted to an SQL value", e));
+            catch (JsonLiteralConversionException e) {
+                return handleSpecialCase(errorBehavior, errorDefault, () -> new JsonValueResultException("JSON path found an item that cannot be converted to an SQL value", e));
             }
             if (itemValue.isEmpty()) {
-                return handleSpecialCase(errorBehavior, errorDefault, () -> new JsonValueResultError("JSON path found an item that cannot be converted to an SQL value"));
+                return handleSpecialCase(errorBehavior, errorDefault, () -> new JsonValueResultException("JSON path found an item that cannot be converted to an SQL value"));
             }
             typedValue = itemValue.get();
         }
@@ -301,7 +301,7 @@ public class JsonValueFunction
             coercion = metadata.getCoercion(typedValue.getType(), returnType);
         }
         catch (OperatorNotFoundException e) {
-            return handleSpecialCase(errorBehavior, errorDefault, () -> new JsonValueResultError(format(
+            return handleSpecialCase(errorBehavior, errorDefault, () -> new JsonValueResultException(format(
                     "Cannot cast value of type %s to declared return type of function JSON_VALUE: %s",
                     typedValue.getType(),
                     returnType)));
@@ -310,7 +310,7 @@ public class JsonValueFunction
             return new InterpretedFunctionInvoker(functionManager).invoke(coercion, session, ImmutableList.of(typedValue.getValueAsObject()));
         }
         catch (RuntimeException e) {
-            return handleSpecialCase(errorBehavior, errorDefault, () -> new JsonValueResultError(format(
+            return handleSpecialCase(errorBehavior, errorDefault, () -> new JsonValueResultException(format(
                     "Cannot cast value of type %s to declared return type of function JSON_VALUE: %s",
                     typedValue.getType(),
                     returnType)));
@@ -330,15 +330,15 @@ public class JsonValueFunction
         throw new IllegalStateException("unexpected behavior");
     }
 
-    public static class JsonValueResultError
+    public static class JsonValueResultException
             extends TrinoException
     {
-        public JsonValueResultError(String message)
+        public JsonValueResultException(String message)
         {
             super(JSON_VALUE_RESULT_ERROR, "cannot extract SQL scalar from JSON: " + message);
         }
 
-        public JsonValueResultError(String message, Throwable cause)
+        public JsonValueResultException(String message, Throwable cause)
         {
             super(JSON_VALUE_RESULT_ERROR, "cannot extract SQL scalar from JSON: " + message, cause);
         }
