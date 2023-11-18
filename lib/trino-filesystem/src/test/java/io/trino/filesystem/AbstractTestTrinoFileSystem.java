@@ -391,6 +391,13 @@ public abstract class AbstractTestTrinoFileSystem
                     assertThat(inputStream.getPosition()).isEqualTo(fileSize + 100);
                 }
 
+                assertThatThrownBy(() -> inputStream.read(new byte[1], -1, 0))
+                        .isInstanceOf(IndexOutOfBoundsException.class);
+                assertThatThrownBy(() -> inputStream.read(new byte[1], 0, -1))
+                        .isInstanceOf(IndexOutOfBoundsException.class);
+                assertThatThrownBy(() -> inputStream.read(new byte[1], 1, 3))
+                        .isInstanceOf(IndexOutOfBoundsException.class);
+
                 // verify all the methods throw after close
                 inputStream.close();
                 assertThatThrownBy(inputStream::available)
