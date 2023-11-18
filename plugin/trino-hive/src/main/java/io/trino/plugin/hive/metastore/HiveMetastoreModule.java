@@ -52,7 +52,7 @@ public class HiveMetastoreModule
             bindMetastoreModule("glue", new GlueMetastoreModule());
         }
 
-        install(new DecoratedHiveMetastoreModule(true));
+        install(new CachingHiveMetastoreModule(true));
     }
 
     private void bindMetastoreModule(String name, Module module)
