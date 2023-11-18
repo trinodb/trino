@@ -29,7 +29,7 @@ import com.fasterxml.jackson.databind.node.NullNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.node.ShortNode;
 import com.fasterxml.jackson.databind.node.TextNode;
-import io.trino.json.ir.SqlJsonLiteralConverter.JsonLiteralConversionError;
+import io.trino.json.ir.SqlJsonLiteralConverter.JsonLiteralConversionException;
 import io.trino.spi.type.Int128;
 import org.assertj.core.api.AssertProvider;
 import org.assertj.core.api.RecursiveComparisonAssert;
@@ -154,7 +154,7 @@ public class TestSqlJsonLiteralConverter
                 .isEqualTo(new TypedValue(BIGINT, 1000000000000000000L));
 
         assertThatThrownBy(() -> getTypedValue(BigIntegerNode.valueOf(bigValue)))
-                .isInstanceOf(JsonLiteralConversionError.class)
+                .isInstanceOf(JsonLiteralConversionException.class)
                 .hasMessage("cannot convert 1000000000000000000000000000000000000 to Trino value (value too big)");
 
         assertThat(typedValueResult(DecimalNode.valueOf(BigDecimal.ONE)))
@@ -164,7 +164,7 @@ public class TestSqlJsonLiteralConverter
                 .isEqualTo(new TypedValue(createDecimalType(37, 20), Int128.valueOf(bigValue)));
 
         assertThatThrownBy(() -> getTypedValue(BigIntegerNode.valueOf(bigValue.multiply(bigValue))))
-                .isInstanceOf(JsonLiteralConversionError.class)
+                .isInstanceOf(JsonLiteralConversionException.class)
                 .hasMessage("cannot convert 1000000000000000000000000000000000000000000000000000000000000000000000000 to Trino value (value too big)");
 
         assertThat(typedValueResult(DoubleNode.valueOf(1e0)))

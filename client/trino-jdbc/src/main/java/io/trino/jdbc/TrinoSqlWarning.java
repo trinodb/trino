@@ -17,6 +17,7 @@ import io.trino.client.Warning;
 
 import java.sql.SQLWarning;
 
+@SuppressWarnings("ExceptionClassNameDoesntEndWithException")
 public class TrinoSqlWarning
         extends SQLWarning
 {

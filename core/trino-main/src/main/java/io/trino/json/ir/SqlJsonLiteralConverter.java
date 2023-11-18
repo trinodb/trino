@@ -90,13 +90,13 @@ public final class SqlJsonLiteralConverter
                 if (jsonNode.canConvertToLong()) {
                     return Optional.of(new TypedValue(BIGINT, jsonNode.longValue()));
                 }
-                throw conversionError(jsonNode, "value too big");
+                throw new JsonLiteralConversionException(jsonNode, "value too big");
             }
             if (jsonNode instanceof DecimalNode) {
                 BigDecimal jsonDecimal = jsonNode.decimalValue();
                 int precision = jsonDecimal.precision();
                 if (precision > MAX_PRECISION) {
-                    throw conversionError(jsonNode, "precision too big");
+                    throw new JsonLiteralConversionException(jsonNode, "precision too big");
                 }
                 int scale = jsonDecimal.scale();
                 DecimalType decimalType = createDecimalType(precision, scale);
@@ -167,17 +167,12 @@ public final class SqlJsonLiteralConverter
         return Optional.empty();
     }
 
-    public static TrinoException conversionError(JsonNode jsonNode, String cause)
-    {
-        return new JsonLiteralConversionError(jsonNode, cause);
-    }
-
-    public static class JsonLiteralConversionError
+    public static class JsonLiteralConversionException
             extends TrinoException
     {
-        public JsonLiteralConversionError(JsonNode jsonNode, String cause)
+        public JsonLiteralConversionException(JsonNode jsonNode, String message)
         {
-            super(INVALID_JSON_LITERAL, format("cannot convert %s to Trino value (%s)", jsonNode, cause));
+            super(INVALID_JSON_LITERAL, format("cannot convert %s to Trino value (%s)", jsonNode, message));
         }
     }
 }

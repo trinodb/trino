@@ -107,7 +107,7 @@ public final class JsonInputFunctions
         }
         catch (JsonProcessingException e) {
             if (failOnError) {
-                throw new JsonInputConversionError(e);
+                throw new JsonInputConversionException(e);
             }
             return JSON_ERROR;
         }
