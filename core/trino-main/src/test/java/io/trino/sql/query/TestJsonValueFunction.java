@@ -13,9 +13,9 @@
  */
 package io.trino.sql.query;
 
-import io.trino.json.PathEvaluationError;
-import io.trino.operator.scalar.json.JsonInputConversionError;
-import io.trino.operator.scalar.json.JsonValueFunction.JsonValueResultError;
+import io.trino.json.PathEvaluationException;
+import io.trino.operator.scalar.json.JsonInputConversionException;
+import io.trino.operator.scalar.json.JsonValueFunction.JsonValueResultException;
 import io.trino.sql.parser.ParsingException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -79,7 +79,7 @@ public class TestJsonValueFunction
 
         assertThatThrownBy(() -> assertions.query(
                 "SELECT json_value('" + INPUT + "', 'strict $[100]' ERROR ON ERROR)"))
-                .isInstanceOf(PathEvaluationError.class)
+                .isInstanceOf(PathEvaluationException.class)
                 .hasMessage("path evaluation failed: structural error: invalid array subscript: [100, 100] for array of size 3");
 
         // structural error suppressed by the path engine in lax mode. empty sequence is returned, so ON EMPTY behavior is applied
@@ -99,7 +99,7 @@ public class TestJsonValueFunction
 
         assertThatThrownBy(() -> assertions.query(
                 "SELECT json_value('" + INPUT + "', 'lax $[100]' ERROR ON EMPTY)"))
-                .isInstanceOf(JsonValueResultError.class)
+                .isInstanceOf(JsonValueResultException.class)
                 .hasMessage("cannot extract SQL scalar from JSON: JSON path found no items");
 
         // path returns multiple items. this case is handled accordingly to the ON ERROR clause
@@ -119,7 +119,7 @@ public class TestJsonValueFunction
 
         assertThatThrownBy(() -> assertions.query(
                 "SELECT json_value('" + INPUT + "', 'lax $[0 to 2]' ERROR ON ERROR)"))
-                .isInstanceOf(JsonValueResultError.class)
+                .isInstanceOf(JsonValueResultException.class)
                 .hasMessage("cannot extract SQL scalar from JSON: JSON path found multiple items");
     }
 
@@ -198,7 +198,7 @@ public class TestJsonValueFunction
 
         assertThatThrownBy(() -> assertions.query(
                 "SELECT json_value('" + INCORRECT_INPUT + "', 'lax $[1]' ERROR ON ERROR)"))
-                .isInstanceOf(JsonInputConversionError.class)
+                .isInstanceOf(JsonInputConversionException.class)
                 .hasMessage("conversion to JSON failed: ");
     }
 
@@ -226,7 +226,7 @@ public class TestJsonValueFunction
 
         assertThatThrownBy(() -> assertions.query(
                 "SELECT json_value('" + INPUT + "', 'lax $array[0]' PASSING '[...' FORMAT JSON AS \"array\" ERROR ON ERROR)"))
-                .isInstanceOf(JsonInputConversionError.class)
+                .isInstanceOf(JsonInputConversionException.class)
                 .hasMessage("conversion to JSON failed: ");
 
         // array index out of bounds
@@ -300,7 +300,7 @@ public class TestJsonValueFunction
 
         assertThatThrownBy(() -> assertions.query(
                 "SELECT json_value('" + INPUT + "', 'lax $' ERROR ON ERROR)"))
-                .isInstanceOf(JsonValueResultError.class)
+                .isInstanceOf(JsonValueResultException.class)
                 .hasMessage("cannot extract SQL scalar from JSON: JSON path found an item that cannot be converted to an SQL value");
     }
 
