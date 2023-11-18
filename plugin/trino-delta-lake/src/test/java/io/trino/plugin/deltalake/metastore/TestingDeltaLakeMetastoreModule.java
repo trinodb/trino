@@ -18,7 +18,7 @@ import com.google.inject.Key;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.deltalake.AllowDeltaLakeManagedTableRename;
 import io.trino.plugin.hive.HideDeltaLakeTables;
-import io.trino.plugin.hive.metastore.DecoratedHiveMetastoreModule;
+import io.trino.plugin.hive.metastore.CachingHiveMetastoreModule;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
@@ -39,7 +39,7 @@ public class TestingDeltaLakeMetastoreModule
     public void setup(Binder binder)
     {
         binder.bind(HiveMetastoreFactory.class).annotatedWith(RawHiveMetastoreFactory.class).toInstance(HiveMetastoreFactory.ofInstance(metastore));
-        install(new DecoratedHiveMetastoreModule(false));
+        install(new CachingHiveMetastoreModule(false));
 
         binder.bind(Key.get(boolean.class, HideDeltaLakeTables.class)).toInstance(false);
         binder.bind(Key.get(boolean.class, AllowDeltaLakeManagedTableRename.class)).toInstance(true);
