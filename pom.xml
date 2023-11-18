@@ -2719,6 +2719,7 @@
                                     -Xep:CompareToZero:ERROR \
                                     -Xep:DefaultCharset:ERROR \
                                     -Xep:DistinctVarargsChecker:ERROR \
+                                    -Xep:DoNotCallSuggester:OFF \
                                     -Xep:EmptyBlockTag:ERROR \
                                     <!-- we would rather want the opposite check -->
                                     -Xep:EqualsGetClass:OFF \
