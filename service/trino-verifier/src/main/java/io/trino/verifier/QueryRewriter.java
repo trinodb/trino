@@ -59,7 +59,6 @@ import static io.trino.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static io.trino.sql.tree.SaveMode.IGNORE;
 import static io.trino.verifier.QueryType.READ;
 import static io.trino.verifier.VerifyCommand.statementToQueryType;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 
@@ -270,9 +269,9 @@ public class QueryRewriter
     public static class QueryRewriteException
             extends Exception
     {
-        public QueryRewriteException(String messageFormat, Object... args)
+        public QueryRewriteException(String message)
         {
-            super(format(messageFormat, args));
+            super(message);
         }
     }
 
