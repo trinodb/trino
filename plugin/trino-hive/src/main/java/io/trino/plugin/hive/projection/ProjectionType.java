@@ -11,15 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.aws.athena;
+package io.trino.plugin.hive.projection;
 
-import io.trino.spi.predicate.Domain;
-
-import java.util.List;
-import java.util.Optional;
-
-sealed interface Projection
-        permits DateProjection, EnumProjection, InjectedProjection, IntegerProjection
+public enum ProjectionType
 {
-    List<String> getProjectedValues(Optional<Domain> partitionValueFilter);
+    ENUM, INTEGER, DATE, INJECTED
 }

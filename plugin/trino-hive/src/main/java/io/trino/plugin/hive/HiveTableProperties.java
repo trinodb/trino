@@ -30,9 +30,9 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.PARTITION_PROJECTION_ENABLED;
-import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.PARTITION_PROJECTION_IGNORE;
-import static io.trino.plugin.hive.aws.athena.PartitionProjectionProperties.PARTITION_PROJECTION_LOCATION_TEMPLATE;
+import static io.trino.plugin.hive.projection.PartitionProjectionProperties.PARTITION_PROJECTION_ENABLED;
+import static io.trino.plugin.hive.projection.PartitionProjectionProperties.PARTITION_PROJECTION_IGNORE;
+import static io.trino.plugin.hive.projection.PartitionProjectionProperties.PARTITION_PROJECTION_LOCATION_TEMPLATE;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V2;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;

@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.hive.aws.athena;
+package io.trino.plugin.hive.projection;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.predicate.Domain;
