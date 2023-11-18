@@ -260,14 +260,7 @@ public class TpchHudiTablesInitializer
             // wrap to a HoodieRecord
             HoodieKey key = new HoodieKey(uuid, PARTITION_PATH);
             HoodieAvroPayload data = new HoodieAvroPayload(Option.of(record));
-            return new HoodieRecord<>(key, data)
-            {
-                @Override
-                public HoodieRecord<HoodieAvroPayload> newInstance()
-                {
-                    return new HoodieAvroRecord<>(key, data, null);
-                }
-            };
+            return new HoodieAvroRecord<>(key, data, null);
         };
     }
 

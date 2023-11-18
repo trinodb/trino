@@ -15,7 +15,8 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.hudi.version>0.12.3</dep.hudi.version>
+        <dep.hudi.version>0.14.0</dep.hudi.version>
+        <dep.kryo.shaded.version>4.0.2</dep.kryo.shaded.version>
     </properties>
 
     <dependencies>
@@ -186,6 +187,13 @@
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
             <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.esotericsoftware</groupId>
+            <artifactId>kryo-shaded</artifactId>
+            <version>${dep.kryo.shaded.version}</version>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
