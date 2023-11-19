@@ -761,7 +761,7 @@ public class ExpressionAnalyzer
             for (RowType.Field rowField : rowType.getFields()) {
                 if (fieldName.equalsIgnoreCase(rowField.getName().orElse(null))) {
                     if (foundFieldName) {
-                        throw semanticException(AMBIGUOUS_NAME, field, "Ambiguous row field reference: " + fieldName);
+                        throw semanticException(AMBIGUOUS_NAME, field, "Ambiguous row field reference: %s", fieldName);
                     }
                     foundFieldName = true;
                     rowFieldType = rowField.getType();
@@ -842,7 +842,7 @@ public class ExpressionAnalyzer
 
             Type type;
             if (node.getFalseValue().isPresent()) {
-                type = coerceToSingleType(context, node, "Result types for IF must be the same: %s vs %s", node.getTrueValue(), node.getFalseValue().get());
+                type = coerceToSingleType(context, node, "Result types for IF must be the same", node.getTrueValue(), node.getFalseValue().get());
             }
             else {
                 type = process(node.getTrueValue(), context);
@@ -1248,7 +1248,7 @@ public class ExpressionAnalyzer
                 Expression expression = arguments.get(0);
                 Type expressionType = process(expression, context);
                 if (!(expressionType instanceof VarcharType)) {
-                    throw semanticException(TYPE_MISMATCH, node, format("Expected expression of varchar, but '%s' has %s type", expression, expressionType.getDisplayName()));
+                    throw semanticException(TYPE_MISMATCH, node, "Expected expression of varchar, but '%s' has %s type", expression, expressionType.getDisplayName());
                 }
             }
 
@@ -1488,7 +1488,7 @@ public class ExpressionAnalyzer
                     }
                 }
                 else {
-                    throw semanticException(NOT_SUPPORTED, frame, "Unsupported frame type: " + frame.getType());
+                    throw semanticException(NOT_SUPPORTED, frame, "Unsupported frame type: %s", frame.getType());
                 }
             }
         }
@@ -2415,7 +2415,7 @@ public class ExpressionAnalyzer
 
             if (types.size() != lambdaArguments.size()) {
                 throw semanticException(INVALID_PARAMETER_USAGE, node,
-                        format("Expected a lambda that takes %s argument(s) but got %s", types.size(), lambdaArguments.size()));
+                        "Expected a lambda that takes %s argument(s) but got %s", types.size(), lambdaArguments.size());
             }
 
             ImmutableList.Builder<Field> fields = ImmutableList.builder();
@@ -2550,7 +2550,7 @@ public class ExpressionAnalyzer
                     !isDateTimeType(returnedType) ||
                     returnedType.equals(INTERVAL_DAY_TIME) ||
                     returnedType.equals(INTERVAL_YEAR_MONTH)) {
-                throw semanticException(TYPE_MISMATCH, node, "Invalid return type of function JSON_VALUE: " + node.getReturnedType().get());
+                throw semanticException(TYPE_MISMATCH, node, "Invalid return type of function JSON_VALUE: %s", node.getReturnedType().get());
             }
 
             JsonPathAnalysis pathAnalysis = jsonPathAnalyses.get(NodeRef.of(node));
@@ -2797,7 +2797,7 @@ public class ExpressionAnalyzer
                     if (isStringType(type)) {
                         yield VARBINARY_TO_JSON;
                     }
-                    throw semanticException(TYPE_MISMATCH, node, format("Cannot read input of type %s as JSON using formatting %s", type, format));
+                    throw semanticException(TYPE_MISMATCH, node, "Cannot read input of type %s as JSON using formatting %s", type, format);
                 }
                 case UTF8 -> VARBINARY_UTF8_TO_JSON;
                 case UTF16 -> VARBINARY_UTF16_TO_JSON;
@@ -2822,23 +2822,23 @@ public class ExpressionAnalyzer
                     if (isStringType(type)) {
                         yield JSON_TO_VARBINARY;
                     }
-                    throw semanticException(TYPE_MISMATCH, node, format("Cannot output JSON value as %s using formatting %s", type, format));
+                    throw semanticException(TYPE_MISMATCH, node, "Cannot output JSON value as %s using formatting %s", type, format);
                 }
                 case UTF8 -> {
                     if (!VARBINARY.equals(type)) {
-                        throw semanticException(TYPE_MISMATCH, node, format("Cannot output JSON value as %s using formatting %s", type, format));
+                        throw semanticException(TYPE_MISMATCH, node, "Cannot output JSON value as %s using formatting %s", type, format);
                     }
                     yield JSON_TO_VARBINARY_UTF8;
                 }
                 case UTF16 -> {
                     if (!VARBINARY.equals(type)) {
-                        throw semanticException(TYPE_MISMATCH, node, format("Cannot output JSON value as %s using formatting %s", type, format));
+                        throw semanticException(TYPE_MISMATCH, node, "Cannot output JSON value as %s using formatting %s", type, format);
                     }
                     yield JSON_TO_VARBINARY_UTF16;
                 }
                 case UTF32 -> {
                     if (!VARBINARY.equals(type)) {
-                        throw semanticException(TYPE_MISMATCH, node, format("Cannot output JSON value as %s using formatting %s", type, format));
+                        throw semanticException(TYPE_MISMATCH, node, "Cannot output JSON value as %s using formatting %s", type, format);
                     }
                     yield JSON_TO_VARBINARY_UTF32;
                 }
@@ -3155,7 +3155,7 @@ public class ExpressionAnalyzer
                 return superType;
             }
 
-            throw semanticException(TYPE_MISMATCH, node, message, firstType, secondType);
+            throw semanticException(TYPE_MISMATCH, node, "%s: %s vs %s", message, firstType, secondType);
         }
 
         private Type coerceToSingleType(StackableAstVisitorContext<Context> context, String description, List<Expression> expressions)
@@ -3176,12 +3176,12 @@ public class ExpressionAnalyzer
             for (Type type : types) {
                 Optional<Type> newSuperType = typeCoercion.getCommonSuperType(superType, type);
                 if (newSuperType.isEmpty()) {
-                    throw semanticException(TYPE_MISMATCH, Iterables.get(typeExpressions.get(type), 0).getNode(), format(
+                    throw semanticException(TYPE_MISMATCH, Iterables.get(typeExpressions.get(type), 0).getNode(),
                             "%s must be the same type or coercible to a common type. Cannot find common type between %s and %s, all types (without duplicates): %s",
                             description,
                             superType,
                             type,
-                            typeExpressions.keySet()));
+                            typeExpressions.keySet());
                 }
                 superType = newSuperType.get();
             }
@@ -3192,12 +3192,12 @@ public class ExpressionAnalyzer
 
                 if (!type.equals(superType)) {
                     if (!typeCoercion.canCoerce(type, superType)) {
-                        throw semanticException(TYPE_MISMATCH, Iterables.get(coercionCandidates, 0).getNode(), format(
+                        throw semanticException(TYPE_MISMATCH, Iterables.get(coercionCandidates, 0).getNode(),
                                 "%s must be the same type or coercible to a common type. Cannot find common type between %s and %s, all types (without duplicates): %s",
                                 description,
                                 superType,
                                 type,
-                                typeExpressions.keySet()));
+                                typeExpressions.keySet());
                     }
                     addOrReplaceExpressionsCoercion(coercionCandidates, type, superType);
                 }
@@ -3460,7 +3460,7 @@ public class ExpressionAnalyzer
                 plannerContext,
                 accessControl,
                 (node, ignored) -> {
-                    throw semanticException(errorCode, node, message);
+                    throw semanticException(errorCode, node, "%s", message);
                 },
                 session,
                 TypeProvider.empty(),
@@ -3582,7 +3582,7 @@ public class ExpressionAnalyzer
                 session,
                 TypeProvider.empty(),
                 parameters,
-                node -> semanticException(errorCode, node, message),
+                node -> semanticException(errorCode, node, "%s", message),
                 warningCollector,
                 isDescribe);
     }

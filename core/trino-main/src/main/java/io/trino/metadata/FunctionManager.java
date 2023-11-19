@@ -15,6 +15,7 @@ package io.trino.metadata;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.util.concurrent.UncheckedExecutionException;
+import com.google.errorprone.annotations.FormatMethod;
 import com.google.inject.Inject;
 import io.trino.FeaturesConfig;
 import io.trino.cache.NonEvictableCache;
@@ -246,12 +247,12 @@ public class FunctionManager
                 case BLOCK_POSITION_NOT_NULL:
                 case BLOCK_POSITION:
                     verifyFunctionSignature(parameterType.equals(Block.class) && methodType.parameterType(parameterIndex + 1).equals(int.class),
-                            "Expected %s argument types to be Block and int".formatted(argumentConvention));
+                            "Expected %s argument types to be Block and int", argumentConvention);
                     break;
                 case VALUE_BLOCK_POSITION:
                 case VALUE_BLOCK_POSITION_NOT_NULL:
                     verifyFunctionSignature(ValueBlock.class.isAssignableFrom(parameterType) && methodType.parameterType(parameterIndex + 1).equals(int.class),
-                            "Expected %s argument types to be ValueBlock and int".formatted(argumentConvention));
+                            "Expected %s argument types to be ValueBlock and int", argumentConvention);
                     break;
                 case FLAT:
                     verifyFunctionSignature(parameterType.equals(byte[].class) &&
@@ -303,6 +304,7 @@ public class FunctionManager
         }
     }
 
+    @FormatMethod
     private static void verifyFunctionSignature(boolean check, String message, Object... args)
     {
         if (!check) {
