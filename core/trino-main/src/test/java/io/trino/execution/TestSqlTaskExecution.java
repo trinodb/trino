@@ -98,6 +98,7 @@ public class TestSqlTaskExecution
     {
         ScheduledExecutorService taskNotificationExecutor = newScheduledThreadPool(10, threadsNamed("task-notification-%s"));
         ScheduledExecutorService driverYieldExecutor = newScheduledThreadPool(2, threadsNamed("driver-yield-%s"));
+        ScheduledExecutorService driverTimeoutExecutor = newScheduledThreadPool(2, threadsNamed("driver-timeout-%s"));
         TaskExecutor taskExecutor = new TimeSharingTaskExecutor(5, 10, 3, 4, Ticker.systemTicker());
 
         taskExecutor.start();
@@ -131,7 +132,7 @@ public class TestSqlTaskExecution
                             ImmutableList.of(testingScanOperatorFactory, taskOutputOperatorFactory),
                             OptionalInt.empty())),
                     ImmutableList.of(TABLE_SCAN_NODE_ID));
-            TaskContext taskContext = newTestingTaskContext(taskNotificationExecutor, driverYieldExecutor, taskStateMachine);
+            TaskContext taskContext = newTestingTaskContext(taskNotificationExecutor, driverYieldExecutor, driverTimeoutExecutor, taskStateMachine);
             SqlTaskExecution sqlTaskExecution = new SqlTaskExecution(
                     taskStateMachine,
                     taskContext,
@@ -197,10 +198,11 @@ public class TestSqlTaskExecution
             taskExecutor.stop();
             taskNotificationExecutor.shutdownNow();
             driverYieldExecutor.shutdown();
+            driverTimeoutExecutor.shutdown();
         }
     }
 
-    private TaskContext newTestingTaskContext(ScheduledExecutorService taskNotificationExecutor, ScheduledExecutorService driverYieldExecutor, TaskStateMachine taskStateMachine)
+    private TaskContext newTestingTaskContext(ScheduledExecutorService taskNotificationExecutor, ScheduledExecutorService driverYieldExecutor, ScheduledExecutorService driverTimeoutExecutor, TaskStateMachine taskStateMachine)
     {
         QueryContext queryContext = new QueryContext(
                 new QueryId("queryid"),
@@ -209,6 +211,7 @@ public class TestSqlTaskExecution
                 new TestingGcMonitor(),
                 taskNotificationExecutor,
                 driverYieldExecutor,
+                driverTimeoutExecutor,
                 DataSize.of(1, MEGABYTE),
                 new SpillSpaceTracker(DataSize.of(1, GIGABYTE)));
         return queryContext.addTaskContext(taskStateMachine, TEST_SESSION, () -> {}, false, false);

@@ -68,11 +68,13 @@ public class TestMemoryTracking
     private MemoryPool memoryPool;
     private ExecutorService notificationExecutor;
     private ScheduledExecutorService yieldExecutor;
+    private ScheduledExecutorService timeoutExecutor;
 
     @AfterEach
     public void tearDown()
     {
         notificationExecutor.shutdownNow();
+        timeoutExecutor.shutdownNow();
         yieldExecutor.shutdownNow();
         queryContext = null;
         taskContext = null;
@@ -87,6 +89,7 @@ public class TestMemoryTracking
     {
         notificationExecutor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-executor-%s"));
         yieldExecutor = newScheduledThreadPool(2, daemonThreadsNamed("local-query-runner-scheduler-%s"));
+        timeoutExecutor = newScheduledThreadPool(2, daemonThreadsNamed("local-query-runner-driver-timeout-%s"));
 
         memoryPool = new MemoryPool(memoryPoolSize);
         queryContext = new QueryContext(
@@ -96,6 +99,7 @@ public class TestMemoryTracking
                 new TestingGcMonitor(),
                 notificationExecutor,
                 yieldExecutor,
+                timeoutExecutor,
                 queryMaxSpillSize,
                 spillSpaceTracker);
         taskContext = queryContext.addTaskContext(
