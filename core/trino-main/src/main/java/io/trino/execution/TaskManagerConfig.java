@@ -100,6 +100,7 @@ public class TaskManagerConfig
 
     private int taskNotificationThreads = 5;
     private int taskYieldThreads = 3;
+    private int driverTimeoutThreads = 5;
 
     private BigDecimal levelTimeMultiplier = new BigDecimal(2.0);
 
@@ -566,6 +567,20 @@ public class TaskManagerConfig
     public TaskManagerConfig setTaskYieldThreads(int taskYieldThreads)
     {
         this.taskYieldThreads = taskYieldThreads;
+        return this;
+    }
+
+    @Min(1)
+    public int getDriverTimeoutThreads()
+    {
+        return driverTimeoutThreads;
+    }
+
+    @Config("task.driver-timeout-threads")
+    @ConfigDescription("Number of threads used for timing out blocked drivers if the timeout is set")
+    public TaskManagerConfig setDriverTimeoutThreads(int driverTimeoutThreads)
+    {
+        this.driverTimeoutThreads = driverTimeoutThreads;
         return this;
     }
 

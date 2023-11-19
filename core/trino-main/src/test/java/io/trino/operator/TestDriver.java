@@ -65,8 +65,10 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
+import static java.lang.Thread.sleep;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
@@ -290,6 +292,53 @@ public class TestDriver
     }
 
     @Test
+    public void testUnblocksOnTimeout()
+            throws InterruptedException
+    {
+        List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        driverContext.setBlockedTimeout(new Duration(70, MILLISECONDS));
+        // Create driver with 3 operators, one of which is blocked such that it will not move any page and
+        // return a blocked timeout future.
+        Operator operator1 = createSinkOperator(types, 1, "test1");
+        BlockedOperator operator2 = createBlockedOperator(types, 2, "test2");
+        Operator operator3 = createSinkOperator(types, 3, "test3");
+        Operator operator4 = createSinkOperator(types, 4, "test3");
+        Driver driver = Driver.createDriver(driverContext, operator1, operator2, operator3, operator4);
+
+        ListenableFuture<Void> blocked = driver.processForDuration(new Duration(200, MILLISECONDS));
+        assertThat(blocked.isDone()).isFalse();
+        // wait for the blocked future to be timed out
+        sleep(100);
+        assertThat(blocked.isDone()).isTrue();
+        // verify that the blocked operator is not cancelled or done due to timeout
+        assertThat(operator2.isCancelled()).isFalse();
+        assertThat(operator2.isDone()).isFalse();
+    }
+
+    @Test
+    public void testUnblocksWhenBlockedOperatorIsUnblockedAndTimeoutIsSet()
+    {
+        List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        driverContext.setBlockedTimeout(new Duration(100, MILLISECONDS));
+        // Create driver with 3 operators, one of which is blocked such that it will not move any page and
+        // return a blocked timeout future.
+        Operator operator1 = createSinkOperator(types, 1, "test1");
+        BlockedOperator operator2 = createBlockedOperator(types, 2, "test2");
+        Operator operator3 = createSinkOperator(types, 3, "test3");
+        Operator operator4 = createSinkOperator(types, 4, "test3");
+        Driver driver = Driver.createDriver(driverContext, operator1, operator2, operator3, operator4);
+
+        ListenableFuture<Void> blocked = driver.processForDuration(new Duration(200, MILLISECONDS));
+        assertThat(blocked.isDone()).isFalse();
+        // unblock the blocked operator
+        operator2.setDone();
+        // verify that the blocked future is done but is not cancelled
+        assertThat(operator2.isDone()).isTrue();
+        assertThat(blocked.isDone()).isTrue();
+        assertThat(operator2.isCancelled()).isFalse();
+    }
+
+    @Test
     public void testBrokenOperatorAddSource()
     {
         PlanNodeId sourceId = new PlanNodeId("source");
@@ -341,9 +390,21 @@ public class TestDriver
 
     private PageConsumerOperator createSinkOperator(List<Type> types)
     {
+        return createSinkOperator(types, 1, "test");
+    }
+
+    private PageConsumerOperator createSinkOperator(List<Type> types, int operatorId, String planNodeId)
+    {
         // materialize the output to catch some type errors
         MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(driverContext.getSession(), types);
-        return new PageConsumerOperator(driverContext.addOperatorContext(1, new PlanNodeId("test"), "sink"), resultBuilder::page, Function.identity());
+        return new PageConsumerOperator(driverContext.addOperatorContext(operatorId, new PlanNodeId(planNodeId), "sink"), resultBuilder::page, Function.identity());
+    }
+
+    private BlockedOperator createBlockedOperator(List<Type> types, int operatorId, String planNodeId)
+    {
+        // materialize the output to catch some type errors
+        MaterializedResult.Builder resultBuilder = MaterializedResult.resultBuilder(driverContext.getSession(), types);
+        return new BlockedOperator(driverContext.addOperatorContext(operatorId, new PlanNodeId(planNodeId), "sink"), resultBuilder::page, Function.identity());
     }
 
     private static class BrokenOperator
@@ -478,6 +539,41 @@ public class TestDriver
         void setFinished()
         {
             finished.set(null);
+        }
+    }
+
+    private static class BlockedOperator
+            extends PageConsumerOperator
+    {
+        private final SettableFuture<Void> blocked = SettableFuture.create();
+
+        public BlockedOperator(
+                OperatorContext operatorContext,
+                Consumer<Page> pageConsumer,
+                Function<Page, Page> pagePreprocessor)
+        {
+            super(operatorContext, pageConsumer, pagePreprocessor);
+        }
+
+        @Override
+        public ListenableFuture<Void> isBlocked()
+        {
+            return blocked;
+        }
+
+        private void setDone()
+        {
+            blocked.set(null);
+        }
+
+        private boolean isDone()
+        {
+            return blocked.isDone();
+        }
+
+        private boolean isCancelled()
+        {
+            return blocked.isCancelled();
         }
     }
 

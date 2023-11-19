@@ -54,6 +54,7 @@ public final class TestingOperatorContext
                 taskContext,
                 executor,
                 scheduledExecutor,
+                scheduledExecutor,
                 pipelineMemoryContext,
                 false,
                 false,
@@ -62,6 +63,7 @@ public final class TestingOperatorContext
         DriverContext driverContext = new DriverContext(
                 pipelineContext,
                 executor,
+                scheduledExecutor,
                 scheduledExecutor,
                 pipelineMemoryContext,
                 0L);
