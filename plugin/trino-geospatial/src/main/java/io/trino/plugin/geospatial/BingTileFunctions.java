@@ -17,6 +17,7 @@ import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.Point;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.slice.Slice;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -700,6 +701,12 @@ public final class BingTileFunctions
         }
     }
 
+    private static void checkCondition(boolean condition, String message)
+    {
+        checkCondition(condition, "%s", message);
+    }
+
+    @FormatMethod
     private static void checkCondition(boolean condition, String formatString, Object... args)
     {
         if (!condition) {
