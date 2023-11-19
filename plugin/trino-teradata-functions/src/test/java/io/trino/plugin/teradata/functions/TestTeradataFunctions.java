@@ -121,4 +121,28 @@ public class TestTeradataFunctions
                 .hasType(VARCHAR)
                 .isEqualTo("002830CE0CA076CA0CA0002930CE5F61253B2501253B");
     }
+
+    @Test
+    public void testToDate()
+    {
+        assertThat(assertions.function("to_date", "'1988/04/01'", "'yyyy/mm/dd'"))
+                .matches("DATE '1988-04-01'");
+        assertThat(assertions.function("to_date", "'1988/04/08'", "'yyyy/mm/dd'"))
+                .matches("DATE '1988-04-08'");
+    }
+
+    @Test
+    public void testToTimestamp()
+    {
+        assertThat(assertions.function("to_timestamp", "'1988/04/08;02:03:04'", "'yyyy/mm/dd;hh24:mi:ss'"))
+                .matches("TIMESTAMP '1988-04-08 02:03:04.000'");
+    }
+
+    @Test
+    public void testToChar()
+    {
+        assertThat(assertions.function("to_char", "TIMESTAMP '1988-04-08 14:15:16 +02:09'", "'yyyy/mm/dd;hh24:mi:ss'"))
+                .hasType(VARCHAR)
+                .isEqualTo("1988/04/08;14:15:16");
+    }
 }
