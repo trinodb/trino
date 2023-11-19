@@ -15,6 +15,7 @@ package io.trino.spi;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import com.google.errorprone.annotations.FormatMethod;
 
 import java.util.List;
 import java.util.Objects;
@@ -108,6 +109,7 @@ public final class QueryId
         return ids;
     }
 
+    @FormatMethod
     private static void checkArgument(boolean condition, String message, Object... messageArgs)
     {
         if (!condition) {

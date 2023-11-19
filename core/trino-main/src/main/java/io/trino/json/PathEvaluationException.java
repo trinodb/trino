@@ -13,6 +13,7 @@
  */
 package io.trino.json;
 
+import com.google.errorprone.annotations.FormatMethod;
 import io.trino.spi.TrinoException;
 
 import static io.trino.spi.StandardErrorCode.PATH_EVALUATION_ERROR;
@@ -44,6 +45,7 @@ public class PathEvaluationException
      * to the chosen `ON ERROR` option. Non-structural errors (e.g. numeric exceptions)
      * are not suppressed in `lax` or `strict` mode.
      */
+    @FormatMethod
     public static TrinoException structuralError(String format, Object... arguments)
     {
         return new PathEvaluationException("structural error: " + format(format, arguments));

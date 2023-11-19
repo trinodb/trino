@@ -166,7 +166,7 @@ public final class SequenceFunction
         checkCondition(
                 -MAX_RESULT_ENTRIES <= length && length <= MAX_RESULT_ENTRIES,
                 INVALID_FUNCTION_ARGUMENT,
-                "result of sequence function must not have more than %d entries".formatted(MAX_RESULT_ENTRIES));
+                "result of sequence function must not have more than %d entries", MAX_RESULT_ENTRIES);
 
         return toIntExact(length);
     }
