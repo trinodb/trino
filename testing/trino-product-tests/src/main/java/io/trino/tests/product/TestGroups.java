@@ -20,7 +20,6 @@ public final class TestGroups
     public static final String ALTER_TABLE = "alter_table";
     public static final String COMMENT = "comment";
     public static final String SIMPLE = "simple";
-    public static final String FUNCTIONS = "functions";
     public static final String CLI = "cli";
     public static final String SYSTEM_CONNECTOR = "system";
     public static final String CONFIGURED_FEATURES = "configured_features";
@@ -33,10 +32,6 @@ public final class TestGroups
     public static final String OAUTH2_REFRESH = "oauth2_refresh";
     public static final String MYSQL = "mysql";
     public static final String TRINO_JDBC = "trino_jdbc";
-    public static final String QUERY_ENGINE = "qe";
-    public static final String COMPARISON = "comparison";
-    public static final String LOGICAL = "logical";
-    public static final String JSON_FUNCTIONS = "json_functions";
     public static final String STORAGE_FORMATS = "storage_formats";
     public static final String STORAGE_FORMATS_DETAILED = "storage_formats_detailed";
     public static final String HMS_ONLY = "hms_only";
