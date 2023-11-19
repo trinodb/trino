@@ -192,7 +192,7 @@ public class SqlRoutineAnalyzer
             return plannerContext.getTypeManager().getType(toTypeSignature(type));
         }
         catch (TypeNotFoundException e) {
-            throw semanticException(TYPE_MISMATCH, node, "Unknown type: " + type);
+            throw semanticException(TYPE_MISMATCH, node, "Unknown type: %s", type);
         }
     }
 
@@ -218,7 +218,7 @@ public class SqlRoutineAnalyzer
             }
             String name = identifierValue(parameter.getName().get());
             if (!argumentNames.add(name)) {
-                throw semanticException(INVALID_ARGUMENTS, parameter, "Duplicate function parameter name: " + name);
+                throw semanticException(INVALID_ARGUMENTS, parameter, "Duplicate function parameter name: %s", name);
             }
         }
     }
@@ -514,7 +514,7 @@ public class SqlRoutineAnalyzer
                 return;
             }
             if (!typeCoercion.canCoerce(actualType, expectedType)) {
-                throw semanticException(TYPE_MISMATCH, expression, message + " must evaluate to %s (actual: %s)", expectedType, actualType);
+                throw semanticException(TYPE_MISMATCH, expression, "%s must evaluate to %s (actual: %s)", message, expectedType, actualType);
             }
 
             addCoercion(expression, actualType, expectedType);

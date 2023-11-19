@@ -13,6 +13,7 @@
  */
 package io.trino.sql.analyzer;
 
+import com.google.errorprone.annotations.FormatMethod;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.sql.tree.Expression;
@@ -38,11 +39,14 @@ public final class SemanticExceptions
         throw semanticException(AMBIGUOUS_NAME, node, "Column '%s' is ambiguous", name);
     }
 
+    @SuppressWarnings("FormatStringAnnotation")
+    @FormatMethod
     public static TrinoException semanticException(ErrorCodeSupplier code, Node node, String format, Object... args)
     {
         return semanticException(code, node, null, format, args);
     }
 
+    @FormatMethod
     public static TrinoException semanticException(ErrorCodeSupplier code, Node node, Throwable cause, String format, Object... args)
     {
         throw new TrinoException(code, extractLocation(node), format(format, args), cause);

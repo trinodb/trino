@@ -15,6 +15,7 @@ package io.trino.server;
 
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.FormatMethod;
 import com.sun.management.UnixOperatingSystemMXBean;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -173,12 +174,14 @@ final class TrinoSystemRequirements
         }
     }
 
+    @FormatMethod
     private static void failRequirement(String format, Object... args)
     {
         System.err.println("ERROR: " + format(format, args));
         System.exit(100);
     }
 
+    @FormatMethod
     private static void warnRequirement(String format, Object... args)
     {
         System.err.println("WARNING: " + format(format, args));

@@ -13,6 +13,7 @@
  */
 package io.trino.spi.type;
 
+import com.google.errorprone.annotations.FormatMethod;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ValueBlock;
@@ -628,6 +629,7 @@ public final class TypeOperatorDeclaration
             throw new IllegalArgumentException(format("Unexpected parameters for %s operator: %s", operatorType, method));
         }
 
+        @FormatMethod
         private static void checkArgument(boolean test, String message, Object... arguments)
         {
             if (!test) {
