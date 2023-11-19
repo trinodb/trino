@@ -737,6 +737,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public boolean isView(ConnectorSession session, SchemaTableName viewName)
+    {
+        try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {
+            return delegate.isView(session, viewName);
+        }
+    }
+
+    @Override
     public Map<String, Object> getViewProperties(ConnectorSession session, SchemaTableName viewName)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {

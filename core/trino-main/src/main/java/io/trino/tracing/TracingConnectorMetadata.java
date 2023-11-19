@@ -871,6 +871,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public boolean isView(ConnectorSession session, SchemaTableName viewName)
+    {
+        Span span = startSpan("isView", viewName);
+        try (var _ = scopedSpan(span)) {
+            return delegate.isView(session, viewName);
+        }
+    }
+
+    @Override
     public Map<String, Object> getViewProperties(ConnectorSession session, SchemaTableName viewName)
     {
         Span span = startSpan("getViewProperties", viewName);

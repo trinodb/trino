@@ -590,6 +590,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public boolean isView(Session session, QualifiedObjectName viewName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Map<String, Object> getViewProperties(Session session, QualifiedObjectName viewName)
     {
         throw new UnsupportedOperationException();

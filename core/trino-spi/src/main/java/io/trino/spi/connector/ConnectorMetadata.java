@@ -1023,6 +1023,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Is the specified table a view.
+     */
+    default boolean isView(ConnectorSession session, SchemaTableName viewName)
+    {
+        return getView(session, viewName).isPresent();
+    }
+
+    /**
      * Gets the view properties for the specified view.
      */
     @Experimental(eta = "2024-06-01")
