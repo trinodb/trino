@@ -77,10 +77,7 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_COMMENT_ON_VIEW,
-                    SUPPORTS_COMMENT_ON_VIEW_COLUMN,
-                    SUPPORTS_CREATE_MATERIALIZED_VIEW,
-                    SUPPORTS_CREATE_VIEW,
+            case SUPPORTS_CREATE_MATERIALIZED_VIEW,
                     SUPPORTS_RENAME_MATERIALIZED_VIEW,
                     SUPPORTS_RENAME_SCHEMA -> false;
             default -> super.hasBehavior(connectorBehavior);
@@ -143,14 +140,6 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
                 .setAwsAccessKey(MINIO_ACCESS_KEY)
                 .setAwsSecretKey(MINIO_SECRET_KEY)
         ).create(SESSION);
-    }
-
-    @Test
-    @Override
-    public void testView()
-    {
-        assertThatThrownBy(super::testView)
-                .hasMessageContaining("createView is not supported for Iceberg REST catalog");
     }
 
     @Test
@@ -306,14 +295,6 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
     public void testDropTableWithMissingManifestListFile()
     {
         assertThatThrownBy(super::testDropTableWithMissingManifestListFile)
-                .hasMessageContaining("Table location should not exist");
-    }
-
-    @Test
-    @Override
-    public void testDropTableWithMissingDataFile()
-    {
-        assertThatThrownBy(super::testDropTableWithMissingDataFile)
                 .hasMessageContaining("Table location should not exist");
     }
 

@@ -23,6 +23,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.ViewColumn;
 import io.trino.metadata.ViewDefinition;
 import io.trino.security.AccessControl;
+import io.trino.spi.connector.UnsupportedViewDialectException;
 import io.trino.spi.security.Identity;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.AnalyzerFactory;
@@ -81,13 +82,21 @@ public class CreateViewTask
         if (metadata.isMaterializedView(session, name)) {
             throw semanticException(TABLE_ALREADY_EXISTS, statement, "Materialized view already exists: '%s'", name);
         }
-        if (metadata.isView(session, name)) {
-            if (!statement.isReplace()) {
-                throw semanticException(TABLE_ALREADY_EXISTS, statement, "View already exists: '%s'", name);
+
+        try {
+            if (metadata.isView(session, name)) {
+                if (!statement.isReplace()) {
+                    throw semanticException(TABLE_ALREADY_EXISTS, statement, "View already exists: '%s'", name);
+                }
+            }
+            else if (metadata.getTableHandle(session, name).isPresent()) {
+                throw semanticException(TABLE_ALREADY_EXISTS, statement, "Table already exists: '%s'", name);
             }
         }
-        else if (metadata.getTableHandle(session, name).isPresent()) {
-            throw semanticException(TABLE_ALREADY_EXISTS, statement, "Table already exists: '%s'", name);
+        catch (UnsupportedViewDialectException exception) {
+            if (!statement.isReplace()) {
+                throw semanticException(TABLE_ALREADY_EXISTS, statement, "View %s already exists with dialect '%s'", name, exception.getDialect());
+            }
         }
 
         String sql = getFormattedSql(statement.getQuery(), sqlParser);
