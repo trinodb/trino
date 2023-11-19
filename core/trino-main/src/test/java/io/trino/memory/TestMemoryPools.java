@@ -97,6 +97,7 @@ public class TestMemoryPools
                 new TestingGcMonitor(),
                 localQueryRunner.getExecutor(),
                 localQueryRunner.getScheduler(),
+                localQueryRunner.getScheduler(),
                 TEN_MEGABYTES,
                 spillSpaceTracker);
         taskContext = createTaskContext(queryContext, localQueryRunner.getExecutor(), localQueryRunner.getDefaultSession());
