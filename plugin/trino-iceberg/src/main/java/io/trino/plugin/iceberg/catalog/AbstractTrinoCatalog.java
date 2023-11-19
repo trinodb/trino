@@ -120,6 +120,8 @@ public abstract class AbstractTrinoCatalog
         implements TrinoCatalog
 {
     public static final String TRINO_CREATED_BY_VALUE = "Trino Iceberg connector";
+    public static final String ICEBERG_VIEW_RUN_AS_OWNER = "trino.run-as-owner";
+
     protected static final String TRINO_CREATED_BY = HiveMetadata.TRINO_CREATED_BY;
     protected static final String TRINO_QUERY_ID_NAME = HiveMetadata.TRINO_QUERY_ID_NAME;
 

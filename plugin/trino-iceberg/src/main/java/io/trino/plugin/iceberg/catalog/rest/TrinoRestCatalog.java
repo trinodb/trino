@@ -24,6 +24,7 @@ import io.trino.cache.EvictableCacheBuilder;
 import io.trino.plugin.hive.metastore.TableInfo;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.IcebergSchemaProperties;
+import io.trino.plugin.iceberg.IcebergUtil;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.SessionType;
 import io.trino.spi.TrinoException;
@@ -38,7 +39,9 @@ import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.spi.type.TypeManager;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -52,9 +55,17 @@ import org.apache.iceberg.catalog.SessionCatalog.SessionContext;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.NoSuchNamespaceException;
 import org.apache.iceberg.exceptions.NoSuchTableException;
+import org.apache.iceberg.exceptions.NoSuchViewException;
 import org.apache.iceberg.exceptions.RESTException;
 import org.apache.iceberg.rest.RESTSessionCatalog;
 import org.apache.iceberg.rest.auth.OAuth2Properties;
+import org.apache.iceberg.view.ReplaceViewVersion;
+import org.apache.iceberg.view.SQLViewRepresentation;
+import org.apache.iceberg.view.UpdateViewProperties;
+import org.apache.iceberg.view.View;
+import org.apache.iceberg.view.ViewBuilder;
+import org.apache.iceberg.view.ViewRepresentation;
+import org.apache.iceberg.view.ViewVersion;
 
 import java.util.Date;
 import java.util.Iterator;
@@ -71,11 +82,14 @@ import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.filesystem.Locations.appendPath;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CATALOG_ERROR;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_UNSUPPORTED_VIEW_DIALECT;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
+import static io.trino.plugin.iceberg.catalog.AbstractTrinoCatalog.ICEBERG_VIEW_RUN_AS_OWNER;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
+import static org.apache.iceberg.view.ViewProperties.COMMENT;
 
 public class TrinoRestCatalog
         implements TrinoCatalog
@@ -84,6 +98,7 @@ public class TrinoRestCatalog
 
     private final RESTSessionCatalog restSessionCatalog;
     private final CatalogName catalogName;
+    private final TypeManager typeManager;
     private final SessionType sessionType;
     private final String trinoVersion;
     private final boolean useUniqueTableLocation;
@@ -97,12 +112,14 @@ public class TrinoRestCatalog
             CatalogName catalogName,
             SessionType sessionType,
             String trinoVersion,
+            TypeManager typeManager,
             boolean useUniqueTableLocation)
     {
         this.restSessionCatalog = requireNonNull(restSessionCatalog, "restSessionCatalog is null");
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.sessionType = requireNonNull(sessionType, "sessionType is null");
         this.trinoVersion = requireNonNull(trinoVersion, "trinoVersion is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.useUniqueTableLocation = useUniqueTableLocation;
     }
 
@@ -188,9 +205,11 @@ public class TrinoRestCatalog
         ImmutableList.Builder<TableInfo> tables = ImmutableList.builder();
         for (Namespace restNamespace : namespaces) {
             try {
-                // views and materialized views are currently not supported, so everything is a table
                 restSessionCatalog.listTables(sessionContext, restNamespace).stream()
                         .map(id -> new TableInfo(SchemaTableName.schemaTableName(id.namespace().toString(), id.name()), TableInfo.ExtendedRelationType.TABLE))
+                        .forEach(tables::add);
+                restSessionCatalog.listViews(sessionContext, restNamespace).stream()
+                        .map(id -> new TableInfo(SchemaTableName.schemaTableName(id.namespace().toString(), id.name()), TableInfo.ExtendedRelationType.OTHER_VIEW))
                         .forEach(tables::add);
             }
             catch (NoSuchNamespaceException e) {
@@ -373,13 +392,30 @@ public class TrinoRestCatalog
     @Override
     public void createView(ConnectorSession session, SchemaTableName schemaViewName, ConnectorViewDefinition definition, boolean replace)
     {
-        throw new TrinoException(NOT_SUPPORTED, "createView is not supported for Iceberg REST catalog");
+        ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
+        definition.getOwner().ifPresent(owner -> properties.put(ICEBERG_VIEW_RUN_AS_OWNER, owner));
+        definition.getComment().ifPresent(comment -> properties.put(COMMENT, comment));
+        Schema schema = IcebergUtil.schemaFromViewColumns(typeManager, definition.getColumns());
+        ViewBuilder viewBuilder = restSessionCatalog.buildView(convert(session), toIdentifier(schemaViewName));
+        viewBuilder = viewBuilder.withSchema(schema)
+                .withQuery("trino", definition.getOriginalSql())
+                .withDefaultNamespace(Namespace.of(schemaViewName.getSchemaName()))
+                .withDefaultCatalog(definition.getCatalog().orElse(null))
+                .withProperties(properties.buildOrThrow())
+                .withLocation(defaultTableLocation(session, schemaViewName));
+
+        if (replace) {
+            viewBuilder.createOrReplace();
+        }
+        else {
+            viewBuilder.create();
+        }
     }
 
     @Override
     public void renameView(ConnectorSession session, SchemaTableName source, SchemaTableName target)
     {
-        throw new TrinoException(NOT_SUPPORTED, "renameView is not supported for Iceberg REST catalog");
+        restSessionCatalog.renameView(convert(session), toIdentifier(source), toIdentifier(target));
     }
 
     @Override
@@ -391,19 +427,55 @@ public class TrinoRestCatalog
     @Override
     public void dropView(ConnectorSession session, SchemaTableName schemaViewName)
     {
-        throw new TrinoException(NOT_SUPPORTED, "dropView is not supported for Iceberg REST catalog");
+        restSessionCatalog.dropView(convert(session), toIdentifier(schemaViewName));
     }
 
     @Override
     public Map<SchemaTableName, ConnectorViewDefinition> getViews(ConnectorSession session, Optional<String> namespace)
     {
-        return ImmutableMap.of();
+        SessionContext sessionContext = convert(session);
+        ImmutableMap.Builder<SchemaTableName, ConnectorViewDefinition> views = ImmutableMap.builder();
+        for (Namespace restNamespace : listNamespaces(session, namespace)) {
+            for (TableIdentifier restView : restSessionCatalog.listViews(sessionContext, restNamespace)) {
+                SchemaTableName schemaTableName = SchemaTableName.schemaTableName(restView.namespace().toString(), restView.name());
+                getView(session, schemaTableName).ifPresent(view -> views.put(schemaTableName, view));
+            }
+        }
+
+        return views.buildOrThrow();
     }
 
     @Override
     public Optional<ConnectorViewDefinition> getView(ConnectorSession session, SchemaTableName viewName)
     {
-        return Optional.empty();
+        return getIcebergView(session, viewName).flatMap(view -> {
+            SQLViewRepresentation sqlView = view.sqlFor("trino");
+            if (!sqlView.dialect().equalsIgnoreCase("trino")) {
+                throw new TrinoException(ICEBERG_UNSUPPORTED_VIEW_DIALECT, "Cannot read unsupported dialect '%s' for view '%s'".formatted(sqlView.dialect(), viewName));
+            }
+
+            Optional<String> comment = Optional.ofNullable(view.properties().get(COMMENT));
+            List<ConnectorViewDefinition.ViewColumn> viewColumns = IcebergUtil.viewColumnsFromSchema(typeManager, view.schema());
+            ViewVersion currentVersion = view.currentVersion();
+            Optional<String> catalog = Optional.ofNullable(currentVersion.defaultCatalog());
+            Optional<String> schema = Optional.empty();
+            if (catalog.isPresent() && !currentVersion.defaultNamespace().isEmpty()) {
+                schema = Optional.of(currentVersion.defaultNamespace().toString());
+            }
+
+            Optional<String> owner = Optional.ofNullable(view.properties().get(ICEBERG_VIEW_RUN_AS_OWNER));
+            return Optional.of(new ConnectorViewDefinition(sqlView.sql(), catalog, schema, viewColumns, comment, owner, owner.isEmpty(), null));
+        });
+    }
+
+    private Optional<View> getIcebergView(ConnectorSession session, SchemaTableName viewName)
+    {
+        try {
+            return Optional.of(restSessionCatalog.loadView(convert(session), toIdentifier(viewName)));
+        }
+        catch (NoSuchViewException e) {
+            return Optional.empty();
+        }
     }
 
     @Override
@@ -471,13 +543,33 @@ public class TrinoRestCatalog
     @Override
     public void updateViewComment(ConnectorSession session, SchemaTableName schemaViewName, Optional<String> comment)
     {
-        throw new TrinoException(NOT_SUPPORTED, "updateViewComment is not supported for Iceberg REST catalog");
+        View view = getIcebergView(session, schemaViewName).orElseThrow(() -> new ViewNotFoundException(schemaViewName));
+        UpdateViewProperties updateViewProperties = view.updateProperties();
+        comment.ifPresentOrElse(
+                value -> updateViewProperties.set(COMMENT, value),
+                () -> updateViewProperties.remove(COMMENT));
+        updateViewProperties.commit();
     }
 
     @Override
     public void updateViewColumnComment(ConnectorSession session, SchemaTableName schemaViewName, String columnName, Optional<String> comment)
     {
-        throw new TrinoException(NOT_SUPPORTED, "updateViewColumnComment is not supported for Iceberg REST catalog");
+        View view = getIcebergView(session, schemaViewName)
+                .orElseThrow(() -> new ViewNotFoundException(schemaViewName));
+
+        ViewVersion current = view.currentVersion();
+        Schema updatedSchema = IcebergUtil.updateColumnComment(view.schema(), columnName, comment.orElse(null));
+        ReplaceViewVersion replaceViewVersion = view.replaceVersion()
+                .withSchema(updatedSchema)
+                .withDefaultCatalog(current.defaultCatalog())
+                .withDefaultNamespace(current.defaultNamespace());
+        for (ViewRepresentation representation : view.currentVersion().representations()) {
+            if (representation instanceof SQLViewRepresentation sqlViewRepresentation) {
+                replaceViewVersion.withQuery(sqlViewRepresentation.dialect(), sqlViewRepresentation.sql());
+            }
+        }
+
+        replaceViewVersion.commit();
     }
 
     private SessionCatalog.SessionContext convert(ConnectorSession session)
