@@ -134,6 +134,7 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.connector.ConnectorViewDefinition.ViewColumn;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
@@ -312,6 +313,18 @@ public final class IcebergUtil
         columns.add(pathColumnMetadata());
         columns.add(fileModifiedTimeColumnMetadata());
         return columns.build();
+    }
+
+    public static Schema updateColumnComment(Schema schema, String columnName, String comment)
+    {
+        NestedField fieldToUpdate = schema.findField(columnName);
+        checkArgument(fieldToUpdate != null, "Field %s does not exist", columnName);
+        NestedField updatedField = NestedField.of(fieldToUpdate.fieldId(), fieldToUpdate.isOptional(), fieldToUpdate.name(), fieldToUpdate.type(), comment);
+        List<NestedField> newFields = schema.columns().stream()
+                .map(field -> (field.fieldId() == updatedField.fieldId()) ? updatedField : field)
+                .toList();
+
+        return new Schema(newFields, schema.getAliases(), schema.identifierFieldIds());
     }
 
     public static IcebergColumnHandle getColumnHandle(NestedField column, TypeManager typeManager)
@@ -676,6 +689,27 @@ public final class IcebergUtil
         }
         org.apache.iceberg.types.Type icebergSchema = StructType.of(icebergColumns);
         return new Schema(icebergSchema.asStructType().fields());
+    }
+
+    public static Schema schemaFromViewColumns(TypeManager typeManager, List<ViewColumn> columns)
+    {
+        List<NestedField> icebergColumns = new ArrayList<>();
+        AtomicInteger nextFieldId = new AtomicInteger(1);
+        for (ViewColumn column : columns) {
+            Type trinoType = typeManager.getType(column.getType());
+            org.apache.iceberg.types.Type type = toIcebergTypeForNewColumn(trinoType, nextFieldId);
+            NestedField field = NestedField.of(nextFieldId.getAndIncrement(), false, column.getName(), type, column.getComment().orElse(null));
+            icebergColumns.add(field);
+        }
+        org.apache.iceberg.types.Type icebergSchema = StructType.of(icebergColumns);
+        return new Schema(icebergSchema.asStructType().fields());
+    }
+
+    public static List<ViewColumn> viewColumnsFromSchema(TypeManager typeManager, Schema schema)
+    {
+        return IcebergUtil.getColumns(schema, typeManager).stream()
+                .map(column -> new ViewColumn(column.getName(), column.getType().getTypeId(), column.getComment()))
+                .toList();
     }
 
     public static Transaction newCreateTableTransaction(TrinoCatalog catalog, ConnectorTableMetadata tableMetadata, ConnectorSession session, boolean replace, String tableLocation)

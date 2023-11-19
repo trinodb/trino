@@ -1476,7 +1476,18 @@ public final class MetadataManager
     @Override
     public boolean isView(Session session, QualifiedObjectName viewName)
     {
-        return getViewInternal(session, viewName).isPresent();
+        if (cannotExist(viewName)) {
+            return false;
+        }
+
+        return getOptionalCatalogMetadata(session, viewName.catalogName())
+                .map(catalog -> {
+                    CatalogHandle catalogHandle = catalog.getCatalogHandle(session, viewName, Optional.empty(), Optional.empty());
+                    ConnectorMetadata metadata = catalog.getMetadataFor(session, catalogHandle);
+                    ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
+                    return metadata.isView(connectorSession, viewName.asSchemaTableName());
+                })
+                .orElse(false);
     }
 
     @Override

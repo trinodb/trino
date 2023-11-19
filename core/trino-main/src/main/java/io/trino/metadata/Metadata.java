@@ -479,13 +479,7 @@ public interface Metadata
      */
     Map<QualifiedObjectName, ViewInfo> getViews(Session session, QualifiedTablePrefix prefix);
 
-    /**
-     * Is the specified table a view.
-     */
-    default boolean isView(Session session, QualifiedObjectName viewName)
-    {
-        return getView(session, viewName).isPresent();
-    }
+    boolean isView(Session session, QualifiedObjectName viewName);
 
     /**
      * Returns the view definition for the specified view name.
