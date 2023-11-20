@@ -69,6 +69,7 @@ import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
+import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SampleApplicationResult;
 import io.trino.spi.connector.SampleType;
@@ -511,10 +512,11 @@ public final class MetadataManager
 
         Optional<QualifiedObjectName> objectName = prefix.asQualifiedObjectName();
         if (objectName.isPresent()) {
-            Optional<Boolean> exists = isExistingRelationForListing(session, objectName.get());
-            if (exists.isPresent()) {
-                return exists.get() ? ImmutableList.of(objectName.get()) : ImmutableList.of();
+            Optional<RelationType> relationType = getRelationTypeIfExists(session, objectName.get());
+            if (relationType.isPresent()) {
+                return ImmutableList.of(objectName.get());
             }
+            // TODO we can probably return empty lit here
         }
 
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, prefix.getCatalogName());
@@ -537,25 +539,63 @@ public final class MetadataManager
         return ImmutableList.copyOf(tables);
     }
 
-    private Optional<Boolean> isExistingRelationForListing(Session session, QualifiedObjectName name)
+    @Override
+    public Map<SchemaTableName, RelationType> getRelationTypes(Session session, QualifiedTablePrefix prefix)
+    {
+        requireNonNull(prefix, "prefix is null");
+        if (cannotExist(prefix)) {
+            return ImmutableMap.of();
+        }
+
+        Optional<QualifiedObjectName> objectName = prefix.asQualifiedObjectName();
+        if (objectName.isPresent()) {
+            Optional<RelationType> relationType = getRelationTypeIfExists(session, objectName.get());
+            if (relationType.isPresent()) {
+                return ImmutableMap.of(objectName.get().asSchemaTableName(), relationType.get());
+            }
+            return ImmutableMap.of();
+        }
+
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, prefix.getCatalogName());
+        Map<SchemaTableName, RelationType> relationTypes = new LinkedHashMap<>();
+        if (catalog.isPresent()) {
+            CatalogMetadata catalogMetadata = catalog.get();
+
+            for (CatalogHandle catalogHandle : catalogMetadata.listCatalogHandles()) {
+                ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
+                ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
+                if (isExternalInformationSchema(catalogHandle, prefix.getSchemaName())) {
+                    continue;
+                }
+                metadata.getRelationTypes(connectorSession, prefix.getSchemaName()).entrySet().stream()
+                        .filter(entry -> !isExternalInformationSchema(catalogHandle, entry.getKey().getSchemaName()))
+                        .forEach(entry -> relationTypes.put(entry.getKey(), entry.getValue()));
+            }
+        }
+        return ImmutableMap.copyOf(relationTypes);
+    }
+
+    private Optional<RelationType> getRelationTypeIfExists(Session session, QualifiedObjectName name)
     {
         if (isMaterializedView(session, name)) {
-            return Optional.of(true);
+            return Optional.of(RelationType.MATERIALIZED_VIEW);
         }
         if (isView(session, name)) {
-            return Optional.of(true);
+            return Optional.of(RelationType.VIEW);
         }
 
         // TODO: consider a better way to resolve relation names: https://github.com/trinodb/trino/issues/9400
         try {
-            return Optional.of(getRedirectionAwareTableHandle(session, name).tableHandle().isPresent());
+            if (getRedirectionAwareTableHandle(session, name).tableHandle().isPresent()) {
+                return Optional.of(RelationType.TABLE);
+            }
+            return Optional.empty();
         }
         catch (TrinoException e) {
             // ignore redirection errors for consistency with listing
             if (e.getErrorCode().equals(TABLE_REDIRECTION_ERROR.toErrorCode())) {
-                return Optional.of(true);
+                return Optional.of(RelationType.TABLE);
             }
-            // we don't know if it exists or not
             return Optional.empty();
         }
     }
