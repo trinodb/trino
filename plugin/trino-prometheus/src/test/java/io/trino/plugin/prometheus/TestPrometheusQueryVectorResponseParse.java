@@ -41,7 +41,7 @@ public class TestPrometheusQueryVectorResponseParse
     {
         try (InputStream promVectorResponse = openStream()) {
             List<PrometheusMetricResult> results = new PrometheusQueryResponseParse(promVectorResponse).getResults();
-            assertThat(results.get(0).getMetricHeader().get("__name__")).isEqualTo("up");
+            assertThat(results.get(0).getMetricHeader()).containsEntry("__name__", "up");
         }
     }
 

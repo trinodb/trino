@@ -193,8 +193,8 @@ public class TestDbSessionPropertyManager
         // Failed reloading, use cached configurations
         assertThat(failuresAfter - failuresBefore).isEqualTo(1);
         Map<String, String> sessionProperties1 = manager.getSystemSessionProperties(context1);
-        assertThat(sessionProperties1.get("prop_1")).isEqualTo("val_1");
-        assertThat(sessionProperties1.get("prop_3")).isEqualTo(null);
+        assertThat(sessionProperties1).containsEntry("prop_1", "val_1");
+        assertThat(sessionProperties1).doesNotContainKey("prop_3");
     }
 
     /**
@@ -219,9 +219,9 @@ public class TestDbSessionPropertyManager
 
         SessionConfigurationContext context = new SessionConfigurationContext("foo", Optional.of("bar"), ImmutableSet.of(), Optional.empty(), TEST_RG);
         Map<String, String> sessionProperties = manager.getSystemSessionProperties(context);
-        assertThat(sessionProperties.get("prop_1")).isEqualTo("val_1_3");
-        assertThat(sessionProperties.get("prop_2")).isEqualTo("val_2_2");
-        assertThat(sessionProperties.get("prop_3")).isEqualTo("val_3_1");
+        assertThat(sessionProperties).containsEntry("prop_1", "val_1_3");
+        assertThat(sessionProperties).containsEntry("prop_2", "val_2_2");
+        assertThat(sessionProperties).containsEntry("prop_3", "val_3_1");
         assertThat(sessionProperties.size()).isEqualTo(3);
     }
 

@@ -104,7 +104,7 @@ public class TestHdfsConfig
         HdfsConfig expected = new HdfsConfig()
                 .setNewDirectoryPermissions("skip");
 
-        assertThat(properties.get("hive.fs.new-directory-permissions")).isEqualTo(expected.getNewDirectoryPermissions());
+        assertThat(properties).containsEntry("hive.fs.new-directory-permissions", expected.getNewDirectoryPermissions());
         assertThat(Optional.empty()).isEqualTo(expected.getNewDirectoryFsPermissions());
     }
 }

@@ -103,7 +103,7 @@ public class TestSetTimeZoneTask
 
         Map<String, String> setSessionProperties = stateMachine.getSetSessionProperties();
         assertThat(setSessionProperties).hasSize(1);
-        assertThat(setSessionProperties.get(TIME_ZONE_ID)).isEqualTo("America/Los_Angeles");
+        assertThat(setSessionProperties).containsEntry(TIME_ZONE_ID, "America/Los_Angeles");
     }
 
     @Test
@@ -129,7 +129,7 @@ public class TestSetTimeZoneTask
 
         Map<String, String> setSessionProperties = stateMachine.getSetSessionProperties();
         assertThat(setSessionProperties).hasSize(1);
-        assertThat(setSessionProperties.get(TIME_ZONE_ID)).isEqualTo("America/Los_Angeles");
+        assertThat(setSessionProperties).containsEntry(TIME_ZONE_ID, "America/Los_Angeles");
     }
 
     @Test
@@ -170,7 +170,7 @@ public class TestSetTimeZoneTask
 
         Map<String, String> setSessionProperties = stateMachine.getSetSessionProperties();
         assertThat(setSessionProperties).hasSize(1);
-        assertThat(setSessionProperties.get(TIME_ZONE_ID)).isEqualTo("+10:00");
+        assertThat(setSessionProperties).containsEntry(TIME_ZONE_ID, "+10:00");
     }
 
     @Test
@@ -190,7 +190,7 @@ public class TestSetTimeZoneTask
 
         Map<String, String> setSessionProperties = stateMachine.getSetSessionProperties();
         assertThat(setSessionProperties).hasSize(1);
-        assertThat(setSessionProperties.get(TIME_ZONE_ID)).isEqualTo("+08:00");
+        assertThat(setSessionProperties).containsEntry(TIME_ZONE_ID, "+08:00");
     }
 
     @Test
@@ -246,7 +246,7 @@ public class TestSetTimeZoneTask
 
         Map<String, String> setSessionProperties = stateMachine.getSetSessionProperties();
         assertThat(setSessionProperties).hasSize(1);
-        assertThat(setSessionProperties.get(TIME_ZONE_ID)).isEqualTo("-08:00");
+        assertThat(setSessionProperties).containsEntry(TIME_ZONE_ID, "-08:00");
     }
 
     private QueryStateMachine createQueryStateMachine(String query)

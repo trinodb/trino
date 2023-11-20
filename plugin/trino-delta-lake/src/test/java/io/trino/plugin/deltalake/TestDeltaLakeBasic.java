@@ -200,8 +200,9 @@ public class TestDeltaLakeBasic
 
         assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN second_col row(a array(integer), b map(integer, integer), c row(field integer))");
         MetadataEntry metadata = loadMetadataEntry(1, tableLocation);
-        assertThat(metadata.getConfiguration().get("delta.columnMapping.maxColumnId"))
-                .isEqualTo("6"); // +5 comes from second_col + second_col.a + second_col.b + second_col.c + second_col.c.field
+        assertThat(metadata.getConfiguration()).containsEntry(
+                "delta.columnMapping.maxColumnId",
+                "6"); // +5 comes from second_col + second_col.a + second_col.b + second_col.c + second_col.c.field
 
         JsonNode schema = OBJECT_MAPPER.readTree(metadata.getSchemaString());
         List<JsonNode> fields = ImmutableList.copyOf(schema.get("fields").elements());
@@ -301,8 +302,8 @@ public class TestDeltaLakeBasic
         assertThat(transactionLog.get(4).getAdd()).isNotNull();
         AddFileEntry addFileEntry = transactionLog.get(4).getAdd();
         DeltaLakeFileStatistics stats = addFileEntry.getStats().orElseThrow();
-        assertThat(stats.getMinValues().orElseThrow().get(physicalName)).isEqualTo(10);
-        assertThat(stats.getMaxValues().orElseThrow().get(physicalName)).isEqualTo(20);
+        assertThat(stats.getMinValues().orElseThrow()).containsEntry(physicalName, 10);
+        assertThat(stats.getMaxValues().orElseThrow()).containsEntry(physicalName, 20);
         assertThat(stats.getNullCount(physicalName).orElseThrow()).isEqualTo(1);
 
         // Verify optimized parquet file contains the expected physical id and name
@@ -347,8 +348,7 @@ public class TestDeltaLakeBasic
 
         assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN second_col row(a array(integer), b map(integer, integer), c row(field integer))");
         MetadataEntry metadata = loadMetadataEntry(1, tableLocation);
-        assertThat(metadata.getConfiguration().get("delta.columnMapping.maxColumnId"))
-                .isEqualTo("6"); // +5 comes from second_col + second_col.a + second_col.b + second_col.c + second_col.c.field
+        assertThat(metadata.getConfiguration()).containsEntry("delta.columnMapping.maxColumnId", "6"); // +5 comes from second_col + second_col.a + second_col.b + second_col.c + second_col.c.field
         assertThat(metadata.getSchemaString())
                 .containsPattern("(delta\\.columnMapping\\.id.*?){6}")
                 .containsPattern("(delta\\.columnMapping\\.physicalName.*?){6}");
@@ -401,8 +401,7 @@ public class TestDeltaLakeBasic
 
         assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN second_col row(a array(integer), b map(integer, integer), c row(field integer))");
         MetadataEntry metadata = loadMetadataEntry(1, tableLocation);
-        assertThat(metadata.getConfiguration().get("delta.columnMapping.maxColumnId"))
-                .isEqualTo("6"); // +5 comes from second_col + second_col.a + second_col.b + second_col.c + second_col.c.field
+        assertThat(metadata.getConfiguration()).containsEntry("delta.columnMapping.maxColumnId", "6"); // +5 comes from second_col + second_col.a + second_col.b + second_col.c + second_col.c.field
         assertThat(metadata.getSchemaString())
                 .containsPattern("(delta\\.columnMapping\\.id.*?){6}")
                 .containsPattern("(delta\\.columnMapping\\.physicalName.*?){6}");
@@ -522,8 +521,8 @@ public class TestDeltaLakeBasic
         assertThat(transactionLog).hasSize(2);
         AddFileEntry addFileEntry = transactionLog.get(1).getAdd();
         DeltaLakeFileStatistics stats = addFileEntry.getStats().orElseThrow();
-        assertThat(stats.getMinValues().orElseThrow().get("UPPER_CASE")).isEqualTo(10);
-        assertThat(stats.getMaxValues().orElseThrow().get("UPPER_CASE")).isEqualTo(20);
+        assertThat(stats.getMinValues().orElseThrow()).containsEntry("UPPER_CASE", 10);
+        assertThat(stats.getMaxValues().orElseThrow()).containsEntry("UPPER_CASE", 20);
         assertThat(stats.getNullCount("UPPER_CASE").orElseThrow()).isEqualTo(1);
 
         assertUpdate("UPDATE " + tableName + " SET upper_case = upper_case + 10", 3);
@@ -532,8 +531,8 @@ public class TestDeltaLakeBasic
         assertThat(transactionLogAfterUpdate).hasSize(3);
         AddFileEntry updateAddFileEntry = transactionLogAfterUpdate.get(2).getAdd();
         DeltaLakeFileStatistics updateStats = updateAddFileEntry.getStats().orElseThrow();
-        assertThat(updateStats.getMinValues().orElseThrow().get("UPPER_CASE")).isEqualTo(20);
-        assertThat(updateStats.getMaxValues().orElseThrow().get("UPPER_CASE")).isEqualTo(30);
+        assertThat(updateStats.getMinValues().orElseThrow()).containsEntry("UPPER_CASE", 20);
+        assertThat(updateStats.getMaxValues().orElseThrow()).containsEntry("UPPER_CASE", 30);
         assertThat(updateStats.getNullCount("UPPER_CASE").orElseThrow()).isEqualTo(1);
 
         assertQuery(
