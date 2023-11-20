@@ -47,11 +47,11 @@ here, are not included.
   - `NULL` in the table summary row. Available for columns of
     [DATE](date-data-type), [integer](integer-data-types),
     [floating-point](floating-point-data-types), and
-    [fixed-precision](fixed-precision-data-types) data types.
+    [exact numeric](exact-numeric-data-types) data types.
 * - `high_value`
   - The highest value found in this column
   - `NULL` in the table summary row. Available for columns of
     [DATE](date-data-type), [integer](integer-data-types),
     [floating-point](floating-point-data-types), and
-    [fixed-precision](fixed-precision-data-types) data types.
+    [exact numeric](exact-numeric-data-types) data types.
  :::
