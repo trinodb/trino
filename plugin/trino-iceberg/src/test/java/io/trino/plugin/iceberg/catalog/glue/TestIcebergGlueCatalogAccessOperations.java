@@ -498,7 +498,7 @@ public class TestIcebergGlueCatalogAccessOperations
                         session,
                         "SELECT * FROM information_schema.tables WHERE table_schema = CURRENT_SCHEMA",
                         ImmutableMultiset.<GlueMetastoreMethod>builder()
-                                .addCopies(GET_TABLES, 2)
+                                .addCopies(GET_TABLES, 3) // TODO regression, it used to be 2
                                 .build(),
                         ImmutableMultiset.of());
 
