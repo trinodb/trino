@@ -337,8 +337,7 @@ public class TestMapBlock
             else {
                 actualValue = BIGINT.getLong(rawValueBlock, rawOffset + i);
             }
-            assertThat(map.containsKey(actualKey)).isTrue();
-            assertThat(actualValue).isEqualTo(map.get(actualKey));
+            assertThat(map).containsEntry(actualKey, actualValue);
         }
     }
 

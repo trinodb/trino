@@ -197,8 +197,8 @@ public class TestJwkService
     {
         Map<String, PublicKey> keys = service.getKeys();
         assertThat(keys.size()).isEqualTo(3);
-        assertThat(keys.containsKey("test-rsa")).isTrue();
-        assertThat(keys.containsKey("test-ec")).isTrue();
-        assertThat(keys.containsKey("test-certificate-chain")).isTrue();
+        assertThat(keys).containsKey("test-rsa");
+        assertThat(keys).containsKey("test-ec");
+        assertThat(keys).containsKey("test-certificate-chain");
     }
 }
