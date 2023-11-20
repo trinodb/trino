@@ -49,7 +49,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.collect.Sets.union;
 import static io.trino.SystemSessionProperties.isOmitDateTimeTypePrecision;
 import static io.trino.connector.informationschema.InformationSchemaMetadata.defaultPrefixes;
 import static io.trino.connector.informationschema.InformationSchemaMetadata.isTablesEnumeratingTable;
@@ -285,7 +284,7 @@ public class InformationSchemaPageSource
         }
         // TODO (https://github.com/trinodb/trino/issues/8207) define a type for materialized views
 
-        for (SchemaTableName name : union(tables, views)) {
+        for (SchemaTableName name : tables) {
             String type = null;
             if (needsTableType) {
                 // if table and view names overlap, the view wins
