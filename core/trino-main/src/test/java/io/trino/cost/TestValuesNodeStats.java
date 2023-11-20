@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.sql.planner.Symbol;
 import org.junit.jupiter.api.Test;
 
+import static io.trino.cost.PlanNodeStatsEstimate.unknown;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.createVarcharType;
@@ -74,6 +75,15 @@ public class TestValuesNodeStats
                                                 // TODO .setAverageRowSize(4 + 1. / 3)
                                                 .build())
                                 .build()));
+    }
+
+    @Test
+    public void testDivisionByZero()
+    {
+        tester().assertStatsFor(pb -> pb
+                        .values(ImmutableList.of(pb.symbol("a", BIGINT)),
+                                ImmutableList.of(ImmutableList.of(expression("1 / 0")))))
+                .check(outputStats -> outputStats.equalTo(unknown()));
     }
 
     @Test
