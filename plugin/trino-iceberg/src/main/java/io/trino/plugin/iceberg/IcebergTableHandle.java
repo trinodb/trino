@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.DoNotCall;
 import io.airlift.units.DataSize;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorTableHandle;
@@ -72,6 +73,7 @@ public class IcebergTableHandle
     private final Optional<Boolean> forAnalyze;
 
     @JsonCreator
+    @DoNotCall // For JSON deserialization only
     public static IcebergTableHandle fromJsonForDeserializationOnly(
             @JsonProperty("catalog") CatalogHandle catalog,
             @JsonProperty("schemaName") String schemaName,

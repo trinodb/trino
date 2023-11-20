@@ -79,7 +79,7 @@ public class TableScanNode
      * This constructor is for JSON deserialization only. Do not use.
      * It's marked as @Deprecated to help avoid usage, and not because we plan to remove it.
      */
-    @Deprecated
+    /* TODO @DoNotCall once it's applicable to constructors */
     @JsonCreator
     public TableScanNode(
             @JsonProperty("id") PlanNodeId id,

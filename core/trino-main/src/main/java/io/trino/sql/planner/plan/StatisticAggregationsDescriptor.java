@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.DoNotCall;
 import io.trino.spi.statistics.ColumnStatisticMetadata;
 import io.trino.spi.statistics.TableStatisticType;
 
@@ -52,7 +53,7 @@ public class StatisticAggregationsDescriptor<T>
     }
 
     @JsonCreator
-    @Deprecated // for JSON serialization only
+    @DoNotCall // for JSON serialization only
     public static <T> StatisticAggregationsDescriptor<T> fromJson(
             @JsonProperty("grouping") Map<String, T> grouping,
             @JsonProperty("tableStatistics") Map<TableStatisticType, T> tableStatistics,
@@ -84,8 +85,8 @@ public class StatisticAggregationsDescriptor<T>
     }
 
     @JsonProperty
-    @Deprecated // for JSON serialization only
-    public List<ColumnStatisticAggregationsDescriptor<T>> getColumnStatisticsList()
+    @DoNotCall // for JSON serialization only
+    public final List<ColumnStatisticAggregationsDescriptor<T>> getColumnStatisticsList()
     {
         return columnStatistics.entrySet().stream()
                 .map(entry -> new ColumnStatisticAggregationsDescriptor<T>(entry.getKey(), entry.getValue()))

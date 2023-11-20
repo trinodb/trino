@@ -15,6 +15,7 @@ package io.trino.sql.relational;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.errorprone.annotations.DoNotCall;
 import io.airlift.slice.Slice;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -33,6 +34,7 @@ public final class ConstantExpression
         extends RowExpression
 {
     @JsonCreator
+    @DoNotCall // For JSON deserialization only
     public static ConstantExpression fromJson(
             @JsonProperty Block value,
             @JsonProperty Type type)
