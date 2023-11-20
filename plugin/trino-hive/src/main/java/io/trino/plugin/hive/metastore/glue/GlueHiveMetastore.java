@@ -423,13 +423,13 @@ public class GlueHiveMetastore
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
+    public List<String> getRelations(String databaseName)
     {
         return getTableNames(databaseName, tableFilter);
     }
 
     @Override
-    public Optional<List<SchemaTableName>> getAllTables()
+    public Optional<List<SchemaTableName>> getRelations()
     {
         return Optional.empty();
     }

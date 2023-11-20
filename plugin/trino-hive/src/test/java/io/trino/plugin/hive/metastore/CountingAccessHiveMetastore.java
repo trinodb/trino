@@ -37,8 +37,8 @@ import java.util.Set;
 import java.util.function.Function;
 
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_RELATION_TYPES;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_TABLES;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_VIEWS;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_RELATIONS;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_RELATION_TYPES_FROM_DATABASE;
 
 @ThreadSafe
@@ -53,8 +53,8 @@ public class CountingAccessHiveMetastore
         GET_ALL_DATABASES,
         GET_DATABASE,
         GET_TABLE,
-        GET_ALL_TABLES,
-        GET_ALL_TABLES_FROM_DATABASE,
+        GET_RELATIONS,
+        GET_RELATIONS_FROM_DATABASE,
         GET_RELATION_TYPES_FROM_DATABASE,
         GET_ALL_RELATION_TYPES,
         GET_TABLES_WITH_PARAMETER,
@@ -360,20 +360,20 @@ public class CountingAccessHiveMetastore
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
+    public List<String> getRelations(String databaseName)
     {
-        methodInvocations.add(Method.GET_ALL_TABLES_FROM_DATABASE);
-        return delegate.getAllTables(databaseName);
+        methodInvocations.add(Method.GET_RELATIONS_FROM_DATABASE);
+        return delegate.getRelations(databaseName);
     }
 
     @Override
-    public Optional<List<SchemaTableName>> getAllTables()
+    public Optional<List<SchemaTableName>> getRelations()
     {
-        Optional<List<SchemaTableName>> allTables = delegate.getAllTables();
-        if (allTables.isPresent()) {
-            methodInvocations.add(GET_ALL_TABLES);
+        Optional<List<SchemaTableName>> relations = delegate.getRelations();
+        if (relations.isPresent()) {
+            methodInvocations.add(GET_RELATIONS);
         }
-        return allTables;
+        return relations;
     }
 
     @Override

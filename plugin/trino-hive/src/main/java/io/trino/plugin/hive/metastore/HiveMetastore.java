@@ -63,12 +63,12 @@ public interface HiveMetastore
 
     void updatePartitionStatistics(Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates);
 
-    List<String> getAllTables(String databaseName);
+    List<String> getRelations(String databaseName);
 
     /**
      * @return List of tables, views and materialized views names from all schemas or Optional.empty if operation is not supported
      */
-    Optional<List<SchemaTableName>> getAllTables();
+    Optional<List<SchemaTableName>> getRelations();
 
     Map<String, RelationType> getRelationTypes(String databaseName);
 

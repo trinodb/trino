@@ -87,13 +87,13 @@ public class UnimplementedHiveMetastore
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
+    public List<String> getRelations(String databaseName)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public Optional<List<SchemaTableName>> getAllTables()
+    public Optional<List<SchemaTableName>> getRelations()
     {
         throw new UnsupportedOperationException();
     }

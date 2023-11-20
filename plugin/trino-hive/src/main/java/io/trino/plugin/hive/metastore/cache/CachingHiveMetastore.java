@@ -116,8 +116,8 @@ public final class CachingHiveMetastore
     private final LoadingCache<String, Optional<Database>> databaseCache;
     private final LoadingCache<String, List<String>> databaseNamesCache;
     private final LoadingCache<HiveTableName, Optional<Table>> tableCache;
-    private final LoadingCache<String, List<String>> tableNamesCache;
-    private final LoadingCache<SingletonCacheKey, Optional<List<SchemaTableName>>> allTableNamesCache;
+    private final LoadingCache<String, List<String>> relationNamesCache;
+    private final LoadingCache<SingletonCacheKey, Optional<List<SchemaTableName>>> allRelationNamesCache;
     private final LoadingCache<String, Map<String, RelationType>> relationTypesCache;
     private final LoadingCache<SingletonCacheKey, Optional<Map<SchemaTableName, RelationType>>> allRelationTypesCache;
     private final LoadingCache<TablesWithParameterCacheKey, List<String>> tablesWithParameterCache;
@@ -204,8 +204,8 @@ public final class CachingHiveMetastore
 
         databaseNamesCache = cacheFactory.buildCache(ignored -> loadAllDatabases());
         databaseCache = cacheFactory.buildCache(this::loadDatabase);
-        tableNamesCache = cacheFactory.buildCache(this::loadAllTables);
-        allTableNamesCache = cacheFactory.buildCache(ignore -> loadAllTables());
+        relationNamesCache = cacheFactory.buildCache(this::loadRelations);
+        allRelationNamesCache = cacheFactory.buildCache(ignore -> loadRelations());
         relationTypesCache = cacheFactory.buildCache(this::loadRelationTypes);
         allRelationTypesCache = cacheFactory.buildCache(ignore -> loadRelationTypes());
         tablesWithParameterCache = cacheFactory.buildCache(this::loadTablesMatchingParameter);
@@ -227,8 +227,8 @@ public final class CachingHiveMetastore
     public void flushCache()
     {
         databaseNamesCache.invalidateAll();
-        tableNamesCache.invalidateAll();
-        allTableNamesCache.invalidateAll();
+        relationNamesCache.invalidateAll();
+        allRelationNamesCache.invalidateAll();
         relationTypesCache.invalidateAll();
         allRelationTypesCache.invalidateAll();
         viewNamesCache.invalidateAll();
@@ -578,33 +578,33 @@ public final class CachingHiveMetastore
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
+    public List<String> getRelations(String databaseName)
     {
         Map<String, RelationType> relationTypes = relationTypesCache.getIfPresent(databaseName);
         if (relationTypes != null) {
             return ImmutableList.copyOf(relationTypes.keySet());
         }
-        return get(tableNamesCache, databaseName);
+        return get(relationNamesCache, databaseName);
     }
 
-    private List<String> loadAllTables(String databaseName)
+    private List<String> loadRelations(String databaseName)
     {
-        return delegate.getAllTables(databaseName);
+        return delegate.getRelations(databaseName);
     }
 
     @Override
-    public Optional<List<SchemaTableName>> getAllTables()
+    public Optional<List<SchemaTableName>> getRelations()
     {
         Optional<Map<SchemaTableName, RelationType>> relationTypes = allRelationTypesCache.getIfPresent(SingletonCacheKey.INSTANCE);
         if (relationTypes != null && relationTypes.isPresent()) {
             return Optional.of(ImmutableList.copyOf(relationTypes.get().keySet()));
         }
-        return getOptional(allTableNamesCache, SingletonCacheKey.INSTANCE);
+        return getOptional(allRelationNamesCache, SingletonCacheKey.INSTANCE);
     }
 
-    private Optional<List<SchemaTableName>> loadAllTables()
+    private Optional<List<SchemaTableName>> loadRelations()
     {
-        return delegate.getAllTables();
+        return delegate.getRelations();
     }
 
     @Override
@@ -830,8 +830,8 @@ public final class CachingHiveMetastore
     {
         HiveTableName hiveTableName = new HiveTableName(databaseName, tableName);
         tableCache.invalidate(hiveTableName);
-        tableNamesCache.invalidate(databaseName);
-        allTableNamesCache.invalidateAll();
+        relationNamesCache.invalidate(databaseName);
+        allRelationNamesCache.invalidateAll();
         relationTypesCache.invalidate(databaseName);
         allRelationTypesCache.invalidateAll();
         viewNamesCache.invalidate(databaseName);
@@ -1318,16 +1318,16 @@ public final class CachingHiveMetastore
 
     @Managed
     @Nested
-    public CacheStatsMBean getTableNamesStats()
+    public CacheStatsMBean getRelationNamesStats()
     {
-        return new CacheStatsMBean(tableNamesCache);
+        return new CacheStatsMBean(relationNamesCache);
     }
 
     @Managed
     @Nested
-    public CacheStatsMBean getAllTableNamesStats()
+    public CacheStatsMBean getAllRelationNamesStats()
     {
-        return new CacheStatsMBean(allTableNamesCache);
+        return new CacheStatsMBean(allRelationNamesCache);
     }
 
     @Managed
@@ -1439,14 +1439,14 @@ public final class CachingHiveMetastore
         return tableCache;
     }
 
-    LoadingCache<String, List<String>> getTableNamesCache()
+    LoadingCache<String, List<String>> getRelationNamesCache()
     {
-        return tableNamesCache;
+        return relationNamesCache;
     }
 
-    LoadingCache<SingletonCacheKey, Optional<List<SchemaTableName>>> getAllTableNamesCache()
+    LoadingCache<SingletonCacheKey, Optional<List<SchemaTableName>>> getAllRelationNamesCache()
     {
-        return allTableNamesCache;
+        return allRelationNamesCache;
     }
 
     LoadingCache<String, Map<String, RelationType>> getRelationTypesCache()

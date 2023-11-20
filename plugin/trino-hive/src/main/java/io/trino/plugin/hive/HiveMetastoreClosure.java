@@ -155,14 +155,14 @@ public class HiveMetastoreClosure
         delegate.updatePartitionStatistics(table, updates);
     }
 
-    public List<String> getAllTables(String databaseName)
+    public List<String> getRelations(String databaseName)
     {
-        return delegate.getAllTables(databaseName);
+        return delegate.getRelations(databaseName);
     }
 
-    public Optional<List<SchemaTableName>> getAllTables()
+    public Optional<List<SchemaTableName>> getRelations()
     {
-        return delegate.getAllTables();
+        return delegate.getRelations();
     }
 
     public Map<String, RelationType> getRelationTypes(String databaseName)

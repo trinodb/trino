@@ -142,7 +142,7 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
+    public List<String> getRelations(String databaseName)
     {
         return delegate.getAllTables(databaseName);
     }
@@ -151,7 +151,7 @@ public class BridgingHiveMetastore
     public Map<String, RelationType> getRelationTypes(String databaseName)
     {
         ImmutableMap.Builder<String, RelationType> relationTypes = ImmutableMap.builder();
-        getAllTables(databaseName).forEach(name -> relationTypes.put(name, RelationType.TABLE));
+        getRelations(databaseName).forEach(name -> relationTypes.put(name, RelationType.TABLE));
         getAllViews(databaseName).forEach(name -> relationTypes.put(name, RelationType.VIEW));
         return relationTypes.buildKeepingLast();
     }
@@ -169,7 +169,7 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public Optional<List<SchemaTableName>> getAllTables()
+    public Optional<List<SchemaTableName>> getRelations()
     {
         return delegate.getAllTables();
     }
@@ -177,7 +177,7 @@ public class BridgingHiveMetastore
     @Override
     public Optional<Map<SchemaTableName, RelationType>> getRelationTypes()
     {
-        return getAllTables().flatMap(relations -> getAllViews().map(views -> {
+        return getRelations().flatMap(relations -> getAllViews().map(views -> {
             ImmutableMap.Builder<SchemaTableName, RelationType> relationTypes = ImmutableMap.builder();
             relations.forEach(name -> relationTypes.put(name, RelationType.TABLE));
             views.forEach(name -> relationTypes.put(name, RelationType.VIEW));

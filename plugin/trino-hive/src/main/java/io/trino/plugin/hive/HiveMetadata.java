@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.errorprone.annotations.DoNotCall;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
@@ -791,13 +792,20 @@ public class HiveMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> optionalSchemaName)
+    @DoNotCall
+    public final List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
+    {
+        throw new UnsupportedOperationException("This method is not supported because listRelations is implemented instead");
+    }
+
+    @Override
+    public List<SchemaTableName> listRelations(ConnectorSession session, Optional<String> optionalSchemaName)
     {
         if (optionalSchemaName.isEmpty()) {
-            Optional<List<SchemaTableName>> allTables = metastore.getAllTables();
-            if (allTables.isPresent()) {
+            Optional<List<SchemaTableName>> relations = metastore.getRelations();
+            if (relations.isPresent()) {
                 return ImmutableSet.<SchemaTableName>builder()
-                        .addAll(allTables.get().stream()
+                        .addAll(relations.get().stream()
                                 .filter(table -> !isHiveSystemSchema(table.getSchemaName()))
                                 .collect(toImmutableList()))
                         .addAll(listMaterializedViews(session, optionalSchemaName))
@@ -805,15 +813,15 @@ public class HiveMetadata
                         .asList();
             }
         }
-        ImmutableSet.Builder<SchemaTableName> tableNames = ImmutableSet.builder();
+        ImmutableSet.Builder<SchemaTableName> relations = ImmutableSet.builder();
         for (String schemaName : listSchemas(session, optionalSchemaName)) {
-            for (String tableName : metastore.getAllTables(schemaName)) {
-                tableNames.add(new SchemaTableName(schemaName, tableName));
+            for (String tableName : metastore.getRelations(schemaName)) {
+                relations.add(new SchemaTableName(schemaName, tableName));
             }
         }
 
-        tableNames.addAll(listMaterializedViews(session, optionalSchemaName));
-        return tableNames.build().asList();
+        relations.addAll(listMaterializedViews(session, optionalSchemaName));
+        return relations.build().asList();
     }
 
     @Override
@@ -940,7 +948,7 @@ public class HiveMetadata
             return ImmutableList.of();
         }
         if (prefix.getTable().isEmpty()) {
-            return listTables(session, prefix.getSchema());
+            return listRelations(session, prefix.getSchema());
         }
         SchemaTableName tableName = prefix.toSchemaTableName();
 
@@ -997,7 +1005,7 @@ public class HiveMetadata
         if (cascade) {
             // List all objects first because such operations after adding/dropping/altering tables/views in a transaction is disallowed
             List<SchemaTableName> views = listViews(session, Optional.of(schemaName));
-            List<SchemaTableName> tables = listTables(session, Optional.of(schemaName)).stream()
+            List<SchemaTableName> tables = listRelations(session, Optional.of(schemaName)).stream()
                     .filter(table -> !views.contains(table))
                     .collect(toImmutableList());
 

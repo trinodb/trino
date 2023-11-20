@@ -181,7 +181,7 @@ public class TestCachingHiveMetastore
                 .usesCache();
 
         assertThatCachingWithDisabledPartitionCache()
-                .whenExecuting(testedMetastore -> testedMetastore.getAllTables(TEST_DATABASE))
+                .whenExecuting(testedMetastore -> testedMetastore.getRelations(TEST_DATABASE))
                 .usesCache();
 
         assertThatCachingWithDisabledPartitionCache()
@@ -227,49 +227,49 @@ public class TestCachingHiveMetastore
     }
 
     @Test
-    public void testGetAllTable()
+    public void testGetRelations()
     {
         assertThat(mockClient.getAccessCount()).isEqualTo(0);
-        assertThat(metastore.getAllTables(TEST_DATABASE)).isEqualTo(ImmutableList.of(TEST_TABLE));
+        assertThat(metastore.getRelations(TEST_DATABASE)).isEqualTo(ImmutableList.of(TEST_TABLE));
         assertThat(mockClient.getAccessCount()).isEqualTo(1);
-        assertThat(metastore.getAllTables(TEST_DATABASE)).isEqualTo(ImmutableList.of(TEST_TABLE));
+        assertThat(metastore.getRelations(TEST_DATABASE)).isEqualTo(ImmutableList.of(TEST_TABLE));
         assertThat(mockClient.getAccessCount()).isEqualTo(1);
-        assertThat(metastore.getTableNamesStats().getRequestCount()).isEqualTo(2);
-        assertThat(metastore.getTableNamesStats().getHitRate()).isEqualTo(0.5);
+        assertThat(metastore.getRelationNamesStats().getRequestCount()).isEqualTo(2);
+        assertThat(metastore.getRelationNamesStats().getHitRate()).isEqualTo(0.5);
 
         metastore.flushCache();
 
-        assertThat(metastore.getAllTables(TEST_DATABASE)).isEqualTo(ImmutableList.of(TEST_TABLE));
+        assertThat(metastore.getRelations(TEST_DATABASE)).isEqualTo(ImmutableList.of(TEST_TABLE));
         assertThat(mockClient.getAccessCount()).isEqualTo(2);
-        assertThat(metastore.getTableNamesStats().getRequestCount()).isEqualTo(3);
-        assertThat(metastore.getTableNamesStats().getHitRate()).isEqualTo(1.0 / 3);
+        assertThat(metastore.getRelationNamesStats().getRequestCount()).isEqualTo(3);
+        assertThat(metastore.getRelationNamesStats().getHitRate()).isEqualTo(1.0 / 3);
     }
 
     @Test
-    public void testBatchGetAllTable()
+    public void testBatchGetRelations()
     {
         assertThat(mockClient.getAccessCount()).isEqualTo(0);
-        assertThat(metastore.getAllTables()).isEqualTo(Optional.of(ImmutableList.of(TEST_SCHEMA_TABLE)));
+        assertThat(metastore.getRelations()).isEqualTo(Optional.of(ImmutableList.of(TEST_SCHEMA_TABLE)));
         assertThat(mockClient.getAccessCount()).isEqualTo(1);
-        assertThat(metastore.getAllTables()).isEqualTo(Optional.of(ImmutableList.of(TEST_SCHEMA_TABLE)));
+        assertThat(metastore.getRelations()).isEqualTo(Optional.of(ImmutableList.of(TEST_SCHEMA_TABLE)));
         assertThat(mockClient.getAccessCount()).isEqualTo(1);
-        assertThat(metastore.getAllTables(TEST_DATABASE)).isEqualTo(ImmutableList.of(TEST_TABLE));
+        assertThat(metastore.getRelations(TEST_DATABASE)).isEqualTo(ImmutableList.of(TEST_TABLE));
         assertThat(mockClient.getAccessCount()).isEqualTo(2);
-        assertThat(metastore.getAllTableNamesStats().getRequestCount()).isEqualTo(2);
-        assertThat(metastore.getAllTableNamesStats().getHitRate()).isEqualTo(.5);
+        assertThat(metastore.getAllRelationNamesStats().getRequestCount()).isEqualTo(2);
+        assertThat(metastore.getAllRelationNamesStats().getHitRate()).isEqualTo(.5);
 
         metastore.flushCache();
 
-        assertThat(metastore.getAllTables()).isEqualTo(Optional.of(ImmutableList.of(TEST_SCHEMA_TABLE)));
+        assertThat(metastore.getRelations()).isEqualTo(Optional.of(ImmutableList.of(TEST_SCHEMA_TABLE)));
         assertThat(mockClient.getAccessCount()).isEqualTo(3);
-        assertThat(metastore.getAllTableNamesStats().getRequestCount()).isEqualTo(3);
-        assertThat(metastore.getAllTableNamesStats().getHitRate()).isEqualTo(1. / 3);
+        assertThat(metastore.getAllRelationNamesStats().getRequestCount()).isEqualTo(3);
+        assertThat(metastore.getAllRelationNamesStats().getHitRate()).isEqualTo(1. / 3);
     }
 
     @Test
-    public void testInvalidDbGetAllTAbles()
+    public void testInvalidDbGetRelations()
     {
-        assertThat(metastore.getAllTables(BAD_DATABASE).isEmpty()).isTrue();
+        assertThat(metastore.getRelations(BAD_DATABASE).isEmpty()).isTrue();
     }
 
     @Test
@@ -1150,21 +1150,21 @@ public class TestCachingHiveMetastore
     }
 
     @Test
-    public void testAllTables()
+    public void testRelations()
     {
         assertThat(mockClient.getAccessCount()).isEqualTo(0);
 
-        assertThat(metastore.getAllTables()).contains(ImmutableList.of(TEST_SCHEMA_TABLE));
+        assertThat(metastore.getRelations()).contains(ImmutableList.of(TEST_SCHEMA_TABLE));
         assertThat(mockClient.getAccessCount()).isEqualTo(1);
-        assertThat(metastore.getAllTables()).contains(ImmutableList.of(TEST_SCHEMA_TABLE));
+        assertThat(metastore.getRelations()).contains(ImmutableList.of(TEST_SCHEMA_TABLE));
         assertThat(mockClient.getAccessCount()).isEqualTo(1); // should read it from cache
 
         metastore.dropTable(TEST_DATABASE, TEST_TABLE, false);
         assertThat(mockClient.getAccessCount()).isEqualTo(2); // dropTable check if the table exists
 
-        assertThat(metastore.getAllTables()).contains(ImmutableList.of(TEST_SCHEMA_TABLE));
+        assertThat(metastore.getRelations()).contains(ImmutableList.of(TEST_SCHEMA_TABLE));
         assertThat(mockClient.getAccessCount()).isEqualTo(3);
-        assertThat(metastore.getAllTables()).contains(ImmutableList.of(TEST_SCHEMA_TABLE));
+        assertThat(metastore.getRelations()).contains(ImmutableList.of(TEST_SCHEMA_TABLE));
         assertThat(mockClient.getAccessCount()).isEqualTo(3); // should read it from cache
 
         metastore.createTable(
@@ -1177,9 +1177,9 @@ public class TestCachingHiveMetastore
                         .build(),
                 new PrincipalPrivileges(ImmutableMultimap.of(), ImmutableMultimap.of()));
 
-        assertThat(metastore.getAllTables()).contains(ImmutableList.of(TEST_SCHEMA_TABLE));
+        assertThat(metastore.getRelations()).contains(ImmutableList.of(TEST_SCHEMA_TABLE));
         assertThat(mockClient.getAccessCount()).isEqualTo(4);
-        assertThat(metastore.getAllTables()).contains(ImmutableList.of(TEST_SCHEMA_TABLE));
+        assertThat(metastore.getRelations()).contains(ImmutableList.of(TEST_SCHEMA_TABLE));
         assertThat(mockClient.getAccessCount()).isEqualTo(4); // should read it from cache
     }
 

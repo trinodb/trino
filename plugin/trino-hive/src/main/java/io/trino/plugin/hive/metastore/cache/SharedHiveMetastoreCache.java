@@ -243,16 +243,16 @@ public class SharedHiveMetastoreCache
 
         @Managed
         @Nested
-        public AggregateCacheStatsMBean getTableNamesStats()
+        public AggregateCacheStatsMBean getRelationNamesStats()
         {
-            return new AggregateCacheStatsMBean(CachingHiveMetastore::getTableNamesCache);
+            return new AggregateCacheStatsMBean(CachingHiveMetastore::getRelationNamesCache);
         }
 
         @Managed
         @Nested
-        public AggregateCacheStatsMBean getAllTableNamesStats()
+        public AggregateCacheStatsMBean getAllRelationNamesStats()
         {
-            return new AggregateCacheStatsMBean(CachingHiveMetastore::getAllTableNamesCache);
+            return new AggregateCacheStatsMBean(CachingHiveMetastore::getAllRelationNamesCache);
         }
 
         @Managed
