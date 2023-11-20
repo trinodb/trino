@@ -169,27 +169,27 @@ public class TracingHiveMetastore
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
+    public List<String> getRelations(String databaseName)
     {
-        Span span = tracer.spanBuilder("HiveMetastore.getAllTables")
+        Span span = tracer.spanBuilder("HiveMetastore.getRelations")
                 .setAttribute(SCHEMA, databaseName)
                 .startSpan();
         return withTracing(span, () -> {
-            List<String> tables = delegate.getAllTables(databaseName);
-            span.setAttribute(TABLE_RESPONSE_COUNT, tables.size());
-            return tables;
+            List<String> relations = delegate.getRelations(databaseName);
+            span.setAttribute(TABLE_RESPONSE_COUNT, relations.size());
+            return relations;
         });
     }
 
     @Override
-    public Optional<List<SchemaTableName>> getAllTables()
+    public Optional<List<SchemaTableName>> getRelations()
     {
-        Span span = tracer.spanBuilder("HiveMetastore.getAllTables")
+        Span span = tracer.spanBuilder("HiveMetastore.getRelations")
                 .startSpan();
         return withTracing(span, () -> {
-            Optional<List<SchemaTableName>> tables = delegate.getAllTables();
-            tables.ifPresent(list -> span.setAttribute(TABLE_RESPONSE_COUNT, list.size()));
-            return tables;
+            Optional<List<SchemaTableName>> relations = delegate.getRelations();
+            relations.ifPresent(list -> span.setAttribute(TABLE_RESPONSE_COUNT, list.size()));
+            return relations;
         });
     }
 

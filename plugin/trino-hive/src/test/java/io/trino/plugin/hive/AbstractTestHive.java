@@ -1062,7 +1062,7 @@ public abstract class AbstractTestHive
     {
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
-            List<SchemaTableName> tables = metadata.listTables(newSession(), Optional.of(database));
+            List<SchemaTableName> tables = metadata.listRelations(newSession(), Optional.of(database));
             assertThat(tables).contains(tablePartitionFormat);
             assertThat(tables).contains(tableUnpartitioned);
         }
@@ -1073,7 +1073,7 @@ public abstract class AbstractTestHive
     {
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
-            List<SchemaTableName> tables = metadata.listTables(newSession(), Optional.empty());
+            List<SchemaTableName> tables = metadata.listRelations(newSession(), Optional.empty());
             assertThat(tables).contains(tablePartitionFormat);
             assertThat(tables).contains(tableUnpartitioned);
         }
@@ -1108,7 +1108,7 @@ public abstract class AbstractTestHive
             ConnectorMetadata metadata = transaction.getMetadata();
             ConnectorSession session = newSession();
             assertThat(metadata.getTableHandle(session, new SchemaTableName(INVALID_DATABASE, INVALID_TABLE))).isNull();
-            assertThat(metadata.listTables(session, Optional.of(INVALID_DATABASE))).isEqualTo(ImmutableList.of());
+            assertThat(metadata.listRelations(session, Optional.of(INVALID_DATABASE))).isEqualTo(ImmutableList.of());
             assertThat(listTableColumns(metadata, session, new SchemaTablePrefix(INVALID_DATABASE, INVALID_TABLE))).isEqualTo(ImmutableMap.of());
             assertThat(metadata.listViews(session, Optional.of(INVALID_DATABASE))).isEqualTo(ImmutableList.of());
             assertThat(metadata.getViews(session, Optional.of(INVALID_DATABASE))).isEqualTo(ImmutableMap.of());
@@ -3204,11 +3204,11 @@ public abstract class AbstractTestHive
                 //  as information_schema or MetadataManager may apply additional logic
 
                 // list all tables
-                assertThat(metadata.listTables(session, Optional.empty()))
+                assertThat(metadata.listRelations(session, Optional.empty()))
                         .doesNotContain(tableName);
 
                 // list all tables in a schema
-                assertThat(metadata.listTables(session, Optional.of(tableName.getSchemaName())))
+                assertThat(metadata.listRelations(session, Optional.of(tableName.getSchemaName())))
                         .doesNotContain(tableName);
 
                 // list all columns in a schema

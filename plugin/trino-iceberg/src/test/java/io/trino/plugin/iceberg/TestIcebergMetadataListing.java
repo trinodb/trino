@@ -102,7 +102,7 @@ public class TestIcebergMetadataListing
     @Test
     public void testTableListing()
     {
-        assertThat(metastore.getAllTables("test_schema"))
+        assertThat(metastore.getRelations("test_schema"))
                 .containsExactlyInAnyOrder(
                         "iceberg_table1",
                         "iceberg_table2",

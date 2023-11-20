@@ -214,7 +214,7 @@ public class FileHiveMetastore
         databaseName = databaseName.toLowerCase(ENGLISH);
 
         getRequiredDatabase(databaseName);
-        if (!getAllTables(databaseName).isEmpty()) {
+        if (!getRelations(databaseName).isEmpty()) {
             throw new TrinoException(HIVE_METASTORE_ERROR, "Database " + databaseName + " is not empty");
         }
 
@@ -508,7 +508,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized List<String> getAllTables(String databaseName)
+    public synchronized List<String> getRelations(String databaseName)
     {
         return listAllTables(databaseName).stream()
                 .filter(hideDeltaLakeTables
@@ -518,7 +518,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public Optional<List<SchemaTableName>> getAllTables()
+    public Optional<List<SchemaTableName>> getRelations()
     {
         return Optional.empty();
     }
@@ -590,7 +590,7 @@ public class FileHiveMetastore
     @Override
     public synchronized List<String> getAllViews(String databaseName)
     {
-        return getAllTables(databaseName).stream()
+        return getRelations(databaseName).stream()
                 .map(tableName -> getTable(databaseName, tableName))
                 .filter(Optional::isPresent)
                 .map(Optional::get)

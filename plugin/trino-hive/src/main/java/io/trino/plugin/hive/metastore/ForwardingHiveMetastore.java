@@ -111,15 +111,15 @@ public abstract class ForwardingHiveMetastore
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
+    public List<String> getRelations(String databaseName)
     {
-        return delegate.getAllTables(databaseName);
+        return delegate.getRelations(databaseName);
     }
 
     @Override
-    public Optional<List<SchemaTableName>> getAllTables()
+    public Optional<List<SchemaTableName>> getRelations()
     {
-        return delegate.getAllTables();
+        return delegate.getRelations();
     }
 
     @Override

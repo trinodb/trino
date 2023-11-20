@@ -141,7 +141,7 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
+    public List<String> getRelations(String databaseName)
     {
         return delegate.getAllTables(databaseName);
     }
@@ -159,7 +159,7 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public Optional<List<SchemaTableName>> getAllTables()
+    public Optional<List<SchemaTableName>> getRelations()
     {
         return delegate.getAllTables();
     }

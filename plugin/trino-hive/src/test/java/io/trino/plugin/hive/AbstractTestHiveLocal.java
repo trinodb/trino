@@ -177,7 +177,7 @@ public abstract class AbstractTestHiveLocal
             throws IOException
     {
         try {
-            for (String tableName : metastoreClient.getAllTables(database)) {
+            for (String tableName : metastoreClient.getRelations(database)) {
                 metastoreClient.dropTable(database, tableName, true);
             }
             metastoreClient.dropDatabase(testDbName, true);

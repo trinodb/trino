@@ -234,22 +234,22 @@ public class SemiTransactionalHiveMetastore
         return delegate.getDatabase(databaseName);
     }
 
-    public synchronized List<String> getAllTables(String databaseName)
+    public synchronized List<String> getRelations(String databaseName)
     {
         checkReadable();
         if (!tableActions.isEmpty()) {
-            throw new UnsupportedOperationException("Listing all tables after adding/dropping/altering tables/views in a transaction is not supported");
+            throw new UnsupportedOperationException("Listing all relations after adding/dropping/altering tables/views in a transaction is not supported");
         }
-        return delegate.getAllTables(databaseName);
+        return delegate.getRelations(databaseName);
     }
 
-    public synchronized Optional<List<SchemaTableName>> getAllTables()
+    public synchronized Optional<List<SchemaTableName>> getRelations()
     {
         checkReadable();
         if (!tableActions.isEmpty()) {
-            throw new UnsupportedOperationException("Listing all tables after adding/dropping/altering tables/views in a transaction is not supported");
+            throw new UnsupportedOperationException("Listing all relations after adding/dropping/altering tables/views in a transaction is not supported");
         }
-        return delegate.getAllTables();
+        return delegate.getRelations();
     }
 
     public synchronized Optional<Table> getTable(String databaseName, String tableName)
