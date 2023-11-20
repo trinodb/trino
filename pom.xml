@@ -2755,6 +2755,7 @@
                                     <!-- flags List fields even if initialized with ImmutableList -->
                                     -Xep:PreferredInterfaceType:OFF \
                                     -Xep:PrimitiveArrayPassedToVarargsMethod:ERROR \
+                                    -Xep:RethrowReflectiveOperationExceptionAsLinkageError:OFF \
                                     -Xep:StaticAssignmentOfThrowable:ERROR \
                                     -Xep:StreamResourceLeak:ERROR \
                                     -Xep:UnnecessaryMethodReference:ERROR \
