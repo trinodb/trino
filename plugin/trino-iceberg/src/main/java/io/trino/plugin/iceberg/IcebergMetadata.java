@@ -2709,10 +2709,10 @@ public class IcebergMetadata
                         originalHandle.getNameMappingJson(),
                         originalHandle.getTableLocation(),
                         originalHandle.getStorageProperties(),
-                        originalHandle.isRecordScannedFiles(),
+                        false, // recordScannedFiles does not affect stats
                         originalHandle.getMaxScannedFileSize(),
-                        originalHandle.getConstraintColumns(),
-                        originalHandle.getForAnalyze()),
+                        ImmutableSet.of(), // constraintColumns do not affect stats
+                        Optional.empty()), // forAnalyze does not affect stats
                 handle -> {
                     Table icebergTable = catalog.loadTable(session, handle.getSchemaTableName());
                     return TableStatisticsReader.getTableStatistics(typeManager, session, handle, icebergTable);
