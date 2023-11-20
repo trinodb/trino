@@ -311,7 +311,7 @@ public class TestNodeScheduler
         Multimap<InternalNode, Split> assignments = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())).getAssignments();
         assertThat(assignments.entries().size()).isEqualTo(assignments.size());
         for (InternalNode node : activeCatalogNodes) {
-            assertThat(assignments.keySet().contains(node)).isTrue();
+            assertThat(assignments.keySet()).contains(node);
         }
     }
 
@@ -370,7 +370,7 @@ public class TestNodeScheduler
         Multimap<InternalNode, Split> assignments = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())).getAssignments();
         assertThat(assignments.entries().size()).isEqualTo(activeCatalogNodes.size());
         for (InternalNode node : activeCatalogNodes) {
-            assertThat(assignments.keySet().contains(node)).isTrue();
+            assertThat(assignments.keySet()).contains(node);
         }
     }
 
@@ -492,7 +492,7 @@ public class TestNodeScheduler
         // Check that all splits are being assigned to node1
         assertThat(initialAssignment.size()).isEqualTo(20);
         assertThat(initialAssignment.keySet().size()).isEqualTo(1);
-        assertThat(initialAssignment.keySet().contains(node)).isTrue();
+        assertThat(initialAssignment.keySet()).contains(node);
 
         // Check for assignment of splits beyond maxSplitsPerNode (2 splits should remain unassigned)
         // 1 split with node1 as local node
@@ -504,7 +504,7 @@ public class TestNodeScheduler
         // Check that only 20 splits are being assigned as there is a single task
         assertThat(finalAssignment.size()).isEqualTo(20);
         assertThat(finalAssignment.keySet().size()).isEqualTo(1);
-        assertThat(finalAssignment.keySet().contains(node)).isTrue();
+        assertThat(finalAssignment.keySet()).contains(node);
 
         // When optimized-local-scheduling is enabled, the split with node1 as local node should be assigned
         long countLocalSplits = finalAssignment.values().stream()
@@ -535,7 +535,7 @@ public class TestNodeScheduler
         // Check that all splits are being assigned to node1
         assertThat(initialAssignment.size()).isEqualTo(20);
         assertThat(initialAssignment.keySet().size()).isEqualTo(1);
-        assertThat(initialAssignment.keySet().contains(node)).isTrue();
+        assertThat(initialAssignment.keySet()).contains(node);
 
         // Check for assignment of splits beyond maxSplitsPerNode (2 splits should remain unassigned)
         // 1 split with node1 as local node
@@ -547,7 +547,7 @@ public class TestNodeScheduler
         // Check that only 20 splits are being assigned as there is a single task
         assertThat(finalAssignment.size()).isEqualTo(20);
         assertThat(finalAssignment.keySet().size()).isEqualTo(1);
-        assertThat(finalAssignment.keySet().contains(node)).isTrue();
+        assertThat(finalAssignment.keySet()).contains(node);
 
         // When optimized-local-scheduling is enabled, all 11 splits with node1 as local node should be assigned
         long countLocalSplits = finalAssignment.values().stream()
@@ -575,8 +575,8 @@ public class TestNodeScheduler
         // Check that all 20 splits are being assigned to node1 as optimized-local-scheduling is enabled
         assertThat(assignments1.size()).isEqualTo(20);
         assertThat(assignments1.keySet().size()).isEqualTo(2);
-        assertThat(assignments1.keySet().contains(node1)).isTrue();
-        assertThat(assignments1.keySet().contains(node2)).isTrue();
+        assertThat(assignments1.keySet()).contains(node1);
+        assertThat(assignments1.keySet()).contains(node2);
 
         // 19 splits with node2 as local node to be assigned in the first iteration of computeAssignments
         for (int i = 0; i < 19; i++) {
@@ -586,8 +586,8 @@ public class TestNodeScheduler
         // Check that all 39 splits are being assigned (20 splits assigned to node1 and 19 splits assigned to node2)
         assertThat(assignments2.size()).isEqualTo(39);
         assertThat(assignments2.keySet().size()).isEqualTo(2);
-        assertThat(assignments2.keySet().contains(node1)).isTrue();
-        assertThat(assignments2.keySet().contains(node2)).isTrue();
+        assertThat(assignments2.keySet()).contains(node1);
+        assertThat(assignments2.keySet()).contains(node2);
 
         long node1Splits = assignments2.values().stream()
                 .map(Split::getConnectorSplit)
@@ -610,8 +610,8 @@ public class TestNodeScheduler
         // Check that only 40 splits are being assigned as there is a single task
         assertThat(assignments3.size()).isEqualTo(40);
         assertThat(assignments3.keySet().size()).isEqualTo(2);
-        assertThat(assignments3.keySet().contains(node1)).isTrue();
-        assertThat(assignments3.keySet().contains(node2)).isTrue();
+        assertThat(assignments3.keySet()).contains(node1);
+        assertThat(assignments3.keySet()).contains(node2);
 
         // The first 20 splits have node1 as local, the next 19 have node2 as local, the 40th split has node1 as local and the 41st has node2 as local
         // If optimized-local-scheduling is disabled, the 41st split will be unassigned (the last slot in node2 will be taken up by the 40th split with node1 as local)
@@ -856,7 +856,7 @@ public class TestNodeScheduler
         // Attempt to schedule again, only the node with the unblocked task should be chosen
         splitPlacements = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(tasks));
         assertThat(splitPlacements.getAssignments().size()).isEqualTo(1);
-        assertThat(splitPlacements.getAssignments().keySet().contains(nodes.get(0))).isTrue();
+        assertThat(splitPlacements.getAssignments().keySet()).contains(nodes.get(0));
 
         // Make the first node appear to have no splits, unacknowledged splits alone should force the splits to be spread across nodes
         taskOne.clearSplits();
