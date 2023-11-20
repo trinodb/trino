@@ -68,8 +68,8 @@ public class IcebergTableHandle
     private final boolean recordScannedFiles;
     private final Optional<DataSize> maxScannedFileSize;
 
-    // ANALYZE only
-    private final Optional<Set<String>> analyzeColumns;
+    // ANALYZE only. Coordinator-only
+    private final Optional<Boolean> forAnalyze;
 
     @JsonCreator
     public static IcebergTableHandle fromJsonForDeserializationOnly(
@@ -130,7 +130,7 @@ public class IcebergTableHandle
             boolean recordScannedFiles,
             Optional<DataSize> maxScannedFileSize,
             Set<IcebergColumnHandle> constraintColumns,
-            Optional<Set<String>> analyzeColumns)
+            Optional<Boolean> forAnalyze)
     {
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -150,7 +150,7 @@ public class IcebergTableHandle
         this.recordScannedFiles = recordScannedFiles;
         this.maxScannedFileSize = requireNonNull(maxScannedFileSize, "maxScannedFileSize is null");
         this.constraintColumns = ImmutableSet.copyOf(requireNonNull(constraintColumns, "constraintColumns is null"));
-        this.analyzeColumns = requireNonNull(analyzeColumns, "analyzeColumns is null");
+        this.forAnalyze = requireNonNull(forAnalyze, "forAnalyze is null");
     }
 
     @JsonProperty
@@ -263,9 +263,9 @@ public class IcebergTableHandle
     }
 
     @JsonIgnore
-    public Optional<Set<String>> getAnalyzeColumns()
+    public Optional<Boolean> getForAnalyze()
     {
-        return analyzeColumns;
+        return forAnalyze;
     }
 
     public SchemaTableName getSchemaTableName()
@@ -299,10 +299,10 @@ public class IcebergTableHandle
                 recordScannedFiles,
                 maxScannedFileSize,
                 constraintColumns,
-                analyzeColumns);
+                forAnalyze);
     }
 
-    public IcebergTableHandle withAnalyzeColumns(Optional<Set<String>> analyzeColumns)
+    public IcebergTableHandle forAnalyze()
     {
         return new IcebergTableHandle(
                 catalog,
@@ -323,7 +323,7 @@ public class IcebergTableHandle
                 recordScannedFiles,
                 maxScannedFileSize,
                 constraintColumns,
-                analyzeColumns);
+                Optional.of(true));
     }
 
     public IcebergTableHandle forOptimize(boolean recordScannedFiles, DataSize maxScannedFileSize)
@@ -347,7 +347,7 @@ public class IcebergTableHandle
                 recordScannedFiles,
                 Optional.of(maxScannedFileSize),
                 constraintColumns,
-                analyzeColumns);
+                forAnalyze);
     }
 
     @Override
@@ -379,7 +379,7 @@ public class IcebergTableHandle
                 Objects.equals(storageProperties, that.storageProperties) &&
                 Objects.equals(maxScannedFileSize, that.maxScannedFileSize) &&
                 Objects.equals(constraintColumns, that.constraintColumns) &&
-                Objects.equals(analyzeColumns, that.analyzeColumns);
+                Objects.equals(forAnalyze, that.forAnalyze);
     }
 
     @Override
@@ -404,7 +404,7 @@ public class IcebergTableHandle
                 recordScannedFiles,
                 maxScannedFileSize,
                 constraintColumns,
-                analyzeColumns);
+                forAnalyze);
     }
 
     @Override

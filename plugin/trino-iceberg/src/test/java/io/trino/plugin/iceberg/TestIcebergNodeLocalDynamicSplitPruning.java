@@ -188,7 +188,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                         false,
                         Optional.empty(),
                         ImmutableSet.of(),
-                        Optional.empty()),
+                        Optional.of(false)),
                 transaction);
 
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();
