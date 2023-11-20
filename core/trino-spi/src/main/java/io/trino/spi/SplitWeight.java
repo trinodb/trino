@@ -82,6 +82,7 @@ public final class SplitWeight
      * to avoid breakages that could arise if {@link SplitWeight#UNIT_VALUE} changes in the future.
      */
     @JsonCreator
+    // TODO Mark with @DoNotCall
     public static SplitWeight fromRawValue(long value)
     {
         return value == UNIT_VALUE ? STANDARD_WEIGHT : new SplitWeight(value);

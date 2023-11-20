@@ -15,6 +15,7 @@ package io.trino.spi.predicate;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.errorprone.annotations.DoNotCall;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 
@@ -73,8 +74,8 @@ public final class NullableValue
         return new NullableValue(type, null);
     }
 
-    // Jackson deserialization only
     @JsonCreator
+    @DoNotCall // For JSON deserialization only
     public static NullableValue fromSerializable(@JsonProperty("serializable") Serializable serializable)
     {
         Type type = serializable.getType();

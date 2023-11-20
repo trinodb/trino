@@ -16,6 +16,7 @@ package io.trino.plugin.jdbc;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.errorprone.annotations.DoNotCall;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
 
@@ -51,6 +52,7 @@ public final class QueryParameter
     }
 
     @JsonCreator
+    @DoNotCall // For JSON deserialization only
     public static QueryParameter fromValueAsBlock(Optional<JdbcTypeHandle> jdbcType, Type type, Block valueBlock)
     {
         requireNonNull(type, "type is null");
