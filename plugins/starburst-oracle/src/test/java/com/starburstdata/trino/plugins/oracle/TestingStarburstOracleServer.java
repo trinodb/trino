@@ -50,7 +50,7 @@ public class TestingStarburstOracleServer
     private TestingStarburstOracleServer()
     {
         this(new CustomOracleContainer(
-                DockerImageName.parse("843985043183.dkr.ecr.us-east-2.amazonaws.com/testing/oracledb:12.2.0.1-ee").asCompatibleSubstituteFor("gvenzl/oracle-xe"))
+                DockerImageName.parse("843985043183.dkr.ecr.us-east-2.amazonaws.com/testing/oracledb:19.3.0-ee").asCompatibleSubstituteFor("gvenzl/oracle-xe"))
                 .withUsername(OracleTestUsers.USER)
                 .withPassword(OracleTestUsers.PASSWORD)
                 .withEnv("ORACLE_SID", "testdbsid")
