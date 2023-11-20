@@ -1116,8 +1116,7 @@ public class TestTrinoDatabaseMetaData
                             databaseMetaData -> databaseMetaData.getTables(null, null, null, null),
                             list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
                     ImmutableMultiset.<String>builder()
-                            .add("ConnectorMetadata.listViews")
-                            .add("ConnectorMetadata.listTables")
+                            .add("ConnectorMetadata.getRelationTypes")
                             .build());
 
             // Equality predicate on catalog name
@@ -1127,8 +1126,7 @@ public class TestTrinoDatabaseMetaData
                             databaseMetaData -> databaseMetaData.getTables(COUNTING_CATALOG, null, null, null),
                             list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
                     ImmutableMultiset.<String>builder()
-                            .add("ConnectorMetadata.listViews")
-                            .add("ConnectorMetadata.listTables")
+                            .add("ConnectorMetadata.getRelationTypes")
                             .build());
 
             // Equality predicate on schema name
@@ -1142,8 +1140,7 @@ public class TestTrinoDatabaseMetaData
                             .map(schemaTableName -> list(COUNTING_CATALOG, schemaTableName.getSchemaName(), schemaTableName.getTableName(), "TABLE"))
                             .collect(toImmutableList()),
                     ImmutableMultiset.<String>builder()
-                            .add("ConnectorMetadata.listViews(schema=test_schema1)")
-                            .add("ConnectorMetadata.listTables(schema=test_schema1)")
+                            .add("ConnectorMetadata.getRelationTypes(schema=test_schema1)")
                             .build());
 
             // LIKE predicate on schema name
@@ -1157,8 +1154,7 @@ public class TestTrinoDatabaseMetaData
                             .map(schemaTableName -> list(COUNTING_CATALOG, schemaTableName.getSchemaName(), schemaTableName.getTableName(), "TABLE"))
                             .collect(toImmutableList()),
                     ImmutableMultiset.<String>builder()
-                            .add("ConnectorMetadata.listViews")
-                            .add("ConnectorMetadata.listTables")
+                            .add("ConnectorMetadata.getRelationTypes")
                             .build());
 
             // Equality predicate on table name
@@ -1171,8 +1167,7 @@ public class TestTrinoDatabaseMetaData
                             list(COUNTING_CATALOG, "test_schema1", "test_table1", "TABLE"),
                             list(COUNTING_CATALOG, "test_schema2", "test_table1", "TABLE")),
                     ImmutableMultiset.<String>builder()
-                            .add("ConnectorMetadata.listViews")
-                            .add("ConnectorMetadata.listTables")
+                            .add("ConnectorMetadata.getRelationTypes")
                             .build());
 
             // LIKE predicate on table name
@@ -1185,8 +1180,7 @@ public class TestTrinoDatabaseMetaData
                             list(COUNTING_CATALOG, "test_schema1", "test_table1", "TABLE"),
                             list(COUNTING_CATALOG, "test_schema2", "test_table1", "TABLE")),
                     ImmutableMultiset.<String>builder()
-                            .add("ConnectorMetadata.listViews")
-                            .add("ConnectorMetadata.listTables")
+                            .add("ConnectorMetadata.getRelationTypes")
                             .build());
 
             // Equality predicate on schema name and table name
@@ -1197,8 +1191,8 @@ public class TestTrinoDatabaseMetaData
                             list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
                     list(list(COUNTING_CATALOG, "test_schema1", "test_table1", "TABLE")),
                     ImmutableMultiset.<String>builder()
-                            .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 5)
-                            .addCopies("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)", 2)
+                            .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 4)
+                            .add("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)")
                             .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
                             .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
                             .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
@@ -1212,8 +1206,7 @@ public class TestTrinoDatabaseMetaData
                             list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
                     list(list(COUNTING_CATALOG, "test_schema1", "test_table1", "TABLE")),
                     ImmutableMultiset.<String>builder()
-                            .add("ConnectorMetadata.listViews")
-                            .add("ConnectorMetadata.listTables")
+                            .add("ConnectorMetadata.getRelationTypes")
                             .build());
 
             // catalog does not exist
@@ -1530,8 +1523,7 @@ public class TestTrinoDatabaseMetaData
                             .map(schemaTableName -> list(COUNTING_CATALOG, schemaTableName.getSchemaName(), schemaTableName.getTableName(), "TABLE"))
                             .collect(toImmutableList()),
                     ImmutableMultiset.<String>builder()
-                            .add("ConnectorMetadata.listViews(schema=test_schema1)")
-                            .add("ConnectorMetadata.listTables(schema=test_schema1)")
+                            .add("ConnectorMetadata.getRelationTypes(schema=test_schema1)")
                             .build());
 
             // getTables's schema and table name patterns treated as literals
@@ -1542,8 +1534,8 @@ public class TestTrinoDatabaseMetaData
                             list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
                     list(list(COUNTING_CATALOG, "test_schema1", "test_table1", "TABLE")),
                     ImmutableMultiset.<String>builder()
-                            .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 5)
-                            .addCopies("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)", 2)
+                            .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 4)
+                            .add("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)")
                             .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
                             .add("ConnectorMetadata.redirectTable(schema=test_schema1, table=test_table1)")
                             .add("ConnectorMetadata.getTableHandle(schema=test_schema1, table=test_table1)")
@@ -1557,8 +1549,7 @@ public class TestTrinoDatabaseMetaData
                             list("TABLE_CAT", "TABLE_SCHEM", "TABLE_NAME", "TABLE_TYPE")),
                     list(),
                     ImmutableMultiset.<String>builder()
-                            .add("ConnectorMetadata.listViews(schema=test_schema_)")
-                            .add("ConnectorMetadata.listTables(schema=test_schema_)")
+                            .add("ConnectorMetadata.getRelationTypes(schema=test_schema_)")
                             .build());
 
             // getColumns's schema and table name patterns treated as literals
