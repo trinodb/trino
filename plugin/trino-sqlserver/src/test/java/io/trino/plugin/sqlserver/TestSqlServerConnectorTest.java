@@ -62,10 +62,8 @@ public class TestSqlServerConnectorTest
         return sqlServer::execute;
     }
 
-    @Flaky(issue = "fn_dblog() returns information only about the active portion of the transaction log, therefore it is flaky", match = ".*")
     @Test
     public void testCreateTableAsSelectWriteBulkiness()
-            throws SQLException
     {
         testCreateTableAsSelectWriteBulkiness(true, true);
         testCreateTableAsSelectWriteBulkiness(true, false);
@@ -74,7 +72,6 @@ public class TestSqlServerConnectorTest
     }
 
     private void testCreateTableAsSelectWriteBulkiness(boolean bulkCopyForWrite, boolean bulkCopyLock)
-            throws SQLException
     {
         String table = "bulk_copy_ctas_" + randomNameSuffix();
         Session session = Session.builder(getSession())
@@ -85,12 +82,6 @@ public class TestSqlServerConnectorTest
         // there should be enough rows in source table to minimal logging be enabled. `nation` table is too small.
         assertQuerySucceeds(session, format("CREATE TABLE %s as SELECT * FROM tpch.tiny.customer", table));
         assertQuery("SELECT * FROM " + table, "SELECT * FROM customer");
-
-        // check whether minimal logging was applied.
-        // Unlike fully logged operations, which use the transaction log to keep track of every row change,
-        // minimally logged operations keep track of extent allocations and meta-data changes only.
-        assertThat(getTableOperationsCount("LOP_INSERT_ROWS", table))
-                .isEqualTo(bulkCopyForWrite && bulkCopyLock ? 0 : 1500);
 
         // check that there are no locks remaining on the target table after bulk copy
         assertQuery("SELECT count(*) FROM " + table, "SELECT count(*) FROM customer");
