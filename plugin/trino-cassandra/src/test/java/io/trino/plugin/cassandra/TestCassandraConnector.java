@@ -155,14 +155,14 @@ public class TestCassandraConnector
     public void testGetDatabaseNames()
     {
         List<String> databases = metadata.listSchemaNames(SESSION);
-        assertThat(databases.contains(database.toLowerCase(ENGLISH))).isTrue();
+        assertThat(databases).contains(database.toLowerCase(ENGLISH));
     }
 
     @Test
     public void testGetTableNames()
     {
         List<SchemaTableName> tables = metadata.listTables(SESSION, Optional.of(database));
-        assertThat(tables.contains(table)).isTrue();
+        assertThat(tables).contains(table);
     }
 
     @Test

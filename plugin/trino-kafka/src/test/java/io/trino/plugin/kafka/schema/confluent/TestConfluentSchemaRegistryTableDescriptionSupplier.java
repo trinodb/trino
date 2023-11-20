@@ -57,7 +57,7 @@ public class TestConfluentSchemaRegistryTableDescriptionSupplier
         String subject = topicName + "-value";
         SCHEMA_REGISTRY_CLIENT.register(subject, getAvroSchema(schemaTableName.getTableName(), ""));
 
-        assertThat(tableDescriptionSupplier.listTables().contains(schemaTableName)).isTrue();
+        assertThat(tableDescriptionSupplier.listTables()).contains(schemaTableName);
 
         assertThat(getKafkaTopicDescription(tableDescriptionSupplier, schemaTableName))
                 .isEqualTo(
@@ -82,7 +82,7 @@ public class TestConfluentSchemaRegistryTableDescriptionSupplier
 
         SCHEMA_REGISTRY_CLIENT.register(subject, getAvroSchema(schemaTableName.getTableName(), ""));
 
-        assertThat(tableDescriptionSupplier.listTables().contains(schemaTableName)).isTrue();
+        assertThat(tableDescriptionSupplier.listTables()).contains(schemaTableName);
 
         assertThat(getKafkaTopicDescription(tableDescriptionSupplier, schemaTableName))
                 .isEqualTo(
@@ -107,7 +107,7 @@ public class TestConfluentSchemaRegistryTableDescriptionSupplier
         SCHEMA_REGISTRY_CLIENT.register(topicName + "-key", getAvroSchema(schemaTableName.getTableName(), ""));
         SCHEMA_REGISTRY_CLIENT.register(topicName.toUpperCase(ENGLISH) + "-key", getAvroSchema(schemaTableName.getTableName(), ""));
 
-        assertThat(tableDescriptionSupplier.listTables().contains(schemaTableName)).isTrue();
+        assertThat(tableDescriptionSupplier.listTables()).contains(schemaTableName);
 
         assertThatThrownBy(() ->
                 tableDescriptionSupplier.getTopicDescription(
@@ -131,7 +131,7 @@ public class TestConfluentSchemaRegistryTableDescriptionSupplier
         String overriddenSubject = "overriddenSubject";
         SCHEMA_REGISTRY_CLIENT.register(overriddenSubject, getAvroSchema(schemaTableName.getTableName(), "overridden_"));
 
-        assertThat(tableDescriptionSupplier.listTables().contains(schemaTableName)).isTrue();
+        assertThat(tableDescriptionSupplier.listTables()).contains(schemaTableName);
 
         assertThat(getKafkaTopicDescription(tableDescriptionSupplier, schemaTableName))
                 .isEqualTo(

@@ -577,7 +577,7 @@ public class TestMemoryConnectorTest
 
         assertQuery("SELECT * FROM test_view", query);
 
-        assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet().contains("test_view")).isTrue();
+        assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()).contains("test_view");
 
         assertUpdate("DROP VIEW test_view");
         assertQueryFails("DROP VIEW test_view", "line 1:1: View 'memory.default.test_view' does not exist");

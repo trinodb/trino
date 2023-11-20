@@ -168,7 +168,7 @@ public class TestJdbcWarnings
             TestingWarningCollector warningCollector = new TestingWarningCollector(new WarningCollectorConfig(), warningCollectorConfig);
             List<TrinoWarning> expectedWarnings = warningCollector.getWarnings();
             for (TrinoWarning trinoWarning : expectedWarnings) {
-                assertThat(currentWarnings.contains(new WarningEntry(toTrinoSqlWarning(trinoWarning)))).isTrue();
+                assertThat(currentWarnings).contains(new WarningEntry(toTrinoSqlWarning(trinoWarning)));
             }
         }
     }

@@ -1803,7 +1803,7 @@ public abstract class BaseElasticsearchConnectorTest
         createIndex(indexName, mappings);
 
         assertQuery(format("SELECT column_name FROM information_schema.columns WHERE table_name = '%s'", indexName), "VALUES ('dummy_column')");
-        assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet().contains(indexName)).isTrue();
+        assertThat(computeActual("SHOW TABLES").getOnlyColumnAsSet()).contains(indexName);
         assertQueryReturnsEmptyResult("SELECT * FROM " + indexName);
     }
 

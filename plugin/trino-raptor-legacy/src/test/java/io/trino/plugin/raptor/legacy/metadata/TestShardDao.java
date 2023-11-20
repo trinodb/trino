@@ -249,10 +249,10 @@ public class TestShardDao
         Set<UUID> shards = dao.getShards(tableId);
         assertThat(shards.size()).isEqualTo(4);
 
-        assertThat(shards.contains(shardUuid1)).isTrue();
-        assertThat(shards.contains(shardUuid2)).isTrue();
-        assertThat(shards.contains(shardUuid3)).isTrue();
-        assertThat(shards.contains(shardUuid4)).isTrue();
+        assertThat(shards).contains(shardUuid1);
+        assertThat(shards).contains(shardUuid2);
+        assertThat(shards).contains(shardUuid3);
+        assertThat(shards).contains(shardUuid4);
 
         assertThat(dao.getShardNodes(tableId).size()).isEqualTo(0);
 
@@ -283,6 +283,6 @@ public class TestShardDao
 
     private static void assertContainsShardNode(Set<ShardNode> nodes, String nodeName, UUID shardUuid)
     {
-        assertThat(nodes.contains(new ShardNode(shardUuid, nodeName))).isTrue();
+        assertThat(nodes).contains(new ShardNode(shardUuid, nodeName));
     }
 }
