@@ -111,19 +111,19 @@ public final class MetadataListing
         return ImmutableSortedSet.copyOf(accessControl.filterSchemas(session.toSecurityContext(), catalogName, schemaNames));
     }
 
-    public static Set<SchemaTableName> listTables(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
+    public static Set<SchemaTableName> listRelations(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
     {
         try {
-            return doListTables(session, metadata, accessControl, prefix);
+            return doListRelations(session, metadata, accessControl, prefix);
         }
         catch (RuntimeException exception) {
             throw handleListingException(exception, "tables", prefix.getCatalogName());
         }
     }
 
-    private static Set<SchemaTableName> doListTables(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
+    private static Set<SchemaTableName> doListRelations(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
     {
-        Set<SchemaTableName> tableNames = metadata.listTables(session, prefix).stream()
+        Set<SchemaTableName> tableNames = metadata.listRelations(session, prefix).stream()
                 .map(QualifiedObjectName::asSchemaTableName)
                 .collect(toImmutableSet());
 

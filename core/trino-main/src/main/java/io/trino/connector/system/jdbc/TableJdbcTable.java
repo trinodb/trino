@@ -37,7 +37,7 @@ import static io.trino.connector.system.jdbc.FilterUtil.isImpossibleObjectName;
 import static io.trino.connector.system.jdbc.FilterUtil.tablePrefix;
 import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
 import static io.trino.metadata.MetadataListing.listCatalogNames;
-import static io.trino.metadata.MetadataListing.listTables;
+import static io.trino.metadata.MetadataListing.listRelations;
 import static io.trino.metadata.MetadataListing.listViews;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -105,7 +105,7 @@ public class TableJdbcTable
             QualifiedTablePrefix prefix = tablePrefix(catalog, schemaFilter, tableFilter);
 
             Set<SchemaTableName> views = listViews(session, metadata, accessControl, prefix);
-            for (SchemaTableName name : listTables(session, metadata, accessControl, prefix)) {
+            for (SchemaTableName name : listRelations(session, metadata, accessControl, prefix)) {
                 boolean isView = views.contains(name);
                 if ((includeTables && !isView) || (includeViews && isView)) {
                     table.addRow(tableRow(catalog, name, isView ? "VIEW" : "TABLE"));

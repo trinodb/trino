@@ -810,14 +810,14 @@ public class LocalQueryRunner
     }
 
     @Override
-    public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)
+    public List<QualifiedObjectName> listRelations(Session session, String catalog, String schema)
     {
         lock.readLock().lock();
         try {
             return transaction(transactionManager, plannerContext.getMetadata(), accessControl)
                     .readOnly()
                     .execute(session, transactionSession -> {
-                        return getMetadata().listTables(transactionSession, new QualifiedTablePrefix(catalog, schema));
+                        return getMetadata().listRelations(transactionSession, new QualifiedTablePrefix(catalog, schema));
                     });
         }
         finally {

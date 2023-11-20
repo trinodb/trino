@@ -310,7 +310,7 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
-        public List<QualifiedObjectName> listTables(Session session, QualifiedTablePrefix prefix)
+        public List<QualifiedObjectName> listRelations(Session session, QualifiedTablePrefix prefix)
         {
             List<QualifiedObjectName> tables = ImmutableList.<QualifiedObjectName>builder()
                     .addAll(this.tables.keySet().stream().map(table -> new QualifiedObjectName(catalogName, table.getSchemaName(), table.getTableName())).collect(toImmutableList()))

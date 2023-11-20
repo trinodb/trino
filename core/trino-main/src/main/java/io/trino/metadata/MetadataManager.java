@@ -502,7 +502,7 @@ public final class MetadataManager
     }
 
     @Override
-    public List<QualifiedObjectName> listTables(Session session, QualifiedTablePrefix prefix)
+    public List<QualifiedObjectName> listRelations(Session session, QualifiedTablePrefix prefix)
     {
         requireNonNull(prefix, "prefix is null");
         if (cannotExist(prefix)) {
@@ -518,7 +518,7 @@ public final class MetadataManager
         }
 
         Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, prefix.getCatalogName());
-        Set<QualifiedObjectName> tables = new LinkedHashSet<>();
+        Set<QualifiedObjectName> relations = new LinkedHashSet<>();
         if (catalog.isPresent()) {
             CatalogMetadata catalogMetadata = catalog.get();
 
@@ -528,13 +528,13 @@ public final class MetadataManager
                 if (isExternalInformationSchema(catalogHandle, prefix.getSchemaName())) {
                     continue;
                 }
-                metadata.listTables(connectorSession, prefix.getSchemaName()).stream()
+                metadata.listRelations(connectorSession, prefix.getSchemaName()).stream()
                         .map(convertFromSchemaTableName(prefix.getCatalogName()))
                         .filter(table -> !isExternalInformationSchema(catalogHandle, table.getSchemaName()))
-                        .forEach(tables::add);
+                        .forEach(relations::add);
             }
         }
-        return ImmutableList.copyOf(tables);
+        return ImmutableList.copyOf(relations);
     }
 
     private Optional<Boolean> isExistingRelationForListing(Session session, QualifiedObjectName name)

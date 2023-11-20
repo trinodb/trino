@@ -69,9 +69,9 @@ import static io.trino.connector.system.jdbc.FilterUtil.isImpossibleObjectName;
 import static io.trino.connector.system.jdbc.FilterUtil.tablePrefix;
 import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
 import static io.trino.metadata.MetadataListing.listCatalogNames;
+import static io.trino.metadata.MetadataListing.listRelations;
 import static io.trino.metadata.MetadataListing.listSchemas;
 import static io.trino.metadata.MetadataListing.listTableColumns;
-import static io.trino.metadata.MetadataListing.listTables;
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -211,7 +211,7 @@ public class ColumnJdbcTable
                     QualifiedTablePrefix tablePrefix = tableFilter.isPresent()
                             ? new QualifiedTablePrefix(schema.getCatalogName(), schema.getSchemaName(), tableFilter.get())
                             : new QualifiedTablePrefix(schema.getCatalogName(), schema.getSchemaName());
-                    return listTables(session, metadata, accessControl, tablePrefix).stream()
+                    return listRelations(session, metadata, accessControl, tablePrefix).stream()
                             .filter(schemaTableName -> predicate.test(ImmutableMap.of(
                                     TABLE_CATALOG_COLUMN, toNullableValue(schema.getCatalogName()),
                                     TABLE_SCHEMA_COLUMN, toNullableValue(schemaTableName.getSchemaName()),
@@ -278,7 +278,7 @@ public class ColumnJdbcTable
                     QualifiedTablePrefix tablePrefix = tableFilter.isPresent()
                             ? new QualifiedTablePrefix(catalog, schema, tableFilter.get())
                             : new QualifiedTablePrefix(catalog, schema);
-                    Set<SchemaTableName> tables = listTables(session, metadata, accessControl, tablePrefix);
+                    Set<SchemaTableName> tables = listRelations(session, metadata, accessControl, tablePrefix);
                     for (SchemaTableName schemaTableName : tables) {
                         String tableName = schemaTableName.getTableName();
                         if (!tableDomain.includesNullableValue(utf8Slice(tableName))) {

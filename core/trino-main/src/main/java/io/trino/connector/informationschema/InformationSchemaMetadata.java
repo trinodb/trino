@@ -299,7 +299,7 @@ public class InformationSchemaMetadata
         }
 
         Set<QualifiedTablePrefix> tablePrefixes = prefixes.stream()
-                .flatMap(prefix -> metadata.listTables(session, prefix).stream())
+                .flatMap(prefix -> metadata.listRelations(session, prefix).stream())
                 .filter(objectName -> predicate.get().test(asFixedValues(objectName)))
                 .map(QualifiedObjectName::asQualifiedTablePrefix)
                 .distinct()

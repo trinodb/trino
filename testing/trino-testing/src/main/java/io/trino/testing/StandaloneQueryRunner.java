@@ -225,7 +225,7 @@ public final class StandaloneQueryRunner
     }
 
     @Override
-    public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)
+    public List<QualifiedObjectName> listRelations(Session session, String catalog, String schema)
     {
         lock.readLock().lock();
         try {

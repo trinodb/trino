@@ -93,7 +93,7 @@ public interface QueryRunner
         throw new UnsupportedOperationException();
     }
 
-    List<QualifiedObjectName> listTables(Session session, String catalog, String schema);
+    List<QualifiedObjectName> listRelations(Session session, String catalog, String schema);
 
     boolean tableExists(Session session, String table);
 

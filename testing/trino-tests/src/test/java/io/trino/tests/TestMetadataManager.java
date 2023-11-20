@@ -125,14 +125,14 @@ public class TestMetadataManager
     }
 
     @Test
-    public void testMetadataListTablesReturnsQualifiedView()
+    public void testMetadataListRelationsReturnsQualifiedView()
     {
         TransactionBuilder.transaction(queryRunner.getTransactionManager(), metadataManager, queryRunner.getAccessControl())
                 .execute(
                         TEST_SESSION,
                         transactionSession -> {
                             QualifiedTablePrefix viewName = new QualifiedTablePrefix("upper_case_schema_catalog", "upper_case_schema", "test_view");
-                            assertThat(metadataManager.listTables(transactionSession, viewName)).containsExactly(viewName.asQualifiedObjectName().get());
+                            assertThat(metadataManager.listRelations(transactionSession, viewName)).containsExactly(viewName.asQualifiedObjectName().get());
                         });
     }
 

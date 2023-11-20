@@ -53,10 +53,10 @@ import static io.trino.SystemSessionProperties.isOmitDateTimeTypePrecision;
 import static io.trino.connector.informationschema.InformationSchemaMetadata.defaultPrefixes;
 import static io.trino.connector.informationschema.InformationSchemaMetadata.isTablesEnumeratingTable;
 import static io.trino.metadata.MetadataListing.getViews;
+import static io.trino.metadata.MetadataListing.listRelations;
 import static io.trino.metadata.MetadataListing.listSchemas;
 import static io.trino.metadata.MetadataListing.listTableColumns;
 import static io.trino.metadata.MetadataListing.listTablePrivileges;
-import static io.trino.metadata.MetadataListing.listTables;
 import static io.trino.metadata.MetadataListing.listViews;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
@@ -275,7 +275,7 @@ public class InformationSchemaPageSource
 
     private void addTablesRecords(QualifiedTablePrefix prefix)
     {
-        Set<SchemaTableName> tables = listTables(session, metadata, accessControl, prefix);
+        Set<SchemaTableName> relations = listRelations(session, metadata, accessControl, prefix);
         boolean needsTableType = requiredColumns.contains("table_type");
         Set<SchemaTableName> views = Set.of();
         if (needsTableType) {
@@ -284,7 +284,7 @@ public class InformationSchemaPageSource
         }
         // TODO (https://github.com/trinodb/trino/issues/8207) define a type for materialized views
 
-        for (SchemaTableName name : tables) {
+        for (SchemaTableName name : relations) {
             String type = null;
             if (needsTableType) {
                 // if table and view names overlap, the view wins

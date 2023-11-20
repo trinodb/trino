@@ -175,14 +175,14 @@ public class TestInformationSchemaConnector
                 "SELECT count(table_name), count(table_type) from test_catalog.information_schema.tables",
                 "VALUES (3008, 3008)",
                 ImmutableMultiset.<String>builder()
-                        .add("ConnectorMetadata.listTables")
+                        .add("ConnectorMetadata.listRelations")
                         .add("ConnectorMetadata.listViews")
                         .build());
         assertMetadataCalls(
                 "SELECT count(table_name), count(table_type) from test_catalog.information_schema.tables WHERE table_schema = 'test_schema1'",
                 "VALUES (1000, 1000)",
                 ImmutableMultiset.<String>builder()
-                        .add("ConnectorMetadata.listTables(schema=test_schema1)")
+                        .add("ConnectorMetadata.listRelations(schema=test_schema1)")
                         .add("ConnectorMetadata.listViews(schema=test_schema1)")
                         .build());
         assertMetadataCalls(
@@ -190,16 +190,16 @@ public class TestInformationSchemaConnector
                 "VALUES (1000, 1000)",
                 ImmutableMultiset.<String>builder()
                         .add("ConnectorMetadata.listSchemaNames")
-                        .add("ConnectorMetadata.listTables(schema=test_schema1)")
+                        .add("ConnectorMetadata.listRelations(schema=test_schema1)")
                         .add("ConnectorMetadata.listViews(schema=test_schema1)")
                         .build());
         assertMetadataCalls(
                 "SELECT count(table_name), count(table_type) from test_catalog.information_schema.tables WHERE table_schema LIKE 'test_sch_ma1' AND table_schema IN ('test_schema1', 'test_schema2')",
                 "VALUES (1000, 1000)",
                 ImmutableMultiset.<String>builder()
-                        .add("ConnectorMetadata.listTables(schema=test_schema1)")
+                        .add("ConnectorMetadata.listRelations(schema=test_schema1)")
                         .add("ConnectorMetadata.listViews(schema=test_schema1)")
-                        .add("ConnectorMetadata.listTables(schema=test_schema2)")
+                        .add("ConnectorMetadata.listRelations(schema=test_schema2)")
                         .add("ConnectorMetadata.listViews(schema=test_schema2)")
                         .build());
         assertMetadataCalls(
@@ -212,7 +212,7 @@ public class TestInformationSchemaConnector
                                 .collect(joining(",", "(", ")")),
                 "VALUES (3000, 3000)",
                 ImmutableMultiset.<String>builder()
-                        .add("ConnectorMetadata.listTables")
+                        .add("ConnectorMetadata.listRelations")
                         .add("ConnectorMetadata.listViews")
                         .build());
         assertMetadataCalls(
@@ -246,10 +246,10 @@ public class TestInformationSchemaConnector
                 "VALUES (2, 2)",
                 ImmutableMultiset.<String>builder()
                         .add("ConnectorMetadata.listSchemaNames")
-                        .add("ConnectorMetadata.listTables(schema=test_schema1)")
-                        .add("ConnectorMetadata.listTables(schema=test_schema2)")
-                        .add("ConnectorMetadata.listTables(schema=test_schema3_empty)")
-                        .add("ConnectorMetadata.listTables(schema=test_schema4_empty)")
+                        .add("ConnectorMetadata.listRelations(schema=test_schema1)")
+                        .add("ConnectorMetadata.listRelations(schema=test_schema2)")
+                        .add("ConnectorMetadata.listRelations(schema=test_schema3_empty)")
+                        .add("ConnectorMetadata.listRelations(schema=test_schema4_empty)")
                         .add("ConnectorMetadata.listViews(schema=test_schema1)")
                         .add("ConnectorMetadata.listViews(schema=test_schema2)")
                         .add("ConnectorMetadata.listViews(schema=test_schema3_empty)")
@@ -376,7 +376,7 @@ public class TestInformationSchemaConnector
                 "VALUES 1000",
                 ImmutableMultiset.<String>builder()
                         .add("ConnectorMetadata.listSchemaNames")
-                        .add("ConnectorMetadata.listTables(schema=test_schema1)")
+                        .add("ConnectorMetadata.listRelations(schema=test_schema1)")
                         // view-related methods such as listViews not being called
                         .build());
     }

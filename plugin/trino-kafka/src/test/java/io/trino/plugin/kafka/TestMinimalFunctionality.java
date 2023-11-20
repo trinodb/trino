@@ -54,7 +54,7 @@ public class TestMinimalFunctionality
     @Test
     public void testTopicExists()
     {
-        assertThat(getQueryRunner().listTables(getSession(), "kafka", "default")).contains(QualifiedObjectName.valueOf("kafka.default." + topicName));
+        assertThat(getQueryRunner().listRelations(getSession(), "kafka", "default")).contains(QualifiedObjectName.valueOf("kafka.default." + topicName));
     }
 
     @Test

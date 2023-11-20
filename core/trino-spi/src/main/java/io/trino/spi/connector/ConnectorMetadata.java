@@ -278,6 +278,15 @@ public interface ConnectorMetadata
      * @see #listViews(ConnectorSession, Optional)
      * @see #listMaterializedViews(ConnectorSession, Optional)
      */
+    default List<SchemaTableName> listRelations(ConnectorSession session, Optional<String> schemaName)
+    {
+        return listTables(session, schemaName);
+    }
+
+    /**
+     * @deprecated Use {@link #listRelations(ConnectorSession, Optional)} instead.
+     */
+    @Deprecated(forRemoval = true)
     default List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         return emptyList();
@@ -330,7 +339,7 @@ public interface ConnectorMetadata
 
     /**
      * Gets columns for all relations (tables, views, materialized views), possibly filtered by schemaName.
-     * (e.g. for all relations that would be returned by {@link #listTables(ConnectorSession, Optional)}).
+     * (e.g. for all relations that would be returned by {@link #listRelations(ConnectorSession, Optional)}).
      * Redirected table names are included, but the comment for them is not.
      */
     @Experimental(eta = "2024-01-01")
@@ -369,7 +378,7 @@ public interface ConnectorMetadata
 
     /**
      * Gets comments for all relations (tables, views, materialized views), possibly filtered by schemaName.
-     * (e.g. for all relations that would be returned by {@link #listTables(ConnectorSession, Optional)}).
+     * (e.g. for all relations that would be returned by {@link #listRelations(ConnectorSession, Optional)}).
      * Redirected table names are included, but the comment for them is not.
      */
     @Experimental(eta = "2024-01-01")
@@ -389,7 +398,7 @@ public interface ConnectorMetadata
         Set<SchemaTableName> mvAndViewNames = Stream.concat(mvNames.stream(), views.stream().map(RelationCommentMetadata::name))
                 .collect(toUnmodifiableSet());
 
-        List<RelationCommentMetadata> tables = listTables(session, schemaName).stream()
+        List<RelationCommentMetadata> tables = listRelations(session, schemaName).stream()
                 .filter(tableName -> !mvAndViewNames.contains(tableName))
                 .collect(collectingAndThen(toUnmodifiableSet(), relationFilter)).stream()
                 .map(tableName -> {
@@ -422,7 +431,7 @@ public interface ConnectorMetadata
                             // getTableHandle or getTableMetadata failed call may fail if table disappeared during listing or is unsupported.
                             Helper.juliLogger.log(Level.WARNING, e, () -> "Failed to get metadata for table: " + tableName);
                         }
-                        // Since the getTableHandle did not return null (i.e. succeeded or failed), we assume the table would be returned by listTables
+                        // Since the getTableHandle did not return null (i.e. succeeded or failed), we assume the table would be returned by listRelations
                         return RelationCommentMetadata.forRelation(tableName, Optional.empty());
                     }
                 })
@@ -760,7 +769,7 @@ public interface ConnectorMetadata
 
     /**
      * Begin the atomic creation of a table with data.
-     *
+     * <p>
      * <p/>
      * If connector does not support execution with retries, the method should throw:
      * <pre>

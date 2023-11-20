@@ -204,7 +204,7 @@ public final class RedshiftQueryRunner
 
     private static synchronized void provisionTables(Session session, QueryRunner queryRunner, Iterable<TpchTable<?>> tables)
     {
-        Set<String> existingTables = queryRunner.listTables(session, session.getCatalog().orElseThrow(), session.getSchema().orElseThrow())
+        Set<String> existingTables = queryRunner.listRelations(session, session.getCatalog().orElseThrow(), session.getSchema().orElseThrow())
                 .stream()
                 .map(QualifiedObjectName::getObjectName)
                 .collect(toUnmodifiableSet());
