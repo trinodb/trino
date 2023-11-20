@@ -796,8 +796,9 @@ JSON_QUERY(
     )
 ```
 
-The `json_path` is evaluated using the `json_input` as the context variable
-(`$`), and the passed arguments as the named variables (`$variable_name`).
+The constant string `json_path` is evaluated using the `json_input` as the
+context variable (`$`), and the passed arguments as the named variables
+(`$variable_name`).
 
 The returned value is a JSON item returned by the path. By default, it is
 represented as a character string (`varchar`). In the `RETURNING` clause,
