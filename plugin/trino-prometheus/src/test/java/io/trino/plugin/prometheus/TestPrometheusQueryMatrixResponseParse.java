@@ -51,7 +51,7 @@ public class TestPrometheusQueryMatrixResponseParse
             throws IOException
     {
         List<PrometheusMetricResult> results = new PrometheusQueryResponseParse(promMatrixResponse).getResults();
-        assertThat(results.get(0).getMetricHeader().get("__name__")).isEqualTo("up");
+        assertThat(results.get(0).getMetricHeader()).containsEntry("__name__", "up");
     }
 
     @Test

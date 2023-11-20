@@ -814,7 +814,7 @@ public abstract class AbstractTestHiveFileSystem
             // verify the metadata
             ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session, getTableHandle(metadata, tableName));
             assertThat(filterNonHiddenColumnMetadata(tableMetadata.getColumns())).isEqualTo(columns);
-            assertThat(tableMetadata.getProperties().get("external_location")).isEqualTo(externalLocation);
+            assertThat(tableMetadata.getProperties()).containsEntry("external_location", externalLocation);
 
             // verify the data
             metadata.beginQuery(session);

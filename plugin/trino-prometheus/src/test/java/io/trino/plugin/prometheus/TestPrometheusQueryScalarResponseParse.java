@@ -41,7 +41,7 @@ public class TestPrometheusQueryScalarResponseParse
     {
         try (InputStream promVectorResponse = openStream()) {
             List<PrometheusMetricResult> results = new PrometheusQueryResponseParse(promVectorResponse).getResults();
-            assertThat(results.get(0).getMetricHeader().get("__name__")).isEqualTo("scalar");
+            assertThat(results.get(0).getMetricHeader()).containsEntry("__name__", "scalar");
         }
     }
 
