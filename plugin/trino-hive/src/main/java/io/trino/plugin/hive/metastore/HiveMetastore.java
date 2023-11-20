@@ -23,6 +23,7 @@ import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.predicate.TupleDomain;
@@ -68,6 +69,13 @@ public interface HiveMetastore
      * @return List of tables, views and materialized views names from all schemas or Optional.empty if operation is not supported
      */
     Optional<List<SchemaTableName>> getAllTables();
+
+    Map<String, RelationType> getRelationTypes(String databaseName);
+
+    /**
+     * @return empty if operation is not supported
+     */
+    Optional<Map<SchemaTableName, RelationType>> getRelationTypes();
 
     List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue);
 

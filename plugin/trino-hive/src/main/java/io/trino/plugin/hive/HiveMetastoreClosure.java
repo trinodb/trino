@@ -30,6 +30,7 @@ import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.projection.PartitionProjection;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.function.LanguageFunction;
@@ -162,6 +163,16 @@ public class HiveMetastoreClosure
     public Optional<List<SchemaTableName>> getAllTables()
     {
         return delegate.getAllTables();
+    }
+
+    public Map<String, RelationType> getRelationTypes(String databaseName)
+    {
+        return delegate.getRelationTypes(databaseName);
+    }
+
+    public Optional<Map<SchemaTableName, RelationType>> getRelationTypes()
+    {
+        return delegate.getRelationTypes();
     }
 
     public List<String> getAllViews(String databaseName)

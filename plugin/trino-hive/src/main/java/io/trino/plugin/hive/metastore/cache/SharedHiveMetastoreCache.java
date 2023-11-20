@@ -257,6 +257,20 @@ public class SharedHiveMetastoreCache
 
         @Managed
         @Nested
+        public AggregateCacheStatsMBean getRelationTypesStats()
+        {
+            return new AggregateCacheStatsMBean(CachingHiveMetastore::getRelationTypesCache);
+        }
+
+        @Managed
+        @Nested
+        public AggregateCacheStatsMBean getAllRelationTypesStats()
+        {
+            return new AggregateCacheStatsMBean(CachingHiveMetastore::getAllRelationTypesCache);
+        }
+
+        @Managed
+        @Nested
         public AggregateCacheStatsMBean getTableWithParameterStats()
         {
             return new AggregateCacheStatsMBean(CachingHiveMetastore::getTablesWithParameterCache);

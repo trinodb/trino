@@ -17,6 +17,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.CacheLoader.InvalidCacheLoadException;
 import com.google.common.cache.LoadingCache;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets.SetView;
@@ -49,6 +50,7 @@ import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.predicate.TupleDomain;
@@ -116,6 +118,8 @@ public final class CachingHiveMetastore
     private final LoadingCache<HiveTableName, Optional<Table>> tableCache;
     private final LoadingCache<String, List<String>> tableNamesCache;
     private final LoadingCache<SingletonCacheKey, Optional<List<SchemaTableName>>> allTableNamesCache;
+    private final LoadingCache<String, Map<String, RelationType>> relationTypesCache;
+    private final LoadingCache<SingletonCacheKey, Optional<Map<SchemaTableName, RelationType>>> allRelationTypesCache;
     private final LoadingCache<TablesWithParameterCacheKey, List<String>> tablesWithParameterCache;
     private final Cache<HiveTableName, AtomicReference<PartitionStatistics>> tableStatisticsCache;
     private final Cache<HivePartitionName, AtomicReference<PartitionStatistics>> partitionStatisticsCache;
@@ -202,6 +206,8 @@ public final class CachingHiveMetastore
         databaseCache = cacheFactory.buildCache(this::loadDatabase);
         tableNamesCache = cacheFactory.buildCache(this::loadAllTables);
         allTableNamesCache = cacheFactory.buildCache(ignore -> loadAllTables());
+        relationTypesCache = cacheFactory.buildCache(this::loadRelationTypes);
+        allRelationTypesCache = cacheFactory.buildCache(ignore -> loadRelationTypes());
         tablesWithParameterCache = cacheFactory.buildCache(this::loadTablesMatchingParameter);
         tableStatisticsCache = statsCacheFactory.buildCache(this::refreshTableStatistics);
         tableCache = cacheFactory.buildCache(this::loadTable);
@@ -223,6 +229,8 @@ public final class CachingHiveMetastore
         databaseNamesCache.invalidateAll();
         tableNamesCache.invalidateAll();
         allTableNamesCache.invalidateAll();
+        relationTypesCache.invalidateAll();
+        allRelationTypesCache.invalidateAll();
         viewNamesCache.invalidateAll();
         allViewNamesCache.invalidateAll();
         databaseCache.invalidateAll();
@@ -572,6 +580,10 @@ public final class CachingHiveMetastore
     @Override
     public List<String> getAllTables(String databaseName)
     {
+        Map<String, RelationType> relationTypes = relationTypesCache.getIfPresent(databaseName);
+        if (relationTypes != null) {
+            return ImmutableList.copyOf(relationTypes.keySet());
+        }
         return get(tableNamesCache, databaseName);
     }
 
@@ -583,12 +595,38 @@ public final class CachingHiveMetastore
     @Override
     public Optional<List<SchemaTableName>> getAllTables()
     {
+        Optional<Map<SchemaTableName, RelationType>> relationTypes = allRelationTypesCache.getIfPresent(SingletonCacheKey.INSTANCE);
+        if (relationTypes != null && relationTypes.isPresent()) {
+            return Optional.of(ImmutableList.copyOf(relationTypes.get().keySet()));
+        }
         return getOptional(allTableNamesCache, SingletonCacheKey.INSTANCE);
     }
 
     private Optional<List<SchemaTableName>> loadAllTables()
     {
         return delegate.getAllTables();
+    }
+
+    @Override
+    public Map<String, RelationType> getRelationTypes(String databaseName)
+    {
+        return get(relationTypesCache, databaseName);
+    }
+
+    private Map<String, RelationType> loadRelationTypes(String databaseName)
+    {
+        return delegate.getRelationTypes(databaseName);
+    }
+
+    @Override
+    public Optional<Map<SchemaTableName, RelationType>> getRelationTypes()
+    {
+        return getOptional(allRelationTypesCache, SingletonCacheKey.INSTANCE);
+    }
+
+    private Optional<Map<SchemaTableName, RelationType>> loadRelationTypes()
+    {
+        return delegate.getRelationTypes();
     }
 
     @Override
@@ -794,6 +832,8 @@ public final class CachingHiveMetastore
         tableCache.invalidate(hiveTableName);
         tableNamesCache.invalidate(databaseName);
         allTableNamesCache.invalidateAll();
+        relationTypesCache.invalidate(databaseName);
+        allRelationTypesCache.invalidateAll();
         viewNamesCache.invalidate(databaseName);
         allViewNamesCache.invalidateAll();
         invalidateAllIf(tablePrivilegesCache, userTableKey -> userTableKey.matches(databaseName, tableName));
@@ -1292,6 +1332,20 @@ public final class CachingHiveMetastore
 
     @Managed
     @Nested
+    public CacheStatsMBean getRelationTypesStats()
+    {
+        return new CacheStatsMBean(relationTypesCache);
+    }
+
+    @Managed
+    @Nested
+    public CacheStatsMBean getAllRelationTypesStats()
+    {
+        return new CacheStatsMBean(allRelationTypesCache);
+    }
+
+    @Managed
+    @Nested
     public CacheStatsMBean getTableWithParameterStats()
     {
         return new CacheStatsMBean(tablesWithParameterCache);
@@ -1395,6 +1449,16 @@ public final class CachingHiveMetastore
         return allTableNamesCache;
     }
 
+    LoadingCache<String, Map<String, RelationType>> getRelationTypesCache()
+    {
+        return relationTypesCache;
+    }
+
+    LoadingCache<SingletonCacheKey, Optional<Map<SchemaTableName, RelationType>>> getAllRelationTypesCache()
+    {
+        return allRelationTypesCache;
+    }
+
     LoadingCache<TablesWithParameterCacheKey, List<String>> getTablesWithParameterCache()
     {
         return tablesWithParameterCache;
@@ -1450,7 +1514,8 @@ public final class CachingHiveMetastore
         return configValuesCache;
     }
 
-    private record CacheFactory(OptionalLong expiresAfterWriteMillis, OptionalLong refreshMillis, Optional<Executor> refreshExecutor, long maximumSize, StatsRecording statsRecording)
+    private record CacheFactory(OptionalLong expiresAfterWriteMillis, OptionalLong refreshMillis, Optional<Executor> refreshExecutor, long maximumSize,
+                                StatsRecording statsRecording)
     {
         private static final CacheFactory NEVER_CACHE = new CacheFactory(OptionalLong.empty(), OptionalLong.empty(), Optional.empty(), 0, StatsRecording.DISABLED);
 
