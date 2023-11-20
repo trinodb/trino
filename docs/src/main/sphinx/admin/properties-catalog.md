@@ -1,5 +1,8 @@
 # Catalog management properties
 
+The following properties are used to configure catalog management with further
+controls for dynamic catalog management.
+
 (prop-catalog-management)=
 ## `catalog.management`
 
