@@ -34,7 +34,9 @@ import io.trino.plugin.deltalake.transactionlog.RemoveFileEntry;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeParquetFileStatistics;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
+import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.AfterAll;
@@ -81,6 +83,7 @@ import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.spi.predicate.Domain.notNull;
 import static io.trino.spi.predicate.Domain.onlyNull;
 import static io.trino.spi.predicate.Domain.singleValue;
+import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -614,6 +617,127 @@ public class TestCheckpointEntryIterator
                 .map(DeltaLakeTransactionLogEntry::getCommitInfo)
                 .filteredOn(Objects::nonNull)
                 .isEmpty();
+    }
+
+    @Test
+    public void testSkipAddEntriesThroughPartitionPruning()
+            throws IOException
+    {
+        MetadataEntry metadataEntry = new MetadataEntry(
+                "metadataId",
+                "metadataName",
+                "metadataDescription",
+                new MetadataEntry.Format(
+                        "metadataFormatProvider",
+                        ImmutableMap.of()),
+                "{\"type\":\"struct\",\"fields\":" +
+                        "[{\"name\":\"ts\",\"type\":\"timestamp\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"part_key\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}]}",
+                ImmutableList.of("part_key"),
+                ImmutableMap.of(),
+                1000);
+        ProtocolEntry protocolEntry = new ProtocolEntry(1, 1, Optional.empty(), Optional.empty());
+        int numAddEntries = 100;
+        Set<AddFileEntry> addFileEntries = IntStream.rangeClosed(1, numAddEntries).mapToObj(value ->
+                        new AddFileEntry(
+                                "addFilePath",
+                                ImmutableMap.of("part_key", Integer.toString(value)),
+                                1000,
+                                1001,
+                                true,
+                                Optional.of("{" +
+                                        "\"numRecords\":20," +
+                                        "\"minValues\":{" +
+                                        "\"ts\":\"1990-10-31T01:00:00.000Z\"" +
+                                        "}," +
+                                        "\"maxValues\":{" +
+                                        "\"ts\":\"1990-10-31T02:00:00.000Z\"" +
+                                        "}," +
+                                        "\"nullCount\":{" +
+                                        "\"ts\":1" +
+                                        "}}"),
+                                Optional.empty(),
+                                ImmutableMap.of(),
+                                Optional.empty()))
+                .collect(toImmutableSet());
+
+        CheckpointEntries entries = new CheckpointEntries(
+                metadataEntry,
+                protocolEntry,
+                ImmutableSet.of(),
+                addFileEntries,
+                ImmutableSet.of());
+
+        CheckpointWriter writer = new CheckpointWriter(
+                TESTING_TYPE_MANAGER,
+                checkpointSchemaManager,
+                "test",
+                ParquetWriterOptions.builder() // approximately 2 rows per row group
+                        .setMaxBlockSize(DataSize.ofBytes(64L))
+                        .setMaxPageSize(DataSize.ofBytes(64L))
+                        .build());
+
+        File targetFile = File.createTempFile("testSkipAddEntries-", ".checkpoint.parquet");
+        targetFile.deleteOnExit();
+
+        String targetPath = "file://" + targetFile.getAbsolutePath();
+        targetFile.delete(); // file must not exist when writer is called
+        writer.write(entries, createOutputFile(targetPath));
+
+        CheckpointEntryIterator metadataAndProtocolEntryIterator = createCheckpointEntryIterator(
+                URI.create(targetPath),
+                ImmutableSet.of(METADATA, PROTOCOL),
+                Optional.empty(),
+                Optional.empty(),
+                TupleDomain.all(),
+                Optional.empty());
+
+        DeltaLakeColumnHandle partitionKeyField = new DeltaLakeColumnHandle(
+                "part_key",
+                INTEGER,
+                OptionalInt.empty(),
+                "part_key",
+                INTEGER,
+                REGULAR,
+                Optional.empty());
+
+        CheckpointEntryIterator addEntryIterator = createCheckpointEntryIterator(
+                URI.create(targetPath),
+                ImmutableSet.of(ADD),
+                Optional.of(metadataEntry),
+                Optional.of(protocolEntry),
+                TupleDomain.all(),
+                Optional.of(alwaysTrue()));
+
+        CheckpointEntryIterator addEntryIteratorWithEqualityPartitionFilter = createCheckpointEntryIterator(
+                URI.create(targetPath),
+                ImmutableSet.of(ADD),
+                Optional.of(metadataEntry),
+                Optional.of(protocolEntry),
+                TupleDomain.withColumnDomains(ImmutableMap.of(partitionKeyField, singleValue(INTEGER, 10L))),
+                Optional.of(alwaysTrue()));
+
+        CheckpointEntryIterator addEntryIteratorWithRangePartitionFilter = createCheckpointEntryIterator(
+                URI.create(targetPath),
+                ImmutableSet.of(ADD),
+                Optional.of(metadataEntry),
+                Optional.of(protocolEntry),
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        partitionKeyField,
+                        Domain.create(ValueSet.ofRanges(range(INTEGER, 9L, true, 11L, true)), false))),
+                Optional.of(alwaysTrue()));
+
+        assertThat(Iterators.size(metadataAndProtocolEntryIterator)).isEqualTo(2);
+        assertThat(metadataAndProtocolEntryIterator.getCompletedPositions().orElseThrow()).isEqualTo(3L);
+
+        assertThat(Iterators.size(addEntryIterator)).isEqualTo(numAddEntries);
+        assertThat(addEntryIterator.getCompletedPositions().orElseThrow()).isEqualTo(101L);
+
+        assertThat(Iterators.size(addEntryIteratorWithEqualityPartitionFilter)).isEqualTo(1);
+        assertThat(addEntryIteratorWithEqualityPartitionFilter.getCompletedPositions().orElseThrow()).isEqualTo(1L);
+
+        assertThat(Iterators.size(addEntryIteratorWithRangePartitionFilter)).isEqualTo(3);
+        assertThat(addEntryIteratorWithRangePartitionFilter.getCompletedPositions().orElseThrow()).isEqualTo(3L);
     }
 
     @Test
