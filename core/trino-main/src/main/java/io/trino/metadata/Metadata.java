@@ -37,6 +37,7 @@ import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RelationCommentMetadata;
+import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SampleApplicationResult;
 import io.trino.spi.connector.SampleType;
@@ -163,6 +164,12 @@ public interface Metadata
      * This includes all relations (e.g. tables, views, materialized views).
      */
     List<QualifiedObjectName> listTables(Session session, QualifiedTablePrefix prefix);
+
+    /**
+     * Get the relation names that match the specified table prefix (never null).
+     * This includes all relations (e.g. tables, views, materialized views).
+     */
+    Map<SchemaTableName, RelationType> getRelationTypes(Session session, QualifiedTablePrefix prefix);
 
     /**
      * Gets all of the columns on the specified table, or an empty map if the columns cannot be enumerated.

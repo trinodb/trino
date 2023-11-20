@@ -26,6 +26,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.GrantInfo;
@@ -37,6 +38,7 @@ import java.util.ArrayDeque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Queue;
@@ -52,12 +54,12 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SystemSessionProperties.isOmitDateTimeTypePrecision;
 import static io.trino.connector.informationschema.InformationSchemaMetadata.defaultPrefixes;
 import static io.trino.connector.informationschema.InformationSchemaMetadata.isTablesEnumeratingTable;
+import static io.trino.metadata.MetadataListing.getRelationTypes;
 import static io.trino.metadata.MetadataListing.getViews;
 import static io.trino.metadata.MetadataListing.listSchemas;
 import static io.trino.metadata.MetadataListing.listTableColumns;
 import static io.trino.metadata.MetadataListing.listTablePrivileges;
 import static io.trino.metadata.MetadataListing.listTables;
-import static io.trino.metadata.MetadataListing.listViews;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.type.TypeUtils.getDisplayLabel;
@@ -245,7 +247,7 @@ public class InformationSchemaPageSource
 
     private void addColumnsRecords(QualifiedTablePrefix prefix)
     {
-        for (Map.Entry<SchemaTableName, List<ColumnMetadata>> entry : listTableColumns(session, metadata, accessControl, prefix).entrySet()) {
+        for (Entry<SchemaTableName, List<ColumnMetadata>> entry : listTableColumns(session, metadata, accessControl, prefix).entrySet()) {
             SchemaTableName tableName = entry.getKey();
             long ordinalPosition = 1;
 
@@ -275,16 +277,24 @@ public class InformationSchemaPageSource
 
     private void addTablesRecords(QualifiedTablePrefix prefix)
     {
-        Set<SchemaTableName> tables = listTables(session, metadata, accessControl, prefix);
         boolean needsTableType = requiredColumns.contains("table_type");
-        Set<SchemaTableName> views = Set.of();
+        Set<SchemaTableName> relations;
+        Set<SchemaTableName> views;
         if (needsTableType) {
-            // TODO introduce a dedicated method for getting relations with their type from the connector, instead of calling (potentially much more expensive) getViews
-            views = listViews(session, metadata, accessControl, prefix);
+            Map<SchemaTableName, RelationType> relationTypes = getRelationTypes(session, metadata, accessControl, prefix);
+            relations = relationTypes.keySet();
+            views = relationTypes.entrySet().stream()
+                    .filter(entry -> entry.getValue() == RelationType.VIEW)
+                    .map(Entry::getKey)
+                    .collect(toImmutableSet());
+        }
+        else {
+            relations = listTables(session, metadata, accessControl, prefix);
+            views = Set.of();
         }
         // TODO (https://github.com/trinodb/trino/issues/8207) define a type for materialized views
 
-        for (SchemaTableName name : tables) {
+        for (SchemaTableName name : relations) {
             String type = null;
             if (needsTableType) {
                 // if table and view names overlap, the view wins
@@ -304,7 +314,7 @@ public class InformationSchemaPageSource
 
     private void addViewsRecords(QualifiedTablePrefix prefix)
     {
-        for (Map.Entry<SchemaTableName, ViewInfo> entry : getViews(session, metadata, accessControl, prefix).entrySet()) {
+        for (Entry<SchemaTableName, ViewInfo> entry : getViews(session, metadata, accessControl, prefix).entrySet()) {
             addRecord(
                     prefix.getCatalogName(),
                     entry.getKey().getSchemaName(),

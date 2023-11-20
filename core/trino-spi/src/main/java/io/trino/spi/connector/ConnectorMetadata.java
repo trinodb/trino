@@ -284,6 +284,28 @@ public interface ConnectorMetadata
     }
 
     /**
+     * List table, view and materialized view names, possibly filtered by schema.
+     */
+    default Map<SchemaTableName, RelationType> getRelationTypes(ConnectorSession session, Optional<String> schemaName)
+    {
+        Set<SchemaTableName> materializedViews = Set.copyOf(listMaterializedViews(session, schemaName));
+        Set<SchemaTableName> views = Set.copyOf(listViews(session, schemaName));
+
+        return listTables(session, schemaName).stream()
+                .collect(toMap(
+                        identity(),
+                        relation -> {
+                            if (materializedViews.contains(relation)) {
+                                return RelationType.MATERIALIZED_VIEW;
+                            }
+                            if (views.contains(relation)) {
+                                return RelationType.VIEW;
+                            }
+                            return RelationType.TABLE;
+                        }));
+    }
+
+    /**
      * Gets all of the columns on the specified table, or an empty map if the columns cannot be enumerated.
      *
      * @throws RuntimeException if table handle is no longer valid

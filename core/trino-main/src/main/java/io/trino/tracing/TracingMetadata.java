@@ -65,6 +65,7 @@ import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RelationCommentMetadata;
+import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SampleApplicationResult;
 import io.trino.spi.connector.SampleType;
@@ -314,6 +315,15 @@ public class TracingMetadata
         Span span = startSpan("listTables", prefix);
         try (var ignored = scopedSpan(span)) {
             return delegate.listTables(session, prefix);
+        }
+    }
+
+    @Override
+    public Map<SchemaTableName, RelationType> getRelationTypes(Session session, QualifiedTablePrefix prefix)
+    {
+        Span span = startSpan("getRelationTypes", prefix);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.getRelationTypes(session, prefix);
         }
     }
 
