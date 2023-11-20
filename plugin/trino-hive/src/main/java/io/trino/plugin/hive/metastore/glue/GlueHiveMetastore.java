@@ -102,6 +102,7 @@ import io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.GluePa
 import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnNotFoundException;
+import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -430,6 +431,37 @@ public class GlueHiveMetastore
 
     @Override
     public Optional<List<SchemaTableName>> getAllTables()
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public Map<String, RelationType> getRelationTypes(String databaseName)
+    {
+        try {
+            return getGlueTables(databaseName)
+                    .filter(tableFilter.or(SOME_KIND_OF_VIEW_FILTER))
+                    .collect(toImmutableMap(
+                            com.amazonaws.services.glue.model.Table::getName,
+                            table -> {
+                                // GlueHiveMetastore currently does not distinguish views and materialized views, see getAllViews().
+                                if (SOME_KIND_OF_VIEW_FILTER.test(table)) {
+                                    return RelationType.VIEW;
+                                }
+                                return RelationType.TABLE;
+                            }));
+        }
+        catch (EntityNotFoundException | AccessDeniedException e) {
+            // database does not exist or permission denied
+            return ImmutableMap.of();
+        }
+        catch (AmazonServiceException e) {
+            throw new TrinoException(HIVE_METASTORE_ERROR, e);
+        }
+    }
+
+    @Override
+    public Optional<Map<SchemaTableName, RelationType>> getRelationTypes()
     {
         return Optional.empty();
     }

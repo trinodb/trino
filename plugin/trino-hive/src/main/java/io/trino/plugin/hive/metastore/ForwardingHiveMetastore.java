@@ -21,6 +21,7 @@ import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
+import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.predicate.TupleDomain;
@@ -120,6 +121,18 @@ public abstract class ForwardingHiveMetastore
     public Optional<List<SchemaTableName>> getAllTables()
     {
         return delegate.getAllTables();
+    }
+
+    @Override
+    public Map<String, RelationType> getRelationTypes(String databaseName)
+    {
+        return delegate.getRelationTypes(databaseName);
+    }
+
+    @Override
+    public Optional<Map<SchemaTableName, RelationType>> getRelationTypes()
+    {
+        return delegate.getRelationTypes();
     }
 
     @Override
