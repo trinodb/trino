@@ -284,6 +284,28 @@ public interface ConnectorMetadata
     }
 
     /**
+     * List table, view and materialized view names, possibly filtered by schema.
+     */
+    default Map<SchemaTableName, RelationType> getRelationTypes(ConnectorSession session, Optional<String> schemaName)
+    {
+        Set<SchemaTableName> materializedViews = Set.copyOf(listMaterializedViews(session, schemaName));
+        Set<SchemaTableName> views = Set.copyOf(listViews(session, schemaName));
+
+        return listRelations(session, schemaName).stream()
+                .collect(toMap(
+                        identity(),
+                        relatioNname -> {
+                            if (materializedViews.contains(relatioNname)) {
+                                return RelationType.MATERIALIZED_VIEW;
+                            }
+                            if (views.contains(relatioNname)) {
+                                return RelationType.VIEW;
+                            }
+                            return RelationType.TABLE;
+                        }));
+    }
+
+    /**
      * @deprecated Use {@link #listRelations(ConnectorSession, Optional)} instead.
      */
     @Deprecated(forRemoval = true)
