@@ -68,16 +68,22 @@ public class ValuesStatsRule
         PlanNodeStatsEstimate.Builder statsBuilder = PlanNodeStatsEstimate.builder();
         statsBuilder.setOutputRowCount(node.getRowCount());
 
-        for (int symbolId = 0; symbolId < node.getOutputSymbols().size(); ++symbolId) {
-            Symbol symbol = node.getOutputSymbols().get(symbolId);
-            List<Object> symbolValues = getSymbolValues(
-                    node,
-                    symbolId,
-                    session,
-                    RowType.anonymous(node.getOutputSymbols().stream()
-                            .map(types::get)
-                            .collect(toImmutableList())));
-            statsBuilder.addSymbolStatistics(symbol, buildSymbolStatistics(symbolValues, types.get(symbol)));
+        try {
+            for (int symbolId = 0; symbolId < node.getOutputSymbols().size(); ++symbolId) {
+                Symbol symbol = node.getOutputSymbols().get(symbolId);
+                List<Object> symbolValues = getSymbolValues(
+                        node,
+                        symbolId,
+                        session,
+                        RowType.anonymous(node.getOutputSymbols().stream()
+                                .map(types::get)
+                                .collect(toImmutableList())));
+                statsBuilder.addSymbolStatistics(symbol, buildSymbolStatistics(symbolValues, types.get(symbol)));
+            }
+        }
+        catch (RuntimeException e) {
+            // prevent stats calculations (e.g. division by zero) from causing planning failures
+            return Optional.empty();
         }
 
         return Optional.of(statsBuilder.build());
