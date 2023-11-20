@@ -207,8 +207,8 @@ public class TestPrometheusSplit
         Map<String, String> paramsMap1 = parse(URI.create(split1.getUri()), StandardCharsets.UTF_8).stream().collect(Collectors.toMap(NameValuePair::getName, NameValuePair::getValue));
         PrometheusSplit split2 = (PrometheusSplit) splits.getNextBatch(1).getNow(null).getSplits().get(0);
         Map<String, String> paramsMap2 = parse(URI.create(split2.getUri()), StandardCharsets.UTF_8).stream().collect(Collectors.toMap(NameValuePair::getName, NameValuePair::getValue));
-        assertThat(paramsMap1.get("query")).isEqualTo("up[1d]");
-        assertThat(paramsMap2.get("query")).isEqualTo("up[1d]");
+        assertThat(paramsMap1).containsEntry("query", "up[1d]");
+        assertThat(paramsMap2).containsEntry("query", "up[1d]");
         long diff = Double.valueOf(paramsMap2.get("time")).longValue() - Double.valueOf(paramsMap1.get("time")).longValue();
         assertEquals(config.getQueryChunkSizeDuration().getValue(TimeUnit.SECONDS), diff, 0.0001);
     }
