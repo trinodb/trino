@@ -31,6 +31,7 @@ import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
+import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.predicate.TupleDomain;
@@ -190,6 +191,31 @@ public class TracingHiveMetastore
             Optional<List<SchemaTableName>> tables = delegate.getAllTables();
             tables.ifPresent(list -> span.setAttribute(TABLE_RESPONSE_COUNT, list.size()));
             return tables;
+        });
+    }
+
+    @Override
+    public Map<String, RelationType> getRelationTypes(String databaseName)
+    {
+        Span span = tracer.spanBuilder("HiveMetastore.getRelationTypes")
+                .setAttribute(SCHEMA, databaseName)
+                .startSpan();
+        return withTracing(span, () -> {
+            Map<String, RelationType> relationTypes = delegate.getRelationTypes(databaseName);
+            span.setAttribute(TABLE_RESPONSE_COUNT, relationTypes.size());
+            return relationTypes;
+        });
+    }
+
+    @Override
+    public Optional<Map<SchemaTableName, RelationType>> getRelationTypes()
+    {
+        Span span = tracer.spanBuilder("HiveMetastore.getRelations")
+                .startSpan();
+        return withTracing(span, () -> {
+            Optional<Map<SchemaTableName, RelationType>> relationTypes = delegate.getRelationTypes();
+            relationTypes.ifPresent(map -> span.setAttribute(TABLE_RESPONSE_COUNT, map.size()));
+            return relationTypes;
         });
     }
 

@@ -52,6 +52,7 @@ import io.trino.plugin.hive.security.SqlStandardAccessControlMetadataMetastore;
 import io.trino.plugin.hive.util.ValidTxnWriteIdList;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -250,6 +251,24 @@ public class SemiTransactionalHiveMetastore
             throw new UnsupportedOperationException("Listing all tables after adding/dropping/altering tables/views in a transaction is not supported");
         }
         return delegate.getAllTables();
+    }
+
+    public synchronized Map<String, RelationType> getRelationTypes(String databaseName)
+    {
+        checkReadable();
+        if (!tableActions.isEmpty()) {
+            throw new UnsupportedOperationException("Listing all relations after adding/dropping/altering tables/views in a transaction is not supported");
+        }
+        return delegate.getRelationTypes(databaseName);
+    }
+
+    public synchronized Optional<Map<SchemaTableName, RelationType>> getRelationTypes()
+    {
+        checkReadable();
+        if (!tableActions.isEmpty()) {
+            throw new UnsupportedOperationException("Listing all relations after adding/dropping/altering tables/views in a transaction is not supported");
+        }
+        return delegate.getRelationTypes();
     }
 
     public synchronized Optional<Table> getTable(String databaseName, String tableName)
