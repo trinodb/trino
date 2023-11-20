@@ -30,11 +30,11 @@ public class TestValuesNodeStats
     public void testStatsForValuesNode()
     {
         tester().assertStatsFor(pb -> pb
-                .values(ImmutableList.of(pb.symbol("a", BIGINT), pb.symbol("b", DOUBLE)),
-                        ImmutableList.of(
-                                ImmutableList.of(expression("3+3"), expression("13.5e0")),
-                                ImmutableList.of(expression("55"), expression("null")),
-                                ImmutableList.of(expression("6"), expression("13.5e0")))))
+                        .values(ImmutableList.of(pb.symbol("a", BIGINT), pb.symbol("b", DOUBLE)),
+                                ImmutableList.of(
+                                        ImmutableList.of(expression("3+3"), expression("13.5e0")),
+                                        ImmutableList.of(expression("55"), expression("null")),
+                                        ImmutableList.of(expression("6"), expression("13.5e0")))))
                 .check(outputStats -> outputStats.equalTo(
                         PlanNodeStatsEstimate.builder()
                                 .setOutputRowCount(3)
@@ -57,12 +57,12 @@ public class TestValuesNodeStats
                                 .build()));
 
         tester().assertStatsFor(pb -> pb
-                .values(ImmutableList.of(pb.symbol("v", createVarcharType(30))),
-                        ImmutableList.of(
-                                ImmutableList.of(expression("'Alice'")),
-                                ImmutableList.of(expression("'has'")),
-                                ImmutableList.of(expression("'a cat'")),
-                                ImmutableList.of(expression("null")))))
+                        .values(ImmutableList.of(pb.symbol("v", createVarcharType(30))),
+                                ImmutableList.of(
+                                        ImmutableList.of(expression("'Alice'")),
+                                        ImmutableList.of(expression("'has'")),
+                                        ImmutableList.of(expression("'a cat'")),
+                                        ImmutableList.of(expression("null")))))
                 .check(outputStats -> outputStats.equalTo(
                         PlanNodeStatsEstimate.builder()
                                 .setOutputRowCount(4)
@@ -85,21 +85,21 @@ public class TestValuesNodeStats
                 .build();
 
         tester().assertStatsFor(pb -> pb
-                .values(ImmutableList.of(pb.symbol("a", BIGINT)),
-                        ImmutableList.of(
-                                ImmutableList.of(expression("3 + null")))))
+                        .values(ImmutableList.of(pb.symbol("a", BIGINT)),
+                                ImmutableList.of(
+                                        ImmutableList.of(expression("3 + null")))))
                 .check(outputStats -> outputStats.equalTo(nullAStats));
 
         tester().assertStatsFor(pb -> pb
-                .values(ImmutableList.of(pb.symbol("a", BIGINT)),
-                        ImmutableList.of(
-                                ImmutableList.of(expression("null")))))
+                        .values(ImmutableList.of(pb.symbol("a", BIGINT)),
+                                ImmutableList.of(
+                                        ImmutableList.of(expression("null")))))
                 .check(outputStats -> outputStats.equalTo(nullAStats));
 
         tester().assertStatsFor(pb -> pb
-                .values(ImmutableList.of(pb.symbol("a", UNKNOWN)),
-                        ImmutableList.of(
-                                ImmutableList.of(expression("null")))))
+                        .values(ImmutableList.of(pb.symbol("a", UNKNOWN)),
+                                ImmutableList.of(
+                                        ImmutableList.of(expression("null")))))
                 .check(outputStats -> outputStats.equalTo(nullAStats));
     }
 
@@ -107,8 +107,8 @@ public class TestValuesNodeStats
     public void testStatsForEmptyValues()
     {
         tester().assertStatsFor(pb -> pb
-                .values(ImmutableList.of(pb.symbol("a", BIGINT)),
-                        ImmutableList.of()))
+                        .values(ImmutableList.of(pb.symbol("a", BIGINT)),
+                                ImmutableList.of()))
                 .check(outputStats -> outputStats.equalTo(
                         PlanNodeStatsEstimate.builder()
                                 .setOutputRowCount(0)
