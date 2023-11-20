@@ -33,9 +33,9 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.predicate.TupleDomain.ColumnDomain;
 
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -89,11 +89,11 @@ public class AccumuloSplitManager
 
     private static Optional<Domain> getRangeDomain(String rowIdName, TupleDomain<ColumnHandle> constraint)
     {
-        if (constraint.getColumnDomains().isPresent()) {
-            for (ColumnDomain<ColumnHandle> cd : constraint.getColumnDomains().get()) {
-                AccumuloColumnHandle col = (AccumuloColumnHandle) cd.getColumn();
+        if (constraint.getDomains().isPresent()) {
+            for (Entry<ColumnHandle, Domain> columnDomain : constraint.getDomains().get().entrySet()) {
+                AccumuloColumnHandle col = (AccumuloColumnHandle) columnDomain.getKey();
                 if (col.getName().equals(rowIdName)) {
-                    return Optional.of(cd.getDomain());
+                    return Optional.of(columnDomain.getValue());
                 }
             }
         }
@@ -111,8 +111,8 @@ public class AccumuloSplitManager
     private static List<AccumuloColumnConstraint> getColumnConstraints(String rowIdName, TupleDomain<ColumnHandle> constraint)
     {
         ImmutableList.Builder<AccumuloColumnConstraint> constraintBuilder = ImmutableList.builder();
-        for (ColumnDomain<ColumnHandle> columnDomain : constraint.getColumnDomains().get()) {
-            AccumuloColumnHandle columnHandle = (AccumuloColumnHandle) columnDomain.getColumn();
+        constraint.getDomains().orElseThrow().forEach((handle, domain) -> {
+            AccumuloColumnHandle columnHandle = (AccumuloColumnHandle) handle;
 
             if (!columnHandle.getName().equals(rowIdName)) {
                 // Family and qualifier will exist for non-row ID columns
@@ -120,10 +120,10 @@ public class AccumuloSplitManager
                         columnHandle.getName(),
                         columnHandle.getFamily().get(),
                         columnHandle.getQualifier().get(),
-                        Optional.of(columnDomain.getDomain()),
+                        Optional.of(domain),
                         columnHandle.isIndexed()));
             }
-        }
+        });
 
         return constraintBuilder.build();
     }

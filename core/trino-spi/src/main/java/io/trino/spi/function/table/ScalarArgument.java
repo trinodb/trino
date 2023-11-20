@@ -15,6 +15,7 @@ package io.trino.spi.function.table;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.errorprone.annotations.DoNotCall;
 import io.trino.spi.Experimental;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.NullableValue;
@@ -60,6 +61,7 @@ public class ScalarArgument
 
     // deserialization
     @JsonCreator
+    @DoNotCall // For JSON deserialization only
     public static ScalarArgument fromNullableValue(@JsonProperty("nullableValue") NullableValue nullableValue)
     {
         return new ScalarArgument(nullableValue.getType(), nullableValue.getValue());
