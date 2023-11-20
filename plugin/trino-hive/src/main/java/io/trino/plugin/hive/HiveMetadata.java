@@ -89,6 +89,7 @@ import io.trino.spi.connector.LocalProperty;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.MetadataProvider;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SchemaNotFoundException;
@@ -138,6 +139,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -321,6 +323,7 @@ import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
+import static java.util.Map.entry;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
@@ -822,6 +825,34 @@ public class HiveMetadata
         return relations.build().asList();
     }
 
+    @Override
+    public Map<SchemaTableName, RelationType> getRelationTypes(ConnectorSession session, Optional<String> optionalSchemaName)
+    {
+        ImmutableMap.Builder<SchemaTableName, RelationType> result = ImmutableMap.builder();
+
+        boolean fetched = false;
+        if (optionalSchemaName.isEmpty()) {
+            Optional<Map<SchemaTableName, RelationType>> relationTypes = metastore.getRelationTypes();
+            if (relationTypes.isPresent()) {
+                relationTypes.get().entrySet().stream()
+                        .filter(entry -> !isHiveSystemSchema(entry.getKey().getSchemaName()))
+                        .forEach(result::put);
+                fetched = true;
+            }
+        }
+        if (!fetched) {
+            for (String schemaName : listSchemas(session, optionalSchemaName)) {
+                for (Entry<String, RelationType> entry : metastore.getRelationTypes(schemaName).entrySet()) {
+                    result.put(new SchemaTableName(schemaName, entry.getKey()), entry.getValue());
+                }
+            }
+        }
+
+        listMaterializedViews(session, optionalSchemaName)
+                .forEach(name -> result.put(name, RelationType.MATERIALIZED_VIEW));
+        return result.buildKeepingLast();
+    }
+
     private List<String> listSchemas(ConnectorSession session, Optional<String> schemaName)
     {
         if (schemaName.isPresent()) {
@@ -900,7 +931,7 @@ public class HiveMetadata
                 .collect(toImmutableMap(HiveColumnHandle::getName, Function.identity()));
 
         Map<String, Type> columnTypes = columns.entrySet().stream()
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> getColumnMetadata(session, tableHandle, entry.getValue()).getType()));
+                .collect(toImmutableMap(Entry::getKey, entry -> getColumnMetadata(session, tableHandle, entry.getValue()).getType()));
         HivePartitionResult partitionResult = partitionManager.getPartitions(metastore, tableHandle, new Constraint(hiveTableHandle.getEnforcedConstraint()));
         // If partitions are not loaded, then don't generate table statistics.
         // Note that the computation is not persisted in the table handle, so can be redone many times
@@ -3083,7 +3114,7 @@ public class HiveMetadata
         ImmutableMap.Builder<ConnectorExpression, Variable> newVariablesBuilder = ImmutableMap.builder();
         ImmutableSet.Builder<ColumnHandle> projectedColumnsBuilder = ImmutableSet.builder();
 
-        for (Map.Entry<ConnectorExpression, ProjectedColumnRepresentation> entry : columnProjections.entrySet()) {
+        for (Entry<ConnectorExpression, ProjectedColumnRepresentation> entry : columnProjections.entrySet()) {
             ConnectorExpression expression = entry.getKey();
             ProjectedColumnRepresentation projectedColumn = entry.getValue();
 

@@ -22,6 +22,7 @@ import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
+import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.predicate.TupleDomain;
@@ -37,6 +38,7 @@ import java.util.function.Function;
 
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_VIEWS;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_RELATIONS;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_RELATION_TYPES;
 
 @ThreadSafe
 public class CountingAccessHiveMetastore
@@ -52,6 +54,8 @@ public class CountingAccessHiveMetastore
         GET_TABLE,
         GET_RELATIONS,
         GET_RELATIONS_FROM_DATABASE,
+        GET_RELATION_TYPES,
+        GET_RELATION_TYPES_FROM_DATABASE,
         GET_TABLES_WITH_PARAMETER,
         GET_TABLE_STATISTICS,
         GET_ALL_VIEWS,
@@ -369,6 +373,23 @@ public class CountingAccessHiveMetastore
             methodInvocations.add(GET_RELATIONS);
         }
         return relations;
+    }
+
+    @Override
+    public Map<String, RelationType> getRelationTypes(String databaseName)
+    {
+        methodInvocations.add(Method.GET_RELATION_TYPES_FROM_DATABASE);
+        return delegate.getRelationTypes(databaseName);
+    }
+
+    @Override
+    public Optional<Map<SchemaTableName, RelationType>> getRelationTypes()
+    {
+        Optional<Map<SchemaTableName, RelationType>> relationTypes = delegate.getRelationTypes();
+        if (relationTypes.isPresent()) {
+            methodInvocations.add(GET_RELATION_TYPES);
+        }
+        return relationTypes;
     }
 
     @Override
