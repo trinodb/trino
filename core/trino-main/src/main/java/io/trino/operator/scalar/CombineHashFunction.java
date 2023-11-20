@@ -36,7 +36,7 @@ public final class CombineHashFunction
     {
         checkFromToIndex(fromIndex, toIndex, hashes.length);
 
-        for (int i = 0; i < toIndex; i++) {
+        for (int i = fromIndex; i < toIndex; i++) {
             hashes[i] = (31 * hashes[i]) + value;
         }
     }
