@@ -145,9 +145,7 @@ public class JsonFieldDecoderTester
         RowDecoder rowDecoder = DECODER_FACTORY.create(TESTING_SESSION, new RowDecoderSpec(JsonRowDecoder.NAME, emptyMap(), ImmutableSet.of(columnHandle)));
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(json.getBytes(UTF_8))
                 .orElseThrow(AssertionError::new);
-        assertThat(decodedRow.containsKey(columnHandle))
-                .describedAs(format("column '%s' not found in decoded row", columnHandle.getName()))
-                .isTrue();
+        assertThat(decodedRow).containsKey(columnHandle);
         return decodedRow.get(columnHandle);
     }
 }
