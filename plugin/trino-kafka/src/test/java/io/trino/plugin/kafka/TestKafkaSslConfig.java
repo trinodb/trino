@@ -134,7 +134,7 @@ public class TestKafkaSslConfig
         }
         Map<String, Object> securityProperties = config.getKafkaClientProperties();
         assertThat(securityProperties).containsKey(SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG);
-        assertThat(securityProperties.get(SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG)).isEqualTo("");
+        assertThat(securityProperties).containsEntry(SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG, "");
     }
 
     @Test

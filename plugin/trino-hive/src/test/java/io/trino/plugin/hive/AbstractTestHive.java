@@ -4218,8 +4218,8 @@ public abstract class AbstractTestHive
 
             // verify the node version and query ID in table
             Table table = getMetastoreClient().getTable(tableName.getSchemaName(), tableName.getTableName()).get();
-            assertThat(table.getParameters().get(PRESTO_VERSION_NAME)).isEqualTo(TEST_SERVER_VERSION);
-            assertThat(table.getParameters().get(PRESTO_QUERY_ID_NAME)).isEqualTo(queryId);
+            assertThat(table.getParameters()).containsEntry(PRESTO_VERSION_NAME, TEST_SERVER_VERSION);
+            assertThat(table.getParameters()).containsEntry(PRESTO_QUERY_ID_NAME, queryId);
 
             // verify basic statistics
             HiveBasicStatistics statistics = getBasicStatisticsForTable(transaction, tableName);
@@ -4282,8 +4282,8 @@ public abstract class AbstractTestHive
             assertThat(table.getStorage().getStorageFormat().getInputFormat()).isEqualTo(storageFormat.getInputFormat());
 
             // verify the node version and query ID
-            assertThat(table.getParameters().get(PRESTO_VERSION_NAME)).isEqualTo(TEST_SERVER_VERSION);
-            assertThat(table.getParameters().get(PRESTO_QUERY_ID_NAME)).isEqualTo(queryId);
+            assertThat(table.getParameters()).containsEntry(PRESTO_VERSION_NAME, TEST_SERVER_VERSION);
+            assertThat(table.getParameters()).containsEntry(PRESTO_QUERY_ID_NAME, queryId);
 
             // verify the table is empty
             List<ColumnHandle> columnHandles = filterNonHiddenColumnHandles(metadata.getColumnHandles(session, tableHandle).values());
@@ -4643,8 +4643,8 @@ public abstract class AbstractTestHive
             assertThat(partitions.size()).isEqualTo(partitionNames.size());
             for (String partitionName : partitionNames) {
                 Partition partition = partitions.get(partitionName).get();
-                assertThat(partition.getParameters().get(PRESTO_VERSION_NAME)).isEqualTo(TEST_SERVER_VERSION);
-                assertThat(partition.getParameters().get(PRESTO_QUERY_ID_NAME)).isEqualTo(queryId);
+                assertThat(partition.getParameters()).containsEntry(PRESTO_VERSION_NAME, TEST_SERVER_VERSION);
+                assertThat(partition.getParameters()).containsEntry(PRESTO_QUERY_ID_NAME, queryId);
             }
 
             // load the new table

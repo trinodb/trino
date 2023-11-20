@@ -164,7 +164,7 @@ public class TestParquetPredicateUtils
         TupleDomain<ColumnDescriptor> calculatedTupleDomain = getParquetTupleDomain(descriptorsByPath, tupleDomain, fileSchema, useColumNames);
         assertThat(calculatedTupleDomain.getDomains().get().size()).isEqualTo(1);
         ColumnDescriptor selectedColumnDescriptor = descriptorsByPath.get(ImmutableList.of("row_field", "b"));
-        assertThat(calculatedTupleDomain.getDomains().get().get(selectedColumnDescriptor)).isEqualTo(predicateDomain);
+        assertThat(calculatedTupleDomain.getDomains().get()).containsEntry(selectedColumnDescriptor, predicateDomain);
     }
 
     @Test(dataProvider = "useColumnNames")

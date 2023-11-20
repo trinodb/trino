@@ -1428,7 +1428,7 @@ public class TestHiveGlueMetastore
             assertThat(metastore.getTable(tableName.getSchemaName(), tableName.getTableName()).orElseThrow().getParameters()).doesNotContainKey(TABLE_COMMENT);
             metastore.commentTable(tableName.getSchemaName(), tableName.getTableName(), Optional.of("a table comment"));
             Map<String, String> tableParameters = metastore.getTable(tableName.getSchemaName(), tableName.getTableName()).orElseThrow().getParameters();
-            assertThat(tableParameters.get(TABLE_COMMENT)).isEqualTo("a table comment");
+            assertThat(tableParameters).containsEntry(TABLE_COMMENT, "a table comment");
 
             metastore.commentTable(tableName.getSchemaName(), tableName.getTableName(), Optional.empty());
             tableParameters = metastore.getTable(tableName.getSchemaName(), tableName.getTableName()).orElseThrow().getParameters();

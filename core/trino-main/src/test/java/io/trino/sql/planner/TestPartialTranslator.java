@@ -103,7 +103,7 @@ public class TestPartialTranslator
         Map<NodeRef<Expression>, ConnectorExpression> translation = extractPartialTranslations(expression, TEST_SESSION, TYPE_ANALYZER, TYPE_PROVIDER, PLANNER_CONTEXT);
         assertThat(subexpressions.size()).isEqualTo(translation.size());
         for (Expression subexpression : subexpressions) {
-            assertThat(translation.get(NodeRef.of(subexpression))).isEqualTo(translate(TEST_SESSION, subexpression, TYPE_PROVIDER, PLANNER_CONTEXT, TYPE_ANALYZER).get());
+            assertThat(translation).containsEntry(NodeRef.of(subexpression), translate(TEST_SESSION, subexpression, TYPE_PROVIDER, PLANNER_CONTEXT, TYPE_ANALYZER).get());
         }
     }
 

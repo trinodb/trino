@@ -230,7 +230,7 @@ public class TestHiveSplitSource
 
             // wait for thread to get the split
             ConnectorSplit split = splits.get(800, TimeUnit.MILLISECONDS);
-            assertThat(((HiveSplit) split).getSchema().get("id")).isEqualTo("33");
+            assertThat(((HiveSplit) split).getSchema()).containsEntry("id", "33");
         }
         finally {
             // make sure the thread exits
