@@ -55,7 +55,7 @@ public class TestPrometheusCaseInsensitiveNameMatching
 
         Set<String> tableNames = client.getTableNames(DEFAULT_SCHEMA);
         assertThat(tableNames).hasSize(1);
-        assertThat(tableNames.contains(UPPER_CASE_METRIC)).isTrue();
+        assertThat(tableNames).contains(UPPER_CASE_METRIC);
 
         PrometheusMetadata metadata = new PrometheusMetadata(client);
         List<SchemaTableName> tables = metadata.listTables(null, Optional.of(DEFAULT_SCHEMA));
@@ -76,7 +76,7 @@ public class TestPrometheusCaseInsensitiveNameMatching
 
         Set<String> tableNames = client.getTableNames(DEFAULT_SCHEMA);
         assertThat(tableNames).hasSize(1);
-        assertThat(tableNames.contains(UPPER_CASE_METRIC)).isTrue();
+        assertThat(tableNames).contains(UPPER_CASE_METRIC);
 
         PrometheusMetadata metadata = new PrometheusMetadata(client);
         List<SchemaTableName> tables = metadata.listTables(null, Optional.of(DEFAULT_SCHEMA));
