@@ -360,10 +360,7 @@ public class TestInformationSchemaConnector
         assertMetadataCalls(
                 "SELECT count(table_name), count(table_type) from test_catalog.information_schema.tables WHERE table_schema = ''",
                 "VALUES (0, 0)",
-                ImmutableMultiset.<String>builder()
-                        .add("ConnectorMetadata.listTables(schema=)")
-                        .add("ConnectorMetadata.listViews(schema=)")
-                        .build());
+                ImmutableMultiset.of());
 
         // Empty table name
         assertMetadataCalls(
