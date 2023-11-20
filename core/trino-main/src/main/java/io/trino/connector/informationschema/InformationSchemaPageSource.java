@@ -56,10 +56,10 @@ import static io.trino.connector.informationschema.InformationSchemaMetadata.def
 import static io.trino.connector.informationschema.InformationSchemaMetadata.isTablesEnumeratingTable;
 import static io.trino.metadata.MetadataListing.getRelationTypes;
 import static io.trino.metadata.MetadataListing.getViews;
+import static io.trino.metadata.MetadataListing.listRelations;
 import static io.trino.metadata.MetadataListing.listSchemas;
 import static io.trino.metadata.MetadataListing.listTableColumns;
 import static io.trino.metadata.MetadataListing.listTablePrivileges;
-import static io.trino.metadata.MetadataListing.listTables;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static io.trino.type.TypeUtils.getDisplayLabel;
@@ -289,7 +289,7 @@ public class InformationSchemaPageSource
                     .collect(toImmutableSet());
         }
         else {
-            relations = listTables(session, metadata, accessControl, prefix);
+            relations = listRelations(session, metadata, accessControl, prefix);
             views = Set.of();
         }
         // TODO (https://github.com/trinodb/trino/issues/8207) define a type for materialized views

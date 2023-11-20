@@ -163,7 +163,7 @@ public interface Metadata
      * Get the relation names that match the specified table prefix (never null).
      * This includes all relations (e.g. tables, views, materialized views).
      */
-    List<QualifiedObjectName> listTables(Session session, QualifiedTablePrefix prefix);
+    List<QualifiedObjectName> listRelations(Session session, QualifiedTablePrefix prefix);
 
     /**
      * Get the relation names that match the specified table prefix (never null).

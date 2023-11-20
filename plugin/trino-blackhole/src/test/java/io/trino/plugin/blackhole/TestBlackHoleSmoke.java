@@ -377,7 +377,7 @@ public class TestBlackHoleSmoke
 
     private List<QualifiedObjectName> listBlackHoleTables()
     {
-        return queryRunner.listTables(queryRunner.getDefaultSession(), "blackhole", "default");
+        return queryRunner.listRelations(queryRunner.getDefaultSession(), "blackhole", "default");
     }
 
     private void assertThatQueryReturnsValue(String sql, Object expected)

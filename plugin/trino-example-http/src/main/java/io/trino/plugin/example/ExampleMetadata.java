@@ -16,6 +16,7 @@ package io.trino.plugin.example;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.annotations.DoNotCall;
 import com.google.inject.Inject;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
@@ -78,7 +79,14 @@ public class ExampleMetadata
     }
 
     @Override
-    public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> optionalSchemaName)
+    @DoNotCall
+    public final List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
+    {
+        throw new UnsupportedOperationException("listRelations should be called instead");
+    }
+
+    @Override
+    public List<SchemaTableName> listRelations(ConnectorSession session, Optional<String> optionalSchemaName)
     {
         Set<String> schemaNames = optionalSchemaName.map(ImmutableSet::of)
                 .orElseGet(() -> ImmutableSet.copyOf(exampleClient.getSchemaNames()));
@@ -116,7 +124,7 @@ public class ExampleMetadata
     {
         requireNonNull(prefix, "prefix is null");
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
-        for (SchemaTableName tableName : listTables(session, prefix)) {
+        for (SchemaTableName tableName : listRelations(session, prefix)) {
             ConnectorTableMetadata tableMetadata = getTableMetadata(tableName);
             // table can disappear during listing operation
             if (tableMetadata != null) {
@@ -140,10 +148,10 @@ public class ExampleMetadata
         return new ConnectorTableMetadata(tableName, table.getColumnsMetadata());
     }
 
-    private List<SchemaTableName> listTables(ConnectorSession session, SchemaTablePrefix prefix)
+    private List<SchemaTableName> listRelations(ConnectorSession session, SchemaTablePrefix prefix)
     {
         if (prefix.getTable().isEmpty()) {
-            return listTables(session, prefix.getSchema());
+            return listRelations(session, prefix.getSchema());
         }
         return ImmutableList.of(prefix.toSchemaTableName());
     }

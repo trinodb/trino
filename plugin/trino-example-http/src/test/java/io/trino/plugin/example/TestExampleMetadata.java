@@ -104,23 +104,23 @@ public class TestExampleMetadata
     }
 
     @Test
-    public void testListTables()
+    public void testListRelations()
     {
         // all schemas
-        assertThat(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.empty()))).isEqualTo(ImmutableSet.of(
+        assertThat(ImmutableSet.copyOf(metadata.listRelations(SESSION, Optional.empty()))).isEqualTo(ImmutableSet.of(
                 new SchemaTableName("example", "numbers"),
                 new SchemaTableName("tpch", "orders"),
                 new SchemaTableName("tpch", "lineitem")));
 
         // specific schema
-        assertThat(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of("example")))).isEqualTo(ImmutableSet.of(
+        assertThat(ImmutableSet.copyOf(metadata.listRelations(SESSION, Optional.of("example")))).isEqualTo(ImmutableSet.of(
                 new SchemaTableName("example", "numbers")));
-        assertThat(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of("tpch")))).isEqualTo(ImmutableSet.of(
+        assertThat(ImmutableSet.copyOf(metadata.listRelations(SESSION, Optional.of("tpch")))).isEqualTo(ImmutableSet.of(
                 new SchemaTableName("tpch", "orders"),
                 new SchemaTableName("tpch", "lineitem")));
 
         // unknown schema
-        assertThat(ImmutableSet.copyOf(metadata.listTables(SESSION, Optional.of("unknown")))).isEqualTo(ImmutableSet.of());
+        assertThat(ImmutableSet.copyOf(metadata.listRelations(SESSION, Optional.of("unknown")))).isEqualTo(ImmutableSet.of());
     }
 
     @Test

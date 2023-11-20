@@ -86,6 +86,6 @@ public class DropSchemaTask
         QualifiedTablePrefix tablePrefix = new QualifiedTablePrefix(schema.getCatalogName(), schema.getSchemaName());
 
         // This is a best effort check that doesn't provide any guarantees against concurrent DDL operations
-        return metadata.listTables(session, tablePrefix).isEmpty();
+        return metadata.listRelations(session, tablePrefix).isEmpty();
     }
 }

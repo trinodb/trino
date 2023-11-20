@@ -196,7 +196,7 @@ public abstract class AbstractTestingTrinoClient<T>
     public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)
     {
         return inTransaction(session, transactionSession ->
-                trinoServer.getMetadata().listTables(transactionSession, new QualifiedTablePrefix(catalog, schema)));
+                trinoServer.getMetadata().listRelations(transactionSession, new QualifiedTablePrefix(catalog, schema)));
     }
 
     public boolean tableExists(Session session, String table)

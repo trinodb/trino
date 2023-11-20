@@ -127,7 +127,7 @@ public class TestingMetadata
         requireNonNull(prefix, "prefix is null");
 
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> tableColumns = ImmutableMap.builder();
-        for (SchemaTableName tableName : listTables(session, prefix.getSchema())) {
+        for (SchemaTableName tableName : listRelations(session, prefix.getSchema())) {
             ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
             for (ColumnMetadata column : tables.get(tableName).getColumns()) {
                 columns.add(new ColumnMetadata(column.getName(), column.getType()));

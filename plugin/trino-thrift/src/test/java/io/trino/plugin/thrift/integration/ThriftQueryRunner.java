@@ -308,9 +308,9 @@ public final class ThriftQueryRunner
         }
 
         @Override
-        public List<QualifiedObjectName> listTables(Session session, String catalog, String schema)
+        public List<QualifiedObjectName> listRelations(Session session, String catalog, String schema)
         {
-            return source.listTables(session, catalog, schema);
+            return source.listRelations(session, catalog, schema);
         }
 
         @Override

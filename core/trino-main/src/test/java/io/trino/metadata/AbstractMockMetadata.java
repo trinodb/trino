@@ -228,7 +228,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public List<QualifiedObjectName> listTables(Session session, QualifiedTablePrefix prefix)
+    public List<QualifiedObjectName> listRelations(Session session, QualifiedTablePrefix prefix)
     {
         throw new UnsupportedOperationException();
     }

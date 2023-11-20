@@ -309,11 +309,11 @@ public class TracingMetadata
     }
 
     @Override
-    public List<QualifiedObjectName> listTables(Session session, QualifiedTablePrefix prefix)
+    public List<QualifiedObjectName> listRelations(Session session, QualifiedTablePrefix prefix)
     {
-        Span span = startSpan("listTables", prefix);
+        Span span = startSpan("listRelations", prefix);
         try (var ignored = scopedSpan(span)) {
-            return delegate.listTables(session, prefix);
+            return delegate.listRelations(session, prefix);
         }
     }
 

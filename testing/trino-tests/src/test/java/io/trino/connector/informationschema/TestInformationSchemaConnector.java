@@ -366,7 +366,7 @@ public class TestInformationSchemaConnector
                 "VALUES 1000",
                 ImmutableMultiset.<String>builder()
                         .add("ConnectorMetadata.listSchemaNames")
-                        .add("ConnectorMetadata.listTables(schema=test_schema1)")
+                        .add("ConnectorMetadata.listRelations(schema=test_schema1)")
                         // view-related methods such as listViews not being called
                         .build());
     }

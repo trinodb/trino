@@ -1330,7 +1330,7 @@ public class TestTrinoDatabaseMetaData
                     list(list(COUNTING_CATALOG, "test_schema1", "test_table1", "column_17", "varchar")),
                     ImmutableMultiset.<String>builder()
                             .add("ConnectorMetadata.listSchemaNames")
-                            .add("ConnectorMetadata.listTables(schema=test_schema1)")
+                            .add("ConnectorMetadata.listRelations(schema=test_schema1)")
                             .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 4)
                             .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
                             .add("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)")
@@ -1350,7 +1350,7 @@ public class TestTrinoDatabaseMetaData
                             .collect(toImmutableList()),
                     ImmutableMultiset.<String>builder()
                             .add("ConnectorMetadata.listSchemaNames")
-                            .add("ConnectorMetadata.listTables(schema=test_schema1)")
+                            .add("ConnectorMetadata.listRelations(schema=test_schema1)")
                             .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 4)
                             .add("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)")
                             .add("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)")
@@ -1388,10 +1388,10 @@ public class TestTrinoDatabaseMetaData
                             .collect(toImmutableList()),
                     ImmutableMultiset.<String>builder()
                             .addCopies("ConnectorMetadata.listSchemaNames", 5)
-                            .add("ConnectorMetadata.listTables(schema=test_schema1)")
-                            .add("ConnectorMetadata.listTables(schema=test_schema2)")
-                            .add("ConnectorMetadata.listTables(schema=test_schema3_empty)")
-                            .add("ConnectorMetadata.listTables(schema=test_schema4_empty)")
+                            .add("ConnectorMetadata.listRelations(schema=test_schema1)")
+                            .add("ConnectorMetadata.listRelations(schema=test_schema2)")
+                            .add("ConnectorMetadata.listRelations(schema=test_schema3_empty)")
+                            .add("ConnectorMetadata.listRelations(schema=test_schema4_empty)")
                             .addCopies("ConnectorMetadata.getSystemTable(schema=test_schema1, table=test_table1)", 20)
                             .addCopies("ConnectorMetadata.getMaterializedView(schema=test_schema1, table=test_table1)", 5)
                             .addCopies("ConnectorMetadata.getView(schema=test_schema1, table=test_table1)", 5)
