@@ -104,11 +104,10 @@ IEEE Standard 754 for Binary Floating-Point Arithmetic.
 
 Example literals: `DOUBLE '10.3'`, `DOUBLE '1.03e1'`, `10.3e0`, `1.03e1`
 
-(fixed-precision-data-types)=
+(exact-numeric-data-types)=
+## Exact numeric
 
-## Fixed-precision
-
-Fixed-precision numbers can be expressed as numeric literals such as `1.1`, and
+Exact numeric values can be expressed as numeric literals such as `1.1`, and
 are supported by the `DECIMAL` data type.
 
 Underscore characters are ignored within literal values, and can be used to
@@ -121,8 +120,8 @@ Leading zeros in literal values are permitted and ignored. For example,
 
 ### `DECIMAL`
 
-A fixed-precision decimal number. Precision up to 38 digits is supported
-but performance is best up to 18 digits.
+A exact decimal number. Precision up to 38 digits is supported but performance
+is best up to 18 digits.
 
 The decimal type takes two literal parameters:
 
