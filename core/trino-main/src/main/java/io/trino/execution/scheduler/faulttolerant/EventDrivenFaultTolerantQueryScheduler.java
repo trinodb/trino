@@ -1747,9 +1747,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             }
 
             if (remainingPartitions.isEmpty()) {
-                stage.finish();
-                // TODO close exchange early
-                taskSource.close();
+                finish();
             }
         }
 
@@ -1980,17 +1978,22 @@ public class EventDrivenFaultTolerantQueryScheduler
             sinkOutputSelectorBuilder.include(exchange.getId(), taskId.getPartitionId(), taskId.getAttemptId());
 
             if (noMorePartitions && remainingPartitions.isEmpty() && !stage.getState().isDone()) {
-                dynamicFilterService.stageCannotScheduleMoreTasks(stage.getStageId(), 0, partitions.size());
-                exchange.noMoreSinks();
-                exchange.allRequiredSinksFinished();
-                verify(finalSinkOutputSelector == null, "finalOutputSelector is already set");
-                sinkOutputSelectorBuilder.setPartitionCount(exchange.getId(), partitions.size());
-                sinkOutputSelectorBuilder.setFinal();
-                finalSinkOutputSelector = sinkOutputSelectorBuilder.build();
-                sinkOutputSelectorBuilder = null;
-                stage.finish();
-                taskSource.close();
+                finish();
             }
+        }
+
+        private void finish()
+        {
+            dynamicFilterService.stageCannotScheduleMoreTasks(stage.getStageId(), 0, partitions.size());
+            exchange.noMoreSinks();
+            exchange.allRequiredSinksFinished();
+            verify(finalSinkOutputSelector == null, "finalOutputSelector is already set");
+            sinkOutputSelectorBuilder.setPartitionCount(exchange.getId(), partitions.size());
+            sinkOutputSelectorBuilder.setFinal();
+            finalSinkOutputSelector = sinkOutputSelectorBuilder.build();
+            sinkOutputSelectorBuilder = null;
+            stage.finish();
+            taskSource.close();
         }
 
         private void updateOutputSize(SpoolingOutputStats.Snapshot taskOutputStats)
