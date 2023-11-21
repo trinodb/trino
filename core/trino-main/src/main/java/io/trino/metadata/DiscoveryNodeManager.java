@@ -82,14 +82,11 @@ public final class DiscoveryNodeManager
     private final InternalNode currentNode;
     private final boolean allCatalogsOnAllNodes;
 
-    @GuardedBy("this")
     private Optional<SetMultimap<CatalogHandle, InternalNode>> activeNodesByCatalogHandle = Optional.empty();
 
-    @GuardedBy("this")
-    private AllNodes allNodes;
+    private volatile AllNodes allNodes;
 
-    @GuardedBy("this")
-    private Set<InternalNode> coordinators;
+    private volatile Set<InternalNode> coordinators;
 
     @GuardedBy("this")
     private final List<Consumer<AllNodes>> listeners = new ArrayList<>();
@@ -305,7 +302,7 @@ public final class DiscoveryNodeManager
     }
 
     @Override
-    public synchronized AllNodes getAllNodes()
+    public AllNodes getAllNodes()
     {
         return allNodes;
     }
@@ -343,7 +340,7 @@ public final class DiscoveryNodeManager
     }
 
     @Override
-    public synchronized Set<InternalNode> getActiveCatalogNodes(CatalogHandle catalogHandle)
+    public Set<InternalNode> getActiveCatalogNodes(CatalogHandle catalogHandle)
     {
         // activeNodesByCatalogName is immutable
         return activeNodesByCatalogHandle
@@ -352,7 +349,7 @@ public final class DiscoveryNodeManager
     }
 
     @Override
-    public synchronized NodesSnapshot getActiveNodesSnapshot()
+    public NodesSnapshot getActiveNodesSnapshot()
     {
         return new NodesSnapshot(allNodes.getActiveNodes(), activeNodesByCatalogHandle);
     }
@@ -364,7 +361,7 @@ public final class DiscoveryNodeManager
     }
 
     @Override
-    public synchronized Set<InternalNode> getCoordinators()
+    public Set<InternalNode> getCoordinators()
     {
         return coordinators;
     }
