@@ -70,10 +70,10 @@ public final class GlueInputConverter
         Map<String, String> tableParameters = table.getParameters();
         Optional<String> comment = Optional.empty();
         if (!isTrinoView(table) && !isTrinoMaterializedView(table)) {
+            comment = Optional.ofNullable(tableParameters.get(TABLE_COMMENT));
             tableParameters = tableParameters.entrySet().stream()
                     .filter(entry -> !entry.getKey().equals(TABLE_COMMENT))
                     .collect(toImmutableMap(Entry::getKey, Entry::getValue));
-            comment = Optional.ofNullable(table.getParameters().get(TABLE_COMMENT));
         }
 
         TableInput input = new TableInput();
