@@ -1,7 +1,7 @@
 # Data types
 
-Trino has a set of built-in data types, described below.
-Additional types can be provided by plugins.
+Trino has a set of built-in data types, described below. Additional types can be
+[provided by plugins](/develop/types).
 
 (type-mapping-overview)=
 

@@ -9,6 +9,11 @@ Refer to the following sections for further details:
 * [SQL data types and other general aspects](/language)
 * [SQL statement and syntax reference](/sql)
 
+In addition, Trino supports implementation of [custom
+functions](/develop/functions) or [custom table
+functions](/develop/table-functions) provided by a plugin, and creation of
+user-defined functions as [SQL routines](/routines).
+
 ## Functions by name
 
 If you are looking for a specific function or operator by name use
