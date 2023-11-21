@@ -162,6 +162,7 @@ public class NodeRepresentation
 
         ImmutableList.Builder<PlanNodeStatsAndCostSummary> estimates = ImmutableList.builder();
         TypeProvider typeProvider = TypeProvider.copyOf(outputs.stream()
+                .distinct()
                 .collect(toImmutableMap(TypedSymbol::getSymbol, TypedSymbol::getTrinoType)));
         for (int i = 0; i < getEstimatedStats().size(); i++) {
             PlanNodeStatsEstimate stats = getEstimatedStats().get(i);
