@@ -50,6 +50,7 @@ public class HudiConfig
     private int splitLoaderParallelism = 4;
     private int splitGeneratorParallelism = 4;
     private long perTransactionMetastoreCacheMaximumSize = 2000;
+    private boolean queryPartitionFilterRequired;
 
     public List<String> getColumnsToHide()
     {
@@ -192,5 +193,18 @@ public class HudiConfig
     {
         this.perTransactionMetastoreCacheMaximumSize = perTransactionMetastoreCacheMaximumSize;
         return this;
+    }
+
+    @Config("hudi.query-partition-filter-required")
+    @ConfigDescription("Require a filter on at least one partition column")
+    public HudiConfig setQueryPartitionFilterRequired(boolean queryPartitionFilterRequired)
+    {
+        this.queryPartitionFilterRequired = queryPartitionFilterRequired;
+        return this;
+    }
+
+    public boolean isQueryPartitionFilterRequired()
+    {
+        return queryPartitionFilterRequired;
     }
 }
