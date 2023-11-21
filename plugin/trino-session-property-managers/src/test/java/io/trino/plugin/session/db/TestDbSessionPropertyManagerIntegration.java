@@ -167,7 +167,7 @@ public class TestDbSessionPropertyManagerIntegration
 
         MaterializedResult result = queryRunner.execute(session, "SHOW SESSION");
         String actualValueString = (String) result.getMaterializedRows().stream()
-                .filter(row -> (row.getField(0).equals(EXAMPLE_PROPERTY)))
+                .filter(row -> row.getField(0).equals(EXAMPLE_PROPERTY))
                 .collect(onlyElement())
                 .getField(1);
 

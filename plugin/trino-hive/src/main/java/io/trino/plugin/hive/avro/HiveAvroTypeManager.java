@@ -133,14 +133,14 @@ public class HiveAvroTypeManager
                 case VARCHAR_TYPE_LOGICAL_NAME, CHAR_TYPE_LOGICAL_NAME -> {
                     Type type = getHiveLogicalVarCharOrCharType(schema, nonNativeAvroLogicalType);
                     if (nonNativeAvroLogicalType.getLogicalTypeName().equals(VARCHAR_TYPE_LOGICAL_NAME)) {
-                        yield Optional.of(((blockBuilder, obj) -> {
+                        yield Optional.of((blockBuilder, obj) -> {
                             type.writeSlice(blockBuilder, Varchars.truncateToLength(Slices.utf8Slice(obj.toString()), type));
-                        }));
+                        });
                     }
                     else {
-                        yield Optional.of(((blockBuilder, obj) -> {
+                        yield Optional.of((blockBuilder, obj) -> {
                             type.writeSlice(blockBuilder, Chars.truncateToLengthAndTrimSpaces(Slices.utf8Slice(obj.toString()), type));
-                        }));
+                        });
                     }
                 }
                 default -> Optional.empty();

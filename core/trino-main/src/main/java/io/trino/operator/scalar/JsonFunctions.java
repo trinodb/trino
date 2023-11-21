@@ -199,7 +199,7 @@ public final class JsonFunctions
                 parser.skipChildren();
 
                 if (((token == VALUE_TRUE) && value) ||
-                        ((token == VALUE_FALSE) && (!value))) {
+                        ((token == VALUE_FALSE) && !value)) {
                     return true;
                 }
             }
@@ -285,7 +285,7 @@ public final class JsonFunctions
 
                 // noinspection FloatingPointEquality
                 if ((token == VALUE_NUMBER_FLOAT) && (parser.getDoubleValue() == value) &&
-                        (Doubles.isFinite(parser.getDoubleValue()))) {
+                        Doubles.isFinite(parser.getDoubleValue())) {
                     return true;
                 }
             }

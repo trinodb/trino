@@ -116,7 +116,7 @@ public class EqualityInference
                 // 2) Prefer smaller expression trees
                 // 3) Sort the expressions alphabetically - creates a stable consistent ordering (extremely useful for unit testing)
                 // TODO: be more precise in determining the cost of an expression
-                .comparingInt((ToIntFunction<Expression>) (expression -> extractAllSymbols(expression).size()))
+                .comparingInt((ToIntFunction<Expression>) expression -> extractAllSymbols(expression).size())
                 .thenComparingLong(expression -> extractSubExpressions(expression).size())
                 .thenComparing(Expression::toString);
 

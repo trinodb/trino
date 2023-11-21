@@ -88,7 +88,7 @@ public class LongInputStreamV1
             readValues();
         }
         if (repeat) {
-            result = literals[0] + (used++) * (long) delta;
+            result = literals[0] + used++ * (long) delta;
         }
         else {
             result = literals[used++];

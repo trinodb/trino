@@ -36,7 +36,7 @@ final class NotPlanNodeMatcher
     @Override
     public boolean shapeMatches(PlanNode node)
     {
-        return (!node.getClass().equals(excludedNodeClass));
+        return !node.getClass().equals(excludedNodeClass);
     }
 
     @Override

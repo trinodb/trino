@@ -3907,7 +3907,7 @@ public class LocalExecutionPlanner
                     LambdaDefinitionExpression lambda = (LambdaDefinitionExpression) toRowExpression(lambdaExpression, expressionTypes, ImmutableMap.of());
                     Class<? extends Supplier<Object>> lambdaProviderClass = compileLambdaProvider(lambda, plannerContext.getFunctionManager(), lambdaInterfaces.get(i));
                     try {
-                        lambdaProviders.add((lambdaProviderClass.getConstructor(ConnectorSession.class).newInstance(session.toConnectorSession())));
+                        lambdaProviders.add(lambdaProviderClass.getConstructor(ConnectorSession.class).newInstance(session.toConnectorSession()));
                     }
                     catch (ReflectiveOperationException e) {
                         throw new RuntimeException(e);

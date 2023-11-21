@@ -412,7 +412,7 @@ public class TestConnectorExpressionTranslator
                     assertTranslationRoundTrips(
                             transactionSession,
                             BuiltinFunctionCallBuilder.resolve(PLANNER_CONTEXT.getMetadata())
-                                    .setName(("lower"))
+                                    .setName("lower")
                                     .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
                                     .build(),
                             new Call(VARCHAR_TYPE,

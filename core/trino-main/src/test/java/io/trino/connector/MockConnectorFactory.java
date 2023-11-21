@@ -423,7 +423,7 @@ public class MockConnectorFactory
         private Function<SchemaTableName, List<ColumnMetadata>> getColumns = defaultGetColumns();
         private Function<SchemaTableName, Optional<String>> getComment = schemaTableName -> Optional.empty();
         private Function<SchemaTableName, TableStatistics> getTableStatistics = schemaTableName -> empty();
-        private Function<SchemaTableName, List<String>> checkConstraints = (schemaTableName -> ImmutableList.of());
+        private Function<SchemaTableName, List<String>> checkConstraints = schemaTableName -> ImmutableList.of();
         private ApplyProjection applyProjection = (session, handle, projections, assignments) -> Optional.empty();
         private ApplyAggregation applyAggregation = (session, handle, aggregates, assignments, groupingSets) -> Optional.empty();
         private ApplyJoin applyJoin = (session, joinType, left, right, joinConditions, leftAssignments, rightAssignments) -> Optional.empty();

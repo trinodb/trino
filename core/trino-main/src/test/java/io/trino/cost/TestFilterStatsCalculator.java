@@ -358,7 +358,7 @@ public class TestFilterStatsCalculator
         assertExpression(
                 "(x BETWEEN -5 AND 5) AND y > 1",
                 Session.builder(session).setSystemProperty(FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, "0.5").build())
-                .outputRowsCount(filterSelectivityX * (Math.pow(inequalityFilterSelectivityY, 0.5)) * inputRowCount)
+                .outputRowsCount(filterSelectivityX * Math.pow(inequalityFilterSelectivityY, 0.5) * inputRowCount)
                 .symbolStats("x", symbolAssertX)
                 .symbolStats("y", symbolAssertY);
 
@@ -397,7 +397,7 @@ public class TestFilterStatsCalculator
         assertExpression(
                 "x > 0 AND (y < 1 OR y > 2)",
                 Session.builder(session).setSystemProperty(FILTER_CONJUNCTION_INDEPENDENCE_FACTOR, "0.5").build())
-                .outputRowsCount(filterSelectivityX * (Math.pow(inequalityFilterSelectivityY, 0.5)) * inputRowCount)
+                .outputRowsCount(filterSelectivityX * Math.pow(inequalityFilterSelectivityY, 0.5) * inputRowCount)
                 .symbolStats("x", symbolAssert -> symbolAssert.averageRowSize(4.0)
                         .lowValue(0.0)
                         .highValue(10.0)

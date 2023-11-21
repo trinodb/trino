@@ -221,7 +221,7 @@ public class AzureBlobFileSystemExchangeStorage
 
         return toListenableFuture(blobServiceAsyncClient
                 .getBlobContainerAsyncClient(containerName)
-                .listBlobsByHierarchy(null, (new ListBlobsOptions()).setPrefix(directoryPath))
+                .listBlobsByHierarchy(null, new ListBlobsOptions().setPrefix(directoryPath))
                 .byPage()
                 .collectList()
                 .toFuture());

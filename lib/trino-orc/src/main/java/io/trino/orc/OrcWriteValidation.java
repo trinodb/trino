@@ -662,7 +662,7 @@ public class OrcWriteValidation
             }
             else if (type instanceof DecimalType decimalType) {
                 if (decimalType.isShort()) {
-                    statisticsBuilder = new ShortDecimalStatisticsBuilder((decimalType).getScale());
+                    statisticsBuilder = new ShortDecimalStatisticsBuilder(decimalType.getScale());
                 }
                 else {
                     statisticsBuilder = new LongDecimalStatisticsBuilder();

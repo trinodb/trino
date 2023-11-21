@@ -65,7 +65,7 @@ public class TestIpAddressType
     @Test
     public void testDisplayName()
     {
-        assertThat((IPADDRESS).getDisplayName()).isEqualTo("ipaddress");
+        assertThat(IPADDRESS.getDisplayName()).isEqualTo("ipaddress");
     }
 
     private static Slice getSliceForAddress(String address)

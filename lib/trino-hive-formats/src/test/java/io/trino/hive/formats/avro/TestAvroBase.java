@@ -279,7 +279,7 @@ public abstract class TestAvroBase
     public void cleanup()
     {
         try {
-            trinoLocalFilesystem.deleteDirectory((Location.of("local:///")));
+            trinoLocalFilesystem.deleteDirectory(Location.of("local:///"));
             Files.deleteIfExists(tempDirectory.toAbsolutePath());
         }
         catch (IOException e) {

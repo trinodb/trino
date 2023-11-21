@@ -1167,7 +1167,7 @@ public class BenchmarkColumnReaders
         {
             List<SqlTimestamp> values = new ArrayList<>();
             for (int i = 0; i < ROWS; ++i) {
-                values.add(SqlTimestamp.fromMillis(3, (random.nextLong())));
+                values.add(SqlTimestamp.fromMillis(3, random.nextLong()));
             }
             return values.iterator();
         }

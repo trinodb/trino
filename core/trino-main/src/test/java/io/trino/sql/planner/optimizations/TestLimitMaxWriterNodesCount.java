@@ -93,12 +93,12 @@ public class TestLimitMaxWriterNodesCount
     private MockConnectorFactory prepareConnectorFactory(String catalogName, OptionalInt maxWriterTasks, List<String> tables)
     {
         return MockConnectorFactory.builder()
-                .withGetTableHandle(((session, tableName) -> {
+                .withGetTableHandle((session, tableName) -> {
                     if (tables.contains(tableName.getTableName())) {
                         return new MockConnectorTableHandle(tableName);
                     }
                     return null;
-                }))
+                })
                 .withWriterScalingOptions(WriterScalingOptions.ENABLED)
                 .withGetInsertLayout((session, tableMetadata) -> {
                     if (tableMetadata.getTableName().equals(partitionedTable)) {

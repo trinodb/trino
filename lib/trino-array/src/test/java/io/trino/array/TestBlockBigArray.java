@@ -45,7 +45,7 @@ public class TestBlockBigArray
         referenceCountMap.incrementAndGet(block);
         long expectedSize = instanceSize(BlockBigArray.class)
                 + referenceCountMap.sizeOf()
-                + (new ObjectBigArray<>()).sizeOf()
+                + new ObjectBigArray<>().sizeOf()
                 + block.getRetainedSizeInBytes() + (arraySize - 1L) * instanceSize(block.getClass());
         assertThat(blockBigArray.sizeOf()).isEqualTo(expectedSize);
     }

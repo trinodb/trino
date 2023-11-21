@@ -39,7 +39,7 @@ public final class MoreMath
             // relative error is less meaningful here
             return diff < (epsilon * Double.MIN_NORMAL);
         } // use relative error
-        return diff / Math.min((absA + absB), Double.MAX_VALUE) < epsilon;
+        return diff / Math.min(absA + absB, Double.MAX_VALUE) < epsilon;
     }
 
     /**
@@ -59,7 +59,7 @@ public final class MoreMath
             // relative error is less meaningful here
             return diff < (epsilon * Float.MIN_NORMAL);
         } // use relative error
-        return diff / Math.min((absA + absB), Float.MAX_VALUE) < epsilon;
+        return diff / Math.min(absA + absB, Float.MAX_VALUE) < epsilon;
     }
 
     public static double min(double... values)

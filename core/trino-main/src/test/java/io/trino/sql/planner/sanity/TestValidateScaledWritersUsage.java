@@ -99,7 +99,7 @@ public class TestValidateScaledWritersUsage
     private MockConnectorFactory createConnectorFactory(String name)
     {
         return MockConnectorFactory.builder()
-                .withGetTableHandle(((session, schemaTableName) -> null))
+                .withGetTableHandle((session, schemaTableName) -> null)
                 .withName(name)
                 .build();
     }

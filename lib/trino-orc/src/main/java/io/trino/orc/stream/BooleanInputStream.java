@@ -181,7 +181,7 @@ public class BooleanInputStream
             vector[offset + 4] = (byte) ((value & 8) >>> 3);
             vector[offset + 5] = (byte) ((value & 4) >>> 2);
             vector[offset + 6] = (byte) ((value & 2) >>> 1);
-            vector[offset + 7] = (byte) ((value & 1));
+            vector[offset + 7] = (byte) (value & 1);
             offset += 8;
         }
 

@@ -123,7 +123,7 @@ public class TestJsonCassandraHandles
     {
         String json = OBJECT_MAPPER.writeValueAsString(TABLE_HANDLE_AS_MAP);
 
-        CassandraNamedRelationHandle tableHandle = (OBJECT_MAPPER.readValue(json, CassandraTableHandle.class)).getRequiredNamedRelation();
+        CassandraNamedRelationHandle tableHandle = OBJECT_MAPPER.readValue(json, CassandraTableHandle.class).getRequiredNamedRelation();
 
         assertThat(tableHandle.getSchemaName()).isEqualTo("cassandra_schema");
         assertThat(tableHandle.getTableName()).isEqualTo("cassandra_table");
@@ -137,7 +137,7 @@ public class TestJsonCassandraHandles
     {
         String json = OBJECT_MAPPER.writeValueAsString(TABLE2_HANDLE_AS_MAP);
 
-        CassandraNamedRelationHandle tableHandle = (OBJECT_MAPPER.readValue(json, CassandraTableHandle.class)).getRequiredNamedRelation();
+        CassandraNamedRelationHandle tableHandle = OBJECT_MAPPER.readValue(json, CassandraTableHandle.class).getRequiredNamedRelation();
 
         assertThat(tableHandle.getSchemaName()).isEqualTo("cassandra_schema");
         assertThat(tableHandle.getTableName()).isEqualTo("cassandra_table");

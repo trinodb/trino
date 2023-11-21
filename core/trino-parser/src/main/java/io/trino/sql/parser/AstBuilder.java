@@ -2425,7 +2425,7 @@ class AstBuilder
         boolean distinct = isDistinct(context.setQuantifier());
 
         Expression expression = (Expression) visit(context.expression());
-        StringLiteral separator = context.string() == null ? new StringLiteral(getLocation(context), "") : (StringLiteral) (visit(context.string()));
+        StringLiteral separator = context.string() == null ? new StringLiteral(getLocation(context), "") : (StringLiteral) visit(context.string());
         BooleanLiteral overflowError = new BooleanLiteral(getLocation(context), "true");
         StringLiteral overflowFiller = new StringLiteral(getLocation(context), "...");
         BooleanLiteral showOverflowEntryCount = new BooleanLiteral(getLocation(context), "false");
@@ -2438,7 +2438,7 @@ class AstBuilder
             else if (overflowBehavior.TRUNCATE() != null) {
                 overflowError = new BooleanLiteral(getLocation(context), "false");
                 if (overflowBehavior.string() != null) {
-                    overflowFiller = (StringLiteral) (visit(overflowBehavior.string()));
+                    overflowFiller = (StringLiteral) visit(overflowBehavior.string());
                 }
                 SqlBaseParser.ListaggCountIndicationContext listaggCountIndicationContext = overflowBehavior.listaggCountIndication();
                 if (listaggCountIndicationContext.WITH() != null) {
