@@ -16,6 +16,7 @@ package io.trino.plugin.deltalake.functions.tablechanges;
 import com.google.inject.Inject;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.parquet.ParquetReaderOptions;
+import io.trino.plugin.base.classloader.ClassLoaderSafeTableFunctionSplitProcessor;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
@@ -54,7 +55,7 @@ public class TableChangesProcessorProvider
     @Override
     public TableFunctionSplitProcessor getSplitProcessor(ConnectorSession session, ConnectorTableFunctionHandle handle, ConnectorSplit split)
     {
-        return new TableChangesFunctionProcessor(
+        return new ClassLoaderSafeTableFunctionSplitProcessor(new TableChangesFunctionProcessor(
                 session,
                 fileSystemFactory,
                 parquetDateTimeZone,
@@ -62,6 +63,7 @@ public class TableChangesProcessorProvider
                 fileFormatDataSourceStats,
                 parquetReaderOptions,
                 (TableChangesTableFunctionHandle) handle,
-                (TableChangesSplit) split);
+                (TableChangesSplit) split),
+                getClass().getClassLoader());
     }
 }
