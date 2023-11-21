@@ -14,6 +14,7 @@
 package io.trino.plugin.iceberg.functions;
 
 import com.google.inject.Inject;
+import io.trino.plugin.base.classloader.ClassLoaderSafeTableFunctionProcessorProvider;
 import io.trino.plugin.iceberg.functions.tablechanges.TableChangesFunctionHandle;
 import io.trino.plugin.iceberg.functions.tablechanges.TableChangesFunctionProcessorProvider;
 import io.trino.spi.function.FunctionProvider;
@@ -37,7 +38,7 @@ public class IcebergFunctionProvider
     public TableFunctionProcessorProvider getTableFunctionProcessorProvider(ConnectorTableFunctionHandle functionHandle)
     {
         if (functionHandle instanceof TableChangesFunctionHandle) {
-            return tableChangesFunctionProcessorProvider;
+            return new ClassLoaderSafeTableFunctionProcessorProvider(tableChangesFunctionProcessorProvider, getClass().getClassLoader());
         }
 
         throw new UnsupportedOperationException("Unsupported function: " + functionHandle);
