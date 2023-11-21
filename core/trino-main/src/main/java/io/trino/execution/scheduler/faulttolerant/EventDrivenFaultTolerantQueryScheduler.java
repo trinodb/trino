@@ -2033,6 +2033,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 finalSinkOutputSelector = sinkOutputSelectorBuilder.build();
                 sinkOutputSelectorBuilder = null;
                 stage.finish();
+                taskSource.close();
             }
         }
 
