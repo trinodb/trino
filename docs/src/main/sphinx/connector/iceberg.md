@@ -1407,13 +1407,8 @@ CREATE TABLE example_table (
 When trying to insert/update data in the table, the query fails if trying to set
 `NULL` value on a column having the `NOT NULL` constraint.
 
-### View management
-
-Trino allows reading from Iceberg materialized views.
-
 (iceberg-materialized-views)=
-
-#### Materialized views
+### Materialized views
 
 The Iceberg connector supports {ref}`sql-materialized-view-management`. In the
 underlying system, each materialized view consists of a view definition and an
