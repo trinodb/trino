@@ -30,14 +30,12 @@
 
         <dependency>
             <groupId>com.oracle.database.jdbc</groupId>
-            <artifactId>ojdbc11</artifactId>
-            <version>${dep.oracle.version}</version>
+            <artifactId>ojdbc10</artifactId>
         </dependency>
 
         <dependency>
             <groupId>com.oracle.database.jdbc</groupId>
-            <artifactId>ucp11</artifactId>
-            <version>${dep.oracle.version}</version>
+            <artifactId>ucp</artifactId>
         </dependency>
 
         <dependency>
@@ -109,7 +107,6 @@
         <dependency>
             <groupId>com.oracle.database.nls</groupId>
             <artifactId>orai18n</artifactId>
-            <version>${dep.oracle.version}</version>
             <scope>runtime</scope>
         </dependency>
 
