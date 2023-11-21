@@ -133,7 +133,7 @@ public abstract class AbstractMapAggregationState
         boolean variableWidth = keyType.isFlatVariableWidth() || valueType.isFlatVariableWidth();
         variableWidthData = variableWidth ? new VariableWidthData() : null;
         if (grouped) {
-            recordGroupIdOffset = (variableWidth ? POINTER_SIZE : 0);
+            recordGroupIdOffset = variableWidth ? POINTER_SIZE : 0;
             recordNextIndexOffset = recordGroupIdOffset + Integer.BYTES;
             recordKeyOffset = recordNextIndexOffset + Integer.BYTES;
         }
@@ -141,7 +141,7 @@ public abstract class AbstractMapAggregationState
             // use MIN_VALUE so that when it is added to the record offset we get a negative value, and thus an ArrayIndexOutOfBoundsException
             recordGroupIdOffset = Integer.MIN_VALUE;
             recordNextIndexOffset = Integer.MIN_VALUE;
-            recordKeyOffset = (variableWidth ? POINTER_SIZE : 0);
+            recordKeyOffset = variableWidth ? POINTER_SIZE : 0;
         }
         recordValueNullOffset = recordKeyOffset + keyType.getFlatFixedSize();
         recordValueOffset = recordValueNullOffset + 1;
@@ -544,7 +544,7 @@ public abstract class AbstractMapAggregationState
 
     private static long repeat(byte value)
     {
-        return ((value & 0xFF) * 0x01_01_01_01_01_01_01_01L);
+        return (value & 0xFF) * 0x01_01_01_01_01_01_01_01L;
     }
 
     private static long match(long vector, long repeatedValue)

@@ -51,7 +51,7 @@ public class CassandraClusteringPredicatesExtractor
 
     public TupleDomain<ColumnHandle> getUnenforcedConstraints()
     {
-        return predicates.filter(((columnHandle, domain) -> !clusteringPushDownResult.hasBeenFullyPushed(columnHandle)));
+        return predicates.filter((columnHandle, domain) -> !clusteringPushDownResult.hasBeenFullyPushed(columnHandle));
     }
 
     private ClusteringPushDownResult getClusteringKeysSet(List<CassandraColumnHandle> clusteringColumns, TupleDomain<ColumnHandle> predicates, Version cassandraVersion)

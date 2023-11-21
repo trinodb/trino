@@ -65,8 +65,8 @@ public class TestSalesforceConfig
     {
         String orgs = "my18CharOrgId,your18CharOrgId, his18CharOrgId ,her18CharOrgId";
         int expected = (int) orgs.chars().filter(sep -> sep == ',').count() + 1;
-        int actual = (new SalesforceConfig()
-                .setAllowedOrganizations(orgs)).getOrgSet().size();
+        int actual = new SalesforceConfig()
+                .setAllowedOrganizations(orgs).getOrgSet().size();
         assertThat(expected).isEqualTo(actual);
     }
 }

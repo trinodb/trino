@@ -726,7 +726,7 @@ public final class GraphvizPrinter
                 planNodeIds.put(from, idCount);
                 nodeId = idCount;
             }
-            return ("plannode_" + nodeId);
+            return "plannode_" + nodeId;
         }
     }
 }

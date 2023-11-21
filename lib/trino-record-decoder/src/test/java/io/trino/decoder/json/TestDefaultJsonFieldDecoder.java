@@ -65,8 +65,8 @@ public class TestDefaultJsonFieldDecoder
         tester.assertDecodedAs("" + Long.MAX_VALUE, BIGINT, Long.MAX_VALUE);
         tester.assertDecodedAs("0", BIGINT, 0);
         tester.assertDecodedAs("\"1000\"", BIGINT, 1000);
-        assertCouldNotParse("" + (BigInteger.valueOf(Long.MIN_VALUE).subtract(BigInteger.ONE)), BIGINT);
-        assertCouldNotParse("" + (BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.ONE)), BIGINT);
+        assertCouldNotParse("" + BigInteger.valueOf(Long.MIN_VALUE).subtract(BigInteger.ONE), BIGINT);
+        assertCouldNotParse("" + BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.ONE), BIGINT);
 
         tester.assertDecodedAs("false", BOOLEAN, false);
         tester.assertDecodedAs("true", BOOLEAN, true);

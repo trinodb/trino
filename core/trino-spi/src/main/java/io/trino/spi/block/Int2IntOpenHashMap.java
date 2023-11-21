@@ -110,27 +110,27 @@ class Int2IntOpenHashMap
 
     public int get(final int k)
     {
-        if (((k) == (0))) {
+        if (k == 0) {
             return containsNullKey ? value[n] : DEFAULT_RETURN_VALUE;
         }
         final int[] key = this.key;
         // The starting point.
-        int pos = (mix((k))) & mask;
+        int pos = mix(k) & mask;
         int curr = key[pos];
-        if (curr == (0)) {
+        if (curr == 0) {
             return DEFAULT_RETURN_VALUE;
         }
-        if (((k) == (curr))) {
+        if (k == curr) {
             return value[pos];
         }
         // There's always an unused entry.
         while (true) {
             pos = (pos + 1) & mask;
             curr = key[pos];
-            if (curr == (0)) {
+            if (curr == 0) {
                 return DEFAULT_RETURN_VALUE;
             }
-            if (((k) == (curr))) {
+            if (k == curr) {
                 return value[pos];
             }
         }
@@ -138,27 +138,27 @@ class Int2IntOpenHashMap
 
     public boolean containsKey(final int k)
     {
-        if (((k) == (0))) {
+        if (k == 0) {
             return containsNullKey;
         }
         final int[] key = this.key;
         // The starting point.
-        int pos = (mix((k))) & mask;
+        int pos = mix(k) & mask;
         int curr = key[pos];
-        if (curr == (0)) {
+        if (curr == 0) {
             return false;
         }
-        if (((k) == (curr))) {
+        if (k == curr) {
             return true;
         }
         // There's always an unused entry.
         while (true) {
             pos = (pos + 1) & mask;
             curr = key[pos];
-            if (curr == (0)) {
+            if (curr == 0) {
                 return false;
             }
-            if (((k) == (curr))) {
+            if (k == curr) {
                 return true;
             }
         }
@@ -178,27 +178,27 @@ class Int2IntOpenHashMap
 
     private int find(final int k)
     {
-        if (((k) == (0))) {
+        if (k == 0) {
             return containsNullKey ? n : -(n + 1);
         }
         final int[] key = this.key;
-        int pos = (mix((k))) & mask;
+        int pos = mix(k) & mask;
         int curr = key[pos];
         // The starting point.
-        if (curr == (0)) {
+        if (curr == 0) {
             return -(pos + 1);
         }
-        if (((k) == (curr))) {
+        if (k == curr) {
             return pos;
         }
         // There's always an unused entry.
         while (true) {
             pos = (pos + 1) & mask;
             curr = key[pos];
-            if (curr == (0)) {
+            if (curr == 0) {
                 return -(pos + 1);
             }
-            if (((k) == (curr))) {
+            if (k == curr) {
                 return pos;
             }
         }
@@ -226,13 +226,13 @@ class Int2IntOpenHashMap
         int pos;
         for (int j = realSize(); j-- != 0; ) {
             --i;
-            while (((key[i]) == (0))) {
+            while (key[i] == 0) {
                 --i;
             }
-            pos = (mix((key[i]))) & mask;
-            if (!(newKey[pos] == (0))) {
+            pos = mix(key[i]) & mask;
+            if (!(newKey[pos] == 0)) {
                 pos = (pos + 1) & mask;
-                while (!((newKey[pos]) == (0))) {
+                while (!(newKey[pos] == 0)) {
                     pos = (pos + 1) & mask;
                 }
             }

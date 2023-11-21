@@ -281,7 +281,7 @@ public class TopNPeerGroupLookup
             long currentHash;
 
             long initialIndex = index;
-            index = ((index) + 1) & mask;
+            index = (index + 1) & mask;
             while (true) {
                 if (buffer.isEmptySlot(index)) {
                     buffer.clear(initialIndex);

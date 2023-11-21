@@ -188,7 +188,7 @@ public abstract class BasePinotConnectorSmokeTest
             int offset = i * step;
             allTypesRecordsBuilder.add(new ProducerRecord<>(ALL_TYPES_TABLE, "key" + i * step,
                     createTestRecord(
-                            Arrays.asList("string_" + (offset), "string1_" + (offset + 1), "string2_" + (offset + 2)),
+                            Arrays.asList("string_" + offset, "string1_" + (offset + 1), "string2_" + (offset + 2)),
                             true,
                             Arrays.asList(54 + i / 3, -10001, 1000),
                             Arrays.asList(-7.33F + i, Float.POSITIVE_INFINITY, 17.034F + i),

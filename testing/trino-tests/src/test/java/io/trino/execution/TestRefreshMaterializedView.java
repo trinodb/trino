@@ -109,13 +109,13 @@ public class TestRefreshMaterializedView
                                                 ImmutableList.of(),
                                                 ImmutableMap.of())))
                                 .withDelegateMaterializedViewRefreshToConnector((connectorSession, schemaTableName) -> true)
-                                .withRefreshMaterializedView(((connectorSession, schemaTableName) -> {
+                                .withRefreshMaterializedView((connectorSession, schemaTableName) -> {
                                     startRefreshMaterializedView.set(null);
                                     SettableFuture<Void> refreshMaterializedView = SettableFuture.create();
                                     finishRefreshMaterializedView.addListener(() -> refreshMaterializedView.set(null), directExecutor());
                                     addExceptionCallback(refreshMaterializedView, () -> refreshInterrupted.set(null));
                                     return toCompletableFuture(refreshMaterializedView);
-                                }))
+                                })
                                 .build()));
         queryRunner.createCatalog("mock", "mock");
         return queryRunner;

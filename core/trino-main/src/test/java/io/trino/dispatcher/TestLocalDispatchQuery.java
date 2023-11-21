@@ -152,7 +152,7 @@ public class TestLocalDispatchQuery
                 queryMonitor,
                 new TestClusterSizeMonitor(new InMemoryNodeManager(ImmutableSet.of()), new NodeSchedulerConfig()),
                 executor,
-                (queryExecution -> dataDefinitionExecution.start()));
+                queryExecution -> dataDefinitionExecution.start());
         queryStateMachine.addStateChangeListener(state -> {
             if (state.ordinal() >= QueryState.PLANNING.ordinal()) {
                 countDownLatch.countDown();

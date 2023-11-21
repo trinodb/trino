@@ -256,27 +256,27 @@ public class Long2LongOpenBigHashMap
 
     private long find(final long k)
     {
-        if (((k) == (0))) {
+        if (k == 0) {
             return containsNullKey ? n : -(n + 1);
         }
         final LongBigArray key = this.key;
         // The starting point.
-        long pos = it.unimi.dsi.fastutil.HashCommon.mix((k)) & mask;
+        long pos = it.unimi.dsi.fastutil.HashCommon.mix(k) & mask;
         long curr = key.get(pos);
-        if (((curr) == (0))) {
+        if (curr == 0) {
             return -(pos + 1);
         }
-        if (((k) == (curr))) {
+        if (k == curr) {
             return pos;
         }
         // There's always an unused entry.
         while (true) {
             pos = (pos + 1) & mask;
             curr = key.get(pos);
-            if (((curr) == (0))) {
+            if (curr == 0) {
                 return -(pos + 1);
             }
-            if (((k) == (curr))) {
+            if (k == curr) {
                 return pos;
             }
         }
@@ -334,7 +334,7 @@ public class Long2LongOpenBigHashMap
     public long addTo(final long k, final long incr)
     {
         long pos;
-        if (((k) == (0))) {
+        if (k == 0) {
             if (containsNullKey) {
                 return addToValue(n, incr);
             }
@@ -344,16 +344,16 @@ public class Long2LongOpenBigHashMap
         else {
             final LongBigArray key = this.key;
             // The starting point.
-            pos = it.unimi.dsi.fastutil.HashCommon.mix((k)) & mask;
+            pos = it.unimi.dsi.fastutil.HashCommon.mix(k) & mask;
             long curr = key.get(pos);
-            if (!((curr) == (0))) {
-                if (((curr) == (k))) {
+            if (!(curr == 0)) {
+                if (curr == k) {
                     return addToValue(pos, incr);
                 }
                 pos = (pos + 1) & mask;
                 curr = key.get(pos);
-                while (!((curr) == (0))) {
-                    if (((curr) == (k))) {
+                while (!(curr == 0)) {
+                    if (curr == k) {
                         return addToValue(pos, incr);
                     }
                     pos = (pos + 1) & mask;
@@ -390,11 +390,11 @@ public class Long2LongOpenBigHashMap
             pos = (pos + 1) & mask;
             for (; ; ) {
                 curr = key.get(pos);
-                if (((curr) == (0))) {
-                    key.set(last, (0));
+                if (curr == 0) {
+                    key.set(last, 0);
                     return;
                 }
-                slot = it.unimi.dsi.fastutil.HashCommon.mix((curr)) & mask;
+                slot = it.unimi.dsi.fastutil.HashCommon.mix(curr) & mask;
                 if (last <= pos ? last >= slot || slot > pos : last >= slot && slot > pos) {
                     break;
                 }
@@ -408,7 +408,7 @@ public class Long2LongOpenBigHashMap
     @Override
     public long remove(final long k)
     {
-        if (((k) == (0))) {
+        if (k == 0) {
             if (containsNullKey) {
                 return removeNullEntry();
             }
@@ -416,21 +416,21 @@ public class Long2LongOpenBigHashMap
         }
         final LongBigArray key = this.key;
         // The starting point.
-        long pos = it.unimi.dsi.fastutil.HashCommon.mix((k)) & mask;
+        long pos = it.unimi.dsi.fastutil.HashCommon.mix(k) & mask;
         long curr = key.get(pos);
-        if (((curr) == (0))) {
+        if (curr == 0) {
             return defRetValue;
         }
-        if (((k) == (curr))) {
+        if (k == curr) {
             return removeEntry(pos);
         }
         while (true) {
             pos = (pos + 1) & mask;
             curr = key.get(pos);
-            if (((curr) == (0))) {
+            if (curr == 0) {
                 return defRetValue;
             }
-            if (((k) == (curr))) {
+            if (k == curr) {
                 return removeEntry(pos);
             }
         }
@@ -439,27 +439,27 @@ public class Long2LongOpenBigHashMap
     @Override
     public long get(final long k)
     {
-        if (((k) == (0))) {
+        if (k == 0) {
             return containsNullKey ? value.get(n) : defRetValue;
         }
         final LongBigArray key = this.key;
         // The starting point.
-        long pos = it.unimi.dsi.fastutil.HashCommon.mix((k)) & mask;
+        long pos = it.unimi.dsi.fastutil.HashCommon.mix(k) & mask;
         long curr = key.get(pos);
-        if (((curr) == (0))) {
+        if (curr == 0) {
             return defRetValue;
         }
-        if (((k) == (curr))) {
+        if (k == curr) {
             return value.get(pos);
         }
         // There's always an unused entry.
         while (true) {
             pos = (pos + 1) & mask;
             curr = key.get(pos);
-            if (((curr) == (0))) {
+            if (curr == 0) {
                 return defRetValue;
             }
-            if (((k) == (curr))) {
+            if (k == curr) {
                 return value.get(pos);
             }
         }
@@ -468,27 +468,27 @@ public class Long2LongOpenBigHashMap
     @Override
     public boolean containsKey(final long k)
     {
-        if (((k) == (0))) {
+        if (k == 0) {
             return containsNullKey;
         }
         final LongBigArray key = this.key;
         // The starting point.
-        long pos = it.unimi.dsi.fastutil.HashCommon.mix((k)) & mask;
+        long pos = it.unimi.dsi.fastutil.HashCommon.mix(k) & mask;
         long curr = key.get(pos);
-        if (((curr) == (0))) {
+        if (curr == 0) {
             return false;
         }
-        if (((k) == (curr))) {
+        if (k == curr) {
             return true;
         }
         // There's always an unused entry.
         while (true) {
             pos = (pos + 1) & mask;
             curr = key.get(pos);
-            if (((curr) == (0))) {
+            if (curr == 0) {
                 return false;
             }
-            if (((k) == (curr))) {
+            if (k == curr) {
                 return true;
             }
         }
@@ -499,11 +499,11 @@ public class Long2LongOpenBigHashMap
     {
         final LongBigArray value = this.value;
         final LongBigArray key = this.key;
-        if (containsNullKey && ((value.get(n)) == (v))) {
+        if (containsNullKey && (value.get(n) == v)) {
             return true;
         }
         for (long i = n; i-- != 0; ) {
-            if (!((key.get(i)) == (0)) && ((value.get(i)) == (v))) {
+            if (!(key.get(i) == 0) && (value.get(i) == v)) {
                 return true;
             }
         }
@@ -516,27 +516,27 @@ public class Long2LongOpenBigHashMap
     @Override
     public long getOrDefault(final long k, final long defaultValue)
     {
-        if (((k) == (0))) {
+        if (k == 0) {
             return containsNullKey ? value.get(n) : defaultValue;
         }
         final LongBigArray key = this.key;
         // The starting point.
-        long pos = it.unimi.dsi.fastutil.HashCommon.mix((k)) & mask;
+        long pos = it.unimi.dsi.fastutil.HashCommon.mix(k) & mask;
         long curr = key.get(pos);
-        if (((curr) == (0))) {
+        if (curr == 0) {
             return defaultValue;
         }
-        if (((k) == (curr))) {
+        if (k == curr) {
             return value.get(pos);
         }
         // There's always an unused entry.
         while (true) {
             pos = (pos + 1) & mask;
             curr = key.get(pos);
-            if (((curr) == (0))) {
+            if (curr == 0) {
                 return defaultValue;
             }
-            if (((k) == (curr))) {
+            if (k == curr) {
                 return value.get(pos);
             }
         }
@@ -562,8 +562,8 @@ public class Long2LongOpenBigHashMap
     @Override
     public boolean remove(final long k, final long v)
     {
-        if (((k) == (0))) {
-            if (containsNullKey && ((v) == (value.get(n)))) {
+        if (k == 0) {
+            if (containsNullKey && (v == value.get(n))) {
                 removeNullEntry();
                 return true;
             }
@@ -571,22 +571,22 @@ public class Long2LongOpenBigHashMap
         }
         final LongBigArray key = this.key;
         // The starting point.
-        long pos = it.unimi.dsi.fastutil.HashCommon.mix((k)) & mask;
+        long pos = it.unimi.dsi.fastutil.HashCommon.mix(k) & mask;
         long curr = key.get(pos);
-        if (((curr) == (0))) {
+        if (curr == 0) {
             return false;
         }
-        if (((k) == (curr)) && ((v) == (value.get(pos)))) {
+        if ((k == curr) && (v == value.get(pos))) {
             removeEntry(pos);
             return true;
         }
         while (true) {
             pos = (pos + 1) & mask;
             curr = key.get(pos);
-            if (((curr) == (0))) {
+            if (curr == 0) {
                 return false;
             }
-            if (((k) == (curr)) && ((v) == (value.get(pos)))) {
+            if ((k == curr) && (v == value.get(pos))) {
                 removeEntry(pos);
                 return true;
             }
@@ -600,7 +600,7 @@ public class Long2LongOpenBigHashMap
     public boolean replace(final long k, final long oldValue, final long v)
     {
         final long pos = find(k);
-        if (pos < 0 || !((oldValue) == (value.get(pos)))) {
+        if (pos < 0 || !(oldValue == value.get(pos))) {
             return false;
         }
         value.set(pos, v);
@@ -654,7 +654,7 @@ public class Long2LongOpenBigHashMap
         if (newValue == null) {
             return defRetValue;
         }
-        final long v = (newValue).longValue();
+        final long v = newValue.longValue();
         insert(-pos - 1, k, v);
         return v;
     }
@@ -673,7 +673,7 @@ public class Long2LongOpenBigHashMap
         }
         final Long newValue = remappingFunction.apply(Long.valueOf(k), Long.valueOf(value.get(pos)));
         if (newValue == null) {
-            if (((k) == (0))) {
+            if (k == 0) {
                 removeNullEntry();
             }
             else {
@@ -681,8 +681,8 @@ public class Long2LongOpenBigHashMap
             }
             return defRetValue;
         }
-        value.set(pos, (newValue).longValue());
-        return (newValue).longValue();
+        value.set(pos, newValue.longValue());
+        return newValue.longValue();
     }
 
     /**
@@ -697,7 +697,7 @@ public class Long2LongOpenBigHashMap
         final Long newValue = remappingFunction.apply(Long.valueOf(k), pos >= 0 ? Long.valueOf(value.get(pos)) : null);
         if (newValue == null) {
             if (pos >= 0) {
-                if (((k) == (0))) {
+                if (k == 0) {
                     removeNullEntry();
                 }
                 else {
@@ -706,7 +706,7 @@ public class Long2LongOpenBigHashMap
             }
             return defRetValue;
         }
-        long newVal = (newValue).longValue();
+        long newVal = newValue.longValue();
         if (pos < 0) {
             insert(-pos - 1, k, newVal);
             return newVal;
@@ -730,7 +730,7 @@ public class Long2LongOpenBigHashMap
         }
         final Long newValue = remappingFunction.apply(Long.valueOf(value.get(pos)), Long.valueOf(v));
         if (newValue == null) {
-            if (((k) == (0))) {
+            if (k == 0) {
                 removeNullEntry();
             }
             else {
@@ -738,8 +738,8 @@ public class Long2LongOpenBigHashMap
             }
             return defRetValue;
         }
-        value.set(pos, (newValue).longValue());
-        return (newValue).longValue();
+        value.set(pos, newValue.longValue());
+        return newValue.longValue();
     }
 
     /*
@@ -846,7 +846,7 @@ public class Long2LongOpenBigHashMap
         @Override
         public Long setValue(final Long v)
         {
-            return Long.valueOf(setValue((v).longValue()));
+            return Long.valueOf(setValue(v.longValue()));
         }
 
         @SuppressWarnings("unchecked")
@@ -857,7 +857,7 @@ public class Long2LongOpenBigHashMap
                 return false;
             }
             Map.Entry<Long, Long> e = (Map.Entry<Long, Long>) o;
-            return ((key.get(index)) == ((e.getKey()).longValue())) && ((value.get(index)) == ((e.getValue()).longValue()));
+            return (key.get(index) == e.getKey().longValue()) && (value.get(index) == e.getValue().longValue());
         }
 
         @Override
@@ -928,13 +928,13 @@ public class Long2LongOpenBigHashMap
                     // We are just enumerating elements from the wrapped list.
                     last = Long.MIN_VALUE;
                     final long k = wrapped.getLong(-pos - 1);
-                    long p = it.unimi.dsi.fastutil.HashCommon.mix((k)) & mask;
-                    while (!((k) == (key.get(p)))) {
+                    long p = it.unimi.dsi.fastutil.HashCommon.mix(k) & mask;
+                    while (!(k == key.get(p))) {
                         p = (p + 1) & mask;
                     }
                     return p;
                 }
-                if (!((key.get(pos)) == (0))) {
+                if (!(key.get(pos) == 0)) {
                     last = pos;
                     return pos;
                 }
@@ -959,11 +959,11 @@ public class Long2LongOpenBigHashMap
                 pos = (pos + 1) & mask;
                 for (; ; ) {
                     curr = key.get(pos);
-                    if (((curr) == (0))) {
-                        key.set(last, (0));
+                    if (curr == 0) {
+                        key.set(last, 0);
                         return;
                     }
-                    slot = it.unimi.dsi.fastutil.HashCommon.mix((curr)) & mask;
+                    slot = it.unimi.dsi.fastutil.HashCommon.mix(curr) & mask;
                     if (last <= pos ? last >= slot || slot > pos : last >= slot && slot > pos) {
                         break;
                     }
@@ -1078,30 +1078,30 @@ public class Long2LongOpenBigHashMap
             if (e.getValue() == null || !(e.getValue() instanceof Long)) {
                 return false;
             }
-            final long k = ((Long) (e.getKey())).longValue();
-            final long v = ((Long) (e.getValue())).longValue();
-            if (((k) == (0))) {
-                return Long2LongOpenBigHashMap.this.containsNullKey && ((value.get(n)) == (v));
+            final long k = ((Long) e.getKey()).longValue();
+            final long v = ((Long) e.getValue()).longValue();
+            if (k == 0) {
+                return Long2LongOpenBigHashMap.this.containsNullKey && (value.get(n) == v);
             }
             final LongBigArray key = Long2LongOpenBigHashMap.this.key;
             // The starting point.
-            long pos = it.unimi.dsi.fastutil.HashCommon.mix((k)) & mask;
+            long pos = it.unimi.dsi.fastutil.HashCommon.mix(k) & mask;
             long curr = key.get(pos);
-            if (((curr) == (0))) {
+            if (curr == 0) {
                 return false;
             }
-            if (((k) == (curr))) {
-                return ((value.get(pos)) == (v));
+            if (k == curr) {
+                return value.get(pos) == v;
             }
             // There's always an unused entry.
             while (true) {
                 pos = (pos + 1) & mask;
                 curr = key.get(pos);
-                if (((curr) == (0))) {
+                if (curr == 0) {
                     return false;
                 }
-                if (((k) == (curr))) {
-                    return ((value.get(pos)) == (v));
+                if (k == curr) {
+                    return value.get(pos) == v;
                 }
             }
         }
@@ -1119,10 +1119,10 @@ public class Long2LongOpenBigHashMap
             if (e.getValue() == null || !(e.getValue() instanceof Long)) {
                 return false;
             }
-            final long k = ((Long) (e.getKey())).longValue();
-            final long v = ((Long) (e.getValue())).longValue();
-            if (((k) == (0))) {
-                if (containsNullKey && ((value.get(n)) == (v))) {
+            final long k = ((Long) e.getKey()).longValue();
+            final long v = ((Long) e.getValue()).longValue();
+            if (k == 0) {
+                if (containsNullKey && (value.get(n) == v)) {
                     removeNullEntry();
                     return true;
                 }
@@ -1130,13 +1130,13 @@ public class Long2LongOpenBigHashMap
             }
             final LongBigArray key = Long2LongOpenBigHashMap.this.key;
             // The starting point.
-            long pos = it.unimi.dsi.fastutil.HashCommon.mix((k)) & mask;
+            long pos = it.unimi.dsi.fastutil.HashCommon.mix(k) & mask;
             long curr = key.get(pos);
-            if (((curr) == (0))) {
+            if (curr == 0) {
                 return false;
             }
-            if (((curr) == (k))) {
-                if (((value.get(pos)) == (v))) {
+            if (curr == k) {
+                if (value.get(pos) == v) {
                     removeEntry(pos);
                     return true;
                 }
@@ -1145,11 +1145,11 @@ public class Long2LongOpenBigHashMap
             while (true) {
                 pos = (pos + 1) & mask;
                 curr = key.get(pos);
-                if (((curr) == (0))) {
+                if (curr == 0) {
                     return false;
                 }
-                if (((curr) == (k))) {
-                    if (((value.get(pos)) == (v))) {
+                if (curr == k) {
+                    if (value.get(pos) == v) {
                         removeEntry(pos);
                         return true;
                     }
@@ -1179,7 +1179,7 @@ public class Long2LongOpenBigHashMap
                 consumer.accept(new AbstractLong2LongMap.BasicEntry(key.get(n), value.get(n)));
             }
             for (long pos = n; pos-- != 0; ) {
-                if (!((key.get(pos)) == (0))) {
+                if (!(key.get(pos) == 0)) {
                     consumer.accept(new AbstractLong2LongMap.BasicEntry(key.get(pos), value.get(pos)));
                 }
             }
@@ -1195,7 +1195,7 @@ public class Long2LongOpenBigHashMap
                 consumer.accept(new AbstractLong2LongMap.BasicEntry(key.get(n), value.get(n)));
             }
             for (long pos = n; pos-- != 0; ) {
-                if (!((key.get(pos)) == (0))) {
+                if (!(key.get(pos) == 0)) {
                     consumer.accept(new AbstractLong2LongMap.BasicEntry(key.get(pos), value.get(pos)));
                 }
             }
@@ -1256,7 +1256,7 @@ public class Long2LongOpenBigHashMap
             }
             for (long pos = n; pos-- != 0; ) {
                 final long k = key.get(pos);
-                if (!((k) == (0))) {
+                if (!(k == 0)) {
                     consumer.accept(k);
                 }
             }
@@ -1361,7 +1361,7 @@ public class Long2LongOpenBigHashMap
                         consumer.accept(value.get(n));
                     }
                     for (long pos = n; pos-- != 0; ) {
-                        if (!((key.get(pos)) == (0))) {
+                        if (!(key.get(pos) == 0)) {
                             consumer.accept(value.get(pos));
                         }
                     }
@@ -1448,13 +1448,13 @@ public class Long2LongOpenBigHashMap
         long i = n;
         long pos;
         for (long j = realSize(); j-- != 0; ) {
-            while (((key.get(--i)) == (0))) {
+            while (key.get(--i) == 0) {
                 // Skip
             }
-            pos = it.unimi.dsi.fastutil.HashCommon.mix((key.get(i))) & mask;
-            if (!((newKey.get(pos)) == (0))) {
+            pos = it.unimi.dsi.fastutil.HashCommon.mix(key.get(i)) & mask;
+            if (!(newKey.get(pos) == 0)) {
                 pos = (pos + 1) & mask;
-                while (!((newKey.get(pos)) == (0))) {
+                while (!(newKey.get(pos) == 0)) {
                     pos = (pos + 1) & mask;
                 }
             }

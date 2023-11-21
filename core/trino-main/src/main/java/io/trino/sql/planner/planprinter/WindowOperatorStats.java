@@ -72,8 +72,8 @@ class WindowOperatorStats
                 sizeOfIndexesSumSquaredDiffs += driverWindowInfo.getSumSquaredDifferencesSizeOfIndex();
                 totalIndexesCount += numberOfIndexes;
 
-                indexCountPerDriverSumSquaredDiffs += (Math.pow(numberOfIndexes - averageNumberOfIndexes, 2));
-                rowCountPerDriverSumSquaredDiffs += (Math.pow(driverTotalRowsCount - averageNumberOfRows, 2));
+                indexCountPerDriverSumSquaredDiffs += Math.pow(numberOfIndexes - averageNumberOfIndexes, 2);
+                rowCountPerDriverSumSquaredDiffs += Math.pow(driverTotalRowsCount - averageNumberOfRows, 2);
                 activeDrivers++;
             }
         }
