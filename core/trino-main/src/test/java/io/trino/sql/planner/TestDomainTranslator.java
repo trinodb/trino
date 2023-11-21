@@ -1939,12 +1939,12 @@ public class TestDomainTranslator
 
         // non-ASCII prefix
         testSimpleComparison(
-                like(C_VARCHAR, "abc\u0123\ud83d\ude80def\u007e\u007f\u00ff\u0123\uccf0%"),
+                like(C_VARCHAR, "abc\u0123\ud83d\ude80def~\u007f\u00ff\u0123\uccf0%"),
                 C_VARCHAR,
-                like(C_VARCHAR, "abc\u0123\ud83d\ude80def\u007e\u007f\u00ff\u0123\uccf0%"),
+                like(C_VARCHAR, "abc\u0123\ud83d\ude80def~\u007f\u00ff\u0123\uccf0%"),
                 Domain.create(
                         ValueSet.ofRanges(Range.range(varcharType,
-                                utf8Slice("abc\u0123\ud83d\ude80def\u007e\u007f\u00ff\u0123\uccf0"), true,
+                                utf8Slice("abc\u0123\ud83d\ude80def~\u007f\u00ff\u0123\uccf0"), true,
                                 utf8Slice("abc\u0123\ud83d\ude80def\u007f"), false)),
                         false));
 
@@ -1997,12 +1997,12 @@ public class TestDomainTranslator
 
         // non-ASCII
         testSimpleComparison(
-                startsWith(C_VARCHAR, stringLiteral("abc\u0123\ud83d\ude80def\u007e\u007f\u00ff\u0123\uccf0")),
+                startsWith(C_VARCHAR, stringLiteral("abc\u0123\ud83d\ude80def~\u007f\u00ff\u0123\uccf0")),
                 C_VARCHAR,
-                startsWith(C_VARCHAR, stringLiteral("abc\u0123\ud83d\ude80def\u007e\u007f\u00ff\u0123\uccf0")),
+                startsWith(C_VARCHAR, stringLiteral("abc\u0123\ud83d\ude80def~\u007f\u00ff\u0123\uccf0")),
                 Domain.create(
                         ValueSet.ofRanges(Range.range(varcharType,
-                                utf8Slice("abc\u0123\ud83d\ude80def\u007e\u007f\u00ff\u0123\uccf0"), true,
+                                utf8Slice("abc\u0123\ud83d\ude80def~\u007f\u00ff\u0123\uccf0"), true,
                                 utf8Slice("abc\u0123\ud83d\ude80def\u007f"), false)),
                         false));
     }
