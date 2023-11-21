@@ -702,13 +702,13 @@ public class TestLocalExchange
             sink.addPage(createSingleValuePage(0, 1000));
             sink.addPage(createSingleValuePage(0, 1000));
 
-            // Scaling since total memory used is less than 10 MBs
+            // Scaling since total memory used is less than 14 MBs (20 MBs * 70%)
             assertSource(sourceA, 2);
             assertSource(sourceB, 2);
             assertSource(sourceC, 0);
             assertSource(sourceD, 4);
 
-            totalMemoryUsed.set(DataSize.of(13, MEGABYTE).toBytes());
+            totalMemoryUsed.set(DataSize.of(15, MEGABYTE).toBytes());
 
             sink.addPage(createSingleValuePage(0, 1000));
             sink.addPage(createSingleValuePage(0, 1000));
@@ -720,6 +720,101 @@ public class TestLocalExchange
             assertSource(sourceB, 4);
             assertSource(sourceC, 0);
             assertSource(sourceD, 6);
+        });
+    }
+
+    @Test(dataProvider = "scalingPartitionHandles")
+    public void testDoNotUpdateScalingStateWhenMemoryIsAboveLimit(PartitioningHandle partitioningHandle)
+    {
+        AtomicLong totalMemoryUsed = new AtomicLong();
+        LocalExchange localExchange = new LocalExchange(
+                nodePartitioningManager,
+                testSessionBuilder()
+                        .setSystemProperty(SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD, "20kB")
+                        .setSystemProperty(QUERY_MAX_MEMORY_PER_NODE, "20MB")
+                        .build(),
+                4,
+                partitioningHandle,
+                ImmutableList.of(0),
+                TYPES,
+                Optional.empty(),
+                DataSize.ofBytes(retainedSizeOfPages(2)),
+                TYPE_OPERATORS,
+                DataSize.of(10, KILOBYTE),
+                totalMemoryUsed::get);
+
+        run(localExchange, exchange -> {
+            assertThat(exchange.getBufferCount()).isEqualTo(4);
+            assertExchangeTotalBufferedBytes(exchange, 0);
+
+            LocalExchangeSinkFactory sinkFactory = exchange.createSinkFactory();
+            sinkFactory.noMoreSinkFactories();
+            LocalExchangeSink sink = sinkFactory.createSink();
+            assertSinkCanWrite(sink);
+            sinkFactory.close();
+
+            LocalExchangeSource sourceA = exchange.getNextSource();
+            assertSource(sourceA, 0);
+
+            LocalExchangeSource sourceB = exchange.getNextSource();
+            assertSource(sourceB, 0);
+
+            LocalExchangeSource sourceC = exchange.getNextSource();
+            assertSource(sourceC, 0);
+
+            LocalExchangeSource sourceD = exchange.getNextSource();
+            assertSource(sourceD, 0);
+
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(1, 2));
+            sink.addPage(createSingleValuePage(1, 2));
+
+            // Two partitions are assigned to two different writers
+            assertSource(sourceA, 2);
+            assertSource(sourceB, 0);
+            assertSource(sourceC, 0);
+            assertSource(sourceD, 2);
+
+            totalMemoryUsed.set(DataSize.of(5, MEGABYTE).toBytes());
+
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+
+            // Scaling since total memory used is less than 14 MBs (20 MBs * 70%)
+            assertSource(sourceA, 2);
+            assertSource(sourceB, 2);
+            assertSource(sourceC, 0);
+            assertSource(sourceD, 4);
+
+            totalMemoryUsed.set(DataSize.of(15, MEGABYTE).toBytes());
+
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+            sink.addPage(createSingleValuePage(0, 1000));
+
+            // No scaling since total memory used is greater than 14 MBs (20 MBs * 70%)
+            assertSource(sourceA, 2);
+            assertSource(sourceB, 4);
+            assertSource(sourceC, 0);
+            assertSource(sourceD, 6);
+
+            // Memory reduced due to closing of some writers
+            totalMemoryUsed.set(DataSize.of(13, MEGABYTE).toBytes());
+
+            sink.addPage(createSingleValuePage(0, 10));
+            sink.addPage(createSingleValuePage(0, 10));
+            sink.addPage(createSingleValuePage(0, 10));
+            sink.addPage(createSingleValuePage(0, 10));
+            // No scaling since not enough data has been processed, and we are not considering data written
+            // when memory utilization is above the limit.
+            assertSource(sourceA, 3);
+            assertSource(sourceB, 6);
+            assertSource(sourceC, 0);
+            assertSource(sourceD, 7);
         });
     }
 
