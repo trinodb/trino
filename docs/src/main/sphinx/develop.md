@@ -2,10 +2,17 @@
 
 This guide is intended for Trino contributors and plugin developers.
 
+Important information on processes, code style, reviews, and other details are
+available on the [development section of the Trino
+website](https://trino.io/development/) and in the [development documentation in
+the Trino source
+code](https://github.com/trinodb/trino/blob/master/.github/DEVELOPMENT.md).
+
 ```{toctree}
 :maxdepth: 1
 
 develop/spi-overview
+develop/tests
 develop/connectors
 develop/example-http
 develop/example-jdbc
