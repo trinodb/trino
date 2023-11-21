@@ -27,6 +27,7 @@ import io.trino.spi.connector.RecordSet;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.function.table.ConnectorTableFunction;
+import io.trino.spi.function.table.TableFunctionSplitProcessor;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
@@ -58,6 +59,7 @@ public class TestClassLoaderSafeWrappers
         testClassLoaderSafe(RecordSet.class, ClassLoaderSafeRecordSet.class);
         testClassLoaderSafe(EventListener.class, ClassLoaderSafeEventListener.class);
         testClassLoaderSafe(ConnectorTableFunction.class, ClassLoaderSafeConnectorTableFunction.class);
+        testClassLoaderSafe(TableFunctionSplitProcessor.class, ClassLoaderSafeTableFunctionSplitProcessor.class);
     }
 
     private static <I, C extends I> void testClassLoaderSafe(Class<I> iface, Class<C> clazz)
