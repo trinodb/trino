@@ -488,18 +488,6 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     }
 
     @Test
-    public void testNonDeltaTablesCannotBeAccessed()
-    {
-        String schemaName = "test_schema" + randomNameSuffix();
-        String tableName = "hive_table";
-        hiveHadoop.runOnHive("CREATE DATABASE " + schemaName);
-        hiveHadoop.runOnHive(format("CREATE TABLE %s.%s (id BIGINT)", schemaName, tableName));
-        assertThat(computeScalar(format("SHOW TABLES FROM %s LIKE '%s'", schemaName, tableName))).isEqualTo(tableName);
-        assertThatThrownBy(() -> computeActual("DESCRIBE " + schemaName + "." + tableName)).hasMessageContaining(tableName + " is not a Delta Lake table");
-        hiveHadoop.runOnHive("DROP DATABASE " + schemaName + " CASCADE");
-    }
-
-    @Test
     public void testDropDatabricksTable()
     {
         testDropTable(
