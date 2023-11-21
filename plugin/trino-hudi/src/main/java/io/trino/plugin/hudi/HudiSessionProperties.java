@@ -52,6 +52,7 @@ public class HudiSessionProperties
     private static final String MAX_SPLITS_PER_SECOND = "max_splits_per_second";
     private static final String MAX_OUTSTANDING_SPLITS = "max_outstanding_splits";
     private static final String SPLIT_GENERATOR_PARALLELISM = "split_generator_parallelism";
+    private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -125,6 +126,11 @@ public class HudiSessionProperties
                         SPLIT_GENERATOR_PARALLELISM,
                         "Number of threads to generate splits from partitions",
                         hudiConfig.getSplitGeneratorParallelism(),
+                        false),
+                booleanProperty(
+                        QUERY_PARTITION_FILTER_REQUIRED,
+                        "Require a filter on at least one partition column",
+                        hudiConfig.isQueryPartitionFilterRequired(),
                         false));
     }
 
@@ -188,5 +194,10 @@ public class HudiSessionProperties
     public static int getSplitGeneratorParallelism(ConnectorSession session)
     {
         return session.getProperty(SPLIT_GENERATOR_PARALLELISM, Integer.class);
+    }
+
+    public static boolean isQueryPartitionFilterRequired(ConnectorSession session)
+    {
+        return session.getProperty(QUERY_PARTITION_FILTER_REQUIRED, Boolean.class);
     }
 }

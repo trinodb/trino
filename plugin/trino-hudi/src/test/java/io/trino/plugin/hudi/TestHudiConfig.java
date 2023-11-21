@@ -39,7 +39,8 @@ public class TestHudiConfig
                 .setMaxOutstandingSplits(1000)
                 .setSplitLoaderParallelism(4)
                 .setSplitGeneratorParallelism(4)
-                .setPerTransactionMetastoreCacheMaximumSize(2000));
+                .setPerTransactionMetastoreCacheMaximumSize(2000)
+                .setQueryPartitionFilterRequired(false));
     }
 
     @Test
@@ -56,6 +57,7 @@ public class TestHudiConfig
                 .put("hudi.split-loader-parallelism", "16")
                 .put("hudi.split-generator-parallelism", "32")
                 .put("hudi.per-transaction-metastore-cache-maximum-size", "1000")
+                .put("hudi.query-partition-filter-required", "true")
                 .buildOrThrow();
 
         HudiConfig expected = new HudiConfig()
@@ -68,7 +70,8 @@ public class TestHudiConfig
                 .setMaxOutstandingSplits(100)
                 .setSplitLoaderParallelism(16)
                 .setSplitGeneratorParallelism(32)
-                .setPerTransactionMetastoreCacheMaximumSize(1000);
+                .setPerTransactionMetastoreCacheMaximumSize(1000)
+                .setQueryPartitionFilterRequired(true);
 
         assertFullMapping(properties, expected);
     }
