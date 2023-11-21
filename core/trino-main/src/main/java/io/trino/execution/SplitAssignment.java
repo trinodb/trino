@@ -87,7 +87,7 @@ public class SplitAssignment
         // the specified assignment is newer if it changes the no more
         // splits flag or if it contains new splits
         return (!noMoreSplits && assignment.isNoMoreSplits()) ||
-                (!splits.containsAll(assignment.getSplits()));
+                !splits.containsAll(assignment.getSplits());
     }
 
     @Override

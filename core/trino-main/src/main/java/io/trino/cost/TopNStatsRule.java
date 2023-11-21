@@ -89,7 +89,7 @@ public class TopNStatsRule
                 }
             }
             else {
-                double nonNullCount = (rowCount - nullCount);
+                double nonNullCount = rowCount - nullCount;
                 if (nonNullCount > limitCount) {
                     newStats.setNullsFraction(0.0);
                 }

@@ -51,7 +51,7 @@ public class AvroRowDecoderFactory
         }
 
         String dataSchema = requireNonNull(rowDecoderSpec.decoderParams().get(DATA_SCHEMA), format("%s cannot be null", DATA_SCHEMA));
-        Schema parsedSchema = (new Schema.Parser()).parse(dataSchema);
+        Schema parsedSchema = new Schema.Parser().parse(dataSchema);
         if (parsedSchema.getType().equals(Schema.Type.RECORD)) {
             AvroReaderSupplier<GenericRecord> avroReaderSupplier = avroReaderSupplierFactory.create(parsedSchema);
             AvroDeserializer<GenericRecord> dataDecoder = avroDeserializerFactory.create(avroReaderSupplier);

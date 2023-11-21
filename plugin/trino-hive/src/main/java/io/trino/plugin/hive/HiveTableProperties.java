@@ -249,7 +249,7 @@ public class HiveTableProperties
         List<String> bucketedBy = getBucketedBy(tableProperties);
         List<SortingColumn> sortedBy = getSortedBy(tableProperties);
         int bucketCount = (Integer) tableProperties.get(BUCKET_COUNT_PROPERTY);
-        if ((bucketedBy.isEmpty()) && (bucketCount == 0)) {
+        if (bucketedBy.isEmpty() && (bucketCount == 0)) {
             if (!sortedBy.isEmpty()) {
                 throw new TrinoException(INVALID_TABLE_PROPERTY, format("%s may be specified only when %s is specified", SORTED_BY_PROPERTY, BUCKETED_BY_PROPERTY));
             }

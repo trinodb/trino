@@ -2112,8 +2112,8 @@ abstract class AbstractTrinoResultSet
         int minute = Integer.parseInt(matcher.group("minute"));
         int second = matcher.group("second") == null ? 0 : Integer.parseInt(matcher.group("second"));
         int offsetSign = matcher.group("sign").equals("+") ? 1 : -1;
-        int offsetHour = Integer.parseInt((matcher.group("offsetHour")));
-        int offsetMinute = Integer.parseInt((matcher.group("offsetMinute")));
+        int offsetHour = Integer.parseInt(matcher.group("offsetHour"));
+        int offsetMinute = Integer.parseInt(matcher.group("offsetMinute"));
 
         if (hour > 23 || minute > 59 || second > 59 || !isValidOffset(offsetHour, offsetMinute)) {
             throw new IllegalArgumentException("Invalid time with time zone: " + value);

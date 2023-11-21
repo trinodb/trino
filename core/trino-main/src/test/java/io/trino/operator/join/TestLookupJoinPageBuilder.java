@@ -163,7 +163,7 @@ public class TestLookupJoinPageBuilder
 
         // nothing on the build side so we don't append anything
         LookupSource lookupSource = new TestLookupSource(ImmutableList.of(), page);
-        JoinProbe probe = (new JoinProbeFactory(new int[] {0}, ImmutableList.of(0), OptionalInt.empty())).createJoinProbe(page);
+        JoinProbe probe = new JoinProbeFactory(new int[] {0}, ImmutableList.of(0), OptionalInt.empty()).createJoinProbe(page);
         LookupJoinPageBuilder lookupJoinPageBuilder = new LookupJoinPageBuilder(ImmutableList.of(BIGINT));
 
         // append the same row many times should also flush in the end

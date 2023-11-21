@@ -253,7 +253,7 @@ public final class QueryUtil
 
     public static Query singleValueQuery(String columnName, String value)
     {
-        Relation values = values(row(new StringLiteral((value))));
+        Relation values = values(row(new StringLiteral(value)));
         return simpleQuery(
                 selectList(new AllColumns()),
                 aliased(values, "t", ImmutableList.of(columnName)));

@@ -1072,15 +1072,15 @@ public class TestIcebergSparkCompatibility
             "👨‍🏭 ");
 
     private static final String TRINO_INSERTED_PARTITION_VALUES =
-            Streams.mapWithIndex(SPECIAL_CHARACTER_VALUES.stream(), ((value, index) -> format("(%d, '%s')", index, escapeTrinoString(value))))
+            Streams.mapWithIndex(SPECIAL_CHARACTER_VALUES.stream(), (value, index) -> format("(%d, '%s')", index, escapeTrinoString(value)))
                     .collect(Collectors.joining(", "));
 
     private static final String SPARK_INSERTED_PARTITION_VALUES =
-            Streams.mapWithIndex(SPECIAL_CHARACTER_VALUES.stream(), ((value, index) -> format("(%d, '%s')", index, escapeSparkString(value))))
+            Streams.mapWithIndex(SPECIAL_CHARACTER_VALUES.stream(), (value, index) -> format("(%d, '%s')", index, escapeSparkString(value)))
                     .collect(Collectors.joining(", "));
 
     private static final List<Row> EXPECTED_PARTITION_VALUES =
-            Streams.mapWithIndex(SPECIAL_CHARACTER_VALUES.stream(), ((value, index) -> row((int) index, value)))
+            Streams.mapWithIndex(SPECIAL_CHARACTER_VALUES.stream(), (value, index) -> row((int) index, value))
                     .collect(toImmutableList());
 
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS, ICEBERG_REST, ICEBERG_JDBC, ICEBERG_NESSIE})
@@ -1456,7 +1456,7 @@ public class TestIcebergSparkCompatibility
                     .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Unsupported codec: LZ4");
             return;
         }
-        if (storageFormat == StorageFormat.AVRO && (compressionCodec.equals("LZ4"))) {
+        if (storageFormat == StorageFormat.AVRO && compressionCodec.equals("LZ4")) {
             assertQueryFailure(() -> onTrino().executeQuery(createTable))
                     .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Unsupported compression codec: " + compressionCodec);
             return;
@@ -2021,7 +2021,7 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery(format("INSERT INTO %s VALUES ('c', 1007)", trinoTableName));
         onTrino().executeQuery(format("INSERT INTO %s VALUES ('c', 1008)", trinoTableName));
         onTrino().executeQuery(format("INSERT INTO %s VALUES ('c', 1009)", trinoTableName));
-        onTrino().executeQuery((format("DELETE FROM %s WHERE _string = '%s'", trinoTableName, 'b')));
+        onTrino().executeQuery(format("DELETE FROM %s WHERE _string = '%s'", trinoTableName, 'b'));
         int initialNumberOfMetadataFiles = calculateMetadataFilesForPartitionedTable(baseTableName);
 
         onTrino().executeQuery("SET SESSION iceberg.expire_snapshots_min_retention = '0s'");
@@ -2061,7 +2061,7 @@ public class TestIcebergSparkCompatibility
         onTrino().executeQuery(format("INSERT INTO %s VALUES ('c', 1007)", trinoTableName));
         onTrino().executeQuery(format("INSERT INTO %s VALUES ('c', 1008)", trinoTableName));
         onTrino().executeQuery(format("INSERT INTO %s VALUES ('c', 1009)", trinoTableName));
-        onTrino().executeQuery((format("DELETE FROM %s WHERE _string = '%s'", trinoTableName, 'b')));
+        onTrino().executeQuery(format("DELETE FROM %s WHERE _string = '%s'", trinoTableName, 'b'));
         int initialNumberOfFiles = onTrino().executeQuery(format("SELECT * FROM iceberg.default.\"%s$files\"", baseTableName)).getRowsCount();
         int initialNumberOfMetadataFiles = calculateMetadataFilesForPartitionedTable(baseTableName);
 

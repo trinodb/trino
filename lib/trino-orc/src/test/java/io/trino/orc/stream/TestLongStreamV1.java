@@ -42,7 +42,7 @@ public class TestLongStreamV1
 
         group = new ArrayList<>();
         for (int i = 0; i < 1000; i++) {
-            group.add((long) (i));
+            group.add((long) i);
         }
         groups.add(group);
 

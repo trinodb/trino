@@ -204,7 +204,7 @@ public class ExpressionInterpreter
         this.session = requireNonNull(session, "session is null");
         this.connectorSession = session.toConnectorSession();
         this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
-        verify((expressionTypes.containsKey(NodeRef.of(expression))));
+        verify(expressionTypes.containsKey(NodeRef.of(expression)));
         this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
         this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
     }
@@ -721,7 +721,7 @@ public class ExpressionInterpreter
                                         .filter(expression -> isDeterministic(expression, metadata))
                                         .distinct(),
                                 expressionValues.stream()
-                                        .filter((expression -> !isDeterministic(expression, metadata))))
+                                        .filter(expression -> !isDeterministic(expression, metadata)))
                         .collect(toImmutableList());
 
                 if (simplifiedExpressionValues.size() == 1) {

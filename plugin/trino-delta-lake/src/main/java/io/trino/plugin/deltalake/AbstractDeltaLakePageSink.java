@@ -318,8 +318,8 @@ public abstract class AbstractDeltaLakePageSink
 
             writer.appendRows(pageForWriter);
 
-            writtenBytes += (writer.getWrittenBytes() - currentWritten);
-            memoryUsage += (writer.getMemoryUsage() - currentMemory);
+            writtenBytes += writer.getWrittenBytes() - currentWritten;
+            memoryUsage += writer.getMemoryUsage() - currentMemory;
         }
     }
 

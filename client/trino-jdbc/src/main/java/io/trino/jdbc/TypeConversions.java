@@ -69,7 +69,7 @@ final class TypeConversions
         public <S, T> Builder add(String sourceRawType, Class<S> sourceClass, Class<T> target, SimpleTypeConversion<S, T> conversion)
         {
             requireNonNull(conversion, "conversion is null");
-            return add(sourceRawType, sourceClass, target, ((type, value) -> conversion.apply(value)));
+            return add(sourceRawType, sourceClass, target, (type, value) -> conversion.apply(value));
         }
 
         public <S, T> Builder add(String sourceRawType, Class<S> sourceClass, Class<T> target, TypeConversion<S, T> conversion)

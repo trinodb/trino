@@ -61,7 +61,7 @@ public class TestTransformCorrelatedSingleRowSubqueryToProject
                                                         ImmutableList.of())))))
                 .matches(project(
                         ImmutableMap.of(
-                                ("l_expr2"), PlanMatchPattern.expression("l_nationkey + 1"),
+                                "l_expr2", PlanMatchPattern.expression("l_nationkey + 1"),
                                 "l_nationkey", PlanMatchPattern.expression("l_nationkey")),
                         tableScan("nation", ImmutableMap.of("l_nationkey", "nationkey"))));
     }
