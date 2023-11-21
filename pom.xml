@@ -2758,6 +2758,7 @@
                                     -Xep:RethrowReflectiveOperationExceptionAsLinkageError:OFF \
                                     -Xep:StaticAssignmentOfThrowable:ERROR \
                                     -Xep:StreamResourceLeak:ERROR \
+                                    -Xep:UnicodeEscape:ERROR \
                                     -Xep:UnnecessaryMethodReference:ERROR \
                                     -Xep:UnnecessaryOptionalGet:ERROR \
                                     <!-- Enable when https://github.com/google/error-prone/pull/3837 is fixed -->
