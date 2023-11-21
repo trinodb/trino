@@ -1227,7 +1227,7 @@ public class SqlServerClient
                 {
                     Throwable rootCause = Throwables.getRootCause(throwable);
                     return rootCause instanceof SQLServerException &&
-                            ((SQLServerException) (rootCause)).getSQLServerError().getErrorNumber() == SQL_SERVER_DEADLOCK_ERROR_CODE;
+                            ((SQLServerException) rootCause).getSQLServerError().getErrorNumber() == SQL_SERVER_DEADLOCK_ERROR_CODE;
                 })
                 .onFailedAttempt(event -> log.warn(event.getLastException(), "Attempt %d of %d: %s", event.getAttemptCount(), maxAttemptCount, attemptLogMessage))
                 .build();

@@ -33,7 +33,7 @@ enum PageCodecMarker
     PageCodecMarker(int bit)
     {
         checkArgument(bit > 0 && bit <= 8, "PageCodecMarker bit must be between 1 and 8. Found: %s", bit);
-        this.mask = (1 << (bit - 1));
+        this.mask = 1 << (bit - 1);
     }
 
     public boolean isSet(byte value)
@@ -48,7 +48,7 @@ enum PageCodecMarker
 
     public byte unset(byte value)
     {
-        return (byte) (Byte.toUnsignedInt(value) & (~mask));
+        return (byte) (Byte.toUnsignedInt(value) & ~mask);
     }
 
     /**

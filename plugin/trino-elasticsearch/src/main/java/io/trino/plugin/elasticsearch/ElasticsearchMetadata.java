@@ -529,7 +529,7 @@ public class ElasticsearchMetadata
                     Object pattern = ((Constant) arguments.get(1)).getValue();
                     Optional<Slice> escape = Optional.empty();
                     if (arguments.size() == 3) {
-                        escape = Optional.of((Slice) (((Constant) arguments.get(2)).getValue()));
+                        escape = Optional.of((Slice) ((Constant) arguments.get(2)).getValue());
                     }
 
                     if (!newRegexes.containsKey(columnName) && pattern instanceof Slice) {
@@ -537,7 +537,7 @@ public class ElasticsearchMetadata
                         if (metadata.getSchema()
                                     .getFields().stream()
                                     .anyMatch(field -> columnName.equals(field.getName()) && field.getType() instanceof PrimitiveType && "keyword".equals(((PrimitiveType) field.getType()).getName()))) {
-                            newRegexes.put(columnName, likeToRegexp(((Slice) pattern), escape));
+                            newRegexes.put(columnName, likeToRegexp((Slice) pattern, escape));
                             continue;
                         }
                     }

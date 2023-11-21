@@ -59,7 +59,7 @@ public class TestCreateTableColumnTypeCoercion
     {
         return MockConnectorFactory.builder()
                 .withName(catalogName)
-                .withGetTableHandle(((session, schemaTableName) -> null))
+                .withGetTableHandle((session, schemaTableName) -> null)
                 .withGetSupportedType((session, type) -> {
                     if (type instanceof TimestampType) {
                         return Optional.of(VARCHAR);

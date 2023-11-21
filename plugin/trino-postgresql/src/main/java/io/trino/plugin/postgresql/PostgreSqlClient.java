@@ -1193,7 +1193,7 @@ public class PostgreSqlClient
 
     private static ObjectWriteFunction longTimestampWriteFunction()
     {
-        return ObjectWriteFunction.of(LongTimestamp.class, ((statement, index, timestamp) -> {
+        return ObjectWriteFunction.of(LongTimestamp.class, (statement, index, timestamp) -> {
             // PostgreSQL supports up to 6 digits of precision
             //noinspection ConstantConditions
             verify(POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION == 6);
@@ -1203,7 +1203,7 @@ public class PostgreSqlClient
                 epochMicros++;
             }
             shortTimestampWriteFunction(statement, index, epochMicros);
-        }));
+        });
     }
 
     @Override

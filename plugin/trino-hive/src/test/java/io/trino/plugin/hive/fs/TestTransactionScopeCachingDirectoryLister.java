@@ -104,7 +104,7 @@ public class TestTransactionScopeCachingDirectoryLister
         // due to Token being a key in segmented cache.
         TransactionScopeCachingDirectoryLister cachingLister = (TransactionScopeCachingDirectoryLister) new TransactionScopeCachingDirectoryListerFactory(DataSize.ofBytes(500), Optional.of(1)).get(countingLister);
 
-        assertFiles(new DirectoryListingFilter(path2, (cachingLister.listFilesRecursively(null, TABLE, path2)), true), ImmutableList.of(thirdFile));
+        assertFiles(new DirectoryListingFilter(path2, cachingLister.listFilesRecursively(null, TABLE, path2), true), ImmutableList.of(thirdFile));
         assertThat(countingLister.getListCount()).isEqualTo(1);
 
         // listing path2 again shouldn't increase listing count

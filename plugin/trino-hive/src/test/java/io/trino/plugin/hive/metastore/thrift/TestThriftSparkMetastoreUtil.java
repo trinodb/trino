@@ -144,12 +144,12 @@ public class TestThriftSparkMetastoreUtil
                 "spark.sql.statistics.colStats.c_date.max", "2030-12-31");
         HiveColumnStatistics actualNotExists = fromMetastoreColumnStatistics(new FieldSchema("c_date_not_exists", DATE_TYPE_NAME, null), columnStatistics, 10);
         assertThat(actualNotExists).isEqualTo(HiveColumnStatistics.builder()
-                .setDateStatistics((new DateStatistics(Optional.empty(), Optional.empty())))
+                .setDateStatistics(new DateStatistics(Optional.empty(), Optional.empty()))
                 .build());
 
         HiveColumnStatistics actual = fromMetastoreColumnStatistics(new FieldSchema("c_date", DATE_TYPE_NAME, null), columnStatistics, 10);
         assertThat(actual).isEqualTo(HiveColumnStatistics.builder()
-                .setDateStatistics((new DateStatistics(Optional.of(LocalDate.of(2000, 1, 1)), Optional.of(LocalDate.of(2030, 12, 31)))))
+                .setDateStatistics(new DateStatistics(Optional.of(LocalDate.of(2000, 1, 1)), Optional.of(LocalDate.of(2030, 12, 31))))
                 .setNullsCount(3)
                 .setDistinctValuesCount(7)
                 .build());

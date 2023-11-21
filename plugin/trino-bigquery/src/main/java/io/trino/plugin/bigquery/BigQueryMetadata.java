@@ -289,7 +289,7 @@ public class BigQueryMetadata
     {
         BigQueryClient client = bigQueryClientFactory.create(session);
         log.debug("getTableMetadata(session=%s, tableHandle=%s)", session, tableHandle);
-        BigQueryTableHandle handle = ((BigQueryTableHandle) tableHandle);
+        BigQueryTableHandle handle = (BigQueryTableHandle) tableHandle;
 
         List<ColumnMetadata> columns = client.getColumns(handle).stream()
                 .map(BigQueryColumnHandle::getColumnMetadata)

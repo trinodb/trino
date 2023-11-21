@@ -102,7 +102,7 @@ public class HttpRequestSessionContextFactory
         Optional<String> catalog = Optional.ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestCatalog())));
         Optional<String> schema = Optional.ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestSchema())));
         Optional<String> path = Optional.ofNullable(trimEmptyToNull(headers.getFirst(protocolHeaders.requestPath())));
-        assertRequest((catalog.isPresent()) || (schema.isEmpty()), "Schema is set but catalog is not");
+        assertRequest(catalog.isPresent() || schema.isEmpty(), "Schema is set but catalog is not");
 
         requireNonNull(authenticatedIdentity, "authenticatedIdentity is null");
         Identity identity = buildSessionIdentity(authenticatedIdentity, protocolHeaders, headers);

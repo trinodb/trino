@@ -740,7 +740,7 @@ public abstract class BaseClickHouseTypeMapping
 
         for (ZoneId timeZoneId : timezones()) {
             Session session = Session.builder(getSession())
-                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey((timeZoneId).getId()))
+                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId.getId()))
                     .build();
             dateTests1
                     .execute(getQueryRunner(), session, trinoCreateAsSelect(session, "test_timestamp"))

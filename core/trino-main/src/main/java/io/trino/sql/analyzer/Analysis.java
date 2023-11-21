@@ -1776,7 +1776,7 @@ public class Analysis
             this.mergeRowType = requireNonNull(mergeRowType, "mergeRowType is null");
             this.insertLayout = requireNonNull(insertLayout, "insertLayout is null");
             this.updateLayout = requireNonNull(updateLayout, "updateLayout is null");
-            this.insertPartitioningArgumentIndexes = (requireNonNull(insertPartitioningArgumentIndexes, "insertPartitioningArgumentIndexes is null"));
+            this.insertPartitioningArgumentIndexes = requireNonNull(insertPartitioningArgumentIndexes, "insertPartitioningArgumentIndexes is null");
             this.targetTableScope = requireNonNull(targetTableScope, "targetTableScope is null");
             this.joinScope = requireNonNull(joinScope, "joinScope is null");
         }

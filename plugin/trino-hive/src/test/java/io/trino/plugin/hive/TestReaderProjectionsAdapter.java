@@ -103,7 +103,7 @@ public class TestReaderProjectionsAdapter
         Block lazyBlockLevel1 = inputPage.getBlock(0);
         assertThat(lazyBlockLevel1 instanceof LazyBlock).isTrue();
         assertThat(lazyBlockLevel1.isLoaded()).isFalse();
-        RowBlock rowBlockLevel1 = ((RowBlock) (((LazyBlock) lazyBlockLevel1).getBlock()));
+        RowBlock rowBlockLevel1 = (RowBlock) ((LazyBlock) lazyBlockLevel1).getBlock();
         assertThat(rowBlockLevel1.isLoaded()).isFalse();
 
         // Assertion for "col.f_row_0" and col.f_bigint_0"
@@ -112,7 +112,7 @@ public class TestReaderProjectionsAdapter
 
         Block lazyBlockLevel2 = rowBlockLevel1.getFieldBlock(0);
         assertThat(lazyBlockLevel2 instanceof LazyBlock).isTrue();
-        RowBlock rowBlockLevel2 = ((RowBlock) (((LazyBlock) lazyBlockLevel2).getBlock()));
+        RowBlock rowBlockLevel2 = ((RowBlock) ((LazyBlock) lazyBlockLevel2).getBlock());
         assertThat(rowBlockLevel2.isLoaded()).isFalse();
         // Assertion for "col.f_row_0.f_bigint_0" and "col.f_row_0.f_bigint_1"
         assertThat(rowBlockLevel2.getFieldBlock(0).isLoaded()).isTrue();

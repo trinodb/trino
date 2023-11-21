@@ -69,7 +69,7 @@ public class TestTrinoResultSet
                         catch (InterruptedException e) {
                             interruptedButSwallowedLatch.countDown();
                         }
-                        return ImmutableList.of((ImmutableList.of(new Object())));
+                        return ImmutableList.of(ImmutableList.of(new Object()));
                     }
                 },
                 new ArrayBlockingQueue<>(100));
@@ -107,7 +107,7 @@ public class TestTrinoResultSet
                     public Iterable<List<Object>> next()
                     {
                         thread.compareAndSet(null, Thread.currentThread());
-                        return ImmutableList.of((ImmutableList.of(new Object())));
+                        return ImmutableList.of(ImmutableList.of(new Object()));
                     }
                 },
                 queue);

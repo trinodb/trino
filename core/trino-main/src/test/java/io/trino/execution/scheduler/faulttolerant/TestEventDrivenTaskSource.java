@@ -284,11 +284,11 @@ public class TestEventDrivenTaskSource
     {
         List<TestingExchangeSourceHandleSource> handleSources = new ArrayList<>();
         Map<PlanFragmentId, Exchange> exchanges = new HashMap<>();
-        Multimaps.asMap(sourceHandles).forEach(((fragmentId, handles) -> {
+        Multimaps.asMap(sourceHandles).forEach((fragmentId, handles) -> {
             TestingExchangeSourceHandleSource handleSource = new TestingExchangeSourceHandleSource(executor, handles);
             handleSources.add(handleSource);
             exchanges.put(fragmentId, new TestingExchange(handleSource));
-        }));
+        });
         remoteSources.keySet().forEach(fragmentId -> {
             if (!exchanges.containsKey(fragmentId)) {
                 TestingExchangeSourceHandleSource handleSource = new TestingExchangeSourceHandleSource(executor, ImmutableList.of());
@@ -298,7 +298,7 @@ public class TestEventDrivenTaskSource
         });
 
         Map<PlanNodeId, SplitSource> splitSources = new HashMap<>();
-        Multimaps.asMap(splits).forEach(((planNodeId, connectorSplits) -> splitSources.put(planNodeId, new TestingSplitSource(executor, connectorSplits))));
+        Multimaps.asMap(splits).forEach((planNodeId, connectorSplits) -> splitSources.put(planNodeId, new TestingSplitSource(executor, connectorSplits)));
 
         SplitAssignerTester tester = new SplitAssignerTester();
         int partitionCount = getPartitionCount(sourceHandles.values(), splits.values());
@@ -322,7 +322,7 @@ public class TestEventDrivenTaskSource
                 1,
                 1,
                 partitioningScheme,
-                (getSplitDuration) -> getSplitInvocations.incrementAndGet())) {
+                getSplitDuration -> getSplitInvocations.incrementAndGet())) {
             while (tester.getTaskDescriptors().isEmpty()) {
                 AssignmentResult result = taskSource.process().get(10, SECONDS);
                 tester.update(result);

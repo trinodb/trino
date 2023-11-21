@@ -236,7 +236,7 @@ public class AzureFileSystem
         AzureLocation azureLocation = new AzureLocation(location);
         try {
             // blob API returns directories as blobs, so it cannot be used when Gen2 is enabled
-            return (isHierarchicalNamespaceEnabled(azureLocation))
+            return isHierarchicalNamespaceEnabled(azureLocation)
                     ? listGen2Files(azureLocation)
                     : listBlobFiles(azureLocation);
         }
@@ -373,7 +373,7 @@ public class AzureFileSystem
         AzureLocation azureLocation = new AzureLocation(location);
         try {
             // blob API returns directories as blobs, so it cannot be used when Gen2 is enabled
-            return (isHierarchicalNamespaceEnabled(azureLocation))
+            return isHierarchicalNamespaceEnabled(azureLocation)
                     ? listGen2Directories(azureLocation)
                     : listBlobDirectories(azureLocation);
         }

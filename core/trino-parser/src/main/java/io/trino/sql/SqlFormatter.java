@@ -379,7 +379,7 @@ public final class SqlFormatter
             builder.append(switch (node.getWrapperBehavior()) {
                 case WITHOUT -> " WITHOUT ARRAY WRAPPER";
                 case CONDITIONAL -> " WITH CONDITIONAL ARRAY WRAPPER";
-                case UNCONDITIONAL -> (" WITH UNCONDITIONAL ARRAY WRAPPER");
+                case UNCONDITIONAL -> " WITH UNCONDITIONAL ARRAY WRAPPER";
             });
 
             if (node.getQuotesBehavior().isPresent()) {
@@ -2608,7 +2608,7 @@ public final class SqlFormatter
 
     private static void appendAliasColumns(Formatter.SqlBuilder builder, List<Identifier> columns)
     {
-        if ((columns != null) && (!columns.isEmpty())) {
+        if ((columns != null) && !columns.isEmpty()) {
             String formattedColumns = columns.stream()
                     .map(SqlFormatter::formatName)
                     .collect(joining(", "));

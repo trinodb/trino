@@ -147,7 +147,7 @@ public class RedisMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        RedisTableHandle redisTableHandle = ((RedisTableHandle) tableHandle);
+        RedisTableHandle redisTableHandle = (RedisTableHandle) tableHandle;
 
         RedisTableDescription redisTableDescription = getDefinedTables().get(redisTableHandle.toSchemaTableName());
         if (redisTableDescription == null) {

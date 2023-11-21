@@ -264,12 +264,12 @@ public class TestHashJoinOperator
         TaskContext taskContext = createTaskContext();
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
 
-        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction((
+        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction(
                 (leftPosition, leftPage, rightPosition, rightPage) -> {
                     // force loading of probe block
                     rightPage.getBlock(1).getLoadedBlock();
                     return true;
-                }));
+                });
 
         RowPagesBuilder buildPages = rowPagesBuilder(false, Ints.asList(0), ImmutableList.of(BIGINT)).addSequencePage(1, 0);
         BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, true, taskContext, buildPages, Optional.of(filterFunction), singleBigintLookupSource);
@@ -315,12 +315,12 @@ public class TestHashJoinOperator
 
         // force a yield for every match
         AtomicInteger filterFunctionCalls = new AtomicInteger();
-        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction((
+        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction(
                 (leftPosition, leftPage, rightPosition, rightPage) -> {
                     filterFunctionCalls.incrementAndGet();
                     driverContext.getYieldSignal().forceYieldForTesting();
                     return true;
-                }));
+                });
 
         // build with 40 entries
         int entries = 40;
@@ -583,8 +583,8 @@ public class TestHashJoinOperator
     {
         TaskContext taskContext = createTaskContext();
 
-        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction((
-                (leftPosition, leftPage, rightPosition, rightPage) -> BIGINT.getLong(rightPage.getBlock(1), rightPosition) >= 1025));
+        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction(
+                (leftPosition, leftPage, rightPosition, rightPage) -> BIGINT.getLong(rightPage.getBlock(1), rightPosition) >= 1025);
 
         // build factory
         List<Type> buildTypes = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
@@ -674,8 +674,8 @@ public class TestHashJoinOperator
     {
         TaskContext taskContext = createTaskContext();
 
-        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction((
-                (leftPosition, leftPage, rightPosition, rightPage) -> BIGINT.getLong(rightPage.getBlock(0), rightPosition) == 1L));
+        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction(
+                (leftPosition, leftPage, rightPosition, rightPage) -> BIGINT.getLong(rightPage.getBlock(0), rightPosition) == 1L);
 
         // build factory
         List<Type> buildTypes = ImmutableList.of(BIGINT);
@@ -760,9 +760,9 @@ public class TestHashJoinOperator
     {
         TaskContext taskContext = createTaskContext();
 
-        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction((
+        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction(
                 (leftPosition, leftPage, rightPosition, rightPage) ->
-                        ImmutableSet.of(1L, 3L).contains(BIGINT.getLong(rightPage.getBlock(0), rightPosition))));
+                        ImmutableSet.of(1L, 3L).contains(BIGINT.getLong(rightPage.getBlock(0), rightPosition)));
 
         // build factory
         List<Type> buildTypes = ImmutableList.of(BIGINT);
@@ -847,9 +847,9 @@ public class TestHashJoinOperator
     {
         TaskContext taskContext = createTaskContext();
 
-        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction((
+        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction(
                 (leftPosition, leftPage, rightPosition, rightPage) ->
-                        ImmutableSet.of(1L, 3L).contains(BIGINT.getLong(rightPage.getBlock(0), rightPosition))));
+                        ImmutableSet.of(1L, 3L).contains(BIGINT.getLong(rightPage.getBlock(0), rightPosition)));
 
         // build factory
         RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), ImmutableList.of(BIGINT))

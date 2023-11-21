@@ -453,14 +453,14 @@ class PathEvaluationVisitor
                     elements = ImmutableList.copyOf(((JsonNode) object).elements());
                 }
                 else if (lax) {
-                    elements = ImmutableList.of((object));
+                    elements = ImmutableList.of(object);
                 }
                 else {
                     throw itemTypeError("ARRAY", ((JsonNode) object).getNodeType().name());
                 }
             }
             else if (lax) {
-                elements = ImmutableList.of((object));
+                elements = ImmutableList.of(object);
             }
             else {
                 throw itemTypeError("ARRAY", ((TypedValue) object).getType().getDisplayName());
@@ -522,7 +522,7 @@ class PathEvaluationVisitor
     {
         if (object instanceof JsonNode jsonNode) {
             if (jsonNode.getNodeType() != JsonNodeType.NUMBER) {
-                throw itemTypeError("NUMBER", (jsonNode.getNodeType().name()));
+                throw itemTypeError("NUMBER", jsonNode.getNodeType().name());
             }
             if (!jsonNode.canConvertToLong()) {
                 throw new PathEvaluationException(format("cannot convert value %s to long", jsonNode));

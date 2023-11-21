@@ -3445,7 +3445,7 @@ public class TestMathFunctions
                 .isEqualTo(2 * 3 / (Math.sqrt(5) * Math.sqrt(10)));
 
         assertThat(assertions.function("cosine_similarity", "map(ARRAY['a', 'b', 'c'], ARRAY[1.0E0, 2.0E0, -1.0E0])", "map(ARRAY['c', 'b'], ARRAY[1.0E0, 3.0E0])"))
-                .isEqualTo((2 * 3 + (-1) * 1) / (Math.sqrt(1 + 4 + 1) * Math.sqrt(1 + 9)));
+                .isEqualTo((2 * 3 + -1 * 1) / (Math.sqrt(1 + 4 + 1) * Math.sqrt(1 + 9)));
 
         assertThat(assertions.function("cosine_similarity", "map(ARRAY['a', 'b', 'c'], ARRAY[1.0E0, 2.0E0, -1.0E0])", "map(ARRAY['d', 'e'], ARRAY[1.0E0, 3.0E0])"))
                 .isEqualTo(0.0);

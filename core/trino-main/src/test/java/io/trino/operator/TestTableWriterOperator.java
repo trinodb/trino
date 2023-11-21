@@ -188,7 +188,7 @@ public class TestTableWriterOperator
             tableWriterOperator.addInput(page);
             TableWriterInfo info = tableWriterOperator.getInfo();
             assertThat(info.getPageSinkPeakMemoryUsage()).isEqualTo(peakMemoryUsage);
-            assertThat((long) (info.getValidationCpuTime().getValue(NANOSECONDS))).isEqualTo(validationCpuNanos);
+            assertThat((long) info.getValidationCpuTime().getValue(NANOSECONDS)).isEqualTo(validationCpuNanos);
         }
     }
 

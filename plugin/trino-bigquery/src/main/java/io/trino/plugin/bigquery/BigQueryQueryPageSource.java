@@ -194,7 +194,7 @@ public class BigQueryQueryPageSource
                     type.writeLong(output, rounded);
                 }
                 else if (type.equals(TIMESTAMP_MICROS)) {
-                    type.writeLong(output, toTrinoTimestamp((value.getStringValue())));
+                    type.writeLong(output, toTrinoTimestamp(value.getStringValue()));
                 }
                 else {
                     throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Unhandled type for %s: %s", javaType.getSimpleName(), type));

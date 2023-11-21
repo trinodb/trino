@@ -85,7 +85,7 @@ public class TestAddLocalExchangesForPartitionedInsertAndMerge
     private MockConnectorFactory createMergeConnectorFactory()
     {
         return MockConnectorFactory.builder()
-                .withGetTableHandle(((session, schemaTableName) -> {
+                .withGetTableHandle((session, schemaTableName) -> {
                     if (schemaTableName.getTableName().equals("source_table")) {
                         return new MockConnectorTableHandle(schemaTableName);
                     }
@@ -93,7 +93,7 @@ public class TestAddLocalExchangesForPartitionedInsertAndMerge
                         return new MockConnectorTableHandle(schemaTableName);
                     }
                     return null;
-                }))
+                })
                 .withGetColumns(schemaTableName -> ImmutableList.of(
                         new ColumnMetadata("customer", INTEGER),
                         new ColumnMetadata("year", INTEGER)))

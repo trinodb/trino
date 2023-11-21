@@ -88,7 +88,7 @@ public class TestDomainCoercer
                         ValueSet.ofRanges(range(DOUBLE, 0.0, true, ((double) Float.MAX_VALUE) * 10, true)),
                         true),
                 REAL)).isEqualTo(Domain.create(
-                ValueSet.ofRanges((range(REAL, (long) floatToIntBits(0.0f), true, (long) floatToIntBits(Float.MAX_VALUE), true))),
+                ValueSet.ofRanges(range(REAL, (long) floatToIntBits(0.0f), true, (long) floatToIntBits(Float.MAX_VALUE), true)),
                 true));
 
         // low below and high above target type range

@@ -1467,7 +1467,7 @@ public class ThriftHiveMetastore
                                 HivePrivilegeInfo requestedPrivilege = getOnlyElement(parsePrivilege(iterator.next(), Optional.empty()));
 
                                 for (HivePrivilegeInfo existingPrivilege : existingPrivileges) {
-                                    if ((requestedPrivilege.isContainedIn(existingPrivilege))) {
+                                    if (requestedPrivilege.isContainedIn(existingPrivilege)) {
                                         iterator.remove();
                                     }
                                     else if (existingPrivilege.isContainedIn(requestedPrivilege)) {
@@ -1650,12 +1650,12 @@ public class ThriftHiveMetastore
         try {
             retry()
                     .stopOnIllegalExceptions()
-                    .run("sendTransactionHeartbeat", (() -> {
+                    .run("sendTransactionHeartbeat", () -> {
                         try (ThriftMetastoreClient metastoreClient = createMetastoreClient()) {
                             metastoreClient.sendTransactionHeartbeat(transactionId);
                         }
                         return null;
-                    }));
+                    });
         }
         catch (TException e) {
             throw new TrinoException(HIVE_METASTORE_ERROR, e);

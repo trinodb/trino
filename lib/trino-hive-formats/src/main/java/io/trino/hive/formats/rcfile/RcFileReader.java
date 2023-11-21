@@ -638,7 +638,7 @@ public class RcFileReader
                 if (lastValueLength == -1) {
                     throw new FileCorruptionException("First column value length is negative");
                 }
-                runLength = (~valueLength) - 1;
+                runLength = ~valueLength - 1;
                 return lastValueLength;
             }
 

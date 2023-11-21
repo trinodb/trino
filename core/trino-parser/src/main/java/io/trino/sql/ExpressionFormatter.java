@@ -887,7 +887,7 @@ public final class ExpressionFormatter
             builder.append(switch (node.getWrapperBehavior()) {
                 case WITHOUT -> " WITHOUT ARRAY WRAPPER";
                 case CONDITIONAL -> " WITH CONDITIONAL ARRAY WRAPPER";
-                case UNCONDITIONAL -> (" WITH UNCONDITIONAL ARRAY WRAPPER");
+                case UNCONDITIONAL -> " WITH UNCONDITIONAL ARRAY WRAPPER";
             });
 
             if (node.getQuotesBehavior().isPresent()) {

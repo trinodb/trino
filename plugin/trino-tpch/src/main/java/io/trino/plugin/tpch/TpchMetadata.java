@@ -537,7 +537,7 @@ public class TpchMetadata
                     Type type = entry.getKey().getType();
                     return entry.getValue().stream()
                             .map(nullableValue -> Domain.singleValue(type, nullableValue.getValue()))
-                            .reduce((Domain::union))
+                            .reduce(Domain::union)
                             .orElseGet(() -> Domain.none(type));
                 })));
     }

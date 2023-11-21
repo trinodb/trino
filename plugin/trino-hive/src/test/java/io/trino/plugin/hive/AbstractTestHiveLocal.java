@@ -121,8 +121,8 @@ public abstract class AbstractTestHiveLocal
     protected void createTestTables()
             throws Exception
     {
-        Location location = Location.of((metastoreClient.getDatabase(database).orElseThrow()
-                .getLocation().orElseThrow()));
+        Location location = Location.of(metastoreClient.getDatabase(database).orElseThrow()
+                .getLocation().orElseThrow());
 
         createTestTable(
                 // Matches create-test.sql » trino_test_partition_format

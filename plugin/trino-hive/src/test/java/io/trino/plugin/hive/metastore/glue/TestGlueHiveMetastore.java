@@ -1510,7 +1510,7 @@ public class TestGlueHiveMetastore
             List<List<PartitionValues>> expectedValuesList)
             throws Exception
     {
-        try (CloseableSchamaTableName closeableTableName = new CloseableSchamaTableName(temporaryTable(("get_partitions")))) {
+        try (CloseableSchamaTableName closeableTableName = new CloseableSchamaTableName(temporaryTable("get_partitions"))) {
             SchemaTableName tableName = closeableTableName.getSchemaTableName();
             createDummyPartitionedTable(tableName, columnMetadata, partitionColumnNames, partitionValues);
             HiveMetastore metastoreClient = getMetastoreClient();

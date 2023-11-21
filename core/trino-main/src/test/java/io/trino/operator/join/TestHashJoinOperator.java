@@ -262,12 +262,12 @@ public class TestHashJoinOperator
         TaskContext taskContext = createTaskContext();
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
 
-        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction((
+        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction(
                 (leftPosition, leftPage, rightPosition, rightPage) -> {
                     // force loading of probe block
                     rightPage.getBlock(1).getLoadedBlock();
                     return true;
-                }));
+                });
 
         RowPagesBuilder buildPages = rowPagesBuilder(false, Ints.asList(0), ImmutableList.of(BIGINT)).addSequencePage(1, 0);
         BuildSideSetup buildSideSetup = setupBuildSide(nodePartitioningManager, true, taskContext, buildPages, Optional.of(filterFunction), false, SINGLE_STREAM_SPILLER_FACTORY);
@@ -315,12 +315,12 @@ public class TestHashJoinOperator
 
         // force a yield for every match
         AtomicInteger filterFunctionCalls = new AtomicInteger();
-        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction((
+        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction(
                 (leftPosition, leftPage, rightPosition, rightPage) -> {
                     filterFunctionCalls.incrementAndGet();
                     driverContext.getYieldSignal().forceYieldForTesting();
                     return true;
-                }));
+                });
 
         // build with 40 entries
         int entries = 40;
@@ -887,8 +887,8 @@ public class TestHashJoinOperator
     {
         TaskContext taskContext = createTaskContext();
 
-        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction((
-                (leftPosition, leftPage, rightPosition, rightPage) -> BIGINT.getLong(rightPage.getBlock(1), rightPosition) >= 1025));
+        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction(
+                (leftPosition, leftPage, rightPosition, rightPage) -> BIGINT.getLong(rightPage.getBlock(1), rightPosition) >= 1025);
 
         // build factory
         List<Type> buildTypes = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
@@ -978,8 +978,8 @@ public class TestHashJoinOperator
     {
         TaskContext taskContext = createTaskContext();
 
-        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction((
-                (leftPosition, leftPage, rightPosition, rightPage) -> VARCHAR.getSlice(rightPage.getBlock(0), rightPosition).toStringAscii().equals("a")));
+        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction(
+                (leftPosition, leftPage, rightPosition, rightPage) -> VARCHAR.getSlice(rightPage.getBlock(0), rightPosition).toStringAscii().equals("a"));
 
         // build factory
         List<Type> buildTypes = ImmutableList.of(VARCHAR);
@@ -1064,9 +1064,9 @@ public class TestHashJoinOperator
     {
         TaskContext taskContext = createTaskContext();
 
-        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction((
+        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction(
                 (leftPosition, leftPage, rightPosition, rightPage) ->
-                        ImmutableSet.of("a", "c").contains(VARCHAR.getSlice(rightPage.getBlock(0), rightPosition).toStringAscii())));
+                        ImmutableSet.of("a", "c").contains(VARCHAR.getSlice(rightPage.getBlock(0), rightPosition).toStringAscii()));
 
         // build factory
         List<Type> buildTypes = ImmutableList.of(VARCHAR);
@@ -1151,9 +1151,9 @@ public class TestHashJoinOperator
     {
         TaskContext taskContext = createTaskContext();
 
-        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction((
+        InternalJoinFilterFunction filterFunction = new TestInternalJoinFilterFunction(
                 (leftPosition, leftPage, rightPosition, rightPage) ->
-                        ImmutableSet.of("a", "c").contains(VARCHAR.getSlice(rightPage.getBlock(0), rightPosition).toStringAscii())));
+                        ImmutableSet.of("a", "c").contains(VARCHAR.getSlice(rightPage.getBlock(0), rightPosition).toStringAscii()));
 
         // build factory
         RowPagesBuilder buildPages = rowPagesBuilder(buildHashEnabled, Ints.asList(0), ImmutableList.of(VARCHAR))

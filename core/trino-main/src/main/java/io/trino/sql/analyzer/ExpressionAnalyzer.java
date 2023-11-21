@@ -2085,7 +2085,7 @@ public class ExpressionAnalyzer
                     if (!(type instanceof DateType) &&
                             !(type instanceof TimestampType) &&
                             !(type instanceof TimestampWithTimeZoneType) &&
-                            !(type.equals(INTERVAL_YEAR_MONTH))) {
+                            !type.equals(INTERVAL_YEAR_MONTH)) {
                         throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
                     }
                     break;
@@ -2093,7 +2093,7 @@ public class ExpressionAnalyzer
                     if (!(type instanceof DateType) &&
                             !(type instanceof TimestampType) &&
                             !(type instanceof TimestampWithTimeZoneType) &&
-                            !(type.equals(INTERVAL_DAY_TIME))) {
+                            !type.equals(INTERVAL_DAY_TIME)) {
                         throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
                     }
                     break;
@@ -2109,7 +2109,7 @@ public class ExpressionAnalyzer
                             !(type instanceof TimestampWithTimeZoneType) &&
                             !(type instanceof TimeType) &&
                             !(type instanceof TimeWithTimeZoneType) &&
-                            !(type.equals(INTERVAL_DAY_TIME))) {
+                            !type.equals(INTERVAL_DAY_TIME)) {
                         throw semanticException(TYPE_MISMATCH, node.getExpression(), "Cannot extract %s from %s", field, type);
                     }
                     break;

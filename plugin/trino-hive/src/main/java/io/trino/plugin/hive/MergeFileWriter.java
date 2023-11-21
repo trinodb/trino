@@ -177,8 +177,8 @@ public final class MergeFileWriter
     @Override
     public long getMemoryUsage()
     {
-        return (deleteFileWriter.map(FileWriter::getMemoryUsage).orElse(0L)) +
-                (insertFileWriter.map(FileWriter::getMemoryUsage).orElse(0L));
+        return deleteFileWriter.map(FileWriter::getMemoryUsage).orElse(0L) +
+                insertFileWriter.map(FileWriter::getMemoryUsage).orElse(0L);
     }
 
     @Override
@@ -210,8 +210,8 @@ public final class MergeFileWriter
     @Override
     public long getValidationCpuNanos()
     {
-        return (deleteFileWriter.map(FileWriter::getValidationCpuNanos).orElse(0L)) +
-                (insertFileWriter.map(FileWriter::getValidationCpuNanos).orElse(0L));
+        return deleteFileWriter.map(FileWriter::getValidationCpuNanos).orElse(0L) +
+                insertFileWriter.map(FileWriter::getValidationCpuNanos).orElse(0L);
     }
 
     public PartitionUpdateAndMergeResults getPartitionUpdateAndMergeResults(PartitionUpdate partitionUpdate)

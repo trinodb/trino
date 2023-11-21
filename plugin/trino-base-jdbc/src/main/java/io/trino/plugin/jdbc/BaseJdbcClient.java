@@ -304,7 +304,7 @@ public abstract class BaseJdbcClient
             List<JdbcColumnHandle> columns = new ArrayList<>();
             while (resultSet.next()) {
                 // skip if table doesn't match expected
-                if (!(Objects.equals(remoteTableName, getRemoteTable(resultSet)))) {
+                if (!Objects.equals(remoteTableName, getRemoteTable(resultSet))) {
                     continue;
                 }
                 allColumns++;

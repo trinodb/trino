@@ -165,11 +165,11 @@ public class TestTrinoDatabaseMetaData
                         .hasColumn(2, "MAX_LEN", Types.INTEGER)
                         .hasColumn(3, "DEFAULT_VALUE", Types.VARCHAR)
                         .hasColumn(4, "DESCRIPTION", Types.VARCHAR)
-                        .hasRows((list(
+                        .hasRows(list(
                                 list("ApplicationName", Integer.MAX_VALUE, null, null),
                                 list("ClientInfo", Integer.MAX_VALUE, null, null),
                                 list("ClientTags", Integer.MAX_VALUE, null, null),
-                                list("TraceToken", Integer.MAX_VALUE, null, null))));
+                                list("TraceToken", Integer.MAX_VALUE, null, null)));
             }
         }
     }

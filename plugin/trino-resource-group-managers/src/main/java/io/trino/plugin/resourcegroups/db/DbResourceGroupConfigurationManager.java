@@ -180,7 +180,7 @@ public class DbResourceGroupConfigurationManager
     {
         List<ResourceGroupGlobalProperties> globalProperties = dao.getResourceGroupGlobalProperties();
         checkState(globalProperties.size() <= 1, "There is more than one cpu_quota_period");
-        return (!globalProperties.isEmpty()) ? globalProperties.get(0).getCpuQuotaPeriod() : Optional.empty();
+        return !globalProperties.isEmpty() ? globalProperties.get(0).getCpuQuotaPeriod() : Optional.empty();
     }
 
     @VisibleForTesting

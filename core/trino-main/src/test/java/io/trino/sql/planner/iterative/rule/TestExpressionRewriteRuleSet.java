@@ -149,7 +149,7 @@ public class TestExpressionRewriteRuleSet
         tester().assertThat(zeroRewriter.valuesExpressionRewrite())
                 .on(p -> p.values(
                         ImmutableList.<Symbol>of(p.symbol("a")),
-                        ImmutableList.of((ImmutableList.of(PlanBuilder.expression("1"))))))
+                        ImmutableList.of(ImmutableList.of(PlanBuilder.expression("1")))))
                 .matches(
                         values(ImmutableList.of("a"), ImmutableList.of(ImmutableList.of(new LongLiteral("0")))));
     }
@@ -160,7 +160,7 @@ public class TestExpressionRewriteRuleSet
         tester().assertThat(zeroRewriter.valuesExpressionRewrite())
                 .on(p -> p.values(
                         ImmutableList.<Symbol>of(p.symbol("a")),
-                        ImmutableList.of((ImmutableList.of(PlanBuilder.expression("0"))))))
+                        ImmutableList.of(ImmutableList.of(PlanBuilder.expression("0")))))
                 .doesNotFire();
     }
 

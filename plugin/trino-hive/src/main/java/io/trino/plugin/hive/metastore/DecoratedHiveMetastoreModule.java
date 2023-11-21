@@ -118,7 +118,7 @@ public class DecoratedHiveMetastoreModule
     public static Optional<CachingHiveMetastore> createHiveMetastore(HiveMetastoreFactory metastoreFactory)
     {
         if (metastoreFactory instanceof CachingHiveMetastoreFactory) {
-            return Optional.of((((CachingHiveMetastoreFactory) metastoreFactory).getMetastore()));
+            return Optional.of(((CachingHiveMetastoreFactory) metastoreFactory).getMetastore());
         }
         return Optional.empty();
     }

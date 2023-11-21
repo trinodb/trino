@@ -380,7 +380,7 @@ public abstract class BaseOracleConnectorTest
     public void testNativeQuerySimple()
     {
         // override because Oracle requires the FROM clause, and it needs explicit type
-        assertQuery("SELECT * FROM TABLE(system.query(query => 'SELECT CAST(1 AS number(2, 1)) FROM DUAL'))", ("VALUES 1"));
+        assertQuery("SELECT * FROM TABLE(system.query(query => 'SELECT CAST(1 AS number(2, 1)) FROM DUAL'))", "VALUES 1");
     }
 
     @Test

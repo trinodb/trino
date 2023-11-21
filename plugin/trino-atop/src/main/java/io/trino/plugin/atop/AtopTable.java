@@ -123,17 +123,17 @@ public enum AtopTable
             throw new UnsupportedOperationException();
         });
 
-        public static final AtopColumn START_TIME = new AtopColumn("start_time", TIMESTAMP_TZ_MILLIS.getTypeSignature(), ((fields, type, builder, session) -> {
+        public static final AtopColumn START_TIME = new AtopColumn("start_time", TIMESTAMP_TZ_MILLIS.getTypeSignature(), (fields, type, builder, session) -> {
             long millisUtc = Long.valueOf(fields.get(2)) * 1000;
             long durationMillis = Long.valueOf(fields.get(5)) * 1000;
             long value = packDateTimeWithZone(millisUtc - durationMillis, session.getTimeZoneKey());
             type.writeLong(builder, value);
-        }));
+        });
 
-        public static final AtopColumn END_TIME = new AtopColumn("end_time", TIMESTAMP_TZ_MILLIS.getTypeSignature(), ((fields, type, builder, session) -> {
+        public static final AtopColumn END_TIME = new AtopColumn("end_time", TIMESTAMP_TZ_MILLIS.getTypeSignature(), (fields, type, builder, session) -> {
             long millisUtc = Long.valueOf(fields.get(2)) * 1000;
             type.writeLong(builder, packDateTimeWithZone(millisUtc, session.getTimeZoneKey()));
-        }));
+        });
 
         private final String name;
         private final TypeSignature type;
@@ -168,12 +168,12 @@ public enum AtopTable
 
         static AtopColumnParser varcharParser(int index)
         {
-            return ((fields, type, builder, session) -> type.writeSlice(builder, Slices.utf8Slice(fields.get(index))));
+            return (fields, type, builder, session) -> type.writeSlice(builder, Slices.utf8Slice(fields.get(index)));
         }
 
         static AtopColumnParser bigintParser(int index)
         {
-            return ((fields, type, builder, session) -> type.writeLong(builder, Long.valueOf(fields.get(index))));
+            return (fields, type, builder, session) -> type.writeLong(builder, Long.valueOf(fields.get(index)));
         }
     }
 }

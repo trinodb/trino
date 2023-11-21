@@ -4128,11 +4128,11 @@ public class TestAnalyzer
                 .hasMessage("line 1:29: Value expression and result of subquery must be of the same type: row(bigint) vs row(varchar(3))");
 
         // map is not orderable
-        assertFails(("SELECT map(ARRAY[1], ARRAY['hello']) < ALL (VALUES map(ARRAY[1], ARRAY['hello']))"))
+        assertFails("SELECT map(ARRAY[1], ARRAY['hello']) < ALL (VALUES map(ARRAY[1], ARRAY['hello']))")
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessage("line 1:38: Type [row(map(integer, varchar(5)))] must be orderable in order to be used in quantified comparison");
         // but map is comparable
-        analyze(("SELECT map(ARRAY[1], ARRAY['hello']) = ALL (VALUES map(ARRAY[1], ARRAY['hello']))"));
+        analyze("SELECT map(ARRAY[1], ARRAY['hello']) = ALL (VALUES map(ARRAY[1], ARRAY['hello']))");
 
         // HLL is neither orderable nor comparable
         assertFails("SELECT cast(NULL AS HyperLogLog) < ALL (VALUES cast(NULL AS HyperLogLog))")

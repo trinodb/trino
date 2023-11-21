@@ -424,7 +424,7 @@ public class PageDeserializer
 
         private static int getCompressedBlockSize(int compressedBlockMarker)
         {
-            return compressedBlockMarker & (~SERIALIZED_PAGE_COMPRESSED_BLOCK_MASK);
+            return compressedBlockMarker & ~SERIALIZED_PAGE_COMPRESSED_BLOCK_MASK;
         }
 
         private static boolean isCompressed(int compressedBlockMarker)

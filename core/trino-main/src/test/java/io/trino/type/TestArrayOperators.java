@@ -2873,7 +2873,7 @@ public class TestArrayOperators
                 .isEqualTo(ImmutableList.of(asList(123, 456), asList(123, 789)));
 
         assertThat(assertions.function("array_intersect", "ARRAY[ARRAY[123, 456], ARRAY[123, 789]]", "ARRAY[ARRAY[123, 456], ARRAY[123, 456], ARRAY[123, 789]]"))
-                .hasType(new ArrayType(new ArrayType((INTEGER))))
+                .hasType(new ArrayType(new ArrayType(INTEGER)))
                 .isEqualTo(ImmutableList.of(asList(123, 456), asList(123, 789)));
 
         assertThat(assertions.function("array_intersect", "ARRAY[(123, 'abc'), (123, 'cde')]", "ARRAY[(123, 'abc'), (123, 'cde')]"))

@@ -150,7 +150,7 @@ public class WindowFilterPushDown
             PlanNode source = context.rewrite(node.getSource());
             int limit = toIntExact(node.getCount());
             if (source instanceof RowNumberNode) {
-                RowNumberNode rowNumberNode = mergeLimit(((RowNumberNode) source), limit);
+                RowNumberNode rowNumberNode = mergeLimit((RowNumberNode) source, limit);
                 if (rowNumberNode.getPartitionBy().isEmpty()) {
                     return rowNumberNode;
                 }
@@ -184,7 +184,7 @@ public class WindowFilterPushDown
                     if (upperBound.getAsInt() <= 0) {
                         return new ValuesNode(node.getId(), node.getOutputSymbols(), ImmutableList.of());
                     }
-                    source = mergeLimit(((RowNumberNode) source), upperBound.getAsInt());
+                    source = mergeLimit((RowNumberNode) source, upperBound.getAsInt());
                     return rewriteFilterSource(node, source, rowNumberSymbol, ((RowNumberNode) source).getMaxRowCountPerPartition().get());
                 }
             }
