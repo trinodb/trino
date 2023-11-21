@@ -144,6 +144,7 @@ public class DirectExchangeClientFactory
         DirectExchangeBuffer buffer;
         switch (retryPolicy) {
             case TASK:
+                throw new UnsupportedOperationException();
             case QUERY:
                 buffer = new DeduplicatingDirectExchangeBuffer(scheduler, deduplicationBufferSize, retryPolicy, exchangeManagerRegistry, queryId, exchangeId);
                 break;
