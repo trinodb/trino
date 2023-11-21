@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.LAST_CHECKPOINT_FILENAME;
@@ -105,7 +106,8 @@ public class CheckpointWriterManager
                             fileSystem,
                             fileFormatDataSourceStats,
                             Optional.empty(),
-                            TupleDomain.all())
+                            TupleDomain.all(),
+                            Optional.empty())
                     .filter(entry -> entry.getMetaData() != null || entry.getProtocol() != null)
                     .collect(toImmutableList());
 
@@ -138,7 +140,8 @@ public class CheckpointWriterManager
                                 fileSystem,
                                 fileFormatDataSourceStats,
                                 Optional.of(new MetadataAndProtocolEntry(metadataLogEntry.getMetaData(), protocolLogEntry.getProtocol())),
-                                TupleDomain.all())
+                                TupleDomain.all(),
+                                Optional.of(alwaysTrue()))
                         .forEach(checkpointBuilder::addLogEntry);
             }
 

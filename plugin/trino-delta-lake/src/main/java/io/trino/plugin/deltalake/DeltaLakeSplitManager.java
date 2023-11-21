@@ -154,7 +154,13 @@ public class DeltaLakeSplitManager
     {
         TableSnapshot tableSnapshot = deltaLakeTransactionManager.get(transaction, session.getIdentity())
                 .getSnapshot(session, tableHandle.getSchemaTableName(), tableHandle.getLocation(), tableHandle.getReadVersion());
-        List<AddFileEntry> validDataFiles = transactionLogAccess.getActiveFiles(tableSnapshot, tableHandle.getMetadataEntry(), tableHandle.getProtocolEntry(), tableHandle.getEnforcedPartitionConstraint(), session);
+        List<AddFileEntry> validDataFiles = transactionLogAccess.getActiveFiles(
+                tableSnapshot,
+                tableHandle.getMetadataEntry(),
+                tableHandle.getProtocolEntry(),
+                tableHandle.getEnforcedPartitionConstraint(),
+                tableHandle.getProjectedColumns(),
+                session);
         TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint = tableHandle.getEnforcedPartitionConstraint();
         TupleDomain<DeltaLakeColumnHandle> nonPartitionConstraint = tableHandle.getNonPartitionConstraint();
         Domain pathDomain = getPathDomain(nonPartitionConstraint);

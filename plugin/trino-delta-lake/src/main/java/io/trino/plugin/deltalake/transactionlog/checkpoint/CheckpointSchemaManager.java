@@ -29,6 +29,7 @@ import io.trino.spi.type.TypeSignature;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractPartitionColumns;
@@ -114,10 +115,19 @@ public class CheckpointSchemaManager
         return metadataEntryType;
     }
 
-    public RowType getAddEntryType(MetadataEntry metadataEntry, ProtocolEntry protocolEntry, boolean requireWriteStatsAsJson, boolean requireWriteStatsAsStruct, boolean usePartitionValuesParsed)
+    public RowType getAddEntryType(
+            MetadataEntry metadataEntry,
+            ProtocolEntry protocolEntry,
+            Predicate<String> addStatsMinMaxColumnFilter,
+            boolean requireWriteStatsAsJson,
+            boolean requireWriteStatsAsStruct,
+            boolean usePartitionValuesParsed)
     {
         List<DeltaLakeColumnMetadata> allColumns = extractSchema(metadataEntry, protocolEntry, typeManager);
         List<DeltaLakeColumnMetadata> minMaxColumns = columnsWithStats(metadataEntry, protocolEntry, typeManager);
+        minMaxColumns = minMaxColumns.stream()
+                .filter(column -> addStatsMinMaxColumnFilter.test(column.getName()))
+                .collect(toImmutableList());
         boolean deletionVectorEnabled = isDeletionVectorEnabled(metadataEntry, protocolEntry);
 
         ImmutableList.Builder<RowType.Field> minMaxFields = ImmutableList.builder();
