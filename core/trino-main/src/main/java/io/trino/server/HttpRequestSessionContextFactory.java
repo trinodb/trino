@@ -332,7 +332,7 @@ public class HttpRequestSessionContextFactory
         return role;
     }
 
-    private static Map<String, String> parseExtraCredentials(ProtocolHeaders protocolHeaders, MultivaluedMap<String, String> headers)
+    public static Map<String, String> parseExtraCredentials(ProtocolHeaders protocolHeaders, MultivaluedMap<String, String> headers)
     {
         return parseProperty(headers, protocolHeaders.requestExtraCredential());
     }

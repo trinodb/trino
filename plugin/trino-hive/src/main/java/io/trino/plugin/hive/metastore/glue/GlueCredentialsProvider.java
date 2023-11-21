@@ -16,13 +16,21 @@ package io.trino.plugin.hive.metastore.glue;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.AWSStaticCredentialsProvider;
 import com.amazonaws.auth.BasicAWSCredentials;
+import com.amazonaws.auth.BasicSessionCredentials;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.auth.STSAssumeRoleSessionCredentialsProvider;
 import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.services.securitytoken.AWSSecurityTokenServiceClientBuilder;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
+import io.trino.spi.security.ConnectorIdentity;
 
+import java.util.Map;
+import java.util.Optional;
+
+import static com.amazonaws.auth.profile.internal.ProfileKeyConstants.AWS_ACCESS_KEY_ID;
+import static com.amazonaws.auth.profile.internal.ProfileKeyConstants.AWS_SECRET_ACCESS_KEY;
+import static com.amazonaws.auth.profile.internal.ProfileKeyConstants.AWS_SESSION_TOKEN;
 import static io.trino.plugin.hive.metastore.glue.AwsCurrentRegionHolder.getCurrentRegionFromEc2Metadata;
 import static java.lang.String.format;
 
@@ -89,5 +97,20 @@ public class GlueCredentialsProvider
         catch (ReflectiveOperationException e) {
             throw new RuntimeException(format("Error creating an instance of %s", providerClass), e);
         }
+    }
+
+    public static Optional<AWSCredentialsProvider> getAWSSessionCredentialsProvider(Optional<ConnectorIdentity> identity)
+    {
+        if (identity.isEmpty()) {
+            return Optional.empty();
+        }
+        Map<String, String> extraCredentials = identity.get().getExtraCredentials();
+        if (extraCredentials.containsKey(AWS_ACCESS_KEY_ID) && extraCredentials.containsKey(AWS_SECRET_ACCESS_KEY)
+                && extraCredentials.containsKey(AWS_SESSION_TOKEN)) {
+            BasicSessionCredentials sessionCredentials = new BasicSessionCredentials(extraCredentials.get(AWS_ACCESS_KEY_ID),
+                                                    extraCredentials.get(AWS_SECRET_ACCESS_KEY), extraCredentials.get(AWS_SESSION_TOKEN));
+            return Optional.of(new AWSStaticCredentialsProvider(sessionCredentials));
+        }
+        return Optional.empty();
     }
 }

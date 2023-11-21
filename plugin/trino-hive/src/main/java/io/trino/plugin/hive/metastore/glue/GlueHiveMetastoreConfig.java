@@ -49,6 +49,8 @@ public class GlueHiveMetastoreConfig
     private int writeStatisticsThreads = 20;
     private boolean assumeCanonicalPartitionKeys;
 
+    private boolean impersonationEnabled;
+
     public Optional<String> getGlueRegion()
     {
         return glueRegion;
@@ -314,6 +316,19 @@ public class GlueHiveMetastoreConfig
     public GlueHiveMetastoreConfig setWriteStatisticsThreads(int writeStatisticsThreads)
     {
         this.writeStatisticsThreads = writeStatisticsThreads;
+        return this;
+    }
+
+    public boolean isImpersonationEnabled()
+    {
+        return impersonationEnabled;
+    }
+
+    @Config("hive.metastore.glue.impersonation.enabled")
+    @ConfigDescription("Should end user be impersonated when communicating with metastore")
+    public GlueHiveMetastoreConfig setImpersonationEnabled(boolean impersonationEnabled)
+    {
+        this.impersonationEnabled = impersonationEnabled;
         return this;
     }
 

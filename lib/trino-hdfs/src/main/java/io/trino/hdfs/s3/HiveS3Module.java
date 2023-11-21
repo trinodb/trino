@@ -41,7 +41,18 @@ public class HiveS3Module
         S3FileSystemType type = buildConfigObject(HiveS3TypeConfig.class).getS3FileSystemType();
         switch (type) {
             case TRINO:
-                bindSecurityMapping(binder);
+                S3SecurityMappingConfig s3SecurityMappingConfig = buildConfigObject(S3SecurityMappingConfig.class);
+                boolean useS3SessionCredentials = buildConfigObject(HiveS3Config.class).isUseS3SessionCredentials();
+
+                if (s3SecurityMappingConfig.getConfigFilePath().isPresent()) {
+                    checkArgument(!useS3SessionCredentials, "S3 security mapping cannot be used with S3 session credentials");
+                    checkArgument(!buildConfigObject(RubixEnabledConfig.class).isCacheEnabled(), "S3 security mapping is not compatible with Hive caching");
+                    bindSecurityMapping(binder, s3SecurityMappingConfig);
+                }
+                else if (useS3SessionCredentials) {
+                    checkArgument(!buildConfigObject(RubixEnabledConfig.class).isCacheEnabled(), "Use of S3 session credentials is not compatible with Hive caching");
+                    newSetBinder(binder, DynamicConfigurationProvider.class).addBinding().to(S3SessionCredentialConfigurationProvider.class).in(Scopes.SINGLETON);
+                }
 
                 newSetBinder(binder, ConfigurationInitializer.class).addBinding().to(TrinoS3ConfigurationInitializer.class).in(Scopes.SINGLETON);
                 configBinder(binder).bindConfig(HiveS3Config.class);
@@ -61,13 +72,8 @@ public class HiveS3Module
         throw new RuntimeException("Unknown file system type: " + type);
     }
 
-    private void bindSecurityMapping(Binder binder)
+    private void bindSecurityMapping(Binder binder, S3SecurityMappingConfig configuration)
     {
-        S3SecurityMappingConfig configuration = buildConfigObject(S3SecurityMappingConfig.class);
-        if (configuration.getConfigFilePath().isEmpty()) {
-            return;
-        }
-
         if (isHttp(configuration)) {
             binder.bind(S3SecurityMappingsProvider.class).to(UriBasedS3SecurityMappingsProvider.class).in(Scopes.SINGLETON);
             httpClientBinder(binder).bindHttpClient("s3SecurityMapping", ForS3SecurityMapping.class)
@@ -82,8 +88,6 @@ public class HiveS3Module
 
         newSetBinder(binder, DynamicConfigurationProvider.class).addBinding()
                 .to(S3SecurityMappingConfigurationProvider.class).in(Scopes.SINGLETON);
-
-        checkArgument(!buildConfigObject(RubixEnabledConfig.class).isCacheEnabled(), "S3 security mapping is not compatible with Hive caching");
     }
 
     private static void validateEmrFsClass()

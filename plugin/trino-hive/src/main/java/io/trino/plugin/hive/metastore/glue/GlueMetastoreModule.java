@@ -59,7 +59,6 @@ public class GlueMetastoreModule
         newOptionalBinder(binder, Key.get(new TypeLiteral<Predicate<Table>>() {}, ForGlueHiveMetastore.class))
                 .setDefault().toProvider(DefaultGlueMetastoreTableFilterProvider.class).in(Scopes.SINGLETON);
 
-        binder.bind(GlueHiveMetastore.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, Key.get(HiveMetastoreFactory.class, RawHiveMetastoreFactory.class))
                 .setDefault()
                 .to(GlueHiveMetastoreFactory.class)

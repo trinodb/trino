@@ -18,8 +18,10 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
+import io.trino.client.ClientExternalCredentialProvider;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.DnsResolver;
+import io.trino.client.ExternalCredentialProviderEnum;
 import io.trino.client.auth.external.ExternalRedirectStrategy;
 import org.ietf.jgss.GSSCredential;
 
@@ -89,6 +91,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String, Duration> EXTERNAL_AUTHENTICATION_TIMEOUT = new ExternalAuthenticationTimeout();
     public static final ConnectionProperty<String, List<ExternalRedirectStrategy>> EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS = new ExternalAuthenticationRedirectHandlers();
     public static final ConnectionProperty<String, KnownTokenCache> EXTERNAL_AUTHENTICATION_TOKEN_CACHE = new ExternalAuthenticationTokenCache();
+    public static final ConnectionProperty<String, ClientExternalCredentialProvider> EXTERNAL_CREDENTIAL_PROVIDER = new ExternalCredentialProvider();
     public static final ConnectionProperty<String, Map<String, String>> EXTRA_CREDENTIALS = new ExtraCredentials();
     public static final ConnectionProperty<String, String> CLIENT_INFO = new ClientInfo();
     public static final ConnectionProperty<String, String> CLIENT_TAGS = new ClientTags();
@@ -131,6 +134,7 @@ final class ConnectionProperties
             .add(KERBEROS_DELEGATION)
             .add(KERBEROS_CONSTRAINED_DELEGATION)
             .add(ACCESS_TOKEN)
+            .add(EXTERNAL_CREDENTIAL_PROVIDER)
             .add(EXTRA_CREDENTIALS)
             .add(CLIENT_INFO)
             .add(CLIENT_TAGS)
@@ -622,6 +626,25 @@ final class ConnectionProperties
         public ExternalAuthenticationTokenCache()
         {
             super(PropertyName.EXTERNAL_AUTHENTICATION_TOKEN_CACHE, Optional.of(KnownTokenCache.NONE), NOT_REQUIRED, ALLOWED, KnownTokenCache::valueOf);
+        }
+    }
+
+    private static class ExternalCredentialProvider
+            extends AbstractConnectionProperty<String, ClientExternalCredentialProvider>
+    {
+        public ExternalCredentialProvider()
+        {
+            super(PropertyName.EXTERNAL_CREDENTIAL_PROVIDER, NOT_REQUIRED, ALLOWED, ExternalCredentialProvider::parse);
+        }
+
+        public static ClientExternalCredentialProvider parse(String value)
+        {
+            try {
+                return ExternalCredentialProviderEnum.valueOf(value).getInstance();
+            }
+            catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Invalid external credential provider: " + value);
+            }
         }
     }
 

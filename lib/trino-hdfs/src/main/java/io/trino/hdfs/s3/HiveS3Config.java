@@ -82,6 +82,7 @@ public class HiveS3Config
     private boolean s3preemptiveBasicProxyAuth;
     private String s3StsEndpoint;
     private String s3StsRegion;
+    private boolean useS3SessionCredentials;
 
     public String getS3AwsAccessKey()
     {
@@ -640,6 +641,18 @@ public class HiveS3Config
     public HiveS3Config setS3StsRegion(String s3StsRegion)
     {
         this.s3StsRegion = s3StsRegion;
+        return this;
+    }
+
+    public boolean isUseS3SessionCredentials()
+    {
+        return useS3SessionCredentials;
+    }
+
+    @Config("hive.s3.use-session-credentials")
+    public HiveS3Config setUseS3SessionCredentials(boolean useS3SessionCredentials)
+    {
+        this.useS3SessionCredentials = useS3SessionCredentials;
         return this;
     }
 }

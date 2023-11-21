@@ -46,7 +46,7 @@ public class S3SecurityMappingConfigurationProvider
 {
     private static final Logger log = Logger.get(S3SecurityMappingConfigurationProvider.class);
 
-    private static final Set<String> SCHEMES = ImmutableSet.of("s3", "s3a", "s3n");
+    static final Set<String> SCHEMES = ImmutableSet.of("s3", "s3a", "s3n");
     private static final String ANY_KMS_KEY_ID = "*";
 
     private final Supplier<S3SecurityMappings> mappings;

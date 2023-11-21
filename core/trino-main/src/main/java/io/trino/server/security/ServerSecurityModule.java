@@ -19,6 +19,8 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.MapBinder;
+import com.yahoo.trino.server.security.AwsSessionCredentialsAuthenticator;
+import com.yahoo.trino.server.security.AwsSessionCredentialsAuthenticatorConfig;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.discovery.server.DynamicAnnouncementResource;
 import io.airlift.discovery.server.ServiceResource;
@@ -27,6 +29,7 @@ import io.airlift.http.server.HttpServer.ClientCertificate;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.jmx.MBeanResource;
 import io.airlift.openmetrics.MetricsResource;
+import io.trino.server.ProtocolConfig;
 import io.trino.server.security.jwt.JwtAuthenticator;
 import io.trino.server.security.jwt.JwtAuthenticatorSupportModule;
 import io.trino.server.security.oauth2.OAuth2AuthenticationSupportModule;
@@ -87,6 +90,11 @@ public class ServerSecurityModule
         install(authenticatorModule("jwt", JwtAuthenticator.class, new JwtAuthenticatorSupportModule()));
         install(authenticatorModule("oauth2", OAuth2Authenticator.class, new OAuth2AuthenticationSupportModule()));
         newOptionalBinder(binder, OAuth2Client.class);
+
+        install(authenticatorModule("aws-session-creds", AwsSessionCredentialsAuthenticator.class, awsSessionCredentialsBinder -> {
+            configBinder(awsSessionCredentialsBinder).bindConfig(ProtocolConfig.class);
+            configBinder(awsSessionCredentialsBinder).bindConfig(AwsSessionCredentialsAuthenticatorConfig.class);
+        }));
 
         configBinder(binder).bindConfig(InsecureAuthenticatorConfig.class);
         binder.bind(InsecureAuthenticator.class).in(Scopes.SINGLETON);

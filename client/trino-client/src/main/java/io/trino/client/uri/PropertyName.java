@@ -55,6 +55,7 @@ public enum PropertyName
     EXTERNAL_AUTHENTICATION_TIMEOUT("externalAuthenticationTimeout"),
     EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS("externalAuthenticationRedirectHandlers"),
     EXTERNAL_AUTHENTICATION_TOKEN_CACHE("externalAuthenticationTokenCache"),
+    EXTERNAL_CREDENTIAL_PROVIDER("externalCredentialProvider"),
     EXTRA_CREDENTIALS("extraCredentials"),
     CLIENT_INFO("clientInfo"),
     CLIENT_TAGS("clientTags"),

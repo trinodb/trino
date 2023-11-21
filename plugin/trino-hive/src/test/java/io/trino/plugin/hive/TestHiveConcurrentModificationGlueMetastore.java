@@ -21,6 +21,7 @@ import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.spi.TrinoException;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
@@ -31,6 +32,7 @@ import org.junit.jupiter.api.TestInstance;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Path;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -40,6 +42,7 @@ import static com.google.common.reflect.Reflection.newProxy;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
+import static io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreFactory.DEFAULT_METASTORE_USER;
 import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.createTestingAsyncGlueClient;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -92,11 +95,14 @@ public class TestHiveConcurrentModificationGlueMetastore
         });
 
         metastore = new GlueHiveMetastore(
-                HDFS_FILE_SYSTEM_FACTORY,
-                glueConfig,
-                directExecutor(),
-                new DefaultGlueColumnStatisticsProviderFactory(directExecutor(), directExecutor()),
+            Optional.empty(),
+                HDFS_FILE_SYSTEM_FACTORY.create(ConnectorIdentity.ofUser(DEFAULT_METASTORE_USER)),
                 proxiedGlueClient,
+                glueConfig.getDefaultWarehouseDir(),
+                glueConfig.getPartitionSegments(),
+                directExecutor(),
+                glueConfig.isAssumeCanonicalPartitionKeys(),
+                new DefaultGlueColumnStatisticsProviderFactory(directExecutor(), directExecutor()).createGlueColumnStatisticsProvider(proxiedGlueClient, stats),
                 stats,
                 table -> true);
 

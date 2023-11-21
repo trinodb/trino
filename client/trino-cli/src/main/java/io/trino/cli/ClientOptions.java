@@ -21,7 +21,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.Duration;
+import io.trino.client.ClientExternalCredentialProvider;
 import io.trino.client.ClientSession;
+import io.trino.client.ExternalCredentialProviderEnum;
 import io.trino.client.auth.external.ExternalRedirectStrategy;
 import io.trino.client.uri.PropertyName;
 import io.trino.client.uri.RestrictedPropertyException;
@@ -54,6 +56,7 @@ import static io.trino.client.uri.PropertyName.CLIENT_INFO;
 import static io.trino.client.uri.PropertyName.CLIENT_TAGS;
 import static io.trino.client.uri.PropertyName.EXTERNAL_AUTHENTICATION;
 import static io.trino.client.uri.PropertyName.EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS;
+import static io.trino.client.uri.PropertyName.EXTERNAL_CREDENTIAL_PROVIDER;
 import static io.trino.client.uri.PropertyName.EXTRA_CREDENTIALS;
 import static io.trino.client.uri.PropertyName.HTTP_PROXY;
 import static io.trino.client.uri.PropertyName.KERBEROS_CONFIG_PATH;
@@ -180,6 +183,10 @@ public class ClientOptions
     @PropertyMapping(EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS)
     @Option(names = "--external-authentication-redirect-handler", paramLabel = "<externalAuthenticationRedirectHandler>", description = "External authentication redirect handlers: ${COMPLETION-CANDIDATES} " + DEFAULT_VALUE, defaultValue = "ALL")
     public List<ExternalRedirectStrategy> externalAuthenticationRedirectHandler = new ArrayList<>();
+
+    @PropertyMapping(EXTERNAL_CREDENTIAL_PROVIDER)
+    @Option(names = "--external-credential-provider", description = "Use external credential provider to populate extra credentials")
+    public Optional<String> externalCredentialProvider;
 
     @PropertyMapping(SOURCE)
     @Option(names = "--source", paramLabel = "<source>", description = "Name of the client to use as source that submits the query (default: " + SOURCE_DEFAULT + ")")
@@ -329,7 +336,7 @@ public class ClientOptions
                 .locale(Locale.getDefault())
                 .resourceEstimates(toResourceEstimates(resourceEstimates))
                 .properties(toProperties(sessionProperties))
-                .credentials(toExtraCredentials(extraCredentials))
+                .credentials(toExtraCredentials(extraCredentials, uri.getExternalCredentialProvider()))
                 .transactionId(null)
                 .clientRequestTimeout(clientRequestTimeout)
                 .compressionDisabled(disableCompression)
@@ -395,9 +402,17 @@ public class ClientOptions
             builder.setSslUseSystemTrustStore(true);
         }
         accessToken.ifPresent(builder::setAccessToken);
-        if (!extraCredentials.isEmpty()) {
-            builder.setExtraCredentials(toExtraCredentials(extraCredentials));
+
+        ClientExternalCredentialProvider clientExternalCredentialProvider = null;
+        if (externalCredentialProvider.isPresent()) {
+            clientExternalCredentialProvider = ExternalCredentialProviderEnum.valueOf(externalCredentialProvider.get()).getInstance();
+            builder.setExternalCredentialProvider(clientExternalCredentialProvider);
         }
+
+        if (!extraCredentials.isEmpty()) {
+            builder.setExtraCredentials(toExtraCredentials(extraCredentials, clientExternalCredentialProvider));
+        }
+
         if (!sessionProperties.isEmpty()) {
             builder.setSessionProperties(toProperties(sessionProperties));
         }
@@ -500,11 +515,14 @@ public class ClientOptions
         return builder.buildOrThrow();
     }
 
-    public static Map<String, String> toExtraCredentials(List<ClientExtraCredential> extraCredentials)
+    public static Map<String, String> toExtraCredentials(List<ClientExtraCredential> extraCredentials, ClientExternalCredentialProvider externalCredentialProvider)
     {
         ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
         for (ClientExtraCredential credential : extraCredentials) {
             builder.put(credential.getName(), credential.getValue());
+        }
+        if (externalCredentialProvider != null) {
+            builder.putAll(externalCredentialProvider.getExternalCredentials());
         }
         return builder.buildOrThrow();
     }

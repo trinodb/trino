@@ -18,6 +18,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import io.trino.client.ClientException;
+import io.trino.client.ClientExternalCredentialProvider;
 import io.trino.client.ClientSelectedRole;
 import io.trino.client.DnsResolver;
 import io.trino.client.OkHttpUtil;
@@ -75,6 +76,7 @@ import static io.trino.client.uri.ConnectionProperties.EXTERNAL_AUTHENTICATION;
 import static io.trino.client.uri.ConnectionProperties.EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS;
 import static io.trino.client.uri.ConnectionProperties.EXTERNAL_AUTHENTICATION_TIMEOUT;
 import static io.trino.client.uri.ConnectionProperties.EXTERNAL_AUTHENTICATION_TOKEN_CACHE;
+import static io.trino.client.uri.ConnectionProperties.EXTERNAL_CREDENTIAL_PROVIDER;
 import static io.trino.client.uri.ConnectionProperties.EXTRA_CREDENTIALS;
 import static io.trino.client.uri.ConnectionProperties.HOSTNAME_IN_CERTIFICATE;
 import static io.trino.client.uri.ConnectionProperties.HTTP_PROXY;
@@ -160,6 +162,7 @@ public class TrinoUri
     private Optional<io.airlift.units.Duration> externalAuthenticationTimeout;
     private Optional<List<ExternalRedirectStrategy>> externalRedirectStrategies;
     private Optional<KnownTokenCache> externalAuthenticationTokenCache;
+    private Optional<ClientExternalCredentialProvider> externalCredentialProvider;
     private Optional<Map<String, String>> extraCredentials;
     private Optional<String> hostnameInCertificate;
     private Optional<ZoneId> timeZone;
@@ -214,6 +217,7 @@ public class TrinoUri
             Optional<io.airlift.units.Duration> externalAuthenticationTimeout,
             Optional<List<ExternalRedirectStrategy>> externalRedirectStrategies,
             Optional<KnownTokenCache> externalAuthenticationTokenCache,
+            Optional<ClientExternalCredentialProvider> externalCredentialProvider,
             Optional<Map<String, String>> extraCredentials,
             Optional<String> hostnameInCertificate,
             Optional<ZoneId> timeZone,
@@ -267,6 +271,7 @@ public class TrinoUri
         this.externalAuthenticationTimeout = EXTERNAL_AUTHENTICATION_TIMEOUT.getValueOrDefault(urlProperties, externalAuthenticationTimeout);
         this.externalRedirectStrategies = EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS.getValueOrDefault(urlProperties, externalRedirectStrategies);
         this.externalAuthenticationTokenCache = EXTERNAL_AUTHENTICATION_TOKEN_CACHE.getValueOrDefault(urlProperties, externalAuthenticationTokenCache);
+        this.externalCredentialProvider = EXTERNAL_CREDENTIAL_PROVIDER.getValueOrDefault(urlProperties, externalCredentialProvider);
         this.extraCredentials = EXTRA_CREDENTIALS.getValueOrDefault(urlProperties, extraCredentials);
         this.hostnameInCertificate = HOSTNAME_IN_CERTIFICATE.getValueOrDefault(urlProperties, hostnameInCertificate);
         this.timeZone = TIMEZONE.getValueOrDefault(urlProperties, timeZone);
@@ -343,12 +348,22 @@ public class TrinoUri
                                 .map(ExternalRedirectStrategy::toString)
                                 .collect(Collectors.joining(","))));
         externalAuthenticationTokenCache.ifPresent(value -> properties.setProperty(PropertyName.EXTERNAL_AUTHENTICATION_TOKEN_CACHE.toString(), value.toString()));
+
         extraCredentials.ifPresent(value ->
                 properties.setProperty(
                         PropertyName.EXTRA_CREDENTIALS.toString(),
                         value.entrySet().stream()
                                 .map(entry -> entry.getKey() + ":" + entry.getValue())
                                 .collect(Collectors.joining(";"))));
+
+        if (externalCredentialProvider.isPresent()) {
+            this.extraCredentials = Optional.ofNullable(this.extraCredentials.orElse(new HashMap<>()))
+                    .map(existingCredentials -> {
+                        existingCredentials.putAll(externalCredentialProvider.get().getExternalCredentials());
+                        return existingCredentials;
+                    });
+        }
+
         sessionProperties.ifPresent(value ->
                 properties.setProperty(
                         PropertyName.SESSION_PROPERTIES.toString(),
@@ -413,7 +428,16 @@ public class TrinoUri
         this.externalAuthenticationTimeout = EXTERNAL_AUTHENTICATION_TIMEOUT.getValue(properties);
         this.externalRedirectStrategies = EXTERNAL_AUTHENTICATION_REDIRECT_HANDLERS.getValue(properties);
         this.externalAuthenticationTokenCache = EXTERNAL_AUTHENTICATION_TOKEN_CACHE.getValue(properties);
+        this.externalCredentialProvider = EXTERNAL_CREDENTIAL_PROVIDER.getValue(properties);
         this.extraCredentials = EXTRA_CREDENTIALS.getValue(properties);
+        if (externalCredentialProvider.isPresent()) {
+            this.extraCredentials = Optional.ofNullable(this.extraCredentials.orElse(new HashMap<>()))
+                    .map(existingCredentials -> {
+                        existingCredentials.putAll(externalCredentialProvider.get().getExternalCredentials());
+                        return existingCredentials;
+                    });
+        }
+
         this.hostnameInCertificate = HOSTNAME_IN_CERTIFICATE.getValue(properties);
         this.timeZone = TIMEZONE.getValue(properties);
         this.clientInfo = CLIENT_INFO.getValue(properties);
@@ -497,6 +521,11 @@ public class TrinoUri
     public Optional<String> getApplicationNamePrefix()
     {
         return applicationNamePrefix;
+    }
+
+    public ClientExternalCredentialProvider getExternalCredentialProvider()
+    {
+        return externalCredentialProvider.orElse(null);
     }
 
     public Map<String, String> getExtraCredentials()
@@ -930,6 +959,7 @@ public class TrinoUri
         private io.airlift.units.Duration externalAuthenticationTimeout;
         private List<ExternalRedirectStrategy> externalRedirectStrategies;
         private KnownTokenCache externalAuthenticationTokenCache;
+        private ClientExternalCredentialProvider externalCredentialProvider;
         private Map<String, String> extraCredentials;
         private String hostnameInCertificate;
         private ZoneId timeZone;
@@ -1179,6 +1209,12 @@ public class TrinoUri
             return this;
         }
 
+        public Builder setExternalCredentialProvider(ClientExternalCredentialProvider externalCredentialProvider)
+        {
+            this.externalCredentialProvider = externalCredentialProvider;
+            return this;
+        }
+
         public Builder setExtraCredentials(Map<String, String> extraCredentials)
         {
             this.extraCredentials = requireNonNull(extraCredentials, "extraCredentials is null");
@@ -1274,6 +1310,7 @@ public class TrinoUri
                     Optional.ofNullable(externalAuthenticationTimeout),
                     Optional.ofNullable(externalRedirectStrategies),
                     Optional.ofNullable(externalAuthenticationTokenCache),
+                    Optional.ofNullable(externalCredentialProvider),
                     Optional.ofNullable(extraCredentials),
                     Optional.ofNullable(hostnameInCertificate),
                     Optional.ofNullable(timeZone),
