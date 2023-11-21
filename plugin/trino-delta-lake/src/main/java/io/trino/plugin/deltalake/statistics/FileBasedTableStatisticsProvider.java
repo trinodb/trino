@@ -110,7 +110,13 @@ public class FileBasedTableStatisticsProvider
                 .filter(column -> predicatedColumnNames.contains(column.getName()))
                 .collect(toImmutableList());
 
-        for (AddFileEntry addEntry : transactionLogAccess.getActiveFiles(tableSnapshot, tableHandle.getMetadataEntry(), tableHandle.getProtocolEntry(), session)) {
+        for (AddFileEntry addEntry : transactionLogAccess.getActiveFiles(
+                tableSnapshot,
+                tableHandle.getMetadataEntry(),
+                tableHandle.getProtocolEntry(),
+                tableHandle.getEnforcedPartitionConstraint(),
+                tableHandle.getProjectedColumns(),
+                session)) {
             Optional<? extends DeltaLakeFileStatistics> fileStatistics = addEntry.getStats();
             if (fileStatistics.isEmpty()) {
                 // Open source Delta Lake does not collect stats

@@ -36,6 +36,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -181,7 +182,8 @@ public class TableSnapshot
             TrinoFileSystem fileSystem,
             FileFormatDataSourceStats stats,
             Optional<MetadataAndProtocolEntry> metadataAndProtocol,
-            TupleDomain<DeltaLakeColumnHandle> partitionConstraint)
+            TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
+            Optional<Predicate<String>> addStatsMinMaxColumnFilter)
             throws IOException
     {
         if (lastCheckpoint.isEmpty()) {
@@ -210,7 +212,8 @@ public class TableSnapshot
                             stats,
                             checkpoint,
                             checkpointFile,
-                            partitionConstraint)));
+                            partitionConstraint,
+                            addStatsMinMaxColumnFilter)));
         }
         return resultStream;
     }
@@ -230,7 +233,8 @@ public class TableSnapshot
             FileFormatDataSourceStats stats,
             LastCheckpoint checkpoint,
             TrinoInputFile checkpointFile,
-            TupleDomain<DeltaLakeColumnHandle> partitionConstraint)
+            TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
+            Optional<Predicate<String>> addStatsMinMaxColumnFilter)
             throws IOException
     {
         long fileSize;
@@ -253,7 +257,8 @@ public class TableSnapshot
                 parquetReaderOptions,
                 checkpointRowStatisticsWritingEnabled,
                 domainCompactionThreshold,
-                partitionConstraint);
+                partitionConstraint,
+                addStatsMinMaxColumnFilter);
     }
 
     public record MetadataAndProtocolEntry(MetadataEntry metadataEntry, ProtocolEntry protocolEntry)

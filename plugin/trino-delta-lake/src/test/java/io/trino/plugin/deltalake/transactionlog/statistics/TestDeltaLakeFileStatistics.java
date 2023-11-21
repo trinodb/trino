@@ -46,6 +46,7 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.Iterators.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
@@ -106,7 +107,8 @@ public class TestDeltaLakeFileStatistics
                 new ParquetReaderConfig().toParquetReaderOptions(),
                 true,
                 new DeltaLakeConfig().getDomainCompactionThreshold(),
-                TupleDomain.all());
+                TupleDomain.all(),
+                Optional.empty());
         MetadataEntry metadataEntry = getOnlyElement(metadataEntryIterator).getMetaData();
         CheckpointEntryIterator protocolEntryIterator = new CheckpointEntryIterator(
                 checkpointFile,
@@ -121,7 +123,8 @@ public class TestDeltaLakeFileStatistics
                 new ParquetReaderConfig().toParquetReaderOptions(),
                 true,
                 new DeltaLakeConfig().getDomainCompactionThreshold(),
-                TupleDomain.all());
+                TupleDomain.all(),
+                Optional.empty());
         ProtocolEntry protocolEntry = getOnlyElement(protocolEntryIterator).getProtocol();
 
         CheckpointEntryIterator checkpointEntryIterator = new CheckpointEntryIterator(
@@ -137,7 +140,8 @@ public class TestDeltaLakeFileStatistics
                 new ParquetReaderConfig().toParquetReaderOptions(),
                 true,
                 new DeltaLakeConfig().getDomainCompactionThreshold(),
-                TupleDomain.all());
+                TupleDomain.all(),
+                Optional.of(alwaysTrue()));
         DeltaLakeTransactionLogEntry matchingAddFileEntry = null;
         while (checkpointEntryIterator.hasNext()) {
             DeltaLakeTransactionLogEntry entry = checkpointEntryIterator.next();

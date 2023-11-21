@@ -50,6 +50,7 @@ import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -481,7 +482,8 @@ public class TestCheckpointWriter
                 new ParquetReaderConfig().toParquetReaderOptions(),
                 rowStatisticsEnabled,
                 new DeltaLakeConfig().getDomainCompactionThreshold(),
-                TupleDomain.all());
+                TupleDomain.all(),
+                Optional.of(alwaysTrue()));
 
         CheckpointBuilder checkpointBuilder = new CheckpointBuilder();
         while (checkpointEntryIterator.hasNext()) {

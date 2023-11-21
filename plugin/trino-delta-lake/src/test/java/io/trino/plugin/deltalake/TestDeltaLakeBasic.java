@@ -1085,6 +1085,80 @@ public class TestDeltaLakeBasic
     }
 
     /**
+     * @see databricks133.parsed_stats_struct
+     */
+    @Test
+    public void testCheckpointFilteringForParsedStatsContainingNestedRows()
+            throws Exception
+    {
+        String tableName = "test_parsed_stats_struct_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("databricks133/parsed_stats_struct").toURI()).toPath(), tableLocation);
+
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+        assertThat(query("SELECT * FROM " + tableName))
+                .skippingTypesCheck()
+                .matches("""
+                        VALUES
+                        (100, 1, row(1, 'ala')),
+                        (200, 2, row(2, 'kota')),
+                        (300, 3, row(3, 'osla')),
+                        (400, 4, row(4, 'zulu'))""");
+
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty("delta", "checkpoint_filtering_enabled", "true")
+                .build();
+        assertThat(query(session, "SELECT id FROM " + tableName + " WHERE part BETWEEN 100 AND 300")).matches("VALUES 1, 2, 3");
+        assertThat(query(session, "SELECT root.entry_two FROM " + tableName + " WHERE part BETWEEN 100 AND 300"))
+                .skippingTypesCheck()
+                .matches("VALUES 'ala', 'kota', 'osla'");
+        // show stats with predicate
+        assertThat(query(session, "SHOW STATS FOR (SELECT id FROM " + tableName + " WHERE part = 100)"))
+                .skippingTypesCheck()
+                .matches("""
+                        VALUES
+                        ('id', NULL, NULL, DOUBLE '0.0' , NULL, '1', '1'),
+                        (NULL, NULL, NULL, NULL, DOUBLE '1.0', NULL, NULL)""");
+    }
+
+    /**
+     * @see databricks133.parsed_stats_case_sensitive
+     */
+    @Test
+    public void testCheckpointFilteringForParsedStatsWithCaseSensitiveColumnNames()
+            throws Exception
+    {
+        String tableName = "test_parsed_stats_case_sensitive_" + randomNameSuffix();
+        Path tableLocation = Files.createTempFile(tableName, null);
+        copyDirectoryContents(new File(Resources.getResource("databricks133/parsed_stats_case_sensitive").toURI()).toPath(), tableLocation);
+
+        assertUpdate("CALL system.register_table('%s', '%s', '%s')".formatted(getSession().getSchema().orElseThrow(), tableName, tableLocation.toUri()));
+        assertThat(query("SELECT * FROM " + tableName))
+                .skippingTypesCheck()
+                .matches("""
+                        VALUES
+                        (100, 1, 'ala'),
+                        (200, 2, 'kota'),
+                        (300, 3, 'osla'),
+                        (400, 4, 'zulu')""");
+
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty("delta", "checkpoint_filtering_enabled", "true")
+                .build();
+        assertThat(query(session, "SELECT a_NuMbEr FROM " + tableName + " WHERE part BETWEEN 100 AND 300")).matches("VALUES 1, 2, 3");
+        assertThat(query(session, "SELECT a_StRiNg FROM " + tableName + " WHERE part BETWEEN 100 AND 300"))
+                .skippingTypesCheck()
+                .matches("VALUES 'ala', 'kota', 'osla'");
+        // show stats with predicate
+        assertThat(query(session, "SHOW STATS FOR (SELECT a_NuMbEr FROM " + tableName + " WHERE part BETWEEN 100 AND 300)"))
+                .skippingTypesCheck()
+                .matches("""
+                        VALUES
+                        ('a_NuMbEr', NULL, NULL, DOUBLE '0.0' , NULL, '1', '3'),
+                        (NULL, NULL, NULL, NULL, DOUBLE '3.0', NULL, NULL)""");
+    }
+
+    /**
      * @see deltalake.partition_values_parsed_all_types
      */
     @Test
