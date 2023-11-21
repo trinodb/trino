@@ -3546,7 +3546,13 @@ public class DeltaLakeMetadata
     private List<AddFileEntry> getAddFileEntriesMatchingEnforcedPartitionConstraint(ConnectorSession session, DeltaLakeTableHandle tableHandle)
     {
         TableSnapshot tableSnapshot = getSnapshot(session, tableHandle);
-        List<AddFileEntry> validDataFiles = transactionLogAccess.getActiveFiles(tableSnapshot, tableHandle.getMetadataEntry(), tableHandle.getProtocolEntry(), tableHandle.getEnforcedPartitionConstraint(), session);
+        List<AddFileEntry> validDataFiles = transactionLogAccess.getActiveFiles(
+                tableSnapshot,
+                tableHandle.getMetadataEntry(),
+                tableHandle.getProtocolEntry(),
+                tableHandle.getEnforcedPartitionConstraint(),
+                tableHandle.getProjectedColumns(),
+                session);
         TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint = tableHandle.getEnforcedPartitionConstraint();
         if (enforcedPartitionConstraint.isAll()) {
             return validDataFiles;
