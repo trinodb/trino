@@ -35,13 +35,13 @@ import java.util.Set;
 import java.util.UUID;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.raptor.legacy.DatabaseTesting.createTestingJdbi;
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.trino.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
 import static io.trino.plugin.raptor.legacy.storage.organization.ShardOrganizationManager.createOrganizationSets;
 import static io.trino.plugin.raptor.legacy.storage.organization.TestCompactionSetCreator.extractIndexes;
-import static io.trino.plugin.raptor.legacy.storage.organization.TestShardOrganizer.createShardOrganizer;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
@@ -207,5 +207,20 @@ public class TestShardOrganizationManager
                 true,
                 new Duration(intervalMillis, MILLISECONDS),
                 new Duration(5, MINUTES));
+    }
+
+    private static class MockJobFactory
+            implements JobFactory
+    {
+        @Override
+        public Runnable create(OrganizationSet organizationSet)
+        {
+            return () -> sleepUninterruptibly(10, MILLISECONDS);
+        }
+    }
+
+    private static ShardOrganizer createShardOrganizer()
+    {
+        return new ShardOrganizer(new MockJobFactory(), 1);
     }
 }
