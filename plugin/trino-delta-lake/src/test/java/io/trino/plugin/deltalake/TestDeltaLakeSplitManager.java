@@ -56,6 +56,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
@@ -185,7 +186,13 @@ public class TestDeltaLakeSplitManager
                 new ParquetReaderConfig())
         {
             @Override
-            public List<AddFileEntry> getActiveFiles(TableSnapshot tableSnapshot, MetadataEntry metadataEntry, ProtocolEntry protocolEntry, TupleDomain<DeltaLakeColumnHandle> partitionConstraint, ConnectorSession session)
+            public List<AddFileEntry> getActiveFiles(
+                    TableSnapshot tableSnapshot,
+                    MetadataEntry metadataEntry,
+                    ProtocolEntry protocolEntry,
+                    TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
+                    Optional<Set<DeltaLakeColumnHandle>> projectedColumns,
+                    ConnectorSession session)
             {
                 return addFileEntries;
             }
