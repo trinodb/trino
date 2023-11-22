@@ -61,6 +61,7 @@ import java.util.stream.Stream;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.airlift.units.Duration.ZERO;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -71,7 +72,6 @@ import static java.util.Collections.emptyList;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.DAYS;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.function.Function.identity;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -81,8 +81,7 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 @TestInstance(PER_METHOD)
 public class TestCachingJdbcClient
 {
-    private static final Duration FOREVER = Duration.succinctDuration(1, DAYS);
-    private static final Duration ZERO = Duration.succinctDuration(0, MILLISECONDS);
+    private static final Duration FOREVER = new Duration(1, DAYS);
 
     private static final ImmutableList<PropertyMetadata<?>> PROPERTY_METADATA = ImmutableList.of(
             stringProperty(
@@ -943,8 +942,8 @@ public class TestCachingJdbcClient
     {
         CachingJdbcClient cachingJdbcClient = createCachingJdbcClient(
                 FOREVER,
-                Duration.succinctDuration(3, SECONDS),
-                Duration.succinctDuration(2, SECONDS),
+                new Duration(3, SECONDS),
+                new Duration(2, SECONDS),
                 false, // decreased ttl for schema and table names mostly makes sense with cacheMissing == false
                 10000);
         String secondSchema = schema + "_two";
