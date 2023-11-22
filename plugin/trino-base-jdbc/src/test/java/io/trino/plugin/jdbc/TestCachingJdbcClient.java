@@ -111,7 +111,7 @@ public class TestCachingJdbcClient
             throws Exception
     {
         database = new TestingDatabase();
-        cachingJdbcClient = createCachingJdbcClient(true, 10000);
+        cachingJdbcClient = createCachingJdbcClient(new BaseJdbcConfig().isCacheMissing(), new BaseJdbcConfig().getCacheMaximumSize());
         jdbcClient = database.getJdbcClient();
         schema = jdbcClient.getSchemaNames(SESSION).iterator().next();
         executor = newCachedThreadPool(daemonThreadsNamed("TestCachingJdbcClient-%s"));
@@ -219,6 +219,7 @@ public class TestCachingJdbcClient
     public void testTableHandleOfQueryCached()
             throws Exception
     {
+        CachingJdbcClient cachingJdbcClient = cachingStatisticsAwareJdbcClient(FOREVER, new BaseJdbcConfig().isCacheMissing(), new BaseJdbcConfig().getCacheMaximumSize());
         SchemaTableName phantomTable = new SchemaTableName(schema, "phantom_table");
 
         createTable(phantomTable);
@@ -378,6 +379,7 @@ public class TestCachingJdbcClient
     @Test
     public void testEmptyTableHandleIsCachedWhenCacheMissingIsTrue()
     {
+        CachingJdbcClient cachingJdbcClient = createCachingJdbcClient(true, 10000);
         SchemaTableName phantomTable = new SchemaTableName(schema, "phantom_table");
 
         assertThat(cachingJdbcClient.getTableHandle(SESSION, phantomTable)).isEmpty();
@@ -592,7 +594,7 @@ public class TestCachingJdbcClient
     @Test
     public void testGetTableStatistics()
     {
-        CachingJdbcClient cachingJdbcClient = cachingStatisticsAwareJdbcClient(FOREVER, true, 10000);
+        CachingJdbcClient cachingJdbcClient = cachingStatisticsAwareJdbcClient(FOREVER, new BaseJdbcConfig().isCacheMissing(), new BaseJdbcConfig().getCacheMaximumSize());
         ConnectorSession session = createSession("first");
 
         JdbcTableHandle first = createTable(new SchemaTableName(schema, "first"));
@@ -640,7 +642,7 @@ public class TestCachingJdbcClient
     @Test
     public void testCacheGetTableStatisticsWithQueryRelationHandle()
     {
-        CachingJdbcClient cachingJdbcClient = cachingStatisticsAwareJdbcClient(FOREVER, true, 10000);
+        CachingJdbcClient cachingJdbcClient = cachingStatisticsAwareJdbcClient(FOREVER, new BaseJdbcConfig().isCacheMissing(), new BaseJdbcConfig().getCacheMaximumSize());
         ConnectorSession session = createSession("some test session name");
 
         JdbcTableHandle first = createTable(new SchemaTableName(schema, "first"));
@@ -687,7 +689,7 @@ public class TestCachingJdbcClient
     @Test
     public void testTruncateTable()
     {
-        CachingJdbcClient cachingJdbcClient = cachingStatisticsAwareJdbcClient(FOREVER, true, 10000);
+        CachingJdbcClient cachingJdbcClient = cachingStatisticsAwareJdbcClient(FOREVER, new BaseJdbcConfig().isCacheMissing(), new BaseJdbcConfig().getCacheMaximumSize());
         ConnectorSession session = createSession("table");
 
         JdbcTableHandle table = createTable(new SchemaTableName(schema, "table"));
@@ -797,7 +799,7 @@ public class TestCachingJdbcClient
                 FOREVER,
                 FOREVER,
                 FOREVER,
-                true,
+                new BaseJdbcConfig().isCacheMissing(),
                 10000);
         ConnectorSession alice = createUserSession("alice");
         ConnectorSession bob = createUserSession("bob");
@@ -821,7 +823,7 @@ public class TestCachingJdbcClient
     @Test
     public void testFlushCache()
     {
-        CachingJdbcClient cachingJdbcClient = cachingStatisticsAwareJdbcClient(FOREVER, true, 10000);
+        CachingJdbcClient cachingJdbcClient = cachingStatisticsAwareJdbcClient(FOREVER, new BaseJdbcConfig().isCacheMissing(), new BaseJdbcConfig().getCacheMaximumSize());
         ConnectorSession session = createSession("asession");
 
         JdbcTableHandle first = createTable(new SchemaTableName(schema, "atable"));
@@ -858,7 +860,7 @@ public class TestCachingJdbcClient
     @Timeout(60)
     public void testConcurrentSchemaCreateAndDrop()
     {
-        CachingJdbcClient cachingJdbcClient = cachingStatisticsAwareJdbcClient(FOREVER, true, 10000);
+        CachingJdbcClient cachingJdbcClient = cachingStatisticsAwareJdbcClient(FOREVER, new BaseJdbcConfig().isCacheMissing(), new BaseJdbcConfig().getCacheMaximumSize());
         ConnectorSession session = createSession("asession");
         List<Future<?>> futures = new ArrayList<>();
         for (int i = 0; i < 5; i++) {
