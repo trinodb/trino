@@ -18,7 +18,7 @@ import com.google.cloud.bigquery.storage.v1.BigQueryReadSettings;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteSettings;
 import io.trino.spi.connector.ConnectorSession;
 
-interface BigQueryOptionsConfigurer
+public interface BigQueryOptionsConfigurer
 {
     BigQueryOptions.Builder configure(BigQueryOptions.Builder builder, ConnectorSession session);
 
