@@ -2478,7 +2478,8 @@ public class IcebergMetadata
     {
         IcebergTableHandle table = (IcebergTableHandle) handle;
         ConstraintExtractor.ExtractionResult extractionResult = extractTupleDomain(constraint);
-        TupleDomain<IcebergColumnHandle> predicate = extractionResult.tupleDomain();
+        TupleDomain<IcebergColumnHandle> predicate = extractionResult.tupleDomain()
+                .transformKeys(IcebergColumnHandle.class::cast);
         if (predicate.isAll() && constraint.getPredicateColumns().isEmpty()) {
             return Optional.empty();
         }

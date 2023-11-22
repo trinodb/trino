@@ -68,11 +68,10 @@ public final class ConstraintExtractor
 
     public static ExtractionResult extractTupleDomain(Constraint constraint)
     {
-        TupleDomain<IcebergColumnHandle> result = constraint.getSummary()
-                .transformKeys(IcebergColumnHandle.class::cast);
+        TupleDomain<ColumnHandle> result = constraint.getSummary();
         ImmutableList.Builder<ConnectorExpression> remainingExpressions = ImmutableList.builder();
         for (ConnectorExpression conjunct : extractConjuncts(constraint.getExpression())) {
-            Optional<TupleDomain<IcebergColumnHandle>> converted = toTupleDomain(conjunct, constraint.getAssignments());
+            Optional<TupleDomain<ColumnHandle>> converted = toTupleDomain(conjunct, constraint.getAssignments());
             if (converted.isEmpty()) {
                 remainingExpressions.add(conjunct);
             }
@@ -86,7 +85,7 @@ public final class ConstraintExtractor
         return new ExtractionResult(result, and(remainingExpressions.build()));
     }
 
-    private static Optional<TupleDomain<IcebergColumnHandle>> toTupleDomain(ConnectorExpression expression, Map<String, ColumnHandle> assignments)
+    private static Optional<TupleDomain<ColumnHandle>> toTupleDomain(ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
         if (expression instanceof Call call) {
             return toTupleDomain(call, assignments);
@@ -94,7 +93,7 @@ public final class ConstraintExtractor
         return Optional.empty();
     }
 
-    private static Optional<TupleDomain<IcebergColumnHandle>> toTupleDomain(Call call, Map<String, ColumnHandle> assignments)
+    private static Optional<TupleDomain<ColumnHandle>> toTupleDomain(Call call, Map<String, ColumnHandle> assignments)
     {
         if (call.getArguments().size() == 2) {
             ConnectorExpression firstArgument = call.getArguments().get(0);
@@ -145,7 +144,7 @@ public final class ConstraintExtractor
         return Optional.empty();
     }
 
-    private static Optional<TupleDomain<IcebergColumnHandle>> unwrapCastInComparison(
+    private static Optional<TupleDomain<ColumnHandle>> unwrapCastInComparison(
             // upon invocation, we don't know if this really is a comparison
             FunctionName functionName,
             ConnectorExpression castSource,
@@ -164,13 +163,13 @@ public final class ConstraintExtractor
             return Optional.empty();
         }
 
-        IcebergColumnHandle column = resolve(sourceVariable, assignments);
-        if (column.getType() instanceof TimestampWithTimeZoneType sourceType) {
+        ColumnHandle column = resolve(sourceVariable, assignments);
+        if (sourceVariable.getType() instanceof TimestampWithTimeZoneType columnType) {
             // Iceberg supports only timestamp(6) with time zone
-            checkArgument(sourceType.getPrecision() == 6, "Unexpected type: %s", column.getType());
+            checkArgument(columnType.getPrecision() == 6, "Unexpected type: %s", columnType);
 
             if (constant.getType() == DateType.DATE) {
-                return unwrapTimestampTzToDateCast(column, functionName, (long) constant.getValue())
+                return unwrapTimestampTzToDateCast(column, columnType, functionName, (long) constant.getValue())
                         .map(domain -> TupleDomain.withColumnDomains(ImmutableMap.of(column, domain)));
             }
             // TODO support timestamp constant
@@ -179,10 +178,9 @@ public final class ConstraintExtractor
         return Optional.empty();
     }
 
-    private static Optional<Domain> unwrapTimestampTzToDateCast(IcebergColumnHandle column, FunctionName functionName, long date)
+    private static Optional<Domain> unwrapTimestampTzToDateCast(ColumnHandle column, Type columnType, FunctionName functionName, long date)
     {
-        Type type = column.getType();
-        checkArgument(type.equals(TIMESTAMP_TZ_MICROS), "Column of unexpected type %s: %s", type, column);
+        checkArgument(columnType.equals(TIMESTAMP_TZ_MICROS), "Column of unexpected type %s: %s", columnType, column);
 
         // Verify no overflow. Date values must be in integer range.
         verify(date <= Integer.MAX_VALUE, "Date value out of range: %s", date);
@@ -192,7 +190,7 @@ public final class ConstraintExtractor
         LongTimestampWithTimeZone startOfDate = LongTimestampWithTimeZone.fromEpochMillisAndFraction(date * MILLISECONDS_PER_DAY, 0, UTC_KEY);
         LongTimestampWithTimeZone startOfNextDate = LongTimestampWithTimeZone.fromEpochMillisAndFraction((date + 1) * MILLISECONDS_PER_DAY, 0, UTC_KEY);
 
-        return createDomain(functionName, type, startOfDate, startOfNextDate);
+        return createDomain(functionName, columnType, startOfDate, startOfNextDate);
     }
 
     private static Optional<Domain> unwrapYearInTimestampTzComparison(FunctionName functionName, Type type, Constant constant)
@@ -237,7 +235,7 @@ public final class ConstraintExtractor
         return Optional.empty();
     }
 
-    private static Optional<TupleDomain<IcebergColumnHandle>> unwrapDateTruncInComparison(
+    private static Optional<TupleDomain<ColumnHandle>> unwrapDateTruncInComparison(
             // upon invocation, we don't know if this really is a comparison
             FunctionName functionName,
             Constant unit,
@@ -261,10 +259,10 @@ public final class ConstraintExtractor
             return Optional.empty();
         }
 
-        IcebergColumnHandle column = resolve(sourceVariable, assignments);
-        if (column.getType() instanceof TimestampWithTimeZoneType type) {
+        ColumnHandle column = resolve(sourceVariable, assignments);
+        if (sourceVariable.getType() instanceof TimestampWithTimeZoneType type) {
             // Iceberg supports only timestamp(6) with time zone
-            checkArgument(type.getPrecision() == 6, "Unexpected type: %s", column.getType());
+            checkArgument(type.getPrecision() == 6, "Unexpected type: %s", type);
             verify(constant.getType().equals(type), "This method should not be invoked when type mismatch (i.e. surely not a comparison)");
 
             return unwrapDateTruncInComparison(((Slice) unit.getValue()).toStringUtf8(), functionName, constant)
@@ -352,7 +350,7 @@ public final class ConstraintExtractor
         return Optional.empty();
     }
 
-    private static Optional<TupleDomain<IcebergColumnHandle>> unwrapYearInTimestampTzComparison(
+    private static Optional<TupleDomain<ColumnHandle>> unwrapYearInTimestampTzComparison(
             // upon invocation, we don't know if this really is a comparison
             FunctionName functionName,
             ConnectorExpression yearSource,
@@ -371,10 +369,10 @@ public final class ConstraintExtractor
             return Optional.empty();
         }
 
-        IcebergColumnHandle column = resolve(sourceVariable, assignments);
-        if (column.getType() instanceof TimestampWithTimeZoneType type) {
+        ColumnHandle column = resolve(sourceVariable, assignments);
+        if (sourceVariable.getType() instanceof TimestampWithTimeZoneType type) {
             // Iceberg supports only timestamp(6) with time zone
-            checkArgument(type.getPrecision() == 6, "Unexpected type: %s", column.getType());
+            checkArgument(type.getPrecision() == 6, "Unexpected type: %s", type);
 
             return unwrapYearInTimestampTzComparison(functionName, type, constant)
                     .map(domain -> TupleDomain.withColumnDomains(ImmutableMap.of(column, domain)));
@@ -383,14 +381,14 @@ public final class ConstraintExtractor
         return Optional.empty();
     }
 
-    private static IcebergColumnHandle resolve(Variable variable, Map<String, ColumnHandle> assignments)
+    private static ColumnHandle resolve(Variable variable, Map<String, ColumnHandle> assignments)
     {
         ColumnHandle columnHandle = assignments.get(variable.getName());
         checkArgument(columnHandle != null, "No assignment for %s", variable);
-        return (IcebergColumnHandle) columnHandle;
+        return columnHandle;
     }
 
-    public record ExtractionResult(TupleDomain<IcebergColumnHandle> tupleDomain, ConnectorExpression remainingExpression)
+    public record ExtractionResult(TupleDomain<ColumnHandle> tupleDomain, ConnectorExpression remainingExpression)
     {
         public ExtractionResult
         {
