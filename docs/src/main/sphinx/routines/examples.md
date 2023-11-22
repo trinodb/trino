@@ -208,7 +208,7 @@ then starts to calculate each number in the series, starting with `a=1` and
 `b=1` and iterates until it reaches the `n`-th position. In each iteration is
 sets `a` and `b` for the preceding to values, so it can calculate the sum, and
 finally return it. Note that processing the routine takes longer and longer with
-higher `n` values, and the result it deterministic.
+higher `n` values, and the result is deterministic.
 
 ```sql
 FUNCTION fib(n bigint)
@@ -246,7 +246,7 @@ SELECT fib(8); -- 21
 
 ## Labels and loops
 
-This routing uses the `top` label to name the `WHILE` block, and then controls
+This routine uses the `top` label to name the `WHILE` block, and then controls
 the flow with conditional statements, `ITERATE`, and `LEAVE`. For the values of
 `a=1` and `a=2` in the first two iterations of the loop the `ITERATE` call moves
 the flow up to `top` before `b` is ever increased. Then `b` is increased for the
