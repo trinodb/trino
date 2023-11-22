@@ -1008,6 +1008,44 @@ public class TestCachingJdbcClient
         jdbcClient.dropSchema(SESSION, secondSchema, false);
     }
 
+    @Test
+    public void testCacheOnlyStatistics()
+            throws Exception
+    {
+        CachingJdbcClient cachingJdbcClient = cachingClientBuilder()
+                .delegate(jdbcClientWithTableStats())
+                .config(new BaseJdbcConfig()
+                        .setMetadataCacheTtl(ZERO)
+                        .setStatisticsCacheTtl(FOREVER))
+                .build();
+        SchemaTableName phantomTable = new SchemaTableName(schema, "phantom_table");
+
+        createTable(phantomTable);
+
+        JdbcTableHandle firstHandle = assertTableHandleByNameCache(cachingJdbcClient)
+                .misses(2)
+                .loads(1)
+                .calling(() -> cachingJdbcClient.getTableHandle(SESSION, phantomTable)).orElseThrow();
+
+        assertStatisticsCacheStats(cachingJdbcClient)
+                .misses(1)
+                .loads(1)
+                .calling(() -> cachingJdbcClient.getTableStatistics(SESSION, firstHandle));
+
+        // Handle is afresh, not cached
+        JdbcTableHandle secondHandle = assertTableHandleByNameCache(cachingJdbcClient)
+                .misses(2)
+                .loads(1)
+                .calling(() -> cachingJdbcClient.getTableHandle(SESSION, phantomTable)).orElseThrow();
+
+        // Stats come from the cache
+        assertStatisticsCacheStats(cachingJdbcClient)
+                .hits(1)
+                .calling(() -> cachingJdbcClient.getTableStatistics(SESSION, secondHandle));
+
+        dropTable(phantomTable);
+    }
+
     private JdbcTableHandle getAnyTable(String schema)
     {
         SchemaTableName tableName = jdbcClient.getTableNames(SESSION, Optional.of(schema))
@@ -1115,6 +1153,7 @@ public class TestCachingJdbcClient
                     config.getMetadataCacheTtl(),
                     config.getSchemaNamesCacheTtl(),
                     config.getTableNamesCacheTtl(),
+                    config.getStatisticsCacheTtl(),
                     config.isCacheMissing(),
                     config.getCacheMaximumSize());
         }

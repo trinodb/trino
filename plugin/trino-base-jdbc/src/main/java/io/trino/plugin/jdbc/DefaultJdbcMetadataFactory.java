@@ -47,6 +47,7 @@ public class DefaultJdbcMetadataFactory
                 new Duration(1, DAYS),
                 new Duration(1, DAYS),
                 new Duration(1, DAYS),
+                new Duration(1, DAYS),
                 true,
                 Integer.MAX_VALUE));
     }

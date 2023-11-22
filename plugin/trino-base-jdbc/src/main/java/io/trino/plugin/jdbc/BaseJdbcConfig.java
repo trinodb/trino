@@ -36,6 +36,7 @@ public class BaseJdbcConfig
     private static final String METADATA_CACHE_TTL = "metadata.cache-ttl";
     private static final String METADATA_SCHEMAS_CACHE_TTL = "metadata.schemas.cache-ttl";
     private static final String METADATA_TABLES_CACHE_TTL = "metadata.tables.cache-ttl";
+    private static final String METADATA_STATISTICS_CACHE_TTL = "metadata.statistics.cache-ttl";
     private static final String METADATA_CACHE_MAXIMUM_SIZE = "metadata.cache-maximum-size";
     private static final long DEFAULT_METADATA_CACHE_SIZE = 10000;
 
@@ -44,6 +45,7 @@ public class BaseJdbcConfig
     private Duration metadataCacheTtl = new Duration(0, SECONDS);
     private Optional<Duration> schemaNamesCacheTtl = Optional.empty();
     private Optional<Duration> tableNamesCacheTtl = Optional.empty();
+    private Optional<Duration> statisticsCacheTtl = Optional.empty();
     private boolean cacheMissing;
     private Optional<Long> cacheMaximumSize = Optional.empty();
 
@@ -117,6 +119,20 @@ public class BaseJdbcConfig
         return this;
     }
 
+    @NotNull
+    public Duration getStatisticsCacheTtl()
+    {
+        return statisticsCacheTtl.orElse(metadataCacheTtl);
+    }
+
+    @Config(METADATA_STATISTICS_CACHE_TTL)
+    @ConfigDescription("Determines how long table statistics information will be cached")
+    public BaseJdbcConfig setStatisticsCacheTtl(Duration statisticsCacheTtl)
+    {
+        this.statisticsCacheTtl = Optional.ofNullable(statisticsCacheTtl);
+        return this;
+    }
+
     public boolean isCacheMissing()
     {
         return cacheMissing;
@@ -144,10 +160,12 @@ public class BaseJdbcConfig
         return this;
     }
 
-    @AssertTrue(message = METADATA_CACHE_TTL + " must be set to a non-zero value when " + METADATA_CACHE_MAXIMUM_SIZE + " is set")
+    @AssertTrue(message = METADATA_CACHE_TTL + " or " + METADATA_STATISTICS_CACHE_TTL + " must be set to a non-zero value when " + METADATA_CACHE_MAXIMUM_SIZE + " is set")
     public boolean isCacheMaximumSizeConsistent()
     {
-        return !metadataCacheTtl.isZero() || cacheMaximumSize.isEmpty();
+        return !metadataCacheTtl.isZero() ||
+                (statisticsCacheTtl.isPresent() && !statisticsCacheTtl.get().isZero()) ||
+                cacheMaximumSize.isEmpty();
     }
 
     @AssertTrue(message = METADATA_SCHEMAS_CACHE_TTL + " must not be set when " + METADATA_CACHE_TTL + " is not set")

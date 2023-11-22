@@ -102,6 +102,7 @@ public class CachingJdbcClient
                 config.getMetadataCacheTtl(),
                 config.getSchemaNamesCacheTtl(),
                 config.getTableNamesCacheTtl(),
+                config.getStatisticsCacheTtl(),
                 config.isCacheMissing(),
                 config.getCacheMaximumSize());
     }
@@ -113,6 +114,7 @@ public class CachingJdbcClient
             Duration metadataCachingTtl,
             Duration schemaNamesCachingTtl,
             Duration tableNamesCachingTtl,
+            Duration statisticsCachingTtl,
             boolean cacheMissing,
             long cacheMaximumSize)
     {
@@ -129,7 +131,7 @@ public class CachingJdbcClient
         tableHandlesByQueryCache = buildCache(cacheMaximumSize, metadataCachingTtl);
         procedureHandlesByQueryCache = buildCache(cacheMaximumSize, metadataCachingTtl);
         columnsCache = buildCache(cacheMaximumSize, metadataCachingTtl);
-        statisticsCache = buildCache(cacheMaximumSize, metadataCachingTtl);
+        statisticsCache = buildCache(cacheMaximumSize, statisticsCachingTtl);
     }
 
     private static <K, V> Cache<K, V> buildCache(long cacheSize, Duration cachingTtl)
