@@ -33,6 +33,7 @@ import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
@@ -492,6 +493,34 @@ public class QueryAssertions
                                 noopStatsCalculator(),
                                 plan,
                                 PlanMatchPattern.output(PlanMatchPattern.node(TableScanNode.class)));
+                    });
+
+            if (!skipResultsCorrectnessCheckForPushdown) {
+                // Compare the results with pushdown disabled, so that explicit matches() call is not needed
+                hasCorrectResultsRegardlessOfPushdown();
+            }
+            return this;
+        }
+
+        /**
+         * Verifies query is fully pushed down and Table Scan is replaced with empty Values.
+         * Verifies that results are the same as when pushdown is fully disabled.
+         */
+        @CanIgnoreReturnValue
+        public QueryAssert isReplacedWithEmptyValues()
+        {
+            checkState(!(runner instanceof LocalQueryRunner), "isReplacedWithEmptyValues() currently does not work with LocalQueryRunner");
+
+            transaction(runner.getTransactionManager(), runner.getMetadata(), runner.getAccessControl())
+                    .execute(session, session -> {
+                        Plan plan = runner.createPlan(session, query);
+                        assertPlan(
+                                session,
+                                runner.getMetadata(),
+                                runner.getFunctionManager(),
+                                noopStatsCalculator(),
+                                plan,
+                                PlanMatchPattern.output(PlanMatchPattern.node(ValuesNode.class).with(ValuesNode.class, valuesNode -> valuesNode.getRowCount() == 0)));
                     });
 
             if (!skipResultsCorrectnessCheckForPushdown) {
