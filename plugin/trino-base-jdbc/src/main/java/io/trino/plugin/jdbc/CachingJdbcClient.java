@@ -14,6 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ticker;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheStats;
 import com.google.common.collect.ImmutableMap;
@@ -96,6 +97,7 @@ public class CachingJdbcClient
             BaseJdbcConfig config)
     {
         this(
+                Ticker.systemTicker(),
                 delegate,
                 sessionPropertiesProviders,
                 identityMapping,
@@ -108,6 +110,7 @@ public class CachingJdbcClient
     }
 
     public CachingJdbcClient(
+            Ticker ticker,
             JdbcClient delegate,
             Set<SessionPropertiesProvider> sessionPropertiesProviders,
             IdentityCacheMapping identityMapping,
@@ -125,18 +128,19 @@ public class CachingJdbcClient
         this.cacheMissing = cacheMissing;
         this.identityMapping = requireNonNull(identityMapping, "identityMapping is null");
 
-        schemaNamesCache = buildCache(cacheMaximumSize, schemaNamesCachingTtl);
-        tableNamesCache = buildCache(cacheMaximumSize, tableNamesCachingTtl);
-        tableHandlesByNameCache = buildCache(cacheMaximumSize, metadataCachingTtl);
-        tableHandlesByQueryCache = buildCache(cacheMaximumSize, metadataCachingTtl);
-        procedureHandlesByQueryCache = buildCache(cacheMaximumSize, metadataCachingTtl);
-        columnsCache = buildCache(cacheMaximumSize, metadataCachingTtl);
-        statisticsCache = buildCache(cacheMaximumSize, statisticsCachingTtl);
+        schemaNamesCache = buildCache(ticker, cacheMaximumSize, schemaNamesCachingTtl);
+        tableNamesCache = buildCache(ticker, cacheMaximumSize, tableNamesCachingTtl);
+        tableHandlesByNameCache = buildCache(ticker, cacheMaximumSize, metadataCachingTtl);
+        tableHandlesByQueryCache = buildCache(ticker, cacheMaximumSize, metadataCachingTtl);
+        procedureHandlesByQueryCache = buildCache(ticker, cacheMaximumSize, metadataCachingTtl);
+        columnsCache = buildCache(ticker, cacheMaximumSize, metadataCachingTtl);
+        statisticsCache = buildCache(ticker, cacheMaximumSize, statisticsCachingTtl);
     }
 
-    private static <K, V> Cache<K, V> buildCache(long cacheSize, Duration cachingTtl)
+    private static <K, V> Cache<K, V> buildCache(Ticker ticker, long cacheSize, Duration cachingTtl)
     {
         return EvictableCacheBuilder.newBuilder()
+                .ticker(ticker)
                 .maximumSize(cacheSize)
                 .expireAfterWrite(cachingTtl.toMillis(), MILLISECONDS)
                 .shareNothingWhenDisabled()
