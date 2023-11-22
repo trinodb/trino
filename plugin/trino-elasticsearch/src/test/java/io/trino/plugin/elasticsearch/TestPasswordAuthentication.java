@@ -22,9 +22,8 @@ import com.google.common.net.HostAndPort;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.DistributedQueryRunner;
 import org.apache.http.HttpHost;
-import org.apache.http.entity.ContentType;
-import org.apache.http.message.BasicHeader;
-import org.apache.http.nio.entity.NStringEntity;
+import org.elasticsearch.client.Request;
+import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.junit.jupiter.api.AfterAll;
@@ -105,13 +104,12 @@ public class TestPasswordAuthentication
     {
         String json = new ObjectMapper().writeValueAsString(ImmutableMap.of("value", 42L));
 
-        client.getLowLevelClient()
-                .performRequest(
-                        "POST",
-                        "/test/_doc?refresh",
-                        ImmutableMap.of(),
-                        new NStringEntity(json, ContentType.APPLICATION_JSON),
-                        new BasicHeader("Authorization", format("Basic %s", Base64.encodeAsString(format("%s:%s", USER, PASSWORD).getBytes(StandardCharsets.UTF_8)))));
+        Request request = new Request("POST", "/test/_doc?refresh");
+        request.setJsonEntity(json);
+        RequestOptions.Builder options = request.getOptions().toBuilder();
+        options.addHeader("Authorization", Base64.encodeAsString(format("%s:%s", USER, PASSWORD).getBytes(StandardCharsets.UTF_8)));
+        request.setOptions(options.build());
+        client.getLowLevelClient().performRequest(request);
 
         assertThat(assertions.query("SELECT * FROM test"))
                 .matches("VALUES BIGINT '42'");

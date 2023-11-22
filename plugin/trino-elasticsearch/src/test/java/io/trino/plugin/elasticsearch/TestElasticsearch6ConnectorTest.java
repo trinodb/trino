@@ -13,9 +13,7 @@
  */
 package io.trino.plugin.elasticsearch;
 
-import com.google.common.collect.ImmutableMap;
-import org.apache.http.entity.ContentType;
-import org.apache.http.nio.entity.NStringEntity;
+import org.elasticsearch.client.Request;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -41,8 +39,9 @@ public class TestElasticsearch6ConnectorTest
         String mappings = "{\"mappings\": " +
                 "  {\"foo\": { \"dynamic\" : \"strict\" } }" +
                 "}";
-        client.getLowLevelClient()
-                .performRequest("PUT", "/" + indexName, ImmutableMap.of(), new NStringEntity(mappings, ContentType.APPLICATION_JSON));
+        Request request = new Request("PUT", "/" + indexName);
+        request.setJsonEntity(mappings);
+        client.getLowLevelClient().performRequest(request);
 
         assertTableDoesNotExist(indexName);
     }
