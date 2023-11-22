@@ -221,12 +221,12 @@ public class CheckpointEntryIterator
     private CheckpointFieldExtractor createCheckpointFieldExtractor(EntryType entryType)
     {
         return switch (entryType) {
-            case TRANSACTION -> this::buildTxnEntry;
-            case ADD -> this::buildAddEntry;
-            case REMOVE -> this::buildRemoveEntry;
-            case METADATA -> this::buildMetadataEntry;
-            case PROTOCOL -> this::buildProtocolEntry;
-            case COMMIT -> this::buildCommitInfoEntry;
+            case TRANSACTION -> (session, pagePosition, blocks) -> buildTxnEntry(session, pagePosition, blocks[0]);
+            case ADD -> (session, pagePosition, blocks) -> buildAddEntry(session, pagePosition, blocks[0]);
+            case REMOVE -> (session, pagePosition, blocks) -> buildRemoveEntry(session, pagePosition, blocks[0]);
+            case METADATA -> (session, pagePosition, blocks) -> buildMetadataEntry(session, pagePosition, blocks[0]);
+            case PROTOCOL -> (session, pagePosition, blocks) -> buildProtocolEntry(session, pagePosition, blocks[0]);
+            case COMMIT -> (session, pagePosition, blocks) -> buildCommitInfoEntry(session, pagePosition, blocks[0]);
         };
     }
 
@@ -316,7 +316,7 @@ public class CheckpointEntryIterator
                 addColumn.getComment());
     }
 
-    private DeltaLakeTransactionLogEntry buildCommitInfoEntry(ConnectorSession session, Block block, int pagePosition)
+    private DeltaLakeTransactionLogEntry buildCommitInfoEntry(ConnectorSession session, int pagePosition, Block block)
     {
         log.debug("Building commitInfo entry from %s pagePosition %d", block, pagePosition);
         if (block.isNull(pagePosition)) {
@@ -372,7 +372,7 @@ public class CheckpointEntryIterator
         return DeltaLakeTransactionLogEntry.commitInfoEntry(result);
     }
 
-    private DeltaLakeTransactionLogEntry buildProtocolEntry(ConnectorSession session, Block block, int pagePosition)
+    private DeltaLakeTransactionLogEntry buildProtocolEntry(ConnectorSession session, int pagePosition, Block block)
     {
         log.debug("Building protocol entry from %s pagePosition %d", block, pagePosition);
         if (block.isNull(pagePosition)) {
@@ -399,7 +399,7 @@ public class CheckpointEntryIterator
         return DeltaLakeTransactionLogEntry.protocolEntry(result);
     }
 
-    private DeltaLakeTransactionLogEntry buildMetadataEntry(ConnectorSession session, Block block, int pagePosition)
+    private DeltaLakeTransactionLogEntry buildMetadataEntry(ConnectorSession session, int pagePosition, Block block)
     {
         log.debug("Building metadata entry from %s pagePosition %d", block, pagePosition);
         if (block.isNull(pagePosition)) {
@@ -438,7 +438,7 @@ public class CheckpointEntryIterator
         return DeltaLakeTransactionLogEntry.metadataEntry(result);
     }
 
-    private DeltaLakeTransactionLogEntry buildRemoveEntry(ConnectorSession session, Block block, int pagePosition)
+    private DeltaLakeTransactionLogEntry buildRemoveEntry(ConnectorSession session, int pagePosition, Block block)
     {
         log.debug("Building remove entry from %s pagePosition %d", block, pagePosition);
         if (block.isNull(pagePosition)) {
@@ -461,7 +461,7 @@ public class CheckpointEntryIterator
         return DeltaLakeTransactionLogEntry.removeFileEntry(result);
     }
 
-    private DeltaLakeTransactionLogEntry buildAddEntry(ConnectorSession session, Block block, int pagePosition)
+    private DeltaLakeTransactionLogEntry buildAddEntry(ConnectorSession session, int pagePosition, Block block)
     {
         log.debug("Building add entry from %s pagePosition %d", block, pagePosition);
         if (block.isNull(pagePosition)) {
@@ -619,7 +619,7 @@ public class CheckpointEntryIterator
         return values.buildOrThrow();
     }
 
-    private DeltaLakeTransactionLogEntry buildTxnEntry(ConnectorSession session, Block block, int pagePosition)
+    private DeltaLakeTransactionLogEntry buildTxnEntry(ConnectorSession session, int pagePosition, Block block)
     {
         log.debug("Building txn entry from %s pagePosition %d", block, pagePosition);
         if (block.isNull(pagePosition)) {
@@ -693,7 +693,7 @@ public class CheckpointEntryIterator
 
             // process page
             for (int i = 0; i < extractors.size(); ++i) {
-                DeltaLakeTransactionLogEntry entry = extractors.get(i).getEntry(session, page.getBlock(i).getLoadedBlock(), pagePosition);
+                DeltaLakeTransactionLogEntry entry = extractors.get(i).getEntry(session, pagePosition, page.getBlock(i).getLoadedBlock());
                 if (entry != null) {
                     nextEntries.add(entry);
                 }
@@ -724,6 +724,6 @@ public class CheckpointEntryIterator
          * checkpoint filter criteria.
          */
         @Nullable
-        DeltaLakeTransactionLogEntry getEntry(ConnectorSession session, Block block, int pagePosition);
+        DeltaLakeTransactionLogEntry getEntry(ConnectorSession session, int pagePosition, Block... blocks);
     }
 }
