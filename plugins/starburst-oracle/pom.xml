@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.trino.plugins</groupId>
         <artifactId>starburst-trino-plugins</artifactId>
-        <version>433-SNAPSHOT</version>
+        <version>434-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -17,8 +17,19 @@
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
     </properties>
 
-    <dependencies>
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.oracle.database.jdbc</groupId>
+                <artifactId>ojdbc10-production</artifactId>
+                <version>19.21.0.0</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
+    <dependencies>
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
@@ -31,15 +42,14 @@
 
         <dependency>
             <groupId>com.oracle.database.jdbc</groupId>
-            <artifactId>ojdbc11</artifactId>
-            <version>${dep.oracle.version}</version>
+            <artifactId>ojdbc10</artifactId>
         </dependency>
 
         <dependency>
             <groupId>com.oracle.database.jdbc</groupId>
-            <artifactId>ucp11</artifactId>
-            <version>${dep.oracle.version}</version>
+            <artifactId>ucp</artifactId>
         </dependency>
+
         <dependency>
             <groupId>com.starburstdata.trino.plugins</groupId>
             <artifactId>starburst-license</artifactId>
@@ -68,6 +78,17 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-oracle</artifactId>
+            <!-- TODO: remove when Trino is updated to contain https://github.com/trinodb/trino/commit/0fa001b58cb99e67c08d89775ba94f250476a68d -->
+            <exclusions>
+                <exclusion>
+                    <groupId>com.oracle.database.jdbc</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.oracle.database.nls</groupId>
+                    <artifactId>orai18n</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -191,6 +212,17 @@
             <artifactId>trino-oracle</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
+            <!-- TODO: remove when Trino is updated to contain https://github.com/trinodb/trino/commit/0fa001b58cb99e67c08d89775ba94f250476a68d -->
+            <exclusions>
+                <exclusion>
+                    <groupId>com.oracle.database.jdbc</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.oracle.database.nls</groupId>
+                    <artifactId>orai18n</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>

@@ -57,6 +57,8 @@ public class TestingStarburstOracleServer
                 .withEnv("ORACLE_PDB", "testdb")
                 .withEnv("ORACLE_PWD", "secret")
                 .withCreateContainerCmdModifier(cmd -> cmd.withHostName("oracle-master"))
+                // Needed to avoid some networking issues between the client and the server
+                .withAccessToHost(true)
                 // Recommended ulimits for running Oracle on Linux
                 // https://docs.oracle.com/en/database/oracle/oracle-database/12.2/ladbi/checking-resource-limits-for-oracle-software-installation-users.html
                 .withCreateContainerCmdModifier(cmd ->
