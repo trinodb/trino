@@ -23,6 +23,7 @@ import io.trino.execution.QueryInfo;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.TableDeleteNode;
 import io.trino.sql.planner.plan.TableFinishNode;
 import io.trino.sql.planner.plan.TableWriterNode;
@@ -61,6 +62,7 @@ import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.testing.MaterializedResult.resultBuilder;
@@ -625,6 +627,72 @@ public class TestDeltaLakeConnectorTest
                 .contains("/part=2023-07-20 02%3A02%3A04/");
         assertThat((String) computeScalar("SELECT \"$path\" FROM " + tableName + " WHERE id = 4"))
                 .contains("/part=9999-12-31 23%3A59%3A59.999/");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testTimestampWithTimeZoneOptimization()
+    {
+        String tableName = "test_timestamp_tz_optimization_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + "(id INT, part TIMESTAMP WITH TIME ZONE) WITH (partitioned_by = ARRAY['part'])");
+        assertUpdate(
+                "INSERT INTO " + tableName + " VALUES " +
+                        "(1, NULL)," +
+                        "(2, TIMESTAMP '0001-01-01 00:00:00.000 UTC')," +
+                        "(3, TIMESTAMP '2023-11-21 09:19:00.000 +02:00')," +
+                        "(4, TIMESTAMP '2005-09-10 13:00:00.000 UTC')",
+                4);
+
+        // date_trunc optimization
+        assertThat(query("SELECT * FROM " + tableName + " WHERE date_trunc('day', part) >= TIMESTAMP '2005-09-10 07:00:00.000 +07:00'"))
+                .isFullyPushedDown()
+                .matches("VALUES " +
+                        "(3, TIMESTAMP '2023-11-21 07:19:00.000 UTC')," +
+                        "(4, TIMESTAMP '2005-09-10 13:00:00.000 UTC')");
+
+        assertThat(query("SELECT * FROM " + tableName + " WHERE date_trunc('day', part) = TIMESTAMP '2005-09-10 00:00:00.000 +07:00'"))
+                .isReplacedWithEmptyValues();
+
+        assertThat(query("SELECT * FROM " + tableName + " WHERE date_trunc('hour', part) >= TIMESTAMP '2005-09-10 13:00:00.001 +00:00'"))
+                .isFullyPushedDown()
+                .matches("VALUES " +
+                        "(3, TIMESTAMP '2023-11-21 07:19:00.000 UTC')");
+
+        // the DATE is upcast to timestamp_tz using the session time zone (Asia/Kathmandu).
+        // part is in UTC, so there is no match for date_trunc.
+        assertThat(query(
+                Session.builder(getSession())
+                        .setTimeZoneKey(getTimeZoneKey("Asia/Kathmandu"))
+                        .build(),
+                "SELECT * FROM " + tableName + " WHERE date_trunc('day', part) = DATE '2005-09-10'"))
+                .isReplacedWithEmptyValues();
+
+        assertThat(query("SELECT * FROM " + tableName + " WHERE date_trunc('week', part) >= TIMESTAMP '2005-09-10 00:00:00.000 +00:00'"))
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // cast timestamp_tz as DATE optimization
+        assertThat(query("SELECT * FROM " + tableName + " WHERE cast(part AS date) >= DATE '2005-09-10'"))
+                .isFullyPushedDown()
+                .matches("VALUES " +
+                        "(3, TIMESTAMP '2023-11-21 07:19:00.000 UTC')," +
+                        "(4, TIMESTAMP '2005-09-10 13:00:00.000 UTC')");
+
+        assertThat(query("SELECT * FROM " + tableName + " WHERE cast(part AS date) = DATE '2005-10-10'"))
+                .isFullyPushedDown()
+                .returnsEmptyResult();
+
+        // year function optimization
+        assertThat(query("SELECT * FROM " + tableName + " WHERE year(part) >= 2005"))
+                .isFullyPushedDown()
+                .matches("VALUES " +
+                        "(3, TIMESTAMP '2023-11-21 07:19:00.000 UTC')," +
+                        "(4, TIMESTAMP '2005-09-10 13:00:00.000 UTC')");
+
+        assertThat(query("SELECT * FROM " + tableName + " WHERE year(part) = 2006"))
+                .isFullyPushedDown()
+                .returnsEmptyResult();
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -2851,11 +2919,11 @@ public class TestDeltaLakeConnectorTest
                 "test_partition_left_",
                 "(x varchar, part varchar)",
                 ImmutableList.of("('a', 'part_a')"));
-                    TestTable rightTable = new TestTable(
-                            new TrinoSqlExecutor(getQueryRunner(), session),
-                           "test_partition_right_",
-                            "(x varchar, part varchar) WITH (partitioned_by = ARRAY['part'])",
-                            ImmutableList.of("('a', 'part_a')"))) {
+                TestTable rightTable = new TestTable(
+                        new TrinoSqlExecutor(getQueryRunner(), session),
+                        "test_partition_right_",
+                        "(x varchar, part varchar) WITH (partitioned_by = ARRAY['part'])",
+                        ImmutableList.of("('a', 'part_a')"))) {
             assertQueryFails(
                     session,
                     "SELECT a.x, b.x from %s a JOIN %s b on (a.x = b.x) where a.x = 'a'".formatted(leftTable.getName(), rightTable.getName()),
@@ -2877,11 +2945,11 @@ public class TestDeltaLakeConnectorTest
                 "test_partition_inferred_left_",
                 "(x varchar, part varchar) WITH (partitioned_by = ARRAY['part'])",
                 ImmutableList.of("('a', 'part_a')"));
-                    TestTable rightTable = new TestTable(
-                            new TrinoSqlExecutor(getQueryRunner(), session),
-                            "test_partition_inferred_right_",
-                            "(x varchar, part varchar) WITH (partitioned_by = ARRAY['part'])",
-                            ImmutableList.of("('a', 'part_a')"))) {
+                TestTable rightTable = new TestTable(
+                        new TrinoSqlExecutor(getQueryRunner(), session),
+                        "test_partition_inferred_right_",
+                        "(x varchar, part varchar) WITH (partitioned_by = ARRAY['part'])",
+                        ImmutableList.of("('a', 'part_a')"))) {
             assertQueryFails(
                     session,
                     "SELECT a.x, b.x from %s a JOIN %s b on (a.x = b.x) where a.x = 'a'".formatted(leftTable.getName(), rightTable.getName()),
@@ -2942,7 +3010,7 @@ public class TestDeltaLakeConnectorTest
                 "(x integer, part integer) WITH (partitioned_by = ARRAY['part'])",
                 ImmutableList.of("(1, 11)", "(2, 22)"))) {
             String expectedMessageRegExp = "ANALYZE statement can not be performed on partitioned tables because filtering is required on at least one partition." +
-                                           " However, the partition filtering check can be disabled with the catalog session property 'query_partition_filter_required'.";
+                    " However, the partition filtering check can be disabled with the catalog session property 'query_partition_filter_required'.";
             assertQueryFails(session, "ANALYZE " + table.getName(), expectedMessageRegExp);
             assertQueryFails(session, "EXPLAIN ANALYZE " + table.getName(), expectedMessageRegExp);
         }
@@ -3068,23 +3136,23 @@ public class TestDeltaLakeConnectorTest
             assertUpdate(session, "UPDATE " + table.getName() + " SET x = 20 WHERE part = 22", 1);
 
             assertQueryFails(session, "MERGE INTO " + table.getName() + " t " +
-                                      "USING (SELECT * FROM (VALUES (3, 99), (4,44))) AS s(x, part) " +
-                                      "ON t.x = s.x " +
-                                      "WHEN MATCHED THEN DELETE ", expectedMessageRegExp);
+                    "USING (SELECT * FROM (VALUES (3, 99), (4,44))) AS s(x, part) " +
+                    "ON t.x = s.x " +
+                    "WHEN MATCHED THEN DELETE ", expectedMessageRegExp);
             assertUpdate(session, "MERGE INTO " + table.getName() + " t " +
-                                  "USING (SELECT * FROM (VALUES (2, 22), (4 , 44))) AS s(x, part) " +
-                                  "ON (t.part = s.part) " +
-                                  "WHEN MATCHED THEN UPDATE " +
-                                  " SET x = t.x + s.x, part = t.part ", 1);
+                    "USING (SELECT * FROM (VALUES (2, 22), (4 , 44))) AS s(x, part) " +
+                    "ON (t.part = s.part) " +
+                    "WHEN MATCHED THEN UPDATE " +
+                    " SET x = t.x + s.x, part = t.part ", 1);
 
             assertQueryFails(session, "MERGE INTO " + table.getName() + " t " +
-                                      "USING (SELECT * FROM (VALUES (4,44))) AS s(x, part) " +
-                                      "ON t.x = s.x " +
-                                      "WHEN NOT MATCHED THEN INSERT (x, part) VALUES(s.x, s.part) ", expectedMessageRegExp);
+                    "USING (SELECT * FROM (VALUES (4,44))) AS s(x, part) " +
+                    "ON t.x = s.x " +
+                    "WHEN NOT MATCHED THEN INSERT (x, part) VALUES(s.x, s.part) ", expectedMessageRegExp);
             assertUpdate(session, "MERGE INTO " + table.getName() + " t " +
-                                  "USING (SELECT * FROM (VALUES (4, 44))) AS s(x, part) " +
-                                  "ON (t.part = s.part) " +
-                                  "WHEN NOT MATCHED THEN INSERT (x, part) VALUES(s.x, s.part) ", 1);
+                    "USING (SELECT * FROM (VALUES (4, 44))) AS s(x, part) " +
+                    "ON (t.part = s.part) " +
+                    "WHEN NOT MATCHED THEN INSERT (x, part) VALUES(s.x, s.part) ", 1);
 
             assertQueryFails(session, "DELETE FROM " + table.getName() + " WHERE x = 3", expectedMessageRegExp);
             assertUpdate(session, "DELETE FROM " + table.getName() + " WHERE part = 33 and x = 3", 1);
@@ -3201,11 +3269,11 @@ public class TestDeltaLakeConnectorTest
         String tableLocation = "s3://%s/%s/%s".formatted(bucketName, SCHEMA, tableName);
 
         String initialValues = "VALUES" +
-                               " (1, BOOLEAN 'false', TINYINT '-128')" +
-                               ",(2, BOOLEAN 'true', TINYINT '127')" +
-                               ",(3, BOOLEAN 'false', TINYINT '0')" +
-                               ",(4, BOOLEAN 'false', TINYINT '1')" +
-                               ",(5, BOOLEAN 'true', TINYINT '37')";
+                " (1, BOOLEAN 'false', TINYINT '-128')" +
+                ",(2, BOOLEAN 'true', TINYINT '127')" +
+                ",(3, BOOLEAN 'false', TINYINT '0')" +
+                ",(4, BOOLEAN 'false', TINYINT '1')" +
+                ",(5, BOOLEAN 'true', TINYINT '37')";
         assertUpdate("CREATE TABLE " + tableName + "(id, boolean, tinyint) WITH (location = '" + tableLocation + "') AS " + initialValues, 5);
         assertThat(query("SELECT * FROM " + tableName)).matches(initialValues);
 
@@ -3215,13 +3283,13 @@ public class TestDeltaLakeConnectorTest
         }
 
         String newValues = "VALUES" +
-                           " (1, BOOLEAN 'true', TINYINT '1')" +
-                           ",(2, BOOLEAN 'true', TINYINT '1')" +
-                           ",(3, BOOLEAN 'false', TINYINT '2')" +
-                           ",(4, BOOLEAN 'true', TINYINT '3')" +
-                           ",(5, BOOLEAN 'true', TINYINT '5')" +
-                           ",(6, BOOLEAN 'false', TINYINT '8')" +
-                           ",(7, BOOLEAN 'true', TINYINT '13')";
+                " (1, BOOLEAN 'true', TINYINT '1')" +
+                ",(2, BOOLEAN 'true', TINYINT '1')" +
+                ",(3, BOOLEAN 'false', TINYINT '2')" +
+                ",(4, BOOLEAN 'true', TINYINT '3')" +
+                ",(5, BOOLEAN 'true', TINYINT '5')" +
+                ",(6, BOOLEAN 'false', TINYINT '8')" +
+                ",(7, BOOLEAN 'true', TINYINT '13')";
         assertUpdate("CREATE TABLE " + tableName + "(id, boolean, tinyint) WITH (location = '" + tableLocation + "') AS " + newValues, 7);
         assertThat(query("SELECT * FROM " + tableName)).matches(newValues);
 

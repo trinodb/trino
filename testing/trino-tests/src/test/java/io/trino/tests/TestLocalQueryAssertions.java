@@ -67,6 +67,15 @@ public class TestLocalQueryAssertions
     }
 
     @Test
+    @Override
+    public void testIsReplacedWithEmptyValues()
+    {
+        assertThatThrownBy(() -> assertThat(query("SELECT 1 WHERE false")).isReplacedWithEmptyValues())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("isReplacedWithEmptyValues() currently does not work with LocalQueryRunner");
+    }
+
+    @Test
     public void testNullInErrorMessage()
     {
         assertThatThrownBy(() -> assertThat(query("SELECT CAST(null AS integer)")).matches("SELECT 1"))
