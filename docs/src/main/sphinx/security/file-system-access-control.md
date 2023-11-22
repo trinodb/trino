@@ -72,9 +72,22 @@ any specific schema or table permissions. The table and schema rules are used to
 specify who can create, drop, alter, select, insert, delete, etc. for schemas
 and tables.
 
-For each rule set, permission is based on the first matching rule read from top
-to bottom. If no rule matches, access is denied. If no rules are provided at
-all, then access is granted.
+For each rule set, permission is based on the first matching rule, read from the
+top to the bottom of the configuration file. If no rule matches, access is
+denied.
+
+If no rules are provided at all, then access is granted. You can remove
+access grant by adding a section with an empty set of rules at that particular
+level, for example:
+
+```json
+{
+  "schemas": []
+}
+```
+
+At the catalog level you have to add a single "dummy" rule for each accessible
+catalog.
 
 :::{note}
 These rules do not apply to system-defined tables in the
