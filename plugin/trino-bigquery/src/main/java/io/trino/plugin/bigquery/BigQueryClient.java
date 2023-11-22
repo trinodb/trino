@@ -112,6 +112,11 @@ public class BigQueryClient
         this.configProjectId = requireNonNull(configProjectId, "projectId is null");
     }
 
+    public Optional<RemoteDatabaseObject> toRemoteDataset(DatasetId datasetId)
+    {
+        return toRemoteDataset(datasetId.getProject(), datasetId.getDataset());
+    }
+
     public Optional<RemoteDatabaseObject> toRemoteDataset(String projectId, String datasetName)
     {
         requireNonNull(projectId, "projectId is null");
@@ -219,6 +224,16 @@ public class BigQueryClient
         String projectId = configProjectId.orElseGet(() -> bigQuery.getOptions().getProjectId());
         checkState(projectId.toLowerCase(ENGLISH).equals(projectId), "projectId must be lowercase but it's " + projectId);
         return projectId;
+    }
+
+    public DatasetId toDatasetId(String schemaName)
+    {
+        return DatasetId.of(getProjectId(), schemaName);
+    }
+
+    public String toSchemaName(DatasetId datasetId)
+    {
+        return datasetId.getDataset();
     }
 
     public Iterable<Dataset> listDatasets(String projectId)
