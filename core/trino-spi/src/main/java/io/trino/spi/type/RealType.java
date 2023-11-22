@@ -183,7 +183,7 @@ public final class RealType
     @ScalarOperator(COMPARISON_UNORDERED_LAST)
     private static long comparisonUnorderedLastOperator(long left, long right)
     {
-        return Float.compare(intBitsToFloat((int) left), intBitsToFloat((int) right));
+        return compare(intBitsToFloat((int) left), intBitsToFloat((int) right));
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_FIRST)
@@ -201,7 +201,7 @@ public final class RealType
         if (Float.isNaN(right)) {
             return 1;
         }
-        return Float.compare(left, right);
+        return compare(left, right);
     }
 
     @ScalarOperator(LESS_THAN)
@@ -214,5 +214,14 @@ public final class RealType
     private static boolean lessThanOrEqualOperator(long left, long right)
     {
         return intBitsToFloat((int) left) <= intBitsToFloat((int) right);
+    }
+
+    private static int compare(float left, float right)
+    {
+        if (left == right) { // Float.compare considers 0.0 and -0.0 different from each other
+            return 0;
+        }
+
+        return Float.compare(left, right);
     }
 }
