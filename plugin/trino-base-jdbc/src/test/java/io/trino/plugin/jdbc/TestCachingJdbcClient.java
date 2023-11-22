@@ -736,7 +736,15 @@ public class TestCachingJdbcClient
                 return NON_EMPTY_STATS;
             }
         };
-        return new CachingJdbcClient(statsAwareJdbcClient, SESSION_PROPERTIES_PROVIDERS, new SingletonIdentityCacheMapping(), duration, cacheMissing, cacheMaximumSize);
+        return new CachingJdbcClient(
+                statsAwareJdbcClient,
+                SESSION_PROPERTIES_PROVIDERS,
+                new SingletonIdentityCacheMapping(),
+                duration,
+                duration,
+                duration,
+                cacheMissing,
+                cacheMaximumSize);
     }
 
     @Test
@@ -786,6 +794,8 @@ public class TestCachingJdbcClient
                 new ExtraCredentialsBasedIdentityCacheMapping(new ExtraCredentialConfig()
                         .setUserCredentialName("user")
                         .setPasswordCredentialName("password")),
+                FOREVER,
+                FOREVER,
                 FOREVER,
                 true,
                 10000);
@@ -905,6 +915,8 @@ public class TestCachingJdbcClient
                 SESSION_PROPERTIES_PROVIDERS,
                 new SingletonIdentityCacheMapping(),
                 // ttl is 0, cache is disabled
+                new Duration(0, DAYS),
+                new Duration(0, DAYS),
                 new Duration(0, DAYS),
                 true,
                 10);
