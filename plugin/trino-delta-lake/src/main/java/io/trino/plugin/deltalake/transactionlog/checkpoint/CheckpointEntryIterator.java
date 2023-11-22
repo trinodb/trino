@@ -72,6 +72,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -222,7 +223,7 @@ public class CheckpointEntryIterator
     {
         return switch (entryType) {
             case TRANSACTION -> (session, pagePosition, blocks) -> buildTxnEntry(session, pagePosition, blocks[0]);
-            case ADD -> (session, pagePosition, blocks) -> buildAddEntry(session, pagePosition, blocks[0]);
+            case ADD -> new AddFileEntryExtractor();
             case REMOVE -> (session, pagePosition, blocks) -> buildRemoveEntry(session, pagePosition, blocks[0]);
             case METADATA -> (session, pagePosition, blocks) -> buildMetadataEntry(session, pagePosition, blocks[0]);
             case PROTOCOL -> (session, pagePosition, blocks) -> buildProtocolEntry(session, pagePosition, blocks[0]);
@@ -461,61 +462,69 @@ public class CheckpointEntryIterator
         return DeltaLakeTransactionLogEntry.removeFileEntry(result);
     }
 
-    private DeltaLakeTransactionLogEntry buildAddEntry(ConnectorSession session, int pagePosition, Block block)
+    private class AddFileEntryExtractor
+            implements CheckpointFieldExtractor
     {
-        log.debug("Building add entry from %s pagePosition %d", block, pagePosition);
-        if (block.isNull(pagePosition)) {
-            return null;
+        @Nullable
+        @Override
+        public DeltaLakeTransactionLogEntry getEntry(ConnectorSession session, int pagePosition, Block... blocks)
+        {
+            checkState(blocks.length == 1, "Unexpected amount of blocks: %s", blocks.length);
+            Block block = blocks[0];
+            log.debug("Building add entry from %s pagePosition %d", block, pagePosition);
+            if (block.isNull(pagePosition)) {
+                return null;
+            }
+            RowType type = (RowType) parquetFields.get("add");
+            SqlRow addEntryRow = block.getObject(pagePosition, SqlRow.class);
+            log.debug("Block %s has %s fields", block, addEntryRow.getFieldCount());
+            CheckpointFieldReader add = new CheckpointFieldReader(session, addEntryRow, type);
+
+            Map<String, String> partitionValues = add.getMap(stringMap, "partitionValues");
+            Map<String, Optional<String>> canonicalPartitionValues = canonicalizePartitionValues(partitionValues);
+            if (!partitionConstraint.isAll() && !partitionMatchesPredicate(canonicalPartitionValues, partitionConstraint.getDomains().orElseThrow())) {
+                return null;
+            }
+
+            String path = add.getString("path");
+            long size = add.getLong("size");
+            long modificationTime = add.getLong("modificationTime");
+            boolean dataChange = add.getBoolean("dataChange");
+
+            Optional<DeletionVectorEntry> deletionVector = Optional.empty();
+            if (deletionVectorsEnabled) {
+                deletionVector = Optional.ofNullable(add.getRow("deletionVector"))
+                        .map(row -> {
+                            RowType.Field deletionVectorField = type.getFields().stream().filter(field -> field.getName().orElseThrow().equals("deletionVector")).collect(onlyElement());
+                            return parseDeletionVectorFromParquet(session, row, (RowType) deletionVectorField.getType());
+                        });
+            }
+
+            Optional<DeltaLakeParquetFileStatistics> parsedStats = Optional.ofNullable(add.getRow("stats_parsed")).map(row -> {
+                RowType.Field parsedStatsField = type.getFields().stream().filter(field -> field.getName().orElseThrow().equals("stats_parsed")).collect(onlyElement());
+                return parseStatisticsFromParquet(session, row, (RowType) parsedStatsField.getType());
+            });
+            Optional<String> stats = Optional.empty();
+            if (parsedStats.isEmpty()) {
+                stats = Optional.ofNullable(add.getString("stats"));
+            }
+
+            Map<String, String> tags = add.getMap(stringMap, "tags");
+            AddFileEntry result = new AddFileEntry(
+                    path,
+                    partitionValues,
+                    canonicalPartitionValues,
+                    size,
+                    modificationTime,
+                    dataChange,
+                    stats,
+                    parsedStats,
+                    tags,
+                    deletionVector);
+
+            log.debug("Result: %s", result);
+            return DeltaLakeTransactionLogEntry.addFileEntry(result);
         }
-        RowType type = (RowType) parquetFields.get("add");
-        SqlRow addEntryRow = block.getObject(pagePosition, SqlRow.class);
-        log.debug("Block %s has %s fields", block, addEntryRow.getFieldCount());
-        CheckpointFieldReader add = new CheckpointFieldReader(session, addEntryRow, type);
-
-        Map<String, String> partitionValues = add.getMap(stringMap, "partitionValues");
-        Map<String, Optional<String>> canonicalPartitionValues = canonicalizePartitionValues(partitionValues);
-        if (!partitionConstraint.isAll() && !partitionMatchesPredicate(canonicalPartitionValues, partitionConstraint.getDomains().orElseThrow())) {
-            return null;
-        }
-
-        String path = add.getString("path");
-        long size = add.getLong("size");
-        long modificationTime = add.getLong("modificationTime");
-        boolean dataChange = add.getBoolean("dataChange");
-
-        Optional<DeletionVectorEntry> deletionVector = Optional.empty();
-        if (deletionVectorsEnabled) {
-            deletionVector = Optional.ofNullable(add.getRow("deletionVector"))
-                    .map(row -> {
-                        RowType.Field deletionVectorField = type.getFields().stream().filter(field -> field.getName().orElseThrow().equals("deletionVector")).collect(onlyElement());
-                        return parseDeletionVectorFromParquet(session, row, (RowType) deletionVectorField.getType());
-                    });
-        }
-
-        Optional<DeltaLakeParquetFileStatistics> parsedStats = Optional.ofNullable(add.getRow("stats_parsed")).map(row -> {
-            RowType.Field parsedStatsField = type.getFields().stream().filter(field -> field.getName().orElseThrow().equals("stats_parsed")).collect(onlyElement());
-            return parseStatisticsFromParquet(session, row, (RowType) parsedStatsField.getType());
-        });
-        Optional<String> stats = Optional.empty();
-        if (parsedStats.isEmpty()) {
-            stats = Optional.ofNullable(add.getString("stats"));
-        }
-
-        Map<String, String> tags = add.getMap(stringMap, "tags");
-        AddFileEntry result = new AddFileEntry(
-                path,
-                partitionValues,
-                canonicalPartitionValues,
-                size,
-                modificationTime,
-                dataChange,
-                stats,
-                parsedStats,
-                tags,
-                deletionVector);
-
-        log.debug("Result: %s", result);
-        return DeltaLakeTransactionLogEntry.addFileEntry(result);
     }
 
     private DeletionVectorEntry parseDeletionVectorFromParquet(ConnectorSession session, SqlRow row, RowType type)
