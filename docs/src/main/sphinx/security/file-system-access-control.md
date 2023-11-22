@@ -72,14 +72,14 @@ any specific schema or table permissions. The table and schema rules are used to
 specify who can create, drop, alter, select, insert, delete, etc. for schemas
 and tables.
 
+For each rule set, permission is based on the first matching rule read from top
+to bottom. If no rule matches, access is denied. If no rules are provided at
+all, then access is granted.
+
 :::{note}
 These rules do not apply to system-defined tables in the
 `information_schema` schema.
 :::
-
-For each rule set, permission is based on the first matching rule read from top
-to bottom.  If no rule matches, access is denied. If no rules are provided at
-all, then access is granted.
 
 The following table summarizes the permissions required for each SQL command:
 
