@@ -120,7 +120,8 @@ public class CheckpointWriter
                 entries.getProtocolEntry(),
                 alwaysTrue(),
                 writeStatsAsJson,
-                writeStatsAsStruct);
+                writeStatsAsStruct,
+                true);
         RowType removeEntryType = checkpointSchemaManager.getRemoveEntryType();
 
         List<String> columnNames = ImmutableList.of(
