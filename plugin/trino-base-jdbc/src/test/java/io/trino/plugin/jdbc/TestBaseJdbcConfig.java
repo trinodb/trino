@@ -26,15 +26,13 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDe
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static io.airlift.testing.ValidationAssertions.assertValidates;
-import static java.util.concurrent.TimeUnit.MINUTES;
+import static io.airlift.units.Duration.ZERO;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestBaseJdbcConfig
 {
-    private static final Duration ZERO = Duration.succinctDuration(0, MINUTES);
-
     @Test
     public void testDefaults()
     {
@@ -100,20 +98,23 @@ public class TestBaseJdbcConfig
                 .setConnectionUrl("jdbc:h2:mem:config")
                 .setMetadataCacheTtl(new Duration(1, SECONDS)));
 
-        assertFailsValidation(new BaseJdbcConfig()
-                .setCacheMaximumSize(5000),
+        assertFailsValidation(
+                new BaseJdbcConfig()
+                        .setCacheMaximumSize(5000),
                 "cacheMaximumSizeConsistent",
                 "metadata.cache-ttl must be set to a non-zero value when metadata.cache-maximum-size is set",
                 AssertTrue.class);
 
-        assertFailsValidation(new BaseJdbcConfig()
-                .setSchemaNamesCacheTtl(new Duration(1, SECONDS)),
+        assertFailsValidation(
+                new BaseJdbcConfig()
+                        .setSchemaNamesCacheTtl(new Duration(1, SECONDS)),
                 "schemaNamesCacheTtlConsistent",
                 "metadata.schemas.cache-ttl must not be set when metadata.cache-ttl is not set",
                 AssertTrue.class);
 
-        assertFailsValidation(new BaseJdbcConfig()
-                .setTableNamesCacheTtl(new Duration(1, SECONDS)),
+        assertFailsValidation(
+                new BaseJdbcConfig()
+                        .setTableNamesCacheTtl(new Duration(1, SECONDS)),
                 "tableNamesCacheTtlConsistent",
                 "metadata.tables.cache-ttl must not be set when metadata.cache-ttl is not set",
                 AssertTrue.class);

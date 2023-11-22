@@ -66,7 +66,6 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.cache.CacheUtils.invalidateAllIf;
-import static io.trino.plugin.jdbc.BaseJdbcConfig.CACHING_DISABLED;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -142,7 +141,7 @@ public class CachingJdbcClient
         this.cacheMissing = cacheMissing;
         this.identityMapping = requireNonNull(identityMapping, "identityMapping is null");
 
-        long cacheSize = metadataCachingTtl.equals(CACHING_DISABLED)
+        long cacheSize = metadataCachingTtl.isZero()
                 // Disables the cache entirely
                 ? 0
                 : cacheMaximumSize;
