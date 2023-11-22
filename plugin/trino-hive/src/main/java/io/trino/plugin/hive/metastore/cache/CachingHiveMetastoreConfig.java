@@ -21,17 +21,20 @@ import jakarta.validation.constraints.NotNull;
 
 import java.util.Optional;
 
+import static com.google.common.collect.Comparators.max;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class CachingHiveMetastoreConfig
 {
-    private Duration metastoreCacheTtl = new Duration(0, SECONDS);
     // Use 5 mins for stats cache TTL by default. 5 mins will be sufficient to help
     // significantly when there is high number of concurrent queries.
     // 5 mins will also prevent stats from being stalled for a long time since
     // time window where table data can be altered is limited.
-    private Duration statsCacheTtl = new Duration(5, MINUTES);
+    public static final Duration DEFAULT_STATS_CACHE_TTL = new Duration(5, MINUTES);
+
+    private Duration metastoreCacheTtl = new Duration(0, SECONDS);
+    private Optional<Duration> statsCacheTtl = Optional.empty();
     private Optional<Duration> metastoreRefreshInterval = Optional.empty();
     private long metastoreCacheMaximumSize = 10000;
     private int maxMetastoreRefreshThreads = 10;
@@ -54,13 +57,13 @@ public class CachingHiveMetastoreConfig
     @NotNull
     public Duration getStatsCacheTtl()
     {
-        return statsCacheTtl;
+        return statsCacheTtl.orElseGet(() -> max(metastoreCacheTtl, DEFAULT_STATS_CACHE_TTL));
     }
 
     @Config("hive.metastore-stats-cache-ttl")
     public CachingHiveMetastoreConfig setStatsCacheTtl(Duration statsCacheTtl)
     {
-        this.statsCacheTtl = statsCacheTtl;
+        this.statsCacheTtl = Optional.of(statsCacheTtl);
         return this;
     }
 

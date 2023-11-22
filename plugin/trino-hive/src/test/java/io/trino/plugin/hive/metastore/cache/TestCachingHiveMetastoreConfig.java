@@ -22,9 +22,13 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreConfig.DEFAULT_STATS_CACHE_TTL;
+import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCachingHiveMetastoreConfig
 {
@@ -64,5 +68,26 @@ public class TestCachingHiveMetastoreConfig
                 .setPartitionCacheEnabled(false);
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testStatsCacheTtl()
+    {
+        // enabled by default
+        assertThat(new CachingHiveMetastoreConfig().getStatsCacheTtl()).isEqualTo(DEFAULT_STATS_CACHE_TTL);
+
+        // takes higher of the DEFAULT_STATS_CACHE_TTL or metastoreTtl if not set explicitly
+        assertThat(new CachingHiveMetastoreConfig()
+                .setMetastoreCacheTtl(new Duration(1, SECONDS))
+                .getStatsCacheTtl()).isEqualTo(DEFAULT_STATS_CACHE_TTL);
+        assertThat(new CachingHiveMetastoreConfig()
+                .setMetastoreCacheTtl(new Duration(1111, DAYS))
+                .getStatsCacheTtl()).isEqualTo(new Duration(1111, DAYS));
+
+        // explicit configuration is honored
+        assertThat(new CachingHiveMetastoreConfig()
+                .setStatsCacheTtl(new Duration(135, MILLISECONDS))
+                .setMetastoreCacheTtl(new Duration(1111, DAYS))
+                .getStatsCacheTtl()).isEqualTo(new Duration(135, MILLISECONDS));
     }
 }
