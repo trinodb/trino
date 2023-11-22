@@ -45,6 +45,8 @@ public class DefaultJdbcMetadataFactory
                 Set.of(),
                 new SingletonIdentityCacheMapping(),
                 new Duration(1, DAYS),
+                new Duration(1, DAYS),
+                new Duration(1, DAYS),
                 true,
                 Integer.MAX_VALUE));
     }
