@@ -14,9 +14,9 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Constraint;
+import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
@@ -30,7 +30,6 @@ import io.trino.spi.type.DateType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
-import io.trino.spi.type.Type;
 import io.trino.sql.planner.iterative.rule.UnwrapCastInComparison;
 import io.trino.sql.planner.iterative.rule.UnwrapDateTruncInComparison;
 import io.trino.sql.planner.iterative.rule.UnwrapYearInComparison;
@@ -38,12 +37,9 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.plugin.iceberg.ColumnIdentity.primitiveColumnIdentity;
 import static io.trino.plugin.iceberg.ConstraintExtractor.extractTupleDomain;
 import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.EQUAL_OPERATOR_FUNCTION_NAME;
@@ -67,10 +63,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestConstraintExtractor
 {
-    private static final AtomicInteger nextColumnId = new AtomicInteger(1);
-
-    private static final IcebergColumnHandle A_BIGINT = newPrimitiveColumn(BIGINT);
-    private static final IcebergColumnHandle A_TIMESTAMP_TZ = newPrimitiveColumn(TIMESTAMP_TZ_MICROS);
+    private static final ColumnHandle A_BIGINT = new TestingColumnHandle("a_bigint");
+    private static final ColumnHandle A_TIMESTAMP_TZ = new TestingColumnHandle("a_timestamp_tz");
 
     @Test
     public void testExtractSummary()
@@ -354,18 +348,7 @@ public class TestConstraintExtractor
                         A_TIMESTAMP_TZ, domain(Range.greaterThanOrEqual(TIMESTAMP_TZ_MICROS, startOfDateUtc)))));
     }
 
-    private static IcebergColumnHandle newPrimitiveColumn(Type type)
-    {
-        int id = nextColumnId.getAndIncrement();
-        return new IcebergColumnHandle(
-                primitiveColumnIdentity(id, "column_" + id),
-                type,
-                ImmutableList.of(),
-                type,
-                Optional.empty());
-    }
-
-    private static TupleDomain<IcebergColumnHandle> extract(Constraint constraint)
+    private static TupleDomain<ColumnHandle> extract(Constraint constraint)
     {
         ConstraintExtractor.ExtractionResult result = extractTupleDomain(constraint);
         assertThat(result.remainingExpression())
@@ -373,14 +356,14 @@ public class TestConstraintExtractor
         return result.tupleDomain();
     }
 
-    private static Constraint constraint(ConnectorExpression expression, Map<String, IcebergColumnHandle> assignments)
+    private static Constraint constraint(ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
         return constraint(TupleDomain.all(), expression, assignments);
     }
 
-    private static Constraint constraint(TupleDomain<ColumnHandle> summary, ConnectorExpression expression, Map<String, IcebergColumnHandle> assignments)
+    private static Constraint constraint(TupleDomain<ColumnHandle> summary, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
-        return new Constraint(summary, expression, ImmutableMap.copyOf(assignments));
+        return new Constraint(summary, expression, assignments);
     }
 
     private static LongTimestampWithTimeZone timestampTzFromEpochMillis(long epochMillis)
