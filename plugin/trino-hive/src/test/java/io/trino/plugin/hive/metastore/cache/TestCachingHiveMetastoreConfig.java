@@ -18,11 +18,13 @@ import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static java.util.concurrent.TimeUnit.HOURS;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestCachingHiveMetastoreConfig
 {
@@ -30,8 +32,8 @@ public class TestCachingHiveMetastoreConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(CachingHiveMetastoreConfig.class)
-                .setMetastoreCacheTtl(new Duration(0, TimeUnit.SECONDS))
-                .setStatsCacheTtl(new Duration(5, TimeUnit.MINUTES))
+                .setMetastoreCacheTtl(new Duration(0, SECONDS))
+                .setStatsCacheTtl(new Duration(5, MINUTES))
                 .setMetastoreRefreshInterval(null)
                 .setMetastoreCacheMaximumSize(10000)
                 .setMaxMetastoreRefreshThreads(10)
@@ -53,9 +55,9 @@ public class TestCachingHiveMetastoreConfig
                 .buildOrThrow();
 
         CachingHiveMetastoreConfig expected = new CachingHiveMetastoreConfig()
-                .setMetastoreCacheTtl(new Duration(2, TimeUnit.HOURS))
-                .setStatsCacheTtl(new Duration(10, TimeUnit.MINUTES))
-                .setMetastoreRefreshInterval(new Duration(30, TimeUnit.MINUTES))
+                .setMetastoreCacheTtl(new Duration(2, HOURS))
+                .setStatsCacheTtl(new Duration(10, MINUTES))
+                .setMetastoreRefreshInterval(new Duration(30, MINUTES))
                 .setMetastoreCacheMaximumSize(5000)
                 .setMaxMetastoreRefreshThreads(2500)
                 .setCacheMissing(false)
