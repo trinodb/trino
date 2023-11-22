@@ -42,6 +42,7 @@ public class TestBaseJdbcConfig
                 .setMetadataCacheTtl(ZERO)
                 .setSchemaNamesCacheTtl(null)
                 .setTableNamesCacheTtl(null)
+                .setStatisticsCacheTtl(null)
                 .setCacheMissing(false)
                 .setCacheMaximumSize(10000));
     }
@@ -55,6 +56,7 @@ public class TestBaseJdbcConfig
                 .put("metadata.cache-ttl", "1s")
                 .put("metadata.schemas.cache-ttl", "2s")
                 .put("metadata.tables.cache-ttl", "3s")
+                .put("metadata.statistics.cache-ttl", "7s")
                 .put("metadata.cache-missing", "true")
                 .put("metadata.cache-maximum-size", "5000")
                 .buildOrThrow();
@@ -65,6 +67,7 @@ public class TestBaseJdbcConfig
                 .setMetadataCacheTtl(new Duration(1, SECONDS))
                 .setSchemaNamesCacheTtl(new Duration(2, SECONDS))
                 .setTableNamesCacheTtl(new Duration(3, SECONDS))
+                .setStatisticsCacheTtl(new Duration(7, SECONDS))
                 .setCacheMissing(true)
                 .setCacheMaximumSize(5000);
 
@@ -96,13 +99,18 @@ public class TestBaseJdbcConfig
 
         assertValidates(new BaseJdbcConfig()
                 .setConnectionUrl("jdbc:h2:mem:config")
+                .setStatisticsCacheTtl(new Duration(7, SECONDS))
+                .setCacheMaximumSize(5000));
+
+        assertValidates(new BaseJdbcConfig()
+                .setConnectionUrl("jdbc:h2:mem:config")
                 .setMetadataCacheTtl(new Duration(1, SECONDS)));
 
         assertFailsValidation(
                 new BaseJdbcConfig()
                         .setCacheMaximumSize(5000),
                 "cacheMaximumSizeConsistent",
-                "metadata.cache-ttl must be set to a non-zero value when metadata.cache-maximum-size is set",
+                "metadata.cache-ttl or metadata.statistics.cache-ttl must be set to a non-zero value when metadata.cache-maximum-size is set",
                 AssertTrue.class);
 
         assertFailsValidation(
