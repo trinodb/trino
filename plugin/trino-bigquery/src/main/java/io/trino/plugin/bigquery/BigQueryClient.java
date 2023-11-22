@@ -226,12 +226,12 @@ public class BigQueryClient
         return projectId;
     }
 
-    protected DatasetId toDatasetId(String schemaName)
+    public DatasetId toDatasetId(String schemaName)
     {
         return DatasetId.of(getProjectId(), schemaName);
     }
 
-    protected String toSchemaName(DatasetId datasetId)
+    public String toSchemaName(DatasetId datasetId)
     {
         return datasetId.getDataset();
     }
