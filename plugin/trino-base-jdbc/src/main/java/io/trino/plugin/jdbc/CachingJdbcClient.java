@@ -123,18 +123,13 @@ public class CachingJdbcClient
         this.cacheMissing = cacheMissing;
         this.identityMapping = requireNonNull(identityMapping, "identityMapping is null");
 
-        long cacheSize = metadataCachingTtl.isZero()
-                // Disables the cache entirely
-                ? 0
-                : cacheMaximumSize;
-
-        schemaNamesCache = buildCache(cacheSize, schemaNamesCachingTtl);
-        tableNamesCache = buildCache(cacheSize, tableNamesCachingTtl);
-        tableHandlesByNameCache = buildCache(cacheSize, metadataCachingTtl);
-        tableHandlesByQueryCache = buildCache(cacheSize, metadataCachingTtl);
-        procedureHandlesByQueryCache = buildCache(cacheSize, metadataCachingTtl);
-        columnsCache = buildCache(cacheSize, metadataCachingTtl);
-        statisticsCache = buildCache(cacheSize, metadataCachingTtl);
+        schemaNamesCache = buildCache(cacheMaximumSize, schemaNamesCachingTtl);
+        tableNamesCache = buildCache(cacheMaximumSize, tableNamesCachingTtl);
+        tableHandlesByNameCache = buildCache(cacheMaximumSize, metadataCachingTtl);
+        tableHandlesByQueryCache = buildCache(cacheMaximumSize, metadataCachingTtl);
+        procedureHandlesByQueryCache = buildCache(cacheMaximumSize, metadataCachingTtl);
+        columnsCache = buildCache(cacheMaximumSize, metadataCachingTtl);
+        statisticsCache = buildCache(cacheMaximumSize, metadataCachingTtl);
     }
 
     private static <K, V> Cache<K, V> buildCache(long cacheSize, Duration cachingTtl)
