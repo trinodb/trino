@@ -201,7 +201,7 @@ SELECT simple_case(null,null); -- null .. but really??
 ## Fibonacci example
 
 This routine calculates the `n`-th value in the Fibonacci series, in which each
-number is the sum of the two preceding ones. The two initial values are are set
+number is the sum of the two preceding ones. The two initial values are set
 to `1` as the defaults for `a` and `b`. The routine uses an `IF` statement
 condition to return `1` for all input values of `2` or less. The `WHILE` block
 then starts to calculate each number in the series, starting with `a=1` and
