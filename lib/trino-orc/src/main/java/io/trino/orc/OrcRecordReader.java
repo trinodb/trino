@@ -40,6 +40,7 @@ import io.trino.orc.reader.ColumnReader;
 import io.trino.orc.stream.InputStreamSources;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
@@ -102,6 +103,7 @@ public class OrcRecordReader
 
     private final long fileRowCount;
     private final List<Long> stripeFilePositions;
+    private final List<Long> stripeSplitPositions;
     private long filePosition;
 
     private Iterator<RowGroup> rowGroups = ImmutableList.<RowGroup>of().iterator();
@@ -124,6 +126,7 @@ public class OrcRecordReader
 
     private final Optional<Long> startRowPosition;
     private final Optional<Long> endRowPosition;
+    private final OrcFilteredRowRangesCollector filteredRowRangesCollector = new OrcFilteredRowRangesCollector();
 
     public OrcRecordReader(
             List<OrcColumn> readColumns,
@@ -194,18 +197,22 @@ public class OrcRecordReader
 
         long totalRowCount = 0;
         long fileRowCount = 0;
+        long splitRowCount = 0;
         long totalDataLength = 0;
         Optional<Long> startRowPosition = Optional.empty();
         Optional<Long> endRowPosition = Optional.empty();
         ImmutableList.Builder<StripeInformation> stripes = ImmutableList.builder();
         ImmutableList.Builder<Long> stripeFilePositions = ImmutableList.builder();
+        ImmutableList.Builder<Long> stripeSplitPositions = ImmutableList.builder();
         if (fileStats.isEmpty() || predicate.matches(numberOfRows, fileStats.get())) {
             // select stripes that start within the specified split
             for (StripeInfo info : stripeInfos) {
                 StripeInformation stripe = info.getStripe();
-                if (splitContainsStripe(splitOffset, splitLength, stripe) && isStripeIncluded(stripe, info.getStats(), predicate)) {
+                boolean splitContainsStripe = splitContainsStripe(splitOffset, splitLength, stripe);
+                if (splitContainsStripe && isStripeIncluded(stripe, info.getStats(), predicate)) {
                     stripes.add(stripe);
                     stripeFilePositions.add(fileRowCount);
+                    stripeSplitPositions.add(splitRowCount);
                     totalRowCount += stripe.getNumberOfRows();
                     totalDataLength += stripe.getDataLength();
 
@@ -213,6 +220,9 @@ public class OrcRecordReader
                         startRowPosition = Optional.of(fileRowCount);
                     }
                     endRowPosition = Optional.of(fileRowCount + stripe.getNumberOfRows());
+                }
+                if (splitContainsStripe) {
+                    splitRowCount += stripe.getNumberOfRows();
                 }
                 fileRowCount += stripe.getNumberOfRows();
             }
@@ -225,6 +235,7 @@ public class OrcRecordReader
         this.totalDataLength = totalDataLength;
         this.stripes = stripes.build();
         this.stripeFilePositions = stripeFilePositions.build();
+        this.stripeSplitPositions = stripeSplitPositions.build();
 
         orcDataSource = wrapWithCacheIfTinyStripes(orcDataSource, this.stripes, options.getMaxMergeDistance(), options.getTinyStripeThreshold());
         this.orcDataSource = orcDataSource;
@@ -462,6 +473,14 @@ public class OrcRecordReader
         return page;
     }
 
+    public Optional<ConnectorPageSource.RowRanges> getNextFilteredRowRanges()
+    {
+        if (stripes.isEmpty()) {
+            return Optional.of(ConnectorPageSource.RowRanges.EMPTY);
+        }
+        return Optional.of(filteredRowRangesCollector.collectRowRanges());
+    }
+
     private void blockLoaded(int columnIndex, Block block)
     {
         if (block.getPositionCount() <= 0) {
@@ -568,6 +587,7 @@ public class OrcRecordReader
 
             rowGroups = stripe.getRowGroups().iterator();
         }
+        filteredRowRangesCollector.addStripe(stripe, stripeSplitPositions.get(currentStripe), currentStripe == stripes.size() - 1);
         orcDataSourceMemoryUsage.setBytes(orcDataSource.getRetainedSize());
     }
 

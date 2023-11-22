@@ -252,6 +252,12 @@ public class OrcPageSource
         return new Metrics(ImmutableMap.of(ORC_CODEC_METRIC_PREFIX + compressionKind.name(), new LongCount(recordReader.getTotalDataLength())));
     }
 
+    @Override
+    public Optional<RowRanges> getNextFilteredRowRanges()
+    {
+        return recordReader.getNextFilteredRowRanges();
+    }
+
     public interface ColumnAdaptation
     {
         Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId);
