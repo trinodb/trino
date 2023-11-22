@@ -41,12 +41,12 @@ public class DefaultJdbcMetadataFactory
         // Session stays the same per transaction, therefore session properties don't need to
         // be a part of cache keys in CachingJdbcClient.
         return create(new CachingJdbcClient(
-                        jdbcClient,
-                        Set.of(),
-                        new SingletonIdentityCacheMapping(),
-                        new Duration(1, DAYS),
-                        true,
-                        Integer.MAX_VALUE));
+                jdbcClient,
+                Set.of(),
+                new SingletonIdentityCacheMapping(),
+                new Duration(1, DAYS),
+                true,
+                Integer.MAX_VALUE));
     }
 
     protected JdbcMetadata create(JdbcClient transactionCachingJdbcClient)
