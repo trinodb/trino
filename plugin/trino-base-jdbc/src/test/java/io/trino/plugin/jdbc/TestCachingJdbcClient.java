@@ -101,7 +101,6 @@ public class TestCachingJdbcClient
             .build();
 
     private TestingDatabase database;
-    private CachingJdbcClient cachingJdbcClient;
     private JdbcClient jdbcClient;
     private String schema;
     private ExecutorService executor;
@@ -111,7 +110,6 @@ public class TestCachingJdbcClient
             throws Exception
     {
         database = new TestingDatabase();
-        cachingJdbcClient = createCachingJdbcClient();
         jdbcClient = database.getJdbcClient();
         schema = jdbcClient.getSchemaNames(SESSION).iterator().next();
         executor = newCachedThreadPool(daemonThreadsNamed("TestCachingJdbcClient-%s"));
@@ -130,6 +128,7 @@ public class TestCachingJdbcClient
     @Test
     public void testSchemaNamesCached()
     {
+        CachingJdbcClient cachingJdbcClient = createCachingJdbcClient();
         String phantomSchema = "phantom_schema";
 
         jdbcClient.createSchema(SESSION, phantomSchema);
@@ -152,6 +151,7 @@ public class TestCachingJdbcClient
     @Test
     public void testTableNamesCached()
     {
+        CachingJdbcClient cachingJdbcClient = createCachingJdbcClient();
         SchemaTableName phantomTable = new SchemaTableName(schema, "phantom_table");
 
         createTable(phantomTable);
@@ -174,6 +174,7 @@ public class TestCachingJdbcClient
     @Test
     public void testTableHandleCached()
     {
+        CachingJdbcClient cachingJdbcClient = createCachingJdbcClient();
         SchemaTableName phantomTable = new SchemaTableName(schema, "phantom_table");
 
         createTable(phantomTable);
@@ -289,6 +290,7 @@ public class TestCachingJdbcClient
     public void testProcedureHandleCached()
             throws Exception
     {
+        CachingJdbcClient cachingJdbcClient = createCachingJdbcClient();
         SchemaTableName phantomTable = new SchemaTableName(schema, "phantom_table");
 
         createTable(phantomTable);
@@ -318,24 +320,25 @@ public class TestCachingJdbcClient
     @Test
     public void testTableHandleInvalidatedOnColumnsModifications()
     {
+        CachingJdbcClient cachingJdbcClient = createCachingJdbcClient();
         JdbcTableHandle table = createTable(new SchemaTableName(schema, "a_table"));
         JdbcColumnHandle existingColumn = addColumn(table, "a_column");
 
         // warm-up cache
-        assertTableHandlesByNameCacheIsInvalidated(table);
+        assertTableHandlesByNameCacheIsInvalidated(cachingJdbcClient, table);
         JdbcColumnHandle newColumn = addColumn(cachingJdbcClient, table, "new_column");
-        assertTableHandlesByNameCacheIsInvalidated(table);
+        assertTableHandlesByNameCacheIsInvalidated(cachingJdbcClient, table);
         cachingJdbcClient.setColumnComment(SESSION, table, newColumn, Optional.empty());
-        assertTableHandlesByNameCacheIsInvalidated(table);
+        assertTableHandlesByNameCacheIsInvalidated(cachingJdbcClient, table);
         cachingJdbcClient.renameColumn(SESSION, table, newColumn, "new_column_name");
-        assertTableHandlesByNameCacheIsInvalidated(table);
+        assertTableHandlesByNameCacheIsInvalidated(cachingJdbcClient, table);
         cachingJdbcClient.dropColumn(SESSION, table, existingColumn);
-        assertTableHandlesByNameCacheIsInvalidated(table);
+        assertTableHandlesByNameCacheIsInvalidated(cachingJdbcClient, table);
 
         dropTable(table);
     }
 
-    private void assertTableHandlesByNameCacheIsInvalidated(JdbcTableHandle table)
+    private void assertTableHandlesByNameCacheIsInvalidated(CachingJdbcClient cachingJdbcClient, JdbcTableHandle table)
     {
         SchemaTableName tableName = table.asPlainTable().getSchemaTableName();
 
@@ -420,6 +423,7 @@ public class TestCachingJdbcClient
     @Test
     public void testColumnsCached()
     {
+        CachingJdbcClient cachingJdbcClient = createCachingJdbcClient();
         JdbcTableHandle table = getAnyTable(schema);
         JdbcColumnHandle phantomColumn = addColumn(table);
 
@@ -441,6 +445,7 @@ public class TestCachingJdbcClient
     @Test
     public void testColumnsCachedPerSession()
     {
+        CachingJdbcClient cachingJdbcClient = createCachingJdbcClient();
         ConnectorSession firstSession = createSession("first");
         ConnectorSession secondSession = createSession("second");
         JdbcTableHandle table = getAnyTable(schema);
@@ -481,6 +486,7 @@ public class TestCachingJdbcClient
     @Test
     public void testColumnsCacheInvalidationOnTableDrop()
     {
+        CachingJdbcClient cachingJdbcClient = createCachingJdbcClient();
         ConnectorSession firstSession = createSession("first");
         ConnectorSession secondSession = createSession("second");
         JdbcTableHandle firstTable = createTable(new SchemaTableName(schema, "first_table"));
