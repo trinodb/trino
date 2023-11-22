@@ -78,13 +78,7 @@ public class SharedHiveMetastoreCache
         this.catalogName = catalogName;
 
         metadataCacheTtl = config.getMetastoreCacheTtl();
-        if (metadataCacheTtl.compareTo(config.getStatsCacheTtl()) > 0) {
-            statsCacheTtl = metadataCacheTtl;
-        }
-        else {
-            statsCacheTtl = config.getStatsCacheTtl();
-        }
-
+        statsCacheTtl = config.getStatsCacheTtl();
         maxMetastoreRefreshThreads = config.getMaxMetastoreRefreshThreads();
         metastoreRefreshInterval = config.getMetastoreRefreshInterval();
         metastoreCacheMaximumSize = config.getMetastoreCacheMaximumSize();
