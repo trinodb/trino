@@ -85,11 +85,6 @@ import static io.trino.plugin.deltalake.transactionlog.TransactionLogAccess.colu
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.START_OF_MODERN_ERA_EPOCH_DAY;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.canonicalizePartitionValues;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.ADD;
-import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.COMMIT;
-import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.METADATA;
-import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
-import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
-import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.TRANSACTION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
@@ -173,14 +168,6 @@ public class CheckpointEntryIterator
         this.partitionConstraint = requireNonNull(partitionConstraint, "partitionConstraint is null");
         requireNonNull(addStatsMinMaxColumnFilter, "addStatsMinMaxColumnFilter is null");
         checkArgument(!fields.isEmpty(), "fields is empty");
-        Map<EntryType, CheckpointFieldExtractor> extractors = ImmutableMap.<EntryType, CheckpointFieldExtractor>builder()
-                .put(TRANSACTION, this::buildTxnEntry)
-                .put(ADD, this::buildAddEntry)
-                .put(REMOVE, this::buildRemoveEntry)
-                .put(METADATA, this::buildMetadataEntry)
-                .put(PROTOCOL, this::buildProtocolEntry)
-                .put(COMMIT, this::buildCommitInfoEntry)
-                .buildOrThrow();
         // ADD requires knowing the metadata in order to figure out the Parquet schema
         if (fields.contains(ADD)) {
             checkArgument(metadataEntry.isPresent(), "Metadata entry must be provided when reading ADD entries from Checkpoint files");
@@ -227,8 +214,20 @@ public class CheckpointEntryIterator
         this.parquetFields = this.pageSource.getColumnFields().stream()
                 .collect(toImmutableMap(Column::name, e -> e.field().getType()));
         this.extractors = fields.stream()
-                .map(field -> requireNonNull(extractors.get(field), "No extractor found for field " + field))
+                .map(this::createCheckpointFieldExtractor)
                 .collect(toImmutableList());
+    }
+
+    private CheckpointFieldExtractor createCheckpointFieldExtractor(EntryType entryType)
+    {
+        return switch (entryType) {
+            case TRANSACTION -> this::buildTxnEntry;
+            case ADD -> this::buildAddEntry;
+            case REMOVE -> this::buildRemoveEntry;
+            case METADATA -> this::buildMetadataEntry;
+            case PROTOCOL -> this::buildProtocolEntry;
+            case COMMIT -> this::buildCommitInfoEntry;
+        };
     }
 
     private DeltaLakeColumnHandle buildColumnHandle(
