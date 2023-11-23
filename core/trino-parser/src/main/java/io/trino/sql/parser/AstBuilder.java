@@ -2457,7 +2457,7 @@ class AstBuilder
                 Optional.of(getLocation(context)),
                 QualifiedName.of("LISTAGG"),
                 window,
-                Optional.empty(),
+                visitIfPresent(context.filter(), Expression.class),
                 Optional.of(orderBy),
                 distinct,
                 Optional.empty(),
