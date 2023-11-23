@@ -47,6 +47,7 @@ import org.apache.parquet.internal.column.columnindex.ColumnIndex;
 import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.io.api.Binary;
+import org.apache.parquet.schema.ColumnOrder;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.TimestampLogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
@@ -207,6 +208,10 @@ public class TupleDomainParquetPredicate
                 continue;
             }
 
+            // ParquetMetadataConverter#fromParquetColumnIndex returns null if the parquet primitive type does not support min/max stats
+            if (!isColumnIndexStatsSupported(column.getPrimitiveType())) {
+                continue;
+            }
             ColumnIndex columnIndex = columnIndexStore.getColumnIndex(ColumnPath.get(column.getPath()));
             if (columnIndex == null) {
                 continue;
@@ -685,6 +690,11 @@ public class TupleDomainParquetPredicate
                 continue;
             }
 
+            // ParquetMetadataConverter#fromParquetColumnIndex returns null if the parquet primitive type does not support min/max stats
+            if (!isColumnIndexStatsSupported(column.getPrimitiveType())) {
+                continue;
+            }
+
             FilterPredicate columnFilter = FilterApi.userDefined(
                     new TrinoIntColumn(ColumnPath.get(column.getPath())),
                     new DomainUserDefinedPredicate<>(column, domain, timeZone));
@@ -807,5 +817,11 @@ public class TupleDomainParquetPredicate
         {
             super(columnPath, Integer.class);
         }
+    }
+
+    // Copy of org.apache.parquet.format.converter.ParquetMetadataConverter#isMinMaxStatsSupported
+    private static boolean isColumnIndexStatsSupported(PrimitiveType type)
+    {
+        return type.columnOrder().getColumnOrderName() == ColumnOrder.ColumnOrderName.TYPE_DEFINED_ORDER;
     }
 }
