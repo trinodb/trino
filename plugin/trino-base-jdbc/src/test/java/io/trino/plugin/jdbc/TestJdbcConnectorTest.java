@@ -135,15 +135,6 @@ public class TestJdbcConnectorTest
     }
 
     @Test
-    @Override
-    public void testReadMetadataWithRelationsConcurrentModifications()
-    {
-        // Under concurrently, H2 sometimes returns null table name in DatabaseMetaData.getTables's ResultSet
-        // See https://github.com/trinodb/trino/issues/16658 for more information
-        abort("Skipped due to H2 problems");
-    }
-
-    @Test
     public void testUnknownTypeAsIgnored()
     {
         try (TestTable table = new TestTable(
