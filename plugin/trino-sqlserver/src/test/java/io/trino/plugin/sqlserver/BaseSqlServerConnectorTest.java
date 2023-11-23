@@ -41,7 +41,6 @@ import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assumptions.abort;
 
 public abstract class BaseSqlServerConnectorTest
         extends BaseJdbcConnectorTest
@@ -132,26 +131,6 @@ public abstract class BaseSqlServerConnectorTest
     public void testSelectInformationSchemaColumns()
     {
         super.testSelectInformationSchemaColumns();
-    }
-
-    @Test
-    @Override
-    public void testReadMetadataWithRelationsConcurrentModifications()
-    {
-        try {
-            super.testReadMetadataWithRelationsConcurrentModifications();
-        }
-        catch (Exception expected) {
-            // The test failure is not guaranteed
-            assertThat(expected)
-                    .hasMessageMatching("(?s).*(" +
-                            "No task completed before timeout|" +
-                            "was deadlocked on lock resources with another process and has been chosen as the deadlock victim|" +
-                            "Lock request time out period exceeded|" +
-                            // E.g. system.metadata.table_comments can return empty results, when underlying metadata list tables call fails
-                            "Expecting actual not to be empty).*");
-            abort("to be fixed");
-        }
     }
 
     @Override
