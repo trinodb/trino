@@ -31,8 +31,17 @@ connector:
   - `0s` (caching disabled)
 * - `metadata.cache-missing`
   - Cache the fact that metadata, including table and column statistics, is
-    not available
+    not available.
   - `false`
+* - `metadata.schemas.cache-ttl`
+  - [The duration](prop-type-duration) for which schema metadata is cached.
+  - Defaults to the value of `metadata.cache-ttl`.
+* - `metadata.tables.cache-ttl`
+  - [The duration](prop-type-duration) for which table metadata is cached.
+  - Defaults to the value of `metadata.cache-ttl`.
+* - `metadata.statistics.cache-ttl`
+  - [The duration](prop-type-duration) for which tables statistics are cached.
+  - Defaults to the value of `metadata.cache-ttl`.
 * - `metadata.cache-maximum-size`
   - Maximum number of objects stored in the metadata cache
   - `10000`
