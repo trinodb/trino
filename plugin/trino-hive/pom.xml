@@ -537,7 +537,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <excludes>
-                                <exclude>**/TestHiveGlueMetastore.java</exclude>
+                                <exclude>**/TestGlueHiveMetastore.java</exclude>
                                 <exclude>**/TestHiveS3AndGlueMetastoreTest.java</exclude>
                                 <exclude>**/TestHiveConcurrentModificationGlueMetastore.java</exclude>
                                 <exclude>**/TestFullParquetReader.java</exclude>
@@ -594,7 +594,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/TestHiveGlueMetastore.java</include>
+                                <include>**/TestGlueHiveMetastore.java</include>
                                 <include>**/TestHiveS3AndGlueMetastoreTest.java</include>
                                 <include>**/TestHiveConcurrentModificationGlueMetastore.java</include>
                             </includes>

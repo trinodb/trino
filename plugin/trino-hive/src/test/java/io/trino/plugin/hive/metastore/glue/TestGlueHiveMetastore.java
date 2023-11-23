@@ -132,10 +132,10 @@ import static org.junit.jupiter.api.Assumptions.abort;
  * See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
  * on ways to set your AWS credentials which will be needed to run this test.
  */
-public class TestHiveGlueMetastore
+public class TestGlueHiveMetastore
         extends AbstractTestHiveLocal
 {
-    private static final Logger log = Logger.get(TestHiveGlueMetastore.class);
+    private static final Logger log = Logger.get(TestGlueHiveMetastore.class);
 
     private static final String PARTITION_KEY = "part_key_1";
     private static final String PARTITION_KEY2 = "part_key_2";
@@ -191,7 +191,7 @@ public class TestHiveGlueMetastore
     private HiveMetastoreClosure metastore;
     private AWSGlueAsync glueClient;
 
-    public TestHiveGlueMetastore()
+    public TestGlueHiveMetastore()
     {
         super(TEST_DATABASE_NAME_PREFIX + randomUUID().toString().toLowerCase(ENGLISH).replace("-", ""));
     }
