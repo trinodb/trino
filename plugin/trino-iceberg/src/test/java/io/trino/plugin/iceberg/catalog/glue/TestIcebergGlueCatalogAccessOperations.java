@@ -458,7 +458,7 @@ public class TestIcebergGlueCatalogAccessOperations
     }
 
     @Test
-    public void testInformationSchemaColumns()
+    public void testInformationSchemaTableAndColumns()
     {
         String schemaName = "test_i_s_columns_schema" + randomNameSuffix();
         assertUpdate("CREATE SCHEMA " + schemaName);
@@ -483,7 +483,7 @@ public class TestIcebergGlueCatalogAccessOperations
                         assertUpdate(session, "CREATE TABLE test_other_select_i_s_columns" + i + "(id varchar, age integer)"); // won't match the filter
                     }
 
-                    // Bulk retrieval
+                    // Bulk columns retrieval
                     assertInvocations(
                             session,
                             "SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name LIKE 'test_select_i_s_columns%'",
@@ -493,7 +493,16 @@ public class TestIcebergGlueCatalogAccessOperations
                             ImmutableMultiset.of());
                 }
 
-                // Pointed lookup
+                // Tables listing
+                assertInvocations(
+                        session,
+                        "SELECT * FROM information_schema.tables WHERE table_schema = CURRENT_SCHEMA",
+                        ImmutableMultiset.<GlueMetastoreMethod>builder()
+                                .addCopies(GET_TABLES, 2)
+                                .build(),
+                        ImmutableMultiset.of());
+
+                // Pointed columns lookup
                 assertInvocations(
                         session,
                         "SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name = 'test_select_i_s_columns0'",
@@ -504,7 +513,7 @@ public class TestIcebergGlueCatalogAccessOperations
                                 .add(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM))
                                 .build());
 
-                // Pointed lookup via DESCRIBE (which does some additional things before delegating to information_schema.columns)
+                // Pointed columns lookup via DESCRIBE (which does some additional things before delegating to information_schema.columns)
                 assertInvocations(
                         session,
                         "DESCRIBE test_select_i_s_columns0",
