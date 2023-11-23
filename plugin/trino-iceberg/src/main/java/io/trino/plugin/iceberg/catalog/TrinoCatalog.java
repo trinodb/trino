@@ -22,6 +22,7 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
+import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.TrinoPrincipal;
 import org.apache.iceberg.BaseTable;
@@ -74,6 +75,8 @@ public interface TrinoCatalog
     void renameNamespace(ConnectorSession session, String source, String target);
 
     List<SchemaTableName> listTables(ConnectorSession session, Optional<String> namespace);
+
+    Map<SchemaTableName, RelationType> getRelationTypes(ConnectorSession session, Optional<String> namespace);
 
     Optional<Iterator<RelationColumnsMetadata>> streamRelationColumns(
             ConnectorSession session,
