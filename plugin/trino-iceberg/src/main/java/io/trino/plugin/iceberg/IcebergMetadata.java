@@ -80,6 +80,7 @@ import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
+import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SaveMode;
@@ -683,6 +684,12 @@ public class IcebergMetadata
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
         return catalog.listTables(session, schemaName);
+    }
+
+    @Override
+    public Map<SchemaTableName, RelationType> getRelationTypes(ConnectorSession session, Optional<String> schemaName)
+    {
+        return catalog.getRelationTypes(session, schemaName);
     }
 
     @Override
