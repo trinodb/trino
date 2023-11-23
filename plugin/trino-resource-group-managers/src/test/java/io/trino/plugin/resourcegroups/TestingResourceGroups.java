@@ -78,6 +78,7 @@ final class TestingResourceGroups
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
+                        Optional.empty(),
                         groupIdTemplate));
     }
 
@@ -104,6 +105,7 @@ final class TestingResourceGroups
                             Optional.of(matchLiterals(users)),
                             spec.getUserGroupRegex(),
                             spec.getSourceRegex(),
+                            spec.getQueryTextRegex(),
                             spec.getQueryType(),
                             spec.getClientTags(),
                             spec.getResourceEstimate(),
@@ -117,6 +119,7 @@ final class TestingResourceGroups
                             spec.getUserRegex(),
                             Optional.of(matchLiterals(groups)),
                             spec.getSourceRegex(),
+                            spec.getQueryTextRegex(),
                             spec.getQueryType(),
                             spec.getClientTags(),
                             spec.getResourceEstimate(),

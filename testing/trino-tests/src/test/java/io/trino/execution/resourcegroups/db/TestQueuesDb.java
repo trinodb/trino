@@ -216,7 +216,7 @@ public class TestQueuesDb
         DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
         assertThat(dispatchManager.getQueryInfo(queryId).getErrorCode()).isEqualTo(QUERY_REJECTED.toErrorCode());
         int selectorCount = getSelectors(queryRunner).size();
-        dao.insertSelector(4, 100_000, "user.*", null, "(?i).*reject.*", null, null, null);
+        dao.insertSelector(4, 100_000, "user.*", null, "(?i).*reject.*", null, null, null, null);
         dbConfigurationManager.load();
         assertThat(getSelectors(queryRunner).size()).isEqualTo(selectorCount + 1);
         // Verify the query can be submitted
@@ -260,7 +260,7 @@ public class TestQueuesDb
         dao.insertResourceGroup(8, "reject-all-queries", "1MB", 0, 0, 0, null, null, null, null, null, 3L, TEST_ENVIRONMENT);
 
         // add a new selector that has a higher priority than the existing dashboard selector and that routes queries to the "reject-all-queries" resource group
-        dao.insertSelector(8, 200, "user.*", null, "(?i).*dashboard.*", null, null, null);
+        dao.insertSelector(8, 200, "user.*", null, "(?i).*dashboard.*", null, null, null, null);
 
         // reload the configuration
         dbConfigurationManager.load();
@@ -338,6 +338,23 @@ public class TestQueuesDb
     }
 
     @Test
+    public void testQueryTextBasedSelection()
+            throws InterruptedException
+    {
+        Session session = testSessionBuilder()
+                .setCatalog("tpch")
+                .setSchema("sf100000")
+                .build();
+        QueryId queryId = createQuery(queryRunner, session, "SELECT partkey FROM part LIMIT 1");
+        waitForQueryState(queryRunner, queryId, ImmutableSet.of(RUNNING, FINISHED));
+        Optional<ResourceGroupId> resourceGroupId = queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getResourceGroupId();
+        assertThat(resourceGroupId.isPresent())
+                .describedAs("Query should have a resource group")
+                .isTrue();
+        assertThat(resourceGroupId.get()).isEqualTo(createResourceGroupId("select_partkey"));
+    }
+
+    @Test
     public void testClientTagsBasedSelection()
             throws InterruptedException
     {
@@ -358,7 +375,7 @@ public class TestQueuesDb
         DbResourceGroupConfigurationManager dbConfigurationManager = (DbResourceGroupConfigurationManager) manager.getConfigurationManager();
         int originalSize = getSelectors(queryRunner).size();
         // Add a selector for a non leaf group
-        dao.insertSelector(3, 100, "user.*", null, "(?i).*non-leaf.*", null, null, null);
+        dao.insertSelector(3, 100, "user.*", null, "(?i).*non-leaf.*", null, null, null, null);
         dbConfigurationManager.load();
         while (getSelectors(queryRunner).size() != originalSize + 1) {
             MILLISECONDS.sleep(500);

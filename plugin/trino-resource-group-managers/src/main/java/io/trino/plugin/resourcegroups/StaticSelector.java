@@ -39,10 +39,12 @@ public class StaticSelector
     private static final Pattern NAMED_GROUPS_PATTERN = Pattern.compile("\\(\\?<([a-zA-Z][a-zA-Z0-9]*)>");
     private static final String USER_VARIABLE = "USER";
     private static final String SOURCE_VARIABLE = "SOURCE";
+    private static final String QUERY_VARIABLE = "QUERY_TEXT";
 
     private final Optional<Pattern> userRegex;
     private final Optional<Pattern> userGroupRegex;
     private final Optional<Pattern> sourceRegex;
+    private final Optional<Pattern> queryTextRegex;
     private final Set<String> clientTags;
     private final Optional<SelectorResourceEstimate> selectorResourceEstimate;
     private final Optional<String> queryType;
@@ -53,6 +55,7 @@ public class StaticSelector
             Optional<Pattern> userRegex,
             Optional<Pattern> userGroupRegex,
             Optional<Pattern> sourceRegex,
+            Optional<Pattern> queryTextRegex,
             Optional<List<String>> clientTags,
             Optional<SelectorResourceEstimate> selectorResourceEstimate,
             Optional<String> queryType,
@@ -61,15 +64,17 @@ public class StaticSelector
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
         this.userGroupRegex = requireNonNull(userGroupRegex, "userGroupRegex is null");
         this.sourceRegex = requireNonNull(sourceRegex, "sourceRegex is null");
+        this.queryTextRegex = requireNonNull(queryTextRegex, "queryTextRegex is null");
         requireNonNull(clientTags, "clientTags is null");
         this.clientTags = ImmutableSet.copyOf(clientTags.orElse(ImmutableList.of()));
         this.selectorResourceEstimate = requireNonNull(selectorResourceEstimate, "selectorResourceEstimate is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.group = requireNonNull(group, "group is null");
 
-        HashSet<String> variableNames = new HashSet<>(ImmutableList.of(USER_VARIABLE, SOURCE_VARIABLE));
+        HashSet<String> variableNames = new HashSet<>(ImmutableList.of(USER_VARIABLE, SOURCE_VARIABLE, QUERY_VARIABLE));
         userRegex.ifPresent(u -> addNamedGroups(u, variableNames));
         sourceRegex.ifPresent(s -> addNamedGroups(s, variableNames));
+        queryTextRegex.ifPresent(s -> addNamedGroups(s, variableNames));
         this.variableNames = ImmutableSet.copyOf(variableNames);
 
         Set<String> unresolvedVariables = Sets.difference(group.getVariableNames(), variableNames);
@@ -107,6 +112,15 @@ public class StaticSelector
             return Optional.empty();
         }
 
+        if (queryTextRegex.isPresent()) {
+            String query = criteria.getQueryText();
+            if (!queryTextRegex.get().matcher(query).matches()) {
+                return Optional.empty();
+            }
+
+            addVariableValues(queryTextRegex.get(), query, variables);
+        }
+
         if (selectorResourceEstimate.isPresent() && !selectorResourceEstimate.get().match(criteria.getResourceEstimates())) {
             return Optional.empty();
         }
@@ -122,6 +136,8 @@ public class StaticSelector
 
         // Special handling for source, which is an optional field that is part of the standard variables
         variables.putIfAbsent(SOURCE_VARIABLE, criteria.getSource().orElse(""));
+
+        variables.putIfAbsent(QUERY_VARIABLE, criteria.getQueryText());
 
         ResourceGroupId id = group.expandTemplate(new VariableMap(variables));
         return Optional.of(new SelectionContext<>(id, group));
@@ -159,5 +175,11 @@ public class StaticSelector
     public Optional<Pattern> getUserRegex()
     {
         return userRegex;
+    }
+
+    @VisibleForTesting
+    public Optional<Pattern> getQueryTextRegex()
+    {
+        return queryTextRegex;
     }
 }

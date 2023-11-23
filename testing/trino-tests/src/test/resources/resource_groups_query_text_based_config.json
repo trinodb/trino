@@ -1,0 +1,67 @@
+{
+  "rootGroups": [
+    {
+      "name": "global",
+      "softMemoryLimit": "1MB",
+      "hardConcurrencyLimit": 100,
+      "maxQueued": 1000,
+      "softCpuLimit": "1h",
+      "hardCpuLimit": "1d",
+      "subGroups": [
+        {
+          "name": "nation",
+          "softMemoryLimit": "2MB",
+          "hardConcurrencyLimit": 3,
+          "maxQueued": 4
+        },
+        {
+          "name": "region",
+          "softMemoryLimit": "2MB",
+          "hardConcurrencyLimit": 3,
+          "maxQueued": 4
+        },
+        {
+          "name": "partkey",
+          "softMemoryLimit": "2MB",
+          "hardConcurrencyLimit": 3,
+          "maxQueued": 4
+        },
+        {
+          "name": "part",
+          "softMemoryLimit": "2MB",
+          "hardConcurrencyLimit": 3,
+          "maxQueued": 4
+        },
+        {
+          "name": "other",
+          "softMemoryLimit": "2MB",
+          "hardConcurrencyLimit": 3,
+          "maxQueued": 4
+        }
+      ]
+    }
+  ],
+  "selectors": [
+    {
+      "queryText" : "(?i).*from nation.*",
+      "group": "global.nation"
+    },
+    {
+      "queryText" : "(?i).*from region.*",
+      "group": "global.region"
+    },
+    {
+      "queryText" : "(?i).*partkey.*from part.*",
+      "group": "global.partkey"
+    },
+    {
+      "queryText" : "(?i).*from part.*",
+      "group": "global.part"
+    },
+    {
+      "group": "global.other"
+    }
+  ],
+  "cpuQuotaPeriod": "1h"
+}
+

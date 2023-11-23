@@ -97,6 +97,7 @@ public abstract class AbstractResourceConfigurationManager
                     spec.getUserRegex(),
                     spec.getUserGroupRegex(),
                     spec.getSourceRegex(),
+                    spec.getQueryTextRegex(),
                     spec.getClientTags(),
                     spec.getResourceEstimate(),
                     spec.getQueryType(),

@@ -36,6 +36,7 @@ public class SelectorRecord
     private final Optional<Pattern> userRegex;
     private final Optional<Pattern> userGroupRegex;
     private final Optional<Pattern> sourceRegex;
+    private final Optional<Pattern> queryTextRegex;
     private final Optional<String> queryType;
     private final Optional<List<String>> clientTags;
     private final Optional<SelectorResourceEstimate> selectorResourceEstimate;
@@ -46,6 +47,7 @@ public class SelectorRecord
             Optional<Pattern> userRegex,
             Optional<Pattern> userGroupRegex,
             Optional<Pattern> sourceRegex,
+            Optional<Pattern> queryTextRegex,
             Optional<String> queryType,
             Optional<List<String>> clientTags,
             Optional<SelectorResourceEstimate> selectorResourceEstimate)
@@ -55,6 +57,7 @@ public class SelectorRecord
         this.userRegex = requireNonNull(userRegex, "userRegex is null");
         this.userGroupRegex = requireNonNull(userGroupRegex, "userGroupRegex is null");
         this.sourceRegex = requireNonNull(sourceRegex, "sourceRegex is null");
+        this.queryTextRegex = requireNonNull(queryTextRegex, "queryTextRegex is null");
         this.queryType = requireNonNull(queryType, "queryType is null");
         this.clientTags = clientTags.map(ImmutableList::copyOf);
         this.selectorResourceEstimate = requireNonNull(selectorResourceEstimate, "selectorResourceEstimate is null");
@@ -83,6 +86,11 @@ public class SelectorRecord
     public Optional<Pattern> getSourceRegex()
     {
         return sourceRegex;
+    }
+
+    public Optional<Pattern> getQueryTextRegex()
+    {
+        return queryTextRegex;
     }
 
     public Optional<String> getQueryType()
@@ -116,6 +124,7 @@ public class SelectorRecord
                     Optional.ofNullable(resultSet.getString("user_regex")).map(Pattern::compile),
                     Optional.ofNullable(resultSet.getString("user_group_regex")).map(Pattern::compile),
                     Optional.ofNullable(resultSet.getString("source_regex")).map(Pattern::compile),
+                    Optional.ofNullable(resultSet.getString("query_text_regex")).map(Pattern::compile),
                     Optional.ofNullable(resultSet.getString("query_type")),
                     Optional.ofNullable(resultSet.getString("client_tags")).map(LIST_STRING_CODEC::fromJson),
                     Optional.ofNullable(resultSet.getString("selector_resource_estimate")).map(SELECTOR_RESOURCE_ESTIMATE_JSON_CODEC::fromJson));

@@ -295,6 +295,23 @@ public class TestQueues
         }
     }
 
+    @Test
+    @Timeout(240)
+    public void testQueryTextBasedSelection()
+            throws Exception
+    {
+        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build()) {
+            queryRunner.installPlugin(new ResourceGroupManagerPlugin());
+            queryRunner.getCoordinator().getResourceGroupManager().get()
+                    .setConfigurationManager("file", ImmutableMap.of("resource-groups.config-file", getResourceFilePath("resource_groups_query_text_based_config.json")));
+            assertResourceGroup(queryRunner, newAdhocSession(), "SELECT * FROM nation LIMIT 1", createResourceGroupId("global", "nation"));
+            assertResourceGroup(queryRunner, newAdhocSession(), "SELECT * FROM region LIMIT 1", createResourceGroupId("global", "region"));
+            assertResourceGroup(queryRunner, newAdhocSession(), "SELECT partkey FROM part LIMIT 1", createResourceGroupId("global", "partkey"));
+            assertResourceGroup(queryRunner, newAdhocSession(), "SELECT * FROM part LIMIT 1", createResourceGroupId("global", "part"));
+            assertResourceGroup(queryRunner, newAdhocSession(), "SELECT * FROM supplier LIMIT 1", createResourceGroupId("global", "other"));
+        }
+    }
+
     private void assertResourceGroup(DistributedQueryRunner queryRunner, Session session, String query, ResourceGroupId expectedResourceGroup)
             throws InterruptedException
     {
