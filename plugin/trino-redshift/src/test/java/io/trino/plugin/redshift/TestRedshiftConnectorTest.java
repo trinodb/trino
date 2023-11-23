@@ -604,13 +604,6 @@ public class TestRedshiftConnectorTest
 
     @Test
     @Override
-    public void testReadMetadataWithRelationsConcurrentModifications()
-    {
-        abort("Test fails with a timeout sometimes and is flaky");
-    }
-
-    @Test
-    @Override
     public void testInsertRowConcurrently()
     {
         abort("Test fails with a timeout sometimes and is flaky");
