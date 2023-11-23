@@ -73,8 +73,8 @@ WITH (
 ```
 
 This example assumes that the `POSTGRES_USER` and `POSTGRES_PASSWORD`
-environmental variables are set as [secrets](/security/secrets) on the
-coordinator node.
+environmental variables are set as [secrets](/security/secrets) on all nodes of
+the cluster.
 
 ## See also
 
