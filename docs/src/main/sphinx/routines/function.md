@@ -5,7 +5,7 @@
 ```text
 FUNCTION name ( [ parameter_name data_type [, ...] ] )
   RETURNS type
-  [ LANGUAGE langauge]
+  [ LANGUAGE language]
   [ NOT? DETERMINISTIC ]
   [ RETURNS NULL ON NULL INPUT ]
   [ CALLED ON NULL INPUT ]
