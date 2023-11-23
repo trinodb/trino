@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
@@ -108,6 +109,7 @@ import jakarta.annotation.Nullable;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.lang.ref.SoftReference;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -129,6 +131,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.IntConsumer;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -181,6 +184,7 @@ import static java.lang.Math.min;
 import static java.lang.Math.round;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
+import static java.util.Map.Entry.comparingByKey;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -492,13 +496,163 @@ public class EventDrivenFaultTolerantQueryScheduler
             SqlStage sqlStage = requireNonNull(stages.get(taskId.getStageId()), () -> "stage not found: %s" + taskId.getStageId());
             sqlStage.failTaskRemotely(taskId, failureCause);
         }
+
+        public void logDebugInfo()
+        {
+            if (!log.isDebugEnabled()) {
+                return;
+            }
+            log.debug("SqlStages:");
+            stages.forEach((stageId, stage) -> {
+                log.debug("SqlStage %s: %s", stageId, stage);
+            });
+        }
+    }
+
+    private static class EventDebugInfos
+    {
+        private static final String GLOBAL_EVENTS_BUCKET = "GLOBAL";
+        private static final EventListener<String> GET_BUCKET_LISTENER = new EventListener<>()
+        {
+            @Override
+            public String onRemoteTaskEvent(RemoteTaskEvent event)
+            {
+                return "task_" + event.getTaskStatus().getTaskId().getStageId().toString();
+            }
+
+            @Override
+            public String onRemoteTaskExchangeUpdatedSinkAcquired(RemoteTaskExchangeUpdatedSinkAcquired event)
+            {
+                return "task_" + event.getTaskId().getStageId().toString();
+            }
+
+            @Override
+            public String onStageEvent(StageEvent event)
+            {
+                return event.getStageId().toString();
+            }
+
+            @Override
+            public String onEvent(Event event)
+            {
+                return GLOBAL_EVENTS_BUCKET;
+            }
+        };
+
+        private final String queryId;
+        private final int eventsPerBucket;
+        private long eventsCounter;
+        private long filteredEventsCounter;
+
+        // Using SoftReference to prevent OOM in an unexpected case when this collection grow to substantial size
+        // and VM is short on memory.
+        private SoftReference<ListMultimap<String, String>> eventsDebugInfosReference;
+
+        private EventDebugInfos(String queryId, int eventsPerBucket)
+        {
+            this.queryId = requireNonNull(queryId, "queryId is null");
+            this.eventsPerBucket = eventsPerBucket;
+            eventsDebugInfosReference = new SoftReference<>(LinkedListMultimap.create());
+        }
+
+        /**
+         * @return true if event was recorded; false if it was filtered out
+         */
+        private boolean add(Event event)
+        {
+            ListMultimap<String, String> eventsDebugInfos = getEventsDebugInfos();
+            String bucket = getBucket(event);
+            Optional<String> debugInfo = getFullDebugInfo(eventsCounter, event);
+            eventsCounter++;
+            if (debugInfo.isEmpty()) {
+                filteredEventsCounter++;
+                return false;
+            }
+
+            List<String> bucketDebugInfos = eventsDebugInfos.get(bucket);
+            bucketDebugInfos.add(debugInfo.get());
+            if (bucketDebugInfos.size() > eventsPerBucket) {
+                Iterator<String> iterator = bucketDebugInfos.iterator();
+                iterator.next();
+                iterator.remove();
+            }
+            return true;
+        }
+
+        private ListMultimap<String, String> getEventsDebugInfos()
+        {
+            ListMultimap<String, String> eventsDebugInfos = eventsDebugInfosReference.get();
+            if (eventsDebugInfos == null) {
+                log.debug("eventsDebugInfos for %s has been cleared", queryId);
+                eventsDebugInfos = LinkedListMultimap.create();
+                eventsDebugInfosReference = new SoftReference<>(eventsDebugInfos);
+            }
+            return eventsDebugInfos;
+        }
+
+        private String getBucket(Event event)
+        {
+            if (event == Event.WAKE_UP || event == Event.ABORT) {
+                return GLOBAL_EVENTS_BUCKET;
+            }
+            return event.accept(GET_BUCKET_LISTENER);
+        }
+
+        private Optional<String> getFullDebugInfo(long eventId, Event event)
+        {
+            return getEventDebugInfo(event).map(info -> "[" + eventId + "/" + System.currentTimeMillis() + "/" + info + "]");
+        }
+
+        private static Optional<String> getEventDebugInfo(Event event)
+        {
+            if (event == Event.WAKE_UP) {
+                return Optional.of("WAKE_UP");
+            }
+            if (event == Event.ABORT) {
+                return Optional.of("ABORT");
+            }
+            if (event instanceof SplitAssignmentEvent splitAssignmentEvent) {
+                if (splitAssignmentEvent.getAssignmentResult().isEmpty()) {
+                    // There may be significant amount of empty AssignmentResults so lets skip processing of those.
+                    // It could be that scheduler loop is not really stuck per se. But we are getting empty events all the time - and it just looks like stuck.
+                    // We need to notice that, and still log debug information.
+                    // Also empty events can push important events out of recorded debug information - making debug logs less useful.
+                    return Optional.empty();
+                }
+            }
+
+            return Optional.of(event.toString());
+        }
+
+        public void log()
+        {
+            if (!log.isDebugEnabled()) {
+                return;
+            }
+            ListMultimap<String, String> eventsDebugInfos = getEventsDebugInfos();
+            eventsDebugInfos.asMap().entrySet().stream()
+                    .sorted(comparingByKey())
+                    .forEachOrdered(entry -> {
+                        log.debug("Recent events for " + entry.getKey());
+                        for (String eventDebugInfo : entry.getValue()) {
+                            // logging events in separate log events as some events may be huge and otherwise rarely we could hit logging framework constraints
+                            log.debug("   " + eventDebugInfo);
+                        }
+                    });
+            log.debug("Filtered events count " + filteredEventsCounter);
+        }
     }
 
     private static class Scheduler
             implements EventListener<Void>
     {
         private static final int EVENT_BUFFER_CAPACITY = 100;
-        private static final long EVENT_PROCESSING_ENFORCED_FREQUENCY_MILLIS = new Duration(1, MINUTES).toMillis();
+        private static final long EVENT_PROCESSING_ENFORCED_FREQUENCY_MILLIS = MINUTES.toMillis(1);
+        // If scheduler is stalled for SCHEDULER_STALLED_DURATION_THRESHOLD debug log will be emitted.
+        // This value must be larger than EVENT_PROCESSING_ENFORCED_FREQUENCY as prerequiste for processing is
+        // that there are no events in the event queue.
+        private static final long SCHEDULER_STALLED_DURATION_THRESHOLD_MILLIS = new Duration(5, MINUTES).toMillis();
+        private static final int EVENTS_DEBUG_INFOS_PER_BUCKET = 10;
 
         private final QueryStateMachine queryStateMachine;
         private final Metadata metadata;
@@ -531,6 +685,8 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         private final BlockingQueue<Event> eventQueue = new LinkedBlockingQueue<>();
         private final List<Event> eventBuffer = new ArrayList<>(EVENT_BUFFER_CAPACITY);
+        private final Stopwatch eventDebugInfoStopwatch = Stopwatch.createUnstarted();
+        private final Optional<EventDebugInfos> eventDebugInfos;
 
         private boolean started;
         private boolean runtimeAdaptivePartitioningApplied;
@@ -614,7 +770,15 @@ public class EventDrivenFaultTolerantQueryScheduler
             this.runtimeAdaptivePartitioningMaxTaskSizeInBytes = requireNonNull(runtimeAdaptivePartitioningMaxTaskSize, "runtimeAdaptivePartitioningMaxTaskSize is null").toBytes();
             this.stageEstimationForEagerParentEnabled = stageEstimationForEagerParentEnabled;
 
+            if (log.isDebugEnabled()) {
+                eventDebugInfos = Optional.of(new EventDebugInfos(queryStateMachine.getQueryId().toString(), EVENTS_DEBUG_INFOS_PER_BUCKET));
+            }
+            else {
+                eventDebugInfos = Optional.empty();
+            }
+
             planInTopologicalOrder = sortPlanInTopologicalOrder(plan);
+            eventDebugInfoStopwatch.start();
         }
 
         public void run()
@@ -682,33 +846,107 @@ public class EventDrivenFaultTolerantQueryScheduler
         {
             try {
                 Event event = eventQueue.poll(EVENT_PROCESSING_ENFORCED_FREQUENCY_MILLIS, MILLISECONDS);
-                if (event == null) {
-                    return true;
+                if (event != null) {
+                    eventBuffer.add(event);
                 }
-                eventBuffer.add(event);
             }
             catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw new RuntimeException(e);
             }
 
-            while (true) {
+            boolean eventDebugInfoRecorded = false;
+            boolean aborted = false;
+            while (!aborted) {
                 // poll multiple events from the queue in one shot to improve efficiency
                 eventQueue.drainTo(eventBuffer, EVENT_BUFFER_CAPACITY - eventBuffer.size());
                 if (eventBuffer.isEmpty()) {
-                    return true;
+                    break;
                 }
+
                 for (Event e : eventBuffer) {
+                    eventDebugInfoRecorded |= recordEventsDebugInfo(e);
                     if (e == Event.ABORT) {
-                        return false;
+                        aborted = true;
+                        break;
                     }
                     if (e == Event.WAKE_UP) {
                         continue;
                     }
                     e.accept(this);
                 }
+
                 eventBuffer.clear();
             }
+
+            if (eventDebugInfoRecorded) {
+                // mark that we processed some events; we filter out some no-op events.
+                // If only no-op events appear in event queue we still treat scheduler as stuck
+                eventDebugInfoStopwatch.reset().start();
+            }
+            else {
+                // if no events were recorded there is a chance scheduler is stalled
+                if (log.isDebugEnabled() && eventDebugInfoStopwatch.elapsed().toMillis() > SCHEDULER_STALLED_DURATION_THRESHOLD_MILLIS) {
+                    logDebugInfoSafe("Scheduler stalled for %s".formatted(eventDebugInfoStopwatch.elapsed()));
+                    eventDebugInfoStopwatch.reset().start(); // reset to prevent extensive logging
+                }
+            }
+
+            return !aborted;
+        }
+
+        private boolean recordEventsDebugInfo(Event event)
+        {
+            if (eventDebugInfos.isEmpty()) {
+                return false;
+            }
+            return eventDebugInfos.orElseThrow().add(event);
+        }
+
+        private void logDebugInfoSafe(String reason)
+        {
+            try {
+                logDebugInfo(reason);
+            }
+            catch (Throwable e) {
+                log.error(e, "Unexpected error while logging debug info for %s", reason);
+            }
+        }
+
+        private void logDebugInfo(String reason)
+        {
+            if (!log.isDebugEnabled()) {
+                return;
+            }
+
+            log.debug("Scheduler debug info for %s START; reason=%s", queryStateMachine.getQueryId(), reason);
+            log.debug("General state: %s", toStringHelper(this)
+                    .add("maxTaskExecutionAttempts", maxTaskExecutionAttempts)
+                    .add("maxTasksWaitingForNode", maxTasksWaitingForNode)
+                    .add("maxTasksWaitingForExecution", maxTasksWaitingForExecution)
+                    .add("maxPartitionCount", maxPartitionCount)
+                    .add("runtimeAdaptivePartitioningEnabled", runtimeAdaptivePartitioningEnabled)
+                    .add("runtimeAdaptivePartitioningPartitionCount", runtimeAdaptivePartitioningPartitionCount)
+                    .add("runtimeAdaptivePartitioningMaxTaskSizeInBytes", runtimeAdaptivePartitioningMaxTaskSizeInBytes)
+                    .add("stageEstimationForEagerParentEnabled", stageEstimationForEagerParentEnabled)
+                    .add("started", started)
+                    .add("runtimeAdaptivePartitioningApplied", runtimeAdaptivePartitioningApplied)
+                    .add("nextSchedulingPriority", nextSchedulingPriority)
+                    .add("preSchedulingTaskContexts", preSchedulingTaskContexts)
+                    .add("schedulingDelayer", schedulingDelayer)
+                    .add("queryOutputSet", queryOutputSet)
+                    .toString());
+
+            stageRegistry.logDebugInfo();
+
+            log.debug("StageExecutions:");
+            stageExecutions.forEach((stageId, stageExecution) -> {
+                stageExecution.logDebugInfo();
+            });
+
+            eventDebugInfos.ifPresent(EventDebugInfos::log);
+
+            log.debug("Scheduler debug info for %s END", queryStateMachine.getQueryId());
         }
 
         /**
@@ -2202,6 +2440,40 @@ public class EventDrivenFaultTolerantQueryScheduler
         {
             return sinkPartitioningScheme;
         }
+
+        public void logDebugInfo()
+        {
+            if (!log.isDebugEnabled()) {
+                return;
+            }
+
+            log.debug("StageExecution %s: %s",
+                    stage.getStageId(),
+                    toStringHelper(this)
+                            .add("taskDescriptorStorage.getReservedBytes()", taskDescriptorStorage.getReservedBytes())
+                            .add("taskSource", taskSource.getDebugInfo())
+                            .add("sinkPartitioningScheme", sinkPartitioningScheme)
+                            .add("exchange", exchange)
+                            .add("schedulingPriority", schedulingPriority)
+                            .add("eager", eager)
+                            .add("outputDataSize", outputDataSize)
+                            .add("noMorePartitions", noMorePartitions)
+                            .add("runningPartitions", runningPartitions)
+                            .add("remainingPartitions", remainingPartitions)
+                            .add("sinkOutputSelectorBuilder", sinkOutputSelectorBuilder == null ? null : sinkOutputSelectorBuilder.build())
+                            .add("finalSinkOutputSelector", finalSinkOutputSelector)
+                            .add("remoteSourceIds", remoteSourceIds)
+                            .add("remoteSources", remoteSources)
+                            .add("sourceOutputSelectors", sourceOutputSelectors)
+                            .add("taskDescriptorLoadingActive", taskDescriptorLoadingActive)
+                            .add("exchangeClosed", exchangeClosed)
+                            .add("initialMemoryRequirements", initialMemoryRequirements)
+                            .toString());
+
+            partitions.forEach((partitionId, stagePartition) -> {
+                log.debug("   StagePartition %s.%s: %s", stage.getStageId(), partitionId, stagePartition.getDebugInfo());
+            });
+        }
     }
 
     private static class StagePartition
@@ -2456,6 +2728,28 @@ public class EventDrivenFaultTolerantQueryScheduler
         {
             return finished;
         }
+
+        public String getDebugInfo()
+        {
+            return toStringHelper(this)
+                    .add("stageId", stageId)
+                    .add("partitionId", partitionId)
+                    .add("exchangeSinkHandle", exchangeSinkHandle)
+                    .add("remoteSourceIds", remoteSourceIds)
+                    .add("openTaskDescriptor", openTaskDescriptor)
+                    .add("memoryRequirements", memoryRequirements)
+                    .add("failureObserved", failureObserved)
+                    .add("remainingAttempts", remainingAttempts)
+                    .add("tasks", tasks)
+                    .add("taskOutputBuffers", taskOutputBuffers)
+                    .add("runningTasks", runningTasks)
+                    .add("taskNodeLeases", taskNodeLeases)
+                    .add("finalSelectors", finalSelectors)
+                    .add("noMoreSplits", noMoreSplits)
+                    .add("taskScheduled", taskScheduled)
+                    .add("finished", finished)
+                    .toString();
+        }
     }
 
     private static Split createOutputSelectorSplit(ExchangeSourceOutputSelector selector)
@@ -2655,6 +2949,18 @@ public class EventDrivenFaultTolerantQueryScheduler
             }
             return 0;
         }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("minRetryDelayInMillis", minRetryDelayInMillis)
+                    .add("maxRetryDelayInMillis", maxRetryDelayInMillis)
+                    .add("retryDelayScaleFactor", retryDelayScaleFactor)
+                    .add("stopwatch", stopwatch)
+                    .add("currentDelayInMillis", currentDelayInMillis)
+                    .toString();
+        }
     }
 
     private interface Event
@@ -2774,6 +3080,18 @@ public class EventDrivenFaultTolerantQueryScheduler
         {
             return listener.onSinkInstanceHandleAcquired(this);
         }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("stageId", stageId)
+                    .add("partitionId", partitionId)
+                    .add("nodeLease", nodeLease)
+                    .add("attempt", attempt)
+                    .add("sinkInstanceHandle", sinkInstanceHandle)
+                    .toString();
+        }
     }
 
     private static class RemoteTaskCompletedEvent
@@ -2789,6 +3107,14 @@ public class EventDrivenFaultTolerantQueryScheduler
         {
             return listener.onRemoteTaskCompleted(this);
         }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("taskStatus", getTaskStatus())
+                    .toString();
+        }
     }
 
     private static class RemoteTaskExchangeSinkUpdateRequiredEvent
@@ -2803,6 +3129,14 @@ public class EventDrivenFaultTolerantQueryScheduler
         public <T> T accept(EventListener<T> listener)
         {
             return listener.onRemoteTaskExchangeSinkUpdateRequired(this);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("taskStatus", getTaskStatus())
+                    .toString();
         }
     }
 
@@ -2833,6 +3167,15 @@ public class EventDrivenFaultTolerantQueryScheduler
         {
             return exchangeSinkInstanceHandle;
         }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("taskId", taskId)
+                    .add("exchangeSinkInstanceHandle", exchangeSinkInstanceHandle)
+                    .toString();
+        }
     }
 
     private abstract static class RemoteTaskEvent
@@ -2848,6 +3191,14 @@ public class EventDrivenFaultTolerantQueryScheduler
         public TaskStatus getTaskStatus()
         {
             return taskStatus;
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("taskStatus", taskStatus)
+                    .toString();
         }
     }
 
@@ -2872,6 +3223,15 @@ public class EventDrivenFaultTolerantQueryScheduler
         {
             return listener.onSplitAssignment(this);
         }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("stageId", getStageId())
+                    .add("assignmentResult", assignmentResult)
+                    .toString();
+        }
     }
 
     private static class StageFailureEvent
@@ -2894,6 +3254,15 @@ public class EventDrivenFaultTolerantQueryScheduler
         public <T> T accept(EventListener<T> listener)
         {
             return listener.onStageFailure(this);
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("stageId", getStageId())
+                    .add("failure", failure)
+                    .toString();
         }
     }
 
@@ -2957,6 +3326,16 @@ public class EventDrivenFaultTolerantQueryScheduler
         public void setWaitingForSinkInstanceHandle(boolean waitingForSinkInstanceHandle)
         {
             this.waitingForSinkInstanceHandle = waitingForSinkInstanceHandle;
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("nodeLease", nodeLease)
+                    .add("executionClass", executionClass)
+                    .add("waitingForSinkInstanceHandle", waitingForSinkInstanceHandle)
+                    .toString();
         }
     }
 }
