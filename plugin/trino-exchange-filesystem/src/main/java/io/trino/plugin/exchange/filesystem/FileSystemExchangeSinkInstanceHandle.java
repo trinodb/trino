@@ -19,6 +19,7 @@ import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 
 import java.net.URI;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public class FileSystemExchangeSinkInstanceHandle
@@ -64,5 +65,16 @@ public class FileSystemExchangeSinkInstanceHandle
     public boolean isPreserveOrderWithinPartition()
     {
         return preserveOrderWithinPartition;
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("sinkHandle", sinkHandle)
+                .add("outputDirectory", outputDirectory)
+                .add("outputPartitionCount", outputPartitionCount)
+                .add("preserveOrderWithinPartition", preserveOrderWithinPartition)
+                .toString();
     }
 }
