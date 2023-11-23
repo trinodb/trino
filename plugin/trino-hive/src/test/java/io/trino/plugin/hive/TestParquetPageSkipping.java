@@ -127,6 +127,30 @@ public class TestParquetPageSkipping
     }
 
     @Test
+    public void testUnsupportedColumnIndex()
+            throws URISyntaxException
+    {
+        String tableName = "test_unsupported_column_index_" + randomNameSuffix();
+
+        // Test for https://github.com/trinodb/trino/issues/16801
+        File parquetFile = new File(Resources.getResource("parquet_page_skipping/unsupported_column_index").toURI());
+        assertUpdate(format(
+                "CREATE TABLE %s (stime timestamp(3), btime timestamp(3), detail varchar) WITH (format = 'PARQUET', external_location = '%s')",
+                tableName,
+                parquetFile.getAbsolutePath()));
+
+        assertQuery(
+                "SELECT * FROM " + tableName + " WHERE btime >= timestamp '2023-03-27 13:30:00'",
+                "VALUES ('2023-03-31 18:00:00.000', '2023-03-31 18:00:00.000', 'record_1')");
+
+        assertQuery(
+                "SELECT * FROM " + tableName + " WHERE detail = 'record_2'",
+                "VALUES ('2023-03-31 18:00:00.000', null, 'record_2')");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testPageSkipping()
     {
         testPageSkipping("orderkey", "bigint", new Object[][] {{2, 7520, 7523, 14950}});
