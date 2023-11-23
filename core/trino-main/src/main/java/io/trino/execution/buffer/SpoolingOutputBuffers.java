@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.exchange.ExchangeSinkInstanceHandle;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
@@ -75,5 +76,14 @@ public class SpoolingOutputBuffers
     public SpoolingOutputBuffers withExchangeSinkInstanceHandle(ExchangeSinkInstanceHandle handle)
     {
         return new SpoolingOutputBuffers(getVersion() + 1, handle, outputPartitionCount);
+    }
+
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("exchangeSinkInstanceHandle", exchangeSinkInstanceHandle)
+                .add("outputPartitionCount", outputPartitionCount)
+                .toString();
     }
 }
