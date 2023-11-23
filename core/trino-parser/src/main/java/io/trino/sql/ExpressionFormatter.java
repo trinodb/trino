@@ -1023,6 +1023,10 @@ public final class ExpressionFormatter
                         .append(')');
             }
 
+            if (node.getFilter().isPresent()) {
+                builder.append(" FILTER ").append(visitFilter(node.getFilter().get(), null));
+            }
+
             return builder.toString();
         }
     }

@@ -566,7 +566,8 @@ primaryExpression
     | ROW '(' expression (',' expression)* ')'                                            #rowConstructor
     | name=LISTAGG '(' setQuantifier? expression (',' string)?
         (ON OVERFLOW listAggOverflowBehavior)? ')'
-        (WITHIN GROUP '(' ORDER BY sortItem (',' sortItem)* ')')                          #listagg
+        (WITHIN GROUP '(' ORDER BY sortItem (',' sortItem)* ')')
+        filter?                                                                           #listagg
     | processingMode? qualifiedName '(' (label=identifier '.')? ASTERISK ')'
         filter? over?                                                                     #functionCall
     | processingMode? qualifiedName '(' (setQuantifier? expression (',' expression)*)?
