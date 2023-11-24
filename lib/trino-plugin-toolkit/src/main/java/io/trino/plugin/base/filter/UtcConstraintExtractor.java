@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg;
+package io.trino.plugin.base.filter;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -62,9 +62,15 @@ import static java.time.ZoneOffset.UTC;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
-public final class ConstraintExtractor
+/**
+ * Some expressions involving the TIMESTAMP WITH TIME ZONE type can be optimized when the time zone is known.
+ * It is not possible in the engine, but can be possible in the connector if the connector follows some
+ * convention regarding time zones. In some connectors, like the Delta Lake connector, or the Iceberg connector,
+ * all values of TIMESTAMP WITH TIME ZONE type are represented using the UTC time zone.
+ */
+public final class UtcConstraintExtractor
 {
-    private ConstraintExtractor() {}
+    private UtcConstraintExtractor() {}
 
     public static ExtractionResult extractTupleDomain(Constraint constraint)
     {

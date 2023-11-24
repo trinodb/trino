@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.iceberg;
+package io.trino.plugin.base.filter;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ColumnHandle;
@@ -30,9 +30,6 @@ import io.trino.spi.type.DateType;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
-import io.trino.sql.planner.iterative.rule.UnwrapCastInComparison;
-import io.trino.sql.planner.iterative.rule.UnwrapDateTruncInComparison;
-import io.trino.sql.planner.iterative.rule.UnwrapYearInComparison;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
@@ -40,7 +37,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.plugin.iceberg.ConstraintExtractor.extractTupleDomain;
+import static io.trino.plugin.base.filter.UtcConstraintExtractor.extractTupleDomain;
 import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OPERATOR_FUNCTION_NAME;
@@ -61,7 +58,7 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestConstraintExtractor
+public class TestUtcConstraintExtractor
 {
     private static final ColumnHandle A_BIGINT = new TestingColumnHandle("a_bigint");
     private static final ColumnHandle A_TIMESTAMP_TZ = new TestingColumnHandle("a_timestamp_tz");
@@ -82,11 +79,11 @@ public class TestConstraintExtractor
     }
 
     /**
-     * Test equivalent of {@link UnwrapCastInComparison} for {@link TimestampWithTimeZoneType}.
-     * {@link UnwrapCastInComparison} handles {@link DateType} and {@link TimestampType}, but cannot handle
-     * {@link TimestampWithTimeZoneType}. Such unwrap would not be monotonic. Within Iceberg, we know
+     * Test equivalent of {@code io.trino.sql.planner.iterative.rule.UnwrapCastInComparison} for {@link TimestampWithTimeZoneType}.
+     * {@code UnwrapCastInComparison} handles {@link DateType} and {@link TimestampType}, but cannot handle
+     * {@link TimestampWithTimeZoneType}. Such unwrap would not be monotonic. If we know
      * that {@link TimestampWithTimeZoneType} is always in UTC zone (point in time, with no time zone information),
-     * so we can unwrap.
+     * we can unwrap.
      */
     @Test
     public void testExtractTimestampTzDateComparison()
@@ -151,11 +148,11 @@ public class TestConstraintExtractor
     }
 
     /**
-     * Test equivalent of {@link UnwrapDateTruncInComparison} for {@link TimestampWithTimeZoneType}.
-     * {@link UnwrapDateTruncInComparison} handles {@link DateType} and {@link TimestampType}, but cannot handle
-     * {@link TimestampWithTimeZoneType}. Such unwrap would not be monotonic. Within Iceberg, we know
+     * Test equivalent of {@code io.trino.sql.planner.iterative.rule.UnwrapDateTruncInComparison} for {@link TimestampWithTimeZoneType}.
+     * {@code UnwrapDateTruncInComparison} handles {@link DateType} and {@link TimestampType}, but cannot handle
+     * {@link TimestampWithTimeZoneType}. Such unwrap would not be monotonic. If we know
      * that {@link TimestampWithTimeZoneType} is always in UTC zone (point in time, with no time zone information),
-     * so we can unwrap.
+     * we can unwrap.
      */
     @Test
     public void testExtractDateTruncTimestampTzComparison()
@@ -236,11 +233,11 @@ public class TestConstraintExtractor
     }
 
     /**
-     * Test equivalent of {@link UnwrapYearInComparison} for {@link TimestampWithTimeZoneType}.
-     * {@link UnwrapYearInComparison} handles {@link DateType} and {@link TimestampType}, but cannot handle
-     * {@link TimestampWithTimeZoneType}. Such unwrap would not be monotonic. Within Iceberg, we know
+     * Test equivalent of {@code io.trino.sql.planner.iterative.rule.UnwrapYearInComparison} for {@link TimestampWithTimeZoneType}.
+     * {@code UnwrapYearInComparison} handles {@link DateType} and {@link TimestampType}, but cannot handle
+     * {@link TimestampWithTimeZoneType}. Such unwrap would not be monotonic. If we know
      * that {@link TimestampWithTimeZoneType} is always in UTC zone (point in time, with no time zone information),
-     * so we can unwrap.
+     * we can unwrap.
      */
     @Test
     public void testExtractYearTimestampTzComparison()
@@ -350,7 +347,7 @@ public class TestConstraintExtractor
 
     private static TupleDomain<ColumnHandle> extract(Constraint constraint)
     {
-        ConstraintExtractor.ExtractionResult result = extractTupleDomain(constraint);
+        UtcConstraintExtractor.ExtractionResult result = extractTupleDomain(constraint);
         assertThat(result.remainingExpression())
                 .isEqualTo(Constant.TRUE);
         return result.tupleDomain();
