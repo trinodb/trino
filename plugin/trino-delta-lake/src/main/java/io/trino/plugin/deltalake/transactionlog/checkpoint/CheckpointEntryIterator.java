@@ -522,11 +522,8 @@ public class CheckpointEntryIterator
         if (!columnsWithMinMaxStats.isEmpty()) {
             minValues = Optional.of(parseMinMax(stats.getRow("minValues"), columnsWithMinMaxStats));
             maxValues = Optional.of(parseMinMax(stats.getRow("maxValues"), columnsWithMinMaxStats));
-            nullCount = Optional.of(parseNullCount(stats.getRow("nullCount"), schema));
         }
-        else {
-            nullCount = Optional.of(parseNullCount(stats.getRow("nullCount"), schema));
-        }
+        nullCount = Optional.of(parseNullCount(stats.getRow("nullCount"), schema));
 
         return new DeltaLakeParquetFileStatistics(
                 Optional.of(numRecords),
