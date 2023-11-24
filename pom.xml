@@ -1615,11 +1615,11 @@
                 <version>4.13.2</version>
             </dependency>
 
-            <!-- force newer version to be used for dependencies -->
+            <!-- TODO: remove when updated in airbase -->
             <dependency>
                 <groupId>net.bytebuddy</groupId>
                 <artifactId>byte-buddy</artifactId>
-                <version>1.14.9</version>
+                <version>1.14.10</version>
             </dependency>
 
             <dependency>
