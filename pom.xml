@@ -196,7 +196,7 @@
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.parquet.version>1.13.1</dep.parquet.version>
         <dep.protobuf.version>3.25.1</dep.protobuf.version>
-        <dep.swagger.version>1.6.12</dep.swagger.version>
+        <dep.swagger.version>2.2.19</dep.swagger.version>
         <dep.takari.version>2.1.1</dep.takari.version>
         <dep.tcnative.version>2.0.62.Final</dep.tcnative.version>
         <dep.tempto.version>201</dep.tempto.version>
@@ -937,14 +937,14 @@
 
             <!-- io.confluent:kafka-avro-serializer uses multiple versions of this transitive dependency -->
             <dependency>
-                <groupId>io.swagger</groupId>
+                <groupId>io.swagger.core.v3</groupId>
                 <artifactId>swagger-annotations</artifactId>
                 <version>${dep.swagger.version}</version>
             </dependency>
 
             <!-- io.confluent:kafka-avro-serializer uses multiple versions of this transitive dependency -->
             <dependency>
-                <groupId>io.swagger</groupId>
+                <groupId>io.swagger.core.v3</groupId>
                 <artifactId>swagger-core</artifactId>
                 <version>${dep.swagger.version}</version>
             </dependency>
