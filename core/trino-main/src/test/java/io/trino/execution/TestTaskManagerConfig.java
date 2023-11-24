@@ -41,7 +41,7 @@ public class TestTaskManagerConfig
     {
         assertRecordedDefaults(recordDefaults(TaskManagerConfig.class)
                 .setThreadPerDriverSchedulerEnabled(false)
-                .setInitialSplitsPerNode(Runtime.getRuntime().availableProcessors() * 4)
+                .setInitialSplitsPerNode(Runtime.getRuntime().availableProcessors() * 2)
                 .setSplitConcurrencyAdjustmentInterval(new Duration(1, TimeUnit.SECONDS))
                 .setStatusRefreshMaxWait(new Duration(1, TimeUnit.SECONDS))
                 .setInfoUpdateInterval(new Duration(3, TimeUnit.SECONDS))
