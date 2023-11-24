@@ -4,59 +4,51 @@ The following table describes general catalog configuration properties for the
 connector:
 
 :::{list-table}
-:widths: 30, 40, 30
+:widths: 35, 65
 :header-rows: 1
 
 * - Property name
   - Description
-  - Default value
 * - `case-insensitive-name-matching`
-  - Support case insensitive schema and table names.
-  - `false`
+  - Support case insensitive schema and table names. Defaults to `false`.
 * - `case-insensitive-name-matching.cache-ttl`
-  - This value should be a [](prop-type-duration).
-  - `1m`
+  - [Duration](prop-type-duration) for which case insensitive schema and table
+    names are cached. Defaults to `1m`.
 * - `case-insensitive-name-matching.config-file`
   - Path to a name mapping configuration file in JSON format that allows
     Trino to disambiguate between schemas and tables with similar names in
-    different cases.
-  - `null`
+    different cases. Defaults to `null`.
 * - `case-insensitive-name-matching.config-file.refresh-period`
   - Frequency with which Trino checks the name matching configuration file
-    for changes. This value should be a [](prop-type-duration).
-  - (refresh disabled)
+    for changes. The [duration value](prop-type-duration) defaults to `0s`
+    (refresh disabled).
 * - `metadata.cache-ttl`
-  - [The duration](prop-type-duration) for which metadata, including
-      table and column statistics, is cached.
-  - `0s` (caching disabled)
+  - [Duration](prop-type-duration) for which metadata, including table and
+    column statistics, is cached. Defaults to `0s` (caching disabled).
 * - `metadata.cache-missing`
   - Cache the fact that metadata, including table and column statistics, is
-    not available.
-  - `false`
+    not available. Defaults to `false`.
 * - `metadata.schemas.cache-ttl`
-  - [The duration](prop-type-duration) for which schema metadata is cached.
-  - Defaults to the value of `metadata.cache-ttl`.
+  - [Duration](prop-type-duration) for which schema metadata is cached.
+    Defaults to the value of `metadata.cache-ttl`.
 * - `metadata.tables.cache-ttl`
-  - [The duration](prop-type-duration) for which table metadata is cached.
-  - Defaults to the value of `metadata.cache-ttl`.
+  - [Duration](prop-type-duration) for which table metadata is cached.
+    Defaults to the value of `metadata.cache-ttl`.
 * - `metadata.statistics.cache-ttl`
-  - [The duration](prop-type-duration) for which tables statistics are cached.
-  - Defaults to the value of `metadata.cache-ttl`.
+  - [Duration](prop-type-duration) for which tables statistics are cached.
+    Defaults to the value of `metadata.cache-ttl`.
 * - `metadata.cache-maximum-size`
-  - Maximum number of objects stored in the metadata cache
-  - `10000`
+  - Maximum number of objects stored in the metadata cache. Defaults to `10000`.
 * - `write.batch-size`
   - Maximum number of statements in a batched execution. Do not change
     this setting from the default. Non-default values may negatively
-    impact performance.
-  - `1000`
+    impact performance. Defaults to `1000`.
 * - `dynamic-filtering.enabled`
-  - Push down dynamic filters into JDBC queries
-  - `true`
+  - Push down dynamic filters into JDBC queries. Defaults to `true`.
 * - `dynamic-filtering.wait-timeout`
-  - Maximum [](prop-type-duration) for which Trino waits for dynamic
+  - Maximum [duration](prop-type-duration) for which Trino waits for dynamic
     filters to be collected from the build side of joins before starting a
     JDBC query. Using a large timeout can potentially result in more detailed
     dynamic filters. However, it can also increase latency for some queries.
-  - `20s`
+    Defaults to `20s`.
 :::
