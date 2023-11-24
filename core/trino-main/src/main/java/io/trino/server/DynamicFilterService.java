@@ -764,17 +764,13 @@ public class DynamicFilterService
                 Domain summary = summaryDomains.poll();
                 // summary can be null as another concurrent summary compaction may be running
                 if (summary != null) {
-                    long originalSize = summary.getRetainedSizeInBytes();
-                    if (summary.getRetainedSizeInBytes() > domainSizeLimitInBytes) {
-                        summary = summary.simplify(1);
-                    }
-                    if (summary.getRetainedSizeInBytes() > domainSizeLimitInBytes) {
+                    long summarySize = summary.getRetainedSizeInBytes();
+                    if (summarySize > domainSizeLimitInBytes) {
                         sizeLimitExceeded = true;
                         allDomain = Domain.all(summary.getType());
-                        summaryDomainsRetainedSizeInBytes.addAndGet(-originalSize);
+                        summaryDomainsRetainedSizeInBytes.addAndGet(-summarySize);
                     }
                     else {
-                        summaryDomainsRetainedSizeInBytes.addAndGet(summary.getRetainedSizeInBytes() - originalSize);
                         summaryDomains.add(summary);
                     }
                 }
@@ -828,6 +824,10 @@ public class DynamicFilterService
             }
 
             Domain union = union(domains);
+            // Avoid large unions with domains that exceed size limit
+            if ((summaryDomainsRetainedSizeInBytes.get() - domainsRetainedSizeInBytes + union.getRetainedSizeInBytes()) > domainSizeLimitInBytes) {
+                union = union.simplify(1);
+            }
             summaryDomainsRetainedSizeInBytes.addAndGet(union.getRetainedSizeInBytes() - domainsRetainedSizeInBytes);
             long currentSize = summaryDomainsRetainedSizeInBytes.get();
             verify(currentSize >= 0, "currentSize is expected to be greater than or equal to zero: %s", currentSize);
