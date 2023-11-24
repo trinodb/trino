@@ -136,7 +136,7 @@ public class CheckpointEntryIterator
     private final MapType stringMap;
     private final ArrayType stringList;
     private final Queue<DeltaLakeTransactionLogEntry> nextEntries;
-    private final List<CheckPointFieldExtractor> extractors;
+    private final List<CheckpointFieldExtractor> extractors;
     private final boolean checkpointRowStatisticsWritingEnabled;
     private final TupleDomain<DeltaLakeColumnHandle> partitionConstraint;
     private MetadataEntry metadataEntry;
@@ -171,7 +171,7 @@ public class CheckpointEntryIterator
         this.partitionConstraint = requireNonNull(partitionConstraint, "partitionConstraint is null");
         requireNonNull(addStatsMinMaxColumnFilter, "addStatsMinMaxColumnFilter is null");
         checkArgument(!fields.isEmpty(), "fields is empty");
-        Map<EntryType, CheckPointFieldExtractor> extractors = ImmutableMap.<EntryType, CheckPointFieldExtractor>builder()
+        Map<EntryType, CheckpointFieldExtractor> extractors = ImmutableMap.<EntryType, CheckpointFieldExtractor>builder()
                 .put(TRANSACTION, this::buildTxnEntry)
                 .put(ADD, this::buildAddEntry)
                 .put(REMOVE, this::buildRemoveEntry)
@@ -716,7 +716,7 @@ public class CheckpointEntryIterator
     }
 
     @FunctionalInterface
-    public interface CheckPointFieldExtractor
+    private interface CheckpointFieldExtractor
     {
         @Nullable
         DeltaLakeTransactionLogEntry getEntry(ConnectorSession session, Block block, int pagePosition);
