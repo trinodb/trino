@@ -147,6 +147,8 @@
         <air.java.version>17.0.5</air.java.version>
         <air.javadoc.lint>-missing</air.javadoc.lint>
         <air.main.basedir>${project.basedir}</air.main.basedir>
+        <air.modernizer.java-version>8</air.modernizer.java-version>
+        <air.release.preparation-goals>clean verify -DskipTests</air.release.preparation-goals>
         <!--
           America/Bahia_Banderas has:
            - offset change since 1970 (offset Jan 1970: -08:00, offset Jan 2018: -06:00)
@@ -154,8 +156,6 @@
            - has forward offset change on first day of epoch (1970-01-01 00:00:00 clocks turned forward 1 hour)
            - had forward change at midnight (1970-01-01 00:00:00 clocks turned forward 1 hour)
           -->
-        <air.modernizer.java-version>8</air.modernizer.java-version>
-        <air.release.preparation-goals>clean verify -DskipTests</air.release.preparation-goals>
         <air.test.timezone>America/Bahia_Banderas</air.test.timezone>
         <air.test.parallel>methods</air.test.parallel>
         <air.test.thread-count>2</air.test.thread-count>
