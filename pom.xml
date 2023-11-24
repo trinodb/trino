@@ -176,7 +176,7 @@
         <dep.accumulo.version>1.10.2</dep.accumulo.version>
         <dep.airlift.version>239</dep.airlift.version>
         <dep.antlr.version>4.13.1</dep.antlr.version>
-        <dep.arrow.version>14.0.0</dep.arrow.version>
+        <dep.arrow.version>14.0.1</dep.arrow.version>
         <dep.avro.version>1.11.3</dep.avro.version>
         <dep.aws-sdk.version>1.12.595</dep.aws-sdk.version>
         <dep.casandra.version>4.17.0</dep.casandra.version>
