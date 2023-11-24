@@ -180,7 +180,7 @@
         <dep.avro.version>1.11.3</dep.avro.version>
         <dep.aws-sdk.version>1.12.595</dep.aws-sdk.version>
         <dep.casandra.version>4.17.0</dep.casandra.version>
-        <dep.confluent.version>7.4.1</dep.confluent.version>
+        <dep.confluent.version>7.5.1</dep.confluent.version>
         <dep.docker.images.version>87</dep.docker.images.version>
         <dep.drift.version>1.21</dep.drift.version>
         <dep.duct-tape.version>1.0.8</dep.duct-tape.version>
@@ -200,7 +200,7 @@
         <dep.takari.version>2.1.1</dep.takari.version>
         <dep.tcnative.version>2.0.62.Final</dep.tcnative.version>
         <dep.tempto.version>201</dep.tempto.version>
-        <dep.wire.version>4.5.0</dep.wire.version>
+        <dep.wire.version>4.8.0</dep.wire.version>
     </properties>
 
     <dependencyManagement>
