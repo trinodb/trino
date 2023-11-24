@@ -15,11 +15,13 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Constraint;
+import io.trino.spi.expression.Call;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
+import io.trino.spi.expression.FunctionName;
+import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
@@ -29,61 +31,42 @@ import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
-import io.trino.sql.planner.ConnectorExpressionTranslator;
-import io.trino.sql.planner.LiteralEncoder;
-import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.rule.UnwrapCastInComparison;
 import io.trino.sql.planner.iterative.rule.UnwrapDateTruncInComparison;
 import io.trino.sql.planner.iterative.rule.UnwrapYearInComparison;
-import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.SymbolReference;
-import io.trino.transaction.NoOpTransactionManager;
-import io.trino.transaction.TransactionId;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.plugin.iceberg.ColumnIdentity.primitiveColumnIdentity;
 import static io.trino.plugin.iceberg.ConstraintExtractor.extractTupleDomain;
+import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.EQUAL_OPERATOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OPERATOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OPERATOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME;
+import static io.trino.spi.expression.StandardFunctions.NOT_EQUAL_OPERATOR_FUNCTION_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
-import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
-import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
-import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
-import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
-import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
-import static io.trino.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestConstraintExtractor
 {
-    private static final LiteralEncoder LITERAL_ENCODER = new LiteralEncoder(PLANNER_CONTEXT);
-
     private static final AtomicInteger nextColumnId = new AtomicInteger(1);
 
     private static final IcebergColumnHandle A_BIGINT = newPrimitiveColumn(BIGINT);
@@ -115,10 +98,10 @@ public class TestConstraintExtractor
     public void testExtractTimestampTzDateComparison()
     {
         String timestampTzColumnSymbol = "timestamp_tz_symbol";
-        Cast castOfColumn = new Cast(new SymbolReference(timestampTzColumnSymbol), toSqlType(DATE));
+        ConnectorExpression castOfColumn = new Call(DATE, CAST_FUNCTION_NAME, ImmutableList.of(new Variable(timestampTzColumnSymbol, TIMESTAMP_TZ_MICROS)));
 
         LocalDate someDate = LocalDate.of(2005, 9, 10);
-        Expression someDateExpression = LITERAL_ENCODER.toExpression(someDate.toEpochDay(), DATE);
+        ConnectorExpression someDateExpression = new Constant(someDate.toEpochDay(), DATE);
 
         long startOfDateUtcEpochMillis = someDate.atStartOfDay().toEpochSecond(UTC) * MILLISECONDS_PER_SECOND;
         LongTimestampWithTimeZone startOfDateUtc = timestampTzFromEpochMillis(startOfDateUtcEpochMillis);
@@ -126,13 +109,13 @@ public class TestConstraintExtractor
 
         assertThat(extract(
                 constraint(
-                        new ComparisonExpression(EQUAL, castOfColumn, someDateExpression),
+                        new Call(BOOLEAN, EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(castOfColumn, someDateExpression)),
                         Map.of(timestampTzColumnSymbol, A_TIMESTAMP_TZ))))
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(A_TIMESTAMP_TZ, domain(Range.range(TIMESTAMP_TZ_MICROS, startOfDateUtc, true, startOfNextDateUtc, false)))));
 
         assertThat(extract(
                 constraint(
-                        new ComparisonExpression(NOT_EQUAL, castOfColumn, someDateExpression),
+                        new Call(BOOLEAN, NOT_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(castOfColumn, someDateExpression)),
                         Map.of(timestampTzColumnSymbol, A_TIMESTAMP_TZ))))
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(A_TIMESTAMP_TZ, domain(
                         Range.lessThan(TIMESTAMP_TZ_MICROS, startOfDateUtc),
@@ -140,31 +123,31 @@ public class TestConstraintExtractor
 
         assertThat(extract(
                 constraint(
-                        new ComparisonExpression(LESS_THAN, castOfColumn, someDateExpression),
+                        new Call(BOOLEAN, LESS_THAN_OPERATOR_FUNCTION_NAME, ImmutableList.of(castOfColumn, someDateExpression)),
                         Map.of(timestampTzColumnSymbol, A_TIMESTAMP_TZ))))
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(A_TIMESTAMP_TZ, domain(Range.lessThan(TIMESTAMP_TZ_MICROS, startOfDateUtc)))));
 
         assertThat(extract(
                 constraint(
-                        new ComparisonExpression(LESS_THAN_OR_EQUAL, castOfColumn, someDateExpression),
+                        new Call(BOOLEAN, LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(castOfColumn, someDateExpression)),
                         Map.of(timestampTzColumnSymbol, A_TIMESTAMP_TZ))))
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(A_TIMESTAMP_TZ, domain(Range.lessThan(TIMESTAMP_TZ_MICROS, startOfNextDateUtc)))));
 
         assertThat(extract(
                 constraint(
-                        new ComparisonExpression(GREATER_THAN, castOfColumn, someDateExpression),
+                        new Call(BOOLEAN, GREATER_THAN_OPERATOR_FUNCTION_NAME, ImmutableList.of(castOfColumn, someDateExpression)),
                         Map.of(timestampTzColumnSymbol, A_TIMESTAMP_TZ))))
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(A_TIMESTAMP_TZ, domain(Range.greaterThanOrEqual(TIMESTAMP_TZ_MICROS, startOfNextDateUtc)))));
 
         assertThat(extract(
                 constraint(
-                        new ComparisonExpression(GREATER_THAN_OR_EQUAL, castOfColumn, someDateExpression),
+                        new Call(BOOLEAN, GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(castOfColumn, someDateExpression)),
                         Map.of(timestampTzColumnSymbol, A_TIMESTAMP_TZ))))
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(A_TIMESTAMP_TZ, domain(Range.greaterThanOrEqual(TIMESTAMP_TZ_MICROS, startOfDateUtc)))));
 
         assertThat(extract(
                 constraint(
-                        new ComparisonExpression(IS_DISTINCT_FROM, castOfColumn, someDateExpression),
+                        new Call(BOOLEAN, IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME, ImmutableList.of(castOfColumn, someDateExpression)),
                         Map.of(timestampTzColumnSymbol, A_TIMESTAMP_TZ))))
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(A_TIMESTAMP_TZ, Domain.create(
                         ValueSet.ofRanges(
@@ -184,17 +167,18 @@ public class TestConstraintExtractor
     public void testExtractDateTruncTimestampTzComparison()
     {
         String timestampTzColumnSymbol = "timestamp_tz_symbol";
-        FunctionCall truncateToDay = new FunctionCall(
-                PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction("date_trunc", fromTypes(VARCHAR, TIMESTAMP_TZ_MICROS)).toQualifiedName(),
-                List.of(
-                        LITERAL_ENCODER.toExpression(utf8Slice("day"), createVarcharType(17)),
-                        new SymbolReference(timestampTzColumnSymbol)));
+        ConnectorExpression truncateToDay = new Call(
+                TIMESTAMP_TZ_MICROS,
+                new FunctionName("date_trunc"),
+                ImmutableList.of(
+                        new Constant(utf8Slice("day"), createVarcharType(17)),
+                        new Variable(timestampTzColumnSymbol, TIMESTAMP_TZ_MICROS)));
 
         LocalDate someDate = LocalDate.of(2005, 9, 10);
-        Expression someMidnightExpression = LITERAL_ENCODER.toExpression(
+        ConnectorExpression someMidnightExpression = new Constant(
                 LongTimestampWithTimeZone.fromEpochMillisAndFraction(someDate.toEpochDay() * MILLISECONDS_PER_DAY, 0, UTC_KEY),
                 TIMESTAMP_TZ_MICROS);
-        Expression someMiddayExpression = LITERAL_ENCODER.toExpression(
+        ConnectorExpression someMiddayExpression = new Constant(
                 LongTimestampWithTimeZone.fromEpochMillisAndFraction(someDate.toEpochDay() * MILLISECONDS_PER_DAY, PICOSECONDS_PER_MICROSECOND, UTC_KEY),
                 TIMESTAMP_TZ_MICROS);
 
@@ -204,19 +188,19 @@ public class TestConstraintExtractor
 
         assertThat(extract(
                 constraint(
-                        new ComparisonExpression(EQUAL, truncateToDay, someMidnightExpression),
+                        new Call(BOOLEAN, EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(truncateToDay, someMidnightExpression)),
                         Map.of(timestampTzColumnSymbol, A_TIMESTAMP_TZ))))
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(A_TIMESTAMP_TZ, domain(Range.range(TIMESTAMP_TZ_MICROS, startOfDateUtc, true, startOfNextDateUtc, false)))));
 
         assertThat(extract(
                 constraint(
-                        new ComparisonExpression(EQUAL, truncateToDay, someMiddayExpression),
+                        new Call(BOOLEAN, EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(truncateToDay, someMiddayExpression)),
                         Map.of(timestampTzColumnSymbol, A_TIMESTAMP_TZ))))
                 .isEqualTo(TupleDomain.none());
 
         assertThat(extract(
                 constraint(
-                        new ComparisonExpression(NOT_EQUAL, truncateToDay, someMidnightExpression),
+                        new Call(BOOLEAN, NOT_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(truncateToDay, someMidnightExpression)),
                         Map.of(timestampTzColumnSymbol, A_TIMESTAMP_TZ))))
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(A_TIMESTAMP_TZ, domain(
                         Range.lessThan(TIMESTAMP_TZ_MICROS, startOfDateUtc),
@@ -224,31 +208,31 @@ public class TestConstraintExtractor
 
         assertThat(extract(
                 constraint(
-                        new ComparisonExpression(LESS_THAN, truncateToDay, someMidnightExpression),
+                        new Call(BOOLEAN, LESS_THAN_OPERATOR_FUNCTION_NAME, ImmutableList.of(truncateToDay, someMidnightExpression)),
                         Map.of(timestampTzColumnSymbol, A_TIMESTAMP_TZ))))
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(A_TIMESTAMP_TZ, domain(Range.lessThan(TIMESTAMP_TZ_MICROS, startOfDateUtc)))));
 
         assertThat(extract(
                 constraint(
-                        new ComparisonExpression(LESS_THAN_OR_EQUAL, truncateToDay, someMidnightExpression),
+                        new Call(BOOLEAN, LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(truncateToDay, someMidnightExpression)),
                         Map.of(timestampTzColumnSymbol, A_TIMESTAMP_TZ))))
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(A_TIMESTAMP_TZ, domain(Range.lessThan(TIMESTAMP_TZ_MICROS, startOfNextDateUtc)))));
 
         assertThat(extract(
                 constraint(
-                        new ComparisonExpression(GREATER_THAN, truncateToDay, someMidnightExpression),
+                        new Call(BOOLEAN, GREATER_THAN_OPERATOR_FUNCTION_NAME, ImmutableList.of(truncateToDay, someMidnightExpression)),
                         Map.of(timestampTzColumnSymbol, A_TIMESTAMP_TZ))))
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(A_TIMESTAMP_TZ, domain(Range.greaterThanOrEqual(TIMESTAMP_TZ_MICROS, startOfNextDateUtc)))));
 
         assertThat(extract(
                 constraint(
-                        new ComparisonExpression(GREATER_THAN_OR_EQUAL, truncateToDay, someMidnightExpression),
+                        new Call(BOOLEAN, GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(truncateToDay, someMidnightExpression)),
                         Map.of(timestampTzColumnSymbol, A_TIMESTAMP_TZ))))
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(A_TIMESTAMP_TZ, domain(Range.greaterThanOrEqual(TIMESTAMP_TZ_MICROS, startOfDateUtc)))));
 
         assertThat(extract(
                 constraint(
-                        new ComparisonExpression(IS_DISTINCT_FROM, truncateToDay, someMidnightExpression),
+                        new Call(BOOLEAN, IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME, ImmutableList.of(truncateToDay, someMidnightExpression)),
                         Map.of(timestampTzColumnSymbol, A_TIMESTAMP_TZ))))
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(A_TIMESTAMP_TZ, Domain.create(
                         ValueSet.ofRanges(
@@ -268,12 +252,13 @@ public class TestConstraintExtractor
     public void testExtractYearTimestampTzComparison()
     {
         String timestampTzColumnSymbol = "timestamp_tz_symbol";
-        FunctionCall extractYear = new FunctionCall(
-                PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction("year", fromTypes(TIMESTAMP_TZ_MICROS)).toQualifiedName(),
-                List.of(new SymbolReference(timestampTzColumnSymbol)));
+        ConnectorExpression extractYear = new Call(
+                BIGINT,
+                new FunctionName("year"),
+                ImmutableList.of(new Variable(timestampTzColumnSymbol, TIMESTAMP_TZ_MICROS)));
 
         LocalDate someDate = LocalDate.of(2005, 9, 10);
-        Expression yearExpression = LITERAL_ENCODER.toExpression(2005L, BIGINT);
+        ConnectorExpression yearExpression = new Constant(2005L, BIGINT);
 
         long startOfYearUtcEpochMillis = someDate.withDayOfYear(1).atStartOfDay().toEpochSecond(UTC) * MILLISECONDS_PER_SECOND;
         LongTimestampWithTimeZone startOfYearUtc = timestampTzFromEpochMillis(startOfYearUtcEpochMillis);
@@ -281,13 +266,13 @@ public class TestConstraintExtractor
 
         assertThat(extract(
                 constraint(
-                        new ComparisonExpression(EQUAL, extractYear, yearExpression),
+                        new Call(BOOLEAN, EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(extractYear, yearExpression)),
                         Map.of(timestampTzColumnSymbol, A_TIMESTAMP_TZ))))
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(A_TIMESTAMP_TZ, domain(Range.range(TIMESTAMP_TZ_MICROS, startOfYearUtc, true, startOfNextDateUtc, false)))));
 
         assertThat(extract(
                 constraint(
-                        new ComparisonExpression(NOT_EQUAL, extractYear, yearExpression),
+                        new Call(BOOLEAN, NOT_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(extractYear, yearExpression)),
                         Map.of(timestampTzColumnSymbol, A_TIMESTAMP_TZ))))
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(A_TIMESTAMP_TZ, domain(
                         Range.lessThan(TIMESTAMP_TZ_MICROS, startOfYearUtc),
@@ -295,31 +280,31 @@ public class TestConstraintExtractor
 
         assertThat(extract(
                 constraint(
-                        new ComparisonExpression(LESS_THAN, extractYear, yearExpression),
+                        new Call(BOOLEAN, LESS_THAN_OPERATOR_FUNCTION_NAME, ImmutableList.of(extractYear, yearExpression)),
                         Map.of(timestampTzColumnSymbol, A_TIMESTAMP_TZ))))
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(A_TIMESTAMP_TZ, domain(Range.lessThan(TIMESTAMP_TZ_MICROS, startOfYearUtc)))));
 
         assertThat(extract(
                 constraint(
-                        new ComparisonExpression(LESS_THAN_OR_EQUAL, extractYear, yearExpression),
+                        new Call(BOOLEAN, LESS_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(extractYear, yearExpression)),
                         Map.of(timestampTzColumnSymbol, A_TIMESTAMP_TZ))))
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(A_TIMESTAMP_TZ, domain(Range.lessThan(TIMESTAMP_TZ_MICROS, startOfNextDateUtc)))));
 
         assertThat(extract(
                 constraint(
-                        new ComparisonExpression(GREATER_THAN, extractYear, yearExpression),
+                        new Call(BOOLEAN, GREATER_THAN_OPERATOR_FUNCTION_NAME, ImmutableList.of(extractYear, yearExpression)),
                         Map.of(timestampTzColumnSymbol, A_TIMESTAMP_TZ))))
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(A_TIMESTAMP_TZ, domain(Range.greaterThanOrEqual(TIMESTAMP_TZ_MICROS, startOfNextDateUtc)))));
 
         assertThat(extract(
                 constraint(
-                        new ComparisonExpression(GREATER_THAN_OR_EQUAL, extractYear, yearExpression),
+                        new Call(BOOLEAN, GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(extractYear, yearExpression)),
                         Map.of(timestampTzColumnSymbol, A_TIMESTAMP_TZ))))
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(A_TIMESTAMP_TZ, domain(Range.greaterThanOrEqual(TIMESTAMP_TZ_MICROS, startOfYearUtc)))));
 
         assertThat(extract(
                 constraint(
-                        new ComparisonExpression(IS_DISTINCT_FROM, extractYear, yearExpression),
+                        new Call(BOOLEAN, IS_DISTINCT_FROM_OPERATOR_FUNCTION_NAME, ImmutableList.of(extractYear, yearExpression)),
                         Map.of(timestampTzColumnSymbol, A_TIMESTAMP_TZ))))
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(A_TIMESTAMP_TZ, Domain.create(
                         ValueSet.ofRanges(
@@ -332,10 +317,10 @@ public class TestConstraintExtractor
     public void testIntersectSummaryAndExpressionExtraction()
     {
         String timestampTzColumnSymbol = "timestamp_tz_symbol";
-        Cast castOfColumn = new Cast(new SymbolReference(timestampTzColumnSymbol), toSqlType(DATE));
+        ConnectorExpression castOfColumn = new Call(DATE, CAST_FUNCTION_NAME, ImmutableList.of(new Variable(timestampTzColumnSymbol, TIMESTAMP_TZ_MICROS)));
 
         LocalDate someDate = LocalDate.of(2005, 9, 10);
-        Expression someDateExpression = LITERAL_ENCODER.toExpression(someDate.toEpochDay(), DATE);
+        ConnectorExpression someDateExpression = new Constant(someDate.toEpochDay(), DATE);
 
         long startOfDateUtcEpochMillis = someDate.atStartOfDay().toEpochSecond(UTC) * MILLISECONDS_PER_SECOND;
         LongTimestampWithTimeZone startOfDateUtc = timestampTzFromEpochMillis(startOfDateUtcEpochMillis);
@@ -345,7 +330,7 @@ public class TestConstraintExtractor
         assertThat(extract(
                 constraint(
                         TupleDomain.withColumnDomains(Map.of(A_TIMESTAMP_TZ, domain(Range.lessThan(TIMESTAMP_TZ_MICROS, startOfNextNextDateUtc)))),
-                        new ComparisonExpression(NOT_EQUAL, castOfColumn, someDateExpression),
+                        new Call(BOOLEAN, NOT_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(castOfColumn, someDateExpression)),
                         Map.of(timestampTzColumnSymbol, A_TIMESTAMP_TZ))))
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(
                         A_TIMESTAMP_TZ, domain(
@@ -355,14 +340,14 @@ public class TestConstraintExtractor
         assertThat(extract(
                 constraint(
                         TupleDomain.withColumnDomains(Map.of(A_TIMESTAMP_TZ, domain(Range.lessThan(TIMESTAMP_TZ_MICROS, startOfNextDateUtc)))),
-                        new ComparisonExpression(GREATER_THAN, castOfColumn, someDateExpression),
+                        new Call(BOOLEAN, GREATER_THAN_OPERATOR_FUNCTION_NAME, ImmutableList.of(castOfColumn, someDateExpression)),
                         Map.of(timestampTzColumnSymbol, A_TIMESTAMP_TZ))))
                 .isEqualTo(TupleDomain.none());
 
         assertThat(extract(
                 constraint(
                         TupleDomain.withColumnDomains(Map.of(A_BIGINT, Domain.singleValue(BIGINT, 1L))),
-                        new ComparisonExpression(GREATER_THAN_OR_EQUAL, castOfColumn, someDateExpression),
+                        new Call(BOOLEAN, GREATER_THAN_OR_EQUAL_OPERATOR_FUNCTION_NAME, ImmutableList.of(castOfColumn, someDateExpression)),
                         Map.of(timestampTzColumnSymbol, A_TIMESTAMP_TZ))))
                 .isEqualTo(TupleDomain.withColumnDomains(Map.of(
                         A_BIGINT, Domain.singleValue(BIGINT, 1L),
@@ -388,29 +373,14 @@ public class TestConstraintExtractor
         return result.tupleDomain();
     }
 
-    private static Constraint constraint(Expression expression, Map<String, IcebergColumnHandle> assignments)
+    private static Constraint constraint(ConnectorExpression expression, Map<String, IcebergColumnHandle> assignments)
     {
         return constraint(TupleDomain.all(), expression, assignments);
     }
 
-    private static Constraint constraint(TupleDomain<ColumnHandle> summary, Expression expression, Map<String, IcebergColumnHandle> assignments)
+    private static Constraint constraint(TupleDomain<ColumnHandle> summary, ConnectorExpression expression, Map<String, IcebergColumnHandle> assignments)
     {
-        Map<String, Type> symbolTypes = assignments.entrySet().stream()
-                .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().getType()));
-        ConnectorExpression connectorExpression = connectorExpression(expression, symbolTypes);
-        return new Constraint(summary, connectorExpression, ImmutableMap.copyOf(assignments));
-    }
-
-    private static ConnectorExpression connectorExpression(Expression expression, Map<String, Type> symbolTypes)
-    {
-        return ConnectorExpressionTranslator.translate(
-                        TEST_SESSION.beginTransactionId(TransactionId.create(), new NoOpTransactionManager(), new AllowAllAccessControl()),
-                        expression,
-                        TypeProvider.viewOf(symbolTypes.entrySet().stream()
-                                .collect(toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue))),
-                        PLANNER_CONTEXT,
-                        createTestingTypeAnalyzer(PLANNER_CONTEXT))
-                .orElseThrow(() -> new RuntimeException("Translation to ConnectorExpression failed for: " + expression));
+        return new Constraint(summary, expression, ImmutableMap.copyOf(assignments));
     }
 
     private static LongTimestampWithTimeZone timestampTzFromEpochMillis(long epochMillis)
