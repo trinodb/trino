@@ -494,7 +494,7 @@
                              we only explicitly use a class from aws-java-sdk-glue, which in turn extends from a class from
                              aws-java-sdk-core -->
                         <ignoredDependency>com.amazonaws:aws-java-sdk-core</ignoredDependency>
-                        <ignoredDependency>org.apache.iceberg:iceberg-api</ignoredDependency>
+                        <ignoredDependency>cccs.ap.iceberg:iceberg-api</ignoredDependency>
                     </ignoredNonTestScopedDependencies>
                 </configuration>
             </plugin>
