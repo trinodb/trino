@@ -291,7 +291,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             }
         });
 
-        // when query is done or any time a stage completes, attempt to transition query to "final query info ready"
+        // when query is done, attempt to transition query to "final query info ready"
         queryStateMachine.addStateChangeListener(state -> {
             if (!state.isDone()) {
                 return;
@@ -642,6 +642,8 @@ public class EventDrivenFaultTolerantQueryScheduler
 
             Optional<Throwable> failure = Optional.empty();
             try {
+                // schedule() is the main logic, but expensive, so we do not want to call it after every event.
+                // Process events for some time (measured by schedulingDelayer) before invoking schedule() next time.
                 if (schedule()) {
                     while (processEvents()) {
                         if (schedulingDelayer.getRemainingDelayInMillis() > 0) {
@@ -685,6 +687,9 @@ public class EventDrivenFaultTolerantQueryScheduler
             return existingFailure;
         }
 
+        /**
+         * @return whether processing should continue
+         */
         private boolean processEvents()
         {
             try {
@@ -718,6 +723,9 @@ public class EventDrivenFaultTolerantQueryScheduler
             }
         }
 
+        /**
+         * @return whether processing should continue
+         */
         private boolean schedule()
         {
             if (checkComplete()) {
@@ -1476,6 +1484,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 List<PrioritizedScheduledTask> replacementTasks = stageExecution.taskFailed(taskId, failureInfo, taskStatus);
                 replacementTasks.forEach(schedulingQueue::addOrUpdate);
 
+                // When tasks fail for some intermittent reason, delay scheduling retries
                 if (shouldDelayScheduling(failureInfo.getErrorCode())) {
                     schedulingDelayer.startOrProlongDelayIfNecessary();
                     scheduledExecutorService.schedule(() -> eventQueue.add(Event.WAKE_UP), schedulingDelayer.getRemainingDelayInMillis(), MILLISECONDS);
