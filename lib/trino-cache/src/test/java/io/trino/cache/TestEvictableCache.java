@@ -286,6 +286,7 @@ public class TestEvictableCache
         assertThat(value).isEqualTo("abc");
     }
 
+    @Test
     @Timeout(TEST_TIMEOUT_SECONDS)
     public void testLoadFailure()
             throws Exception
@@ -475,6 +476,7 @@ public class TestEvictableCache
     /**
      * Covers https://github.com/google/guava/issues/1881
      */
+    @Test
     @Timeout(TEST_TIMEOUT_SECONDS)
     public void testInvalidateAndLoadConcurrently()
             throws Exception
