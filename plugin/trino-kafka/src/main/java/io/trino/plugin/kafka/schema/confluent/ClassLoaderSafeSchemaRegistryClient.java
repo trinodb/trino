@@ -588,4 +588,13 @@ public class ClassLoaderSafeSchemaRegistryClient
             return delegate.setMode(mode, subject, force);
         }
     }
+
+    @Override
+    public void close()
+            throws IOException
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.close();
+        }
+    }
 }
