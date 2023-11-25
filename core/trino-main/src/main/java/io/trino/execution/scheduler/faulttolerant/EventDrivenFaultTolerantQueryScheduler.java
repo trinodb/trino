@@ -2679,17 +2679,50 @@ public class EventDrivenFaultTolerantQueryScheduler
 
     private interface EventListener<T>
     {
-        T onRemoteTaskCompleted(RemoteTaskCompletedEvent event);
+        default T onRemoteTaskCompleted(RemoteTaskCompletedEvent event)
+        {
+            return onRemoteTaskEvent(event);
+        }
 
-        T onRemoteTaskExchangeSinkUpdateRequired(RemoteTaskExchangeSinkUpdateRequiredEvent event);
+        default T onRemoteTaskExchangeSinkUpdateRequired(RemoteTaskExchangeSinkUpdateRequiredEvent event)
+        {
+            return onRemoteTaskEvent(event);
+        }
 
-        T onRemoteTaskExchangeUpdatedSinkAcquired(RemoteTaskExchangeUpdatedSinkAcquired event);
+        default T onRemoteTaskEvent(RemoteTaskEvent event)
+        {
+            return onEvent(event);
+        }
 
-        T onSplitAssignment(SplitAssignmentEvent event);
+        default T onRemoteTaskExchangeUpdatedSinkAcquired(RemoteTaskExchangeUpdatedSinkAcquired event)
+        {
+            return onEvent(event);
+        }
 
-        T onStageFailure(StageFailureEvent event);
+        default T onSplitAssignment(SplitAssignmentEvent event)
+        {
+            return onStageEvent(event);
+        }
 
-        T onSinkInstanceHandleAcquired(SinkInstanceHandleAcquiredEvent sinkInstanceHandleAcquiredEvent);
+        default T onStageFailure(StageFailureEvent event)
+        {
+            return onStageEvent(event);
+        }
+
+        default T onStageEvent(StageEvent event)
+        {
+            return onEvent(event);
+        }
+
+        default T onSinkInstanceHandleAcquired(SinkInstanceHandleAcquiredEvent event)
+        {
+            return onEvent(event);
+        }
+
+        default T onEvent(Event event)
+        {
+            throw new RuntimeException("EventListener no implemented");
+        }
     }
 
     private static class SinkInstanceHandleAcquiredEvent
