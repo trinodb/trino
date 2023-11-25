@@ -495,7 +495,7 @@ public class EventDrivenFaultTolerantQueryScheduler
     }
 
     private static class Scheduler
-            implements EventListener
+            implements EventListener<Void>
     {
         private static final int EVENT_BUFFER_CAPACITY = 100;
 
@@ -1351,7 +1351,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         }
 
         @Override
-        public void onSinkInstanceHandleAcquired(SinkInstanceHandleAcquiredEvent sinkInstanceHandleAcquiredEvent)
+        public Void onSinkInstanceHandleAcquired(SinkInstanceHandleAcquiredEvent sinkInstanceHandleAcquiredEvent)
         {
             ScheduledTask scheduledTask = new ScheduledTask(sinkInstanceHandleAcquiredEvent.getStageId(), sinkInstanceHandleAcquiredEvent.getPartitionId());
             PreSchedulingTaskContext context = preSchedulingTaskContexts.remove(scheduledTask);
@@ -1384,6 +1384,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             if (remoteTask.isEmpty()) {
                 nodeLease.release();
             }
+            return null;
         }
 
         private StateChangeListener<TaskStatus> createExchangeSinkInstanceHandleUpdateRequiredListener()
@@ -1445,7 +1446,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         }
 
         @Override
-        public void onRemoteTaskCompleted(RemoteTaskCompletedEvent event)
+        public Void onRemoteTaskCompleted(RemoteTaskCompletedEvent event)
         {
             TaskStatus taskStatus = event.getTaskStatus();
             TaskId taskId = taskStatus.getTaskId();
@@ -1475,26 +1476,29 @@ public class EventDrivenFaultTolerantQueryScheduler
             for (StageId consumerStageId : stageConsumers.get(stageExecution.getStageId())) {
                 getStageExecution(consumerStageId).setSourceOutputSelector(stageExecution.getStageFragmentId(), outputSelector);
             }
+            return null;
         }
 
         @Override
-        public void onRemoteTaskExchangeSinkUpdateRequired(RemoteTaskExchangeSinkUpdateRequiredEvent event)
+        public Void onRemoteTaskExchangeSinkUpdateRequired(RemoteTaskExchangeSinkUpdateRequiredEvent event)
         {
             TaskId taskId = event.getTaskStatus().getTaskId();
             StageExecution stageExecution = getStageExecution(taskId.getStageId());
             stageExecution.initializeUpdateOfExchangeSinkInstanceHandle(taskId, eventQueue);
+            return null;
         }
 
         @Override
-        public void onRemoteTaskExchangeUpdatedSinkAcquired(RemoteTaskExchangeUpdatedSinkAcquired event)
+        public Void onRemoteTaskExchangeUpdatedSinkAcquired(RemoteTaskExchangeUpdatedSinkAcquired event)
         {
             TaskId taskId = event.getTaskId();
             StageExecution stageExecution = getStageExecution(taskId.getStageId());
             stageExecution.finalizeUpdateOfExchangeSinkInstanceHandle(taskId, event.getExchangeSinkInstanceHandle());
+            return null;
         }
 
         @Override
-        public void onSplitAssignment(SplitAssignmentEvent event)
+        public Void onSplitAssignment(SplitAssignmentEvent event)
         {
             StageExecution stageExecution = getStageExecution(event.getStageId());
             AssignmentResult assignment = event.getAssignmentResult();
@@ -1528,13 +1532,15 @@ public class EventDrivenFaultTolerantQueryScheduler
                 stageExecution.noMorePartitions();
             }
             stageExecution.taskDescriptorLoadingComplete();
+            return null;
         }
 
         @Override
-        public void onStageFailure(StageFailureEvent event)
+        public Void onStageFailure(StageFailureEvent event)
         {
             StageExecution stageExecution = getStageExecution(event.getStageId());
             stageExecution.fail(event.getFailure());
+            return null;
         }
 
         private StageExecution getStageExecution(StageId stageId)
@@ -2652,30 +2658,38 @@ public class EventDrivenFaultTolerantQueryScheduler
 
     private interface Event
     {
-        Event ABORT = listener -> {
-            throw new UnsupportedOperationException();
+        Event ABORT = new Event() {
+            @Override
+            public <T> T accept(EventListener<T> listener)
+            {
+                throw new UnsupportedOperationException();
+            }
         };
 
-        Event WAKE_UP = listener -> {
-            throw new UnsupportedOperationException();
+        Event WAKE_UP = new Event() {
+            @Override
+            public <T> T accept(EventListener<T> listener)
+            {
+                throw new UnsupportedOperationException();
+            }
         };
 
-        void accept(EventListener listener);
+        <T> T accept(EventListener<T> listener);
     }
 
-    private interface EventListener
+    private interface EventListener<T>
     {
-        void onRemoteTaskCompleted(RemoteTaskCompletedEvent event);
+        T onRemoteTaskCompleted(RemoteTaskCompletedEvent event);
 
-        void onRemoteTaskExchangeSinkUpdateRequired(RemoteTaskExchangeSinkUpdateRequiredEvent event);
+        T onRemoteTaskExchangeSinkUpdateRequired(RemoteTaskExchangeSinkUpdateRequiredEvent event);
 
-        void onRemoteTaskExchangeUpdatedSinkAcquired(RemoteTaskExchangeUpdatedSinkAcquired event);
+        T onRemoteTaskExchangeUpdatedSinkAcquired(RemoteTaskExchangeUpdatedSinkAcquired event);
 
-        void onSplitAssignment(SplitAssignmentEvent event);
+        T onSplitAssignment(SplitAssignmentEvent event);
 
-        void onStageFailure(StageFailureEvent event);
+        T onStageFailure(StageFailureEvent event);
 
-        void onSinkInstanceHandleAcquired(SinkInstanceHandleAcquiredEvent sinkInstanceHandleAcquiredEvent);
+        T onSinkInstanceHandleAcquired(SinkInstanceHandleAcquiredEvent sinkInstanceHandleAcquiredEvent);
     }
 
     private static class SinkInstanceHandleAcquiredEvent
@@ -2722,9 +2736,9 @@ public class EventDrivenFaultTolerantQueryScheduler
         }
 
         @Override
-        public void accept(EventListener listener)
+        public <T> T accept(EventListener<T> listener)
         {
-            listener.onSinkInstanceHandleAcquired(this);
+            return listener.onSinkInstanceHandleAcquired(this);
         }
     }
 
@@ -2737,9 +2751,9 @@ public class EventDrivenFaultTolerantQueryScheduler
         }
 
         @Override
-        public void accept(EventListener listener)
+        public <T> T accept(EventListener<T> listener)
         {
-            listener.onRemoteTaskCompleted(this);
+            return listener.onRemoteTaskCompleted(this);
         }
     }
 
@@ -2752,9 +2766,9 @@ public class EventDrivenFaultTolerantQueryScheduler
         }
 
         @Override
-        public void accept(EventListener listener)
+        public <T> T accept(EventListener<T> listener)
         {
-            listener.onRemoteTaskExchangeSinkUpdateRequired(this);
+            return listener.onRemoteTaskExchangeSinkUpdateRequired(this);
         }
     }
 
@@ -2771,9 +2785,9 @@ public class EventDrivenFaultTolerantQueryScheduler
         }
 
         @Override
-        public void accept(EventListener listener)
+        public <T> T accept(EventListener<T> listener)
         {
-            listener.onRemoteTaskExchangeUpdatedSinkAcquired(this);
+            return listener.onRemoteTaskExchangeUpdatedSinkAcquired(this);
         }
 
         public TaskId getTaskId()
@@ -2820,9 +2834,9 @@ public class EventDrivenFaultTolerantQueryScheduler
         }
 
         @Override
-        public void accept(EventListener listener)
+        public <T> T accept(EventListener<T> listener)
         {
-            listener.onSplitAssignment(this);
+            return listener.onSplitAssignment(this);
         }
     }
 
@@ -2843,9 +2857,9 @@ public class EventDrivenFaultTolerantQueryScheduler
         }
 
         @Override
-        public void accept(EventListener listener)
+        public <T> T accept(EventListener<T> listener)
         {
-            listener.onStageFailure(this);
+            return listener.onStageFailure(this);
         }
     }
 
