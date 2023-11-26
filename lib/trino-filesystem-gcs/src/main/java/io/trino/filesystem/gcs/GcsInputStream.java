@@ -185,7 +185,7 @@ public class GcsInputStream
             this.readChannel = getReadChannel(blob, location, 0L, readBlockSizeBytes, predeclaredLength);
         }
         catch (RuntimeException e) {
-            throw handleGcsException(e, "read file", location);
+            throw handleGcsException(e, "reading file", location);
         }
     }
 
