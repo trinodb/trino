@@ -11,13 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.transaction;
+package io.trino.testing;
 
 import io.trino.Session;
 import io.trino.execution.QueryIdGenerator;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.spi.transaction.IsolationLevel;
+import io.trino.transaction.TransactionId;
+import io.trino.transaction.TransactionInfo;
+import io.trino.transaction.TransactionManager;
 
 import java.util.function.Consumer;
 import java.util.function.Function;

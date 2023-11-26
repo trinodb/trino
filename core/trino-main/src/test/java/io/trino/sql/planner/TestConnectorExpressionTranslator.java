@@ -86,7 +86,7 @@ import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
-import static io.trino.transaction.TransactionBuilder.transaction;
+import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.LikeFunctions.likePattern;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;

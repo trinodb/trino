@@ -39,8 +39,8 @@ import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.rewrite;
+import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
-import static io.trino.transaction.TransactionBuilder.transaction;
 
 public class TestCanonicalizeExpressionRewriter
 {
