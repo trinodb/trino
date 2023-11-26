@@ -100,7 +100,7 @@ import static io.jsonwebtoken.Claims.SUBJECT;
 import static io.jsonwebtoken.security.Keys.hmacShaKeyFor;
 import static io.trino.client.OkHttpUtil.setupSsl;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
-import static io.trino.server.HttpRequestSessionContextFactory.AUTHENTICATED_IDENTITY;
+import static io.trino.server.ServletSecurityUtils.authenticatedIdentity;
 import static io.trino.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
 import static io.trino.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
@@ -1400,7 +1400,7 @@ public class TestWebUi
         public synchronized void filter(ContainerRequestContext request)
                 throws IOException
         {
-            Optional<Identity> identity = Optional.ofNullable((Identity) request.getProperty(AUTHENTICATED_IDENTITY));
+            Optional<Identity> identity = authenticatedIdentity(request);
             if (identity.map(Identity::getUser).filter(not("<internal>"::equals)).isPresent()) {
                 if (authenticatedIdentity == null) {
                     authenticatedIdentity = identity.get();
