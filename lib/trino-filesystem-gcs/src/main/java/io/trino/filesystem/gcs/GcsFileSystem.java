@@ -141,7 +141,7 @@ public class GcsFileSystem
             getFutureValue(Futures.allAsList(batchFutures));
         }
         catch (RuntimeException e) {
-            throw handleGcsException(e, "delete directory", gcsLocation);
+            throw handleGcsException(e, "deleting directory", gcsLocation);
         }
     }
 
@@ -161,7 +161,7 @@ public class GcsFileSystem
             return new GcsFileIterator(gcsLocation, getPage(gcsLocation));
         }
         catch (RuntimeException e) {
-            throw handleGcsException(e, "list files", gcsLocation);
+            throw handleGcsException(e, "listing files", gcsLocation);
         }
     }
 
@@ -258,7 +258,7 @@ public class GcsFileSystem
             return locationBuilder.build();
         }
         catch (RuntimeException e) {
-            throw handleGcsException(e, "list directories", gcsLocation);
+            throw handleGcsException(e, "listing directories", gcsLocation);
         }
     }
 

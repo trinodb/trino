@@ -84,7 +84,7 @@ final class GcsInput
             return readNBytes(readChannel, buffer, bufferOffset, bufferLength);
         }
         catch (RuntimeException e) {
-            throw handleGcsException(e, "read file", location);
+            throw handleGcsException(e, "reading file", location);
         }
     }
 

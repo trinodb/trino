@@ -49,7 +49,7 @@ public class GcsFileIterator
             return blobIterator.hasNext();
         }
         catch (RuntimeException e) {
-            throw handleGcsException(e, "iterate files", location);
+            throw handleGcsException(e, "listing files", location);
         }
     }
 
@@ -63,7 +63,7 @@ public class GcsFileIterator
             return new FileEntry(Location.of(location.getBase() + blob.getName()), length, Instant.from(blob.getUpdateTimeOffsetDateTime()), Optional.empty());
         }
         catch (RuntimeException e) {
-            throw handleGcsException(e, "iterate files", location);
+            throw handleGcsException(e, "listing files", location);
         }
     }
 }
