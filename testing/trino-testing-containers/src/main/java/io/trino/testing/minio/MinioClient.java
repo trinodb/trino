@@ -91,7 +91,7 @@ public class MinioClient
         ensureBucketExists(bucket);
 
         try {
-            ClassPath.from(MinioClient.class.getClassLoader())
+            ClassPath.from(getClass().getClassLoader())
                     .getResources().stream()
                     .filter(resourceInfo -> resourceInfo.getResourceName().startsWith(resourcePath))
                     .forEach(resourceInfo -> {
