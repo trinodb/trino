@@ -498,6 +498,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             implements EventListener<Void>
     {
         private static final int EVENT_BUFFER_CAPACITY = 100;
+        private static final long EVENT_PROCESSING_ENFORCED_FREQUENCY_MILLIS = new Duration(1, MINUTES).toMillis();
 
         private final QueryStateMachine queryStateMachine;
         private final Metadata metadata;
@@ -680,7 +681,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         private boolean processEvents()
         {
             try {
-                Event event = eventQueue.poll(1, MINUTES);
+                Event event = eventQueue.poll(EVENT_PROCESSING_ENFORCED_FREQUENCY_MILLIS, MILLISECONDS);
                 if (event == null) {
                     return true;
                 }
