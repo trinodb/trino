@@ -423,14 +423,15 @@ public class TestWebUi
                     new PreparedStatementEncoder(new ProtocolConfig()),
                     createTestMetadataManager(),
                     ImmutableSet::of,
-                    accessControl);
+                    accessControl,
+                    new ProtocolConfig());
         }
 
         @ResourceSecurity(WEB_UI)
         @GET
         public jakarta.ws.rs.core.Response echoToken(@Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
         {
-            Identity identity = sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders, Optional.empty());
+            Identity identity = sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders);
             return jakarta.ws.rs.core.Response.ok()
                     .header("user", identity.getUser())
                     .build();
