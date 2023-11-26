@@ -48,7 +48,7 @@ import static io.trino.spi.session.ResourceEstimates.CPU_TIME;
 import static io.trino.spi.session.ResourceEstimates.EXECUTION_TIME;
 import static io.trino.spi.session.ResourceEstimates.PEAK_MEMORY;
 import static io.trino.testing.TestingStatementClientFactory.DEFAULT_STATEMENT_FACTORY;
-import static io.trino.transaction.TransactionBuilder.transaction;
+import static io.trino.testing.TransactionBuilder.transaction;
 import static java.util.Objects.requireNonNull;
 
 public abstract class AbstractTestingTrinoClient<T>
