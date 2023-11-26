@@ -47,7 +47,7 @@ import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.exchange.ExchangeId;
 import io.trino.spiller.LocalSpillManager;
 import io.trino.spiller.NodeSpillConfig;
-import io.trino.version.EmbedVersion;
+import io.trino.util.EmbedVersion;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;

@@ -53,7 +53,7 @@ import io.trino.testing.TestingConnectorContext;
 import io.trino.testing.TestingSession;
 import io.trino.transaction.NoOpTransactionManager;
 import io.trino.transaction.TransactionInfo;
-import io.trino.version.EmbedVersion;
+import io.trino.util.EmbedVersion;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;

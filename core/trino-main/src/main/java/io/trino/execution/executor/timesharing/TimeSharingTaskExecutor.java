@@ -73,7 +73,7 @@ import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.tracing.Tracing.noopTracer;
 import static io.trino.execution.executor.timesharing.MultilevelSplitQueue.computeLevel;
-import static io.trino.version.EmbedVersion.testingVersionEmbedder;
+import static io.trino.util.EmbedVersion.testingVersionEmbedder;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;

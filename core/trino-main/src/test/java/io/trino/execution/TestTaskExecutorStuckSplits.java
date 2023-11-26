@@ -36,7 +36,7 @@ import io.trino.metadata.WorkerLanguageFunctionProvider;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spiller.LocalSpillManager;
 import io.trino.spiller.NodeSpillConfig;
-import io.trino.version.EmbedVersion;
+import io.trino.util.EmbedVersion;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
