@@ -42,7 +42,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
-import io.trino.version.EmbedVersion;
+import io.trino.util.EmbedVersion;
 import org.apache.hadoop.conf.Configuration;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
