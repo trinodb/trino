@@ -69,10 +69,17 @@ interface SplitAssigner
             List<PartitionUpdate> partitionUpdates,
             ImmutableIntArray sealedPartitions)
     {
+        public static final AssignmentResult EMPTY_ASSIGNMENT_RESULT = new AssignmentResult(ImmutableList.of(), false, ImmutableList.of(), ImmutableIntArray.of());
+
         public AssignmentResult
         {
             partitionsAdded = ImmutableList.copyOf(requireNonNull(partitionsAdded, "partitionsAdded is null"));
             partitionUpdates = ImmutableList.copyOf(requireNonNull(partitionUpdates, "partitionUpdates is null"));
+        }
+
+        boolean isEmpty()
+        {
+            return this == EMPTY_ASSIGNMENT_RESULT || (partitionsAdded.isEmpty() && !noMorePartitions && partitionUpdates.isEmpty() && sealedPartitions.isEmpty());
         }
 
         public static AssignmentResult.Builder builder()
@@ -82,6 +89,7 @@ interface SplitAssigner
 
         public static class Builder
         {
+            boolean empty = true;
             private final ImmutableList.Builder<Partition> partitionsAdded = ImmutableList.builder();
             private boolean noMorePartitions;
             private final ImmutableList.Builder<PartitionUpdate> partitionUpdates = ImmutableList.builder();
@@ -90,6 +98,7 @@ interface SplitAssigner
             @CanIgnoreReturnValue
             public AssignmentResult.Builder addPartition(Partition partition)
             {
+                empty = false;
                 partitionsAdded.add(partition);
                 return this;
             }
@@ -97,6 +106,7 @@ interface SplitAssigner
             @CanIgnoreReturnValue
             public AssignmentResult.Builder setNoMorePartitions()
             {
+                empty = false;
                 this.noMorePartitions = true;
                 return this;
             }
@@ -104,6 +114,7 @@ interface SplitAssigner
             @CanIgnoreReturnValue
             public AssignmentResult.Builder updatePartition(PartitionUpdate partitionUpdate)
             {
+                empty = false;
                 partitionUpdates.add(partitionUpdate);
                 return this;
             }
@@ -111,12 +122,16 @@ interface SplitAssigner
             @CanIgnoreReturnValue
             public AssignmentResult.Builder sealPartition(int partitionId)
             {
+                empty = false;
                 sealedPartitions.add(partitionId);
                 return this;
             }
 
             public AssignmentResult build()
             {
+                if (empty) {
+                    return EMPTY_ASSIGNMENT_RESULT;
+                }
                 return new AssignmentResult(
                         partitionsAdded.build(),
                         noMorePartitions,

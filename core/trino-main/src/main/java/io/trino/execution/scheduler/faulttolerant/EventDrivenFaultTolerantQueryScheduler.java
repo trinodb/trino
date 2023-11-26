@@ -1414,7 +1414,10 @@ public class EventDrivenFaultTolerantQueryScheduler
                         @Override
                         public void onSuccess(AssignmentResult result)
                         {
-                            eventQueue.add(new SplitAssignmentEvent(stageExecution.getStageId(), result));
+                            if (!result.isEmpty()) {
+                                // there may be significant amount of empty AssignmentResults so lets skip processing of those
+                                eventQueue.add(new SplitAssignmentEvent(stageExecution.getStageId(), result));
+                            }
                         }
 
                         @Override
