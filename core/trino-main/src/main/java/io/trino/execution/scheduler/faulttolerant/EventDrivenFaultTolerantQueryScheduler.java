@@ -167,6 +167,7 @@ import static io.trino.operator.RetryPolicy.TASK;
 import static io.trino.spi.ErrorType.EXTERNAL;
 import static io.trino.spi.ErrorType.INTERNAL_ERROR;
 import static io.trino.spi.ErrorType.USER_ERROR;
+import static io.trino.spi.StandardErrorCode.EXCEEDED_TIME_LIMIT;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.REMOTE_HOST_GONE;
 import static io.trino.spi.exchange.Exchange.SourceHandlesDeliveryMode.EAGER;
@@ -188,6 +189,7 @@ import static java.util.Map.Entry.comparingByKey;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class EventDrivenFaultTolerantQueryScheduler
         implements QueryScheduler
@@ -651,7 +653,8 @@ public class EventDrivenFaultTolerantQueryScheduler
         // If scheduler is stalled for SCHEDULER_STALLED_DURATION_THRESHOLD debug log will be emitted.
         // This value must be larger than EVENT_PROCESSING_ENFORCED_FREQUENCY as prerequiste for processing is
         // that there are no events in the event queue.
-        private static final long SCHEDULER_STALLED_DURATION_THRESHOLD_MILLIS = new Duration(5, MINUTES).toMillis();
+        private static final long SCHEDULER_STALLED_DURATION_THRESHOLD_MILLIS = MINUTES.toMillis(5);
+        private static final long SCHEDULER_STALLED_DURATION_ON_TIME_EXCEEDED_THRESHOLD_MILLIS = SECONDS.toMillis(30);
         private static final int EVENTS_DEBUG_INFOS_PER_BUCKET = 10;
 
         private final QueryStateMachine queryStateMachine;
@@ -789,6 +792,17 @@ public class EventDrivenFaultTolerantQueryScheduler
             queryStateMachine.addStateChangeListener(state -> {
                 if (state.isDone()) {
                     eventQueue.add(Event.WAKE_UP);
+                }
+            });
+
+            queryStateMachine.addQueryInfoStateChangeListener(queryInfo -> {
+                if (!queryInfo.isFinalQueryInfo()) {
+                    return;
+                }
+                if (queryInfo.getState() == QueryState.FAILED
+                        && queryInfo.getErrorCode() == EXCEEDED_TIME_LIMIT.toErrorCode()
+                        && eventDebugInfoStopwatch.elapsed().toMillis() > SCHEDULER_STALLED_DURATION_ON_TIME_EXCEEDED_THRESHOLD_MILLIS) {
+                    logDebugInfoSafe(format("Scheduler stalled for %s on EXCEEDED_TIME_LIMIT", eventDebugInfoStopwatch.elapsed()));
                 }
             });
 
