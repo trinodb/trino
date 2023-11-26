@@ -153,8 +153,8 @@ import io.trino.type.TypeDeserializer;
 import io.trino.type.TypeOperatorsCache;
 import io.trino.type.TypeSignatureDeserializer;
 import io.trino.type.TypeSignatureKeyDeserializer;
+import io.trino.util.EmbedVersion;
 import io.trino.util.FinalizerService;
-import io.trino.version.EmbedVersion;
 import jakarta.annotation.PreDestroy;
 
 import java.util.List;
