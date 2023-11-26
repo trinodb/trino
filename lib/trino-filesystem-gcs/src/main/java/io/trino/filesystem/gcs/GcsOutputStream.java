@@ -87,8 +87,8 @@ public class GcsOutputStream
         int bytesWritten = 0;
         try {
             bytesWritten = writeChannel.write(buffer);
-            if (bytesWritten != buffer.remaining()) {
-                throw new IOException("Unexpected bytes written length: %s should be %s".formatted(bytesWritten, buffer.remaining()));
+            if (buffer.remaining() != 0) {
+                throw new IOException("Unexpected partial write (written=%s, remaining=%s)".formatted(bytesWritten, buffer.remaining()));
             }
         }
         catch (IOException e) {

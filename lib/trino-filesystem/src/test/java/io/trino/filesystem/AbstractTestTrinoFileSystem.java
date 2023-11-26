@@ -34,6 +34,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.FileAlreadyExistsException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -554,6 +555,31 @@ public abstract class AbstractTestTrinoFileSystem
                     int value = inputStream.read();
                     assertThat(value).isGreaterThanOrEqualTo(0);
                     assertThat((byte) value).isEqualTo((byte) i);
+                }
+            }
+        }
+    }
+
+    @Test
+    void testOutputStreamLargeWrites()
+            throws IOException
+    {
+        try (TempBlob tempBlob = randomBlobLocation("inputStream")) {
+            try (OutputStream outputStream = tempBlob.outputFile().create()) {
+                for (int i = 0; i < 8; i++) {
+                    byte[] bytes = new byte[MEGABYTE / 2];
+                    Arrays.fill(bytes, (byte) i);
+                    outputStream.write(bytes);
+                }
+            }
+
+            try (TrinoInputStream inputStream = tempBlob.inputFile().newStream()) {
+                for (int i = 0; i < 8; i++) {
+                    byte[] expected = new byte[MEGABYTE / 2];
+                    Arrays.fill(expected, (byte) i);
+                    byte[] actual = inputStream.readNBytes(expected.length);
+                    assertThat(actual.length).isEqualTo(expected.length);
+                    assertThat(actual).isEqualTo(expected);
                 }
             }
         }
