@@ -23,10 +23,13 @@ import io.airlift.log.Logger;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.hdfs.gcs.GoogleGcsConfigurationInitializer;
 import io.trino.hdfs.gcs.HiveGcsConfig;
 import io.trino.plugin.hive.containers.HiveHadoop;
+import io.trino.spi.security.ConnectorIdentity;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.apache.hadoop.conf.Configuration;
 import org.junit.jupiter.api.AfterAll;
@@ -47,7 +50,7 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
+import static io.trino.plugin.deltalake.TestingDeltaLakeUtils.getConnectorService;
 import static io.trino.plugin.hive.containers.HiveHadoop.HIVE3_IMAGE;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -143,7 +146,9 @@ public class TestDeltaLakeGcsConnectorSmokeTest
     protected Map<String, String> hiveStorageConfiguration()
     {
         return ImmutableMap.<String, String>builder()
-                .put("hive.gcs.json-key", gcpCredentials)
+                .put("fs.hadoop.enabled", "false")
+                .put("fs.native-gcs.enabled", "true")
+                .put("gcs.json-key", gcpCredentials)
                 .buildOrThrow();
     }
 
@@ -160,7 +165,8 @@ public class TestDeltaLakeGcsConnectorSmokeTest
     @Override
     protected void registerTableFromResources(String table, String resourcePath, QueryRunner queryRunner)
     {
-        this.fileSystem = HDFS_FILE_SYSTEM_FACTORY.create(queryRunner.getDefaultSession().toConnectorSession());
+        this.fileSystem = getConnectorService((DistributedQueryRunner) queryRunner, TrinoFileSystemFactory.class)
+                .create(ConnectorIdentity.ofUser("test"));
 
         String targetDirectory = bucketUrl() + table;
 
