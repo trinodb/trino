@@ -75,10 +75,17 @@ public class HttpRequestSessionContextFactory
     private final Metadata metadata;
     private final GroupProvider groupProvider;
     private final AccessControl accessControl;
+    private final Optional<String> alternateHeaderName;
 
     @Inject
-    public HttpRequestSessionContextFactory(PreparedStatementEncoder preparedStatementEncoder, Metadata metadata, GroupProvider groupProvider, AccessControl accessControl)
+    public HttpRequestSessionContextFactory(
+            PreparedStatementEncoder preparedStatementEncoder,
+            Metadata metadata,
+            GroupProvider groupProvider,
+            AccessControl accessControl,
+            ProtocolConfig protocolConfig)
     {
+        this.alternateHeaderName = protocolConfig.getAlternateHeaderName();
         this.preparedStatementEncoder = requireNonNull(preparedStatementEncoder, "preparedStatementEncoder is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
@@ -87,7 +94,6 @@ public class HttpRequestSessionContextFactory
 
     public SessionContext createSessionContext(
             MultivaluedMap<String, String> headers,
-            Optional<String> alternateHeaderName,
             Optional<String> remoteAddress,
             Optional<Identity> authenticatedIdentity)
             throws WebApplicationException
@@ -184,21 +190,14 @@ public class HttpRequestSessionContextFactory
                 clientInfo);
     }
 
-    public Identity extractAuthorizedIdentity(
-            HttpServletRequest servletRequest,
-            HttpHeaders httpHeaders,
-            Optional<String> alternateHeaderName)
+    public Identity extractAuthorizedIdentity(HttpServletRequest servletRequest, HttpHeaders httpHeaders)
     {
         return extractAuthorizedIdentity(
                 Optional.ofNullable((Identity) servletRequest.getAttribute(AUTHENTICATED_IDENTITY)),
-                httpHeaders.getRequestHeaders(),
-                alternateHeaderName);
+                httpHeaders.getRequestHeaders());
     }
 
-    public Identity extractAuthorizedIdentity(
-            Optional<Identity> optionalAuthenticatedIdentity,
-            MultivaluedMap<String, String> headers,
-            Optional<String> alternateHeaderName)
+    public Identity extractAuthorizedIdentity(Optional<Identity> optionalAuthenticatedIdentity, MultivaluedMap<String, String> headers)
             throws AccessDeniedException
     {
         ProtocolHeaders protocolHeaders;
