@@ -1422,6 +1422,9 @@ public class EventDrivenFaultTolerantQueryScheduler
                         @Override
                         public void onSuccess(AssignmentResult result)
                         {
+                            // We need to process even empty events here so stageExecution.taskDescriptorLoadingComplete()
+                            // is called in event handler. Otherwise, IdempotentSplitSource may be not called again
+                            // if there is no other SplitAssignmentEvent for this stage in queue.
                             eventQueue.add(new SplitAssignmentEvent(stageExecution.getStageId(), result));
                         }
 
