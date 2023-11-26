@@ -36,7 +36,7 @@ import jakarta.ws.rs.core.FeatureContext;
 
 import java.util.Optional;
 
-import static io.trino.server.HttpRequestSessionContextFactory.AUTHENTICATED_IDENTITY;
+import static io.trino.server.ServletSecurityUtils.authenticatedIdentity;
 import static io.trino.server.ServletSecurityUtils.setAuthenticatedIdentity;
 import static io.trino.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
 import static io.trino.spi.StandardErrorCode.SERVER_STARTING_UP;
@@ -153,9 +153,7 @@ public class ResourceSecurityDynamicFeature
             }
 
             try {
-                Identity identity = sessionContextFactory.extractAuthorizedIdentity(
-                        Optional.ofNullable((Identity) request.getProperty(AUTHENTICATED_IDENTITY)),
-                        request.getHeaders());
+                Identity identity = sessionContextFactory.extractAuthorizedIdentity(authenticatedIdentity(request), request.getHeaders());
                 if (read) {
                     accessControl.checkCanReadSystemInformation(identity);
                 }
@@ -207,9 +205,7 @@ public class ResourceSecurityDynamicFeature
         public void filter(ContainerRequestContext request, ContainerResponseContext response)
         {
             // destroy identity if identity is still attached to the request
-            Optional.ofNullable(request.getProperty(AUTHENTICATED_IDENTITY))
-                    .map(Identity.class::cast)
-                    .ifPresent(Identity::destroy);
+            authenticatedIdentity(request).ifPresent(Identity::destroy);
         }
     }
 }
