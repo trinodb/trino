@@ -1186,7 +1186,8 @@ public class TestResourceSecurity
                     new PreparedStatementEncoder(new ProtocolConfig()),
                     createTestMetadataManager(),
                     user -> ImmutableSet.of(),
-                    accessControl);
+                    accessControl,
+                    new ProtocolConfig());
         }
 
         @ResourceSecurity(AUTHENTICATED_USER)
@@ -1207,7 +1208,7 @@ public class TestResourceSecurity
 
         public jakarta.ws.rs.core.Response echoIdentity(HttpServletRequest servletRequest, HttpHeaders httpHeaders)
         {
-            Identity identity = sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders, Optional.empty());
+            Identity identity = sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders);
             return jakarta.ws.rs.core.Response.ok()
                     .header("user", identity.getUser())
                     .header("principal", identity.getPrincipal().map(Principal::getName).orElse(null))
