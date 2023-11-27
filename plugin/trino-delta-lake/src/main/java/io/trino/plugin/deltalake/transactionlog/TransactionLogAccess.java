@@ -71,6 +71,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Predicates.alwaysFalse;
 import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -212,19 +213,23 @@ public class TransactionLogAccess
     public MetadataEntry getMetadataEntry(TableSnapshot tableSnapshot, ConnectorSession session)
     {
         if (tableSnapshot.getCachedMetadata().isEmpty()) {
-            try (Stream<MetadataEntry> metadataEntries = getEntries(
-                    tableSnapshot,
-                    METADATA,
-                    entryStream -> entryStream.map(DeltaLakeTransactionLogEntry::getMetaData).filter(Objects::nonNull),
-                    session,
-                    fileSystemFactory.create(session),
-                    fileFormatDataSourceStats)) {
-                // Get last entry in the stream
-                tableSnapshot.setCachedMetadata(metadataEntries.reduce((first, second) -> second));
-            }
+            populateMetadataAndProtocol(tableSnapshot, session);
         }
         return tableSnapshot.getCachedMetadata()
                 .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Metadata not found in transaction log for " + tableSnapshot.getTable()));
+    }
+
+    private void populateMetadataAndProtocol(TableSnapshot tableSnapshot, ConnectorSession session)
+    {
+        Map<Class<?>, Object> logEntries = getTransactionLogEntries(
+                    session,
+                    tableSnapshot,
+                    ImmutableSet.of(METADATA, PROTOCOL),
+                    entryStream -> entryStream
+                            .filter(entry -> entry.getMetaData() != null || entry.getProtocol() != null)
+                            .map(entry -> firstNonNull(entry.getMetaData(), entry.getProtocol())));
+        tableSnapshot.setCachedMetadata(Optional.ofNullable((MetadataEntry) logEntries.get(MetadataEntry.class)));
+        tableSnapshot.setCachedProtocol(Optional.ofNullable((ProtocolEntry) logEntries.get(ProtocolEntry.class)));
     }
 
     // Deprecated in favor of the namesake method which allows checkpoint filtering
@@ -420,10 +425,11 @@ public class TransactionLogAccess
 
     public ProtocolEntry getProtocolEntry(ConnectorSession session, TableSnapshot tableSnapshot)
     {
-        try (Stream<ProtocolEntry> protocolEntries = getProtocolEntries(tableSnapshot, session)) {
-            return protocolEntries.reduce((first, second) -> second)
-                    .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol entry not found in transaction log for table " + tableSnapshot.getTable()));
+        if (tableSnapshot.getCachedProtocol().isEmpty()) {
+            populateMetadataAndProtocol(tableSnapshot, session);
         }
+        return tableSnapshot.getCachedProtocol()
+                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol entry not found in transaction log for table " + tableSnapshot.getTable()));
     }
 
     public Stream<ProtocolEntry> getProtocolEntries(TableSnapshot tableSnapshot, ConnectorSession session)
