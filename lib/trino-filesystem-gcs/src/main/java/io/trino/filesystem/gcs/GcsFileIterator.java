@@ -15,7 +15,6 @@ package io.trino.filesystem.gcs;
 
 import com.google.api.gax.paging.Page;
 import com.google.cloud.storage.Blob;
-import com.google.common.collect.Iterators;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
@@ -37,8 +36,10 @@ public class GcsFileIterator
     public GcsFileIterator(GcsLocation location, Page<Blob> page)
     {
         this.location = requireNonNull(location, "location is null");
-        // Page::iterateAll handles paging internally
-        this.blobIterator = Iterators.filter(page.iterateAll().iterator(), blob -> !blob.isDirectory());
+        this.blobIterator = page.streamAll()
+                .filter(blob -> !blob.isDirectory())
+                .filter(blob -> !blob.getName().endsWith("/"))
+                .iterator();
     }
 
     @Override
