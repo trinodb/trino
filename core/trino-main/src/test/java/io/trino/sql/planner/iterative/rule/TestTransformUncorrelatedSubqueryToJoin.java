@@ -25,7 +25,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.FULL;
-import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
 import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
 import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.RIGHT;
 import static io.trino.sql.planner.plan.JoinNode.Type;
@@ -37,6 +36,26 @@ public class TestTransformUncorrelatedSubqueryToJoin
         extends BaseRuleTest
 {
     @Test
+    public void testRewriteLeftCorrelatedJoinWithScalarSubquery()
+    {
+        tester().assertThat(new TransformUncorrelatedSubqueryToJoin())
+                .on(p -> {
+                    Symbol a = p.symbol("a");
+                    Symbol b = p.symbol("b");
+                    return p.correlatedJoin(
+                            emptyList(),
+                            p.values(a),
+                            LEFT,
+                            TRUE_LITERAL,
+                            p.values(1, b));
+                })
+                .matches(
+                        join(Type.INNER, builder -> builder
+                                .left(values("a"))
+                                .right(values("b"))));
+    }
+
+    @Test
     public void testRewriteInnerCorrelatedJoin()
     {
         tester().assertThat(new TransformUncorrelatedSubqueryToJoin())
@@ -46,7 +65,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
                     return p.correlatedJoin(
                             emptyList(),
                             p.values(a),
-                            INNER,
+                            LEFT,
                             new ComparisonExpression(
                                     GREATER_THAN,
                                     b.toSymbolReference(),
@@ -54,7 +73,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
                             p.values(b));
                 })
                 .matches(
-                        join(Type.INNER, builder -> builder
+                        join(Type.LEFT, builder -> builder
                                 .filter("b > a")
                                 .left(values("a"))
                                 .right(values("b"))));
