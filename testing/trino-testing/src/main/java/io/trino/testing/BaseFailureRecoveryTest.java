@@ -28,6 +28,7 @@ import io.trino.spi.QueryId;
 import io.trino.tpch.TpchTable;
 import org.assertj.core.api.AbstractThrowableAssert;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -180,6 +181,7 @@ public abstract class BaseFailureRecoveryTest
     }
 
     @Test
+    @Timeout(300)
     protected void testCreateTable()
     {
         testTableModification(
@@ -189,6 +191,7 @@ public abstract class BaseFailureRecoveryTest
     }
 
     @Test
+    @Timeout(300)
     protected void testInsert()
     {
         testTableModification(
@@ -198,6 +201,7 @@ public abstract class BaseFailureRecoveryTest
     }
 
     @Test
+    @Timeout(300)
     protected void testDelete()
     {
         testTableModification(
@@ -207,6 +211,7 @@ public abstract class BaseFailureRecoveryTest
     }
 
     @Test
+    @Timeout(300)
     protected void testDeleteWithSubquery()
     {
         testTableModification(
@@ -216,6 +221,7 @@ public abstract class BaseFailureRecoveryTest
     }
 
     @Test
+    @Timeout(300)
     protected void testUpdate()
     {
         testTableModification(
@@ -225,6 +231,7 @@ public abstract class BaseFailureRecoveryTest
     }
 
     @Test
+    @Timeout(300)
     protected void testUpdateWithSubquery()
     {
         testTableModification(
@@ -234,6 +241,7 @@ public abstract class BaseFailureRecoveryTest
     }
 
     @Test
+    @Timeout(300)
     protected void testAnalyzeTable()
     {
         testNonSelect(
@@ -245,6 +253,7 @@ public abstract class BaseFailureRecoveryTest
     }
 
     @Test
+    @Timeout(300)
     protected void testMerge()
     {
         testTableModification(
@@ -262,6 +271,7 @@ public abstract class BaseFailureRecoveryTest
     }
 
     @Test
+    @Timeout(300)
     protected void testRefreshMaterializedView()
     {
         testTableModification(
@@ -271,6 +281,7 @@ public abstract class BaseFailureRecoveryTest
     }
 
     @Test
+    @Timeout(300)
     protected void testExplainAnalyze()
     {
         testSelect("EXPLAIN ANALYZE SELECT orderStatus, count(*) FROM orders GROUP BY orderStatus");
@@ -282,6 +293,7 @@ public abstract class BaseFailureRecoveryTest
     }
 
     @Test
+    @Timeout(300)
     protected void testRequestTimeouts()
     {
         if (areWriteRetriesSupported()) {

@@ -17,6 +17,7 @@ import io.trino.operator.RetryPolicy;
 import io.trino.spi.ErrorType;
 import io.trino.testing.BaseFailureRecoveryTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.Optional;
 
@@ -52,6 +53,7 @@ public abstract class BaseIcebergFailureRecoveryTest
 
     // Copied from BaseDeltaFailureRecoveryTest
     @Test
+    @Timeout(300)
     @Override
     protected void testDelete()
     {
@@ -130,6 +132,7 @@ public abstract class BaseIcebergFailureRecoveryTest
 
     // Copied from BaseDeltaFailureRecoveryTest
     @Test
+    @Timeout(300)
     @Override
     protected void testUpdate()
     {
@@ -206,6 +209,7 @@ public abstract class BaseIcebergFailureRecoveryTest
     }
 
     @Test
+    @Timeout(300)
     protected void testInsertIntoNewPartition()
     {
         testTableModification(
@@ -215,6 +219,7 @@ public abstract class BaseIcebergFailureRecoveryTest
     }
 
     @Test
+    @Timeout(300)
     protected void testInsertIntoExistingPartition()
     {
         testTableModification(
@@ -224,6 +229,7 @@ public abstract class BaseIcebergFailureRecoveryTest
     }
 
     @Test
+    @Timeout(300)
     protected void testMergePartitionedTable()
     {
         testTableModification(
