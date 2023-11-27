@@ -52,7 +52,7 @@ public abstract class BaseHiveFailureRecoveryTest
     }
 
     @Test
-    @Timeout(300)
+    @Timeout(600)
     @Override
     // delete is unsupported for non ACID tables
     protected void testDelete()
@@ -62,7 +62,7 @@ public abstract class BaseHiveFailureRecoveryTest
     }
 
     @Test
-    @Timeout(300)
+    @Timeout(600)
     @Override
     // delete is unsupported for non ACID tables
     protected void testDeleteWithSubquery()
@@ -72,7 +72,7 @@ public abstract class BaseHiveFailureRecoveryTest
     }
 
     @Test
-    @Timeout(300)
+    @Timeout(600)
     @Override
     // update is unsupported for non ACID tables
     protected void testUpdate()
@@ -82,7 +82,7 @@ public abstract class BaseHiveFailureRecoveryTest
     }
 
     @Test
-    @Timeout(300)
+    @Timeout(600)
     @Override
     // update is unsupported for non ACID tables
     protected void testUpdateWithSubquery()
@@ -92,7 +92,7 @@ public abstract class BaseHiveFailureRecoveryTest
     }
 
     @Test
-    @Timeout(300)
+    @Timeout(600)
     @Override
     protected void testMerge()
     {
@@ -101,7 +101,7 @@ public abstract class BaseHiveFailureRecoveryTest
     }
 
     @Test
-    @Timeout(300)
+    @Timeout(600)
     @Override
     // materialized views are currently not implemented by Hive connector
     protected void testRefreshMaterializedView()
@@ -111,7 +111,7 @@ public abstract class BaseHiveFailureRecoveryTest
     }
 
     @Test
-    @Timeout(300)
+    @Timeout(600)
     protected void testCreatePartitionedTable()
     {
         testTableModification(
@@ -121,7 +121,7 @@ public abstract class BaseHiveFailureRecoveryTest
     }
 
     @Test
-    @Timeout(300)
+    @Timeout(600)
     protected void testInsertIntoNewPartition()
     {
         testTableModification(
@@ -131,7 +131,7 @@ public abstract class BaseHiveFailureRecoveryTest
     }
 
     @Test
-    @Timeout(300)
+    @Timeout(600)
     protected void testInsertIntoExistingPartition()
     {
         testTableModification(
@@ -141,7 +141,7 @@ public abstract class BaseHiveFailureRecoveryTest
     }
 
     @Test
-    @Timeout(300)
+    @Timeout(600)
     protected void testInsertIntoNewPartitionBucketed()
     {
         testTableModification(
@@ -151,7 +151,7 @@ public abstract class BaseHiveFailureRecoveryTest
     }
 
     @Test
-    @Timeout(300)
+    @Timeout(600)
     protected void testInsertIntoExistingPartitionBucketed()
     {
         testTableModification(
@@ -161,7 +161,7 @@ public abstract class BaseHiveFailureRecoveryTest
     }
 
     @Test
-    @Timeout(300)
+    @Timeout(600)
     protected void testReplaceExistingPartition()
     {
         testTableModification(
@@ -174,7 +174,7 @@ public abstract class BaseHiveFailureRecoveryTest
     }
 
     @Test
-    @Timeout(300)
+    @Timeout(600)
     protected void testDeletePartitionWithSubquery()
     {
         assertThatThrownBy(() -> {

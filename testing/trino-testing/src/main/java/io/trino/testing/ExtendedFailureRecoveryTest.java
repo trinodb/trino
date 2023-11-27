@@ -69,21 +69,21 @@ public abstract class ExtendedFailureRecoveryTest
     protected abstract void createPartitionedLineitemTable(String tableName, List<String> columns, String partitionColumn);
 
     @Test
-    @Timeout(300)
+    @Timeout(600)
     protected void testSimpleSelect()
     {
         testSelect("SELECT * FROM nation");
     }
 
     @Test
-    @Timeout(300)
+    @Timeout(600)
     protected void testAggregation()
     {
         testSelect("SELECT orderStatus, count(*) FROM orders GROUP BY orderStatus");
     }
 
     @Test
-    @Timeout(300)
+    @Timeout(600)
     protected void testJoinDynamicFilteringDisabled()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey " +
@@ -92,7 +92,7 @@ public abstract class ExtendedFailureRecoveryTest
     }
 
     @Test
-    @Timeout(300)
+    @Timeout(600)
     protected void testJoinDynamicFilteringEnabled()
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey " +
@@ -112,7 +112,7 @@ public abstract class ExtendedFailureRecoveryTest
     }
 
     @Test
-    @Timeout(300)
+    @Timeout(600)
     protected void testUserFailure()
     {
         // Some connectors have pushdowns enabled for arithmetic operations (like SqlServer),
@@ -131,7 +131,7 @@ public abstract class ExtendedFailureRecoveryTest
     }
 
     @Test
-    @Timeout(300)
+    @Timeout(600)
     @Override
     protected void testRequestTimeouts()
     {

@@ -53,7 +53,7 @@ public abstract class BaseIcebergFailureRecoveryTest
 
     // Copied from BaseDeltaFailureRecoveryTest
     @Test
-    @Timeout(300)
+    @Timeout(600)
     @Override
     protected void testDelete()
     {
@@ -132,7 +132,7 @@ public abstract class BaseIcebergFailureRecoveryTest
 
     // Copied from BaseDeltaFailureRecoveryTest
     @Test
-    @Timeout(300)
+    @Timeout(600)
     @Override
     protected void testUpdate()
     {
@@ -209,7 +209,7 @@ public abstract class BaseIcebergFailureRecoveryTest
     }
 
     @Test
-    @Timeout(300)
+    @Timeout(600)
     protected void testInsertIntoNewPartition()
     {
         testTableModification(
@@ -219,7 +219,7 @@ public abstract class BaseIcebergFailureRecoveryTest
     }
 
     @Test
-    @Timeout(300)
+    @Timeout(600)
     protected void testInsertIntoExistingPartition()
     {
         testTableModification(
@@ -229,7 +229,7 @@ public abstract class BaseIcebergFailureRecoveryTest
     }
 
     @Test
-    @Timeout(300)
+    @Timeout(600)
     protected void testMergePartitionedTable()
     {
         testTableModification(

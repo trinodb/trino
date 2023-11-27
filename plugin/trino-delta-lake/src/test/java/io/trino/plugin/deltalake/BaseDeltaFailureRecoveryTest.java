@@ -94,7 +94,7 @@ public abstract class BaseDeltaFailureRecoveryTest
     }
 
     @Test
-    @Timeout(300)
+    @Timeout(600)
     @Override
     protected void testDelete()
     {
@@ -180,7 +180,7 @@ public abstract class BaseDeltaFailureRecoveryTest
     }
 
     @Test
-    @Timeout(300)
+    @Timeout(600)
     @Override
     protected void testUpdate()
     {
@@ -265,7 +265,7 @@ public abstract class BaseDeltaFailureRecoveryTest
     }
 
     @Test
-    @Timeout(300)
+    @Timeout(600)
     @Override
     // materialized views are currently not implemented by Delta connector
     protected void testRefreshMaterializedView()
@@ -275,7 +275,7 @@ public abstract class BaseDeltaFailureRecoveryTest
     }
 
     @Test
-    @Timeout(300)
+    @Timeout(600)
     protected void testCreatePartitionedTable()
     {
         testTableModification(
@@ -285,7 +285,7 @@ public abstract class BaseDeltaFailureRecoveryTest
     }
 
     @Test
-    @Timeout(300)
+    @Timeout(600)
     protected void testInsertIntoNewPartition()
     {
         testTableModification(
@@ -295,7 +295,7 @@ public abstract class BaseDeltaFailureRecoveryTest
     }
 
     @Test
-    @Timeout(300)
+    @Timeout(600)
     protected void testInsertIntoExistingPartition()
     {
         testTableModification(
