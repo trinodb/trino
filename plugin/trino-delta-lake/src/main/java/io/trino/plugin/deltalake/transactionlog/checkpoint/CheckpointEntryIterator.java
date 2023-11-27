@@ -141,6 +141,7 @@ public class CheckpointEntryIterator
     private final TupleDomain<DeltaLakeColumnHandle> partitionConstraint;
     private MetadataEntry metadataEntry;
     private ProtocolEntry protocolEntry;
+    private boolean deletionVectorsEnabled;
     private List<DeltaLakeColumnMetadata> schema;
     private List<DeltaLakeColumnMetadata> columnsWithMinMaxStats;
     private Page page;
@@ -185,6 +186,7 @@ public class CheckpointEntryIterator
             this.metadataEntry = metadataEntry.get();
             checkArgument(protocolEntry.isPresent(), "Protocol entry must be provided when reading ADD entries from Checkpoint files");
             this.protocolEntry = protocolEntry.get();
+            deletionVectorsEnabled = isDeletionVectorEnabled(this.metadataEntry, this.protocolEntry);
             checkArgument(addStatsMinMaxColumnFilter.isPresent(), "addStatsMinMaxColumnFilter must be provided when reading ADD entries from Checkpoint files");
             this.schema = extractSchema(this.metadataEntry, this.protocolEntry, typeManager);
             this.columnsWithMinMaxStats = columnsWithStats(schema, this.metadataEntry.getOriginalPartitionColumns());
@@ -466,7 +468,6 @@ public class CheckpointEntryIterator
             return null;
         }
         RowType type = (RowType) parquetFields.get("add");
-        boolean deletionVectorsEnabled = isDeletionVectorEnabled(metadataEntry, protocolEntry);
         SqlRow addEntryRow = block.getObject(pagePosition, SqlRow.class);
         log.debug("Block %s has %s fields", block, addEntryRow.getFieldCount());
         CheckpointFieldReader add = new CheckpointFieldReader(session, addEntryRow, type);
