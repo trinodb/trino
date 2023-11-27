@@ -21,6 +21,7 @@ import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
@@ -36,6 +37,7 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.matching.Pattern.empty;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.extractCardinality;
 import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.FULL;
 import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
 import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
@@ -64,7 +66,8 @@ public class TransformUncorrelatedSubqueryToJoin
             return Result.ofPlanNode(rewriteToJoin(
                     correlatedJoinNode,
                     correlatedJoinNode.getType().toJoinNodeType(),
-                    correlatedJoinNode.getFilter()));
+                    correlatedJoinNode.getFilter(),
+                    context.getLookup()));
         }
 
         checkState(
@@ -79,7 +82,7 @@ public class TransformUncorrelatedSubqueryToJoin
         else {
             type = JoinNode.Type.LEFT;
         }
-        JoinNode joinNode = rewriteToJoin(correlatedJoinNode, type, TRUE_LITERAL);
+        JoinNode joinNode = rewriteToJoin(correlatedJoinNode, type, TRUE_LITERAL, context.getLookup());
 
         if (correlatedJoinNode.getFilter().equals(TRUE_LITERAL)) {
             return Result.ofPlanNode(joinNode);
@@ -109,8 +112,12 @@ public class TransformUncorrelatedSubqueryToJoin
         return Result.empty();
     }
 
-    private JoinNode rewriteToJoin(CorrelatedJoinNode parent, JoinNode.Type type, Expression filter)
+    private JoinNode rewriteToJoin(CorrelatedJoinNode parent, JoinNode.Type type, Expression filter, Lookup lookup)
     {
+        if (type == JoinNode.Type.LEFT && extractCardinality(parent.getSubquery(), lookup).isAtLeastScalar() && filter.equals(TRUE_LITERAL)) {
+            // input rows will always be matched against subquery rows
+            type = JoinNode.Type.INNER;
+        }
         return new JoinNode(
                 parent.getId(),
                 type,
