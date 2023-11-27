@@ -16,6 +16,7 @@ package io.trino.plugin.jdbc;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
+import io.trino.plugin.base.inject.Decorator;
 import io.trino.spi.connector.ConnectorSession;
 import jakarta.annotation.Nullable;
 
@@ -23,6 +24,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.plugin.jdbc.jmx.StatisticsAwareConnectionFactory.FactoryDecorator.STATISTICS_PRIORITY;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -32,7 +34,7 @@ public final class LazyConnectionFactory
     private final ConnectionFactory delegate;
 
     @Inject
-    public LazyConnectionFactory(RetryingConnectionFactory delegate)
+    public LazyConnectionFactory(ConnectionFactory delegate)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
     }
@@ -92,5 +94,23 @@ public final class LazyConnectionFactory
     {
         T get()
                 throws SQLException;
+    }
+
+    public static class FactoryDecorator
+            implements Decorator<ConnectionFactory>
+    {
+        public static final int LAZY_CONNECTION_PRIORITY = STATISTICS_PRIORITY + 1;
+
+        @Override
+        public int priority()
+        {
+            return LAZY_CONNECTION_PRIORITY;
+        }
+
+        @Override
+        public ConnectionFactory apply(ConnectionFactory delegate)
+        {
+            return new LazyConnectionFactory(delegate);
+        }
     }
 }

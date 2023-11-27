@@ -24,11 +24,13 @@ import io.airlift.log.Logger;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.plugin.base.util.LoggingInvocationHandler;
+import io.trino.plugin.jdbc.jmx.ConnectionFactoryStats;
 import io.trino.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
 import io.trino.plugin.jdbc.jmx.StatisticsAwareJdbcClient;
 import org.weakref.jmx.guice.MBeanModule;
 
 import static com.google.common.reflect.Reflection.newProxy;
+import static io.trino.plugin.base.inject.DecoratorBinder.newDecoratorBinder;
 import static java.lang.String.format;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -40,12 +42,15 @@ public class JdbcDiagnosticModule
     {
         binder.install(new MBeanServerModule());
         binder.install(new MBeanModule());
-        binder.bind(StatisticsAwareConnectionFactory.class).in(Scopes.SINGLETON);
+
+        newDecoratorBinder(binder, ConnectionFactory.class, ForBaseJdbc.class)
+                .addBinding(StatisticsAwareConnectionFactory.FactoryDecorator.class);
+        binder.bind(ConnectionFactoryStats.class).in(Scopes.SINGLETON);
 
         Provider<CatalogName> catalogName = binder.getProvider(CatalogName.class);
         newExporter(binder).export(Key.get(JdbcClient.class, StatsCollecting.class))
                 .as(generator -> generator.generatedNameOf(JdbcClient.class, catalogName.get().toString()));
-        newExporter(binder).export(StatisticsAwareConnectionFactory.class)
+        newExporter(binder).export(ConnectionFactoryStats.class)
                 .as(generator -> generator.generatedNameOf(ConnectionFactory.class, catalogName.get().toString()));
         newExporter(binder).export(JdbcClient.class)
                 .as(generator -> generator.generatedNameOf(CachingJdbcClient.class, catalogName.get().toString()));

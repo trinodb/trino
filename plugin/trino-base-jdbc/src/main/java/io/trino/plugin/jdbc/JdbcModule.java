@@ -50,7 +50,7 @@ public class JdbcModule
         install(new JdbcDiagnosticModule());
         install(new IdentifierMappingModule());
         install(new RemoteQueryModifierModule());
-        install(new RetryingConnectionFactoryModule());
+        install(new ConnectionFactoryModule());
 
         newOptionalBinder(binder, ConnectorAccessControl.class);
         newOptionalBinder(binder, QueryBuilder.class).setDefault().to(DefaultQueryBuilder.class).in(Scopes.SINGLETON);
@@ -92,8 +92,7 @@ public class JdbcModule
         install(conditionalModule(
                 QueryConfig.class,
                 QueryConfig::isReuseConnection,
-                new ReusableConnectionFactoryModule(),
-                innerBinder -> innerBinder.bind(ConnectionFactory.class).to(LazyConnectionFactory.class).in(Scopes.SINGLETON)));
+                new ReusableConnectionFactoryModule()));
 
         newOptionalBinder(binder, Key.get(int.class, MaxDomainCompactionThreshold.class));
 

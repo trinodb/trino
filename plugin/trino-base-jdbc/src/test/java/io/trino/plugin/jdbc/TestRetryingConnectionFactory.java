@@ -14,11 +14,13 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.base.Throwables;
-import com.google.inject.Guice;
+import com.google.inject.Binder;
 import com.google.inject.Inject;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Scopes;
+import io.airlift.bootstrap.Bootstrap;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.jdbc.RetryingConnectionFactory.RetryStrategy;
 import io.trino.spi.StandardErrorCode;
 import io.trino.spi.TrinoException;
@@ -31,6 +33,7 @@ import java.sql.SQLRecoverableException;
 import java.sql.SQLTransientException;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import static com.google.common.reflect.Reflection.newProxy;
@@ -52,8 +55,9 @@ public class TestRetryingConnectionFactory
 {
     @Test
     public void testEverythingImplemented()
+            throws NoSuchMethodException
     {
-        assertAllMethodsOverridden(ConnectionFactory.class, RetryingConnectionFactory.class);
+        assertAllMethodsOverridden(ConnectionFactory.class, RetryingConnectionFactory.class, Set.of(ConnectionFactory.class.getMethod("close")));
     }
 
     @Test
@@ -61,7 +65,7 @@ public class TestRetryingConnectionFactory
             throws Exception
     {
         Injector injector = createInjector(RETURN);
-        ConnectionFactory factory = injector.getInstance(RetryingConnectionFactory.class);
+        ConnectionFactory factory = injector.getInstance(ConnectionFactory.class);
         MockConnectorFactory mock = injector.getInstance(MockConnectorFactory.class);
 
         Connection connection = factory.openConnection(SESSION);
@@ -74,7 +78,7 @@ public class TestRetryingConnectionFactory
     public void testRetryAndStopOnTrinoException()
     {
         Injector injector = createInjector(THROW_SQL_TRANSIENT_EXCEPTION, THROW_TRINO_EXCEPTION);
-        ConnectionFactory factory = injector.getInstance(RetryingConnectionFactory.class);
+        ConnectionFactory factory = injector.getInstance(ConnectionFactory.class);
         MockConnectorFactory mock = injector.getInstance(MockConnectorFactory.class);
 
         assertThatThrownBy(() -> factory.openConnection(SESSION))
@@ -88,7 +92,7 @@ public class TestRetryingConnectionFactory
     public void testRetryAndStopOnSqlException()
     {
         Injector injector = createInjector(THROW_SQL_TRANSIENT_EXCEPTION, THROW_SQL_EXCEPTION);
-        ConnectionFactory factory = injector.getInstance(RetryingConnectionFactory.class);
+        ConnectionFactory factory = injector.getInstance(ConnectionFactory.class);
         MockConnectorFactory mock = injector.getInstance(MockConnectorFactory.class);
 
         assertThatThrownBy(() -> factory.openConnection(SESSION))
@@ -102,7 +106,7 @@ public class TestRetryingConnectionFactory
     public void testNullPointerException()
     {
         Injector injector = createInjector(THROW_NPE);
-        ConnectionFactory factory = injector.getInstance(RetryingConnectionFactory.class);
+        ConnectionFactory factory = injector.getInstance(ConnectionFactory.class);
         MockConnectorFactory mock = injector.getInstance(MockConnectorFactory.class);
 
         assertThatThrownBy(() -> factory.openConnection(SESSION))
@@ -117,7 +121,7 @@ public class TestRetryingConnectionFactory
             throws Exception
     {
         Injector injector = createInjector(THROW_SQL_TRANSIENT_EXCEPTION, RETURN);
-        ConnectionFactory factory = injector.getInstance(RetryingConnectionFactory.class);
+        ConnectionFactory factory = injector.getInstance(ConnectionFactory.class);
         MockConnectorFactory mock = injector.getInstance(MockConnectorFactory.class);
 
         Connection connection = factory.openConnection(SESSION);
@@ -131,7 +135,7 @@ public class TestRetryingConnectionFactory
             throws Exception
     {
         Injector injector = createInjector(THROW_WRAPPED_SQL_TRANSIENT_EXCEPTION, RETURN);
-        ConnectionFactory factory = injector.getInstance(RetryingConnectionFactory.class);
+        ConnectionFactory factory = injector.getInstance(ConnectionFactory.class);
         MockConnectorFactory mock = injector.getInstance(MockConnectorFactory.class);
 
         Connection connection = factory.openConnection(SESSION);
@@ -145,7 +149,7 @@ public class TestRetryingConnectionFactory
             throws Exception
     {
         Injector injector = createInjectorWithOverridenStrategy(THROW_SQL_RECOVERABLE_EXCEPTION, RETURN);
-        ConnectionFactory factory = injector.getInstance(RetryingConnectionFactory.class);
+        ConnectionFactory factory = injector.getInstance(ConnectionFactory.class);
         MockConnectorFactory mock = injector.getInstance(MockConnectorFactory.class);
 
         Connection connection = factory.openConnection(SESSION);
@@ -156,23 +160,33 @@ public class TestRetryingConnectionFactory
 
     private static Injector createInjector(MockConnectorFactory.Action... actions)
     {
-        return Guice.createInjector(binder -> {
-            binder.bind(MockConnectorFactory.Action[].class).toInstance(actions);
-            binder.bind(MockConnectorFactory.class).in(Scopes.SINGLETON);
-            binder.bind(ConnectionFactory.class).annotatedWith(ForBaseJdbc.class).to(Key.get(MockConnectorFactory.class));
-            binder.install(new RetryingConnectionFactoryModule());
-        });
+        return new Bootstrap(new AbstractConfigurationAwareModule()
+        {
+            @Override
+            protected void setup(Binder binder)
+            {
+                binder.bind(MockConnectorFactory.Action[].class).toInstance(actions);
+                binder.bind(MockConnectorFactory.class).in(Scopes.SINGLETON);
+                binder.bind(ConnectionFactory.class).annotatedWith(ForBaseJdbc.class).to(Key.get(MockConnectorFactory.class));
+                install(new RetryingConnectionFactoryModule());
+            }
+        }).initialize();
     }
 
     private static Injector createInjectorWithOverridenStrategy(MockConnectorFactory.Action... actions)
     {
-        return Guice.createInjector(binder -> {
-            binder.bind(MockConnectorFactory.Action[].class).toInstance(actions);
-            binder.bind(MockConnectorFactory.class).in(Scopes.SINGLETON);
-            binder.bind(ConnectionFactory.class).annotatedWith(ForBaseJdbc.class).to(Key.get(MockConnectorFactory.class));
-            binder.install(new RetryingConnectionFactoryModule());
-            newOptionalBinder(binder, RetryStrategy.class).setBinding().to(OverrideRetryStrategy.class).in(Scopes.SINGLETON);
-        });
+        return new Bootstrap(new AbstractConfigurationAwareModule()
+        {
+            @Override
+            protected void setup(Binder binder)
+            {
+                binder.bind(MockConnectorFactory.Action[].class).toInstance(actions);
+                binder.bind(MockConnectorFactory.class).in(Scopes.SINGLETON);
+                binder.bind(ConnectionFactory.class).annotatedWith(ForBaseJdbc.class).to(Key.get(MockConnectorFactory.class));
+                install(new RetryingConnectionFactoryModule());
+                newOptionalBinder(binder, RetryStrategy.class).setBinding().to(OverrideRetryStrategy.class).in(Scopes.SINGLETON);
+            }
+        }).initialize();
     }
 
     private static class OverrideRetryStrategy

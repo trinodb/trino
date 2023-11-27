@@ -18,7 +18,7 @@ import com.google.inject.Inject;
 import dev.failsafe.Failsafe;
 import dev.failsafe.FailsafeException;
 import dev.failsafe.RetryPolicy;
-import io.trino.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
+import io.trino.plugin.base.inject.Decorator;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 
@@ -26,6 +26,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLTransientException;
 
+import static io.trino.plugin.jdbc.LazyConnectionFactory.FactoryDecorator.LAZY_CONNECTION_PRIORITY;
 import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.time.temporal.ChronoUnit.SECONDS;
 import static java.util.Objects.requireNonNull;
@@ -36,8 +37,7 @@ public class RetryingConnectionFactory
     private final RetryPolicy<Object> retryPolicy;
     private final ConnectionFactory delegate;
 
-    @Inject
-    public RetryingConnectionFactory(StatisticsAwareConnectionFactory delegate, RetryStrategy retryStrategy)
+    public RetryingConnectionFactory(ConnectionFactory delegate, RetryStrategy retryStrategy)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         requireNonNull(retryStrategy);
@@ -85,6 +85,31 @@ public class RetryingConnectionFactory
         {
             return Throwables.getCausalChain(exception).stream()
                     .anyMatch(SQLTransientException.class::isInstance);
+        }
+    }
+
+    public static class FactoryDecorator
+            implements Decorator<ConnectionFactory>
+    {
+        public static final int RETRYING_PRIORITY = LAZY_CONNECTION_PRIORITY + 1;
+        private final RetryStrategy strategy;
+
+        @Inject
+        public FactoryDecorator(RetryStrategy strategy)
+        {
+            this.strategy = requireNonNull(strategy, "strategy is null");
+        }
+
+        @Override
+        public int priority()
+        {
+            return RETRYING_PRIORITY;
+        }
+
+        @Override
+        public ConnectionFactory apply(ConnectionFactory delegate)
+        {
+            return new RetryingConnectionFactory(delegate, strategy);
         }
     }
 }

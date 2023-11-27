@@ -24,6 +24,7 @@ import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.RetryingConnectionFactory;
 import io.trino.plugin.jdbc.RetryingConnectionFactory.DefaultRetryStrategy;
 import io.trino.plugin.jdbc.credential.StaticCredentialProvider;
+import io.trino.plugin.jdbc.jmx.ConnectionFactoryStats;
 import io.trino.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
 import io.trino.testing.ResourcePresence;
 import oracle.jdbc.OracleDriver;
@@ -130,7 +131,8 @@ public class TestingOracleServer
         StatisticsAwareConnectionFactory connectionFactory = new StatisticsAwareConnectionFactory(new DriverConnectionFactory(
                 new OracleDriver(),
                 new BaseJdbcConfig().setConnectionUrl(connectionUrl),
-                StaticCredentialProvider.of(username, password)));
+                StaticCredentialProvider.of(username, password)),
+                new ConnectionFactoryStats());
         return new RetryingConnectionFactory(connectionFactory, new DefaultRetryStrategy());
     }
 

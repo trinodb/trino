@@ -14,12 +14,10 @@
 package io.trino.plugin.jdbc.jmx;
 
 import com.google.inject.Inject;
+import io.trino.plugin.base.inject.Decorator;
 import io.trino.plugin.jdbc.ConnectionFactory;
-import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.ForwardingConnectionFactory;
 import io.trino.spi.connector.ConnectorSession;
-import org.weakref.jmx.Managed;
-import org.weakref.jmx.Nested;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -30,13 +28,12 @@ public class StatisticsAwareConnectionFactory
         extends ForwardingConnectionFactory
 {
     private final ConnectionFactory delegate;
-    private final JdbcApiStats openConnection = new JdbcApiStats();
-    private final JdbcApiStats closeConnection = new JdbcApiStats();
+    private final ConnectionFactoryStats stats;
 
-    @Inject
-    public StatisticsAwareConnectionFactory(@ForBaseJdbc ConnectionFactory delegate)
+    public StatisticsAwareConnectionFactory(ConnectionFactory delegate, ConnectionFactoryStats stats)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
+        this.stats = requireNonNull(stats, "stats is null");
     }
 
     @Override
@@ -49,27 +46,39 @@ public class StatisticsAwareConnectionFactory
     public Connection openConnection(ConnectorSession session)
             throws SQLException
     {
-        return openConnection.wrap(() -> delegate.openConnection(session));
+        return stats.getOpenConnection().wrap(() -> delegate.openConnection(session));
     }
 
     @Override
     public void close()
             throws SQLException
     {
-        closeConnection.wrap(delegate::close);
+        stats.getCloseConnection().wrap(delegate::close);
     }
 
-    @Managed
-    @Nested
-    public JdbcApiStats getOpenConnection()
+    public static class FactoryDecorator
+            implements Decorator<ConnectionFactory>
     {
-        return openConnection;
-    }
+        public static final int STATISTICS_PRIORITY = 1;
+        private final ConnectionFactoryStats stats;
 
-    @Managed
-    @Nested
-    public JdbcApiStats getCloseConnection()
-    {
-        return closeConnection;
+        @Inject
+        public FactoryDecorator(ConnectionFactoryStats stats)
+        {
+            this.stats = requireNonNull(stats, "stats is null");
+        }
+
+        @Override
+        public int priority()
+        {
+            // Lowest priority wraps around the raw instance
+            return STATISTICS_PRIORITY;
+        }
+
+        @Override
+        public ConnectionFactory apply(ConnectionFactory delegate)
+        {
+            return new StatisticsAwareConnectionFactory(delegate, stats);
+        }
     }
 }

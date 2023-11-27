@@ -44,7 +44,6 @@ import io.trino.plugin.jdbc.JdbcMetadataConfig;
 import io.trino.plugin.jdbc.JdbcMetadataSessionProperties;
 import io.trino.plugin.jdbc.JdbcWriteConfig;
 import io.trino.plugin.jdbc.JdbcWriteSessionProperties;
-import io.trino.plugin.jdbc.LazyConnectionFactory;
 import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RetryingConnectionFactoryModule;
@@ -134,8 +133,7 @@ public class PhoenixClientModule
         install(conditionalModule(
                 PhoenixConfig.class,
                 PhoenixConfig::isReuseConnection,
-                new ReusableConnectionFactoryModule(),
-                innerBinder -> innerBinder.bind(ConnectionFactory.class).to(LazyConnectionFactory.class).in(Scopes.SINGLETON)));
+                new ReusableConnectionFactoryModule()));
 
         bindTablePropertiesProvider(binder, PhoenixTableProperties.class);
         binder.bind(PhoenixColumnProperties.class).in(Scopes.SINGLETON);

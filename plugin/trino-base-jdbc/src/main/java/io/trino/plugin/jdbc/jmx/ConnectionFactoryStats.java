@@ -11,21 +11,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.jdbc;
+package io.trino.plugin.jdbc.jmx;
 
-import com.google.inject.BindingAnnotation;
+import org.weakref.jmx.Managed;
+import org.weakref.jmx.Nested;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
-
-import static java.lang.annotation.ElementType.FIELD;
-import static java.lang.annotation.ElementType.METHOD;
-import static java.lang.annotation.ElementType.PARAMETER;
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
-
-@Retention(RUNTIME)
-@Target({FIELD, PARAMETER, METHOD})
-@BindingAnnotation
-public @interface ForReusableConnectionFactory
+public class ConnectionFactoryStats
 {
+    private final JdbcApiStats openConnection = new JdbcApiStats();
+    private final JdbcApiStats closeConnection = new JdbcApiStats();
+
+    @Managed
+    @Nested
+    public JdbcApiStats getOpenConnection()
+    {
+        return openConnection;
+    }
+
+    @Managed
+    @Nested
+    public JdbcApiStats getCloseConnection()
+    {
+        return closeConnection;
+    }
 }
