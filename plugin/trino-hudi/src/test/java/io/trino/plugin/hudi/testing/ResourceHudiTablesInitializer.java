@@ -220,14 +220,11 @@ public class ResourceHudiTablesInitializer
         private static List<Column> nonPartitionRegularColumns()
         {
             return ImmutableList.of(
-                    column("rowid", HIVE_STRING),
-                    column("partitionid", HIVE_STRING),
-                    column("precomb", HIVE_LONG),
+                    column("id", HIVE_LONG),
                     column("name", HIVE_STRING),
-                    column("versionid", HIVE_STRING),
-                    column("tobedeletedstr", HIVE_STRING),
-                    column("inttolong", HIVE_INT),
-                    column("longtoint", HIVE_LONG));
+                    column("ts", HIVE_LONG),
+                    column("dt", HIVE_STRING),
+                    column("hh", HIVE_STRING));
         }
 
         private static List<Column> stockTicksRegularColumns()
