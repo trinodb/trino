@@ -13,6 +13,8 @@
  */
 package io.trino.filesystem.gcs;
 
+import com.google.cloud.storage.BlobId;
+import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.BucketInfo;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.testing.RemoteStorageHelper;
@@ -22,11 +24,13 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.spi.security.ConnectorIdentity;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 import java.util.Base64;
 
+import static com.google.cloud.storage.Storage.BlobTargetOption.doesNotExist;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -125,5 +129,27 @@ public abstract class AbstractTestGcsFileSystem
     protected final boolean supportsRenameFile()
     {
         return false;
+    }
+
+    @Test
+    void testExistingFileWithTrailingSlash()
+            throws IOException
+    {
+        BlobId blobId = BlobId.of(new GcsLocation(rootLocation).bucket(), "data/file/");
+        storage.create(BlobInfo.newBuilder(blobId).build(), new byte[0], doesNotExist());
+        try {
+            assertThat(fileSystem.listFiles(getRootLocation()).hasNext()).isFalse();
+
+            Location data = getRootLocation().appendPath("data/");
+            assertThat(fileSystem.listDirectories(getRootLocation())).containsExactly(data);
+            assertThat(fileSystem.listDirectories(data)).containsExactly(data.appendPath("file/"));
+
+            // blobs ending in slash are deleted, even though they are not visible to listings
+            fileSystem.deleteDirectory(data);
+            assertThat(fileSystem.listDirectories(getRootLocation())).isEmpty();
+        }
+        finally {
+            storage.delete(blobId);
+        }
     }
 }
