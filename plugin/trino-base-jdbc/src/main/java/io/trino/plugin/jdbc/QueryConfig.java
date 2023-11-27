@@ -15,10 +15,15 @@ package io.trino.plugin.jdbc;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.units.Duration;
+import io.airlift.units.MaxDuration;
+import io.airlift.units.MinDuration;
 
 public class QueryConfig
 {
     private boolean reuseConnection = true;
+    private boolean keepAlive;
+    private Duration keepAliveInterval = Duration.valueOf("30s");
 
     public boolean isReuseConnection()
     {
@@ -30,6 +35,34 @@ public class QueryConfig
     public QueryConfig setReuseConnection(boolean reuseConnection)
     {
         this.reuseConnection = reuseConnection;
+        return this;
+    }
+
+    public boolean isKeepAlive()
+    {
+        return keepAlive;
+    }
+
+    @Config("query.keep-alive-connection")
+    @ConfigDescription("Enables JDBC connection watchdog to ensure that connection won't be closed by the database when idle")
+    public QueryConfig setKeepAlive(boolean keepAlive)
+    {
+        this.keepAlive = keepAlive;
+        return this;
+    }
+
+    @MinDuration("5s")
+    @MaxDuration("1h")
+    public Duration getKeepAliveInterval()
+    {
+        return keepAliveInterval;
+    }
+
+    @Config("query.keep-alive-interval")
+    @ConfigDescription("Interval to check for JDBC connection validity")
+    public QueryConfig setKeepAliveInterval(Duration keepAliveInterval)
+    {
+        this.keepAliveInterval = keepAliveInterval;
         return this;
     }
 }

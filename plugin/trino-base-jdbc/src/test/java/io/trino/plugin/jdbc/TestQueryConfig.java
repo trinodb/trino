@@ -14,6 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -28,7 +29,9 @@ public class TestQueryConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(QueryConfig.class)
-                .setReuseConnection(true));
+                .setReuseConnection(true)
+                .setKeepAlive(false)
+                .setKeepAliveInterval(Duration.valueOf("30s")));
     }
 
     @Test
@@ -36,10 +39,14 @@ public class TestQueryConfig
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("query.reuse-connection", "false")
+                .put("query.keep-alive-connection", "true")
+                .put("query.keep-alive-interval", "5m")
                 .buildOrThrow();
 
         QueryConfig expected = new QueryConfig()
-                .setReuseConnection(false);
+                .setReuseConnection(false)
+                .setKeepAlive(true)
+                .setKeepAliveInterval(Duration.valueOf("5m"));
 
         assertFullMapping(properties, expected);
     }

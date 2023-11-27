@@ -15,6 +15,7 @@ package io.trino.plugin.jdbc;
 
 import com.google.inject.Binder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.jdbc.keepalive.KeepAliveConnectionFactory;
 
 import static io.trino.plugin.base.inject.DecoratorBinder.newDecoratorBinder;
 
@@ -25,8 +26,8 @@ public class ConnectionFactoryModule
     protected void setup(Binder binder)
     {
         newDecoratorBinder(binder, ConnectionFactory.class, ForBaseJdbc.class)
-                .addBinding(RetryingConnectionFactory.FactoryDecorator.class)
-                .addBinding(LazyConnectionFactory.FactoryDecorator.class);
+                .addBinding(LazyConnectionFactory.FactoryDecorator.class)
+                .addBinding(KeepAliveConnectionFactory.FactoryDecorator.class);
 
         install(new RetryingConnectionFactoryModule());
     }
