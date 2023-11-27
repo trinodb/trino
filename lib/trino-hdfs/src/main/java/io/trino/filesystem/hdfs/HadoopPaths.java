@@ -42,6 +42,7 @@ public final class HadoopPaths
                     location.scheme().orElse(null),
                     location.host().orElse(null),
                     "/" + location.path(),
+                    null,
                     location.path());
         }
         catch (URISyntaxException e) {
