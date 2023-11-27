@@ -194,8 +194,8 @@ public interface TrinoFileSystem
 
     /**
      * Lists all directories that are direct descendants of the specified directory.
-     * The location can be empty, which lists all directories at the root of the file system,
-     * otherwise the location otherwise the location must end with a slash.
+     * If the path is empty, all directories at the root of the file system are returned.
+     * Otherwise, the path must end with a slash.
      * If the location does not exist, an empty set is returned.
      * <p>
      * For hierarchical file systems, if the path is not a directory, an exception is raised.
