@@ -27,7 +27,7 @@ import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public final class LazyConnectionFactory
-        implements ConnectionFactory
+        extends ForwardingConnectionFactory
 {
     private final ConnectionFactory delegate;
 
@@ -38,17 +38,16 @@ public final class LazyConnectionFactory
     }
 
     @Override
+    protected ConnectionFactory delegate()
+    {
+        return delegate;
+    }
+
+    @Override
     public Connection openConnection(ConnectorSession session)
             throws SQLException
     {
         return new LazyConnection(() -> delegate.openConnection(session));
-    }
-
-    @Override
-    public void close()
-            throws SQLException
-    {
-        delegate.close();
     }
 
     private static final class LazyConnection

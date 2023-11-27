@@ -16,6 +16,7 @@ package io.trino.plugin.jdbc.jmx;
 import com.google.inject.Inject;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
+import io.trino.plugin.jdbc.ForwardingConnectionFactory;
 import io.trino.spi.connector.ConnectorSession;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
@@ -26,16 +27,22 @@ import java.sql.SQLException;
 import static java.util.Objects.requireNonNull;
 
 public class StatisticsAwareConnectionFactory
-        implements ConnectionFactory
+        extends ForwardingConnectionFactory
 {
+    private final ConnectionFactory delegate;
     private final JdbcApiStats openConnection = new JdbcApiStats();
     private final JdbcApiStats closeConnection = new JdbcApiStats();
-    private final ConnectionFactory delegate;
 
     @Inject
     public StatisticsAwareConnectionFactory(@ForBaseJdbc ConnectionFactory delegate)
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
+    }
+
+    @Override
+    protected ConnectionFactory delegate()
+    {
+        return delegate;
     }
 
     @Override

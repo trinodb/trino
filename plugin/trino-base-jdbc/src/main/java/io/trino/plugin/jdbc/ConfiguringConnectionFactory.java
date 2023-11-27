@@ -21,7 +21,7 @@ import java.sql.SQLException;
 import static java.util.Objects.requireNonNull;
 
 public final class ConfiguringConnectionFactory
-        implements ConnectionFactory
+        extends ForwardingConnectionFactory
 {
     private final ConnectionFactory delegate;
     private final Configurator configurator;
@@ -30,6 +30,12 @@ public final class ConfiguringConnectionFactory
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.configurator = requireNonNull(configurator, "configurator is null");
+    }
+
+    @Override
+    protected ConnectionFactory delegate()
+    {
+        return delegate;
     }
 
     @Override
@@ -46,13 +52,6 @@ public final class ConfiguringConnectionFactory
             }
         }
         return connection;
-    }
-
-    @Override
-    public void close()
-            throws SQLException
-    {
-        delegate.close();
     }
 
     @FunctionalInterface

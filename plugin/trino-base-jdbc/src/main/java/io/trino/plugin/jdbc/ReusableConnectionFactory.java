@@ -34,11 +34,12 @@ import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public final class ReusableConnectionFactory
-        implements ConnectionFactory, JdbcQueryEventListener
+        extends ForwardingConnectionFactory
+        implements JdbcQueryEventListener
 {
     @GuardedBy("this")
     private final Cache<String, Connection> connections;
-    private final ConnectionFactory delegate;
+    private ConnectionFactory delegate;
 
     @Inject
     public ReusableConnectionFactory(@ForReusableConnectionFactory ConnectionFactory delegate)
@@ -48,8 +49,14 @@ public final class ReusableConnectionFactory
 
     ReusableConnectionFactory(ConnectionFactory delegate, Duration duration, long maximumSize)
     {
-        this.connections = createConnectionsCache(duration, maximumSize);
         this.delegate = requireNonNull(delegate, "delegate is null");
+        this.connections = createConnectionsCache(duration, maximumSize);
+    }
+
+    @Override
+    protected ConnectionFactory delegate()
+    {
+        return delegate;
     }
 
     // CacheBuilder.build(CacheLoader) is forbidden, because it does not support eviction for ongoing loads.
@@ -96,7 +103,7 @@ public final class ReusableConnectionFactory
         if (connection != null) {
             return connection;
         }
-        return delegate.openConnection(session);
+        return super.openConnection(session);
     }
 
     @Override
@@ -124,7 +131,7 @@ public final class ReusableConnectionFactory
             connection.close();
         }
         connections.invalidateAll();
-        delegate.close();
+        super.close();
     }
 
     final class CachedConnection
