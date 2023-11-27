@@ -68,4 +68,14 @@ public class TestS3HadoopPaths
                 .extracting(TrinoS3FileSystem::keyFromPath)
                 .isEqualTo("abc%xyz//test");
     }
+
+    @Test
+    public void testS3NonCanonicalPathWithDotDigitBucketName()
+    {
+        assertThat(hadoopPath(Location.of("s3://test.123/abc//xyz.csv")))
+                .isEqualTo(new Path(URI.create("s3://test.123/abc/xyz.csv#abc//xyz.csv")))
+                .hasToString("s3://test.123/abc/xyz.csv#abc//xyz.csv")
+                .extracting(TrinoS3FileSystem::keyFromPath)
+                .isEqualTo("abc//xyz.csv");
+    }
 }
