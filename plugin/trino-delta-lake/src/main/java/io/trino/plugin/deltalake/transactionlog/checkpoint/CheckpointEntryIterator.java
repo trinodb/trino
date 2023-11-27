@@ -144,6 +144,8 @@ public class CheckpointEntryIterator
     private final Optional<RowType> txnType;
     private final Optional<RowType> addType;
     private final Optional<RowType> addPartitionValuesType;
+    private final Optional<RowType> addDeletionVectorType;
+    private final Optional<RowType> addParsedStatsFieldType;
     private final Optional<RowType> removeType;
     private final Optional<RowType> metadataType;
     private final Optional<RowType> protocolType;
@@ -233,10 +235,21 @@ public class CheckpointEntryIterator
         txnType = getParquetType(fields, TRANSACTION);
         addType = getAddParquetTypeContainingField(fields, "path");
         addPartitionValuesType = getAddParquetTypeContainingField(fields, "partitionValues");
+        addDeletionVectorType = addType.flatMap(type -> getOptionalFieldType(type, "deletionVector"));
+        addParsedStatsFieldType = addType.flatMap(type -> getOptionalFieldType(type, "stats_parsed"));
         removeType = getParquetType(fields, REMOVE);
         metadataType = getParquetType(fields, METADATA);
         protocolType = getParquetType(fields, PROTOCOL);
         commitType = getParquetType(fields, COMMIT);
+    }
+
+    private static Optional<RowType> getOptionalFieldType(RowType type, String fieldName)
+    {
+        return type.getFields().stream()
+                .filter(field -> field.getName().orElseThrow().equals(fieldName))
+                .collect(toOptional())
+                .map(RowType.Field::getType)
+                .map(RowType.class::cast);
     }
 
     private Optional<RowType> getAddParquetTypeContainingField(Set<EntryType> fields, String fieldName)
@@ -550,16 +563,11 @@ public class CheckpointEntryIterator
             Optional<DeletionVectorEntry> deletionVector = Optional.empty();
             if (deletionVectorsEnabled) {
                 deletionVector = Optional.ofNullable(addReader.getRow("deletionVector"))
-                        .map(row -> {
-                            RowType.Field deletionVectorField = addType.orElseThrow().getFields().stream().filter(field -> field.getName().orElseThrow().equals("deletionVector")).collect(onlyElement());
-                            return parseDeletionVectorFromParquet(session, row, (RowType) deletionVectorField.getType());
-                        });
+                        .map(row -> parseDeletionVectorFromParquet(session, row, addDeletionVectorType.orElseThrow()));
             }
 
-            Optional<DeltaLakeParquetFileStatistics> parsedStats = Optional.ofNullable(addReader.getRow("stats_parsed")).map(row -> {
-                RowType.Field parsedStatsField = addType.orElseThrow().getFields().stream().filter(field -> field.getName().orElseThrow().equals("stats_parsed")).collect(onlyElement());
-                return parseStatisticsFromParquet(session, row, (RowType) parsedStatsField.getType());
-            });
+            Optional<DeltaLakeParquetFileStatistics> parsedStats = Optional.ofNullable(addReader.getRow("stats_parsed"))
+                    .map(row -> parseStatisticsFromParquet(session, row, addParsedStatsFieldType.orElseThrow()));
             Optional<String> stats = Optional.empty();
             if (parsedStats.isEmpty()) {
                 stats = Optional.ofNullable(addReader.getString("stats"));
