@@ -16,13 +16,16 @@ package io.trino.plugin.jdbc.jmx;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import org.junit.jupiter.api.Test;
 
+import java.util.Set;
+
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 
 public class TestStatisticsAwareConnectionFactory
 {
     @Test
     public void testEverythingImplemented()
+            throws NoSuchMethodException
     {
-        assertAllMethodsOverridden(ConnectionFactory.class, StatisticsAwareConnectionFactory.class);
+        assertAllMethodsOverridden(ConnectionFactory.class, StatisticsAwareConnectionFactory.class, Set.of(ConnectionFactory.class.getMethod("close")));
     }
 }

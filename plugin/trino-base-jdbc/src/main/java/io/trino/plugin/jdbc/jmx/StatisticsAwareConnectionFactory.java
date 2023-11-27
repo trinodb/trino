@@ -16,6 +16,7 @@ package io.trino.plugin.jdbc.jmx;
 import com.google.inject.Inject;
 import io.trino.plugin.base.inject.Decorator;
 import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.ForwardingConnection;
 import io.trino.plugin.jdbc.ForwardingConnectionFactory;
 import io.trino.spi.connector.ConnectorSession;
 
@@ -46,14 +47,33 @@ public class StatisticsAwareConnectionFactory
     public Connection openConnection(ConnectorSession session)
             throws SQLException
     {
-        return stats.getOpenConnection().wrap(() -> delegate.openConnection(session));
+        return stats.getOpenConnection().wrap(() -> new CloseTrackingConnection(stats.getCloseConnection(), delegate.openConnection(session)));
     }
 
-    @Override
-    public void close()
-            throws SQLException
+    private static class CloseTrackingConnection
+            extends ForwardingConnection
     {
-        stats.getCloseConnection().wrap(delegate::close);
+        private final JdbcApiStats closeConnection;
+        private final Connection connection;
+
+        private CloseTrackingConnection(JdbcApiStats closeConnection, Connection connection)
+        {
+            this.closeConnection = requireNonNull(closeConnection, "closeConnection is null");
+            this.connection = requireNonNull(connection, "connection is null");
+        }
+
+        @Override
+        public void close()
+                throws SQLException
+        {
+            closeConnection.wrap(connection::close);
+        }
+
+        @Override
+        protected Connection delegate()
+        {
+            return connection;
+        }
     }
 
     public static class FactoryDecorator
