@@ -550,7 +550,7 @@ class StatementAnalyzer
             }
 
             // analyze the query that creates the data
-            Scope queryScope = analyze(insert.getQuery());
+            Scope queryScope = analyze(insert.getQuery(), Optional.empty(), false);
 
             // verify the insert destination columns match the query
             RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, targetTable);
