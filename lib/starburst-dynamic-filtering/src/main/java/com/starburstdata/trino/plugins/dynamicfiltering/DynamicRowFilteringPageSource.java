@@ -100,7 +100,7 @@ public class DynamicRowFilteringPageSource
         if (dataPage == null || dataPage.getPositionCount() == 0) {
             return dataPage;
         }
-        Optional<DynamicPageFilter.BlockFilter[]> blockFilters = dynamicPageFilter.getBlockFilters();
+        Optional<List<DynamicPageFilter.BlockFilter>> blockFilters = dynamicPageFilter.getBlockFilters();
         if (blockFilters.isEmpty()) {
             return dataPage;
         }
@@ -109,9 +109,10 @@ public class DynamicRowFilteringPageSource
             return EMPTY_PAGE;
         }
 
-        DynamicPageFilter.BlockFilter[] effectiveFilters = blockFilters.get();
+        List<DynamicPageFilter.BlockFilter> filters = blockFilters.get();
+        DynamicPageFilter.BlockFilter[] effectiveFilters = new DynamicPageFilter.BlockFilter[filters.size()];
         int length = 0;
-        for (DynamicPageFilter.BlockFilter blockFilter : effectiveFilters) {
+        for (DynamicPageFilter.BlockFilter blockFilter : filters) {
             if (profiler.isChannelFilterEffective(blockFilter.getChannelIndex())) {
                 effectiveFilters[length++] = blockFilter;
             }

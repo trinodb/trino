@@ -242,7 +242,7 @@ public class BenchmarkDynamicPageFilter
                     filterPredicate,
                     ImmutableMap.of(new TestingColumnHandle("dummy"), 0),
                     TYPE_OPERATORS,
-                    BLOCK_FILTER_FACTORY).orElseThrow();
+                    BLOCK_FILTER_FACTORY).orElseThrow().toArray(new DynamicPageFilter.BlockFilter[0]);
             filterPages();
         }
         TupleDomain<ColumnHandle> filterPredicate = inputDataSet.createFilterTupleDomain(filterSize, nullsAllowed);
@@ -251,7 +251,7 @@ public class BenchmarkDynamicPageFilter
                 filterPredicate,
                 ImmutableMap.of(new TestingColumnHandle("dummy"), 0),
                 TYPE_OPERATORS,
-                BLOCK_FILTER_FACTORY).orElseThrow();
+                BLOCK_FILTER_FACTORY).orElseThrow().toArray(new DynamicPageFilter.BlockFilter[0]);
     }
 
     @Benchmark
