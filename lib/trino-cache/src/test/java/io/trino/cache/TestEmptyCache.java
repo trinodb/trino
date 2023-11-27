@@ -16,6 +16,7 @@ package io.trino.cache;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheLoader;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,9 +32,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestEmptyCache
 {
-    private static final int TEST_TIMEOUT_MILLIS = 10_000;
+    private static final int TEST_TIMEOUT_SECONDS = 10;
 
     @Test
+    @Timeout(TEST_TIMEOUT_SECONDS)
     public void testLoadFailure()
             throws Exception
     {
