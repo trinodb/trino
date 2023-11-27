@@ -189,6 +189,7 @@ public abstract class AbstractTestS3FileSystem
                 assertThat(fileSystem.listDirectories(getRootLocation())).containsExactly(data);
                 assertThat(fileSystem.listDirectories(data)).containsExactly(data.appendPath("file/"));
 
+                // blobs ending in slash are invisible to S3FileSystem and will not be deleted
                 fileSystem.deleteDirectory(data);
                 assertThat(fileSystem.listDirectories(getRootLocation())).containsExactly(data);
 
