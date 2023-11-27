@@ -17,19 +17,16 @@ import io.airlift.log.Logger;
 import org.testcontainers.containers.output.BaseConsumer;
 import org.testcontainers.containers.output.OutputFrame;
 
-import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.output.OutputFrame.OutputType.END;
 
 public final class PrintingLogConsumer
         extends BaseConsumer<PrintingLogConsumer>
 {
-    private static final Logger log = Logger.get(PrintingLogConsumer.class);
+    private final Logger log;
 
-    private final String prefix;
-
-    public PrintingLogConsumer(String prefix)
+    public PrintingLogConsumer(String name)
     {
-        this.prefix = requireNonNull(prefix, "prefix is null");
+        this.log = Logger.get("container." + name);
     }
 
     @Override
@@ -41,10 +38,10 @@ public final class PrintingLogConsumer
         // remove new line characters
         String message = outputFrame.getUtf8String().replaceAll("\\r?\\n?$", "");
         if (!message.isEmpty() || outputFrame.getType() != END) {
-            log.info("%s%s", prefix, message);
+            log.info(message);
         }
         if (outputFrame.getType() == END) {
-            log.info("%s(exited)", prefix);
+            log.info("(exited)");
         }
     }
 }
