@@ -24,6 +24,7 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.List;
 import java.util.Map;
@@ -93,6 +94,7 @@ public abstract class BaseDeltaFailureRecoveryTest
     }
 
     @Test
+    @Timeout(300)
     @Override
     protected void testDelete()
     {
@@ -178,6 +180,7 @@ public abstract class BaseDeltaFailureRecoveryTest
     }
 
     @Test
+    @Timeout(300)
     @Override
     protected void testUpdate()
     {
@@ -262,6 +265,7 @@ public abstract class BaseDeltaFailureRecoveryTest
     }
 
     @Test
+    @Timeout(300)
     @Override
     // materialized views are currently not implemented by Delta connector
     protected void testRefreshMaterializedView()
@@ -271,6 +275,7 @@ public abstract class BaseDeltaFailureRecoveryTest
     }
 
     @Test
+    @Timeout(300)
     protected void testCreatePartitionedTable()
     {
         testTableModification(
@@ -280,6 +285,7 @@ public abstract class BaseDeltaFailureRecoveryTest
     }
 
     @Test
+    @Timeout(300)
     protected void testInsertIntoNewPartition()
     {
         testTableModification(
@@ -289,6 +295,7 @@ public abstract class BaseDeltaFailureRecoveryTest
     }
 
     @Test
+    @Timeout(300)
     protected void testInsertIntoExistingPartition()
     {
         testTableModification(

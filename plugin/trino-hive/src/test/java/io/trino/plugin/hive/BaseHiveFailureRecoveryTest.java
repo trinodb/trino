@@ -17,6 +17,7 @@ import io.trino.Session;
 import io.trino.operator.RetryPolicy;
 import io.trino.testing.ExtendedFailureRecoveryTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.List;
 import java.util.Optional;
@@ -51,6 +52,7 @@ public abstract class BaseHiveFailureRecoveryTest
     }
 
     @Test
+    @Timeout(300)
     @Override
     // delete is unsupported for non ACID tables
     protected void testDelete()
@@ -60,6 +62,7 @@ public abstract class BaseHiveFailureRecoveryTest
     }
 
     @Test
+    @Timeout(300)
     @Override
     // delete is unsupported for non ACID tables
     protected void testDeleteWithSubquery()
@@ -69,6 +72,7 @@ public abstract class BaseHiveFailureRecoveryTest
     }
 
     @Test
+    @Timeout(300)
     @Override
     // update is unsupported for non ACID tables
     protected void testUpdate()
@@ -78,6 +82,7 @@ public abstract class BaseHiveFailureRecoveryTest
     }
 
     @Test
+    @Timeout(300)
     @Override
     // update is unsupported for non ACID tables
     protected void testUpdateWithSubquery()
@@ -87,6 +92,7 @@ public abstract class BaseHiveFailureRecoveryTest
     }
 
     @Test
+    @Timeout(300)
     @Override
     protected void testMerge()
     {
@@ -95,6 +101,7 @@ public abstract class BaseHiveFailureRecoveryTest
     }
 
     @Test
+    @Timeout(300)
     @Override
     // materialized views are currently not implemented by Hive connector
     protected void testRefreshMaterializedView()
@@ -104,6 +111,7 @@ public abstract class BaseHiveFailureRecoveryTest
     }
 
     @Test
+    @Timeout(300)
     protected void testCreatePartitionedTable()
     {
         testTableModification(
@@ -113,6 +121,7 @@ public abstract class BaseHiveFailureRecoveryTest
     }
 
     @Test
+    @Timeout(300)
     protected void testInsertIntoNewPartition()
     {
         testTableModification(
@@ -122,6 +131,7 @@ public abstract class BaseHiveFailureRecoveryTest
     }
 
     @Test
+    @Timeout(300)
     protected void testInsertIntoExistingPartition()
     {
         testTableModification(
@@ -131,6 +141,7 @@ public abstract class BaseHiveFailureRecoveryTest
     }
 
     @Test
+    @Timeout(300)
     protected void testInsertIntoNewPartitionBucketed()
     {
         testTableModification(
@@ -140,6 +151,7 @@ public abstract class BaseHiveFailureRecoveryTest
     }
 
     @Test
+    @Timeout(300)
     protected void testInsertIntoExistingPartitionBucketed()
     {
         testTableModification(
@@ -149,6 +161,7 @@ public abstract class BaseHiveFailureRecoveryTest
     }
 
     @Test
+    @Timeout(300)
     protected void testReplaceExistingPartition()
     {
         testTableModification(
@@ -161,6 +174,7 @@ public abstract class BaseHiveFailureRecoveryTest
     }
 
     @Test
+    @Timeout(300)
     protected void testDeletePartitionWithSubquery()
     {
         assertThatThrownBy(() -> {
