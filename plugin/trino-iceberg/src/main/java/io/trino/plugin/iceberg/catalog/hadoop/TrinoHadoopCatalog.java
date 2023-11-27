@@ -257,16 +257,37 @@ public class TrinoHadoopCatalog
     }
 
     @Override
-    public void registerTable(ConnectorSession session, SchemaTableName tableName, TableMetadata tableMetadata)
-    {
-        getCatalog(session).registerTable(TableIdentifier.of(tableName.getSchemaName(), tableName.getTableName()), tableMetadata.metadataFileLocation());
-    }
-
-    @Override
     public Transaction newCreateTableTransaction(ConnectorSession session, SchemaTableName schemaTableName, Schema schema, PartitionSpec partitionSpec, SortOrder sortOrder, String location, Map<String, String> properties, Optional<String> owner)
     {
         // Location cannot be specified for hadoop tables.
         return getCatalog(session).newCreateTableTransaction(toTableId(schemaTableName), schema, partitionSpec, null, properties);
+    }
+
+    @Override
+    public Transaction newCreateOrReplaceTableTransaction(
+            ConnectorSession session,
+            SchemaTableName schemaTableName,
+            Schema schema,
+            PartitionSpec partitionSpec,
+            SortOrder sortOrder,
+            String location,
+            Map<String, String> properties)
+    {
+        return newCreateOrReplaceTableTransaction(
+                session,
+                schemaTableName,
+                schema,
+                partitionSpec,
+                sortOrder,
+                location,
+                properties,
+                Optional.of(session.getUser()));
+    }
+
+    @Override
+    public void registerTable(ConnectorSession session, SchemaTableName tableName, TableMetadata tableMetadata)
+    {
+        getCatalog(session).registerTable(TableIdentifier.of(tableName.getSchemaName(), tableName.getTableName()), tableMetadata.metadataFileLocation());
     }
 
     @Override

@@ -3,6 +3,7 @@
 ## Synopsis
 
 ```text
+[ WITH FUNCTION sql_routines ]
 [ WITH [ RECURSIVE ] with_query [, ...] ]
 SELECT [ ALL | DISTINCT ] select_expression [, ...]
 [ FROM from_item [, ...] ]
@@ -66,6 +67,28 @@ ROLLUP ( column [, ...] )
 ## Description
 
 Retrieve rows from zero or more tables.
+
+## WITH FUNCTION clause
+
+The `WITH FUNCTION` clause allows you to define a list of inline SQL routines
+that are available for use in the rest of the query.
+
+The following example declares and uses two inline routines:
+
+```sql
+WITH 
+  FUNCTION hello(name varchar)
+    RETURNS varchar
+    RETURN format('Hello %s!', 'name'),
+  FUNCTION bye(name varchar)
+    RETURNS varchar
+    RETURN format('Bye %s!', 'name')
+SELECT hello('Finn') || ' and ' || bye('Joe');
+-- Hello Finn! and Bye Joe!
+```
+
+Find further information about routines in general, inline routines, all
+supported statements, and examples in [](/routines).
 
 ## WITH clause
 
@@ -711,8 +734,7 @@ A window specification has the following components:
   consists of the rows matched by a pattern starting from that row.
   Additionally, if the frame specifies row pattern measures, they can be
   called over the window, similarly to window functions. For more details, see
-  {doc}`Row pattern recognition in window structures
-  </sql/pattern-recognition-in-window>`.
+  [Row pattern recognition in window structures](/sql/pattern-recognition-in-window) .
 
 Each window component is optional. If a window specification does not specify
 window partitioning, ordering or frame, those components are obtained from

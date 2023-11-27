@@ -16,10 +16,10 @@ package io.trino.testing;
 import io.trino.Session;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
-import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.FunctionManager;
+import io.trino.metadata.LanguageFunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
@@ -63,6 +63,8 @@ public interface QueryRunner
 
     FunctionManager getFunctionManager();
 
+    LanguageFunctionManager getLanguageFunctionManager();
+
     SplitManager getSplitManager();
 
     ExchangeManager getExchangeManager();
@@ -86,7 +88,7 @@ public interface QueryRunner
         throw new UnsupportedOperationException();
     }
 
-    default Plan createPlan(Session session, @Language("SQL") String sql, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector)
+    default Plan createPlan(Session session, @Language("SQL") String sql)
     {
         throw new UnsupportedOperationException();
     }

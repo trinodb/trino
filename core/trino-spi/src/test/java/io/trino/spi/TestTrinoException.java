@@ -13,10 +13,10 @@
  */
 package io.trino.spi;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.ErrorType.USER_ERROR;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTrinoException
 {
@@ -24,13 +24,13 @@ public class TestTrinoException
     public void testMessage()
     {
         TrinoException exception = new TrinoException(new TestErrorCode(), "test");
-        assertEquals(exception.getMessage(), "test");
+        assertThat(exception).hasMessage("test");
 
         exception = new TrinoException(new TestErrorCode(), new RuntimeException("test2"));
-        assertEquals(exception.getMessage(), "test2");
+        assertThat(exception).hasMessage("test2");
 
         exception = new TrinoException(new TestErrorCode(), new RuntimeException());
-        assertEquals(exception.getMessage(), "test");
+        assertThat(exception).hasMessage("test");
     }
 
     private static class TestErrorCode

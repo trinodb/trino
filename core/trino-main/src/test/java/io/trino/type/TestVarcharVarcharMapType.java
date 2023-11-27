@@ -14,16 +14,16 @@
 package io.trino.type;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.util.StructuralTestUtil.mapBlockOf;
 import static io.trino.util.StructuralTestUtil.mapType;
+import static io.trino.util.StructuralTestUtil.sqlMapOf;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -35,13 +35,13 @@ public class TestVarcharVarcharMapType
         super(mapType(VARCHAR, VARCHAR), Map.class, createTestBlock(mapType(VARCHAR, VARCHAR)));
     }
 
-    public static Block createTestBlock(Type mapType)
+    public static ValueBlock createTestBlock(Type mapType)
     {
         BlockBuilder blockBuilder = mapType.createBlockBuilder(null, 2);
-        mapType.writeObject(blockBuilder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("hi", "there")));
-        mapType.writeObject(blockBuilder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("one", "1", "hello", "world")));
-        mapType.writeObject(blockBuilder, mapBlockOf(VARCHAR, VARCHAR, ImmutableMap.of("one-two-three-four-five", "123456789012345", "the quick brown fox", "hello-world-hello-world-hello-world")));
-        return blockBuilder.build();
+        mapType.writeObject(blockBuilder, sqlMapOf(VARCHAR, VARCHAR, ImmutableMap.of("hi", "there")));
+        mapType.writeObject(blockBuilder, sqlMapOf(VARCHAR, VARCHAR, ImmutableMap.of("one", "1", "hello", "world")));
+        mapType.writeObject(blockBuilder, sqlMapOf(VARCHAR, VARCHAR, ImmutableMap.of("one-two-three-four-five", "123456789012345", "the quick brown fox", "hello-world-hello-world-hello-world")));
+        return blockBuilder.buildValueBlock();
     }
 
     @Override

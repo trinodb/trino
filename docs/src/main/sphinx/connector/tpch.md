@@ -18,6 +18,16 @@ To configure the TPCH connector, create a catalog properties file
 connector.name=tpch
 ```
 
+In the TPC-H specification, each column is assigned a prefix based on its
+corresponding table name, such as `l_` for the `lineitem` table. By default, the
+TPCH connector simplifies column names by excluding these prefixes with the
+default of `tpch.column-naming` to `SIMPLIFIED`. To use the long, standard
+column names, use the configuration in the catalog properties file:
+
+```text
+tpch.column-naming=STANDARD
+```
+
 ## TPCH schemas
 
 The TPCH connector supplies several schemas:

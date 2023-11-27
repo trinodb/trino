@@ -16,7 +16,7 @@ package io.trino.plugin.hive.benchmark;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.benchmark.BenchmarkHiveFileFormat.CompressionCounter;
 import io.trino.plugin.hive.benchmark.BenchmarkHiveFileFormat.DataSet;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 

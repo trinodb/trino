@@ -29,7 +29,10 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.io.UnsupportedEncodingException;
+import java.net.ProtocolException;
+import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
@@ -47,6 +50,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.getCausalChain;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.net.HttpHeaders.ACCEPT_ENCODING;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
@@ -400,6 +404,10 @@ class StatementClientV1
                 cause = e;
                 continue;
             }
+            if (isTransient(response.getException())) {
+                cause = response.getException();
+                continue;
+            }
 
             if ((response.getStatusCode() == HTTP_OK) && response.hasValue()) {
                 processResponse(response.getHeaders(), response.getValue());
@@ -411,6 +419,14 @@ class StatementClientV1
                 throw requestFailedException("fetching next", request, response);
             }
         }
+    }
+
+    private boolean isTransient(Throwable exception)
+    {
+        return exception != null && getCausalChain(exception).stream()
+                .anyMatch(e -> (e instanceof InterruptedIOException && e.getMessage().equals("timeout")
+                        || e instanceof ProtocolException
+                        || e instanceof SocketTimeoutException));
     }
 
     private void processResponse(Headers headers, QueryResults results)

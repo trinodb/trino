@@ -149,7 +149,7 @@ public class PartitionedLookupSource
     public void getJoinPosition(int[] positions, Page hashChannelsPage, Page allChannelsPage, long[] rawHashes, long[] result)
     {
         int positionCount = positions.length;
-        int partitionCount = partitionGenerator.getPartitionCount();
+        int partitionCount = partitionGenerator.partitionCount();
 
         int[] partitions = new int[positionCount];
         int[] partitionPositionsCount = new int[partitionCount];

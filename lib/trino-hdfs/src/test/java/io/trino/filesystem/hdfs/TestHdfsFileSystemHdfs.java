@@ -31,6 +31,7 @@ import org.apache.hadoop.fs.Path;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -42,6 +43,7 @@ public class TestHdfsFileSystemHdfs
         extends AbstractTestTrinoFileSystem
 {
     private Hadoop hadoop;
+    private HdfsConfiguration hdfsConfiguration;
     private HdfsEnvironment hdfsEnvironment;
     private HdfsContext hdfsContext;
     private TrinoFileSystem fileSystem;
@@ -53,7 +55,7 @@ public class TestHdfsFileSystemHdfs
         hadoop.start();
 
         HdfsConfig hdfsConfig = new HdfsConfig();
-        HdfsConfiguration hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), emptySet());
+        hdfsConfiguration = new DynamicHdfsConfiguration(new HdfsConfigurationInitializer(hdfsConfig), emptySet());
         hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, hdfsConfig, new NoHdfsAuthentication());
         hdfsContext = new HdfsContext(ConnectorIdentity.ofUser("test"));
 
@@ -106,5 +108,34 @@ public class TestHdfsFileSystemHdfs
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    @Test
+    void testCreateDirectoryPermission()
+            throws IOException
+    {
+        assertCreateDirectoryPermission(fileSystem, hdfsEnvironment, (short) 777);
+    }
+
+    @Test
+    void testCreateDirectoryPermissionWithSkip()
+            throws IOException
+    {
+        HdfsConfig configWithSkip = new HdfsConfig()
+                .setNewDirectoryPermissions(HdfsConfig.SKIP_DIR_PERMISSIONS);
+        HdfsEnvironment hdfsEnvironment = new HdfsEnvironment(hdfsConfiguration, configWithSkip, new NoHdfsAuthentication());
+        TrinoFileSystem fileSystem = new HdfsFileSystem(hdfsEnvironment, hdfsContext, new TrinoHdfsFileSystemStats());
+
+        assertCreateDirectoryPermission(fileSystem, hdfsEnvironment, (short) 755);
+    }
+
+    private void assertCreateDirectoryPermission(TrinoFileSystem fileSystem, HdfsEnvironment hdfsEnvironment, short permission)
+            throws IOException
+    {
+        Location location = getRootLocation().appendPath("test");
+        fileSystem.createDirectory(location);
+        Path path = new Path(location.toString());
+        FileStatus status = hdfsEnvironment.getFileSystem(hdfsContext, path).getFileStatus(path);
+        assertThat(status.getPermission().toOctal()).isEqualTo(permission);
     }
 }

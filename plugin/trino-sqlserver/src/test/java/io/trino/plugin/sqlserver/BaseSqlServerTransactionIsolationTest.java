@@ -25,7 +25,7 @@ import java.util.Map;
 import static io.trino.plugin.sqlserver.SqlServerQueryRunner.createSqlServerQueryRunner;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.tpch.TpchTable.NATION;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseSqlServerTransactionIsolationTest
         extends AbstractTestQueryFramework

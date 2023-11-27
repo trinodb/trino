@@ -24,9 +24,10 @@ import io.trino.client.QueryResults;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.ErrorCode;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 import java.util.List;
@@ -42,29 +43,29 @@ import static io.airlift.json.JsonCodec.listJsonCodec;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.RUNNING;
+import static io.trino.server.TestQueryResource.BASIC_QUERY_INFO_CODEC;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.VIEW_QUERY;
 import static io.trino.testing.TestingAccessControlManager.privilege;
-import static io.trino.tracing.TracingJsonCodec.tracingJsonCodecFactory;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Fail.fail;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
 public class TestQueryStateInfoResource
 {
     private static final String LONG_LASTING_QUERY = "SELECT * FROM tpch.sf1.lineitem";
     private static final JsonCodec<QueryResults> QUERY_RESULTS_JSON_CODEC = jsonCodec(QueryResults.class);
-    private static final JsonCodec<List<BasicQueryInfo>> BASIC_QUERY_INFO_CODEC = tracingJsonCodecFactory().listJsonCodec(BasicQueryInfo.class);
 
     private TestingTrinoServer server;
     private HttpClient client;
     private QueryResults queryResults;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         server = TestingTrinoServer.create();
@@ -113,7 +114,7 @@ public class TestQueryStateInfoResource
         }
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
             throws IOException
     {

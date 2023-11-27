@@ -76,7 +76,6 @@ public class HadoopKerberos
         });
         builder.configureContainer(TESTS, container -> {
             container.setDockerImageName(dockerImageName);
-            container.withCopyFileToContainer(forHostPath(configDir.getPath("krb5_client.conf")), "/etc/krb5.conf");
         });
         configureTempto(builder, configDir);
     }

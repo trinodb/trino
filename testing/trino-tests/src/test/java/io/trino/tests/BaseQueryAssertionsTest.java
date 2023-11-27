@@ -24,7 +24,7 @@ import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -93,7 +93,11 @@ public abstract class BaseQueryAssertionsTest
     {
         QueryAssert queryAssert = assertThat(query("SELECT X'001234'"));
         assertThatThrownBy(() -> queryAssert.matches("VALUES '001234'"))
-                .hasMessageContaining("[Output types for query [SELECT X'001234']] expected:<[var[char(6)]]> but was:<[var[binary]]>");
+                .hasMessageContaining("""
+                        [Output types for query [SELECT X'001234']]\s
+                        expected: [varchar(6)]
+                         but was: [varbinary]
+                        """);
     }
 
     @Test
@@ -101,7 +105,11 @@ public abstract class BaseQueryAssertionsTest
     {
         QueryAssert queryAssert = assertThat(query("SELECT X'001234' WHERE false"));
         assertThatThrownBy(() -> queryAssert.matches("SELECT '001234' WHERE false"))
-                .hasMessageContaining("[Output types for query [SELECT X'001234' WHERE false]] expected:<[var[char(6)]]> but was:<[var[binary]]>");
+                .hasMessageContaining("""
+                        [Output types for query [SELECT X'001234' WHERE false]]\s
+                        expected: [varchar(6)]
+                         but was: [varbinary]
+                        """);
     }
 
     @Test

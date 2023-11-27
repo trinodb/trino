@@ -16,7 +16,7 @@ package io.trino.sql.planner;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonGetter;
 import com.google.common.base.VerifyException;
-import io.trino.execution.scheduler.FaultTolerantPartitioningScheme;
+import io.trino.execution.scheduler.faulttolerant.FaultTolerantPartitioningScheme;
 import io.trino.operator.BucketPartitionFunction;
 import io.trino.operator.PartitionFunction;
 import io.trino.spi.Page;
@@ -199,13 +199,13 @@ public final class MergePartitioningHandle
             this.updateFunction = requireNonNull(updateFunction, "updateFunction is null");
             this.insertColumns = requireNonNull(insertColumns, "insertColumns is null");
             this.updateColumns = requireNonNull(updateColumns, "updateColumns is null");
-            checkArgument(insertFunction.getPartitionCount() == updateFunction.getPartitionCount(), "partition counts must match");
+            checkArgument(insertFunction.partitionCount() == updateFunction.partitionCount(), "partition counts must match");
         }
 
         @Override
-        public int getPartitionCount()
+        public int partitionCount()
         {
-            return insertFunction.getPartitionCount();
+            return insertFunction.partitionCount();
         }
 
         @Override

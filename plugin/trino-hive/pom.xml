@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>426</version>
+        <version>431</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -34,11 +34,6 @@
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-glue</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.amazonaws</groupId>
-            <artifactId>aws-java-sdk-s3</artifactId>
         </dependency>
 
         <dependency>
@@ -198,11 +193,6 @@
 
         <dependency>
             <groupId>io.trino.hive</groupId>
-            <artifactId>hive-apache</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino.hive</groupId>
             <artifactId>hive-thrift</artifactId>
         </dependency>
 
@@ -229,21 +219,6 @@
         <dependency>
             <groupId>org.apache.avro</groupId>
             <artifactId>avro</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.avro</groupId>
-            <artifactId>avro-mapred</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.apache.avro</groupId>
-                    <artifactId>avro-ipc</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.apache.avro</groupId>
-                    <artifactId>avro-ipc-jetty</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -312,6 +287,12 @@
         </dependency>
 
         <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-s3</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log-manager</artifactId>
             <scope>runtime</scope>
@@ -333,6 +314,12 @@
             <groupId>jakarta.xml.bind</groupId>
             <artifactId>jakarta.xml.bind-api</artifactId>
             <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>junit-extensions</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -459,6 +446,12 @@
         </dependency>
 
         <dependency>
+            <groupId>io.trino.hive</groupId>
+            <artifactId>hive-apache</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.trino.tpch</groupId>
             <artifactId>tpch</artifactId>
             <scope>test</scope>
@@ -550,8 +543,8 @@
                             <excludes>
                                 <exclude>**/TestHiveGlueMetastore.java</exclude>
                                 <exclude>**/TestHiveS3AndGlueMetastoreTest.java</exclude>
+                                <exclude>**/TestHiveConcurrentModificationGlueMetastore.java</exclude>
                                 <exclude>**/TestTrinoS3FileSystemAwsS3.java</exclude>
-                                <exclude>**/TestS3SelectQueries.java</exclude>
                                 <exclude>**/TestFullParquetReader.java</exclude>
                                 <exclude>**/TestParquetReader.java</exclude>
                                 <exclude>**/Test*FailureRecoveryTest.java</exclude>
@@ -608,8 +601,8 @@
                             <includes>
                                 <include>**/TestHiveGlueMetastore.java</include>
                                 <include>**/TestHiveS3AndGlueMetastoreTest.java</include>
+                                <include>**/TestHiveConcurrentModificationGlueMetastore.java</include>
                                 <include>**/TestTrinoS3FileSystemAwsS3.java</include>
-                                <include>**/TestS3SelectQueries.java</include>
                             </includes>
                         </configuration>
                     </plugin>

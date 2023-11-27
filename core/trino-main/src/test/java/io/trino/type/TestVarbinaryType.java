@@ -15,8 +15,8 @@ package io.trino.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.SqlVarbinary;
 import org.junit.jupiter.api.Test;
 
@@ -31,7 +31,7 @@ public class TestVarbinaryType
         super(VARBINARY, SqlVarbinary.class, createTestBlock());
     }
 
-    public static Block createTestBlock()
+    public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = VARBINARY.createBlockBuilder(null, 15);
         VARBINARY.writeSlice(blockBuilder, Slices.utf8Slice("apple"));
@@ -45,7 +45,7 @@ public class TestVarbinaryType
         VARBINARY.writeSlice(blockBuilder, Slices.utf8Slice("cherry"));
         VARBINARY.writeSlice(blockBuilder, Slices.utf8Slice("cherry"));
         VARBINARY.writeSlice(blockBuilder, Slices.utf8Slice("date"));
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override

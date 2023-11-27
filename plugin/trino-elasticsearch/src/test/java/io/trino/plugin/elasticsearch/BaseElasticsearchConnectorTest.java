@@ -132,13 +132,9 @@ public abstract class BaseElasticsearchConnectorTest
      * @return the amount of clauses to be used in large queries
      */
     @Override
-    protected Object[][] largeInValuesCountData()
+    protected List<Integer> largeInValuesCountData()
     {
-        return new Object[][] {
-                {200},
-                {500},
-                {1000}
-        };
+        return ImmutableList.of(200, 500, 1000);
     }
 
     @Test
@@ -216,7 +212,7 @@ public abstract class BaseElasticsearchConnectorTest
                         ")");
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testShowColumns()
     {
@@ -1053,6 +1049,30 @@ public abstract class BaseElasticsearchConnectorTest
                 .put("text_column", "soome%text")
                 .buildOrThrow());
 
+        // Add another document to make sure utf8 character sequence length is right
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("keyword_column", "中文")
+                .put("text_column", "中文")
+                .buildOrThrow());
+
+        // Add another document to make sure utf8 character sequence length is right
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("keyword_column", "こんにちは")
+                .put("text_column", "こんにちは")
+                .buildOrThrow());
+
+        // Add another document to make sure utf8 character sequence length is right
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("keyword_column", "안녕하세요")
+                .put("text_column", "안녕하세요")
+                .buildOrThrow());
+
+        // Add another document to make sure utf8 character sequence length is right
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("keyword_column", "Привет")
+                .put("text_column", "Привет")
+                .buildOrThrow());
+
         assertThat(query("" +
                 "SELECT " +
                 "keyword_column " +
@@ -1074,6 +1094,38 @@ public abstract class BaseElasticsearchConnectorTest
                 "FROM " + indexName + " " +
                 "WHERE keyword_column LIKE 'soome$%%' ESCAPE '$'"))
                 .matches("VALUES VARCHAR 'soome%text'")
+                .isFullyPushedDown();
+
+        assertThat(query("" +
+                "SELECT " +
+                "text_column " +
+                "FROM " + indexName + " " +
+                "WHERE keyword_column LIKE '中%'"))
+                .matches("VALUES VARCHAR '中文'")
+                .isFullyPushedDown();
+
+        assertThat(query("" +
+                "SELECT " +
+                "text_column " +
+                "FROM " + indexName + " " +
+                "WHERE keyword_column LIKE 'こんに%'"))
+                .matches("VALUES VARCHAR 'こんにちは'")
+                .isFullyPushedDown();
+
+        assertThat(query("" +
+                "SELECT " +
+                "text_column " +
+                "FROM " + indexName + " " +
+                "WHERE keyword_column LIKE '안녕하%'"))
+                .matches("VALUES VARCHAR '안녕하세요'")
+                .isFullyPushedDown();
+
+        assertThat(query("" +
+                "SELECT " +
+                "text_column " +
+                "FROM " + indexName + " " +
+                "WHERE keyword_column LIKE 'При%'"))
+                .matches("VALUES VARCHAR 'Привет'")
                 .isFullyPushedDown();
     }
 

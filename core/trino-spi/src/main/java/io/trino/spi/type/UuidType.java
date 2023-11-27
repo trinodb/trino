@@ -19,6 +19,7 @@ import io.airlift.slice.XxHash64;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.Int128ArrayBlock;
 import io.trino.spi.block.Int128ArrayBlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.connector.ConnectorSession;
@@ -61,7 +62,7 @@ public class UuidType
 
     private UuidType()
     {
-        super(new TypeSignature(StandardTypes.UUID), Slice.class);
+        super(new TypeSignature(StandardTypes.UUID), Slice.class, Int128ArrayBlock.class);
     }
 
     @Override
@@ -121,8 +122,10 @@ public class UuidType
         if (block.isNull(position)) {
             return null;
         }
-        long high = reverseBytes(block.getLong(position, 0));
-        long low = reverseBytes(block.getLong(position, SIZE_OF_LONG));
+        Int128ArrayBlock valueBlock = (Int128ArrayBlock) block.getUnderlyingValueBlock();
+        int valuePosition = block.getUnderlyingValuePosition(position);
+        long high = reverseBytes(valueBlock.getInt128High(valuePosition));
+        long low = reverseBytes(valueBlock.getInt128Low(valuePosition));
         return new UUID(high, low).toString();
     }
 
@@ -133,9 +136,9 @@ public class UuidType
             blockBuilder.appendNull();
         }
         else {
-            ((Int128ArrayBlockBuilder) blockBuilder).writeInt128(
-                    block.getLong(position, 0),
-                    block.getLong(position, SIZE_OF_LONG));
+            Int128ArrayBlock valueBlock = (Int128ArrayBlock) block.getUnderlyingValueBlock();
+            int valuePosition = block.getUnderlyingValuePosition(position);
+            ((Int128ArrayBlockBuilder) blockBuilder).writeInt128(valueBlock.getInt128High(valuePosition), valueBlock.getInt128Low(valuePosition));
         }
     }
 
@@ -159,10 +162,7 @@ public class UuidType
     @Override
     public final Slice getSlice(Block block, int position)
     {
-        Slice value = Slices.allocate(INT128_BYTES);
-        value.setLong(0, block.getLong(position, 0));
-        value.setLong(SIZE_OF_LONG, block.getLong(position, SIZE_OF_LONG));
-        return value;
+        return read((Int128ArrayBlock) block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
     }
 
     @Override
@@ -187,6 +187,15 @@ public class UuidType
         return new UUID(
                 reverseBytes(uuid.getLong(0)),
                 reverseBytes(uuid.getLong(SIZE_OF_LONG)));
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static Slice read(@BlockPosition Int128ArrayBlock block, @BlockIndex int position)
+    {
+        Slice value = Slices.allocate(INT128_BYTES);
+        value.setLong(0, block.getInt128High(position));
+        value.setLong(SIZE_OF_LONG, block.getInt128Low(position));
+        return value;
     }
 
     @ScalarOperator(READ_VALUE)
@@ -232,13 +241,13 @@ public class UuidType
     }
 
     @ScalarOperator(EQUAL)
-    private static boolean equalOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    private static boolean equalOperator(@BlockPosition Int128ArrayBlock leftBlock, @BlockIndex int leftPosition, @BlockPosition Int128ArrayBlock rightBlock, @BlockIndex int rightPosition)
     {
         return equal(
-                leftBlock.getLong(leftPosition, 0),
-                leftBlock.getLong(leftPosition, SIZE_OF_LONG),
-                rightBlock.getLong(rightPosition, 0),
-                rightBlock.getLong(rightPosition, SIZE_OF_LONG));
+                leftBlock.getInt128High(leftPosition),
+                leftBlock.getInt128Low(leftPosition),
+                rightBlock.getInt128High(rightPosition),
+                rightBlock.getInt128Low(rightPosition));
     }
 
     private static boolean equal(long leftLow, long leftHigh, long rightLow, long rightHigh)
@@ -253,9 +262,9 @@ public class UuidType
     }
 
     @ScalarOperator(XX_HASH_64)
-    private static long xxHash64Operator(@BlockPosition Block block, @BlockIndex int position)
+    private static long xxHash64Operator(@BlockPosition Int128ArrayBlock block, @BlockIndex int position)
     {
-        return xxHash64(block.getLong(position, 0), block.getLong(position, SIZE_OF_LONG));
+        return xxHash64(block.getInt128High(position), block.getInt128Low(position));
     }
 
     private static long xxHash64(long low, long high)
@@ -274,13 +283,13 @@ public class UuidType
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_LAST)
-    private static long comparisonOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    private static long comparisonOperator(@BlockPosition Int128ArrayBlock leftBlock, @BlockIndex int leftPosition, @BlockPosition Int128ArrayBlock rightBlock, @BlockIndex int rightPosition)
     {
         return compareLittleEndian(
-                leftBlock.getLong(leftPosition, 0),
-                leftBlock.getLong(leftPosition, SIZE_OF_LONG),
-                rightBlock.getLong(rightPosition, 0),
-                rightBlock.getLong(rightPosition, SIZE_OF_LONG));
+                leftBlock.getInt128High(leftPosition),
+                leftBlock.getInt128Low(leftPosition),
+                rightBlock.getInt128High(rightPosition),
+                rightBlock.getInt128Low(rightPosition));
     }
 
     private static int compareLittleEndian(long leftLow64le, long leftHigh64le, long rightLow64le, long rightHigh64le)

@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
+import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.spi.Location;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.DecimalType;
@@ -52,6 +53,7 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
@@ -86,14 +88,14 @@ public final class DeltaLakeParquetSchemas
 
     private DeltaLakeParquetSchemas() {}
 
-    public static DeltaLakeParquetSchemaMapping createParquetSchemaMapping(MetadataEntry metadataEntry, TypeManager typeManager)
+    public static DeltaLakeParquetSchemaMapping createParquetSchemaMapping(MetadataEntry metadataEntry, ProtocolEntry protocolEntry, TypeManager typeManager)
     {
-        return createParquetSchemaMapping(metadataEntry, typeManager, false);
+        return createParquetSchemaMapping(metadataEntry, protocolEntry, typeManager, false);
     }
 
-    public static DeltaLakeParquetSchemaMapping createParquetSchemaMapping(MetadataEntry metadataEntry, TypeManager typeManager, boolean addChangeDataFeedFields)
+    public static DeltaLakeParquetSchemaMapping createParquetSchemaMapping(MetadataEntry metadataEntry, ProtocolEntry protocolEntry, TypeManager typeManager, boolean addChangeDataFeedFields)
     {
-        DeltaLakeSchemaSupport.ColumnMappingMode columnMappingMode = getColumnMappingMode(metadataEntry);
+        DeltaLakeSchemaSupport.ColumnMappingMode columnMappingMode = getColumnMappingMode(metadataEntry, protocolEntry);
         return createParquetSchemaMapping(
                 metadataEntry.getSchemaString(),
                 typeManager,
@@ -264,6 +266,10 @@ public final class DeltaLakeParquetSchemas
                 // Spark / Delta Lake stores timestamps in UTC, but renders them in session time zone.
                 typeBuilder = Types.primitive(PrimitiveType.PrimitiveTypeName.INT64, repetition).as(LogicalTypeAnnotation.timestampType(false, LogicalTypeAnnotation.TimeUnit.MILLIS));
                 trinoType = TIMESTAMP_MILLIS;
+            }
+            case "timestamp_ntz" -> {
+                typeBuilder = Types.primitive(PrimitiveType.PrimitiveTypeName.INT64, repetition).as(LogicalTypeAnnotation.timestampType(false, LogicalTypeAnnotation.TimeUnit.MICROS));
+                trinoType = TIMESTAMP_MICROS;
             }
             default -> throw new TrinoException(NOT_SUPPORTED, format("Unsupported primitive type: %s", primitiveType));
         }

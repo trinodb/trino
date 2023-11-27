@@ -73,7 +73,7 @@ public class TestHiveFileSystemAdl
         this.refreshUrl = refreshUrl;
         this.testDirectory = testDirectory;
 
-        super.setup(host, port, databaseName, false, createHdfsConfiguration());
+        super.setup(host, port, databaseName, createHdfsConfiguration());
     }
 
     private HdfsConfiguration createHdfsConfiguration()

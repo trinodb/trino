@@ -15,13 +15,11 @@ package io.trino.sql;
 
 import io.trino.spi.TrinoException;
 import io.trino.sql.parser.ParsingException;
-import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.Statement;
 import jakarta.annotation.Nullable;
 
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
-import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.REJECT;
 import static java.lang.String.format;
 
 public final class SqlFormatterUtil
@@ -35,8 +33,7 @@ public final class SqlFormatterUtil
         // verify round-trip
         Statement parsed;
         try {
-            ParsingOptions parsingOptions = new ParsingOptions(REJECT /* formatted SQL should be unambiguous */);
-            parsed = sqlParser.createStatement(sql, parsingOptions);
+            parsed = sqlParser.createStatement(sql);
         }
         catch (ParsingException e) {
             throw formattingFailure(e, "Formatted query does not parse", statement, sql);

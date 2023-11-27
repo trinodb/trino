@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.trino.FeaturesConfig;
 import io.trino.FeaturesConfig.DataIntegrityVerification;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
@@ -39,6 +39,7 @@ public class TestFeaturesConfig
                 .setRedistributeWrites(true)
                 .setScaleWriters(true)
                 .setWriterScalingMinDataProcessed(DataSize.of(120, MEGABYTE))
+                .setMaxMemoryPerPartitionWriter(DataSize.of(256, MEGABYTE))
                 .setRegexLibrary(JONI)
                 .setRe2JDfaStatesLimit(Integer.MAX_VALUE)
                 .setRe2JDfaRetries(5)
@@ -51,7 +52,6 @@ public class TestFeaturesConfig
                 .setMemoryRevokingTarget(0.5)
                 .setExchangeCompressionEnabled(false)
                 .setExchangeDataIntegrityVerification(DataIntegrityVerification.ABORT)
-                .setParseDecimalLiteralsAsDouble(false)
                 .setPagesIndexEagerCompactionEnabled(false)
                 .setFilterAndProjectMinOutputPageSize(DataSize.of(500, KILOBYTE))
                 .setFilterAndProjectMinOutputPageRowCount(256)
@@ -64,8 +64,7 @@ public class TestFeaturesConfig
                 .setLegacyMaterializedViewGracePeriod(false)
                 .setHideInaccessibleColumns(false)
                 .setForceSpillingJoin(false)
-                .setFaultTolerantExecutionExchangeEncryptionEnabled(true)
-                .setFlatGroupByHash(true));
+                .setFaultTolerantExecutionExchangeEncryptionEnabled(true));
     }
 
     @Test
@@ -75,6 +74,7 @@ public class TestFeaturesConfig
                 .put("redistribute-writes", "false")
                 .put("scale-writers", "false")
                 .put("writer-scaling-min-data-processed", "4GB")
+                .put("max-memory-per-partition-writer", "4GB")
                 .put("regex-library", "RE2J")
                 .put("re2j.dfa-states-limit", "42")
                 .put("re2j.dfa-retries", "42")
@@ -87,7 +87,6 @@ public class TestFeaturesConfig
                 .put("memory-revoking-target", "0.8")
                 .put("exchange.compression-enabled", "true")
                 .put("exchange.data-integrity-verification", "RETRY")
-                .put("parse-decimal-literals-as-double", "true")
                 .put("pages-index.eager-compaction-enabled", "true")
                 .put("filter-and-project-min-output-page-size", "1MB")
                 .put("filter-and-project-min-output-page-row-count", "2048")
@@ -101,13 +100,13 @@ public class TestFeaturesConfig
                 .put("hide-inaccessible-columns", "true")
                 .put("force-spilling-join-operator", "true")
                 .put("fault-tolerant-execution.exchange-encryption-enabled", "false")
-                .put("legacy.flat-group-by-hash", "false")
                 .buildOrThrow();
 
         FeaturesConfig expected = new FeaturesConfig()
                 .setRedistributeWrites(false)
                 .setScaleWriters(false)
                 .setWriterScalingMinDataProcessed(DataSize.of(4, GIGABYTE))
+                .setMaxMemoryPerPartitionWriter(DataSize.of(4, GIGABYTE))
                 .setRegexLibrary(RE2J)
                 .setRe2JDfaStatesLimit(42)
                 .setRe2JDfaRetries(42)
@@ -120,7 +119,6 @@ public class TestFeaturesConfig
                 .setMemoryRevokingTarget(0.8)
                 .setExchangeCompressionEnabled(true)
                 .setExchangeDataIntegrityVerification(DataIntegrityVerification.RETRY)
-                .setParseDecimalLiteralsAsDouble(true)
                 .setPagesIndexEagerCompactionEnabled(true)
                 .setFilterAndProjectMinOutputPageSize(DataSize.of(1, MEGABYTE))
                 .setFilterAndProjectMinOutputPageRowCount(2048)
@@ -133,8 +131,7 @@ public class TestFeaturesConfig
                 .setLegacyMaterializedViewGracePeriod(true)
                 .setHideInaccessibleColumns(true)
                 .setForceSpillingJoin(true)
-                .setFaultTolerantExecutionExchangeEncryptionEnabled(false)
-                .setFlatGroupByHash(false);
+                .setFaultTolerantExecutionExchangeEncryptionEnabled(false);
         assertFullMapping(properties, expected);
     }
 }

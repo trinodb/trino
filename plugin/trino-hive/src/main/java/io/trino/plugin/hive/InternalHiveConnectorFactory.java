@@ -29,7 +29,6 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.manager.FileSystemModule;
 import io.trino.hdfs.HdfsModule;
 import io.trino.hdfs.authentication.HdfsAuthenticationModule;
-import io.trino.hdfs.azure.HiveAzureModule;
 import io.trino.hdfs.cos.HiveCosModule;
 import io.trino.hdfs.gcs.HiveGcsModule;
 import io.trino.hdfs.rubix.RubixEnabledConfig;
@@ -116,7 +115,6 @@ public final class InternalHiveConnectorFactory
                     new CachingDirectoryListerModule(directoryLister),
                     new HdfsModule(),
                     new HiveGcsModule(),
-                    new HiveAzureModule(),
                     new HiveCosModule(),
                     conditionalModule(RubixEnabledConfig.class, RubixEnabledConfig::isCacheEnabled, new RubixModule()),
                     new HiveMetastoreModule(metastore),

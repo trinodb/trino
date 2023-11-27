@@ -51,7 +51,7 @@ import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.types.Types;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -160,6 +160,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                 0,
                 inputFile.length(),
                 inputFile.length(),
+                -1, // invalid; normally known
                 ORC,
                 PartitionSpecParser.toJson(PartitionSpec.unpartitioned()),
                 PartitionData.toJson(new PartitionData(new Object[] {})),
@@ -186,6 +187,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                         tablePath,
                         ImmutableMap.of(),
                         false,
+                        Optional.empty(),
+                        ImmutableSet.of(),
                         Optional.empty()),
                 transaction);
 

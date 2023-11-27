@@ -138,6 +138,12 @@ final class SchedulingQueue<G, T>
         return groups.containsKey(group);
     }
 
+    public Set<T> getTasks(G group)
+    {
+        checkArgument(groups.containsKey(group), "Unknown group: %s", group);
+        return groups.get(group).tasks();
+    }
+
     public Set<T> finishAll()
     {
         Set<G> groups = ImmutableSet.copyOf(this.groups.keySet());

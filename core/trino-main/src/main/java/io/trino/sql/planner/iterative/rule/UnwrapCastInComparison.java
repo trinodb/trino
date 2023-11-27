@@ -199,7 +199,7 @@ public class UnwrapCastInComparison
             Type targetType = typeAnalyzer.getType(session, types, expression.getRight());
 
             if (sourceType instanceof TimestampType && targetType == DATE) {
-                return unwrapTimestampToDateCast(session, (TimestampType) sourceType, operator, cast.getExpression(), (long) right).orElse(expression);
+                return unwrapTimestampToDateCast((TimestampType) sourceType, operator, cast.getExpression(), (long) right).orElse(expression);
             }
 
             if (targetType instanceof TimestampWithTimeZoneType) {
@@ -234,7 +234,7 @@ public class UnwrapCastInComparison
                 }
             }
 
-            ResolvedFunction sourceToTarget = plannerContext.getMetadata().getCoercion(session, sourceType, targetType);
+            ResolvedFunction sourceToTarget = plannerContext.getMetadata().getCoercion(sourceType, targetType);
 
             Optional<Type.Range> sourceRange = sourceType.getRange();
             if (sourceRange.isPresent()) {
@@ -263,11 +263,11 @@ public class UnwrapCastInComparison
                         // equal to max representable value
                         return switch (operator) {
                             case GREATER_THAN -> falseIfNotNull(cast.getExpression());
-                            case GREATER_THAN_OR_EQUAL -> new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(session, max, sourceType));
+                            case GREATER_THAN_OR_EQUAL -> new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(max, sourceType));
                             case LESS_THAN_OR_EQUAL -> trueIfNotNull(cast.getExpression());
-                            case LESS_THAN -> new ComparisonExpression(NOT_EQUAL, cast.getExpression(), literalEncoder.toExpression(session, max, sourceType));
+                            case LESS_THAN -> new ComparisonExpression(NOT_EQUAL, cast.getExpression(), literalEncoder.toExpression(max, sourceType));
                             case EQUAL, NOT_EQUAL, IS_DISTINCT_FROM ->
-                                    new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(session, max, sourceType));
+                                    new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(max, sourceType));
                         };
                     }
 
@@ -288,11 +288,11 @@ public class UnwrapCastInComparison
                         // equal to min representable value
                         return switch (operator) {
                             case LESS_THAN -> falseIfNotNull(cast.getExpression());
-                            case LESS_THAN_OR_EQUAL -> new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(session, min, sourceType));
+                            case LESS_THAN_OR_EQUAL -> new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(min, sourceType));
                             case GREATER_THAN_OR_EQUAL -> trueIfNotNull(cast.getExpression());
-                            case GREATER_THAN -> new ComparisonExpression(NOT_EQUAL, cast.getExpression(), literalEncoder.toExpression(session, min, sourceType));
+                            case GREATER_THAN -> new ComparisonExpression(NOT_EQUAL, cast.getExpression(), literalEncoder.toExpression(min, sourceType));
                             case EQUAL, NOT_EQUAL, IS_DISTINCT_FROM ->
-                                    new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(session, min, sourceType));
+                                    new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(min, sourceType));
                         };
                     }
                 }
@@ -300,7 +300,7 @@ public class UnwrapCastInComparison
 
             ResolvedFunction targetToSource;
             try {
-                targetToSource = plannerContext.getMetadata().getCoercion(session, targetType, sourceType);
+                targetToSource = plannerContext.getMetadata().getCoercion(targetType, sourceType);
             }
             catch (OperatorNotFoundException e) {
                 // Without a cast between target -> source, there's nothing more we can do
@@ -334,14 +334,14 @@ public class UnwrapCastInComparison
                         case IS_DISTINCT_FROM -> TRUE_LITERAL;
                         case LESS_THAN, LESS_THAN_OR_EQUAL -> {
                             if (sourceRange.isPresent() && compare(sourceType, sourceRange.get().getMin(), literalInSourceType) == 0) {
-                                yield new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
+                                yield new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(literalInSourceType, sourceType));
                             }
-                            yield new ComparisonExpression(LESS_THAN_OR_EQUAL, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
+                            yield new ComparisonExpression(LESS_THAN_OR_EQUAL, cast.getExpression(), literalEncoder.toExpression(literalInSourceType, sourceType));
                         }
                         case GREATER_THAN, GREATER_THAN_OR_EQUAL ->
                             // We expect implicit coercions to be order-preserving, so the result of converting back from target -> source cannot produce a value
                             // larger than the next value in the source type
-                                new ComparisonExpression(GREATER_THAN, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
+                                new ComparisonExpression(GREATER_THAN, cast.getExpression(), literalEncoder.toExpression(literalInSourceType, sourceType));
                     };
                 }
 
@@ -354,29 +354,29 @@ public class UnwrapCastInComparison
                         case LESS_THAN, LESS_THAN_OR_EQUAL ->
                             // We expect implicit coercions to be order-preserving, so the result of converting back from target -> source cannot produce a value
                             // smaller than the next value in the source type
-                                new ComparisonExpression(LESS_THAN, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
+                                new ComparisonExpression(LESS_THAN, cast.getExpression(), literalEncoder.toExpression(literalInSourceType, sourceType));
                         case GREATER_THAN, GREATER_THAN_OR_EQUAL -> sourceRange.isPresent() && compare(sourceType, sourceRange.get().getMax(), literalInSourceType) == 0 ?
-                                new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType)) :
-                                new ComparisonExpression(GREATER_THAN_OR_EQUAL, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
+                                new ComparisonExpression(EQUAL, cast.getExpression(), literalEncoder.toExpression(literalInSourceType, sourceType)) :
+                                new ComparisonExpression(GREATER_THAN_OR_EQUAL, cast.getExpression(), literalEncoder.toExpression(literalInSourceType, sourceType));
                     };
                 }
             }
 
-            return new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(session, literalInSourceType, sourceType));
+            return new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(literalInSourceType, sourceType));
         }
 
-        private Optional<Expression> unwrapTimestampToDateCast(Session session, TimestampType sourceType, ComparisonExpression.Operator operator, Expression timestampExpression, long date)
+        private Optional<Expression> unwrapTimestampToDateCast(TimestampType sourceType, ComparisonExpression.Operator operator, Expression timestampExpression, long date)
         {
             ResolvedFunction targetToSource;
             try {
-                targetToSource = plannerContext.getMetadata().getCoercion(session, DATE, sourceType);
+                targetToSource = plannerContext.getMetadata().getCoercion(DATE, sourceType);
             }
             catch (OperatorNotFoundException e) {
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
             }
 
-            Expression dateTimestamp = literalEncoder.toExpression(session, coerce(date, targetToSource), sourceType);
-            Expression nextDateTimestamp = literalEncoder.toExpression(session, coerce(date + 1, targetToSource), sourceType);
+            Expression dateTimestamp = literalEncoder.toExpression(coerce(date, targetToSource), sourceType);
+            Expression nextDateTimestamp = literalEncoder.toExpression(coerce(date + 1, targetToSource), sourceType);
 
             return switch (operator) {
                 case EQUAL -> Optional.of(

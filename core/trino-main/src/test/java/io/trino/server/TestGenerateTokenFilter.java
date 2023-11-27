@@ -27,9 +27,10 @@ import io.trino.server.testing.TestingTrinoServer;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.HeaderParam;
 import jakarta.ws.rs.Path;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -46,16 +47,17 @@ import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static jakarta.servlet.http.HttpServletResponse.SC_OK;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertEquals;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
 public class TestGenerateTokenFilter
 {
     private JettyHttpClient httpClient;
     private TestingTrinoServer server;
     private GenerateTraceTokenRequestFilter filter;
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
     {
         server = TestingTrinoServer.builder()
@@ -70,7 +72,7 @@ public class TestGenerateTokenFilter
         filter = (GenerateTraceTokenRequestFilter) filters.get(1);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
             throws Exception
     {

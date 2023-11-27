@@ -30,8 +30,9 @@ import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import io.trino.spi.block.SingleRowBlock;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
@@ -47,7 +48,10 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.InterpretedFunctionInvoker;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.analyzer.Analysis;
+import io.trino.sql.analyzer.CorrelationSupport;
 import io.trino.sql.analyzer.ExpressionAnalyzer;
+import io.trino.sql.analyzer.QueryType;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
@@ -91,7 +95,6 @@ import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Parameter;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.QuantifiedComparisonExpression;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.SearchedCaseExpression;
@@ -129,6 +132,8 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
+import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
@@ -156,7 +161,7 @@ import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.sql.gen.VarArgsToMapAdapterGenerator.generateVarArgsToMapAdapter;
 import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
-import static io.trino.sql.planner.FunctionCallBuilder.resolve;
+import static io.trino.sql.planner.QueryPlanner.coerceIfNecessary;
 import static io.trino.sql.planner.ResolvedFunctionCallRewriter.rewriteResolvedFunctions;
 import static io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.canonicalizeExpression;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
@@ -172,6 +177,8 @@ import static java.util.stream.Collectors.toList;
 
 public class ExpressionInterpreter
 {
+    private static final CatalogSchemaFunctionName FAIL_NAME = builtinFunctionName("fail");
+
     private final Expression expression;
     private final PlannerContext plannerContext;
     private final Metadata metadata;
@@ -210,8 +217,28 @@ public class ExpressionInterpreter
             AccessControl accessControl,
             Map<NodeRef<Parameter>, Expression> parameters)
     {
+        Analysis analysis = new Analysis(null, ImmutableMap.of(), QueryType.OTHERS);
+        Scope scope = Scope.create();
+        ExpressionAnalyzer.analyzeExpressionWithoutSubqueries(
+                session,
+                plannerContext,
+                accessControl,
+                scope,
+                analysis,
+                expression,
+                EXPRESSION_NOT_CONSTANT,
+                "Constant expression cannot contain a subquery",
+                WarningCollector.NOOP,
+                CorrelationSupport.DISALLOWED);
+
+        // Apply casts, desugar expression, and preform other rewrites
+        TranslationMap translationMap = new TranslationMap(Optional.empty(), scope, analysis, ImmutableMap.of(), ImmutableList.of(), session, plannerContext);
+        expression = coerceIfNecessary(analysis, expression, translationMap.rewrite(expression));
+
+        // The expression tree has been rewritten which breaks all the identity maps, so redo the analysis
+        // to re-analyze coercions that might be necessary
         ExpressionAnalyzer analyzer = createConstantAnalyzer(plannerContext, accessControl, session, parameters, WarningCollector.NOOP);
-        analyzer.analyze(expression, Scope.create());
+        analyzer.analyze(expression, scope);
 
         Type actualType = analyzer.getExpressionTypes().get(NodeRef.of(expression));
         if (!new TypeCoercion(plannerContext.getTypeManager()::getType).canCoerce(actualType, expectedType)) {
@@ -358,7 +385,7 @@ public class ExpressionInterpreter
             }
 
             RowType rowType = (RowType) type;
-            Block row = (Block) base;
+            SqlRow row = (SqlRow) base;
             Type returnType = type(node);
             String fieldName = fieldIdentifier.getValue();
             List<Field> fields = rowType.getFields();
@@ -372,7 +399,7 @@ public class ExpressionInterpreter
             }
 
             checkState(index >= 0, "could not find field name: %s", fieldName);
-            return readNativeValue(returnType, row, index);
+            return readNativeValue(returnType, row.getRawFieldBlock(index), row.getRawIndex());
         }
 
         @Override
@@ -628,8 +655,8 @@ public class ExpressionInterpreter
                         set = FastutilSetHelper.toFastutilHashSet(
                                 objectSet,
                                 type,
-                                plannerContext.getFunctionManager().getScalarFunctionImplementation(metadata.resolveOperator(session, HASH_CODE, ImmutableList.of(type)), simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle(),
-                                plannerContext.getFunctionManager().getScalarFunctionImplementation(metadata.resolveOperator(session, EQUAL, ImmutableList.of(type, type)), simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL)).getMethodHandle());
+                                plannerContext.getFunctionManager().getScalarFunctionImplementation(metadata.resolveOperator(HASH_CODE, ImmutableList.of(type)), simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle(),
+                                plannerContext.getFunctionManager().getScalarFunctionImplementation(metadata.resolveOperator(EQUAL, ImmutableList.of(type, type)), simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL)).getMethodHandle());
                     }
                     inListCache.put(valueList, set);
                 }
@@ -645,7 +672,7 @@ public class ExpressionInterpreter
             List<Object> values = new ArrayList<>(valueList.getValues().size());
             List<Type> types = new ArrayList<>(valueList.getValues().size());
 
-            ResolvedFunction equalsOperator = metadata.resolveOperator(session, OperatorType.EQUAL, types(node.getValue(), valueList));
+            ResolvedFunction equalsOperator = metadata.resolveOperator(OperatorType.EQUAL, types(node.getValue(), valueList));
             for (Expression expression : valueList.getValues()) {
                 if (value instanceof Expression && expression instanceof Literal) {
                     // skip interpreting of literal IN term since it cannot be compared
@@ -750,7 +777,7 @@ public class ExpressionInterpreter
             return switch (node.getSign()) {
                 case PLUS -> value;
                 case MINUS -> {
-                    ResolvedFunction resolvedOperator = metadata.resolveOperator(session, OperatorType.NEGATION, types(node.getValue()));
+                    ResolvedFunction resolvedOperator = metadata.resolveOperator(OperatorType.NEGATION, types(node.getValue()));
                     InvocationConvention invocationConvention = new InvocationConvention(ImmutableList.of(NEVER_NULL), FAIL_ON_NULL, true, false);
                     MethodHandle handle = plannerContext.getFunctionManager().getScalarFunctionImplementation(resolvedOperator, invocationConvention).getMethodHandle();
 
@@ -931,8 +958,8 @@ public class ExpressionInterpreter
 
             Type commonType = typeCoercion.getCommonSuperType(firstType, secondType).get();
 
-            ResolvedFunction firstCast = metadata.getCoercion(session, firstType, commonType);
-            ResolvedFunction secondCast = metadata.getCoercion(session, secondType, commonType);
+            ResolvedFunction firstCast = metadata.getCoercion(firstType, commonType);
+            ResolvedFunction secondCast = metadata.getCoercion(secondType, commonType);
 
             // cast(first as <common type>) == cast(second as <common type>)
             boolean equal = Boolean.TRUE.equals(invokeOperator(
@@ -1047,14 +1074,13 @@ public class ExpressionInterpreter
             if (optimize && (!resolvedFunction.isDeterministic() ||
                     hasUnresolvedValue(argumentValues) ||
                     isDynamicFilter(node) ||
-                    resolvedFunction.getSignature().getName().equals("fail"))) {
+                    resolvedFunction.getSignature().getName().equals(FAIL_NAME))) {
                 verify(!node.isDistinct(), "distinct not supported");
                 verify(node.getOrderBy().isEmpty(), "order by not supported");
                 verify(node.getFilter().isEmpty(), "filter not supported");
-                return FunctionCallBuilder.resolve(session, metadata)
-                        .setName(node.getName())
+                return ResolvedFunctionCallBuilder.builder(resolvedFunction)
                         .setWindow(node.getWindow())
-                        .setArguments(argumentTypes, toExpressions(argumentValues, argumentTypes))
+                        .setArguments(toExpressions(argumentValues, argumentTypes))
                         .build();
             }
             return functionInvoker.invoke(resolvedFunction, connectorSession, argumentValues);
@@ -1269,7 +1295,7 @@ public class ExpressionInterpreter
                 return null;
             }
 
-            ResolvedFunction operator = metadata.getCoercion(session, sourceType, targetType);
+            ResolvedFunction operator = metadata.getCoercion(sourceType, targetType);
 
             try {
                 return functionInvoker.invoke(operator, connectorSession, ImmutableList.of(value));
@@ -1293,8 +1319,8 @@ public class ExpressionInterpreter
                 if (value instanceof Expression) {
                     checkCondition(node.getValues().size() <= 254, NOT_SUPPORTED, "Too many arguments for array constructor");
                     return visitFunctionCall(
-                            FunctionCallBuilder.resolve(session, metadata)
-                                    .setName(QualifiedName.of(ArrayConstructor.NAME))
+                            BuiltinFunctionCallBuilder.resolve(metadata)
+                                    .setName(ArrayConstructor.NAME)
                                     .setArguments(types(node.getValues()), node.getValues())
                                     .build(),
                             context);
@@ -1308,8 +1334,8 @@ public class ExpressionInterpreter
         @Override
         protected Object visitCurrentCatalog(CurrentCatalog node, Object context)
         {
-            FunctionCall function = resolve(session, metadata)
-                    .setName(QualifiedName.of("$current_catalog"))
+            FunctionCall function = BuiltinFunctionCallBuilder.resolve(metadata)
+                    .setName("$current_catalog")
                     .build();
 
             return visitFunctionCall(function, context);
@@ -1318,8 +1344,8 @@ public class ExpressionInterpreter
         @Override
         protected Object visitCurrentSchema(CurrentSchema node, Object context)
         {
-            FunctionCall function = resolve(session, metadata)
-                    .setName(QualifiedName.of("$current_schema"))
+            FunctionCall function = BuiltinFunctionCallBuilder.resolve(metadata)
+                    .setName("$current_schema")
                     .build();
 
             return visitFunctionCall(function, context);
@@ -1328,8 +1354,8 @@ public class ExpressionInterpreter
         @Override
         protected Object visitCurrentUser(CurrentUser node, Object context)
         {
-            FunctionCall function = resolve(session, metadata)
-                    .setName(QualifiedName.of("$current_user"))
+            FunctionCall function = BuiltinFunctionCallBuilder.resolve(metadata)
+                    .setName("$current_user")
                     .build();
 
             return visitFunctionCall(function, context);
@@ -1338,8 +1364,8 @@ public class ExpressionInterpreter
         @Override
         protected Object visitCurrentPath(CurrentPath node, Object context)
         {
-            FunctionCall function = resolve(session, metadata)
-                    .setName(QualifiedName.of("$current_path"))
+            FunctionCall function = BuiltinFunctionCallBuilder.resolve(metadata)
+                    .setName("$current_path")
                     .build();
 
             return visitFunctionCall(function, context);
@@ -1370,9 +1396,9 @@ public class ExpressionInterpreter
                 TimeWithTimeZoneType timeWithTimeZoneType = createTimeWithTimeZoneType(type.getPrecision());
 
                 ResolvedFunction function = plannerContext.getMetadata()
-                        .resolveFunction(session, QualifiedName.of("$at_timezone"), TypeSignatureProvider.fromTypes(timeWithTimeZoneType, timeZoneType));
+                        .resolveBuiltinFunction("$at_timezone", TypeSignatureProvider.fromTypes(timeWithTimeZoneType, timeZoneType));
 
-                ResolvedFunction cast = metadata.getCoercion(session, valueType, timeWithTimeZoneType);
+                ResolvedFunction cast = metadata.getCoercion(valueType, timeWithTimeZoneType);
                 return functionInvoker.invoke(function, connectorSession, ImmutableList.of(
                         functionInvoker.invoke(cast, connectorSession, ImmutableList.of(value)),
                         timeZone));
@@ -1380,7 +1406,7 @@ public class ExpressionInterpreter
 
             if (valueType instanceof TimeWithTimeZoneType) {
                 ResolvedFunction function = plannerContext.getMetadata()
-                        .resolveFunction(session, QualifiedName.of("$at_timezone"), TypeSignatureProvider.fromTypes(valueType, timeZoneType));
+                        .resolveBuiltinFunction("$at_timezone", TypeSignatureProvider.fromTypes(valueType, timeZoneType));
 
                 return functionInvoker.invoke(function, connectorSession, ImmutableList.of(value, timeZone));
             }
@@ -1390,9 +1416,9 @@ public class ExpressionInterpreter
                 TimestampWithTimeZoneType timestampWithTimeZoneType = createTimestampWithTimeZoneType(type.getPrecision());
 
                 ResolvedFunction function = plannerContext.getMetadata()
-                        .resolveFunction(session, QualifiedName.of("at_timezone"), TypeSignatureProvider.fromTypes(timestampWithTimeZoneType, timeZoneType));
+                        .resolveBuiltinFunction("at_timezone", TypeSignatureProvider.fromTypes(timestampWithTimeZoneType, timeZoneType));
 
-                ResolvedFunction cast = metadata.getCoercion(session, valueType, timestampWithTimeZoneType);
+                ResolvedFunction cast = metadata.getCoercion(valueType, timestampWithTimeZoneType);
                 return functionInvoker.invoke(function, connectorSession, ImmutableList.of(
                         functionInvoker.invoke(cast, connectorSession, ImmutableList.of(value)),
                         timeZone));
@@ -1400,7 +1426,7 @@ public class ExpressionInterpreter
 
             if (valueType instanceof TimestampWithTimeZoneType) {
                 ResolvedFunction function = plannerContext.getMetadata()
-                        .resolveFunction(session, QualifiedName.of("at_timezone"), TypeSignatureProvider.fromTypes(valueType, timeZoneType));
+                        .resolveBuiltinFunction("at_timezone", TypeSignatureProvider.fromTypes(valueType, timeZoneType));
 
                 return functionInvoker.invoke(function, connectorSession, ImmutableList.of(value, timeZone));
             }
@@ -1414,27 +1440,27 @@ public class ExpressionInterpreter
             return switch (node.getFunction()) {
                 case DATE -> functionInvoker.invoke(
                         plannerContext.getMetadata()
-                                .resolveFunction(session, QualifiedName.of("current_date"), ImmutableList.of()),
+                                .resolveBuiltinFunction("current_date", ImmutableList.of()),
                         connectorSession,
                         ImmutableList.of());
                 case TIME -> functionInvoker.invoke(
                         plannerContext.getMetadata()
-                                .resolveFunction(session, QualifiedName.of("$current_time"), TypeSignatureProvider.fromTypes(type(node))),
+                                .resolveBuiltinFunction("$current_time", TypeSignatureProvider.fromTypes(type(node))),
                         connectorSession,
                         singletonList(null));
                 case LOCALTIME -> functionInvoker.invoke(
                         plannerContext.getMetadata()
-                                .resolveFunction(session, QualifiedName.of("$localtime"), TypeSignatureProvider.fromTypes(type(node))),
+                                .resolveBuiltinFunction("$localtime", TypeSignatureProvider.fromTypes(type(node))),
                         connectorSession,
                         singletonList(null));
                 case TIMESTAMP -> functionInvoker.invoke(
                         plannerContext.getMetadata()
-                                .resolveFunction(session, QualifiedName.of("$current_timestamp"), TypeSignatureProvider.fromTypes(type(node))),
+                                .resolveBuiltinFunction("$current_timestamp", TypeSignatureProvider.fromTypes(type(node))),
                         connectorSession,
                         singletonList(null));
                 case LOCALTIMESTAMP -> functionInvoker.invoke(
                         plannerContext.getMetadata()
-                                .resolveFunction(session, QualifiedName.of("$localtimestamp"), TypeSignatureProvider.fromTypes(type(node))),
+                                .resolveBuiltinFunction("$localtimestamp", TypeSignatureProvider.fromTypes(type(node))),
                         connectorSession,
                         singletonList(null));
             };
@@ -1489,10 +1515,10 @@ public class ExpressionInterpreter
 
             RowType rowType = anonymous(argumentTypes);
             ResolvedFunction function = plannerContext.getMetadata()
-                    .resolveFunction(session, QualifiedName.of(FormatFunction.NAME), TypeSignatureProvider.fromTypes(VARCHAR, rowType));
+                    .resolveBuiltinFunction(FormatFunction.NAME, TypeSignatureProvider.fromTypes(VARCHAR, rowType));
 
             // Construct a row with arguments [1..n] and invoke the underlying function
-            Block row = buildRowValue(rowType, fields -> {
+            SqlRow row = buildRowValue(rowType, fields -> {
                 for (int i = 0; i < arguments.size(); ++i) {
                     writeNativeValue(argumentTypes.get(i), fields.get(i), processedArguments.get(i));
                 }
@@ -1523,13 +1549,13 @@ public class ExpressionInterpreter
             }
 
             // Subscript on Row hasn't got a dedicated operator. It is interpreted by hand.
-            if (base instanceof SingleRowBlock row) {
-                int position = toIntExact((long) index - 1);
-                if (position < 0 || position >= row.getPositionCount()) {
-                    throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "ROW index out of bounds: " + (position + 1));
+            if (base instanceof SqlRow row) {
+                int fieldIndex = toIntExact((long) index - 1);
+                if (fieldIndex < 0 || fieldIndex >= row.getFieldCount()) {
+                    throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "ROW index out of bounds: " + (fieldIndex + 1));
                 }
-                Type returnType = type(node.getBase()).getTypeParameters().get(position);
-                return readNativeValue(returnType, row, position);
+                Type returnType = type(node.getBase()).getTypeParameters().get(fieldIndex);
+                return readNativeValue(returnType, row.getRawFieldBlock(fieldIndex), row.getRawIndex());
             }
 
             // Subscript on Array or Map is interpreted using operator.
@@ -1566,7 +1592,7 @@ public class ExpressionInterpreter
 
             return functionInvoker.invoke(
                     plannerContext.getMetadata()
-                            .resolveFunction(session, QualifiedName.of(name), TypeSignatureProvider.fromTypes(type(node.getExpression()))),
+                            .resolveBuiltinFunction(name, TypeSignatureProvider.fromTypes(type(node.getExpression()))),
                     connectorSession,
                     ImmutableList.of(value));
         }
@@ -1620,18 +1646,18 @@ public class ExpressionInterpreter
 
         private Object invokeOperator(OperatorType operatorType, List<? extends Type> argumentTypes, List<Object> argumentValues)
         {
-            ResolvedFunction operator = metadata.resolveOperator(session, operatorType, argumentTypes);
+            ResolvedFunction operator = metadata.resolveOperator(operatorType, argumentTypes);
             return functionInvoker.invoke(operator, connectorSession, argumentValues);
         }
 
         private Expression toExpression(Object base, Type type)
         {
-            return literalEncoder.toExpression(session, base, type);
+            return literalEncoder.toExpression(base, type);
         }
 
         private List<Expression> toExpressions(List<Object> values, List<Type> types)
         {
-            return literalEncoder.toExpressions(session, values, types);
+            return literalEncoder.toExpressions(values, types);
         }
     }
 

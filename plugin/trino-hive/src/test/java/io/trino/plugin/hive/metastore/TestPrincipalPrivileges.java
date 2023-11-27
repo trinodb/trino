@@ -15,7 +15,7 @@ package io.trino.plugin.hive.metastore;
 
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.security.PrincipalType;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
 import static org.testng.Assert.assertEquals;

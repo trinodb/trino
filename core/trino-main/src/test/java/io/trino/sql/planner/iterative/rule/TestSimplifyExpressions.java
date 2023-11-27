@@ -15,7 +15,6 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.Type;
-import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
@@ -315,7 +314,7 @@ public class TestSimplifyExpressions
 
     private static void assertSimplifies(@Language("SQL") String expression, @Language("SQL") String expected, Map<String, Type> symbolTypes)
     {
-        Expression expectedExpression = normalize(rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected, new ParsingOptions())));
+        Expression expectedExpression = normalize(rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected)));
         assertEquals(
                 simplify(expression, symbolTypes),
                 expectedExpression);
@@ -324,7 +323,7 @@ public class TestSimplifyExpressions
     private static Expression simplify(@Language("SQL") String expression, Map<String, Type> symbolTypes)
     {
         Map<Symbol, Type> symbols = symbolTypes.entrySet().stream().collect(toImmutableMap(symbolTypeEntry -> new Symbol(symbolTypeEntry.getKey()), Map.Entry::getValue));
-        Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression, new ParsingOptions()));
+        Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression));
         return normalize(rewrite(actualExpression, TEST_SESSION, new SymbolAllocator(symbols), PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT)));
     }
 
@@ -384,17 +383,29 @@ public class TestSimplifyExpressions
     public void testRewriteOrExpression()
     {
         assertSimplifiesNumericTypes("I1 = 1 OR I1 = 2 ", "I1 IN (1, 2)");
-        // TODO: Implement rule for Merging IN expression
-        assertSimplifiesNumericTypes("I1 = 1 OR I1 = 2 OR I1 IN (3, 4)", "I1 IN (3, 4) OR I1 IN (1, 2)");
+        assertSimplifiesNumericTypes("I1 = 1 OR I1 = 2 OR I1 IN (3, 4)", "I1 IN (1, 2, 3, 4)");
         assertSimplifiesNumericTypes("I1 = 1 OR I1 = 2 OR I1 = I2", "I1 IN (1, 2, I2)");
         assertSimplifiesNumericTypes("I1 = 1 OR I1 = 2 OR I2 = 3 OR I2 = 4", "I1 IN (1, 2) OR I2 IN (3, 4)");
+        assertSimplifiesNumericTypes("I1 = 1 OR I1 IN (1, 2)", "I1 IN (1, 2)");
+        assertSimplifiesNumericTypes("I1 = 1 OR I2 IN (1, 2) OR I2 IN (2, 3)", "I1 = 1 OR I2 IN (1, 2, 3)");
+        assertSimplifiesNumericTypes("I1 IN (1)", "I1 = 1");
+        assertSimplifiesNumericTypes("I1 = 1 OR I1 IN (1)", "I1 = 1");
+        assertSimplifiesNumericTypes("I1 = 1 OR I1 IN (2)", "I1 IN (1, 2)");
+        assertSimplifiesNumericTypes("I1 IN (1, 2) OR I1 = 1", "I1 IN (1, 2)");
+        assertSimplifiesNumericTypes("I1 IN (1, 2) OR I2 = 1 OR I1 = 3 OR I2 = 4", "I1 IN (1, 2, 3) OR I2 IN (1, 4)");
+        assertSimplifiesNumericTypes("I1 IN (1, 2) OR I1 = 3 OR I1 IN (4, 5, 6) OR I2 = 3 OR I2 IN (3, 4)", "I1 IN (1, 2, 3, 4, 5, 6) OR I2 IN (3, 4)");
+
+        assertSimplifiesNumericTypes("I1 = 1 OR I1 = 2 OR I1 IN (3, 4) OR I1 IN (SELECT 1)", "I1 IN (1, 2, 3, 4) OR I1 IN (SELECT 1)");
+        assertSimplifiesNumericTypes("I1 = 1 OR I2 = 2 OR I1 = 3 OR I2 = 4", "I1 IN (1, 3) OR I2 IN (2, 4)");
+        assertSimplifiesNumericTypes("I1 = 1 OR I2 = 2 OR I1 = 3 OR I2 IS NULL", "I1 IN(1, 3) OR I2 = 2 OR I2 IS NULL");
+        assertSimplifiesNumericTypes("I1 = 1 OR I2 IN (2, 3) OR I1 = 4 OR I2 IN (5, 6)", "I1 IN (1, 4) OR I2 IN (2, 3, 5, 6)");
+        assertSimplifiesNumericTypes("I1 = 1 OR I2 = 2 OR I1 = 3 OR I2 = I1", "I1 IN (1, 3) OR I2 IN (2, I1)");
     }
 
     private static void assertSimplifiesNumericTypes(String expression, String expected)
     {
-        ParsingOptions parsingOptions = new ParsingOptions();
-        Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression, parsingOptions));
-        Expression expectedExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected, parsingOptions));
+        Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression));
+        Expression expectedExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected));
         Expression rewritten = rewrite(actualExpression, TEST_SESSION, new SymbolAllocator(numericAndBooleanSymbolTypeMapFor(actualExpression)), PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT));
         assertEquals(
                 normalize(rewritten),

@@ -14,7 +14,7 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
@@ -28,16 +28,21 @@ public class TestCompilerConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(CompilerConfig.class)
-                .setExpressionCacheSize(10_000));
+                .setExpressionCacheSize(10_000)
+                .setSpecializeAggregationLoops(true));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = ImmutableMap.of("compiler.expression-cache-size", "52");
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("compiler.expression-cache-size", "52")
+                .put("compiler.specialized-aggregation-loops", "false")
+                .buildOrThrow();
 
         CompilerConfig expected = new CompilerConfig()
-                .setExpressionCacheSize(52);
+                .setExpressionCacheSize(52)
+                .setSpecializeAggregationLoops(false);
 
         assertFullMapping(properties, expected);
     }

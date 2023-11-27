@@ -18,7 +18,8 @@ import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
-import io.trino.spi.block.SingleRowBlock;
+import io.trino.spi.block.SqlRow;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.GroupedAccumulatorState;
 import io.trino.spi.type.ArrayType;
@@ -44,14 +45,18 @@ public final class MinMaxNStateFactory
         @Override
         public final void merge(MinMaxNState other)
         {
-            SingleRowBlock serializedState = ((SingleMinMaxNState) other).removeTempSerializedState();
+            SqlRow sqlRow = ((SingleMinMaxNState) other).removeTempSerializedState();
+            int rawIndex = sqlRow.getRawIndex();
 
-            int capacity = toIntExact(BIGINT.getLong(serializedState, 0));
+            int capacity = toIntExact(BIGINT.getLong(sqlRow.getRawFieldBlock(0), rawIndex));
             initialize(capacity);
             TypedHeap typedHeap = getTypedHeap();
 
-            Block values = new ArrayType(typedHeap.getElementType()).getObject(serializedState, 1);
-            typedHeap.addAll(values);
+            Block array = new ArrayType(typedHeap.getElementType()).getObject(sqlRow.getRawFieldBlock(1), rawIndex);
+            ValueBlock arrayValues = array.getUnderlyingValueBlock();
+            for (int i = 0; i < array.getPositionCount(); i++) {
+                typedHeap.add(arrayValues, array.getUnderlyingValuePosition(i));
+            }
         }
 
         @Override
@@ -117,7 +122,7 @@ public final class MinMaxNStateFactory
         }
 
         @Override
-        public final void add(Block block, int position)
+        public final void add(ValueBlock block, int position)
         {
             TypedHeap typedHeap = getTypedHeap();
 
@@ -158,7 +163,7 @@ public final class MinMaxNStateFactory
         private final LongFunction<TypedHeap> heapFactory;
 
         private TypedHeap typedHeap;
-        private SingleRowBlock tempSerializedState;
+        private SqlRow tempSerializedState;
 
         public SingleMinMaxNState(LongFunction<TypedHeap> heapFactory)
         {
@@ -199,7 +204,7 @@ public final class MinMaxNStateFactory
         }
 
         @Override
-        public final void add(Block block, int position)
+        public final void add(ValueBlock block, int position)
         {
             typedHeap.add(block, position);
         }
@@ -221,17 +226,17 @@ public final class MinMaxNStateFactory
             return typedHeap;
         }
 
-        void setTempSerializedState(SingleRowBlock tempSerializedState)
+        void setTempSerializedState(SqlRow tempSerializedState)
         {
             this.tempSerializedState = tempSerializedState;
         }
 
-        SingleRowBlock removeTempSerializedState()
+        SqlRow removeTempSerializedState()
         {
-            SingleRowBlock block = tempSerializedState;
-            checkState(block != null, "tempDeserializeBlock is null");
+            SqlRow sqlRow = tempSerializedState;
+            checkState(sqlRow != null, "tempDeserializeBlock is null");
             tempSerializedState = null;
-            return block;
+            return sqlRow;
         }
     }
 }

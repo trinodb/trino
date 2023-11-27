@@ -21,10 +21,11 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ColumnarRow;
 import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.RowBlock;
+import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -44,6 +45,7 @@ import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static io.trino.spi.block.RowBlock.fromFieldBlocks;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -219,11 +221,12 @@ public class TestReaderProjectionsAdapter
 
     private static void verifyBlock(Block actualBlock, Type outputType, Block input, Type inputType, List<Integer> dereferences)
     {
-        Block expectedOutputBlock = createProjectedColumnBlock(input, outputType, inputType, dereferences);
+        assertThat(inputType).isInstanceOf(RowType.class);
+        Block expectedOutputBlock = createProjectedColumnBlock(input, outputType, (RowType) inputType, dereferences);
         assertBlockEquals(outputType, actualBlock, expectedOutputBlock);
     }
 
-    private static Block createProjectedColumnBlock(Block data, Type finalType, Type blockType, List<Integer> dereferences)
+    private static Block createProjectedColumnBlock(Block data, Type finalType, RowType blockType, List<Integer> dereferences)
     {
         if (dereferences.size() == 0) {
             return data;
@@ -232,14 +235,14 @@ public class TestReaderProjectionsAdapter
         BlockBuilder builder = finalType.createBlockBuilder(null, data.getPositionCount());
 
         for (int i = 0; i < data.getPositionCount(); i++) {
-            Type sourceType = blockType;
+            RowType sourceType = blockType;
 
-            Block currentData = null;
+            SqlRow currentData = null;
             boolean isNull = data.isNull(i);
 
             if (!isNull) {
-                // Get SingleRowBlock corresponding to element at position i
-                currentData = data.getObject(i, Block.class);
+                // Get SqlRow corresponding to element at position i
+                currentData = sourceType.getObject(data, i);
             }
 
             // Apply all dereferences except for the last one, because the type can be different
@@ -249,13 +252,17 @@ public class TestReaderProjectionsAdapter
                     break;
                 }
 
-                checkArgument(sourceType instanceof RowType);
-                if (currentData.isNull(dereferences.get(j))) {
+                int fieldIndex = dereferences.get(j);
+                Block fieldBlock = currentData.getRawFieldBlock(fieldIndex);
+
+                RowType rowType = sourceType;
+                int rawIndex = currentData.getRawIndex();
+                if (fieldBlock.isNull(rawIndex)) {
                     currentData = null;
                 }
                 else {
-                    sourceType = ((RowType) sourceType).getFields().get(dereferences.get(j)).getType();
-                    currentData = currentData.getObject(dereferences.get(j), Block.class);
+                    sourceType = (RowType) rowType.getFields().get(fieldIndex).getType();
+                    currentData = sourceType.getObject(fieldBlock, rawIndex);
                 }
 
                 isNull = isNull || (currentData == null);
@@ -268,7 +275,7 @@ public class TestReaderProjectionsAdapter
             else {
                 int lastDereference = dereferences.get(dereferences.size() - 1);
 
-                finalType.appendTo(currentData, lastDereference, builder);
+                finalType.appendTo(currentData.getRawFieldBlock(lastDereference), currentData.getRawIndex(), builder);
             }
         }
 

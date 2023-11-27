@@ -30,7 +30,6 @@ import io.trino.spi.block.LongArrayBlockEncoding;
 import io.trino.spi.block.RowBlockEncoding;
 import io.trino.spi.block.RunLengthBlockEncoding;
 import io.trino.spi.block.ShortArrayBlockEncoding;
-import io.trino.spi.block.SingleRowBlockEncoding;
 import io.trino.spi.block.VariableWidthBlockEncoding;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeId;
@@ -73,7 +72,6 @@ public final class HiveBlockEncodingSerde
         addBlockEncoding(new DictionaryBlockEncoding());
         addBlockEncoding(new ArrayBlockEncoding());
         addBlockEncoding(new RowBlockEncoding());
-        addBlockEncoding(new SingleRowBlockEncoding());
         addBlockEncoding(new RunLengthBlockEncoding());
         addBlockEncoding(new LazyBlockEncoding());
     }

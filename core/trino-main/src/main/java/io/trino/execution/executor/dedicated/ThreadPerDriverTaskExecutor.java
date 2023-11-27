@@ -125,7 +125,12 @@ public class ThreadPerDriverTaskExecutor
 
             int splitId = entry.nextSplitId();
             ListenableFuture<Void> done = scheduler.submit(entry.group(), splitId, new VersionEmbedderBridge(versionEmbedder, new SplitProcessor(entry.taskId(), splitId, split, tracer)));
-            done.addListener(split::close, directExecutor());
+            done.addListener(
+                    () -> {
+                        split.close();
+                        entry.removeSplit(split);
+                    },
+                    directExecutor());
             futures.add(done);
         }
 
@@ -173,12 +178,19 @@ public class ThreadPerDriverTaskExecutor
             for (SplitRunner split : splits) {
                 split.close();
             }
+
+            splits.clear();
         }
 
         public synchronized void addSplit(SplitRunner split)
         {
             checkArgument(!destroyed, "Task already destroyed: %s", taskId);
             splits.add(split);
+        }
+
+        public synchronized void removeSplit(SplitRunner split)
+        {
+            splits.remove(split);
         }
 
         public int nextSplitId()

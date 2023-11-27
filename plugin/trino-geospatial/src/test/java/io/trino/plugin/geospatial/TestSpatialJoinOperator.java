@@ -44,10 +44,10 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.SpatialJoinNode.Type;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingTaskContext;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.List;
 import java.util.Optional;
@@ -76,12 +76,10 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static java.util.Collections.emptyIterator;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
 public class TestSpatialJoinOperator
 {
     private static final String KDB_TREE_JSON = KdbTreeUtils.toJson(
@@ -104,7 +102,7 @@ public class TestSpatialJoinOperator
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
 
-    @BeforeMethod
+    @BeforeEach
     public void setUp()
     {
         // Before/AfterMethod is chosen here because the executor needs to be shutdown
@@ -124,7 +122,7 @@ public class TestSpatialJoinOperator
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
     {
         executor.shutdownNow();
@@ -304,27 +302,36 @@ public class TestSpatialJoinOperator
         OperatorFactory joinOperatorFactory = new SpatialJoinOperatorFactory(2, new PlanNodeId("test"), INNER, probePages.getTypes(), Ints.asList(1), 0, Optional.empty(), pagesSpatialIndexFactory);
 
         Operator operator = joinOperatorFactory.createOperator(driverContext);
-        assertTrue(operator.needsInput());
+        assertThat(operator.needsInput()).isTrue();
         operator.addInput(probeInput.get(0));
         operator.finish();
 
         // we will yield 40 times due to filterFunction
         for (int i = 0; i < 40; i++) {
             driverContext.getYieldSignal().setWithDelay(5 * SECONDS.toNanos(1), driverContext.getYieldExecutor());
-            assertNull(operator.getOutput());
-            assertEquals(filterFunctionCalls.get(), i + 1, "Expected join to stop processing (yield) after calling filter function once");
+            assertThat(operator.getOutput()).isNull();
+            assertThat(filterFunctionCalls.get())
+                    .describedAs("Expected join to stop processing (yield) after calling filter function once")
+                    .isEqualTo(i + 1);
             driverContext.getYieldSignal().reset();
         }
         // delayed yield is not going to prevent operator from producing a page now (yield won't be forced because filter function won't be called anymore)
         driverContext.getYieldSignal().setWithDelay(5 * SECONDS.toNanos(1), driverContext.getYieldExecutor());
         Page output = operator.getOutput();
-        assertNotNull(output);
+        assertThat(output).isNotNull();
 
         // make sure we have 40 matches
-        assertEquals(output.getPositionCount(), 40);
+        assertThat(output.getPositionCount()).isEqualTo(40);
     }
 
-    @Test(dataProvider = "testDuplicateProbeFactoryDataProvider")
+    @Test
+    public void testDuplicateProbeFactory()
+            throws Exception
+    {
+        testDuplicateProbeFactory(true);
+        testDuplicateProbeFactory(false);
+    }
+
     public void testDuplicateProbeFactory(boolean createSecondaryOperators)
             throws Exception
     {
@@ -346,7 +353,7 @@ public class TestSpatialJoinOperator
             OperatorFactory secondFactory = firstFactory.duplicate();
             if (createSecondaryOperators) {
                 try (Operator secondOperator = secondFactory.createOperator(secondDriver)) {
-                    assertEquals(toPages(secondOperator, emptyIterator()), ImmutableList.of());
+                    assertThat(toPages(secondOperator, emptyIterator())).isEqualTo(ImmutableList.of());
                 }
             }
             secondFactory.noMoreOperators();
@@ -356,15 +363,6 @@ public class TestSpatialJoinOperator
                 .row("0_1", "0_0")
                 .build();
         assertOperatorEquals(firstFactory, probeDriver, probePages.build(), expected);
-    }
-
-    @DataProvider
-    public Object[][] testDuplicateProbeFactoryDataProvider()
-    {
-        return new Object[][] {
-                {true},
-                {false},
-        };
     }
 
     @Test

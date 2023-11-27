@@ -14,7 +14,7 @@
 package io.trino.server;
 
 import io.airlift.json.JsonCodec;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.OptionalDouble;
 

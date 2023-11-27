@@ -36,7 +36,7 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
@@ -46,7 +46,6 @@ import java.util.Set;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMaxPartitionCount;
-import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.sql.planner.RuntimeAdaptivePartitioningRewriter.consumesHashPartitionedInput;
 import static io.trino.sql.planner.RuntimeAdaptivePartitioningRewriter.getMaxPlanFragmentId;
 import static io.trino.sql.planner.RuntimeAdaptivePartitioningRewriter.getMaxPlanId;
@@ -276,10 +275,10 @@ public class TestOverridePartitionCountRecursively
     private SubPlan getSubPlan(Session session, @Language("SQL") String sql)
     {
         QueryRunner queryRunner = getDistributedQueryRunner();
-        Plan plan = queryRunner.createPlan(session, sql, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
-        return transaction(queryRunner.getTransactionManager(), new AllowAllAccessControl())
+        return transaction(queryRunner.getTransactionManager(), queryRunner.getMetadata(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(session, transactionSession -> {
+                    Plan plan = queryRunner.createPlan(transactionSession, sql);
                     // metadata.getCatalogHandle() registers the catalog for the transaction
                     transactionSession.getCatalog().ifPresent(catalog -> queryRunner.getMetadata().getCatalogHandle(transactionSession, catalog));
                     return new PlanFragmenter(
@@ -287,6 +286,7 @@ public class TestOverridePartitionCountRecursively
                             queryRunner.getFunctionManager(),
                             queryRunner.getTransactionManager(),
                             new CoordinatorDynamicCatalogManager(new InMemoryCatalogStore(), new LazyCatalogFactory(), directExecutor()),
+                            queryRunner.getLanguageFunctionManager(),
                             new QueryManagerConfig()).createSubPlans(transactionSession, plan, false, WarningCollector.NOOP);
                 });
     }

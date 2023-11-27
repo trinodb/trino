@@ -23,6 +23,8 @@ import io.trino.execution.resourcegroups.NoOpResourceGroupManager;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.failuredetector.FailureDetector;
 import io.trino.failuredetector.NoOpFailureDetector;
+import io.trino.metadata.LanguageFunctionProvider;
+import io.trino.metadata.WorkerLanguageFunctionProvider;
 import io.trino.server.ui.NoWebUiAuthenticationFilter;
 import io.trino.server.ui.WebUiAuthenticationFilter;
 
@@ -47,6 +49,10 @@ public class WorkerModule
         binder.bind(QueryManager.class).toInstance(newProxy(QueryManager.class, (proxy, method, args) -> {
             throw new UnsupportedOperationException();
         }));
+
+        // language functions
+        binder.bind(WorkerLanguageFunctionProvider.class).in(Scopes.SINGLETON);
+        binder.bind(LanguageFunctionProvider.class).to(WorkerLanguageFunctionProvider.class).in(Scopes.SINGLETON);
 
         binder.bind(WebUiAuthenticationFilter.class).to(NoWebUiAuthenticationFilter.class).in(Scopes.SINGLETON);
     }

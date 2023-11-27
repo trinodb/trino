@@ -33,6 +33,7 @@ import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorTableMetadata;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.type.TimestampType;
@@ -51,9 +52,10 @@ import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.TestingAccessControlManager;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.transaction.TransactionManager;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.util.List;
 import java.util.Map;
@@ -80,6 +82,7 @@ import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static io.trino.sql.tree.SaveMode.FAIL;
 import static io.trino.sql.tree.SaveMode.IGNORE;
+import static io.trino.sql.tree.SaveMode.REPLACE;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SHOW_CREATE_TABLE;
 import static io.trino.testing.TestingAccessControlManager.privilege;
@@ -91,11 +94,12 @@ import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
 public class TestCreateTableTask
 {
     private static final String OTHER_CATALOG_NAME = "other_catalog";
@@ -118,7 +122,7 @@ public class TestCreateTableTask
     private CatalogHandle testCatalogHandle;
     private CatalogHandle otherCatalogHandle;
 
-    @BeforeMethod
+    @BeforeEach
     public void setUp()
     {
         queryRunner = LocalQueryRunner.create(testSessionBuilder()
@@ -147,7 +151,7 @@ public class TestCreateTableTask
         plannerContext = plannerContextBuilder().withMetadata(metadata).build();
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
     {
         if (queryRunner != null) {
@@ -190,6 +194,22 @@ public class TestCreateTableTask
                 .hasMessage("Table already exists");
 
         assertEquals(metadata.getCreateTableCallCount(), 1);
+    }
+
+    @Test
+    public void testReplaceTable()
+    {
+        CreateTable statement = new CreateTable(QualifiedName.of("test_table"),
+                ImmutableList.of(new ColumnDefinition(QualifiedName.of("a"), toSqlType(BIGINT), true, emptyList(), Optional.empty())),
+                REPLACE,
+                ImmutableList.of(),
+                Optional.empty());
+
+        CreateTableTask createTableTask = new CreateTableTask(plannerContext, new AllowAllAccessControl(), columnPropertyManager, tablePropertyManager);
+        getFutureValue(createTableTask.internalExecute(statement, testSession, emptyList(), output -> {}));
+        assertEquals(metadata.getCreateTableCallCount(), 1);
+        assertThat(metadata.getReceivedTableMetadata().get(0).getColumns())
+                .isEqualTo(ImmutableList.of(new ColumnMetadata("a", BIGINT)));
     }
 
     @Test
@@ -420,10 +440,13 @@ public class TestCreateTableTask
         private Set<ConnectorCapabilities> connectorCapabilities = ImmutableSet.of();
 
         @Override
-        public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
+        public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, SaveMode saveMode)
         {
+            if (saveMode == SaveMode.REPLACE) {
+                tables.removeIf(table -> table.getTable().equals(tableMetadata.getTable()));
+            }
             tables.add(tableMetadata);
-            if (!ignoreExisting) {
+            if (saveMode == SaveMode.FAIL) {
                 throw new TrinoException(ALREADY_EXISTS, "Table already exists");
             }
         }
@@ -461,7 +484,7 @@ public class TestCreateTableTask
         }
 
         @Override
-        public Optional<Type> getSupportedType(Session session, CatalogHandle catalogHandle, Type type)
+        public Optional<Type> getSupportedType(Session session, CatalogHandle catalogHandle, Map<String, Object> tableProperties, Type type)
         {
             if (type instanceof TimestampType) {
                 return Optional.of(TIMESTAMP_MILLIS);

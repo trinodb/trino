@@ -180,11 +180,15 @@ Ignite.  In addition to the {ref}`globally available
 statements, the connector supports the following features:
 
 - {doc}`/sql/insert`
+- {doc}`/sql/update`
 - {doc}`/sql/delete`
 - {doc}`/sql/create-table`
 - {doc}`/sql/create-table-as`
 - {doc}`/sql/drop-table`
 - {doc}`/sql/alter-table`
+
+```{include} sql-update-limitation.fragment
+```
 
 ```{include} alter-table-limitation.fragment
 ```

@@ -19,6 +19,7 @@ import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.ParametricImplementationsGroup;
 import io.trino.operator.annotations.FunctionsParserHelper;
 import io.trino.operator.scalar.ParametricScalar;
+import io.trino.operator.scalar.ScalarHeader;
 import io.trino.operator.scalar.annotations.ParametricScalarImplementation.SpecializedSignature;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.ScalarOperator;
@@ -57,7 +58,7 @@ public final class ScalarFromAnnotationsParser
     {
         ImmutableList.Builder<SqlScalarFunction> builder = ImmutableList.builder();
         for (ScalarHeaderAndMethods methods : findScalarsInFunctionSetClass(clazz)) {
-            boolean deprecated = methods.getMethods().iterator().next().getAnnotationsByType(Deprecated.class).length > 0;
+            boolean deprecated = methods.methods().iterator().next().getAnnotationsByType(Deprecated.class).length > 0;
             // Non-static function only makes sense in classes annotated with @ScalarFunction or @ScalarOperator.
             builder.add(parseParametricScalar(methods, FunctionsParserHelper.findConstructor(clazz), deprecated));
         }
@@ -67,10 +68,10 @@ public final class ScalarFromAnnotationsParser
     private static List<ScalarHeaderAndMethods> findScalarsInFunctionDefinitionClass(Class<?> annotated)
     {
         ImmutableList.Builder<ScalarHeaderAndMethods> builder = ImmutableList.builder();
-        List<ScalarImplementationHeader> classHeaders = ScalarImplementationHeader.fromAnnotatedElement(annotated);
+        List<ScalarHeader> classHeaders = ScalarHeader.fromAnnotatedElement(annotated);
         checkArgument(!classHeaders.isEmpty(), "Class [%s] that defines function must be annotated with @ScalarFunction or @ScalarOperator", annotated.getName());
 
-        for (ScalarImplementationHeader header : classHeaders) {
+        for (ScalarHeader header : classHeaders) {
             Set<Method> methods = FunctionsParserHelper.findPublicMethodsWithAnnotation(annotated, SqlType.class, ScalarFunction.class, ScalarOperator.class);
             checkCondition(!methods.isEmpty(), FUNCTION_IMPLEMENTATION_ERROR, "Parametric class [%s] does not have any annotated methods", annotated.getName());
             for (Method method : methods) {
@@ -89,7 +90,7 @@ public final class ScalarFromAnnotationsParser
         for (Method method : FunctionsParserHelper.findPublicMethodsWithAnnotation(annotated, SqlType.class, ScalarFunction.class, ScalarOperator.class)) {
             checkCondition((method.getAnnotation(ScalarFunction.class) != null) || (method.getAnnotation(ScalarOperator.class) != null),
                     FUNCTION_IMPLEMENTATION_ERROR, "Method [%s] annotated with @SqlType is missing @ScalarFunction or @ScalarOperator", method);
-            for (ScalarImplementationHeader header : ScalarImplementationHeader.fromAnnotatedElement(method)) {
+            for (ScalarHeader header : ScalarHeader.fromAnnotatedElement(method)) {
                 builder.add(new ScalarHeaderAndMethods(header, ImmutableSet.of(method)));
             }
         }
@@ -100,12 +101,9 @@ public final class ScalarFromAnnotationsParser
 
     private static SqlScalarFunction parseParametricScalar(ScalarHeaderAndMethods scalar, Optional<Constructor<?>> constructor, boolean deprecated)
     {
-        ScalarImplementationHeader header = scalar.getHeader();
-        checkArgument(!header.getName().isEmpty());
-
         Map<SpecializedSignature, ParametricScalarImplementation.Builder> signatures = new HashMap<>();
-        for (Method method : scalar.getMethods()) {
-            ParametricScalarImplementation.Parser implementation = new ParametricScalarImplementation.Parser(header.getName(), method, constructor);
+        for (Method method : scalar.methods()) {
+            ParametricScalarImplementation.Parser implementation = new ParametricScalarImplementation.Parser(method, constructor);
             if (!signatures.containsKey(implementation.getSpecializedSignature())) {
                 ParametricScalarImplementation.Builder builder = new ParametricScalarImplementation.Builder(
                         implementation.getSignature(),
@@ -128,31 +126,18 @@ public final class ScalarFromAnnotationsParser
         ParametricImplementationsGroup<ParametricScalarImplementation> implementations = implementationsBuilder.build();
         Signature scalarSignature = implementations.getSignature();
 
-        header.getOperatorType().ifPresent(operatorType ->
+        scalar.header().getOperatorType().ifPresent(operatorType ->
                 validateOperator(operatorType, scalarSignature.getReturnType(), scalarSignature.getArgumentTypes()));
 
-        return new ParametricScalar(scalarSignature, header.getHeader(), implementations, deprecated);
+        return new ParametricScalar(scalarSignature, scalar.header(), implementations, deprecated);
     }
 
-    private static class ScalarHeaderAndMethods
+    private record ScalarHeaderAndMethods(ScalarHeader header, Set<Method> methods)
     {
-        private final ScalarImplementationHeader header;
-        private final Set<Method> methods;
-
-        public ScalarHeaderAndMethods(ScalarImplementationHeader header, Set<Method> methods)
+        private ScalarHeaderAndMethods
         {
-            this.header = requireNonNull(header);
-            this.methods = requireNonNull(methods);
-        }
-
-        public ScalarImplementationHeader getHeader()
-        {
-            return header;
-        }
-
-        public Set<Method> getMethods()
-        {
-            return methods;
+            requireNonNull(header);
+            requireNonNull(methods);
         }
     }
 }

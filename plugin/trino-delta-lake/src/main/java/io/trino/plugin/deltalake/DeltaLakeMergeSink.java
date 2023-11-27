@@ -25,7 +25,6 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
-import io.trino.plugin.hive.FileWriter;
 import io.trino.plugin.hive.ReaderPageSource;
 import io.trino.plugin.hive.parquet.ParquetFileWriter;
 import io.trino.plugin.hive.parquet.ParquetPageSourceFactory;
@@ -55,6 +54,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
@@ -332,10 +332,9 @@ public class DeltaLakeMergeSink
 
             Location targetLocation = sourceLocation.sibling(session.getQueryId() + "_" + randomUUID());
             String targetRelativePath = relativePath(tablePath, targetLocation.toString());
-            FileWriter fileWriter = createParquetFileWriter(targetLocation, dataColumns);
+            ParquetFileWriter fileWriter = createParquetFileWriter(targetLocation, dataColumns);
 
             DeltaLakeWriter writer = new DeltaLakeWriter(
-                    fileSystem,
                     fileWriter,
                     rootTableLocation,
                     targetRelativePath,
@@ -354,7 +353,7 @@ public class DeltaLakeMergeSink
         }
     }
 
-    private FileWriter createParquetFileWriter(Location path, List<DeltaLakeColumnHandle> dataColumns)
+    private ParquetFileWriter createParquetFileWriter(Location path, List<DeltaLakeColumnHandle> dataColumns)
     {
         ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
                 .setMaxBlockSize(getParquetWriterBlockSize(session))
@@ -497,21 +496,22 @@ public class DeltaLakeMergeSink
             throws IOException
     {
         TrinoInputFile inputFile = fileSystem.newInputFile(path);
-
+        long fileSize = inputFile.length();
         return ParquetPageSourceFactory.createPageSource(
                 inputFile,
                 0,
-                inputFile.length(),
+                fileSize,
                 dataColumns.stream()
                         .map(DeltaLakeColumnHandle::toHiveColumnHandle)
                         .collect(toImmutableList()),
-                TupleDomain.all(),
+                ImmutableList.of(TupleDomain.all()),
                 true,
                 parquetDateTimeZone,
                 new FileFormatDataSourceStats(),
                 new ParquetReaderOptions().withBloomFilter(false),
                 Optional.empty(),
-                domainCompactionThreshold);
+                domainCompactionThreshold,
+                OptionalLong.of(fileSize));
     }
 
     @Override

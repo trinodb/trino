@@ -14,9 +14,10 @@
 package io.trino.plugin.hudi;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.testing.TestingConnectorSession;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
@@ -30,7 +31,7 @@ public class TestHudiSessionProperties
     {
         HudiConfig config = new HudiConfig()
                 .setColumnsToHide("col1, col2");
-        HudiSessionProperties sessionProperties = new HudiSessionProperties(config);
+        HudiSessionProperties sessionProperties = new HudiSessionProperties(config, new ParquetReaderConfig());
         ConnectorSession session = TestingConnectorSession.builder()
                 .setPropertyMetadata(sessionProperties.getSessionProperties())
                 .build();

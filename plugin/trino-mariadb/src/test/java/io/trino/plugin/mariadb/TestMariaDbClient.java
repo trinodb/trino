@@ -20,6 +20,7 @@ import io.trino.plugin.jdbc.DefaultQueryBuilder;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
+import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.connector.AggregateFunction;
@@ -59,6 +60,7 @@ public class TestMariaDbClient
 
     private static final JdbcClient JDBC_CLIENT = new MariaDbClient(
             new BaseJdbcConfig(),
+            new JdbcStatisticsConfig(),
             session -> {
                 throw new UnsupportedOperationException();
             },

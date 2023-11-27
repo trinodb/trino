@@ -61,7 +61,6 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.transaction.TransactionId;
 
@@ -100,6 +99,7 @@ public abstract class AbstractOperatorBenchmark
         extends AbstractBenchmark
 {
     protected final LocalQueryRunner localQueryRunner;
+    protected final Session nonTransactionSession;
     protected final Session session;
 
     protected AbstractOperatorBenchmark(
@@ -119,6 +119,7 @@ public abstract class AbstractOperatorBenchmark
             int measuredIterations)
     {
         super(benchmarkName, warmupIterations, measuredIterations);
+        this.nonTransactionSession = requireNonNull(session, "session is null");
         this.localQueryRunner = requireNonNull(localQueryRunner, "localQueryRunner is null");
 
         TransactionId transactionId = localQueryRunner.getTransactionManager().beginTransaction(false);
@@ -155,7 +156,7 @@ public abstract class AbstractOperatorBenchmark
 
     protected final BenchmarkAggregationFunction createAggregationFunction(String name, Type... argumentTypes)
     {
-        ResolvedFunction resolvedFunction = localQueryRunner.getMetadata().resolveFunction(session, QualifiedName.of(name), fromTypes(argumentTypes));
+        ResolvedFunction resolvedFunction = localQueryRunner.getMetadata().resolveBuiltinFunction(name, fromTypes(argumentTypes));
         AggregationImplementation aggregationImplementation = localQueryRunner.getFunctionManager().getAggregationImplementation(resolvedFunction);
         return new BenchmarkAggregationFunction(resolvedFunction, aggregationImplementation);
     }
@@ -236,7 +237,6 @@ public abstract class AbstractOperatorBenchmark
 
         Map<Symbol, Type> symbolTypes = symbolAllocator.getTypes().allTypes();
         Optional<Expression> hashExpression = HashGenerationOptimizer.getHashExpression(
-                session,
                 localQueryRunner.getMetadata(),
                 symbolAllocator,
                 ImmutableList.copyOf(symbolTypes.keySet()));

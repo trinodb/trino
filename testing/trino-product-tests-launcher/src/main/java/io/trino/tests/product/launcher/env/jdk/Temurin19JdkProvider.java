@@ -14,14 +14,11 @@
 package io.trino.tests.product.launcher.env.jdk;
 
 import com.google.inject.Inject;
-import io.trino.testing.containers.TestContainers;
 import io.trino.tests.product.launcher.env.EnvironmentOptions;
 
 public class Temurin19JdkProvider
-        extends TarDownloadingJdkProvider
+        extends AdoptiumApiResolvingJdkProvider
 {
-    private static final String VERSION = "19.0.2-7";
-
     @Inject
     public Temurin19JdkProvider(EnvironmentOptions environmentOptions)
     {
@@ -29,18 +26,8 @@ public class Temurin19JdkProvider
     }
 
     @Override
-    protected String getDownloadUri(TestContainers.DockerArchitecture architecture)
+    protected String getReleaseName()
     {
-        return switch (architecture) {
-            case AMD64 -> "https://github.com/adoptium/temurin19-binaries/releases/download/jdk-%s/OpenJDK19U-jdk_x64_linux_hotspot_19.0.2_7.tar.gz".formatted(VERSION.replace("-", "%2B"));
-            case ARM64 -> "https://github.com/adoptium/temurin19-binaries/releases/download/jdk-%s/OpenJDK19U-jdk_aarch64_linux_hotspot_19.0.2_7.tar.gz".formatted(VERSION.replace("-", "%2B"));
-            default -> throw new IllegalArgumentException("Architecture %s is not supported for Temurin 19 distribution".formatted(architecture));
-        };
-    }
-
-    @Override
-    public String getDescription()
-    {
-        return "Temurin " + VERSION;
+        return "jdk-19.0.2+7";
     }
 }

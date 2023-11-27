@@ -56,7 +56,6 @@ public class HiveSplit
     private final TableToPartitionMapping tableToPartitionMapping;
     private final Optional<BucketConversion> bucketConversion;
     private final Optional<BucketValidation> bucketValidation;
-    private final boolean s3SelectPushdownEnabled;
     private final Optional<AcidInfo> acidInfo;
     private final SplitWeight splitWeight;
 
@@ -76,7 +75,6 @@ public class HiveSplit
             @JsonProperty("tableToPartitionMapping") TableToPartitionMapping tableToPartitionMapping,
             @JsonProperty("bucketConversion") Optional<BucketConversion> bucketConversion,
             @JsonProperty("bucketValidation") Optional<BucketValidation> bucketValidation,
-            @JsonProperty("s3SelectPushdownEnabled") boolean s3SelectPushdownEnabled,
             @JsonProperty("acidInfo") Optional<AcidInfo> acidInfo,
             @JsonProperty("splitWeight") SplitWeight splitWeight)
     {
@@ -96,7 +94,6 @@ public class HiveSplit
                 tableToPartitionMapping,
                 bucketConversion,
                 bucketValidation,
-                s3SelectPushdownEnabled,
                 acidInfo,
                 splitWeight);
     }
@@ -117,7 +114,6 @@ public class HiveSplit
             TableToPartitionMapping tableToPartitionMapping,
             Optional<BucketConversion> bucketConversion,
             Optional<BucketValidation> bucketValidation,
-            boolean s3SelectPushdownEnabled,
             Optional<AcidInfo> acidInfo,
             SplitWeight splitWeight)
     {
@@ -151,7 +147,6 @@ public class HiveSplit
         this.tableToPartitionMapping = tableToPartitionMapping;
         this.bucketConversion = bucketConversion;
         this.bucketValidation = bucketValidation;
-        this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
         this.acidInfo = acidInfo;
         this.splitWeight = requireNonNull(splitWeight, "splitWeight is null");
     }
@@ -255,12 +250,6 @@ public class HiveSplit
     }
 
     @JsonProperty
-    public boolean isS3SelectPushdownEnabled()
-    {
-        return s3SelectPushdownEnabled;
-    }
-
-    @JsonProperty
     public Optional<AcidInfo> getAcidInfo()
     {
         return acidInfo;
@@ -303,7 +292,6 @@ public class HiveSplit
                 .put("forceLocalScheduling", forceLocalScheduling)
                 .put("partitionName", partitionName)
                 .put("deserializerClassName", getDeserializerClassName(schema))
-                .put("s3SelectPushdownEnabled", s3SelectPushdownEnabled)
                 .buildOrThrow();
     }
 

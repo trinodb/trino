@@ -312,7 +312,6 @@ class HiveSplitSource
                         internalSplit.getTableToPartitionMapping(),
                         internalSplit.getBucketConversion(),
                         internalSplit.getBucketValidation(),
-                        internalSplit.isS3SelectPushdownEnabled(),
                         internalSplit.getAcidInfo(),
                         splitWeightProvider.weightForSplitSizeInBytes(splitBytes)));
 

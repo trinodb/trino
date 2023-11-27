@@ -16,7 +16,7 @@ package io.trino.plugin.hive.util;
 import io.trino.hive.thrift.metastore.ThriftHiveMetastore;
 import io.trino.plugin.base.util.LoggingInvocationHandler;
 import org.assertj.core.api.InstanceOfAssertFactories;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;

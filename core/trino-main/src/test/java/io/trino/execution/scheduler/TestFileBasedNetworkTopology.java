@@ -19,10 +19,10 @@ import io.airlift.testing.TempFile;
 import io.airlift.testing.TestingTicker;
 import io.airlift.units.Duration;
 import io.trino.spi.HostAddress;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
+import java.net.URISyntaxException;
 import java.util.concurrent.TimeUnit;
 
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -30,12 +30,11 @@ import static org.testng.Assert.assertEquals;
 
 public class TestFileBasedNetworkTopology
 {
-    private File topologyFile;
-    private File topologyNewFile;
+    private final File topologyFile;
+    private final File topologyNewFile;
 
-    @BeforeClass
-    public void setup()
-            throws Exception
+    public TestFileBasedNetworkTopology()
+            throws URISyntaxException
     {
         topologyFile = new File(Resources.getResource(getClass(), "topology.txt").toURI());
         topologyNewFile = new File(Resources.getResource(getClass(), "topology-new.txt").toURI());

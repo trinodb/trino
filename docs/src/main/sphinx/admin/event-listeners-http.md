@@ -14,6 +14,7 @@ and metadata about the query processing.
 Running the capture system separate from Trino reduces the performance impact and
 avoids downtime for non-client-facing changes.
 
+(http-event-listener-requirements)=
 ## Requirements
 
 You need to perform the following steps:
@@ -46,62 +47,61 @@ event-listener.config-files=etc/http-event-listener.properties,...
 
 ### Configuration properties
 
-```{eval-rst}
-.. list-table::
-  :widths: 40, 40, 20
-  :header-rows: 1
+:::{list-table}
+:widths: 40, 40, 20
+:header-rows: 1
 
-  * - Property name
-    - Description
-    - Default
+* - Property name
+  - Description
+  - Default
 
-  * - http-event-listener.log-created
-    - Enable the plugin to log ``QueryCreatedEvent`` events
-    - ``false``
+* - http-event-listener.log-created
+  - Enable the plugin to log `QueryCreatedEvent` events
+  - `false`
 
-  * - http-event-listener.log-completed
-    - Enable the plugin to log ``QueryCompletedEvent`` events
-    - ``false``
+* - http-event-listener.log-completed
+  - Enable the plugin to log `QueryCompletedEvent` events
+  - `false`
 
-  * - http-event-listener.log-split
-    - Enable the plugin to log ``SplitCompletedEvent`` events
-    - ``false``
+* - http-event-listener.log-split
+  - Enable the plugin to log `SplitCompletedEvent` events
+  - `false`
 
-  * - http-event-listener.connect-ingest-uri
-    - The URI that the plugin will POST events to
-    - None. See the `requirements <#requirements>`_ section.
+* - http-event-listener.connect-ingest-uri
+  - The URI that the plugin will POST events to
+  - None. See the [requirements](http-event-listener-requirements) section.
 
-  * - http-event-listener.connect-http-headers
-    - List of custom HTTP headers to be sent along with the events. See
-      :ref:`http-event-listener-custom-headers` for more details
-    - Empty
+* - http-event-listener.connect-http-headers
+  - List of custom HTTP headers to be sent along with the events. See
+    [](http-event-listener-custom-headers) for more details
+  - Empty
 
-  * - http-event-listener.connect-retry-count
-    - The number of retries on server error. A server is considered to be
-      in an error state when the response code is 500 or higher
-    - ``0``
+* - http-event-listener.connect-retry-count
+  - The number of retries on server error. A server is considered to be
+    in an error state when the response code is 500 or higher
+  - `0`
 
-  * - http-event-listener.connect-retry-delay
-    - Duration for which to delay between attempts to send a request
-    - ``1s``
+* - http-event-listener.connect-retry-delay
+  - Duration for which to delay between attempts to send a request
+  - `1s`
 
-  * - http-event-listener.connect-backoff-base
-    - The base used for exponential backoff when retrying on server error.
-      The formula used to calculate the delay is
-      :math:`attemptDelay = retryDelay * backoffBase^{attemptCount}`.
-      Attempt count starts from 0. Leave this empty or set to 1 to disable
-      exponential backoff and keep constant delays
-    - ``2``
+* - http-event-listener.connect-backoff-base
+  - The base used for exponential backoff when retrying on server error.
+    The formula used to calculate the delay is
+    `attemptDelay = retryDelay * backoffBase^{attemptCount}`.
+    Attempt count starts from 0. Leave this empty or set to 1 to disable
+    exponential backoff and keep constant delays
+  - `2`
 
-  * - http-event-listener.connect-max-delay
-    - The upper bound of a delay between 2 retries. This should be
-      used with exponential backoff.
-    - ``1m``
+* - http-event-listener.connect-max-delay
+  - The upper bound of a delay between 2 retries. This should be
+    used with exponential backoff.
+  - `1m`
 
-  * - http-event-listener.*
-    - Pass configuration onto the HTTP client
-    -
-```
+* - http-event-listener.*
+  - Pass configuration onto the HTTP client
+  -
+:::
 
 (http-event-listener-custom-headers)=
 

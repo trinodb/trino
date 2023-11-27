@@ -26,6 +26,8 @@ import io.trino.cache.NonEvictableCache;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.RecordingMetastoreConfig;
 import io.trino.plugin.hive.metastore.Database;
+import io.trino.plugin.hive.metastore.DatabaseFunctionKey;
+import io.trino.plugin.hive.metastore.DatabaseFunctionSignatureKey;
 import io.trino.plugin.hive.metastore.HivePartitionName;
 import io.trino.plugin.hive.metastore.HivePrincipal;
 import io.trino.plugin.hive.metastore.HivePrivilegeInfo;
@@ -37,6 +39,7 @@ import io.trino.plugin.hive.metastore.TablesWithParameterCacheKey;
 import io.trino.plugin.hive.metastore.UserTableKey;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.security.RoleGrant;
 import org.weakref.jmx.Managed;
 
@@ -44,6 +47,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -57,6 +61,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class HiveMetastoreRecording
@@ -83,6 +88,9 @@ public class HiveMetastoreRecording
     private final NonEvictableCache<UserTableKey, Set<HivePrivilegeInfo>> tablePrivilegesCache;
     private final NonEvictableCache<HivePrincipal, Set<RoleGrant>> roleGrantsCache;
     private final NonEvictableCache<String, Set<RoleGrant>> grantedPrincipalsCache;
+    private final NonEvictableCache<DatabaseFunctionSignatureKey, Boolean> functionExistsCache;
+    private final NonEvictableCache<String, Collection<LanguageFunction>> functionsByDatabaseCache;
+    private final NonEvictableCache<DatabaseFunctionKey, Collection<LanguageFunction>> functionsByNameCache;
 
     @Inject
     public HiveMetastoreRecording(RecordingMetastoreConfig config, JsonCodec<Recording> recordingCodec)
@@ -108,6 +116,9 @@ public class HiveMetastoreRecording
         tablePrivilegesCache = createCache(replay, recordingDuration);
         roleGrantsCache = createCache(replay, recordingDuration);
         grantedPrincipalsCache = createCache(replay, recordingDuration);
+        functionExistsCache = createCache(replay, recordingDuration);
+        functionsByDatabaseCache = createCache(replay, recordingDuration);
+        functionsByNameCache = createCache(replay, recordingDuration);
 
         if (replay) {
             loadRecording();
@@ -141,6 +152,9 @@ public class HiveMetastoreRecording
         tablePrivilegesCache.putAll(toMap(recording.getTablePrivileges()));
         roleGrantsCache.putAll(toMap(recording.getRoleGrants()));
         grantedPrincipalsCache.putAll(toMap(recording.getGrantedPrincipals()));
+        functionExistsCache.putAll(toMap(recording.getFunctionExists()));
+        functionsByDatabaseCache.putAll(toMap(recording.getFunctionsByDatabase()));
+        functionsByNameCache.putAll(toMap(recording.getFunctionsByName()));
     }
 
     public boolean isReplay()
@@ -245,6 +259,21 @@ public class HiveMetastoreRecording
         return loadValue(roleGrantsCache, principal, valueSupplier);
     }
 
+    public boolean functionExists(DatabaseFunctionSignatureKey key, Supplier<Boolean> valueSupplier)
+    {
+        return loadValue(functionExistsCache, key, valueSupplier);
+    }
+
+    public Collection<LanguageFunction> getFunctions(String databaseName, Supplier<Collection<LanguageFunction>> valueSupplier)
+    {
+        return loadValue(functionsByDatabaseCache, databaseName, valueSupplier);
+    }
+
+    public Collection<LanguageFunction> getFunctions(DatabaseFunctionKey key, Supplier<Collection<LanguageFunction>> valueSupplier)
+    {
+        return loadValue(functionsByNameCache, key, valueSupplier);
+    }
+
     private static <K, V> NonEvictableCache<K, V> createCache(boolean reply, Duration recordingDuration)
     {
         if (reply) {
@@ -279,7 +308,10 @@ public class HiveMetastoreRecording
                 toPairs(partitionsByNamesCache),
                 toPairs(tablePrivilegesCache),
                 toPairs(roleGrantsCache),
-                toPairs(grantedPrincipalsCache));
+                toPairs(grantedPrincipalsCache),
+                toPairs(functionExistsCache),
+                toPairs(functionsByDatabaseCache),
+                toPairs(functionsByNameCache));
 
         try (GZIPOutputStream outputStream = new GZIPOutputStream(Files.newOutputStream(recordingPath))) {
             outputStream.write(recordingCodec.toJsonBytes(recording));
@@ -348,6 +380,9 @@ public class HiveMetastoreRecording
         private final List<Pair<UserTableKey, Set<HivePrivilegeInfo>>> tablePrivileges;
         private final List<Pair<HivePrincipal, Set<RoleGrant>>> roleGrants;
         private final List<Pair<String, Set<RoleGrant>>> grantedPrincipals;
+        private final List<Pair<DatabaseFunctionSignatureKey, Boolean>> functionExists;
+        private final List<Pair<String, Collection<LanguageFunction>>> functionsByDatabase;
+        private final List<Pair<DatabaseFunctionKey, Collection<LanguageFunction>>> functionsByName;
 
         @JsonCreator
         public Recording(
@@ -366,7 +401,10 @@ public class HiveMetastoreRecording
                 @JsonProperty("partitionsByNames") List<Pair<HivePartitionName, Optional<Partition>>> partitionsByNames,
                 @JsonProperty("tablePrivileges") List<Pair<UserTableKey, Set<HivePrivilegeInfo>>> tablePrivileges,
                 @JsonProperty("roleGrants") List<Pair<HivePrincipal, Set<RoleGrant>>> roleGrants,
-                @JsonProperty("grantedPrincipals") List<Pair<String, Set<RoleGrant>>> grantedPrincipals)
+                @JsonProperty("grantedPrincipals") List<Pair<String, Set<RoleGrant>>> grantedPrincipals,
+                @JsonProperty("functionExists") List<Pair<DatabaseFunctionSignatureKey, Boolean>> functionExists,
+                @JsonProperty("functionsByDatabase") List<Pair<String, Collection<LanguageFunction>>> functionsByDatabase,
+                @JsonProperty("functionsByName") List<Pair<DatabaseFunctionKey, Collection<LanguageFunction>>> functionsByName)
         {
             this.allDatabases = allDatabases;
             this.allRoles = allRoles;
@@ -384,6 +422,9 @@ public class HiveMetastoreRecording
             this.tablePrivileges = tablePrivileges;
             this.roleGrants = roleGrants;
             this.grantedPrincipals = grantedPrincipals;
+            this.functionExists = requireNonNullElse(functionExists, List.of());
+            this.functionsByDatabase = requireNonNullElse(functionsByDatabase, List.of());
+            this.functionsByName = requireNonNullElse(functionsByName, List.of());
         }
 
         @JsonProperty
@@ -480,6 +521,24 @@ public class HiveMetastoreRecording
         public List<Pair<HivePrincipal, Set<RoleGrant>>> getRoleGrants()
         {
             return roleGrants;
+        }
+
+        @JsonProperty
+        public List<Pair<DatabaseFunctionSignatureKey, Boolean>> getFunctionExists()
+        {
+            return functionExists;
+        }
+
+        @JsonProperty
+        public List<Pair<String, Collection<LanguageFunction>>> getFunctionsByDatabase()
+        {
+            return functionsByDatabase;
+        }
+
+        @JsonProperty
+        public List<Pair<DatabaseFunctionKey, Collection<LanguageFunction>>> getFunctionsByName()
+        {
+            return functionsByName;
         }
     }
 

@@ -82,8 +82,8 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Double.doubleToLongBits;
 import static java.lang.Float.floatToIntBits;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
-import static org.assertj.core.api.AssertionsForClassTypes.within;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 
 public abstract class TestAvroBase
 {
@@ -320,7 +320,7 @@ public abstract class TestAvroBase
                 compressionKind,
                 ImmutableMap.of(),
                 schema.getFields().stream().map(Schema.Field::name).collect(toImmutableList()),
-                AvroTypeUtils.typeFromAvro(schema, NoOpAvroTypeManager.INSTANCE).getTypeParameters())) {
+                AvroTypeUtils.typeFromAvro(schema, NoOpAvroTypeManager.INSTANCE).getTypeParameters(), false)) {
             for (Page p : pages.build()) {
                 fileWriter.write(p);
             }

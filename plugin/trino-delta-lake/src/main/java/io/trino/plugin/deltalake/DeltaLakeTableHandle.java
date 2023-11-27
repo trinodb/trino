@@ -64,6 +64,7 @@ public class DeltaLakeTableHandle
 
     // OPTIMIZE only. Coordinator-only
     private final boolean recordScannedFiles;
+    private final boolean isOptimize;
     private final Optional<DataSize> maxScannedFileSize;
     // Used only for validation when config property delta.query-partition-filter-required is enabled.
     private final Set<DeltaLakeColumnHandle> constraintColumns;
@@ -101,6 +102,7 @@ public class DeltaLakeTableHandle
                 updateRowIdColumns,
                 analyzeHandle,
                 false,
+                false,
                 Optional.empty(),
                 readVersion);
     }
@@ -121,6 +123,7 @@ public class DeltaLakeTableHandle
             Optional<List<DeltaLakeColumnHandle>> updateRowIdColumns,
             Optional<AnalyzeHandle> analyzeHandle,
             boolean recordScannedFiles,
+            boolean isOptimize,
             Optional<DataSize> maxScannedFileSize,
             long readVersion)
     {
@@ -140,6 +143,7 @@ public class DeltaLakeTableHandle
         this.updateRowIdColumns = requireNonNull(updateRowIdColumns, "rowIdColumns is null");
         this.analyzeHandle = requireNonNull(analyzeHandle, "analyzeHandle is null");
         this.recordScannedFiles = recordScannedFiles;
+        this.isOptimize = isOptimize;
         this.maxScannedFileSize = requireNonNull(maxScannedFileSize, "maxScannedFileSize is null");
         this.readVersion = readVersion;
         this.constraintColumns = ImmutableSet.copyOf(requireNonNull(constraintColumns, "constraintColumns is null"));
@@ -163,6 +167,7 @@ public class DeltaLakeTableHandle
                 updateRowIdColumns,
                 analyzeHandle,
                 recordScannedFiles,
+                isOptimize,
                 maxScannedFileSize,
                 readVersion);
     }
@@ -185,6 +190,7 @@ public class DeltaLakeTableHandle
                 updateRowIdColumns,
                 analyzeHandle,
                 recordScannedFiles,
+                true,
                 Optional.of(maxScannedFileSize),
                 readVersion);
     }
@@ -298,6 +304,12 @@ public class DeltaLakeTableHandle
     }
 
     @JsonIgnore
+    public boolean isOptimize()
+    {
+        return isOptimize;
+    }
+
+    @JsonIgnore
     public Optional<DataSize> getMaxScannedFileSize()
     {
         return maxScannedFileSize;
@@ -346,6 +358,7 @@ public class DeltaLakeTableHandle
                 Objects.equals(updatedColumns, that.updatedColumns) &&
                 Objects.equals(updateRowIdColumns, that.updateRowIdColumns) &&
                 Objects.equals(analyzeHandle, that.analyzeHandle) &&
+                Objects.equals(isOptimize, that.isOptimize) &&
                 Objects.equals(maxScannedFileSize, that.maxScannedFileSize) &&
                 readVersion == that.readVersion;
     }
@@ -368,6 +381,7 @@ public class DeltaLakeTableHandle
                 updateRowIdColumns,
                 analyzeHandle,
                 recordScannedFiles,
+                isOptimize,
                 maxScannedFileSize,
                 readVersion);
     }

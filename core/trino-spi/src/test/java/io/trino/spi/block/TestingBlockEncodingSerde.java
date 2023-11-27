@@ -54,9 +54,7 @@ public final class TestingBlockEncodingSerde
         addBlockEncoding(new DictionaryBlockEncoding());
         addBlockEncoding(new ArrayBlockEncoding());
         addBlockEncoding(new MapBlockEncoding());
-        addBlockEncoding(new SingleMapBlockEncoding());
         addBlockEncoding(new RowBlockEncoding());
-        addBlockEncoding(new SingleRowBlockEncoding());
         addBlockEncoding(new RunLengthBlockEncoding());
         addBlockEncoding(new LazyBlockEncoding());
     }

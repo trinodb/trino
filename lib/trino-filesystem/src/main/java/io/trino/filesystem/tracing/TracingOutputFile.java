@@ -58,6 +58,16 @@ final class TracingOutputFile
     }
 
     @Override
+    public OutputStream createExclusive()
+            throws IOException
+    {
+        Span span = tracer.spanBuilder("OutputFile.createExclusive")
+                .setAttribute(FileSystemAttributes.FILE_LOCATION, toString())
+                .startSpan();
+        return withTracing(span, () -> delegate.createExclusive());
+    }
+
+    @Override
     public OutputStream create(AggregatedMemoryContext memoryContext)
             throws IOException
     {
@@ -75,6 +85,16 @@ final class TracingOutputFile
                 .setAttribute(FileSystemAttributes.FILE_LOCATION, toString())
                 .startSpan();
         return withTracing(span, () -> delegate.createOrOverwrite(memoryContext));
+    }
+
+    @Override
+    public OutputStream createExclusive(AggregatedMemoryContext memoryContext)
+            throws IOException
+    {
+        Span span = tracer.spanBuilder("OutputFile.createExclusive")
+                .setAttribute(FileSystemAttributes.FILE_LOCATION, toString())
+                .startSpan();
+        return withTracing(span, () -> delegate.createExclusive(memoryContext));
     }
 
     @Override

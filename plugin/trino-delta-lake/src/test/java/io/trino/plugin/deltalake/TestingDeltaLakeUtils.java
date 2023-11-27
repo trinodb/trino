@@ -14,6 +14,8 @@
 package io.trino.plugin.deltalake;
 
 import io.trino.plugin.deltalake.transactionlog.AddFileEntry;
+import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
+import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
 import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.spi.connector.SchemaTableName;
@@ -46,8 +48,10 @@ public final class TestingDeltaLakeUtils
         // force entries to have JSON serializable statistics
         transactionLogAccess.flushCache();
 
-        TableSnapshot snapshot = transactionLogAccess.loadSnapshot(dummyTable, tableLocation, SESSION);
-        return transactionLogAccess.getActiveFiles(snapshot, SESSION);
+        TableSnapshot snapshot = transactionLogAccess.loadSnapshot(SESSION, dummyTable, tableLocation);
+        MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(snapshot, SESSION);
+        ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, snapshot);
+        return transactionLogAccess.getActiveFiles(snapshot, metadataEntry, protocolEntry, SESSION);
     }
 
     public static void copyDirectoryContents(Path source, Path destination)

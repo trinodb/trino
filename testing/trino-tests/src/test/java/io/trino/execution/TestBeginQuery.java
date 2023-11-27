@@ -41,10 +41,7 @@ import io.trino.testing.TestingMetadata;
 import io.trino.testing.TestingPageSinkProvider;
 import io.trino.testing.TestingSplitManager;
 import io.trino.testing.TestingTransactionHandle;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
@@ -54,11 +51,10 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
 
-@Test(singleThreaded = true)
 public class TestBeginQuery
         extends AbstractTestQueryFramework
 {
-    private TestMetadata metadata;
+    private final TestMetadata metadata = new TestMetadata();
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -68,45 +64,30 @@ public class TestBeginQuery
                 .setCatalog("test")
                 .setSchema("default")
                 .build();
-        return DistributedQueryRunner.builder(session).build();
-    }
 
-    @BeforeClass
-    public void setUp()
-    {
-        metadata = new TestMetadata();
-        getQueryRunner().installPlugin(new TestingPlugin(metadata));
-        getQueryRunner().installPlugin(new TpchPlugin());
-        getQueryRunner().createCatalog("test", "test", ImmutableMap.of());
-        getQueryRunner().createCatalog("tpch", "tpch", ImmutableMap.of());
-    }
-
-    @AfterMethod(alwaysRun = true)
-    public void afterMethod()
-    {
-        if (metadata != null) {
-            metadata.clear();
-        }
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        if (metadata != null) {
-            metadata.clear();
-            metadata = null;
-        }
+        return DistributedQueryRunner.builder(session)
+                .setAdditionalSetup(runner -> {
+                    runner.installPlugin(new TestingPlugin(metadata));
+                    runner.installPlugin(new TpchPlugin());
+                    runner.createCatalog("test", "test", ImmutableMap.of());
+                    runner.createCatalog("tpch", "tpch", ImmutableMap.of());
+                })
+                .build();
     }
 
     @Test
     public void testCreateTableAsSelect()
     {
+        metadata.clear();
+
         assertBeginQuery("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
     }
 
     @Test
     public void testCreateTableAsSelectSameConnector()
     {
+        metadata.clear();
+
         assertBeginQuery("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
         assertBeginQuery("CREATE TABLE nation_copy AS SELECT * FROM nation");
     }
@@ -114,6 +95,8 @@ public class TestBeginQuery
     @Test
     public void testInsert()
     {
+        metadata.clear();
+
         assertBeginQuery("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
         assertBeginQuery("INSERT INTO nation SELECT * FROM tpch.tiny.nation");
         assertBeginQuery("INSERT INTO nation VALUES (12345, 'name', 54321, 'comment')");
@@ -122,6 +105,8 @@ public class TestBeginQuery
     @Test
     public void testInsertSelectSameConnector()
     {
+        metadata.clear();
+
         assertBeginQuery("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
         assertBeginQuery("INSERT INTO nation SELECT * FROM nation");
     }
@@ -129,6 +114,8 @@ public class TestBeginQuery
     @Test
     public void testSelect()
     {
+        metadata.clear();
+
         assertBeginQuery("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
         assertBeginQuery("SELECT * FROM nation");
     }

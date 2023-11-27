@@ -22,6 +22,7 @@ import io.trino.hive.thrift.metastore.ColumnStatisticsObj;
 import io.trino.hive.thrift.metastore.Database;
 import io.trino.hive.thrift.metastore.EnvironmentContext;
 import io.trino.hive.thrift.metastore.FieldSchema;
+import io.trino.hive.thrift.metastore.Function;
 import io.trino.hive.thrift.metastore.HiveObjectPrivilege;
 import io.trino.hive.thrift.metastore.HiveObjectRef;
 import io.trino.hive.thrift.metastore.LockRequest;
@@ -44,6 +45,7 @@ import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.thrift.TException;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -599,6 +601,36 @@ public class MockThriftMetastoreClient
 
     @Override
     public String getDelegationToken(String userName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Function getFunction(String databaseName, String functionName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Collection<String> getFunctions(String databaseName, String functionNamePattern)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void createFunction(Function function)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void alterFunction(Function function)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void dropFunction(String databaseName, String functionName)
     {
         throw new UnsupportedOperationException();
     }

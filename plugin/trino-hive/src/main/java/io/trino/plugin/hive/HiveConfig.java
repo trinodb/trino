@@ -58,6 +58,10 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "hive.assume-canonical-partition-keys",
         "hive.partition-use-column-names",
         "hive.allow-corrupt-writes-for-testing",
+        "hive.optimize-symlink-listing",
+        "hive.s3select-pushdown.enabled",
+        "hive.s3select-pushdown.experimental-textfile-pushdown-enabled",
+        "hive.s3select-pushdown.max-connections",
 })
 public class HiveConfig
 {
@@ -71,7 +75,7 @@ public class HiveConfig
     private DataSize maxSplitSize = DataSize.of(64, MEGABYTE);
     private int maxPartitionsPerScan = 1_000_000;
     private int maxPartitionsForEagerLoad = 100_000;
-    private int maxOutstandingSplits = 1_000;
+    private int maxOutstandingSplits = 3_000;
     private DataSize maxOutstandingSplitsSize = DataSize.of(256, MEGABYTE);
     private int maxSplitIteratorThreads = 1_000;
     private int minPartitionBatchSize = 10;
@@ -133,10 +137,6 @@ public class HiveConfig
     private boolean ignoreCorruptedStatistics;
     private boolean collectColumnStatisticsOnWrite = true;
 
-    private boolean s3SelectPushdownEnabled;
-    private boolean s3SelectExperimentalPushdownEnabled;
-    private int s3SelectPushdownMaxConnections = 500;
-
     private boolean isTemporaryStagingDirectoryEnabled = true;
     private String temporaryStagingDirectoryPath = "/tmp/presto-${USER}";
     private boolean delegateTransactionalManagedTableLocationToMetastore;
@@ -162,8 +162,6 @@ public class HiveConfig
     private Duration dynamicFilteringWaitTimeout = new Duration(0, MINUTES);
 
     private HiveTimestampPrecision timestampPrecision = HiveTimestampPrecision.DEFAULT_PRECISION;
-
-    private boolean optimizeSymlinkListing = true;
 
     private Optional<String> icebergCatalogName = Optional.empty();
     private Optional<String> deltaLakeCatalogName = Optional.empty();
@@ -1001,45 +999,6 @@ public class HiveConfig
         return this;
     }
 
-    public boolean isS3SelectPushdownEnabled()
-    {
-        return s3SelectPushdownEnabled;
-    }
-
-    @Config("hive.s3select-pushdown.enabled")
-    @ConfigDescription("Enable query pushdown to JSON files using the AWS S3 Select service")
-    public HiveConfig setS3SelectPushdownEnabled(boolean s3SelectPushdownEnabled)
-    {
-        this.s3SelectPushdownEnabled = s3SelectPushdownEnabled;
-        return this;
-    }
-
-    public boolean isS3SelectExperimentalPushdownEnabled()
-    {
-        return s3SelectExperimentalPushdownEnabled;
-    }
-
-    @Config("hive.s3select-pushdown.experimental-textfile-pushdown-enabled")
-    @ConfigDescription("Enable query pushdown to TEXTFILE tables using the AWS S3 Select service")
-    public HiveConfig setS3SelectExperimentalPushdownEnabled(boolean s3SelectExperimentalPushdownEnabled)
-    {
-        this.s3SelectExperimentalPushdownEnabled = s3SelectExperimentalPushdownEnabled;
-        return this;
-    }
-
-    @Min(1)
-    public int getS3SelectPushdownMaxConnections()
-    {
-        return s3SelectPushdownMaxConnections;
-    }
-
-    @Config("hive.s3select-pushdown.max-connections")
-    public HiveConfig setS3SelectPushdownMaxConnections(int s3SelectPushdownMaxConnections)
-    {
-        this.s3SelectPushdownMaxConnections = s3SelectPushdownMaxConnections;
-        return this;
-    }
-
     @Config("hive.temporary-staging-directory-enabled")
     @ConfigDescription("Should use (if possible) temporary staging directory for write operations")
     public HiveConfig setTemporaryStagingDirectoryEnabled(boolean temporaryStagingDirectoryEnabled)
@@ -1183,19 +1142,6 @@ public class HiveConfig
     public HiveConfig setTimestampPrecision(HiveTimestampPrecision timestampPrecision)
     {
         this.timestampPrecision = timestampPrecision;
-        return this;
-    }
-
-    public boolean isOptimizeSymlinkListing()
-    {
-        return this.optimizeSymlinkListing;
-    }
-
-    @Config("hive.optimize-symlink-listing")
-    @ConfigDescription("Optimize listing for SymlinkTextFormat tables with files in a single directory")
-    public HiveConfig setOptimizeSymlinkListing(boolean optimizeSymlinkListing)
-    {
-        this.optimizeSymlinkListing = optimizeSymlinkListing;
         return this;
     }
 

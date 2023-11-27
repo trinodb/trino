@@ -13,14 +13,13 @@
  */
 package io.trino.spi.block;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Long.BYTES;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestArrayBlockBuilder
 {
@@ -37,7 +36,7 @@ public class TestArrayBlockBuilder
     private void testIsFull(PageBuilderStatus pageBuilderStatus)
     {
         ArrayBlockBuilder blockBuilder = new ArrayBlockBuilder(BIGINT, pageBuilderStatus.createBlockBuilderStatus(), EXPECTED_ENTRY_COUNT);
-        assertTrue(pageBuilderStatus.isEmpty());
+        assertThat(pageBuilderStatus.isEmpty()).isTrue();
         while (!pageBuilderStatus.isFull()) {
             blockBuilder.buildEntry(elementBuilder -> {
                 BIGINT.writeLong(elementBuilder, 12);
@@ -45,8 +44,8 @@ public class TestArrayBlockBuilder
                 BIGINT.writeLong(elementBuilder, 34);
             });
         }
-        assertEquals(blockBuilder.getPositionCount(), EXPECTED_ENTRY_COUNT);
-        assertEquals(pageBuilderStatus.isFull(), true);
+        assertThat(blockBuilder.getPositionCount()).isEqualTo(EXPECTED_ENTRY_COUNT);
+        assertThat(pageBuilderStatus.isFull()).isEqualTo(true);
     }
 
     //TODO we should systematically test Block::getRetainedSizeInBytes()
@@ -60,7 +59,8 @@ public class TestArrayBlockBuilder
             int value = i;
             arrayBlockBuilder.buildEntry(elementBuilder -> BIGINT.writeLong(elementBuilder, value));
         }
-        assertTrue(arrayBlockBuilder.getRetainedSizeInBytes() >= (expectedEntries * BYTES + instanceSize(LongArrayBlockBuilder.class) + initialRetainedSize));
+        assertThat(arrayBlockBuilder.getRetainedSizeInBytes())
+                .isGreaterThanOrEqualTo(expectedEntries * BYTES + instanceSize(LongArrayBlockBuilder.class) + initialRetainedSize);
     }
 
     @Test
@@ -86,11 +86,6 @@ public class TestArrayBlockBuilder
 
         // multiple nulls
         assertIsAllNulls(blockBuilder().appendNull().appendNull().build(), 2);
-
-        BlockBuilder blockBuilder = blockBuilder().appendNull().appendNull();
-        assertIsAllNulls(blockBuilder.copyPositions(new int[] {0}, 0, 1), 1);
-        assertIsAllNulls(blockBuilder.getRegion(0, 1), 1);
-        assertIsAllNulls(blockBuilder.copyRegion(0, 1), 1);
     }
 
     private static BlockBuilder blockBuilder()
@@ -100,16 +95,16 @@ public class TestArrayBlockBuilder
 
     private static void assertIsAllNulls(Block block, int expectedPositionCount)
     {
-        assertEquals(block.getPositionCount(), expectedPositionCount);
+        assertThat(block.getPositionCount()).isEqualTo(expectedPositionCount);
         if (expectedPositionCount <= 1) {
-            assertEquals(block.getClass(), ArrayBlock.class);
+            assertThat(block.getClass()).isEqualTo(ArrayBlock.class);
         }
         else {
-            assertEquals(block.getClass(), RunLengthEncodedBlock.class);
-            assertEquals(((RunLengthEncodedBlock) block).getValue().getClass(), ArrayBlock.class);
+            assertThat(block.getClass()).isEqualTo(RunLengthEncodedBlock.class);
+            assertThat(((RunLengthEncodedBlock) block).getValue().getClass()).isEqualTo(ArrayBlock.class);
         }
         if (expectedPositionCount > 0) {
-            assertTrue(block.isNull(0));
+            assertThat(block.isNull(0)).isTrue();
         }
     }
 }

@@ -21,7 +21,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Type;
-import io.trino.sql.tree.QualifiedName;
+import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -35,7 +35,6 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.options.WarmupMode;
-import org.testng.annotations.Test;
 
 import java.util.OptionalInt;
 import java.util.Random;
@@ -154,7 +153,7 @@ public class BenchmarkDecimalAggregation
 
         private Page createValues(TestingFunctionResolution functionResolution, Type type)
         {
-            TestingAggregationFunction implementation = functionResolution.getAggregateFunction(QualifiedName.of(function), fromTypes(type));
+            TestingAggregationFunction implementation = functionResolution.getAggregateFunction(function, fromTypes(type));
             partialAggregatorFactory = implementation.createAggregatorFactory(PARTIAL, ImmutableList.of(0), OptionalInt.empty());
             finalAggregatorFactory = implementation.createAggregatorFactory(FINAL, ImmutableList.of(0), OptionalInt.empty());
 

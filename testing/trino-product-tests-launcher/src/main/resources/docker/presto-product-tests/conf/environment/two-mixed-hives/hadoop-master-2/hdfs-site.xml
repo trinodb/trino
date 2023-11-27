@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<configuration>
+    <property>
+        <name>dfs.namenode.name.dir</name>
+        <value>/var/lib/hadoop-hdfs/cache/name/</value>
+    </property>
+
+    <property>
+        <name>dfs.datanode.data.dir</name>
+        <value>/var/lib/hadoop-hdfs/cache/data/</value>
+    </property>
+
+    <property>
+        <name>fs.viewfs.mounttable.hadoop-viewfs.link./default</name>
+        <value>hdfs://hadoop-master-2:9000/user/hive/warehouse</value>
+    </property>
+
+    <!-- This property explicitly forbids datanode to enter safe mode which results in 30 s penalty on environment startup -->
+    <property>
+        <name>dfs.safemode.threshold.pct</name>
+        <value>0</value>
+    </property>
+</configuration>

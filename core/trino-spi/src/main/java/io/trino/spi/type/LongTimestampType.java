@@ -17,6 +17,7 @@ import io.airlift.slice.XxHash64;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.Fixed12Block;
 import io.trino.spi.block.Fixed12BlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.connector.ConnectorSession;
@@ -51,7 +52,7 @@ import static java.lang.invoke.MethodHandles.lookup;
  * in the first long and the fractional increment in the remaining integer, as
  * a number of picoseconds additional to the epoch microsecond.
  */
-class LongTimestampType
+final class LongTimestampType
         extends TimestampType
 {
     private static final TypeOperatorDeclaration TYPE_OPERATOR_DECLARATION = extractOperatorDeclaration(LongTimestampType.class, lookup(), LongTimestamp.class);
@@ -61,13 +62,13 @@ class LongTimestampType
 
     public LongTimestampType(int precision)
     {
-        super(precision, LongTimestamp.class);
+        super(precision, LongTimestamp.class, Fixed12Block.class);
 
         if (precision < MAX_SHORT_PRECISION + 1 || precision > MAX_PRECISION) {
             throw new IllegalArgumentException(format("Precision must be in the range [%s, %s]", MAX_SHORT_PRECISION + 1, MAX_PRECISION));
         }
 
-        // ShortTimestampType instances are created eagerly and shared so it's OK to precompute some things.
+        // ShortTimestampType instances are created eagerly and shared, so it's OK to precompute some things.
         int picosOfMicroMax = toIntExact(PICOSECONDS_PER_MICROSECOND - rescale(1, 0, 12 - getPrecision()));
         range = new Range(new LongTimestamp(Long.MIN_VALUE, 0), new LongTimestamp(Long.MAX_VALUE, picosOfMicroMax));
     }
@@ -118,16 +119,18 @@ class LongTimestampType
             blockBuilder.appendNull();
         }
         else {
-            ((Fixed12BlockBuilder) blockBuilder).writeFixed12(
-                    getEpochMicros(block, position),
-                    getFraction(block, position));
+            Fixed12Block valueBlock = (Fixed12Block) block.getUnderlyingValueBlock();
+            int valuePosition = block.getUnderlyingValuePosition(position);
+            ((Fixed12BlockBuilder) blockBuilder).writeFixed12(getEpochMicros(valueBlock, valuePosition), getFraction(valueBlock, valuePosition));
         }
     }
 
     @Override
     public Object getObject(Block block, int position)
     {
-        return new LongTimestamp(getEpochMicros(block, position), getFraction(block, position));
+        Fixed12Block valueBlock = (Fixed12Block) block.getUnderlyingValueBlock();
+        int valuePosition = block.getUnderlyingValuePosition(position);
+        return new LongTimestamp(getEpochMicros(valueBlock, valuePosition), getFraction(valueBlock, valuePosition));
     }
 
     @Override
@@ -149,10 +152,9 @@ class LongTimestampType
             return null;
         }
 
-        long epochMicros = getEpochMicros(block, position);
-        int fraction = getFraction(block, position);
-
-        return SqlTimestamp.newInstance(getPrecision(), epochMicros, fraction);
+        Fixed12Block valueBlock = (Fixed12Block) block.getUnderlyingValueBlock();
+        int valuePosition = block.getUnderlyingValuePosition(position);
+        return SqlTimestamp.newInstance(getPrecision(), getEpochMicros(valueBlock, valuePosition), getFraction(valueBlock, valuePosition));
     }
 
     @Override
@@ -161,14 +163,14 @@ class LongTimestampType
         return Long.BYTES + Integer.BYTES;
     }
 
-    private static long getEpochMicros(Block block, int position)
+    private static long getEpochMicros(Fixed12Block block, int position)
     {
-        return block.getLong(position, 0);
+        return block.getFixed12First(position);
     }
 
-    private static int getFraction(Block block, int position)
+    private static int getFraction(Fixed12Block block, int position)
     {
-        return block.getInt(position, SIZE_OF_LONG);
+        return block.getFixed12Second(position);
     }
 
     @Override
@@ -214,7 +216,7 @@ class LongTimestampType
 
     @ScalarOperator(READ_VALUE)
     private static void writeBlockFlat(
-            @BlockPosition Block block,
+            @BlockPosition Fixed12Block block,
             @BlockIndex int position,
             byte[] fixedSizeSlice,
             int fixedSizeOffset,
@@ -236,7 +238,7 @@ class LongTimestampType
     }
 
     @ScalarOperator(EQUAL)
-    private static boolean equalOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    private static boolean equalOperator(@BlockPosition Fixed12Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Fixed12Block rightBlock, @BlockIndex int rightPosition)
     {
         return equal(
                 getEpochMicros(leftBlock, leftPosition),
@@ -257,7 +259,7 @@ class LongTimestampType
     }
 
     @ScalarOperator(XX_HASH_64)
-    private static long xxHash64Operator(@BlockPosition Block block, @BlockIndex int position)
+    private static long xxHash64Operator(@BlockPosition Fixed12Block block, @BlockIndex int position)
     {
         return xxHash64(
                 getEpochMicros(block, position),
@@ -276,7 +278,7 @@ class LongTimestampType
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_LAST)
-    private static long comparisonOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    private static long comparisonOperator(@BlockPosition Fixed12Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Fixed12Block rightBlock, @BlockIndex int rightPosition)
     {
         return comparison(
                 getEpochMicros(leftBlock, leftPosition),
@@ -301,7 +303,7 @@ class LongTimestampType
     }
 
     @ScalarOperator(LESS_THAN)
-    private static boolean lessThanOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    private static boolean lessThanOperator(@BlockPosition Fixed12Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Fixed12Block rightBlock, @BlockIndex int rightPosition)
     {
         return lessThan(
                 getEpochMicros(leftBlock, leftPosition),
@@ -323,7 +325,7 @@ class LongTimestampType
     }
 
     @ScalarOperator(LESS_THAN_OR_EQUAL)
-    private static boolean lessThanOrEqualOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    private static boolean lessThanOrEqualOperator(@BlockPosition Fixed12Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Fixed12Block rightBlock, @BlockIndex int rightPosition)
     {
         return lessThanOrEqual(
                 getEpochMicros(leftBlock, leftPosition),

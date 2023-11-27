@@ -16,7 +16,7 @@ package io.trino.plugin.kudu;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.ConfigurationException;
 import io.airlift.configuration.ConfigurationFactory;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -26,7 +26,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static java.nio.file.Files.createTempFile;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestKuduKerberosConfig
 {

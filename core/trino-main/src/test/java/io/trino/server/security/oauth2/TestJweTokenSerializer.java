@@ -194,7 +194,8 @@ public class TestJweTokenSerializer
             implements OAuth2Client
     {
         private final Map<String, Object> claims = Jwts.claims()
-                .setSubject("user");
+                .subject("user")
+                .build();
 
         @Override
         public void load()
@@ -223,6 +224,12 @@ public class TestJweTokenSerializer
         public Response refreshTokens(String refreshToken)
         {
             throw new UnsupportedOperationException("operation is not yet supported");
+        }
+
+        @Override
+        public Optional<URI> getLogoutEndpoint(Optional<String> idToken, URI callbackUrl)
+        {
+            return Optional.empty();
         }
     }
 

@@ -15,7 +15,7 @@ package io.trino.operator.window;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.testing.MaterializedResult;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.stream.Collectors;
 

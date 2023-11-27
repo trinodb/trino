@@ -13,8 +13,8 @@
  */
 package io.trino.type;
 
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.Type.Range;
 import org.junit.jupiter.api.Test;
 
@@ -32,7 +32,7 @@ public class TestSmallintType
         super(SMALLINT, Short.class, createTestBlock());
     }
 
-    public static Block createTestBlock()
+    public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = SMALLINT.createBlockBuilder(null, 15);
         SMALLINT.writeLong(blockBuilder, 1111);
@@ -46,7 +46,7 @@ public class TestSmallintType
         SMALLINT.writeLong(blockBuilder, 3333);
         SMALLINT.writeLong(blockBuilder, 3333);
         SMALLINT.writeLong(blockBuilder, 4444);
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override

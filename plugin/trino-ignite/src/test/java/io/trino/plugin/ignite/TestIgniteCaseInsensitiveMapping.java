@@ -20,8 +20,7 @@ import io.trino.plugin.jdbc.BaseCaseInsensitiveMappingTest;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
-import org.testng.SkipException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -33,12 +32,12 @@ import static io.trino.plugin.ignite.IgniteQueryRunner.createIgniteQueryRunner;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 // With case-insensitive-name-matching enabled colliding schema/table names are considered as errors.
 // Some tests here create colliding names which can cause any other concurrent test to fail.
-@Test(singleThreaded = true)
 public class TestIgniteCaseInsensitiveMapping
         extends BaseCaseInsensitiveMappingTest
 {
@@ -76,6 +75,7 @@ public class TestIgniteCaseInsensitiveMapping
         return identifierQuote + name + identifierQuote;
     }
 
+    @Test
     @Override
     public void testNonLowerCaseSchemaName()
             throws Exception
@@ -101,6 +101,7 @@ public class TestIgniteCaseInsensitiveMapping
         }
     }
 
+    @Test
     @Override
     public void testNonLowerCaseTableName()
             throws Exception
@@ -144,6 +145,7 @@ public class TestIgniteCaseInsensitiveMapping
         }
     }
 
+    @Test
     @Override
     public void testSchemaNameClash()
             throws Exception
@@ -167,6 +169,7 @@ public class TestIgniteCaseInsensitiveMapping
         }
     }
 
+    @Test
     @Override
     public void testTableNameClash()
             throws Exception
@@ -193,34 +196,39 @@ public class TestIgniteCaseInsensitiveMapping
         }
     }
 
+    @Test
     @Override
     public void testTableNameClashWithRuleMapping()
     {
-        throw new SkipException("Not support creating Ignite custom schema");
+        abort("Not support creating Ignite custom schema");
     }
 
+    @Test
     @Override
     public void testSchemaNameClashWithRuleMapping()
     {
-        throw new SkipException("Not support creating Ignite custom schema");
+        abort("Not support creating Ignite custom schema");
     }
 
+    @Test
     @Override
     public void testSchemaAndTableNameRuleMapping()
     {
-        throw new SkipException("Not support creating Ignite custom schema");
+        abort("Not support creating Ignite custom schema");
     }
 
+    @Test
     @Override
     public void testSchemaNameRuleMapping()
     {
-        throw new SkipException("Not support creating Ignite custom schema");
+        abort("Not support creating Ignite custom schema");
     }
 
+    @Test
     @Override
     public void testTableNameRuleMapping()
     {
-        throw new SkipException("Not support creating Ignite custom schema");
+        abort("Not support creating Ignite custom schema");
     }
 
     @Override

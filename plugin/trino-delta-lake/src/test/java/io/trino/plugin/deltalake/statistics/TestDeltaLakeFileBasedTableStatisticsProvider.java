@@ -38,8 +38,7 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.TypeManager;
 import io.trino.testing.TestingConnectorContext;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.time.LocalDate;
@@ -67,12 +66,11 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
 {
     private static final ColumnHandle COLUMN_HANDLE = new DeltaLakeColumnHandle("val", DoubleType.DOUBLE, OptionalInt.empty(), "val", DoubleType.DOUBLE, REGULAR, Optional.empty());
 
-    private TransactionLogAccess transactionLogAccess;
-    private CachingExtendedStatisticsAccess statistics;
-    private DeltaLakeTableStatisticsProvider tableStatisticsProvider;
+    private final TransactionLogAccess transactionLogAccess;
+    private final CachingExtendedStatisticsAccess statistics;
+    private final DeltaLakeTableStatisticsProvider tableStatisticsProvider;
 
-    @BeforeClass
-    public void setupMetastore()
+    public TestDeltaLakeFileBasedTableStatisticsProvider()
     {
         TestingConnectorContext context = new TestingConnectorContext();
         TypeManager typeManager = context.getTypeManager();
@@ -106,7 +104,7 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
         SchemaTableName schemaTableName = new SchemaTableName("db_name", tableName);
         TableSnapshot tableSnapshot;
         try {
-            tableSnapshot = transactionLogAccess.loadSnapshot(schemaTableName, tableLocation, SESSION);
+            tableSnapshot = transactionLogAccess.loadSnapshot(SESSION, schemaTableName, tableLocation);
         }
         catch (IOException e) {
             throw new RuntimeException(e);
@@ -451,12 +449,13 @@ public class TestDeltaLakeFileBasedTableStatisticsProvider
     {
         TableSnapshot tableSnapshot;
         try {
-            tableSnapshot = transactionLogAccess.loadSnapshot(tableHandle.getSchemaTableName(), tableHandle.getLocation(), SESSION);
+            tableSnapshot = transactionLogAccess.loadSnapshot(SESSION, tableHandle.getSchemaTableName(), tableHandle.getLocation());
         }
         catch (IOException e) {
             throw new RuntimeException(e);
         }
-        return tableStatisticsProvider.getTableStatistics(session, tableHandle, tableSnapshot);
+        TableStatistics tableStatistics = tableStatisticsProvider.getTableStatistics(session, tableHandle, tableSnapshot);
+        return tableStatistics;
     }
 
     private Optional<ExtendedStatistics> readExtendedStatisticsFromTableResource(String tableLocationResourceName)

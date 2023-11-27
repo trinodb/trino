@@ -84,7 +84,7 @@ public abstract class BaseMariaDbConnectorTest
                 "(one bigint, two decimal(50,0), three varchar(10))");
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testShowColumns()
     {

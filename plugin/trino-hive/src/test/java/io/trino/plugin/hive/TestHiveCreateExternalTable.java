@@ -19,7 +19,7 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
@@ -54,13 +54,13 @@ public class TestHiveCreateExternalTable
             throws IOException
     {
         Path tempDir = createTempDirectory(null);
-        Path tableLocation = tempDir.resolve("data");
+        String tableLocation = tempDir.resolve("data").toUri().toString();
 
         @Language("SQL") String createTableSql = format("" +
                         "CREATE TABLE test_create_external " +
                         "WITH (external_location = '%s') AS " +
                         "SELECT * FROM tpch.tiny.nation",
-                tableLocation.toUri().toASCIIString());
+                tableLocation);
 
         assertUpdate(createTableSql, 25);
 
@@ -70,7 +70,7 @@ public class TestHiveCreateExternalTable
 
         MaterializedResult result = computeActual("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '/') FROM test_create_external");
         String tablePath = (String) result.getOnlyValue();
-        assertThat(tablePath).startsWith(tableLocation.toFile().toURI().toString());
+        assertThat(tablePath).startsWith(tableLocation);
 
         assertUpdate("DROP TABLE test_create_external");
         deleteRecursively(tempDir, ALLOW_INSECURE);

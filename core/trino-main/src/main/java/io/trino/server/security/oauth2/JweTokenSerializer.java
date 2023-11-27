@@ -25,11 +25,9 @@ import com.nimbusds.jose.crypto.AESEncrypter;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.CompressionCodec;
-import io.jsonwebtoken.CompressionException;
-import io.jsonwebtoken.Header;
 import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.JwtParser;
+import io.jsonwebtoken.io.CompressionAlgorithm;
 
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
@@ -40,7 +38,6 @@ import java.time.Clock;
 import java.util.Date;
 import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkState;
 import static io.trino.server.security.jwt.JwtUtil.newJwtBuilder;
 import static io.trino.server.security.jwt.JwtUtil.newJwtParserBuilder;
 import static java.lang.String.format;
@@ -49,8 +46,9 @@ import static java.util.Objects.requireNonNull;
 public class JweTokenSerializer
         implements TokenPairSerializer
 {
+    private static final CompressionAlgorithm COMPRESSION_ALGORITHM = new ZstdCodec();
+
     private static final Logger LOG = Logger.get(JweTokenSerializer.class);
-    private static final CompressionCodec COMPRESSION_CODEC = new ZstdCodec();
     private static final String ACCESS_TOKEN_KEY = "access_token";
     private static final String EXPIRATION_TIME_KEY = "expiration_time";
     private static final String REFRESH_TOKEN_KEY = "refresh_token";
@@ -81,10 +79,14 @@ public class JweTokenSerializer
         this.tokenExpiration = requireNonNull(tokenExpiration, "tokenExpiration is null");
 
         this.parser = newJwtParserBuilder()
-                .setClock(() -> Date.from(clock.instant()))
+                .clock(() -> Date.from(clock.instant()))
                 .requireIssuer(this.issuer)
                 .requireAudience(this.audience)
-                .setCompressionCodecResolver(JweTokenSerializer::resolveCompressionCodec)
+                .zip()
+                .add(COMPRESSION_ALGORITHM)
+                .and()
+                .unsecuredDecompression()
+                .unsecured()
                 .build();
     }
 
@@ -94,7 +96,7 @@ public class JweTokenSerializer
         requireNonNull(token, "token is null");
 
         try {
-            Claims claims = parser.parseClaimsJwt(jweSerializer.deserialize(token)).getBody();
+            Claims claims = parser.parseUnsecuredClaims(jweSerializer.deserialize(token)).getBody();
             return TokenPair.withAccessAndRefreshTokens(
                     claims.get(ACCESS_TOKEN_KEY, String.class),
                     claims.get(EXPIRATION_TIME_KEY, Date.class),
@@ -115,13 +117,13 @@ public class JweTokenSerializer
             throw new IllegalArgumentException(format("%s field is missing", principalField));
         }
         JwtBuilder jwt = newJwtBuilder()
-                .setExpiration(Date.from(clock.instant().plusMillis(tokenExpiration.toMillis())))
+                .expiration(Date.from(clock.instant().plusMillis(tokenExpiration.toMillis())))
                 .claim(principalField, claims.get(principalField).toString())
-                .setAudience(audience)
-                .setIssuer(issuer)
+                .audience().add(audience).and()
+                .issuer(issuer)
                 .claim(ACCESS_TOKEN_KEY, tokenPair.accessToken())
                 .claim(EXPIRATION_TIME_KEY, tokenPair.expiration())
-                .compressWith(COMPRESSION_CODEC);
+                .compressWith(COMPRESSION_ALGORITHM);
 
         if (tokenPair.refreshToken().isPresent()) {
             jwt.claim(REFRESH_TOKEN_KEY, tokenPair.refreshToken().orElseThrow());
@@ -146,16 +148,6 @@ public class JweTokenSerializer
             }
         }
         return signingKey;
-    }
-
-    private static CompressionCodec resolveCompressionCodec(Header<?> header)
-            throws CompressionException
-    {
-        if (header.getCompressionAlgorithm() != null) {
-            checkState(header.getCompressionAlgorithm().equals(ZstdCodec.CODEC_NAME), "Unknown codec '%s' used for token compression", header.getCompressionAlgorithm());
-            return COMPRESSION_CODEC;
-        }
-        return null;
     }
 
     private static class JweEncryptedSerializer

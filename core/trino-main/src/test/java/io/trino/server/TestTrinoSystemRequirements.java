@@ -13,7 +13,7 @@
  */
 package io.trino.server;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.server.TrinoSystemRequirements.verifyJvmRequirements;
 import static io.trino.server.TrinoSystemRequirements.verifySystemTimeIsReasonable;

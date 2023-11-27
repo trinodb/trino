@@ -18,7 +18,7 @@ import io.airlift.json.JsonCodec;
 import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNodeId;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 

@@ -16,15 +16,14 @@ package io.trino.plugin.hive;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
-import org.testng.SkipException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 // staging directory is shared mutable state
-@Test(singleThreaded = true)
 public class TestHiveFileMetastore
         extends AbstractTestHiveLocal
 {
@@ -49,37 +48,43 @@ public class TestHiveFileMetastore
         // https://github.com/cbeust/testng/issues/2361#issuecomment-688393166 a workaround it to add a dummy test to the leaf test class.
     }
 
+    @Test
     @Override
     public void testMismatchSchemaTable()
     {
         // FileHiveMetastore only supports replaceTable() for views
     }
 
+    @Test
     @Override
     public void testPartitionSchemaMismatch()
     {
         // test expects an exception to be thrown
-        throw new SkipException("FileHiveMetastore only supports replaceTable() for views");
+        abort("FileHiveMetastore only supports replaceTable() for views");
     }
 
+    @Test
     @Override
     public void testBucketedTableEvolution()
     {
         // FileHiveMetastore only supports replaceTable() for views
     }
 
+    @Test
     @Override
     public void testBucketedTableEvolutionWithDifferentReadBucketCount()
     {
         // FileHiveMetastore has various incompatibilities
     }
 
+    @Test
     @Override
     public void testTransactionDeleteInsert()
     {
         // FileHiveMetastore has various incompatibilities
     }
 
+    @Test
     @Override
     public void testInsertOverwriteUnpartitioned()
     {

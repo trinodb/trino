@@ -23,35 +23,18 @@ import com.esri.core.geometry.Polygon;
 import com.esri.core.geometry.ogc.OGCGeometry;
 import com.esri.core.geometry.ogc.OGCPoint;
 import com.esri.core.geometry.ogc.OGCPolygon;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.ImmutableMap;
 import io.trino.spi.TrinoException;
-import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.geojson.GeoJsonReader;
 import org.locationtech.jts.io.geojson.GeoJsonWriter;
 
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 
 public final class GeometryUtils
 {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    private static final GeometryFactory GEOMETRY_FACTORY = new GeometryFactory();
-    private static final String TYPE_ATTRIBUTE = "type";
-    private static final String COORDINATES_ATTRIBUTE = "coordinates";
-    private static final Map<String, String> EMPTY_ATOMIC_GEOMETRY_JSON_OVERRIDE = ImmutableMap.of(
-            "LineString", "{\"type\":\"LineString\",\"coordinates\":[]}",
-            "Point", "{\"type\":\"Point\",\"coordinates\":[]}");
-    private static final Map<String, org.locationtech.jts.geom.Geometry> EMPTY_ATOMIC_GEOMETRY_OVERRIDE = ImmutableMap.of(
-            "Polygon", GEOMETRY_FACTORY.createPolygon(),
-            "Point", GEOMETRY_FACTORY.createPoint());
-
     private GeometryUtils() {}
 
     /**
@@ -187,10 +170,6 @@ public final class GeometryUtils
     public static org.locationtech.jts.geom.Geometry jtsGeometryFromJson(String json)
     {
         try {
-            org.locationtech.jts.geom.Geometry emptyGeoJsonOverride = getEmptyGeometryOverride(json);
-            if (emptyGeoJsonOverride != null) {
-                return emptyGeoJsonOverride;
-            }
             return new GeoJsonReader().read(json);
         }
         catch (ParseException | IllegalArgumentException e) {
@@ -198,60 +177,8 @@ public final class GeometryUtils
         }
     }
 
-    /**
-     * Return an empty geometry in the cases in which the locationtech library
-     * doesn't when the coordinates attribute is an empty array. In particular,
-     * these two cases are handled by the underlying library as follows:
-     * {type:Point, coordinates:[]} -> POINT (0 0)
-     * {type:Polygon, coordinates[]} -> Exception during parsing
-     * To circumvent these inconsistencies, we catch this upfront and return
-     * the correct empty geometry.
-     * TODO: Remove if/when https://github.com/locationtech/jts/issues/684 is fixed.
-     */
-    private static org.locationtech.jts.geom.Geometry getEmptyGeometryOverride(String json)
-    {
-        try {
-            JsonNode jsonNode = OBJECT_MAPPER.readTree(json);
-            JsonNode typeNode = jsonNode.get(TYPE_ATTRIBUTE);
-            if (typeNode != null) {
-                org.locationtech.jts.geom.Geometry emptyGeometry = EMPTY_ATOMIC_GEOMETRY_OVERRIDE.get(typeNode.textValue());
-                if (emptyGeometry != null) {
-                    JsonNode coordinatesNode = jsonNode.get(COORDINATES_ATTRIBUTE);
-                    if (coordinatesNode != null && coordinatesNode.isArray() && coordinatesNode.isEmpty()) {
-                        return emptyGeometry;
-                    }
-                }
-            }
-        }
-        catch (JsonProcessingException e) {
-            // Ignore and have subsequent GeoJsonReader throw
-        }
-        return null;
-    }
-
     public static String jsonFromJtsGeometry(org.locationtech.jts.geom.Geometry geometry)
     {
-        String geoJsonOverride = getEmptyGeoJsonOverride(geometry);
-        if (geoJsonOverride != null) {
-            return geoJsonOverride;
-        }
-
         return new GeoJsonWriter().write(geometry);
-    }
-
-    /**
-     * Return GeoJSON with an empty coordinate array when the geometry is empty. This
-     * overrides the behavior of the locationtech library which returns invalid
-     * GeoJSON in these cases. For example, in the case of an empty point,
-     * locationtech would return:
-     * {type:Point, coordinates:, ...}
-     * TODO: Remove if/when https://github.com/locationtech/jts/issues/411 is fixed
-     */
-    private static String getEmptyGeoJsonOverride(org.locationtech.jts.geom.Geometry geometry)
-    {
-        if (geometry.isEmpty()) {
-            return EMPTY_ATOMIC_GEOMETRY_JSON_OVERRIDE.get(geometry.getGeometryType());
-        }
-        return null;
     }
 }

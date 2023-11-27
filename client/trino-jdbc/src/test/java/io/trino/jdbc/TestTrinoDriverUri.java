@@ -17,6 +17,8 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.sql.SQLException;
+import java.time.ZoneId;
+import java.time.zone.ZoneRulesException;
 import java.util.Properties;
 
 import static io.trino.client.uri.PropertyName.CLIENT_TAGS;
@@ -421,6 +423,26 @@ public class TestTrinoDriverUri
         TrinoDriverUri parameters = createDriverUri("jdbc:trino://localhost:8080?assumeLiteralUnderscoreInMetadataCallsForNonConformingClients=true");
         assertThat(parameters.isAssumeLiteralUnderscoreInMetadataCallsForNonConformingClients()).isTrue();
         assertThat(parameters.isAssumeLiteralNamesInMetadataCallsForNonConformingClients()).isFalse();
+    }
+
+    @Test
+    public void testTimezone()
+            throws SQLException
+    {
+        TrinoDriverUri defaultParameters = createDriverUri("jdbc:trino://localhost:8080");
+        assertThat(defaultParameters.getTimeZone()).isEqualTo(ZoneId.systemDefault());
+
+        TrinoDriverUri parameters = createDriverUri("jdbc:trino://localhost:8080?timezone=Asia/Kolkata");
+        assertThat(parameters.getTimeZone()).isEqualTo(ZoneId.of("Asia/Kolkata"));
+
+        TrinoDriverUri offsetParameters = createDriverUri("jdbc:trino://localhost:8080?timezone=UTC+05:30");
+        assertThat(offsetParameters.getTimeZone()).isEqualTo(ZoneId.of("UTC+05:30"));
+
+        assertThatThrownBy(() -> createDriverUri("jdbc:trino://localhost:8080?timezone=Asia/NOT_FOUND"))
+                .isInstanceOf(SQLException.class)
+                .hasMessage("Connection property timezone value is invalid: Asia/NOT_FOUND")
+                .hasRootCauseInstanceOf(ZoneRulesException.class)
+                .hasRootCauseMessage("Unknown time-zone ID: Asia/NOT_FOUND");
     }
 
     private static void assertUriPortScheme(TrinoDriverUri parameters, int port, String scheme)

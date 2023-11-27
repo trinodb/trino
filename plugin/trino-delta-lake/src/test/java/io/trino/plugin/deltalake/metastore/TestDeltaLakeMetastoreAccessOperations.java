@@ -29,20 +29,21 @@ import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.util.Optional;
 
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.CREATE_TABLE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.DROP_TABLE;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_DATABASES;
+import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_TABLES_FROM_DATABASE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_DATABASE;
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_TABLE;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 
-@Test(singleThreaded = true) // metastore invocation counters shares mutable state so can't be run from many threads simultaneously
 public class TestDeltaLakeMetastoreAccessOperations
         extends AbstractTestQueryFramework
 {
@@ -252,8 +253,20 @@ public class TestDeltaLakeMetastoreAccessOperations
                         .build());
     }
 
+    @Test
+    public void testShowTables()
+    {
+        assertMetastoreInvocations("SHOW TABLES",
+                ImmutableMultiset.builder()
+                        .add(GET_ALL_DATABASES)
+                        .add(GET_ALL_TABLES_FROM_DATABASE)
+                        .build());
+    }
+
     private void assertMetastoreInvocations(@Language("SQL") String query, Multiset<?> expectedInvocations)
     {
+        assertUpdate("CALL system.flush_metadata_cache()");
+
         CountingAccessHiveMetastoreUtil.assertMetastoreInvocations(metastore, getQueryRunner(), getSession(), query, expectedInvocations);
     }
 }

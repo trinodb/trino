@@ -13,7 +13,7 @@
  */
 package io.trino.operator.window;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -136,20 +136,6 @@ public class TestLagFunction
                         .build());
 
         assertWindowQuery("lag(orderkey, BIGINT '8' * 1000 * 1000 * 1000) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
-                resultBuilder(TEST_SESSION, INTEGER, VARCHAR, BIGINT)
-                        .row(3, "F", null)
-                        .row(5, "F", null)
-                        .row(6, "F", null)
-                        .row(33, "F", null)
-                        .row(1, "O", null)
-                        .row(2, "O", null)
-                        .row(4, "O", null)
-                        .row(7, "O", null)
-                        .row(32, "O", null)
-                        .row(34, "O", null)
-                        .build());
-
-        assertWindowQuery("lag(orderkey, null, -1) OVER (PARTITION BY orderstatus ORDER BY orderkey)",
                 resultBuilder(TEST_SESSION, INTEGER, VARCHAR, BIGINT)
                         .row(3, "F", null)
                         .row(5, "F", null)

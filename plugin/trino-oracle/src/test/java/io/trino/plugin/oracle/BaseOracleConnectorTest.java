@@ -115,13 +115,14 @@ public abstract class BaseOracleConnectorTest
                 "(one NUMBER(19), two NUMBER, three VARCHAR2(10 CHAR))");
     }
 
-    @Test
+    @org.junit.jupiter.api.Test
     @Override
     public void testShowColumns()
     {
         assertThat(query("SHOW COLUMNS FROM orders")).matches(getDescribeOrdersResult());
     }
 
+    @org.junit.jupiter.api.Test
     @Override
     public void testInformationSchemaFiltering()
     {

@@ -23,6 +23,7 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import static java.util.Arrays.fill;
 import static java.util.Objects.requireNonNull;
@@ -41,6 +42,8 @@ public class ScaleWriterPartitioningExchanger
     private final int[] partitionRowCounts;
     private final int[] partitionWriterIds;
     private final int[] partitionWriterIndexes;
+    private final Supplier<Long> totalMemoryUsed;
+    private final long maxMemoryPerNode;
 
     public ScaleWriterPartitioningExchanger(
             List<Consumer<Page>> buffers,
@@ -49,7 +52,9 @@ public class ScaleWriterPartitioningExchanger
             Function<Page, Page> partitionedPagePreparer,
             PartitionFunction partitionFunction,
             int partitionCount,
-            SkewedPartitionRebalancer partitionRebalancer)
+            SkewedPartitionRebalancer partitionRebalancer,
+            Supplier<Long> totalMemoryUsed,
+            long maxMemoryPerNode)
     {
         this.buffers = requireNonNull(buffers, "buffers is null");
         this.memoryManager = requireNonNull(memoryManager, "memoryManager is null");
@@ -57,6 +62,8 @@ public class ScaleWriterPartitioningExchanger
         this.partitionedPagePreparer = requireNonNull(partitionedPagePreparer, "partitionedPagePreparer is null");
         this.partitionFunction = requireNonNull(partitionFunction, "partitionFunction is null");
         this.partitionRebalancer = requireNonNull(partitionRebalancer, "partitionRebalancer is null");
+        this.totalMemoryUsed = requireNonNull(totalMemoryUsed, "totalMemoryUsed is null");
+        this.maxMemoryPerNode = maxMemoryPerNode;
 
         // Initialize writerAssignments with the buffer size
         writerAssignments = new IntArrayList[buffers.size()];
@@ -76,8 +83,11 @@ public class ScaleWriterPartitioningExchanger
     @Override
     public void accept(Page page)
     {
-        // Scale up writers when current buffer memory utilization is more than 50% of the maximum
-        if (memoryManager.getBufferedBytes() > maxBufferedBytes * 0.5) {
+        // Scale up writers when current buffer memory utilization is more than 50% of the maximum.
+        // Do not scale up if total memory used is greater than 50% of max memory per node.
+        // We have to be conservative here otherwise scaling of writers will happen first
+        // before we hit this limit, and then we won't be able to do anything to stop OOM error.
+        if (memoryManager.getBufferedBytes() > maxBufferedBytes * 0.5 && totalMemoryUsed.get() < maxMemoryPerNode * 0.5) {
             partitionRebalancer.rebalance();
         }
 

@@ -21,6 +21,8 @@ import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.ByteArrayBlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.BlockIndex;
+import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.FlatFixed;
 import io.trino.spi.function.FlatFixedOffset;
 import io.trino.spi.function.FlatVariableWidth;
@@ -67,7 +69,7 @@ public final class BooleanType
 
     private BooleanType()
     {
-        super(new TypeSignature(StandardTypes.BOOLEAN), boolean.class);
+        super(new TypeSignature(StandardTypes.BOOLEAN), boolean.class, ByteArrayBlock.class);
     }
 
     @Override
@@ -128,7 +130,7 @@ public final class BooleanType
             return null;
         }
 
-        return block.getByte(position, 0) != 0;
+        return getBoolean(block, position);
     }
 
     @Override
@@ -138,14 +140,14 @@ public final class BooleanType
             blockBuilder.appendNull();
         }
         else {
-            ((ByteArrayBlockBuilder) blockBuilder).writeByte(block.getByte(position, 0));
+            ((ByteArrayBlockBuilder) blockBuilder).writeByte(getBoolean(block, position) ? (byte) 1 : 0);
         }
     }
 
     @Override
     public boolean getBoolean(Block block, int position)
     {
-        return block.getByte(position, 0) != 0;
+        return read((ByteArrayBlock) block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
     }
 
     @Override
@@ -170,6 +172,12 @@ public final class BooleanType
     public int hashCode()
     {
         return getClass().hashCode();
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static boolean read(@BlockPosition ByteArrayBlock block, @BlockIndex int position)
+    {
+        return block.getByte(position) != 0;
     }
 
     @ScalarOperator(READ_VALUE)

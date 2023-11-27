@@ -14,7 +14,7 @@
 package io.trino.execution.resourcegroups;
 
 import org.apache.commons.math3.distribution.BinomialDistribution;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertLessThan;

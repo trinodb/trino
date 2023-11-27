@@ -236,5 +236,7 @@ public interface JdbcClient
 
     void truncateTable(ConnectorSession session, JdbcTableHandle handle);
 
+    OptionalLong update(ConnectorSession session, JdbcTableHandle handle);
+
     OptionalInt getMaxWriteParallelism(ConnectorSession session);
 }

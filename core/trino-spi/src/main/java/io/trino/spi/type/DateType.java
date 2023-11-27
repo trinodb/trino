@@ -23,7 +23,7 @@ import java.util.Optional;
 //
 // Note: when dealing with a java.sql.Date it is important to remember that the value is stored
 // as the number of milliseconds from 1970-01-01T00:00:00 in UTC but time must be midnight in
-// the local time zone.  This mean when converting between a java.sql.Date and this
+// the local time zone.  This means when converting between a java.sql.Date and this
 // type, the time zone offset must be added or removed to keep the time at midnight in UTC.
 //
 public final class DateType
@@ -43,7 +43,7 @@ public final class DateType
             return null;
         }
 
-        int days = block.getInt(position, 0);
+        int days = getInt(block, position);
         return new SqlDate(days);
     }
 

@@ -22,11 +22,16 @@ import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
+import io.trino.plugin.hive.orc.OrcReaderConfig;
+import io.trino.plugin.hive.orc.OrcWriterConfig;
+import io.trino.plugin.hive.parquet.ParquetReaderConfig;
+import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
@@ -38,14 +43,17 @@ import io.trino.spi.type.TestingTypeManager;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorSession;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 
 import java.io.File;
 import java.io.IOException;
@@ -65,16 +73,27 @@ import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.creat
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.tpch.TpchTable.NATION;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+@TestInstance(PER_CLASS)
 public class TestIcebergSplitSource
         extends AbstractTestQueryFramework
 {
+    private static final ConnectorSession SESSION = TestingConnectorSession.builder()
+            .setPropertyMetadata(new IcebergSessionProperties(
+                    new IcebergConfig(),
+                    new OrcReaderConfig(),
+                    new OrcWriterConfig(),
+                    new ParquetReaderConfig(),
+                    new ParquetWriterConfig())
+                    .getSessionProperties())
+            .build();
+
     private File metastoreDir;
     private TrinoFileSystemFactory fileSystemFactory;
     private TrinoCatalog catalog;
@@ -108,14 +127,15 @@ public class TestIcebergSplitSource
         return queryRunner;
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
             throws IOException
     {
         deleteRecursively(metastoreDir.getParentFile().toPath(), ALLOW_INSECURE);
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testIncompleteDynamicFilterTimeout()
             throws Exception
     {
@@ -139,6 +159,8 @@ public class TestIcebergSplitSource
                 nationTable.location(),
                 nationTable.properties(),
                 false,
+                Optional.empty(),
+                ImmutableSet.of(),
                 Optional.empty());
 
         try (IcebergSplitSource splitSource = new IcebergSplitSource(

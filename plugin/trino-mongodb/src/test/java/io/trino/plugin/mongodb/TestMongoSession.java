@@ -86,8 +86,9 @@ public class TestMongoSession
 
         Document query = MongoSession.buildQuery(tupleDomain);
         Document expected = new Document()
-                .append(COL1.getBaseName(), new Document().append("$gt", 100L).append("$lte", 200L))
-                .append(COL2.getBaseName(), new Document("$eq", "a value"));
+                .append("$and", ImmutableList.of(
+                        new Document(COL1.getBaseName(), new Document().append("$gt", 100L).append("$lte", 200L)),
+                        new Document(COL2.getBaseName(), new Document("$eq", "a value"))));
         assertEquals(query, expected);
     }
 
@@ -100,8 +101,9 @@ public class TestMongoSession
 
         Document query = MongoSession.buildQuery(tupleDomain);
         Document expected = new Document()
-                .append(COL3.getBaseName(), new Document().append("$gt", "hello").append("$lte", "world"))
-                .append(COL2.getBaseName(), new Document("$gte", "a value"));
+                .append("$and", ImmutableList.of(
+                        new Document(COL3.getBaseName(), new Document().append("$gt", "hello").append("$lte", "world")),
+                        new Document(COL2.getBaseName(), new Document("$gte", "a value"))));
         assertEquals(query, expected);
     }
 
@@ -161,10 +163,11 @@ public class TestMongoSession
 
         Document query = MongoSession.buildQuery(tupleDomain);
         Document expected = new Document()
-                .append("$or", asList(
-                        new Document(COL5.getQualifiedName(), new Document("$gt", 200L)),
-                        new Document(COL5.getQualifiedName(), new Document("$eq", null))))
-                .append(COL6.getQualifiedName(), new Document("$eq", "a value"));
+                .append("$and", ImmutableList.of(
+                        new Document("$or", asList(
+                                new Document(COL5.getQualifiedName(), new Document("$gt", 200L)),
+                                new Document(COL5.getQualifiedName(), new Document("$eq", null)))),
+                        new Document(COL6.getQualifiedName(), new Document("$eq", "a value"))));
         assertEquals(query, expected);
     }
 

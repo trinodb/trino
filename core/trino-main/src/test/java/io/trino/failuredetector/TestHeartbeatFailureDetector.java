@@ -33,7 +33,7 @@ import io.trino.server.InternalCommunicationConfig;
 import io.trino.server.security.SecurityConfig;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.net.SocketTimeoutException;
 import java.net.URI;

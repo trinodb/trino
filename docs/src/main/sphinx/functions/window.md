@@ -108,7 +108,7 @@ negative.
 Returns the value at `offset` rows after the current row in the window partition.
 Offsets start at `0`, which is the current row. The
 offset can be any scalar expression.  The default `offset` is `1`. If the
-offset is null, `null` is returned. If the offset refers to a row that is not
+offset is null, an error is raised. If the offset refers to a row that is not
 within the partition, the `default_value` is returned, or if it is not specified
 `null` is returned.
 The {func}`lead` function requires that the window ordering be specified.
@@ -119,7 +119,7 @@ Window frame must not be specified.
 Returns the value at `offset` rows before the current row in the window partition.
 Offsets start at `0`, which is the current row. The
 offset can be any scalar expression.  The default `offset` is `1`. If the
-offset is null, `null` is returned. If the offset refers to a row that is not
+offset is null, an error is raised. If the offset refers to a row that is not
 within the partition, the `default_value` is returned, or if it is not specified
 `null` is returned.
 The {func}`lag` function requires that the window ordering be specified.

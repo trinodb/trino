@@ -14,7 +14,7 @@
 package io.trino.hdfs.s3;
 
 import io.trino.spi.security.ConnectorIdentity;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.util.Optional;

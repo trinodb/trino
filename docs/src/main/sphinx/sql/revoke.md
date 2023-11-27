@@ -1,4 +1,4 @@
-# REVOKE
+# REVOKE privilege
 
 ## Synopsis
 

@@ -24,8 +24,7 @@ import io.trino.plugin.cassandra.CassandraTypes;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.cassandra.CassandraTestingUtils.CASSANDRA_TYPE_MANAGER;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -33,16 +32,14 @@ import static org.testng.Assert.assertEquals;
 
 public class TestCassandraClusteringPredicatesExtractor
 {
-    private static CassandraColumnHandle col1;
-    private static CassandraColumnHandle col2;
-    private static CassandraColumnHandle col3;
-    private static CassandraColumnHandle col4;
-    private static CassandraTable cassandraTable;
-    private static Version cassandraVersion;
+    private static final CassandraColumnHandle col1;
+    private static final CassandraColumnHandle col2;
+    private static final CassandraColumnHandle col3;
+    private static final CassandraColumnHandle col4;
+    private static final CassandraTable cassandraTable;
+    private static final Version cassandraVersion;
 
-    @BeforeClass
-    public void setUp()
-    {
+    static {
         col1 = new CassandraColumnHandle("partitionKey1", 1, CassandraTypes.BIGINT, true, false, false, false);
         col2 = new CassandraColumnHandle("clusteringKey1", 2, CassandraTypes.BIGINT, false, true, false, false);
         col3 = new CassandraColumnHandle("clusteringKey2", 3, CassandraTypes.BIGINT, false, true, false, false);

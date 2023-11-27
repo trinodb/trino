@@ -96,7 +96,6 @@ import io.trino.sql.tree.LambdaArgumentDeclaration;
 import io.trino.sql.tree.Merge;
 import io.trino.sql.tree.NodeRef;
 import io.trino.sql.tree.NullLiteral;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.RefreshMaterializedView;
 import io.trino.sql.tree.Row;
@@ -222,7 +221,7 @@ public class LogicalPlanner
         this.metadata = plannerContext.getMetadata();
         this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
-        this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(symbolAllocator, metadata, session);
+        this.statisticsAggregationPlanner = new StatisticsAggregationPlanner(symbolAllocator, plannerContext, session);
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
@@ -494,7 +493,7 @@ public class LogicalPlanner
                 analysis,
                 plan.getRoot(),
                 visibleFields(plan),
-                new CreateReference(catalogName, tableMetadata, newTableLayout),
+                new CreateReference(catalogName, tableMetadata, newTableLayout, create.isReplace()),
                 columnNames,
                 newTableLayout,
                 statisticsMetadata);
@@ -562,7 +561,7 @@ public class LogicalPlanner
         plan = planner.addRowFilters(
                 table,
                 plan,
-                failIfPredicateIsNotMet(metadata, session, PERMISSION_DENIED, AccessDeniedException.PREFIX + "Cannot insert row that does not match a row filter"),
+                failIfPredicateIsNotMet(metadata, PERMISSION_DENIED, AccessDeniedException.PREFIX + "Cannot insert row that does not match a row filter"),
                 node -> {
                     Scope accessControlScope = analysis.getAccessControlScope(table);
                     // hidden fields are not accessible in insert
@@ -625,19 +624,19 @@ public class LogicalPlanner
 
     private Expression createNullNotAllowedFailExpression(String columnName, Type type)
     {
-        return new Cast(failFunction(metadata, session, CONSTRAINT_VIOLATION, "NULL value not allowed for NOT NULL column: " + columnName), toSqlType(type));
+        return new Cast(failFunction(metadata, CONSTRAINT_VIOLATION, "NULL value not allowed for NOT NULL column: " + columnName), toSqlType(type));
     }
 
-    private static Function<Expression, Expression> failIfPredicateIsNotMet(Metadata metadata, Session session, ErrorCodeSupplier errorCode, String errorMessage)
+    private static Function<Expression, Expression> failIfPredicateIsNotMet(Metadata metadata, ErrorCodeSupplier errorCode, String errorMessage)
     {
-        FunctionCall fail = failFunction(metadata, session, errorCode, errorMessage);
+        FunctionCall fail = failFunction(metadata, errorCode, errorMessage);
         return predicate -> new IfExpression(predicate, TRUE_LITERAL, new Cast(fail, toSqlType(BOOLEAN)));
     }
 
-    public static FunctionCall failFunction(Metadata metadata, Session session, ErrorCodeSupplier errorCode, String errorMessage)
+    public static FunctionCall failFunction(Metadata metadata, ErrorCodeSupplier errorCode, String errorMessage)
     {
-        return FunctionCallBuilder.resolve(session, metadata)
-                .setName(QualifiedName.of("fail"))
+        return BuiltinFunctionCallBuilder.resolve(metadata)
+                .setName("fail")
                 .addArgument(INTEGER, new GenericLiteral("INTEGER", Integer.toString(errorCode.toErrorCode().getCode())))
                 .addArgument(VARCHAR, new GenericLiteral("VARCHAR", errorMessage))
                 .build();
@@ -803,7 +802,7 @@ public class LogicalPlanner
         }
 
         checkState(fromType instanceof VarcharType || fromType instanceof CharType, "inserting non-character value to column of character type");
-        ResolvedFunction spaceTrimmedLength = metadata.resolveFunction(session, QualifiedName.of("$space_trimmed_length"), fromTypes(VARCHAR));
+        ResolvedFunction spaceTrimmedLength = metadata.resolveBuiltinFunction("$space_trimmed_length", fromTypes(VARCHAR));
 
         return new IfExpression(
                 // check if the trimmed value fits in the target type
@@ -817,7 +816,7 @@ public class LogicalPlanner
                                 new GenericLiteral("BIGINT", "0"))),
                 new Cast(expression, toSqlType(toType)),
                 new Cast(
-                        failFunction(metadata, session, INVALID_CAST_ARGUMENT, format(
+                        failFunction(metadata, INVALID_CAST_ARGUMENT, format(
                                 "Cannot truncate non-space characters when casting from %s to %s on INSERT",
                                 fromType.getDisplayName(),
                                 toType.getDisplayName())),
@@ -910,7 +909,7 @@ public class LogicalPlanner
         return new RelationPlanner(analysis, symbolAllocator, idAllocator, buildLambdaDeclarationToSymbolMap(analysis, symbolAllocator), plannerContext, Optional.empty(), session, ImmutableMap.of());
     }
 
-    private static Map<NodeRef<LambdaArgumentDeclaration>, Symbol> buildLambdaDeclarationToSymbolMap(Analysis analysis, SymbolAllocator symbolAllocator)
+    public static Map<NodeRef<LambdaArgumentDeclaration>, Symbol> buildLambdaDeclarationToSymbolMap(Analysis analysis, SymbolAllocator symbolAllocator)
     {
         Map<Key, Symbol> allocations = new HashMap<>();
         Map<NodeRef<LambdaArgumentDeclaration>, Symbol> result = new LinkedHashMap<>();

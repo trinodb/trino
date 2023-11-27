@@ -63,13 +63,21 @@ import io.trino.execution.TaskStatus;
 import io.trino.execution.resourcegroups.InternalResourceGroupManager;
 import io.trino.execution.resourcegroups.LegacyResourceGroupConfigurationManager;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
-import io.trino.execution.scheduler.BinPackingNodeAllocatorService;
-import io.trino.execution.scheduler.EventDrivenTaskSourceFactory;
-import io.trino.execution.scheduler.NodeAllocatorService;
-import io.trino.execution.scheduler.PartitionMemoryEstimatorFactory;
 import io.trino.execution.scheduler.SplitSchedulerStats;
-import io.trino.execution.scheduler.TaskDescriptorStorage;
 import io.trino.execution.scheduler.TaskExecutionStats;
+import io.trino.execution.scheduler.faulttolerant.BinPackingNodeAllocatorService;
+import io.trino.execution.scheduler.faulttolerant.ByEagerParentOutputDataSizeEstimator;
+import io.trino.execution.scheduler.faulttolerant.BySmallStageOutputDataSizeEstimator;
+import io.trino.execution.scheduler.faulttolerant.ByTaskProgressOutputDataSizeEstimator;
+import io.trino.execution.scheduler.faulttolerant.CompositeOutputDataSizeEstimator;
+import io.trino.execution.scheduler.faulttolerant.EventDrivenTaskSourceFactory;
+import io.trino.execution.scheduler.faulttolerant.ExponentialGrowthPartitionMemoryEstimator;
+import io.trino.execution.scheduler.faulttolerant.NoMemoryAwarePartitionMemoryEstimator;
+import io.trino.execution.scheduler.faulttolerant.NoMemoryAwarePartitionMemoryEstimator.ForNoMemoryAwarePartitionMemoryEstimator;
+import io.trino.execution.scheduler.faulttolerant.NodeAllocatorService;
+import io.trino.execution.scheduler.faulttolerant.OutputDataSizeEstimatorFactory;
+import io.trino.execution.scheduler.faulttolerant.PartitionMemoryEstimatorFactory;
+import io.trino.execution.scheduler.faulttolerant.TaskDescriptorStorage;
 import io.trino.execution.scheduler.policy.AllAtOnceExecutionPolicy;
 import io.trino.execution.scheduler.policy.ExecutionPolicy;
 import io.trino.execution.scheduler.policy.PhasedExecutionPolicy;
@@ -87,6 +95,9 @@ import io.trino.memory.NoneLowMemoryKiller;
 import io.trino.memory.TotalReservationLowMemoryKiller;
 import io.trino.memory.TotalReservationOnBlockedNodesQueryLowMemoryKiller;
 import io.trino.memory.TotalReservationOnBlockedNodesTaskLowMemoryKiller;
+import io.trino.metadata.LanguageFunctionManager;
+import io.trino.metadata.LanguageFunctionProvider;
+import io.trino.metadata.Split;
 import io.trino.operator.ForScheduler;
 import io.trino.operator.OperatorStats;
 import io.trino.server.protocol.ExecutingStatementResource;
@@ -95,6 +106,7 @@ import io.trino.server.remotetask.RemoteTaskStats;
 import io.trino.server.ui.WebUiModule;
 import io.trino.server.ui.WorkerResource;
 import io.trino.spi.memory.ClusterMemoryPoolManager;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.analyzer.QueryExplainerFactory;
 import io.trino.sql.planner.OptimizerStatsMBeanExporter;
@@ -219,7 +231,35 @@ public class CoordinatorModule
         // node allocator
         binder.bind(BinPackingNodeAllocatorService.class).in(Scopes.SINGLETON);
         binder.bind(NodeAllocatorService.class).to(BinPackingNodeAllocatorService.class);
-        binder.bind(PartitionMemoryEstimatorFactory.class).to(BinPackingNodeAllocatorService.class);
+        binder.bind(PartitionMemoryEstimatorFactory.class).to(NoMemoryAwarePartitionMemoryEstimator.Factory.class).in(Scopes.SINGLETON);
+        binder.bind(PartitionMemoryEstimatorFactory.class)
+                .annotatedWith(ForNoMemoryAwarePartitionMemoryEstimator.class)
+                .to(ExponentialGrowthPartitionMemoryEstimator.Factory.class).in(Scopes.SINGLETON);
+
+        // output data size estimator
+        binder.bind(OutputDataSizeEstimatorFactory.class)
+                .to(CompositeOutputDataSizeEstimator.Factory.class)
+                .in(Scopes.SINGLETON);
+        binder.bind(ByTaskProgressOutputDataSizeEstimator.Factory.class).in(Scopes.SINGLETON);
+        binder.bind(BySmallStageOutputDataSizeEstimator.Factory.class).in(Scopes.SINGLETON);
+        binder.bind(ByEagerParentOutputDataSizeEstimator.Factory.class).in(Scopes.SINGLETON);
+        // use provider method returning list to ensure ordering
+        // OutputDataSizeEstimator factories are ordered starting from most accurate
+        install(new AbstractConfigurationAwareModule() {
+            @Override
+            protected void setup(Binder binder) {}
+
+            @Provides
+            @Singleton
+            @CompositeOutputDataSizeEstimator.ForCompositeOutputDataSizeEstimator
+            List<OutputDataSizeEstimatorFactory> getCompositeOutputDataSizeEstimatorDelegateFactories(
+                    ByTaskProgressOutputDataSizeEstimator.Factory byTaskProgressOutputDataSizeEstimatorFactory,
+                    BySmallStageOutputDataSizeEstimator.Factory bySmallStageOutputDataSizeEstimatorFactory,
+                    ByEagerParentOutputDataSizeEstimator.Factory byEagerParentOutputDataSizeEstimatorFactoryy)
+            {
+                return ImmutableList.of(byTaskProgressOutputDataSizeEstimatorFactory, bySmallStageOutputDataSizeEstimatorFactory, byEagerParentOutputDataSizeEstimatorFactoryy);
+            }
+        });
 
         // node monitor
         binder.bind(ClusterSizeMonitor.class).in(Scopes.SINGLETON);
@@ -236,6 +276,11 @@ public class CoordinatorModule
 
         // dynamic filtering service
         binder.bind(DynamicFilterService.class).in(Scopes.SINGLETON);
+
+        // language functions
+        binder.bind(LanguageFunctionManager.class).in(Scopes.SINGLETON);
+        binder.bind(InitializeLanguageFunctionManager.class).asEagerSingleton();
+        binder.bind(LanguageFunctionProvider.class).to(LanguageFunctionManager.class).in(Scopes.SINGLETON);
 
         // analyzer
         binder.bind(AnalyzerFactory.class).in(Scopes.SINGLETON);
@@ -307,6 +352,7 @@ public class CoordinatorModule
 
         binder.bind(EventDrivenTaskSourceFactory.class).in(Scopes.SINGLETON);
         binder.bind(TaskDescriptorStorage.class).in(Scopes.SINGLETON);
+        jsonCodecBinder(binder).bindJsonCodec(Split.class);
         newExporter(binder).export(TaskDescriptorStorage.class).withGeneratedName();
 
         binder.bind(TaskExecutionStats.class).in(Scopes.SINGLETON);
@@ -320,6 +366,16 @@ public class CoordinatorModule
 
         // cleanup
         binder.bind(ExecutorCleanup.class).asEagerSingleton();
+    }
+
+    // working around circular dependency Metadata <-> PlannerContext
+    private static class InitializeLanguageFunctionManager
+    {
+        @Inject
+        public InitializeLanguageFunctionManager(LanguageFunctionManager languageFunctionManager, PlannerContext plannerContext)
+        {
+            languageFunctionManager.setPlannerContext(plannerContext);
+        }
     }
 
     @Provides

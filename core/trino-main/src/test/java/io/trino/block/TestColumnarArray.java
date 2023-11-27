@@ -20,7 +20,7 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.ColumnarArray;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.ArrayType;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Array;
 import java.util.Arrays;
@@ -40,6 +40,7 @@ import static org.testng.Assert.assertEquals;
 public class TestColumnarArray
 {
     private static final int[] ARRAY_SIZES = new int[] {16, 0, 13, 1, 2, 11, 4, 7};
+    private static final ArrayType ARRAY_TYPE = new ArrayType(VARCHAR);
 
     @Test
     public void test()
@@ -53,19 +54,17 @@ public class TestColumnarArray
                 }
             }
         }
-        BlockBuilder blockBuilder = createBlockBuilderWithValues(expectedValues);
-        verifyBlock(blockBuilder, expectedValues);
-        verifyBlock(blockBuilder.build(), expectedValues);
+        Block block = createBlockBuilderWithValues(expectedValues).build();
+        verifyBlock(block, expectedValues);
 
         Slice[][] expectedValuesWithNull = alternatingNullValues(expectedValues);
-        BlockBuilder blockBuilderWithNull = createBlockBuilderWithValues(expectedValuesWithNull);
-        verifyBlock(blockBuilderWithNull, expectedValuesWithNull);
-        verifyBlock(blockBuilderWithNull.build(), expectedValuesWithNull);
+        Block blockWithNull = createBlockBuilderWithValues(expectedValuesWithNull).build();
+        verifyBlock(blockWithNull, expectedValuesWithNull);
     }
 
     private static <T> void verifyBlock(Block block, T[] expectedValues)
     {
-        assertBlock(block, expectedValues);
+        assertBlock(ARRAY_TYPE, block, expectedValues);
 
         assertColumnarArray(block, expectedValues);
         assertDictionaryBlock(block, expectedValues);
@@ -76,7 +75,7 @@ public class TestColumnarArray
         Block blockRegion = block.getRegion(offset, length);
         T[] expectedValuesRegion = Arrays.copyOfRange(expectedValues, offset, offset + length);
 
-        assertBlock(blockRegion, expectedValuesRegion);
+        assertBlock(ARRAY_TYPE, blockRegion, expectedValuesRegion);
 
         assertColumnarArray(blockRegion, expectedValuesRegion);
         assertDictionaryBlock(blockRegion, expectedValuesRegion);
@@ -88,7 +87,7 @@ public class TestColumnarArray
         Block dictionaryBlock = createTestDictionaryBlock(block);
         T[] expectedDictionaryValues = createTestDictionaryExpectedValues(expectedValues);
 
-        assertBlock(dictionaryBlock, expectedDictionaryValues);
+        assertBlock(ARRAY_TYPE, dictionaryBlock, expectedDictionaryValues);
         assertColumnarArray(dictionaryBlock, expectedDictionaryValues);
         assertRunLengthEncodedBlock(dictionaryBlock, expectedDictionaryValues);
     }
@@ -99,7 +98,7 @@ public class TestColumnarArray
             RunLengthEncodedBlock runLengthEncodedBlock = createTestRleBlock(block, position);
             T[] expectedDictionaryValues = createTestRleExpectedValues(expectedValues, position);
 
-            assertBlock(runLengthEncodedBlock, expectedDictionaryValues);
+            assertBlock(ARRAY_TYPE, runLengthEncodedBlock, expectedDictionaryValues);
             assertColumnarArray(runLengthEncodedBlock, expectedDictionaryValues);
         }
     }
@@ -119,7 +118,7 @@ public class TestColumnarArray
 
             for (int i = 0; i < columnarArray.getLength(position); i++) {
                 Object expectedElement = Array.get(expectedArray, i);
-                assertBlockPosition(elementsBlock, elementsPosition, expectedElement);
+                assertBlockPosition(ARRAY_TYPE, elementsBlock, elementsPosition, expectedElement);
                 elementsPosition++;
             }
         }
@@ -127,8 +126,7 @@ public class TestColumnarArray
 
     public static BlockBuilder createBlockBuilderWithValues(Slice[][] expectedValues)
     {
-        ArrayType arrayType = new ArrayType(VARCHAR);
-        BlockBuilder blockBuilder = arrayType.createBlockBuilder(null, 100, 100);
+        BlockBuilder blockBuilder = ARRAY_TYPE.createBlockBuilder(null, 100, 100);
         for (Slice[] expectedValue : expectedValues) {
             if (expectedValue == null) {
                 blockBuilder.appendNull();
@@ -143,7 +141,7 @@ public class TestColumnarArray
                         VARCHAR.writeSlice(elementBlockBuilder, v);
                     }
                 }
-                arrayType.writeObject(blockBuilder, elementBlockBuilder.build());
+                ARRAY_TYPE.writeObject(blockBuilder, elementBlockBuilder.build());
             }
         }
         return blockBuilder;

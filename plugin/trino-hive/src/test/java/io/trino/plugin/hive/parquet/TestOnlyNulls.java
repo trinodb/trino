@@ -28,7 +28,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.util.List;
@@ -81,7 +81,7 @@ public class TestOnlyNulls
 
     private static ConnectorPageSource createPageSource(File parquetFile, HiveColumnHandle column, TupleDomain<HiveColumnHandle> domain)
     {
-        HivePageSourceFactory pageSourceFactory = StandardFileFormats.TRINO_PARQUET.getHivePageSourceFactory(HDFS_ENVIRONMENT).orElseThrow();
+        HivePageSourceFactory pageSourceFactory = StandardFileFormats.TRINO_PARQUET.getHivePageSourceFactory(HDFS_ENVIRONMENT);
 
         Properties schema = new Properties();
         schema.setProperty(SERIALIZATION_LIB, HiveStorageFormat.PARQUET.getSerde());

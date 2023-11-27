@@ -23,7 +23,7 @@ import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.TestingConnectorSession;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.Set;

@@ -14,10 +14,17 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.collect.AbstractIterator;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
+import com.google.common.io.ByteArrayDataOutput;
+import com.google.common.io.ByteStreams;
 import com.google.common.primitives.Shorts;
+import io.airlift.compress.Compressor;
+import io.airlift.compress.zstd.ZstdCompressor;
+import io.airlift.compress.zstd.ZstdDecompressor;
+import io.airlift.json.JsonCodec;
 import io.trino.hive.thrift.metastore.BinaryColumnStatsData;
 import io.trino.hive.thrift.metastore.BooleanColumnStatsData;
 import io.trino.hive.thrift.metastore.ColumnStatisticsObj;
@@ -27,10 +34,13 @@ import io.trino.hive.thrift.metastore.Decimal;
 import io.trino.hive.thrift.metastore.DecimalColumnStatsData;
 import io.trino.hive.thrift.metastore.DoubleColumnStatsData;
 import io.trino.hive.thrift.metastore.FieldSchema;
+import io.trino.hive.thrift.metastore.FunctionType;
 import io.trino.hive.thrift.metastore.LongColumnStatsData;
 import io.trino.hive.thrift.metastore.Order;
 import io.trino.hive.thrift.metastore.PrincipalPrivilegeSet;
 import io.trino.hive.thrift.metastore.PrivilegeGrantInfo;
+import io.trino.hive.thrift.metastore.ResourceType;
+import io.trino.hive.thrift.metastore.ResourceUri;
 import io.trino.hive.thrift.metastore.RolePrincipalGrant;
 import io.trino.hive.thrift.metastore.SerDeInfo;
 import io.trino.hive.thrift.metastore.StorageDescriptor;
@@ -53,6 +63,7 @@ import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.type.PrimitiveTypeInfo;
 import io.trino.plugin.hive.type.TypeInfo;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.RoleGrant;
@@ -93,6 +104,8 @@ import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.hash.Hashing.sha256;
+import static com.google.common.io.BaseEncoding.base64Url;
 import static io.trino.hive.thrift.metastore.ColumnStatisticsData.binaryStats;
 import static io.trino.hive.thrift.metastore.ColumnStatisticsData.booleanStats;
 import static io.trino.hive.thrift.metastore.ColumnStatisticsData.dateStats;
@@ -139,12 +152,14 @@ import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.TinyintType.TINYINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Math.round;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class ThriftMetastoreUtil
 {
+    private static final JsonCodec<LanguageFunction> LANGUAGE_FUNCTION_CODEC = JsonCodec.jsonCodec(LanguageFunction.class);
     public static final String NUM_ROWS = "numRows";
     private static final String PUBLIC_ROLE_NAME = "public";
     private static final String ADMIN_ROLE_NAME = "admin";
@@ -967,5 +982,72 @@ public final class ThriftMetastoreUtil
         return type.equals(BIGINT) || type.equals(INTEGER) || type.equals(SMALLINT) || type.equals(TINYINT) ||
                 type.equals(DOUBLE) || type.equals(REAL) ||
                 type instanceof DecimalType;
+    }
+
+    public static LanguageFunction fromMetastoreApiFunction(io.trino.hive.thrift.metastore.Function function)
+    {
+        LanguageFunction result = decodeFunction(function.getFunctionName(), function.getResourceUris());
+
+        return new LanguageFunction(
+                result.signatureToken(),
+                result.sql(),
+                result.path(),
+                Optional.ofNullable(function.getOwnerName()));
+    }
+
+    public static io.trino.hive.thrift.metastore.Function toMetastoreApiFunction(String databaseName, String functionName, LanguageFunction function)
+    {
+        return new io.trino.hive.thrift.metastore.Function()
+                .setDbName(databaseName)
+                .setFunctionName(metastoreFunctionName(functionName, function.signatureToken()))
+                .setClassName("TrinoFunction")
+                .setFunctionType(FunctionType.JAVA)
+                .setOwnerType(io.trino.hive.thrift.metastore.PrincipalType.USER)
+                .setOwnerName(function.owner().orElse(null))
+                .setResourceUris(toResourceUris(LANGUAGE_FUNCTION_CODEC.toJsonBytes(function)));
+    }
+
+    public static String metastoreFunctionName(String functionName, String signatureToken)
+    {
+        return "trino__%s__%s".formatted(functionName, sha256().hashUnencodedChars(signatureToken));
+    }
+
+    public static List<ResourceUri> toResourceUris(byte[] input)
+    {
+        Compressor compressor = new ZstdCompressor();
+        byte[] compressed = new byte[compressor.maxCompressedLength(input.length)];
+        int outputSize = compressor.compress(input, 0, input.length, compressed, 0, compressed.length);
+
+        ImmutableList.Builder<ResourceUri> resourceUris = ImmutableList.builder();
+        for (int offset = 0; offset < outputSize; offset += 750) {
+            int length = Math.min(750, outputSize - offset);
+            String encoded = base64Url().encode(compressed, offset, length);
+            resourceUris.add(new ResourceUri(ResourceType.FILE, encoded));
+        }
+        return resourceUris.build();
+    }
+
+    public static byte[] fromResourceUris(List<ResourceUri> resourceUris)
+    {
+        ByteArrayDataOutput bytes = ByteStreams.newDataOutput();
+        for (ResourceUri resourceUri : resourceUris) {
+            bytes.write(base64Url().decode(resourceUri.getUri()));
+        }
+        byte[] compressed = bytes.toByteArray();
+
+        long size = ZstdDecompressor.getDecompressedSize(compressed, 0, compressed.length);
+        byte[] output = new byte[toIntExact(size)];
+        new ZstdDecompressor().decompress(compressed, 0, compressed.length, output, 0, output.length);
+        return output;
+    }
+
+    public static LanguageFunction decodeFunction(String name, List<ResourceUri> uris)
+    {
+        try {
+            return LANGUAGE_FUNCTION_CODEC.fromJson(fromResourceUris(uris));
+        }
+        catch (RuntimeException e) {
+            throw new TrinoException(HIVE_INVALID_METADATA, "Failed to decode function: " + name, e);
+        }
     }
 }

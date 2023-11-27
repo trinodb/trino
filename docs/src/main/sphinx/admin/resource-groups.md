@@ -56,39 +56,37 @@ Trino clusters to be stored in the same database if required.
 The configuration is reloaded from the database every second, and the changes
 are reflected automatically for incoming queries.
 
-```{eval-rst}
-.. list-table:: Database resource group manager properties
-   :widths: 40, 50, 10
-   :header-rows: 1
+:::{list-table} Database resource group manager properties
+:widths: 40, 50, 10
+:header-rows: 1
 
-   * - Property name
-     - Description
-     - Default value
-   * - ``resource-groups.config-db-url``
-     - Database URL to load configuration from.
-     - ``none``
-   * - ``resource-groups.config-db-user``
-     - Database user to connect with.
-     - ``none``
-   * - ``resource-groups.config-db-password``
-     - Password for database user to connect with.
-     - ``none``
-   * - ``resource-groups.max-refresh-interval``
-     - The maximum time period for which the cluster will continue to accept
-       queries after refresh failures, causing configuration to become stale.
-     - ``1h``
-   * - ``resource-groups.refresh-interval``
-     -  How often the cluster reloads from the database
-     - ``1s``
-   * - ``resource-groups.exact-match-selector-enabled``
-     - Setting this flag enables usage of an additional
-       ``exact_match_source_selectors`` table to configure resource group
-       selection rules defined exact name based matches for source, environment
-       and query type. By default, the rules are only loaded from the
-       ``selectors`` table, with a regex-based filter for ``source``, among
-       other filters.
-     - ``false``
-```
+* - Property name
+  - Description
+  - Default value
+* - `resource-groups.config-db-url`
+  - Database URL to load configuration from.
+  - `none`
+* - `resource-groups.config-db-user`
+  - Database user to connect with.
+  - `none`
+* - `resource-groups.config-db-password`
+  - Password for database user to connect with.
+  - `none`
+* - `resource-groups.max-refresh-interval`
+  - The maximum time period for which the cluster will continue to accept
+    queries after refresh failures, causing configuration to become stale.
+  - `1h`
+* - `resource-groups.refresh-interval`
+  -  How often the cluster reloads from the database
+  - `1s`
+* - `resource-groups.exact-match-selector-enabled`
+  - Setting this flag enables usage of an additional
+    `exact_match_source_selectors` table to configure resource group selection
+    rules defined exact name based matches for source, environment and query
+    type. By default, the rules are only loaded from the `selectors` table, with
+    a regex-based filter for `source`, among other filters.
+  - `false`
+:::
 
 ## Resource group properties
 

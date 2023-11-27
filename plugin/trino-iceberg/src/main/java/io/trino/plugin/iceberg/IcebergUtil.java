@@ -27,12 +27,14 @@ import io.trino.plugin.iceberg.catalog.IcebergTableOperations;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.DecimalType;
@@ -585,6 +587,22 @@ public final class IcebergUtil
         return partitionKeys.buildOrThrow();
     }
 
+    public static Map<ColumnHandle, NullableValue> getPartitionValues(
+            Set<IcebergColumnHandle> identityPartitionColumns,
+            Map<Integer, Optional<String>> partitionKeys)
+    {
+        ImmutableMap.Builder<ColumnHandle, NullableValue> bindings = ImmutableMap.builder();
+        for (IcebergColumnHandle partitionColumn : identityPartitionColumns) {
+            Object partitionValue = deserializePartitionValue(
+                    partitionColumn.getType(),
+                    partitionKeys.get(partitionColumn.getId()).orElse(null),
+                    partitionColumn.getName());
+            NullableValue bindingValue = new NullableValue(partitionColumn.getType(), partitionValue);
+            bindings.put(partitionColumn, bindingValue);
+        }
+        return bindings.buildOrThrow();
+    }
+
     public static LocationProvider getLocationProvider(SchemaTableName schemaTableName, String tableLocation, Map<String, String> storageProperties)
     {
         if (storageProperties.containsKey(WRITE_LOCATION_PROVIDER_IMPL)) {
@@ -611,7 +629,7 @@ public final class IcebergUtil
         return new Schema(icebergSchema.asStructType().fields());
     }
 
-    public static Transaction newCreateTableTransaction(TrinoCatalog catalog, ConnectorTableMetadata tableMetadata, ConnectorSession session)
+    public static Transaction newCreateTableTransaction(TrinoCatalog catalog, ConnectorTableMetadata tableMetadata, ConnectorSession session, boolean replace)
     {
         SchemaTableName schemaTableName = tableMetadata.getTable();
         Schema schema = schemaFromMetadata(tableMetadata.getColumns());
@@ -620,6 +638,14 @@ public final class IcebergUtil
         String targetPath = getTableLocation(tableMetadata.getProperties())
                 .orElseGet(() -> catalog.defaultTableLocation(session, schemaTableName));
 
+        if (replace) {
+            return catalog.newCreateOrReplaceTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, targetPath, createTableProperties(tableMetadata));
+        }
+        return catalog.newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, targetPath, createTableProperties(tableMetadata));
+    }
+
+    private static Map<String, String> createTableProperties(ConnectorTableMetadata tableMetadata)
+    {
         ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builder();
         IcebergFileFormat fileFormat = IcebergTableProperties.getFileFormat(tableMetadata.getProperties());
         propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toIceberg().toString());
@@ -637,8 +663,7 @@ public final class IcebergUtil
         if (tableMetadata.getComment().isPresent()) {
             propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
         }
-
-        return catalog.newCreateTableTransaction(session, schemaTableName, schema, partitionSpec, sortOrder, targetPath, propertiesBuilder.buildOrThrow());
+        return propertiesBuilder.buildOrThrow();
     }
 
     /**

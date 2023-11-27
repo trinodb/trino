@@ -40,6 +40,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -161,7 +162,8 @@ public class PrimitiveColumnWriter
             throws IOException
     {
         checkState(closed);
-        return ImmutableList.of(new BufferData(getDataStreams(), getColumnMetaData()));
+        DataStreams dataStreams = getDataStreams();
+        return ImmutableList.of(new BufferData(dataStreams.data(), dataStreams.dictionaryPageSize(), getColumnMetaData()));
     }
 
     // Returns ColumnMetaData that offset is invalid
@@ -248,7 +250,7 @@ public class PrimitiveColumnWriter
         updateBufferedBytes(getCurrentPageBufferedBytes());
     }
 
-    private List<ParquetDataOutput> getDataStreams()
+    private DataStreams getDataStreams()
             throws IOException
     {
         ImmutableList.Builder<ParquetDataOutput> outputs = ImmutableList.builder();
@@ -257,6 +259,7 @@ public class PrimitiveColumnWriter
         }
         // write dict page if possible
         DictionaryPage dictionaryPage = primitiveValueWriter.toDictPageAndClose();
+        OptionalInt dictionaryPageSize = OptionalInt.empty();
         if (dictionaryPage != null) {
             int uncompressedSize = dictionaryPage.getUncompressedSize();
             byte[] pageBytes = dictionaryPage.getBytes().toByteArray();
@@ -278,13 +281,14 @@ public class PrimitiveColumnWriter
             totalCompressedSize += pageHeader.size() + compressedSize;
             totalUnCompressedSize += pageHeader.size() + uncompressedSize;
             dictionaryPagesWithEncoding.merge(new ParquetMetadataConverter().getEncoding(dictionaryPage.getEncoding()), 1, Integer::sum);
+            dictionaryPageSize = OptionalInt.of(pageHeader.size() + compressedSize);
 
             primitiveValueWriter.resetDictionary();
         }
         getDataStreamsCalled = true;
 
         outputs.add(createDataOutput(compressedOutputStream));
-        return outputs.build();
+        return new DataStreams(outputs.build(), dictionaryPageSize);
     }
 
     @Override
@@ -314,4 +318,6 @@ public class PrimitiveColumnWriter
                 repetitionLevelWriter.getBufferedSize() +
                 primitiveValueWriter.getBufferedSize();
     }
+
+    private record DataStreams(List<ParquetDataOutput> data, OptionalInt dictionaryPageSize) {}
 }

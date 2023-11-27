@@ -141,6 +141,7 @@ public class TestDetermineTableScanNodePartitioning
     {
         TableHandle tableHandle = tester.getCurrentCatalogTableHandle(TEST_SCHEMA, tableName);
         tester.assertThat(new DetermineTableScanNodePartitioning(tester.getMetadata(), tester.getQueryRunner().getNodePartitioningManager(), new TaskCountEstimator(() -> numberOfTasks)))
+                .withSession(session)
                 .on(p -> {
                     Symbol a = p.symbol(COLUMN_A);
                     Symbol b = p.symbol(COLUMN_B);
@@ -149,7 +150,6 @@ public class TestDetermineTableScanNodePartitioning
                             ImmutableList.of(a, b),
                             ImmutableMap.of(a, COLUMN_HANDLE_A, b, COLUMN_HANDLE_B));
                 })
-                .withSession(session)
                 .matches(
                         tableScan(
                                 tableHandle.getConnectorHandle()::equals,

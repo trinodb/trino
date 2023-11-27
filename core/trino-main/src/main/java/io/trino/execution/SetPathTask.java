@@ -26,7 +26,6 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SetPath;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
@@ -67,9 +66,8 @@ public class SetPathTask
         }
 
         // convert to IR before setting HTTP headers - ensures that the representations of all path objects outside the parser remain consistent
-        SqlPath sqlPath = new SqlPath(Optional.of(statement.getPathSpecification().toString()));
-
-        for (SqlPathElement element : sqlPath.getParsedPath()) {
+        String rawPath = statement.getPathSpecification().toString();
+        for (SqlPathElement element : SqlPath.parsePath(rawPath)) {
             if (element.getCatalog().isEmpty() && session.getCatalog().isEmpty()) {
                 throw semanticException(MISSING_CATALOG_NAME, statement, "Catalog must be specified for each path element when session catalog is not set");
             }
@@ -79,7 +77,7 @@ public class SetPathTask
                 getRequiredCatalogHandle(metadata, session, statement, catalogName);
             });
         }
-        stateMachine.setSetPath(sqlPath.toString());
+        stateMachine.setSetPath(rawPath);
         return immediateVoidFuture();
     }
 }

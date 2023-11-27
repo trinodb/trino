@@ -16,6 +16,7 @@ package io.trino.testing;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
@@ -44,6 +45,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
+import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.BeforeClass;
@@ -117,8 +119,10 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_TABL
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_COMMENT_ON_VIEW_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_FEDERATED_MATERIALIZED_VIEW;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_FUNCTION;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_MATERIALIZED_VIEW;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_MATERIALIZED_VIEW_GRACE_PERIOD;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_OR_REPLACE_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_SCHEMA;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT;
@@ -145,6 +149,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_RENAME_TABLE_ACROSS_SCHEMAS;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_REPORTING_WRITTEN_BYTES;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_DELETE;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_LEVEL_UPDATE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_ROW_TYPE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_COLUMN_TYPE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_SET_FIELD_TYPE;
@@ -154,6 +159,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_UPDATE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.assertions.TestUtil.verifyResultOrFailure;
+import static io.trino.tpch.TpchTable.CUSTOMER;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.lang.Thread.currentThread;
@@ -182,6 +188,11 @@ public abstract class BaseConnectorTest
         extends AbstractTestQueries
 {
     private static final Logger log = Logger.get(BaseConnectorTest.class);
+
+    protected static final List<TpchTable<?>> REQUIRED_TPCH_TABLES = ImmutableSet.<TpchTable<?>>builder()
+            .addAll(AbstractTestQueries.REQUIRED_TPCH_TABLES)
+            .add(CUSTOMER)
+            .build().asList();
 
     private final ConcurrentMap<String, Function<ConnectorSession, List<String>>> mockTableListings = new ConcurrentHashMap<>();
 
@@ -465,6 +476,13 @@ public abstract class BaseConnectorTest
         assertQuery(
                 "SELECT count(*) FROM (SELECT count(*) FROM nation UNION ALL SELECT count(*) FROM region)",
                 "VALUES 2");
+
+        // HAVING, i.e. filter after aggregation
+        assertQuery("SELECT count(*) FROM nation HAVING count(*) = 25");
+        assertQuery("SELECT regionkey, count(*) FROM nation GROUP BY regionkey HAVING count(*) = 5");
+        assertQuery(
+                "SELECT regionkey, count(*) FROM nation GROUP BY GROUPING SETS ((), (regionkey)) HAVING count(*) IN (5, 25)",
+                "(SELECT NULL, count(*) FROM nation) UNION ALL (SELECT regionkey, count(*) FROM nation GROUP BY regionkey)");
     }
 
     @Test
@@ -1288,12 +1306,13 @@ public abstract class BaseConnectorTest
                     node(AggregationNode.class, // final
                             anyTree(// exchanges
                                     node(AggregationNode.class, // partial
-                                            anyTree(tableScan(table.getName()))))));
+                                            node(ProjectNode.class, // format()
+                                                    tableScan(table.getName()))))));
             PlanMatchPattern readFromStorageTable = node(OutputNode.class, node(TableScanNode.class));
 
             assertUpdate("CREATE MATERIALIZED VIEW " + viewName + " " +
                     "GRACE PERIOD INTERVAL '1' HOUR " +
-                    "AS SELECT DISTINCT regionkey, CAST(name AS varchar) name FROM " + table.getName());
+                    "AS SELECT DISTINCT regionkey, format('%s', name) name FROM " + table.getName());
 
             String initialResults = "SELECT DISTINCT regionkey, CAST(name AS varchar) FROM region";
 
@@ -3323,6 +3342,112 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testCreateOrReplaceTableWhenTableDoesNotExist()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+        String table = "test_create_or_replace_" + randomNameSuffix();
+        if (!hasBehavior(SUPPORTS_CREATE_OR_REPLACE_TABLE)) {
+            assertQueryFails("CREATE OR REPLACE TABLE " + table + " (a bigint, b double, c varchar(50))", "This connector does not support replacing tables");
+            return;
+        }
+
+        try {
+            assertUpdate("CREATE OR REPLACE TABLE " + table + " (a bigint, b double, c varchar(50))");
+            assertQueryReturnsEmptyResult("SELECT * FROM " + table);
+        } finally {
+            assertUpdate("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
+    public void testCreateOrReplaceTableAsSelectWhenTableDoesNotExists()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+        String table = "test_create_or_replace_" + randomNameSuffix();
+        @Language("SQL") String query = "SELECT nationkey, name, regionkey FROM nation";
+        @Language("SQL") String rowCountQuery = "SELECT count(*) FROM nation";
+        if (!hasBehavior(SUPPORTS_CREATE_OR_REPLACE_TABLE)) {
+            assertQueryFails("CREATE OR REPLACE TABLE " + table + " AS " + query, "This connector does not support replacing tables");
+            return;
+        }
+
+        try {
+            assertUpdate("CREATE OR REPLACE TABLE " + table + " AS " + query, rowCountQuery);
+            assertQuery("SELECT * FROM " + table, query);
+        } finally {
+            assertUpdate("DROP TABLE IF EXISTS " + table);
+        }
+    }
+
+    @Test
+    public void testCreateOrReplaceTableWhenTableAlreadyExistsSameSchema()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+        if (!hasBehavior(SUPPORTS_CREATE_OR_REPLACE_TABLE)) {
+            // covered in testCreateOrReplaceTableWhenTableDoesNotExist
+            return;
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_", "AS SELECT CAST(1 AS BIGINT) AS nationkey, 'test' AS name, CAST(2 AS BIGINT) AS regionkey FROM nation LIMIT 1")) {
+            @Language("SQL") String query = "SELECT nationkey, name, regionkey FROM nation";
+            @Language("SQL") String rowCountQuery = "SELECT count(*) FROM nation";
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS " + query, rowCountQuery);
+            assertQuery("SELECT * FROM " + table.getName(), query);
+        }
+    }
+
+    @Test
+    public void testCreateOrReplaceTableWhenTableAlreadyExistsSameSchemaNoData()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+        if (!hasBehavior(SUPPORTS_CREATE_OR_REPLACE_TABLE)) {
+            // covered in testCreateOrReplaceTableWhenTableDoesNotExist
+            return;
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_", " AS SELECT nationkey, name, regionkey FROM nation")) {
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT nationkey, name, regionkey FROM nation WITH NO DATA", 0L);
+            assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName());
+        }
+    }
+
+    @Test
+    public void testCreateOrReplaceTableWithNewColumnNames()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+        if (!hasBehavior(SUPPORTS_CREATE_OR_REPLACE_TABLE)) {
+            // covered in testCreateOrReplaceTableWhenTableDoesNotExist
+            return;
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_", " AS SELECT nationkey, name, regionkey FROM nation")) {
+            assertTableColumnNames(table.getName(), "nationkey", "name", "regionkey");
+            @Language("SQL") String query = "SELECT nationkey AS nationkey_new, name AS name_new_2, regionkey AS region_key_new FROM nation";
+            @Language("SQL") String rowCountQuery = "SELECT count(*) FROM nation";
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS " + query, rowCountQuery);
+            assertTableColumnNames(table.getName(), "nationkey_new", "name_new_2", "region_key_new");
+            assertQuery("SELECT * FROM " + table.getName(), query);
+        }
+    }
+
+    @Test
+    public void testCreateOrReplaceTableWithDifferentDataType()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE));
+        if (!hasBehavior(SUPPORTS_CREATE_OR_REPLACE_TABLE)) {
+            // covered in testCreateOrReplaceTableWhenTableDoesNotExist
+            return;
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_", " AS SELECT nationkey, name FROM nation")) {
+            @Language("SQL") String query = "SELECT name AS nationkey, nationkey AS name FROM nation";
+            @Language("SQL") String rowCountQuery = "SELECT count(*) FROM nation";
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS " + query, rowCountQuery);
+            assertQuery(getSession(), "SELECT * FROM " + table.getName(), query);
+        }
+    }
+
+    @Test
     public void testCreateSchemaWithLongName()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_SCHEMA));
@@ -4119,38 +4244,38 @@ public abstract class BaseConnectorTest
             throw new AssertionError("Cannot test INSERT without CTAS, the test needs to be implemented in a connector-specific way");
         }
 
-        String query = "SELECT phone, custkey, acctbal FROM customer";
+        String query = "SELECT name, nationkey, regionkey FROM nation";
 
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_insert_", "AS " + query + " WITH NO DATA")) {
             assertQuery("SELECT count(*) FROM " + table.getName() + "", "SELECT 0");
 
-            assertUpdate("INSERT INTO " + table.getName() + " " + query, "SELECT count(*) FROM customer");
+            assertUpdate("INSERT INTO " + table.getName() + " " + query, 25);
 
             assertQuery("SELECT * FROM " + table.getName() + "", query);
 
-            assertUpdate("INSERT INTO " + table.getName() + " (custkey) VALUES (-1)", 1);
-            assertUpdate("INSERT INTO " + table.getName() + " (custkey) VALUES (null)", 1);
-            assertUpdate("INSERT INTO " + table.getName() + " (phone) VALUES ('3283-2001-01-01')", 1);
-            assertUpdate("INSERT INTO " + table.getName() + " (custkey, phone) VALUES (-2, '3283-2001-01-02')", 1);
-            assertUpdate("INSERT INTO " + table.getName() + " (phone, custkey) VALUES ('3283-2001-01-03', -3)", 1);
-            assertUpdate("INSERT INTO " + table.getName() + " (acctbal) VALUES (1234)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " (nationkey) VALUES (-1)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " (nationkey) VALUES (null)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " (name) VALUES ('name-dummy-1')", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " (nationkey, name) VALUES (-2, 'name-dummy-2')", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " (name, nationkey) VALUES ('name-dummy-3', -3)", 1);
+            assertUpdate("INSERT INTO " + table.getName() + " (regionkey) VALUES (1234)", 1);
 
             assertQuery("SELECT * FROM " + table.getName() + "", query
                     + " UNION ALL SELECT null, -1, null"
                     + " UNION ALL SELECT null, null, null"
-                    + " UNION ALL SELECT '3283-2001-01-01', null, null"
-                    + " UNION ALL SELECT '3283-2001-01-02', -2, null"
-                    + " UNION ALL SELECT '3283-2001-01-03', -3, null"
+                    + " UNION ALL SELECT 'name-dummy-1', null, null"
+                    + " UNION ALL SELECT 'name-dummy-2', -2, null"
+                    + " UNION ALL SELECT 'name-dummy-3', -3, null"
                     + " UNION ALL SELECT null, null, 1234");
 
             // UNION query produces columns in the opposite order
             // of how they are declared in the table schema
             assertUpdate(
-                    "INSERT INTO " + table.getName() + " (custkey, phone, acctbal) " +
-                            "SELECT custkey, phone, acctbal FROM customer " +
+                    "INSERT INTO " + table.getName() + " (nationkey, name, regionkey) " +
+                            "SELECT nationkey, name, regionkey FROM nation " +
                             "UNION ALL " +
-                            "SELECT custkey, phone, acctbal FROM customer",
-                    "SELECT 2 * count(*) FROM customer");
+                            "SELECT nationkey, name, regionkey FROM nation",
+                    50);
         }
     }
 
@@ -4628,7 +4753,7 @@ public abstract class BaseConnectorTest
     @Test
     public void testRowLevelDelete()
     {
-        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ROW_LEVEL_DELETE));
         // TODO (https://github.com/trinodb/trino/issues/5901) Use longer table name once Oracle version is updated
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_row_delete", "AS SELECT * FROM region")) {
             assertUpdate("DELETE FROM " + table.getName() + " WHERE regionkey = 2", 1);
@@ -4637,9 +4762,52 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void verifySupportsUpdateDeclaration()
+    {
+        if (hasBehavior(SUPPORTS_UPDATE)) {
+            // Covered by testUpdate
+            return;
+        }
+
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_update", "AS SELECT * FROM nation")) {
+            assertQueryFails("UPDATE " + table.getName() + " SET nationkey = 100 WHERE regionkey = 2", MODIFYING_ROWS_MESSAGE);
+        }
+    }
+
+    @Test
+    public void verifySupportsRowLevelUpdateDeclaration()
+    {
+        if (hasBehavior(SUPPORTS_ROW_LEVEL_UPDATE)) {
+            // Covered by testRowLevelUpdate
+            return;
+        }
+
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_supports_update", "AS SELECT * FROM nation")) {
+            assertQueryFails("UPDATE " + table.getName() + " SET nationkey = nationkey * 100 WHERE regionkey = 2", MODIFYING_ROWS_MESSAGE);
+        }
+    }
+
+    @Test
     public void testUpdate()
     {
         if (!hasBehavior(SUPPORTS_UPDATE)) {
+            // Note this change is a no-op, if actually run
+            assertQueryFails("UPDATE nation SET nationkey = nationkey + regionkey WHERE regionkey < 1", MODIFYING_ROWS_MESSAGE);
+            return;
+        }
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_row_update", "AS SELECT * FROM nation")) {
+            assertUpdate("UPDATE " + table.getName() + " SET nationkey = 100 WHERE regionkey = 2", 5);
+            assertQuery("SELECT count(*) FROM " + table.getName() + " WHERE nationkey = 100", "VALUES 5");
+        }
+    }
+
+    @Test
+    public void testRowLevelUpdate()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA));
+        if (!hasBehavior(SUPPORTS_ROW_LEVEL_UPDATE)) {
             // Note this change is a no-op, if actually run
             assertQueryFails("UPDATE nation SET nationkey = nationkey + regionkey WHERE regionkey < 1", MODIFYING_ROWS_MESSAGE);
             return;
@@ -4857,6 +5025,87 @@ public abstract class BaseConnectorTest
     {
         // By default, do not expect ALTER TABLE ADD COLUMN to fail in case of concurrent inserts
         throw new AssertionError("Unexpected concurrent add column failure", e);
+    }
+
+    // Repeat test with invocationCount for better test coverage, since the tested aspect is inherently non-deterministic.
+    @Test(timeOut = 60_000, invocationCount = 4)
+    public void testCreateOrReplaceTableConcurrently()
+            throws Exception
+    {
+        if (!hasBehavior(SUPPORTS_CREATE_OR_REPLACE_TABLE)) {
+            // Already handled in testCreateOrReplaceTableWhenTableDoesNotExist
+            return;
+        }
+
+        int threads = 4;
+        int numOfCreateOrReplaceStatements = 4;
+        int numOfReads = 16;
+        CyclicBarrier barrier = new CyclicBarrier(threads + 1);
+        ExecutorService executor = newFixedThreadPool(threads + 1);
+        List<Future<?>> futures = new ArrayList<>();
+        try (TestTable table = createTableWithOneIntegerColumn("test_create_or_replace")) {
+            String tableName = table.getName();
+
+            getQueryRunner().execute("CREATE OR REPLACE TABLE " + tableName + " AS SELECT 1 a");
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES 1");
+
+            /// One thread submits some CREATE OR REPLACE statements
+            futures.add(executor.submit(() -> {
+                barrier.await(30, SECONDS);
+                IntStream.range(0, numOfCreateOrReplaceStatements).forEach(index -> {
+                    try {
+                        getQueryRunner().execute("CREATE OR REPLACE TABLE " + tableName + " AS SELECT * FROM (VALUES (1), (2)) AS t(a) ");
+                    } catch (Exception e) {
+                        RuntimeException trinoException = getTrinoExceptionCause(e);
+                        try {
+                            throw new AssertionError("Unexpected concurrent CREATE OR REPLACE failure", trinoException);
+                        } catch (Throwable verifyFailure) {
+                            if (verifyFailure != e) {
+                                verifyFailure.addSuppressed(e);
+                            }
+                            throw verifyFailure;
+                        }
+                    }
+                });
+                return null;
+            }));
+            // Other 4 threads continue try to read the same table, none of the reads should fail.
+            IntStream.range(0, threads)
+                    .forEach(threadNumber -> futures.add(executor.submit(() -> {
+                        barrier.await(30, SECONDS);
+                        IntStream.range(0, numOfReads).forEach(readIndex -> {
+                            try {
+                                MaterializedResult result = computeActual("SELECT * FROM " + tableName);
+                                if (result.getRowCount() == 1) {
+                                    assertEqualsIgnoreOrder(result.getMaterializedRows(), List.of(new MaterializedRow(List.of(1))));
+                                }
+                                else {
+                                    assertEqualsIgnoreOrder(result.getMaterializedRows(), List.of(new MaterializedRow(List.of(1)), new MaterializedRow(List.of(2))));
+                                }
+                            }
+                            catch (Exception e) {
+                                RuntimeException trinoException = getTrinoExceptionCause(e);
+                                try {
+                                    throw new AssertionError("Unexpected concurrent CREATE OR REPLACE failure", trinoException);
+                                }
+                                catch (Throwable verifyFailure) {
+                                    if (verifyFailure != e) {
+                                        verifyFailure.addSuppressed(e);
+                                    }
+                                    throw verifyFailure;
+                                }
+                            }
+                        });
+                        return null;
+                    })));
+            futures.forEach(Futures::getUnchecked);
+            getQueryRunner().execute("CREATE OR REPLACE TABLE " + tableName + " AS SELECT * FROM (VALUES (1), (2), (3)) AS t(a)");
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES 1, 2, 3");
+        }
+        finally {
+            executor.shutdownNow();
+            executor.awaitTermination(30, SECONDS);
+        }
     }
 
     protected TestTable createTableWithOneIntegerColumn(String namePrefix)
@@ -5650,12 +5899,12 @@ public abstract class BaseConnectorTest
         assertQuery("SELECT count(*) FROM " + tableName + " WHERE mod(orderkey, 3) = 1", "SELECT 0");
 
         // verify untouched rows
-        assertThat(query("SELECT count(*), cast(sum(totalprice) AS decimal(18,2)) FROM " + tableName + " WHERE mod(orderkey, 3) = 2"))
-                .matches("SELECT count(*), cast(sum(totalprice) AS decimal(18,2)) FROM tpch.sf1.orders WHERE mod(orderkey, 3) = 2");
+        assertThat(query("SELECT count(*), sum(cast(totalprice AS decimal(18,2))) FROM " + tableName + " WHERE mod(orderkey, 3) = 2"))
+                .matches("SELECT count(*), sum(cast(totalprice AS decimal(18,2))) FROM tpch.sf1.orders WHERE mod(orderkey, 3) = 2");
 
         // verify updated rows
-        assertThat(query("SELECT count(*), cast(sum(totalprice) AS decimal(18,2)) FROM " + tableName + " WHERE mod(orderkey, 3) = 0"))
-                .matches("SELECT count(*), cast(sum(totalprice * 2) AS decimal(18,2)) FROM tpch.sf1.orders WHERE mod(orderkey, 3) = 0");
+        assertThat(query("SELECT count(*), sum(cast(totalprice AS decimal(18,2))) FROM " + tableName + " WHERE mod(orderkey, 3) = 0"))
+                .matches("SELECT count(*), sum(cast(totalprice AS decimal(18,2)) * 2) FROM tpch.sf1.orders WHERE mod(orderkey, 3) = 0");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -6115,7 +6364,8 @@ public abstract class BaseConnectorTest
 
         assertUpdate(format("INSERT INTO %s VALUES ('ALGERIA', 'AFRICA'), ('FRANCE', 'EUROPE'), ('EGYPT', 'MIDDLE EAST'), ('RUSSIA', 'EUROPE')", sourceTable), 4);
 
-        assertUpdate(format("MERGE INTO %s t USING %s s", targetTable, sourceTable) +
+        assertUpdate(
+                format("MERGE INTO %s t USING %s s", targetTable, sourceTable) +
                         "    ON (t.nation_name = s.nation_name)" +
                         "    WHEN MATCHED AND t.nation_name > (SELECT name FROM tpch.tiny.region WHERE name = t.region_name AND name LIKE ('A%'))" +
                         "        THEN DELETE" +
@@ -6229,6 +6479,114 @@ public abstract class BaseConnectorTest
     }
 
     @Test
+    public void testCreateFunction()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_FUNCTION));
+
+        String name = "test_" + randomNameSuffix();
+        String name2 = "test_" + randomNameSuffix();
+        String name3 = "test_" + randomNameSuffix();
+
+        assertUpdate("CREATE FUNCTION " + name + "(x integer) RETURNS bigint COMMENT 't42' RETURN x * 42");
+
+        assertQuery("SELECT " + name + "(99)", "SELECT 4158");
+        assertQueryFails("SELECT " + name + "(2.9)", ".*Unexpected parameters.*");
+
+        assertUpdate("CREATE FUNCTION " + name + "(x double) RETURNS double COMMENT 't88' RETURN x * 8.8");
+
+        assertThat(query("SHOW FUNCTIONS"))
+                .skippingTypesCheck()
+                .containsAll(resultBuilder(getSession())
+                        .row(name, "bigint", "integer", "scalar", true, "t42")
+                        .row(name, "double", "double", "scalar", true, "t88")
+                        .build());
+
+        assertQuery("SELECT " + name + "(99)", "SELECT 4158");
+        assertQuery("SELECT " + name + "(2.9)", "SELECT 25.52");
+
+        assertQueryFails("CREATE FUNCTION " + name + "(x int) RETURNS bigint RETURN x", "line 1:1: Function already exists");
+
+        assertQuery("SELECT " + name + "(99)", "SELECT 4158");
+        assertQuery("SELECT " + name + "(2.9)", "SELECT 25.52");
+
+        assertUpdate("CREATE OR REPLACE FUNCTION " + name + "(x bigint) RETURNS bigint RETURN x * 23");
+        assertUpdate("CREATE FUNCTION " + name2 + "(s varchar) RETURNS varchar RETURN 'Hello ' || s");
+
+        assertThat(query("SHOW FUNCTIONS"))
+                .skippingTypesCheck()
+                .containsAll(resultBuilder(getSession())
+                        .row(name, "bigint", "integer", "scalar", true, "t42")
+                        .row(name, "bigint", "bigint", "scalar", true, "")
+                        .row(name, "double", "double", "scalar", true, "t88")
+                        .row(name2, "varchar", "varchar", "scalar", true, "")
+                        .build());
+
+        assertQuery("SELECT " + name + "(99)", "SELECT 4158");
+        assertQuery("SELECT " + name + "(cast(99 as bigint))", "SELECT 2277");
+        assertQuery("SELECT " + name + "(2.9)", "SELECT 25.52");
+        assertQuery("SELECT " + name2 + "('world')", "SELECT 'Hello world'");
+
+        assertQuery("SELECT sum(" + name + "(orderkey)) FROM orders", "SELECT sum(orderkey * 23) FROM orders");
+
+        assertUpdate("CREATE FUNCTION " + name3 + "() RETURNS double NOT DETERMINISTIC RETURN random()");
+
+        assertThat(query("SHOW FUNCTIONS"))
+                .skippingTypesCheck()
+                .containsAll(resultBuilder(getSession())
+                        .row(name3, "double", "", "scalar", false, "")
+                        .build());
+
+        assertThat(query("SHOW FUNCTIONS FROM " + computeScalar("SELECT current_path")))
+                .skippingTypesCheck()
+                .matches(resultBuilder(getSession())
+                        .row(name, "bigint", "integer", "scalar", true, "t42")
+                        .row(name, "bigint", "bigint", "scalar", true, "")
+                        .row(name, "double", "double", "scalar", true, "t88")
+                        .row(name2, "varchar", "varchar", "scalar", true, "")
+                        .row(name3, "double", "", "scalar", false, "")
+                        .build());
+
+        assertQueryFails("DROP FUNCTION " + name + "(varchar)", "line 1:1: Function not found");
+        assertUpdate("DROP FUNCTION " + name + "(z bigint)");
+        assertUpdate("DROP FUNCTION " + name + "(double)");
+        assertQueryFails("DROP FUNCTION " + name + "(bigint)", "line 1:1: Function not found");
+        assertUpdate("DROP FUNCTION IF EXISTS " + name + "(bigint)");
+        assertUpdate("DROP FUNCTION " + name + "(int)");
+        assertUpdate("DROP FUNCTION " + name2 + "(varchar)");
+        assertQueryFails("DROP FUNCTION " + name2 + "(varchar)", "line 1:1: Function not found");
+        assertUpdate("DROP FUNCTION " + name3 + "()");
+        assertQueryFails("DROP FUNCTION " + name3 + "()", "line 1:1: Function not found");
+
+        assertThat(query("SHOW FUNCTIONS FROM " + computeScalar("SELECT current_path")))
+                .returnsEmptyResult();
+
+        // verify stored functions cannot see inline functions
+        String myAbs = "my_abs_" + randomNameSuffix();
+        assertUpdate("CREATE FUNCTION " + myAbs + "(x integer) RETURNS integer RETURN abs(x)");
+        // test with inline function first as FunctionManager caches compiled implementations
+        assertQuery("WITH FUNCTION abs(x integer) RETURNS integer RETURN x * 2 SELECT " + myAbs + "(-33)", "SELECT 33");
+        assertQuery("SELECT " + myAbs + "(-33)", "SELECT 33");
+
+        String wrapMyAbs = "wrap_my_abs_" + randomNameSuffix();
+        assertUpdate("CREATE FUNCTION " + wrapMyAbs + "(x integer) RETURNS integer RETURN " + myAbs + "(x)");
+        // test with inline function first as FunctionManager caches compiled implementations
+        assertQuery("WITH FUNCTION " + myAbs + "(x integer) RETURNS integer RETURN x * 2 SELECT " + wrapMyAbs + "(-33)", "SELECT 33");
+        assertQuery("SELECT " + wrapMyAbs + "(-33)", "SELECT 33");
+        assertUpdate("DROP FUNCTION " + myAbs + "(integer)");
+        assertUpdate("DROP FUNCTION " + wrapMyAbs + "(integer)");
+
+        // verify mutually recursive functions are not allowed
+        String recursive1 = "recursive1_" + randomNameSuffix();
+        String recursive2 = "recursive2_" + randomNameSuffix();
+        assertUpdate("CREATE FUNCTION " + recursive1 + "(x integer) RETURNS integer RETURN x");
+        assertUpdate("CREATE FUNCTION " + recursive2 + "(x integer) RETURNS integer RETURN " + recursive1 + "(x)");
+        assertUpdate("CREATE OR REPLACE FUNCTION " + recursive1 + "(x integer) RETURNS integer RETURN " + recursive2 + "(x)");
+        assertQueryFails("SELECT " + recursive1 + "(42)", "line 3:8: Recursive language functions are not supported: " + recursive1 + "\\(integer\\):integer");
+        assertUpdate("DROP FUNCTION " + recursive1 + "(integer)");
+        assertUpdate("DROP FUNCTION " + recursive2 + "(integer)");
+    }
+
+    @Test
     public void testProjectionPushdown()
     {
         skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE_WITH_DATA) && hasBehavior(SUPPORTS_ROW_TYPE));
@@ -6253,7 +6611,7 @@ public abstract class BaseConnectorTest
                         .isFullyPushedDown();
 
                 // With Projection Pushdown disabled
-                Session sessionWithoutPushdown = sessionWithProjectionPushdownDisabled();
+                Session sessionWithoutPushdown = sessionWithProjectionPushdownDisabled(getSession());
                 assertThat(query(sessionWithoutPushdown, selectQuery))
                         .matches(expectedResult)
                         .isNotFullyPushedDown(ProjectNode.class);
@@ -6377,10 +6735,11 @@ public abstract class BaseConnectorTest
                 "AS SELECT val AS id, CAST(ROW(val + 1, val + 2) AS ROW(leaf1 BIGINT, leaf2 BIGINT)) AS root FROM UNNEST(SEQUENCE(1, 10)) AS t(val)")) {
             MaterializedResult expectedResult = computeActual("SELECT val + 2 FROM UNNEST(SEQUENCE(1, 10)) AS t(val)");
             String selectQuery = "SELECT root.leaf2 FROM " + testTable.getName();
-            Session sessionWithoutPushdown = sessionWithProjectionPushdownDisabled();
+            Session sessionWithoutSmallFileThreshold = withoutSmallFileThreshold(getSession());
+            Session sessionWithoutPushdown = sessionWithProjectionPushdownDisabled(sessionWithoutSmallFileThreshold);
 
             assertQueryStats(
-                    getSession(),
+                    sessionWithoutSmallFileThreshold,
                     selectQuery,
                     statsWithPushdown -> {
                         DataSize physicalInputDataSizeWithPushdown = statsWithPushdown.getPhysicalInputDataSize();
@@ -6414,12 +6773,13 @@ public abstract class BaseConnectorTest
                 "test_projection_pushdown_physical_input_size_",
                 "AS SELECT val AS id, CAST(ROW(val + 1, val + 2) AS ROW(leaf1 BIGINT, leaf2 BIGINT)) AS root FROM UNNEST(SEQUENCE(1, 10)) AS t(val)")) {
             // Verify that the physical input size is smaller when reading the root.leaf1 field compared to reading the root field
+            Session sessionWithoutSmallFileThreshold = withoutSmallFileThreshold(getSession());
             assertQueryStats(
-                    getSession(),
+                    sessionWithoutSmallFileThreshold,
                     "SELECT root FROM " + testTable.getName(),
                     statsWithSelectRootField -> {
                         assertQueryStats(
-                                getSession(),
+                                sessionWithoutSmallFileThreshold,
                                 "SELECT root.leaf1 FROM " + testTable.getName(),
                                 statsWithSelectLeafField -> {
                                     if (supportsPhysicalPushdown()) {
@@ -6436,11 +6796,11 @@ public abstract class BaseConnectorTest
 
             // Verify that the physical input size is the same when reading the root field compared to reading both the root and root.leaf1 fields
             assertQueryStats(
-                    getSession(),
+                    sessionWithoutSmallFileThreshold,
                     "SELECT root FROM " + testTable.getName(),
                     statsWithSelectRootField -> {
                         assertQueryStats(
-                                getSession(),
+                                sessionWithoutSmallFileThreshold,
                                 "SELECT root, root.leaf1 FROM " + testTable.getName(),
                                 statsWithSelectRootAndLeafField -> {
                                     assertThat(statsWithSelectRootAndLeafField.getPhysicalInputDataSize()).isEqualTo(statsWithSelectRootField.getPhysicalInputDataSize());
@@ -6448,6 +6808,13 @@ public abstract class BaseConnectorTest
                                 results -> assertEqualsIgnoreOrder(results.getMaterializedRows(), computeActual("SELECT ROW(val + 1, val + 2), val + 1 FROM UNNEST(SEQUENCE(1, 10)) AS t(val)").getMaterializedRows()));
                     },
                     results -> assertEquals(results.getOnlyColumnAsSet(), computeActual("SELECT ROW(val + 1, val + 2) FROM UNNEST(SEQUENCE(1, 10)) AS t(val)").getOnlyColumnAsSet()));
+        }
+    }
+
+    protected static void skipTestUnless(boolean requirement)
+    {
+        if (!requirement) {
+            throw new SkipException("requirement not met");
         }
     }
 
@@ -6495,11 +6862,16 @@ public abstract class BaseConnectorTest
         return true;
     }
 
-    protected Session sessionWithProjectionPushdownDisabled()
+    protected Session sessionWithProjectionPushdownDisabled(Session session)
     {
-        return Session.builder(getSession())
+        return Session.builder(session)
                 .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "projection_pushdown_enabled", "false")
                 .build();
+    }
+
+    protected Session withoutSmallFileThreshold(Session session)
+    {
+        throw new UnsupportedOperationException();
     }
 
     protected static final class DataMappingTestSetup

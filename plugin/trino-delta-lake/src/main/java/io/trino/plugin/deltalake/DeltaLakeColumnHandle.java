@@ -44,6 +44,7 @@ public class DeltaLakeColumnHandle
 {
     private static final int INSTANCE_SIZE = instanceSize(DeltaLakeColumnHandle.class);
 
+    public static final String ROW_POSITION_COLUMN_NAME = "$row_position";
     public static final String ROW_ID_COLUMN_NAME = "$row_id";
 
     public static final Type MERGE_ROW_ID_TYPE = rowType(
@@ -216,6 +217,11 @@ public class DeltaLakeColumnHandle
                 projectionInfo.map(DeltaLakeColumnProjectionInfo::toHiveColumnProjectionInfo),
                 columnType.toHiveColumnType(),
                 Optional.empty());
+    }
+
+    public static DeltaLakeColumnHandle rowPositionColumnHandle()
+    {
+        return new DeltaLakeColumnHandle(ROW_POSITION_COLUMN_NAME, BIGINT, OptionalInt.empty(), ROW_POSITION_COLUMN_NAME, BIGINT, SYNTHESIZED, Optional.empty());
     }
 
     public static DeltaLakeColumnHandle pathColumnHandle()

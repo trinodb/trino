@@ -140,4 +140,9 @@ public final class MoreMath
         }
         return max(v1, v2);
     }
+
+    public static int previousPowerOfTwo(int x)
+    {
+        return Math.max(1, 1 << 31 - Integer.numberOfLeadingZeros(x));
+    }
 }

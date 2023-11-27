@@ -29,6 +29,7 @@ import io.trino.security.SecurityContext;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
@@ -42,6 +43,7 @@ import io.trino.transaction.TransactionManager;
 import java.security.Principal;
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -55,6 +57,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
+import static io.trino.sql.SqlPath.EMPTY_PATH;
 import static io.trino.util.Failures.checkCondition;
 import static java.util.Objects.requireNonNull;
 
@@ -310,6 +313,11 @@ public final class Session
         return exchangeEncryptionKey;
     }
 
+    public SessionPropertyManager getSessionPropertyManager()
+    {
+        return sessionPropertyManager;
+    }
+
     public Session beginTransactionId(TransactionId transactionId, TransactionManager transactionManager, AccessControl accessControl)
     {
         requireNonNull(transactionId, "transactionId is null");
@@ -342,7 +350,7 @@ public final class Session
                 throw new TrinoException(NOT_FOUND, "Catalog for role does not exist: " + catalogName);
             }
             if (role.getType() == SelectedRole.Type.ROLE) {
-                accessControl.checkCanSetCatalogRole(new SecurityContext(transactionId, identity, queryId), role.getRole().orElseThrow(), catalogName);
+                accessControl.checkCanSetCatalogRole(new SecurityContext(transactionId, identity, queryId, start), role.getRole().orElseThrow(), catalogName);
             }
             connectorRoles.put(catalogName, role);
         }
@@ -559,7 +567,7 @@ public final class Session
         for (Entry<String, String> property : catalogProperties.entrySet()) {
             // verify permissions
             if (transactionId.isPresent()) {
-                accessControl.checkCanSetCatalogSessionProperty(new SecurityContext(transactionId.get(), identity, queryId), catalogName, property.getKey());
+                accessControl.checkCanSetCatalogSessionProperty(new SecurityContext(transactionId.get(), identity, queryId, start), catalogName, property.getKey());
             }
 
             // validate catalog session property value
@@ -578,6 +586,31 @@ public final class Session
         }
     }
 
+    public Session createViewSession(Optional<String> catalog, Optional<String> schema, Identity identity, List<CatalogSchemaName> viewPath)
+    {
+        return createViewSession(catalog, schema, identity, path.forView(viewPath));
+    }
+
+    public Session createViewSession(Optional<String> catalog, Optional<String> schema, Identity identity, SqlPath sqlPath)
+    {
+        return builder(sessionPropertyManager)
+                .setQueryId(getQueryId())
+                .setTransactionId(getTransactionId().orElse(null))
+                .setIdentity(identity)
+                .setOriginalIdentity(getOriginalIdentity())
+                .setSource(getSource().orElse(null))
+                .setCatalog(catalog)
+                .setSchema(schema)
+                .setPath(sqlPath)
+                .setTimeZoneKey(getTimeZoneKey())
+                .setLocale(getLocale())
+                .setRemoteUserAddress(getRemoteUserAddress().orElse(null))
+                .setUserAgent(getUserAgent().orElse(null))
+                .setClientInfo(getClientInfo().orElse(null))
+                .setStart(getStart())
+                .build();
+    }
+
     public static SessionBuilder builder(SessionPropertyManager sessionPropertyManager)
     {
         return new SessionBuilder(sessionPropertyManager);
@@ -591,7 +624,7 @@ public final class Session
 
     public SecurityContext toSecurityContext()
     {
-        return new SecurityContext(getRequiredTransactionId(), getIdentity(), queryId);
+        return new SecurityContext(getRequiredTransactionId(), getIdentity(), queryId, start);
     }
 
     public static class SessionBuilder
@@ -605,7 +638,7 @@ public final class Session
         private String source;
         private String catalog;
         private String schema;
-        private SqlPath path;
+        private SqlPath path = EMPTY_PATH;
         private Optional<String> traceToken = Optional.empty();
         private TimeZoneKey timeZoneKey;
         private Locale locale;
@@ -739,13 +772,6 @@ public final class Session
         public SessionBuilder setPath(SqlPath path)
         {
             this.path = path;
-            return this;
-        }
-
-        @CanIgnoreReturnValue
-        public SessionBuilder setPath(Optional<SqlPath> path)
-        {
-            this.path = path.orElse(null);
             return this;
         }
 
@@ -915,7 +941,7 @@ public final class Session
                     Optional.ofNullable(source),
                     Optional.ofNullable(catalog),
                     Optional.ofNullable(schema),
-                    path != null ? path : new SqlPath(Optional.empty()),
+                    path,
                     traceToken,
                     timeZoneKey != null ? timeZoneKey : TimeZoneKey.getTimeZoneKey(TimeZone.getDefault().getID()),
                     locale != null ? locale : Locale.getDefault(),

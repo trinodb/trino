@@ -13,7 +13,7 @@
  */
 package io.trino.spi.type;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.type.Timestamps.roundDiv;
 import static org.assertj.core.api.Assertions.assertThat;

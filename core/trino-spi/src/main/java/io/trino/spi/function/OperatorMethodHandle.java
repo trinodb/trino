@@ -15,6 +15,8 @@ package io.trino.spi.function;
 
 import java.lang.invoke.MethodHandle;
 
+import static java.util.Objects.requireNonNull;
+
 public class OperatorMethodHandle
 {
     private final InvocationConvention callingConvention;
@@ -22,8 +24,8 @@ public class OperatorMethodHandle
 
     public OperatorMethodHandle(InvocationConvention callingConvention, MethodHandle methodHandle)
     {
-        this.callingConvention = callingConvention;
-        this.methodHandle = methodHandle;
+        this.callingConvention = requireNonNull(callingConvention, "callingConvention is null");
+        this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
     }
 
     public InvocationConvention getCallingConvention()

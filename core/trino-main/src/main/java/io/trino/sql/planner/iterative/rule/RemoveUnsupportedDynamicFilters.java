@@ -23,7 +23,6 @@ import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.OperatorNotFoundException;
-import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TableFunctionRegistry;
 import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
@@ -109,7 +108,6 @@ public class RemoveUnsupportedDynamicFilters
                         user -> ImmutableSet.of(),
                         new TableProceduresRegistry(CatalogServiceProvider.fail("procedures are not supported in testing analyzer")),
                         new TableFunctionRegistry(CatalogServiceProvider.fail("table functions are not supported in testing analyzer")),
-                        new SessionPropertyManager(),
                         new TablePropertyManager(CatalogServiceProvider.fail("table properties not supported in testing analyzer")),
                         new AnalyzePropertyManager(CatalogServiceProvider.fail("analyze properties not supported in testing analyzer")),
                         new TableProceduresPropertyManager(CatalogServiceProvider.fail("procedures are not supported in testing analyzer"))));
@@ -374,7 +372,7 @@ public class RemoveUnsupportedDynamicFilters
         private boolean doesSaturatedFloorCastOperatorExist(Type fromType, Type toType)
         {
             try {
-                plannerContext.getMetadata().getCoercion(session, SATURATED_FLOOR_CAST, fromType, toType);
+                plannerContext.getMetadata().getCoercion(SATURATED_FLOOR_CAST, fromType, toType);
             }
             catch (OperatorNotFoundException e) {
                 return false;

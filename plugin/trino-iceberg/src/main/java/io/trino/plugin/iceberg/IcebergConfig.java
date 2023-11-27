@@ -75,6 +75,7 @@ public class IcebergConfig
     private String catalogWarehouse;
     private int catalogCacheSize = 10;
     private boolean sortedWritingEnabled = true;
+    private boolean queryPartitionFilterRequired;
 
     public CatalogType getCatalogType()
     {
@@ -393,5 +394,18 @@ public class IcebergConfig
     {
         this.sortedWritingEnabled = sortedWritingEnabled;
         return this;
+    }
+
+    @Config("iceberg.query-partition-filter-required")
+    @ConfigDescription("Require a filter on at least one partition column")
+    public IcebergConfig setQueryPartitionFilterRequired(boolean queryPartitionFilterRequired)
+    {
+        this.queryPartitionFilterRequired = queryPartitionFilterRequired;
+        return this;
+    }
+
+    public boolean isQueryPartitionFilterRequired()
+    {
+        return queryPartitionFilterRequired;
     }
 }

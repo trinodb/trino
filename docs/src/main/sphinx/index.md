@@ -13,6 +13,7 @@ connector
 functions
 language
 sql
+routines
 develop
 glossary
 appendix

@@ -14,12 +14,10 @@
 package io.trino.plugin.ml;
 
 import io.airlift.slice.Slice;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.ml.TestUtils.getDataset;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestModelSerialization
 {
@@ -30,8 +28,12 @@ public class TestModelSerialization
         model.train(getDataset());
         Slice serialized = ModelUtils.serialize(model);
         Model deserialized = ModelUtils.deserialize(serialized);
-        assertNotNull(deserialized, "deserialization failed");
-        assertTrue(deserialized instanceof SvmClassifier, "deserialized model is not a svm");
+        assertThat(deserialized)
+                .describedAs("deserialization failed")
+                .isNotNull();
+        assertThat(deserialized)
+                .describedAs("deserialized model is not a svm")
+                .isInstanceOf(SvmClassifier.class);
     }
 
     @Test
@@ -41,8 +43,12 @@ public class TestModelSerialization
         model.train(getDataset());
         Slice serialized = ModelUtils.serialize(model);
         Model deserialized = ModelUtils.deserialize(serialized);
-        assertNotNull(deserialized, "deserialization failed");
-        assertTrue(deserialized instanceof SvmRegressor, "deserialized model is not a svm");
+        assertThat(deserialized)
+                .describedAs("deserialization failed")
+                .isNotNull();
+        assertThat(deserialized)
+                .describedAs("deserialized model is not a svm")
+                .isInstanceOf(SvmRegressor.class);
     }
 
     @Test
@@ -52,8 +58,12 @@ public class TestModelSerialization
         model.train(getDataset());
         Slice serialized = ModelUtils.serialize(model);
         Model deserialized = ModelUtils.deserialize(serialized);
-        assertNotNull(deserialized, "deserialization failed");
-        assertTrue(deserialized instanceof RegressorFeatureTransformer, "deserialized model is not a regressor feature transformer");
+        assertThat(deserialized)
+                .describedAs("deserialization failed")
+                .isNotNull();
+        assertThat(deserialized)
+                .describedAs("deserialized model is not a regressor feature transformer")
+                .isInstanceOf(RegressorFeatureTransformer.class);
     }
 
     @Test
@@ -63,8 +73,12 @@ public class TestModelSerialization
         model.train(getDataset());
         Slice serialized = ModelUtils.serialize(model);
         Model deserialized = ModelUtils.deserialize(serialized);
-        assertNotNull(deserialized, "deserialization failed");
-        assertTrue(deserialized instanceof ClassifierFeatureTransformer, "deserialized model is not a classifier feature transformer");
+        assertThat(deserialized)
+                .describedAs("deserialization failed")
+                .isNotNull();
+        assertThat(deserialized)
+                .describedAs("deserialized model is not a classifier feature transformer")
+                .isInstanceOf(ClassifierFeatureTransformer.class);
     }
 
     @Test
@@ -74,19 +88,23 @@ public class TestModelSerialization
         model.train(getDataset());
         Slice serialized = ModelUtils.serialize(model);
         Model deserialized = ModelUtils.deserialize(serialized);
-        assertNotNull(deserialized, "deserialization failed");
-        assertTrue(deserialized instanceof StringClassifierAdapter, "deserialized model is not a varchar classifier adapter");
+        assertThat(deserialized)
+                .describedAs("deserialization failed")
+                .isNotNull();
+        assertThat(deserialized)
+                .describedAs("deserialized model is not a varchar classifier adapter")
+                .isInstanceOf(StringClassifierAdapter.class);
     }
 
     @Test
     public void testSerializationIds()
     {
-        assertEquals((int) ModelUtils.MODEL_SERIALIZATION_IDS.get(SvmClassifier.class), 1);
-        assertEquals((int) ModelUtils.MODEL_SERIALIZATION_IDS.get(SvmRegressor.class), 2);
-        assertEquals((int) ModelUtils.MODEL_SERIALIZATION_IDS.get(FeatureVectorUnitNormalizer.class), 3);
-        assertEquals((int) ModelUtils.MODEL_SERIALIZATION_IDS.get(ClassifierFeatureTransformer.class), 4);
-        assertEquals((int) ModelUtils.MODEL_SERIALIZATION_IDS.get(RegressorFeatureTransformer.class), 5);
-        assertEquals((int) ModelUtils.MODEL_SERIALIZATION_IDS.get(FeatureUnitNormalizer.class), 6);
-        assertEquals((int) ModelUtils.MODEL_SERIALIZATION_IDS.get(StringClassifierAdapter.class), 7);
+        assertThat((int) ModelUtils.MODEL_SERIALIZATION_IDS.get(SvmClassifier.class)).isEqualTo(1);
+        assertThat((int) ModelUtils.MODEL_SERIALIZATION_IDS.get(SvmRegressor.class)).isEqualTo(2);
+        assertThat((int) ModelUtils.MODEL_SERIALIZATION_IDS.get(FeatureVectorUnitNormalizer.class)).isEqualTo(3);
+        assertThat((int) ModelUtils.MODEL_SERIALIZATION_IDS.get(ClassifierFeatureTransformer.class)).isEqualTo(4);
+        assertThat((int) ModelUtils.MODEL_SERIALIZATION_IDS.get(RegressorFeatureTransformer.class)).isEqualTo(5);
+        assertThat((int) ModelUtils.MODEL_SERIALIZATION_IDS.get(FeatureUnitNormalizer.class)).isEqualTo(6);
+        assertThat((int) ModelUtils.MODEL_SERIALIZATION_IDS.get(StringClassifierAdapter.class)).isEqualTo(7);
     }
 }

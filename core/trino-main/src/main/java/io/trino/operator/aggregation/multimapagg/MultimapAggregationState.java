@@ -13,7 +13,8 @@
  */
 package io.trino.operator.aggregation.multimapagg;
 
-import io.trino.spi.block.Block;
+import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateMetadata;
 
@@ -21,25 +22,13 @@ import io.trino.spi.function.AccumulatorStateMetadata;
         stateFactoryClass = MultimapAggregationStateFactory.class,
         stateSerializerClass = MultimapAggregationStateSerializer.class,
         typeParameters = {"K", "V"},
-        serializedType = "array(row(V, K))")
+        serializedType = "map(K, array(V))")
 public interface MultimapAggregationState
         extends AccumulatorState
 {
-    void add(Block keyBlock, Block valueBlock, int position);
+    void add(ValueBlock keyBlock, int keyPosition, ValueBlock valueBlock, int valuePosition);
 
-    void forEach(MultimapAggregationStateConsumer consumer);
+    void merge(MultimapAggregationState other);
 
-    default void merge(MultimapAggregationState otherState)
-    {
-        otherState.forEach(this::add);
-    }
-
-    boolean isEmpty();
-
-    default void reset()
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    int getEntryCount();
+    void writeAll(MapBlockBuilder out);
 }

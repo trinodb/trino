@@ -13,6 +13,7 @@
  */
 package io.trino.sql.planner.assertions;
 
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.AstVisitor;
@@ -52,8 +53,11 @@ import io.trino.sql.tree.WhenClause;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.metadata.ResolvedFunction.extractFunctionName;
+import static io.trino.metadata.ResolvedFunction.isResolved;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -486,8 +490,17 @@ public final class ExpressionVerifier
             return false;
         }
 
+        CatalogSchemaFunctionName expectedFunctionName;
+        if (isResolved(expected.getName())) {
+            expectedFunctionName = extractFunctionName(expected.getName());
+        }
+        else {
+            checkArgument(expected.getName().getParts().size() == 1, "Unresolved function call name must not be qualified: %s", expected.getName());
+            expectedFunctionName = builtinFunctionName(expected.getName().getSuffix());
+        }
+
         return actual.isDistinct() == expected.isDistinct() &&
-                extractFunctionName(actual.getName()).equals(extractFunctionName(expected.getName())) &&
+                extractFunctionName(actual.getName()).equals(expectedFunctionName) &&
                 process(actual.getArguments(), expected.getArguments()) &&
                 process(actual.getFilter(), expected.getFilter()) &&
                 process(actual.getWindow().map(Node.class::cast), expected.getWindow().map(Node.class::cast));

@@ -13,9 +13,7 @@
  */
 package io.trino.version;
 
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.concurrent.Callable;
@@ -26,19 +24,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestEmbedVersion
 {
-    private EmbedVersion embedVersion;
-
-    @BeforeClass
-    public void setUp()
-    {
-        embedVersion = new EmbedVersion("123-some-test-version");
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        embedVersion = null;
-    }
+    private final EmbedVersion embedVersion = new EmbedVersion("123-some-test-version");
 
     @Test
     public void testEmbedVersionInRunnable()

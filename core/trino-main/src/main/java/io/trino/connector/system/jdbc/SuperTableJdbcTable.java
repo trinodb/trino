@@ -22,7 +22,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 
 import static io.trino.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
-import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 
 public class SuperTableJdbcTable
         extends JdbcTable
@@ -30,10 +30,10 @@ public class SuperTableJdbcTable
     public static final SchemaTableName NAME = new SchemaTableName("jdbc", "super_tables");
 
     public static final ConnectorTableMetadata METADATA = tableMetadataBuilder(NAME)
-            .column("table_cat", createUnboundedVarcharType())
-            .column("table_schem", createUnboundedVarcharType())
-            .column("table_name", createUnboundedVarcharType())
-            .column("supertable_name", createUnboundedVarcharType())
+            .column("table_cat", VARCHAR)
+            .column("table_schem", VARCHAR)
+            .column("table_name", VARCHAR)
+            .column("supertable_name", VARCHAR)
             .build();
 
     @Override

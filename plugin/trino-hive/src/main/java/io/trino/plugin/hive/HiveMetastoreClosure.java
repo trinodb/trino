@@ -30,10 +30,13 @@ import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.function.LanguageFunction;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.RoleGrant;
 import io.trino.spi.type.Type;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -413,5 +416,35 @@ public class HiveMetastoreClosure
     public void alterTransactionalTable(Table table, long transactionId, long writeId, PrincipalPrivileges principalPrivileges)
     {
         delegate.alterTransactionalTable(table, transactionId, writeId, principalPrivileges);
+    }
+
+    public boolean functionExists(SchemaFunctionName name, String signatureToken)
+    {
+        return delegate.functionExists(name.getSchemaName(), name.getFunctionName(), signatureToken);
+    }
+
+    public Collection<LanguageFunction> getFunctions(String schemaName)
+    {
+        return delegate.getFunctions(schemaName);
+    }
+
+    public Collection<LanguageFunction> getFunctions(SchemaFunctionName name)
+    {
+        return delegate.getFunctions(name.getSchemaName(), name.getFunctionName());
+    }
+
+    public void createFunction(SchemaFunctionName name, LanguageFunction function)
+    {
+        delegate.createFunction(name.getSchemaName(), name.getFunctionName(), function);
+    }
+
+    public void replaceFunction(SchemaFunctionName name, LanguageFunction function)
+    {
+        delegate.replaceFunction(name.getSchemaName(), name.getFunctionName(), function);
+    }
+
+    public void dropFunction(SchemaFunctionName name, String signatureToken)
+    {
+        delegate.dropFunction(name.getSchemaName(), name.getFunctionName(), signatureToken);
     }
 }

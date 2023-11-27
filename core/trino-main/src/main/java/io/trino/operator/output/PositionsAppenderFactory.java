@@ -13,13 +13,20 @@
  */
 package io.trino.operator.output;
 
+import io.trino.spi.block.ByteArrayBlock;
 import io.trino.spi.block.Fixed12Block;
 import io.trino.spi.block.Int128ArrayBlock;
-import io.trino.spi.type.FixedWidthType;
+import io.trino.spi.block.IntArrayBlock;
+import io.trino.spi.block.LongArrayBlock;
+import io.trino.spi.block.RowBlock;
+import io.trino.spi.block.ShortArrayBlock;
+import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.VariableWidthType;
 import io.trino.type.BlockTypeOperators;
+import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
+
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -32,45 +39,41 @@ public class PositionsAppenderFactory
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
     }
 
-    public PositionsAppender create(Type type, int expectedPositions, long maxPageSizeInBytes)
+    public UnnestingPositionsAppender create(Type type, int expectedPositions, long maxPageSizeInBytes)
     {
-        if (!type.isComparable()) {
-            return new UnnestingPositionsAppender(createPrimitiveAppender(type, expectedPositions, maxPageSizeInBytes));
+        Optional<BlockPositionIsDistinctFrom> distinctFromOperator = Optional.empty();
+        if (type.isComparable()) {
+            distinctFromOperator = Optional.of(blockTypeOperators.getDistinctFromOperator(type));
         }
-
-        return new UnnestingPositionsAppender(
-                new RleAwarePositionsAppender(
-                        blockTypeOperators.getDistinctFromOperator(type),
-                        createPrimitiveAppender(type, expectedPositions, maxPageSizeInBytes)));
+        return new UnnestingPositionsAppender(createPrimitiveAppender(type, expectedPositions, maxPageSizeInBytes), distinctFromOperator);
     }
 
     private PositionsAppender createPrimitiveAppender(Type type, int expectedPositions, long maxPageSizeInBytes)
     {
-        if (type instanceof FixedWidthType) {
-            switch (((FixedWidthType) type).getFixedSize()) {
-                case Byte.BYTES:
-                    return new BytePositionsAppender(expectedPositions);
-                case Short.BYTES:
-                    return new ShortPositionsAppender(expectedPositions);
-                case Integer.BYTES:
-                    return new IntPositionsAppender(expectedPositions);
-                case Long.BYTES:
-                    return new LongPositionsAppender(expectedPositions);
-                case Fixed12Block.FIXED12_BYTES:
-                    return new Fixed12PositionsAppender(expectedPositions);
-                case Int128ArrayBlock.INT128_BYTES:
-                    return new Int128PositionsAppender(expectedPositions);
-                default:
-                    // size not supported directly, fallback to the generic appender
-            }
+        if (type.getValueBlockType() == ByteArrayBlock.class) {
+            return new BytePositionsAppender(expectedPositions);
         }
-        else if (type instanceof VariableWidthType) {
+        if (type.getValueBlockType() == ShortArrayBlock.class) {
+            return new ShortPositionsAppender(expectedPositions);
+        }
+        if (type.getValueBlockType() == IntArrayBlock.class) {
+            return new IntPositionsAppender(expectedPositions);
+        }
+        if (type.getValueBlockType() == LongArrayBlock.class) {
+            return new LongPositionsAppender(expectedPositions);
+        }
+        if (type.getValueBlockType() == Fixed12Block.class) {
+            return new Fixed12PositionsAppender(expectedPositions);
+        }
+        if (type.getValueBlockType() == Int128ArrayBlock.class) {
+            return new Int128PositionsAppender(expectedPositions);
+        }
+        if (type.getValueBlockType() == VariableWidthBlock.class) {
             return new SlicePositionsAppender(expectedPositions, maxPageSizeInBytes);
         }
-        else if (type instanceof RowType) {
+        if (type.getValueBlockType() == RowBlock.class) {
             return RowPositionsAppender.createRowAppender(this, (RowType) type, expectedPositions, maxPageSizeInBytes);
         }
-
         return new TypedPositionsAppender(type, expectedPositions);
     }
 }

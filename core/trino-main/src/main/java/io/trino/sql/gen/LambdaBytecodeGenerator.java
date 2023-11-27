@@ -359,7 +359,7 @@ public final class LambdaBytecodeGenerator
         };
     }
 
-    static class CompiledLambda
+    public static class CompiledLambda
     {
         // lambda method information
         private final Handle lambdaAsmHandle;

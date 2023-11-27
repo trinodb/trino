@@ -16,7 +16,7 @@ package io.trino.connector.system;
 import io.airlift.json.JsonCodec;
 import io.trino.spi.HostAddress;
 import io.trino.spi.predicate.TupleDomain;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static org.testng.Assert.assertEquals;

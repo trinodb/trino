@@ -15,6 +15,7 @@ package io.trino.plugin.hudi;
 
 import io.trino.testing.BaseConnectorSmokeTest;
 import io.trino.testing.TestingConnectorBehavior;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -24,32 +25,22 @@ public abstract class BaseHudiConnectorSmokeTest
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
-        switch (connectorBehavior) {
-            case SUPPORTS_INSERT:
-            case SUPPORTS_DELETE:
-            case SUPPORTS_UPDATE:
-            case SUPPORTS_MERGE:
-                return false;
-
-            case SUPPORTS_CREATE_SCHEMA:
-                return false;
-
-            case SUPPORTS_CREATE_TABLE:
-            case SUPPORTS_RENAME_TABLE:
-                return false;
-
-            case SUPPORTS_CREATE_VIEW:
-            case SUPPORTS_CREATE_MATERIALIZED_VIEW:
-                return false;
-
-            case SUPPORTS_COMMENT_ON_COLUMN:
-                return false;
-
-            default:
-                return super.hasBehavior(connectorBehavior);
-        }
+        return switch (connectorBehavior) {
+            case SUPPORTS_INSERT,
+                    SUPPORTS_DELETE,
+                    SUPPORTS_UPDATE,
+                    SUPPORTS_MERGE,
+                    SUPPORTS_CREATE_SCHEMA,
+                    SUPPORTS_CREATE_TABLE,
+                    SUPPORTS_RENAME_TABLE,
+                    SUPPORTS_CREATE_VIEW,
+                    SUPPORTS_CREATE_MATERIALIZED_VIEW,
+                    SUPPORTS_COMMENT_ON_COLUMN -> false;
+            default -> super.hasBehavior(connectorBehavior);
+        };
     }
 
+    @Test
     @Override
     public void testShowCreateTable()
     {

@@ -20,10 +20,7 @@ import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.assertj.core.api.AbstractDoubleAssert;
-import org.jdbi.v3.core.Handle;
-import org.jdbi.v3.core.Jdbi;
-import org.testng.SkipException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
 import java.util.List;
@@ -44,6 +41,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.withinPercentage;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
@@ -170,7 +168,7 @@ public abstract class BaseTestMySqlTableStatisticsTest
                 }
                 else {
                     assertNotNull(row.getField(2), "NDV for " + columnName);
-                    assertThat(((Number) row.getField(2)).doubleValue()).as("NDV for " + columnName).isBetween(0.0, 2.0);
+                    assertThat((Double) row.getField(2)).as("NDV for " + columnName).isBetween(0.0, 2.0);
                     assertEquals(row.getField(3), nullFractionToExpected.apply(1.0), "null fraction for " + columnName);
                 }
 
@@ -228,14 +226,14 @@ public abstract class BaseTestMySqlTableStatisticsTest
     @Test
     public void testAverageColumnLength()
     {
-        throw new SkipException("MySQL connector does not report average column length");
+        abort("MySQL connector does not report average column length");
     }
 
     @Override
     @Test
     public void testPartitionedTable()
     {
-        throw new SkipException("Not implemented"); // TODO
+        abort("Not implemented"); // TODO
     }
 
     @Override
@@ -264,12 +262,11 @@ public abstract class BaseTestMySqlTableStatisticsTest
     @Test
     public void testMaterializedView()
     {
-        throw new SkipException(""); // TODO is there a concept like materialized view in MySQL?
+        abort(""); // TODO is there a concept like materialized view in MySQL?
     }
 
     @Override
-    @Test(dataProvider = "testCaseColumnNamesDataProvider")
-    public void testCaseColumnNames(String tableName)
+    protected void testCaseColumnNames(String tableName)
     {
         executeInMysql(("" +
                 "CREATE TABLE " + tableName + " " +
@@ -347,10 +344,7 @@ public abstract class BaseTestMySqlTableStatisticsTest
 
     protected void executeInMysql(String sql)
     {
-        try (Handle handle = Jdbi.open(() -> mysqlServer.createConnection())) {
-            handle.execute("USE tpch");
-            handle.execute(sql);
-        }
+        mysqlServer.execute(sql);
     }
 
     protected void assertColumnStats(MaterializedResult statsResult, Map<String, Integer> columnNdvs)
@@ -430,7 +424,7 @@ public abstract class BaseTestMySqlTableStatisticsTest
         assertNull(lastRow.getField(6));
         assertEquals(lastRow.getFieldCount(), 7);
         assertNotNull(lastRow.getField(4));
-        return ((Number) lastRow.getField(4)).doubleValue();
+        return (Double) lastRow.getField(4);
     }
 
     protected static class MapBuilder<K, V>

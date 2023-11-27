@@ -32,4 +32,4 @@ COMMENT ON COLUMN users.name IS 'full name';
 
 ## See also
 
-[](./comments)
+[](/language/comments)

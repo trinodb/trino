@@ -14,6 +14,7 @@
 package io.trino.spi.connector;
 
 import io.airlift.slice.Slice;
+import io.trino.spi.ErrorCode;
 import io.trino.spi.Experimental;
 import io.trino.spi.TrinoException;
 import io.trino.spi.expression.Call;
@@ -25,6 +26,7 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionDependencyDeclaration;
 import io.trino.spi.function.FunctionId;
 import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.LanguageFunction;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.predicate.TupleDomain;
@@ -55,8 +57,14 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Stream;
 
+import static io.trino.spi.ErrorType.EXTERNAL;
+import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
+import static io.trino.spi.connector.SaveMode.IGNORE;
+import static io.trino.spi.connector.SaveMode.REPLACE;
 import static io.trino.spi.expression.Constant.FALSE;
 import static io.trino.spi.expression.StandardFunctions.AND_FUNCTION_NAME;
 import static java.util.Collections.emptyList;
@@ -396,8 +404,22 @@ public interface ConnectorMetadata
                         return RelationCommentMetadata.forRelation(tableName, getTableMetadata(session, tableHandle).getComment());
                     }
                     catch (RuntimeException e) {
-                        // getTableHandle or getTableMetadata failed call may fail if table disappeared during listing or is unsupported.
-                        Helper.juliLogger.log(Level.WARNING, () -> "Failed to get metadata for table: " + tableName);
+                        boolean silent = false;
+                        if (e instanceof TrinoException trinoException) {
+                            ErrorCode errorCode = trinoException.getErrorCode();
+                            silent = errorCode.equals(UNSUPPORTED_TABLE_TYPE.toErrorCode()) ||
+                                    // e.g. table deleted concurrently
+                                    errorCode.equals(NOT_FOUND.toErrorCode()) ||
+                                    // e.g. Iceberg/Delta table being deleted concurrently resulting in failure to load metadata from filesystem
+                                    errorCode.getType() == EXTERNAL;
+                        }
+                        if (silent) {
+                            Helper.juliLogger.log(Level.FINE, e, () -> "Failed to get metadata for table: " + tableName);
+                        }
+                        else {
+                            // getTableHandle or getTableMetadata failed call may fail if table disappeared during listing or is unsupported.
+                            Helper.juliLogger.log(Level.WARNING, e, () -> "Failed to get metadata for table: " + tableName);
+                        }
                         // Since the getTableHandle did not return null (i.e. succeeded or failed), we assume the table would be returned by listTables
                         return RelationCommentMetadata.forRelation(tableName, Optional.empty());
                     }
@@ -462,10 +484,28 @@ public interface ConnectorMetadata
      * Creates a table using the specified table metadata.
      *
      * @throws TrinoException with {@code ALREADY_EXISTS} if the table already exists and {@param ignoreExisting} is not set
+     * @deprecated use {@link #createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, SaveMode saveMode)}
      */
+    @Deprecated
     default void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables");
+    }
+
+    /**
+     * Creates a table using the specified table metadata.
+     * IGNORE means the table is created using CREATE ... IF NOT EXISTS syntax.
+     * REPLACE means the table is created using CREATE OR REPLACE syntax.
+     *
+     * @throws TrinoException with {@code ALREADY_EXISTS} if the table already exists and {@param savemode} is FAIL.
+     */
+    default void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, SaveMode saveMode)
+    {
+        if (saveMode == REPLACE) {
+            throw new TrinoException(NOT_SUPPORTED, "This connector does not support replacing tables");
+        }
+        // Delegate to deprecated SPI to not break existing connectors
+        createTable(session, tableMetadata, saveMode == IGNORE);
     }
 
     /**
@@ -643,7 +683,8 @@ public interface ConnectorMetadata
      * If {@link Optional#empty()} is returned, the type will be used as is during table creation which may or may not be supported by the connector.
      * The effective type shall be a type that is cast-compatible with the input type.
      */
-    default Optional<Type> getSupportedType(ConnectorSession session, Type type)
+    @Experimental(eta = "2024-01-31")
+    default Optional<Type> getSupportedType(ConnectorSession session, Map<String, Object> tableProperties, Type type)
     {
         return Optional.empty();
     }
@@ -706,10 +747,32 @@ public interface ConnectorMetadata
      *     new TrinoException(NOT_SUPPORTED, "This connector does not support query retries")
      * </pre>
      * unless {@code retryMode} is set to {@code NO_RETRIES}.
+     *
+     * @deprecated use {@link #beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional layout, RetryMode retryMode, boolean replace)}
      */
+    @Deprecated
     default ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with data");
+    }
+
+    /**
+     * Begin the atomic creation of a table with data.
+     *
+     * <p/>
+     * If connector does not support execution with retries, the method should throw:
+     * <pre>
+     *     new TrinoException(NOT_SUPPORTED, "This connector does not support query retries")
+     * </pre>
+     * unless {@code retryMode} is set to {@code NO_RETRIES}.
+     */
+    default ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorTableLayout> layout, RetryMode retryMode, boolean replace)
+    {
+        // Redirect to deprecated SPI to not break existing connectors
+        if (!replace) {
+            return beginCreateTable(session, tableMetadata, layout, retryMode);
+        }
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support replacing tables");
     }
 
     /**
@@ -942,6 +1005,25 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Attempt to push down an update operation into the connector. If a connector
+     * can execute an update for the table handle on its own, it should return a
+     * table handle, which will be passed back to {@link #executeUpdate} during
+     * query executing to actually execute the update.
+     */
+    default Optional<ConnectorTableHandle> applyUpdate(ConnectorSession session, ConnectorTableHandle handle, Map<ColumnHandle, Constant> assignments)
+    {
+        return Optional.empty();
+    }
+
+    /**
+     * Execute the update operation on the handle returned from {@link #applyUpdate}.
+     */
+    default OptionalLong executeUpdate(ConnectorSession session, ConnectorTableHandle handle)
+    {
+        throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, "ConnectorMetadata applyUpdate() is implemented without executeUpdate()");
+    }
+
+    /**
      * Attempt to push down a delete operation into the connector. If a connector
      * can execute a delete for the table handle on its own, it should return a
      * table handle, which will be passed back to {@link #executeDelete} during
@@ -1006,6 +1088,52 @@ public interface ConnectorMetadata
     default FunctionDependencyDeclaration getFunctionDependencies(ConnectorSession session, FunctionId functionId, BoundSignature boundSignature)
     {
         throw new IllegalArgumentException("Unknown function " + functionId);
+    }
+
+    /**
+     * List available language functions.
+     */
+    default Collection<LanguageFunction> listLanguageFunctions(ConnectorSession session, String schemaName)
+    {
+        return List.of();
+    }
+
+    /**
+     * Get all language functions with the specified name.
+     */
+    default Collection<LanguageFunction> getLanguageFunctions(ConnectorSession session, SchemaFunctionName name)
+    {
+        return List.of();
+    }
+
+    /**
+     * Check if a language function exists.
+     */
+    default boolean languageFunctionExists(ConnectorSession session, SchemaFunctionName name, String signatureToken)
+    {
+        return getLanguageFunctions(session, name).stream()
+                .anyMatch(function -> function.signatureToken().equals(signatureToken));
+    }
+
+    /**
+     * Creates a language function with the specified name and signature token.
+     * The signature token is an opaque string that uniquely identifies the function signature.
+     * Multiple functions with the same name but with different signatures may exist.
+     * The signature token is used to identify the function when dropping it.
+     *
+     * @param replace if true, replace existing function with the same name and signature token
+     */
+    default void createLanguageFunction(ConnectorSession session, SchemaFunctionName name, LanguageFunction function, boolean replace)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating functions");
+    }
+
+    /**
+     * Drops a language function with the specified name and signature token.
+     */
+    default void dropLanguageFunction(ConnectorSession session, SchemaFunctionName name, String signatureToken)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping functions");
     }
 
     /**
@@ -1366,6 +1494,11 @@ public interface ConnectorMetadata
             Map<String, ColumnHandle> assignments,
             List<List<ColumnHandle>> groupingSets)
     {
+        // Global aggregation is represented by [[]]
+        if (groupingSets.isEmpty()) {
+            throw new IllegalArgumentException("No grouping sets provided");
+        }
+
         return Optional.empty();
     }
 

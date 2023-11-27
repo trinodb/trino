@@ -21,7 +21,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.Type;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -95,20 +95,6 @@ public class TestBlockBuilder
         blockBuilder.appendNull();
         int[] positions = new int[] {0, 1, 1, 1, 4};
 
-        // test getPositions for block builder
-        assertBlockEquals(BIGINT, blockBuilder.getPositions(positions, 0, positions.length), buildBigintBlock(null, 42, 42, 42, null));
-        assertBlockEquals(BIGINT, blockBuilder.getPositions(positions, 1, 4), buildBigintBlock(42, 42, 42, null));
-        assertBlockEquals(BIGINT, blockBuilder.getPositions(positions, 2, 1), buildBigintBlock(42));
-        assertBlockEquals(BIGINT, blockBuilder.getPositions(positions, 0, 0), buildBigintBlock());
-        assertBlockEquals(BIGINT, blockBuilder.getPositions(positions, 1, 0), buildBigintBlock());
-
-        // out of range
-        assertInvalidPosition(blockBuilder, new int[] {-1}, 0, 1);
-        assertInvalidPosition(blockBuilder, new int[] {6}, 0, 1);
-        assertInvalidOffset(blockBuilder, new int[] {6}, 1, 1);
-        assertInvalidOffset(blockBuilder, new int[] {6}, -1, 1);
-        assertInvalidOffset(blockBuilder, new int[] {6}, 2, -1);
-
         // test getPositions for block
         Block block = blockBuilder.build();
         assertBlockEquals(BIGINT, block.getPositions(positions, 0, positions.length), buildBigintBlock(null, 42, 42, 42, null));
@@ -152,7 +138,7 @@ public class TestBlockBuilder
     {
         assertThatThrownBy(() -> block.getPositions(positions, offset, length).getLong(0, 0))
                 .isInstanceOfAny(IllegalArgumentException.class, IndexOutOfBoundsException.class)
-                .hasMessage("Invalid position %d in block with %d positions", positions[0], block.getPositionCount());
+                .hasMessage("Invalid position %d and length 1 in block with %d positions", positions[0], block.getPositionCount());
     }
 
     private static void assertInvalidOffset(Block block, int[] positions, int offset, int length)

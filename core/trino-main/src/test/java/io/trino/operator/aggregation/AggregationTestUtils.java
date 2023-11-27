@@ -24,7 +24,6 @@ import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.TypeSignatureProvider;
-import io.trino.sql.tree.QualifiedName;
 import org.apache.commons.math3.util.Precision;
 
 import java.util.Arrays;
@@ -47,12 +46,12 @@ public final class AggregationTestUtils
 {
     private AggregationTestUtils() {}
 
-    public static void assertAggregation(TestingFunctionResolution functionResolution, QualifiedName name, List<TypeSignatureProvider> parameterTypes, Object expectedValue, Block... blocks)
+    public static void assertAggregation(TestingFunctionResolution functionResolution, String name, List<TypeSignatureProvider> parameterTypes, Object expectedValue, Block... blocks)
     {
         assertAggregation(functionResolution, name, parameterTypes, expectedValue, new Page(blocks));
     }
 
-    public static void assertAggregation(TestingFunctionResolution functionResolution, QualifiedName name, List<TypeSignatureProvider> parameterTypes, Object expectedValue, Page page)
+    public static void assertAggregation(TestingFunctionResolution functionResolution, String name, List<TypeSignatureProvider> parameterTypes, Object expectedValue, Page page)
     {
         BiFunction<Object, Object, Boolean> equalAssertion = makeValidityAssertion(expectedValue);
 
@@ -70,7 +69,7 @@ public final class AggregationTestUtils
         return Objects::equals;
     }
 
-    public static void assertAggregation(TestingFunctionResolution functionResolution, QualifiedName name, List<TypeSignatureProvider> parameterTypes, BiFunction<Object, Object, Boolean> equalAssertion, String testDescription, Page page, Object expectedValue)
+    public static void assertAggregation(TestingFunctionResolution functionResolution, String name, List<TypeSignatureProvider> parameterTypes, BiFunction<Object, Object, Boolean> equalAssertion, String testDescription, Page page, Object expectedValue)
     {
         TestingAggregationFunction function = functionResolution.getAggregateFunction(name, parameterTypes);
 

@@ -22,7 +22,6 @@ import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.ArrayBlockBuilder;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RowBlockBuilder;
 import io.trino.spi.connector.ConnectorPageSource;
@@ -32,8 +31,8 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 import io.trino.spi.type.RowType;
+import io.trino.spi.type.RowType.Field;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.apache.avro.Conversions.DecimalConversion;
@@ -48,7 +47,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -206,8 +204,11 @@ public class BigQueryStorageAvroPageSource
                 int picosOfMillis = toIntExact(floorMod(epochMicros, MICROSECONDS_PER_MILLISECOND)) * PICOSECONDS_PER_MICROSECOND;
                 type.writeObject(output, fromEpochMillisAndFraction(floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND), picosOfMillis, UTC_KEY));
             }
-            else if (javaType == Block.class) {
-                writeBlock(output, type, value);
+            else if (type instanceof ArrayType arrayType) {
+                writeArray((ArrayBlockBuilder) output, (List<?>) value, arrayType);
+            }
+            else if (type instanceof RowType rowType) {
+                writeRow((RowBlockBuilder) output, rowType, (GenericRecord) value);
             }
             else {
                 throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Unhandled type for %s: %s", javaType.getSimpleName(), type));
@@ -249,31 +250,25 @@ public class BigQueryStorageAvroPageSource
         }
     }
 
-    private void writeBlock(BlockBuilder output, Type type, Object value)
+    private void writeArray(ArrayBlockBuilder output, List<?> value, ArrayType arrayType)
     {
-        if (type instanceof ArrayType && value instanceof List<?>) {
-            ((ArrayBlockBuilder) output).buildEntry(elementBuilder -> {
-                for (Object element : (List<?>) value) {
-                    appendTo(type.getTypeParameters().get(0), element, elementBuilder);
-                }
-            });
-            return;
-        }
-        if (type instanceof RowType && value instanceof GenericRecord record) {
-            ((RowBlockBuilder) output).buildEntry(fieldBuilders -> {
-                List<String> fieldNames = new ArrayList<>();
-                for (int i = 0; i < type.getTypeSignature().getParameters().size(); i++) {
-                    TypeSignatureParameter parameter = type.getTypeSignature().getParameters().get(i);
-                    fieldNames.add(parameter.getNamedTypeSignature().getName().orElse("field" + i));
-                }
-                checkState(fieldNames.size() == type.getTypeParameters().size(), "fieldName doesn't match with type size : %s", type);
-                for (int index = 0; index < type.getTypeParameters().size(); index++) {
-                    appendTo(type.getTypeParameters().get(index), record.get(fieldNames.get(index)), fieldBuilders.get(index));
-                }
-            });
-            return;
-        }
-        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unhandled type for Block: " + type.getTypeSignature());
+        Type elementType = arrayType.getElementType();
+        output.buildEntry(elementBuilder -> {
+            for (Object element : value) {
+                appendTo(elementType, element, elementBuilder);
+            }
+        });
+    }
+
+    private void writeRow(RowBlockBuilder output, RowType rowType, GenericRecord record)
+    {
+        List<Field> fields = rowType.getFields();
+        output.buildEntry(fieldBuilders -> {
+            for (int index = 0; index < fields.size(); index++) {
+                Field field = fields.get(index);
+                appendTo(field.getType(), record.get(field.getName().orElse("field" + index)), fieldBuilders.get(index));
+            }
+        });
     }
 
     @Override

@@ -43,7 +43,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
-import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -56,7 +55,6 @@ import static io.trino.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.trino.plugin.hive.util.HiveUtil.getFooterCount;
 import static io.trino.plugin.hive.util.HiveUtil.getHeaderCount;
 import static io.trino.plugin.hive.util.HiveUtil.splitError;
-import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 public abstract class LinePageSourceFactory
@@ -67,17 +65,14 @@ public abstract class LinePageSourceFactory
     private final TrinoFileSystemFactory fileSystemFactory;
     private final LineDeserializerFactory lineDeserializerFactory;
     private final LineReaderFactory lineReaderFactory;
-    private final Predicate<ConnectorSession> activation;
 
     protected LinePageSourceFactory(
             TrinoFileSystemFactory fileSystemFactory,
             LineDeserializerFactory lineDeserializerFactory,
-            LineReaderFactory lineReaderFactory,
-            Predicate<ConnectorSession> activation)
+            LineReaderFactory lineReaderFactory)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.lineDeserializerFactory = requireNonNull(lineDeserializerFactory, "lineDeserializerFactory is null");
-        this.activation = requireNonNull(activation, "activation is null");
         this.lineReaderFactory = requireNonNull(lineReaderFactory, "lineReaderFactory is null");
     }
 
@@ -97,8 +92,7 @@ public abstract class LinePageSourceFactory
             AcidTransaction transaction)
     {
         if (!lineReaderFactory.getHiveOutputFormatClassName().equals(schema.getProperty(FILE_INPUT_FORMAT)) ||
-                !lineDeserializerFactory.getHiveSerDeClassNames().contains(getDeserializerClassName(schema)) ||
-                !activation.test(session)) {
+                !lineDeserializerFactory.getHiveSerDeClassNames().contains(getDeserializerClassName(schema))) {
             return Optional.empty();
         }
 
@@ -133,35 +127,26 @@ public abstract class LinePageSourceFactory
                     Maps.fromProperties(schema));
         }
 
-        // buffer file if small
+        // Skip empty inputs
+        if (length == 0) {
+            return Optional.of(noProjectionAdaptation(new EmptyPageSource()));
+        }
+
         TrinoFileSystem trinoFileSystem = fileSystemFactory.create(session.getIdentity());
         TrinoInputFile inputFile = trinoFileSystem.newInputFile(path);
         try {
-            length = min(inputFile.length() - start, length);
-            if (!inputFile.exists()) {
-                throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, "File does not exist");
-            }
+            // buffer file if small
             if (estimatedFileSize < SMALL_FILE_SIZE.toBytes()) {
                 try (InputStream inputStream = inputFile.newStream()) {
                     byte[] data = inputStream.readAllBytes();
                     inputFile = new MemoryInputFile(path, Slices.wrappedBuffer(data));
                 }
             }
-        }
-        catch (TrinoException e) {
-            throw e;
-        }
-        catch (Exception e) {
-            throw new TrinoException(HIVE_CANNOT_OPEN_SPLIT, splitError(e, path, start, length), e);
-        }
-
-        // Split may be empty now that the correct file size is known
-        if (length <= 0) {
-            return Optional.of(noProjectionAdaptation(new EmptyPageSource()));
-        }
-
-        try {
             LineReader lineReader = lineReaderFactory.createLineReader(inputFile, start, length, headerCount, footerCount);
+            // Split may be empty after discovering the real file size and skipping headers
+            if (lineReader.isClosed()) {
+                return Optional.of(noProjectionAdaptation(new EmptyPageSource()));
+            }
             LinePageSource pageSource = new LinePageSource(lineReader, lineDeserializer, lineReaderFactory.createLineBuffer(), path);
             return Optional.of(new ReaderPageSource(pageSource, readerProjections));
         }

@@ -33,9 +33,9 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.testing.LocalQueryRunner;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.ToIntFunction;
@@ -52,7 +52,6 @@ import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAS
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.NONE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
@@ -102,17 +101,12 @@ public class TestColocatedJoin
         return queryRunner;
     }
 
-    @DataProvider(name = "colocated_join_enabled")
-    public Object[][] colocatedJoinEnabled()
+    @Test
+    public void testColocatedJoinWhenNumberOfBucketsInTableScanIsNotSufficient()
     {
-        return new Object[][] {{true}, {false}};
-    }
-
-    @Test(dataProvider = "colocated_join_enabled")
-    public void testColocatedJoinWhenNumberOfBucketsInTableScanIsNotSufficient(boolean colocatedJoinEnabled)
-    {
-        assertDistributedPlan(
-                """
+        for (boolean colocatedJoinEnabled : Arrays.asList(true, false)) {
+            assertDistributedPlan(
+                    """
                     SELECT
                         orders.column_a,
                         orders.column_b
@@ -130,18 +124,16 @@ public class TestColocatedJoin
                             orders.column_a = t.column_a
                         AND orders.column_b = t.column_b
                 """,
-                prepareSession(20, colocatedJoinEnabled),
-                anyTree(
-                        project(
-                                anyTree(
-                                        tableScan("orders"))),
-                        exchange(
-                                LOCAL,
-                                project(
-                                        exchange(
-                                                REMOTE,
-                                                anyTree(
-                                                        tableScan("orders")))))));
+                    prepareSession(20, colocatedJoinEnabled),
+                    anyTree(
+                            anyTree(
+                                    tableScan("orders")),
+                            exchange(
+                                    LOCAL,
+                                    exchange(
+                                            REMOTE,
+                                            tableScan("orders")))));
+        }
     }
 
     @Test
@@ -168,13 +160,11 @@ public class TestColocatedJoin
                 """,
                 prepareSession(0.01, true),
                 anyTree(
-                        project(
-                                anyTree(
-                                        tableScan("orders"))),
+                        anyTree(
+                                tableScan("orders")),
                         exchange(
                                 LOCAL,
-                                project(
-                                        tableScan("orders")))));
+                                tableScan("orders"))));
     }
 
     private Session prepareSession(double tableScanNodePartitioningMinBucketToTaskRatio, boolean colocatedJoinEnabled)

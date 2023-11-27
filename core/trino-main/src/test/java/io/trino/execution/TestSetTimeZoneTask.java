@@ -42,10 +42,13 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.SystemSessionProperties.TIME_ZONE_ID;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
+import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.tree.IntervalLiteral.IntervalField.HOUR;
 import static io.trino.sql.tree.IntervalLiteral.IntervalField.MINUTE;
 import static io.trino.sql.tree.IntervalLiteral.Sign.NEGATIVE;
 import static io.trino.sql.tree.IntervalLiteral.Sign.POSITIVE;
+import static io.trino.testing.TestingSession.testSession;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -109,7 +112,7 @@ public class TestSetTimeZoneTask
                 new NodeLocation(1, 1),
                 Optional.of(new FunctionCall(
                         new NodeLocation(1, 15),
-                        QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 15), "concat_ws", false))),
+                        localQueryRunner.getMetadata().resolveBuiltinFunction("concat_ws", fromTypes(VARCHAR, VARCHAR, VARCHAR)).toQualifiedName(),
                         ImmutableList.of(
                                 new StringLiteral(
                                         new NodeLocation(1, 25),
@@ -176,7 +179,7 @@ public class TestSetTimeZoneTask
                 new NodeLocation(1, 1),
                 Optional.of(new FunctionCall(
                         new NodeLocation(1, 24),
-                        QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 24), "parse_duration", false))),
+                        localQueryRunner.getMetadata().resolveBuiltinFunction("parse_duration", fromTypes(VARCHAR)).toQualifiedName(),
                         ImmutableList.of(
                                 new StringLiteral(
                                         new NodeLocation(1, 39),
@@ -196,7 +199,7 @@ public class TestSetTimeZoneTask
                 new NodeLocation(1, 1),
                 Optional.of(new FunctionCall(
                         new NodeLocation(1, 24),
-                        QualifiedName.of(ImmutableList.of(new Identifier(new NodeLocation(1, 24), "parse_duration", false))),
+                        localQueryRunner.getMetadata().resolveBuiltinFunction("parse_duration", fromTypes(VARCHAR)).toQualifiedName(),
                         ImmutableList.of(
                                 new StringLiteral(
                                         new NodeLocation(1, 39),
@@ -250,7 +253,7 @@ public class TestSetTimeZoneTask
                 Optional.empty(),
                 query,
                 Optional.empty(),
-                TEST_SESSION,
+                testSession(),
                 URI.create("fake://uri"),
                 new ResourceGroupId("test"),
                 false,

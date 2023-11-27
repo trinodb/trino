@@ -157,7 +157,8 @@ public class TestEventListenerBasic
                                     ImmutableList.of(new ConnectorViewDefinition.ViewColumn("test_column", BIGINT.getTypeId(), Optional.empty())),
                                     Optional.empty(),
                                     Optional.empty(),
-                                    true);
+                                    true,
+                                    ImmutableList.of());
                             SchemaTableName viewName = new SchemaTableName("default", "test_view");
                             return ImmutableMap.of(viewName, definition);
                         })
@@ -168,8 +169,10 @@ public class TestEventListenerBasic
                                     Optional.empty(),
                                     Optional.empty(),
                                     ImmutableList.of(new Column("test_column", BIGINT.getTypeId())),
+                                    Optional.of(Duration.ZERO),
                                     Optional.empty(),
                                     Optional.of("alice"),
+                                    ImmutableList.of(),
                                     ImmutableMap.of());
                             SchemaTableName materializedViewName = new SchemaTableName("default", "test_materialized_view");
                             return ImmutableMap.of(materializedViewName, definition);
@@ -188,13 +191,23 @@ public class TestEventListenerBasic
                         })
                         .withRowFilter(schemaTableName -> {
                             if (schemaTableName.getTableName().equals("test_table_with_row_filter")) {
-                                return new ViewExpression("user", Optional.of("tpch"), Optional.of("tiny"), "EXISTS (SELECT 1 FROM nation WHERE name = test_varchar)");
+                                return ViewExpression.builder()
+                                        .identity("user")
+                                        .catalog("tpch")
+                                        .schema("tiny")
+                                        .expression("EXISTS (SELECT 1 FROM nation WHERE name = test_varchar)")
+                                        .build();
                             }
                             return null;
                         })
                         .withColumnMask((schemaTableName, columnName) -> {
                             if (schemaTableName.getTableName().equals("test_table_with_column_mask") && columnName.equals("test_varchar")) {
-                                return new ViewExpression("user", Optional.of("tpch"), Optional.of("tiny"), "(SELECT cast(max(orderkey) AS varchar(15)) FROM orders)");
+                                return ViewExpression.builder()
+                                        .identity("user")
+                                        .catalog("tpch")
+                                        .schema("tiny")
+                                        .expression("(SELECT cast(max(orderkey) AS varchar(15)) FROM orders)")
+                                        .build();
                             }
                             return null;
                         })
@@ -238,7 +251,7 @@ public class TestEventListenerBasic
     public void testParseError()
             throws Exception
     {
-        assertFailedQuery("You shall not parse!", "line 1:1: mismatched input 'You'. Expecting: 'ALTER', 'ANALYZE', 'CALL', 'COMMENT', 'COMMIT', 'CREATE', 'DEALLOCATE', 'DELETE', 'DENY', 'DESC', 'DESCRIBE', 'DROP', 'EXECUTE', 'EXPLAIN', 'GRANT', 'INSERT', 'MERGE', 'PREPARE', 'REFRESH', 'RESET', 'REVOKE', 'ROLLBACK', 'SET', 'SHOW', 'START', 'TRUNCATE', 'UPDATE', 'USE', <query>");
+        assertFailedQuery("You shall not parse!", "line 1:1: mismatched input 'You'. Expecting: 'ALTER', 'ANALYZE', 'CALL', 'COMMENT', 'COMMIT', 'CREATE', 'DEALLOCATE', 'DELETE', 'DENY', 'DESC', 'DESCRIBE', 'DROP', 'EXECUTE', 'EXPLAIN', 'GRANT', 'INSERT', 'MERGE', 'PREPARE', 'REFRESH', 'RESET', 'REVOKE', 'ROLLBACK', 'SET', 'SHOW', 'START', 'TRUNCATE', 'UPDATE', 'USE', 'WITH', <query>");
     }
 
     @Test

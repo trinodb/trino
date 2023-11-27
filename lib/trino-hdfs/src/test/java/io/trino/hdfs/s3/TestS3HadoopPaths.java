@@ -15,12 +15,12 @@ package io.trino.hdfs.s3;
 
 import io.trino.filesystem.Location;
 import org.apache.hadoop.fs.Path;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 
 import static io.trino.filesystem.hdfs.HadoopPaths.hadoopPath;
-import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestS3HadoopPaths
 {

@@ -19,6 +19,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.SqlMap;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
@@ -203,12 +204,12 @@ public class FilesTable
             columns.add(dataFile.format().name());
             columns.add(dataFile.recordCount());
             columns.add(dataFile.fileSizeInBytes());
-            columns.add(getIntegerBigintMapBlock(dataFile.columnSizes()));
-            columns.add(getIntegerBigintMapBlock(dataFile.valueCounts()));
-            columns.add(getIntegerBigintMapBlock(dataFile.nullValueCounts()));
-            columns.add(getIntegerBigintMapBlock(dataFile.nanValueCounts()));
-            columns.add(getIntegerVarcharMapBlock(dataFile.lowerBounds()));
-            columns.add(getIntegerVarcharMapBlock(dataFile.upperBounds()));
+            columns.add(getIntegerBigintSqlMap(dataFile.columnSizes()));
+            columns.add(getIntegerBigintSqlMap(dataFile.valueCounts()));
+            columns.add(getIntegerBigintSqlMap(dataFile.nullValueCounts()));
+            columns.add(getIntegerBigintSqlMap(dataFile.nanValueCounts()));
+            columns.add(getIntegerVarcharSqlMap(dataFile.lowerBounds()));
+            columns.add(getIntegerVarcharSqlMap(dataFile.upperBounds()));
             columns.add(toVarbinarySlice(dataFile.keyMetadata()));
             columns.add(toBigintArrayBlock(dataFile.splitOffsets()));
             columns.add(toIntegerArrayBlock(dataFile.equalityFieldIds()));
@@ -216,20 +217,20 @@ public class FilesTable
             return columns;
         }
 
-        private Object getIntegerBigintMapBlock(Map<Integer, Long> value)
+        private SqlMap getIntegerBigintSqlMap(Map<Integer, Long> value)
         {
             if (value == null) {
                 return null;
             }
-            return toIntegerBigintMapBlock(value);
+            return toIntegerBigintSqlMap(value);
         }
 
-        private Object getIntegerVarcharMapBlock(Map<Integer, ByteBuffer> value)
+        private SqlMap getIntegerVarcharSqlMap(Map<Integer, ByteBuffer> value)
         {
             if (value == null) {
                 return null;
             }
-            return toIntegerVarcharMapBlock(
+            return toIntegerVarcharSqlMap(
                     value.entrySet().stream()
                             .filter(entry -> idToTypeMapping.containsKey(entry.getKey()))
                             .collect(toImmutableMap(
@@ -238,7 +239,7 @@ public class FilesTable
                                             idToTypeMapping.get(entry.getKey()), Conversions.fromByteBuffer(idToTypeMapping.get(entry.getKey()), entry.getValue())))));
         }
 
-        private Object toIntegerBigintMapBlock(Map<Integer, Long> values)
+        private SqlMap toIntegerBigintSqlMap(Map<Integer, Long> values)
         {
             return buildMapValue(
                     integerToBigintMapType,
@@ -249,7 +250,7 @@ public class FilesTable
                     }));
         }
 
-        private Object toIntegerVarcharMapBlock(Map<Integer, String> values)
+        private SqlMap toIntegerVarcharSqlMap(Map<Integer, String> values)
         {
             return buildMapValue(
                     integerToVarcharMapType,

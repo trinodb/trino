@@ -19,7 +19,6 @@ import com.google.common.util.concurrent.SimpleTimeLimiter;
 import com.google.common.util.concurrent.TimeLimiter;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
 import io.airlift.units.Duration;
-import io.trino.sql.parser.ParsingOptions;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.tree.CreateTable;
 import io.trino.sql.tree.CreateTableAsSelect;
@@ -56,7 +55,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import static io.trino.sql.SqlFormatter.formatSql;
-import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
 import static io.trino.sql.tree.LikeClause.PropertiesOption.INCLUDING;
 import static io.trino.sql.tree.SaveMode.IGNORE;
 import static io.trino.verifier.QueryType.READ;
@@ -105,7 +103,7 @@ public class QueryRewriter
             throw new QueryRewriteException("Cannot rewrite queries that use post-queries");
         }
 
-        Statement statement = parser.createStatement(query.getQuery(), new ParsingOptions(AS_DOUBLE /* anything */));
+        Statement statement = parser.createStatement(query.getQuery());
         try (Connection connection = DriverManager.getConnection(gatewayUrl, usernameOverride.orElse(query.getUsername()), passwordOverride.orElse(query.getPassword()))) {
             trySetConnectionProperties(query, connection);
             if (statement instanceof CreateTableAsSelect) {
@@ -208,10 +206,10 @@ public class QueryRewriter
                     querySpecification.getOffset(),
                     Optional.of(new Limit(new LongLiteral("0"))));
 
-            zeroRowsQuery = new io.trino.sql.tree.Query(createSelectClause.getWith(), innerQuery, Optional.empty(), Optional.empty(), Optional.empty());
+            zeroRowsQuery = new io.trino.sql.tree.Query(ImmutableList.of(), createSelectClause.getWith(), innerQuery, Optional.empty(), Optional.empty(), Optional.empty());
         }
         else {
-            zeroRowsQuery = new io.trino.sql.tree.Query(createSelectClause.getWith(), innerQuery, Optional.empty(), Optional.empty(), Optional.of(new Limit(new LongLiteral("0"))));
+            zeroRowsQuery = new io.trino.sql.tree.Query(ImmutableList.of(), createSelectClause.getWith(), innerQuery, Optional.empty(), Optional.empty(), Optional.of(new Limit(new LongLiteral("0"))));
         }
 
         ImmutableList.Builder<Column> columns = ImmutableList.builder();

@@ -116,15 +116,24 @@ public class LikeMatcher
         Optional<Matcher> matcher = Optional.empty();
         if (patternStart <= patternEnd) {
             boolean hasAny = false;
+            boolean hasAnyAfterZeroOrMore = false;
+            boolean foundZeroOrMore = false;
             for (int i = patternStart; i <= patternEnd; i++) {
-                if (parsed.get(i) instanceof Any) {
+                Pattern item = parsed.get(i);
+                if (item instanceof Any) {
+                    if (foundZeroOrMore) {
+                        hasAnyAfterZeroOrMore = true;
+                    }
                     hasAny = true;
                     break;
+                }
+                else if (item instanceof Pattern.ZeroOrMore) {
+                    foundZeroOrMore = true;
                 }
             }
 
             if (hasAny) {
-                if (optimize) {
+                if (optimize && !hasAnyAfterZeroOrMore) {
                     matcher = Optional.of(new DenseDfaMatcher(parsed, patternStart, patternEnd, exact));
                 }
                 else {

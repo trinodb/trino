@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.memory.MemoryConnectorFactory;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.MaterializedResult;
+import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -26,7 +27,6 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
-import org.testng.annotations.Test;
 
 import java.io.File;
 import java.nio.file.Files;

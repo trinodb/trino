@@ -62,7 +62,8 @@ public class TestOidcDiscovery
                     .put("http-server.authentication.oauth2.oidc.discovery", "false")
                     .put("http-server.authentication.oauth2.auth-url", issuer.resolve("/connect/authorize").toString())
                     .put("http-server.authentication.oauth2.token-url", issuer.resolve("/connect/token").toString())
-                    .put("http-server.authentication.oauth2.jwks-url", issuer.resolve("/jwks.json").toString());
+                    .put("http-server.authentication.oauth2.jwks-url", issuer.resolve("/jwks.json").toString())
+                    .put("http-server.authentication.oauth2.end-session-url", issuer.resolve("/connect/logout").toString());
             accessTokenIssuer.map(URI::toString).ifPresent(uri -> properties.put("http-server.authentication.oauth2.access-token-issuer", uri));
             userinfoUrl.map(URI::toString).ifPresent(uri -> properties.put("http-server.authentication.oauth2.userinfo-url", uri));
             try (TestingTrinoServer server = createServer(properties.buildOrThrow())) {
@@ -235,11 +236,11 @@ public class TestOidcDiscovery
                             .buildOrThrow())) {
                 assertComponents(server);
                 OAuth2ServerConfig config = server.getInstance(Key.get(OAuth2ServerConfigProvider.class)).get();
-                assertThat(config.getAccessTokenIssuer()).isEqualTo(Optional.of(accessTokenIssuer));
-                assertThat(config.getAuthUrl()).isEqualTo(authUrl);
-                assertThat(config.getTokenUrl()).isEqualTo(tokenUrl);
-                assertThat(config.getJwksUrl()).isEqualTo(jwksUrl);
-                assertThat(config.getUserinfoUrl()).isEqualTo(Optional.of(userinfoUrl));
+                assertThat(config.accessTokenIssuer()).isEqualTo(Optional.of(accessTokenIssuer));
+                assertThat(config.authUrl()).isEqualTo(authUrl);
+                assertThat(config.tokenUrl()).isEqualTo(tokenUrl);
+                assertThat(config.jwksUrl()).isEqualTo(jwksUrl);
+                assertThat(config.userinfoUrl()).isEqualTo(Optional.of(userinfoUrl));
             }
         }
     }
@@ -248,11 +249,11 @@ public class TestOidcDiscovery
     {
         assertComponents(server);
         OAuth2ServerConfig config = server.getInstance(Key.get(OAuth2ServerConfigProvider.class)).get();
-        assertThat(config.getAccessTokenIssuer()).isEqualTo(accessTokenIssuer.map(URI::toString));
-        assertThat(config.getAuthUrl()).isEqualTo(issuer.resolve("/connect/authorize"));
-        assertThat(config.getTokenUrl()).isEqualTo(issuer.resolve("/connect/token"));
-        assertThat(config.getJwksUrl()).isEqualTo(issuer.resolve("/jwks.json"));
-        assertThat(config.getUserinfoUrl()).isEqualTo(userinfoUrl);
+        assertThat(config.accessTokenIssuer()).isEqualTo(accessTokenIssuer.map(URI::toString));
+        assertThat(config.authUrl()).isEqualTo(issuer.resolve("/connect/authorize"));
+        assertThat(config.tokenUrl()).isEqualTo(issuer.resolve("/connect/token"));
+        assertThat(config.jwksUrl()).isEqualTo(issuer.resolve("/jwks.json"));
+        assertThat(config.userinfoUrl()).isEqualTo(userinfoUrl);
     }
 
     private static void assertComponents(TestingTrinoServer server)

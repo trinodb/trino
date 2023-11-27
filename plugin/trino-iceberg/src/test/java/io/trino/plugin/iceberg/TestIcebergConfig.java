@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveCompressionCodec;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
@@ -63,7 +63,8 @@ public class TestIcebergConfig
                 .setRegisterTableProcedureEnabled(false)
                 .setCatalogWarehouse(null)
                 .setCatalogCacheSize(10)
-                .setSortedWritingEnabled(true));
+                .setSortedWritingEnabled(true)
+                .setQueryPartitionFilterRequired(false));
     }
 
     @Test
@@ -93,6 +94,7 @@ public class TestIcebergConfig
                 .put("iceberg.catalog.warehouse", "s3://bucket/root")
                 .put("iceberg.catalog.cache-size", "3")
                 .put("iceberg.sorted-writing-enabled", "false")
+                .put("iceberg.query-partition-filter-required", "true")
                 .buildOrThrow();
 
         IcebergConfig expected = new IcebergConfig()
@@ -118,8 +120,8 @@ public class TestIcebergConfig
                 .setRegisterTableProcedureEnabled(true)
                 .setCatalogWarehouse("s3://bucket/root")
                 .setCatalogCacheSize(3)
-                .setSortedWritingEnabled(false);
-
+                .setSortedWritingEnabled(false)
+                .setQueryPartitionFilterRequired(true);
         assertFullMapping(properties, expected);
     }
 }

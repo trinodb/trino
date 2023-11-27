@@ -99,6 +99,7 @@ public class TestMemoryConnectorTest
                     SUPPORTS_SET_COLUMN_TYPE,
                     SUPPORTS_TOPN_PUSHDOWN,
                     SUPPORTS_UPDATE -> false;
+            case SUPPORTS_CREATE_FUNCTION -> true;
             default -> super.hasBehavior(connectorBehavior);
         };
     }

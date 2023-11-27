@@ -43,7 +43,6 @@ import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExcept
 import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
 public class TestBingTileFunctions
@@ -72,8 +71,8 @@ public class TestBingTileFunctions
         ObjectMapper objectMapper = new ObjectMapper();
         BingTile tile = fromCoordinates(1, 2, 3);
         String json = objectMapper.writeValueAsString(tile);
-        assertEquals("{\"x\":1,\"y\":2,\"zoom\":3}", json);
-        assertEquals(tile, objectMapper.readerFor(BingTile.class).readValue(json));
+        assertThat("{\"x\":1,\"y\":2,\"zoom\":3}").isEqualTo(json);
+        assertThat(tile).isEqualTo(objectMapper.readerFor(BingTile.class).readValue(json));
     }
 
     @Test

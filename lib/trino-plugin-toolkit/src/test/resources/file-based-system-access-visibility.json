@@ -130,9 +130,6 @@
             "user": "alice",
             "catalog": "ptf-catalog",
             "schema": "ptf_schema",
-            "function_kinds": [
-                "TABLE"
-            ],
             "function": "some_table_function",
             "privileges": [
                 "EXECUTE",
@@ -141,15 +138,29 @@
         },
         {
             "user": "bob",
-            "function_kinds": [
-                "SCALAR",
-                "AGGREGATE",
-                "WINDOW"
-            ],
+            "catalog": "specific-catalog",
             "function": "some_function",
             "privileges": [
                 "EXECUTE",
                 "GRANT_EXECUTE"
+            ]
+        }
+    ],
+    "procedures": [
+        {
+            "user": "bob",
+            "catalog": "alice-catalog",
+            "schema": "procedure-schema",
+            "procedure": "some_procedure",
+            "privileges": [
+                "EXECUTE"
+            ]
+        },
+        {
+            "user": "alice",
+            "catalog": "alice-catalog",
+            "procedure": "some_procedure",
+            "privileges": [
             ]
         }
     ]

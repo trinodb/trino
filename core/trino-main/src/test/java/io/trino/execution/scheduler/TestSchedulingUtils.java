@@ -36,7 +36,7 @@ import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Row;
 import io.trino.sql.tree.StringLiteral;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
@@ -365,6 +365,7 @@ public class TestSchedulingUtils
                 ImmutableList.of(valuesNodeId),
                 new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
                 StatsAndCosts.empty(),
+                ImmutableList.of(),
                 ImmutableList.of(),
                 Optional.empty());
         return new SubPlan(planFragment, children);

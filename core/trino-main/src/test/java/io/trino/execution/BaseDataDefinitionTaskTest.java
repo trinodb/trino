@@ -43,6 +43,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.MaterializedViewNotFoundException;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.function.OperatorType;
@@ -57,8 +58,9 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.transaction.TransactionManager;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestInstance;
 
 import java.net.URI;
 import java.util.HashMap;
@@ -81,6 +83,8 @@ import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createP
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.DIVISION_BY_ZERO;
+import static io.trino.spi.connector.SaveMode.IGNORE;
+import static io.trino.spi.connector.SaveMode.REPLACE;
 import static io.trino.spi.session.PropertyMetadata.longProperty;
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -89,7 +93,9 @@ import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 
+@TestInstance(PER_METHOD)
 public abstract class BaseDataDefinitionTaskTest
 {
     public static final String SCHEMA = "schema";
@@ -112,7 +118,7 @@ public abstract class BaseDataDefinitionTaskTest
     protected TransactionManager transactionManager;
     protected QueryStateMachine queryStateMachine;
 
-    @BeforeMethod
+    @BeforeEach
     public void setUp()
     {
         testSession = testSessionBuilder()
@@ -134,7 +140,7 @@ public abstract class BaseDataDefinitionTaskTest
         queryStateMachine = stateMachine(transactionManager, createTestMetadataManager(), new AllowAllAccessControl(), testSession);
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
     {
         if (queryRunner != null) {
@@ -189,6 +195,7 @@ public abstract class BaseDataDefinitionTaskTest
                 Optional.empty(),
                 Optional.empty(),
                 Identity.ofUser("owner"),
+                ImmutableList.of(),
                 Optional.empty(),
                 ImmutableMap.of(MATERIALIZED_VIEW_PROPERTY_2_NAME, MATERIALIZED_VIEW_PROPERTY_2_DEFAULT_VALUE));
     }
@@ -211,7 +218,8 @@ public abstract class BaseDataDefinitionTaskTest
                 Optional.empty(),
                 columns,
                 Optional.empty(),
-                Optional.empty());
+                Optional.empty(),
+                ImmutableList.of());
     }
 
     private static QueryStateMachine stateMachine(TransactionManager transactionManager, MetadataManager metadata, AccessControl accessControl, Session session)
@@ -335,9 +343,9 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
-        public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
+        public void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, SaveMode saveMode)
         {
-            checkArgument(ignoreExisting || !tables.containsKey(tableMetadata.getTable()));
+            checkArgument(saveMode == REPLACE || saveMode == IGNORE || !tables.containsKey(tableMetadata.getTable()));
             tables.put(tableMetadata.getTable(), tableMetadata);
         }
 
@@ -480,6 +488,7 @@ public abstract class BaseDataDefinitionTaskTest
                             existingDefinition.getGracePeriod(),
                             existingDefinition.getComment(),
                             existingDefinition.getRunAsIdentity().get(),
+                            existingDefinition.getPath(),
                             existingDefinition.getStorageTable(),
                             newProperties));
         }
@@ -500,6 +509,7 @@ public abstract class BaseDataDefinitionTaskTest
                             view.getGracePeriod(),
                             view.getComment(),
                             view.getRunAsIdentity().get(),
+                            view.getPath(),
                             view.getStorageTable(),
                             view.getProperties()));
         }
@@ -561,7 +571,8 @@ public abstract class BaseDataDefinitionTaskTest
                             view.getSchema(),
                             view.getColumns(),
                             comment,
-                            view.getRunAsIdentity()));
+                            view.getRunAsIdentity(),
+                            view.getPath()));
         }
 
         @Override
@@ -593,7 +604,8 @@ public abstract class BaseDataDefinitionTaskTest
                                     .map(currentViewColumn -> columnName.equals(currentViewColumn.getName()) ? new ViewColumn(currentViewColumn.getName(), currentViewColumn.getType(), comment) : currentViewColumn)
                                     .collect(toImmutableList()),
                             view.getComment(),
-                            view.getRunAsIdentity()));
+                            view.getRunAsIdentity(),
+                            view.getPath()));
         }
 
         @Override
@@ -605,9 +617,9 @@ public abstract class BaseDataDefinitionTaskTest
         }
 
         @Override
-        public ResolvedFunction getCoercion(Session session, OperatorType operatorType, Type fromType, Type toType)
+        public ResolvedFunction getCoercion(OperatorType operatorType, Type fromType, Type toType)
         {
-            return delegate.getCoercion(session, operatorType, fromType, toType);
+            return delegate.getCoercion(operatorType, fromType, toType);
         }
 
         private static ColumnMetadata withComment(ColumnMetadata tableColumn, Optional<String> comment)

@@ -15,8 +15,8 @@ package io.trino.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.type.TypeOperators;
 import org.junit.jupiter.api.Test;
 
@@ -44,14 +44,14 @@ public class TestUuidType
         super(UUID, String.class, createTestBlock());
     }
 
-    public static Block createTestBlock()
+    public static ValueBlock createTestBlock()
     {
         BlockBuilder blockBuilder = UUID.createBlockBuilder(null, 1);
         for (int i = 0; i < 10; i++) {
             String uuid = "6b5f5b65-67e4-43b0-8ee3-586cd49f58a" + i;
             UUID.writeSlice(blockBuilder, castFromVarcharToUuid(utf8Slice(uuid)));
         }
-        return blockBuilder.build();
+        return blockBuilder.buildValueBlock();
     }
 
     @Override

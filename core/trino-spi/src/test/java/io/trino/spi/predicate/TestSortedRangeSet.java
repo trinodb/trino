@@ -16,7 +16,6 @@ package io.trino.spi.predicate;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import io.airlift.json.ObjectMapperProvider;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.TestingBlockEncodingSerde;
@@ -25,9 +24,9 @@ import io.trino.spi.type.TestingTypeDeserializer;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import org.assertj.core.api.AssertProvider;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -47,9 +46,6 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestSortedRangeSet
 {
@@ -57,29 +53,29 @@ public class TestSortedRangeSet
     public void testEmptySet()
     {
         SortedRangeSet rangeSet = SortedRangeSet.none(BIGINT);
-        assertEquals(rangeSet.getType(), BIGINT);
-        assertTrue(rangeSet.isNone());
-        assertFalse(rangeSet.isAll());
-        assertFalse(rangeSet.isSingleValue());
-        assertTrue(rangeSet.getOrderedRanges().isEmpty());
-        assertEquals(rangeSet.getRangeCount(), 0);
-        assertEquals(rangeSet.complement(), SortedRangeSet.all(BIGINT));
-        assertFalse(rangeSet.containsValue(0L));
-        assertEquals(rangeSet.toString(), "SortedRangeSet[type=bigint, ranges=0, {}]");
+        assertThat(rangeSet.getType()).isEqualTo(BIGINT);
+        assertThat(rangeSet.isNone()).isTrue();
+        assertThat(rangeSet.isAll()).isFalse();
+        assertThat(rangeSet.isSingleValue()).isFalse();
+        assertThat(rangeSet.getOrderedRanges().isEmpty()).isTrue();
+        assertThat(rangeSet.getRangeCount()).isEqualTo(0);
+        assertThat(rangeSet.complement()).isEqualTo(SortedRangeSet.all(BIGINT));
+        assertThat(rangeSet.containsValue(0L)).isFalse();
+        assertThat(rangeSet.toString()).isEqualTo("SortedRangeSet[type=bigint, ranges=0, {}]");
     }
 
     @Test
     public void testEntireSet()
     {
         SortedRangeSet rangeSet = SortedRangeSet.all(BIGINT);
-        assertEquals(rangeSet.getType(), BIGINT);
-        assertFalse(rangeSet.isNone());
-        assertTrue(rangeSet.isAll());
-        assertFalse(rangeSet.isSingleValue());
-        assertEquals(rangeSet.getRangeCount(), 1);
-        assertEquals(rangeSet.complement(), SortedRangeSet.none(BIGINT));
-        assertTrue(rangeSet.containsValue(0L));
-        assertEquals(rangeSet.toString(), "SortedRangeSet[type=bigint, ranges=1, {(<min>,<max>)}]");
+        assertThat(rangeSet.getType()).isEqualTo(BIGINT);
+        assertThat(rangeSet.isNone()).isFalse();
+        assertThat(rangeSet.isAll()).isTrue();
+        assertThat(rangeSet.isSingleValue()).isFalse();
+        assertThat(rangeSet.getRangeCount()).isEqualTo(1);
+        assertThat(rangeSet.complement()).isEqualTo(SortedRangeSet.none(BIGINT));
+        assertThat(rangeSet.containsValue(0L)).isTrue();
+        assertThat(rangeSet.toString()).isEqualTo("SortedRangeSet[type=bigint, ranges=1, {(<min>,<max>)}]");
     }
 
     @Test
@@ -89,20 +85,18 @@ public class TestSortedRangeSet
 
         SortedRangeSet complement = SortedRangeSet.of(Range.greaterThan(BIGINT, 10L), Range.lessThan(BIGINT, 10L));
 
-        assertEquals(rangeSet.getType(), BIGINT);
-        assertFalse(rangeSet.isNone());
-        assertFalse(rangeSet.isAll());
-        assertTrue(rangeSet.isSingleValue());
-        assertTrue(Iterables.elementsEqual(rangeSet.getOrderedRanges(), ImmutableList.of(Range.equal(BIGINT, 10L))));
-        assertEquals(rangeSet.getRangeCount(), 1);
-        assertEquals(rangeSet.complement(), complement);
-        assertTrue(rangeSet.containsValue(10L));
-        assertFalse(rangeSet.containsValue(9L));
-        assertEquals(rangeSet.toString(), "SortedRangeSet[type=bigint, ranges=1, {[10]}]");
+        assertThat(rangeSet.getType()).isEqualTo(BIGINT);
+        assertThat(rangeSet.isNone()).isFalse();
+        assertThat(rangeSet.isAll()).isFalse();
+        assertThat(rangeSet.isSingleValue()).isTrue();
+        assertThat(rangeSet.getOrderedRanges()).isEqualTo(ImmutableList.of(Range.equal(BIGINT, 10L)));
+        assertThat(rangeSet.getRangeCount()).isEqualTo(1);
+        assertThat(rangeSet.complement()).isEqualTo(complement);
+        assertThat(rangeSet.containsValue(10L)).isTrue();
+        assertThat(rangeSet.containsValue(9L)).isFalse();
+        assertThat(rangeSet.toString()).isEqualTo("SortedRangeSet[type=bigint, ranges=1, {[10]}]");
 
-        assertEquals(
-                SortedRangeSet.of(Range.equal(VARCHAR, utf8Slice("LARGE PLATED NICKEL"))).toString(),
-                "SortedRangeSet[type=varchar, ranges=1, {[LARGE PLATED NICKEL]}]");
+        assertThat(SortedRangeSet.of(Range.equal(VARCHAR, utf8Slice("LARGE PLATED NICKEL"))).toString()).isEqualTo("SortedRangeSet[type=varchar, ranges=1, {[LARGE PLATED NICKEL]}]");
     }
 
     @Test
@@ -127,25 +121,21 @@ public class TestSortedRangeSet
                 Range.range(BIGINT, 5L, false, 9L, false),
                 Range.greaterThanOrEqual(BIGINT, 11L));
 
-        assertEquals(rangeSet.getType(), BIGINT);
-        assertFalse(rangeSet.isNone());
-        assertFalse(rangeSet.isAll());
-        assertFalse(rangeSet.isSingleValue());
-        assertTrue(Iterables.elementsEqual(rangeSet.getOrderedRanges(), normalizedResult));
-        assertEquals(rangeSet, SortedRangeSet.copyOf(BIGINT, normalizedResult));
-        assertEquals(rangeSet.getRangeCount(), 3);
-        assertEquals(rangeSet.complement(), complement);
-        assertTrue(rangeSet.containsValue(0L));
-        assertFalse(rangeSet.containsValue(1L));
-        assertFalse(rangeSet.containsValue(7L));
-        assertTrue(rangeSet.containsValue(9L));
-        assertEquals(rangeSet.toString(), "SortedRangeSet[type=bigint, ranges=3, {[0], [2,5], [9,11)}]");
-        assertEquals(
-                rangeSet.toString(ToStringSession.INSTANCE, 2),
-                "SortedRangeSet[type=bigint, ranges=3, {[0], ..., [9,11)}]");
-        assertEquals(
-                rangeSet.toString(ToStringSession.INSTANCE, 1),
-                "SortedRangeSet[type=bigint, ranges=3, {[0], ...}]");
+        assertThat(rangeSet.getType()).isEqualTo(BIGINT);
+        assertThat(rangeSet.isNone()).isFalse();
+        assertThat(rangeSet.isAll()).isFalse();
+        assertThat(rangeSet.isSingleValue()).isFalse();
+        assertThat(rangeSet.getOrderedRanges()).isEqualTo(normalizedResult);
+        assertThat(rangeSet).isEqualTo(SortedRangeSet.copyOf(BIGINT, normalizedResult));
+        assertThat(rangeSet.getRangeCount()).isEqualTo(3);
+        assertThat(rangeSet.complement()).isEqualTo(complement);
+        assertThat(rangeSet.containsValue(0L)).isTrue();
+        assertThat(rangeSet.containsValue(1L)).isFalse();
+        assertThat(rangeSet.containsValue(7L)).isFalse();
+        assertThat(rangeSet.containsValue(9L)).isTrue();
+        assertThat(rangeSet.toString()).isEqualTo("SortedRangeSet[type=bigint, ranges=3, {[0], [2,5], [9,11)}]");
+        assertThat(rangeSet.toString(ToStringSession.INSTANCE, 2)).isEqualTo("SortedRangeSet[type=bigint, ranges=3, {[0], ..., [9,11)}]");
+        assertThat(rangeSet.toString(ToStringSession.INSTANCE, 1)).isEqualTo("SortedRangeSet[type=bigint, ranges=3, {[0], ...}]");
     }
 
     @Test
@@ -168,18 +158,18 @@ public class TestSortedRangeSet
                 Range.range(BIGINT, 0L, false, 1L, true),
                 Range.range(BIGINT, 6L, true, 9L, true));
 
-        assertEquals(rangeSet.getType(), BIGINT);
-        assertFalse(rangeSet.isNone());
-        assertFalse(rangeSet.isAll());
-        assertFalse(rangeSet.isSingleValue());
-        assertTrue(Iterables.elementsEqual(rangeSet.getOrderedRanges(), normalizedResult));
-        assertEquals(rangeSet, SortedRangeSet.copyOf(BIGINT, normalizedResult));
-        assertEquals(rangeSet.getRangeCount(), 3);
-        assertEquals(rangeSet.complement(), complement);
-        assertTrue(rangeSet.containsValue(0L));
-        assertTrue(rangeSet.containsValue(4L));
-        assertFalse(rangeSet.containsValue(7L));
-        assertEquals(rangeSet.toString(), "SortedRangeSet[type=bigint, ranges=3, {(<min>,0], (1,6), (9,<max>)}]");
+        assertThat(rangeSet.getType()).isEqualTo(BIGINT);
+        assertThat(rangeSet.isNone()).isFalse();
+        assertThat(rangeSet.isAll()).isFalse();
+        assertThat(rangeSet.isSingleValue()).isFalse();
+        assertThat(rangeSet.getOrderedRanges()).isEqualTo(normalizedResult);
+        assertThat(rangeSet).isEqualTo(SortedRangeSet.copyOf(BIGINT, normalizedResult));
+        assertThat(rangeSet.getRangeCount()).isEqualTo(3);
+        assertThat(rangeSet.complement()).isEqualTo(complement);
+        assertThat(rangeSet.containsValue(0L)).isTrue();
+        assertThat(rangeSet.containsValue(4L)).isTrue();
+        assertThat(rangeSet.containsValue(7L)).isFalse();
+        assertThat(rangeSet.toString()).isEqualTo("SortedRangeSet[type=bigint, ranges=3, {(<min>,0], (1,6), (9,<max>)}]");
     }
 
     @Test
@@ -213,7 +203,7 @@ public class TestSortedRangeSet
     @Test
     public void testGetSingleValue()
     {
-        assertEquals(SortedRangeSet.of(BIGINT, 0L).getSingleValue(), 0L);
+        assertThat(SortedRangeSet.of(BIGINT, 0L).getSingleValue()).isEqualTo(0L);
         assertThatThrownBy(() -> SortedRangeSet.all(BIGINT).getSingleValue())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("SortedRangeSet does not have just a single value");
@@ -226,91 +216,91 @@ public class TestSortedRangeSet
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("Cannot get span if no ranges exist");
 
-        assertEquals(SortedRangeSet.all(BIGINT).getSpan(), Range.all(BIGINT));
-        assertEquals(SortedRangeSet.of(BIGINT, 0L).getSpan(), Range.equal(BIGINT, 0L));
-        assertEquals(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)).getSpan(), Range.range(BIGINT, 0L, true, 1L, true));
-        assertEquals(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.greaterThan(BIGINT, 1L)).getSpan(), Range.greaterThanOrEqual(BIGINT, 0L));
-        assertEquals(SortedRangeSet.of(Range.lessThan(BIGINT, 0L), Range.greaterThan(BIGINT, 1L)).getSpan(), Range.all(BIGINT));
+        assertThat(SortedRangeSet.all(BIGINT).getSpan()).isEqualTo(Range.all(BIGINT));
+        assertThat(SortedRangeSet.of(BIGINT, 0L).getSpan()).isEqualTo(Range.equal(BIGINT, 0L));
+        assertThat(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)).getSpan()).isEqualTo(Range.range(BIGINT, 0L, true, 1L, true));
+        assertThat(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.greaterThan(BIGINT, 1L)).getSpan()).isEqualTo(Range.greaterThanOrEqual(BIGINT, 0L));
+        assertThat(SortedRangeSet.of(Range.lessThan(BIGINT, 0L), Range.greaterThan(BIGINT, 1L)).getSpan()).isEqualTo(Range.all(BIGINT));
     }
 
     @Test
     public void testOverlaps()
     {
-        assertTrue(SortedRangeSet.all(BIGINT).overlaps(SortedRangeSet.all(BIGINT)));
-        assertFalse(SortedRangeSet.all(BIGINT).overlaps(SortedRangeSet.none(BIGINT)));
-        assertTrue(SortedRangeSet.all(BIGINT).overlaps(SortedRangeSet.of(BIGINT, 0L)));
-        assertTrue(SortedRangeSet.all(BIGINT).overlaps(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L))));
-        assertTrue(SortedRangeSet.all(BIGINT).overlaps(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L))));
-        assertTrue(SortedRangeSet.all(BIGINT).overlaps(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L), Range.lessThan(BIGINT, 0L))));
+        assertThat(SortedRangeSet.all(BIGINT).overlaps(SortedRangeSet.all(BIGINT))).isTrue();
+        assertThat(SortedRangeSet.all(BIGINT).overlaps(SortedRangeSet.none(BIGINT))).isFalse();
+        assertThat(SortedRangeSet.all(BIGINT).overlaps(SortedRangeSet.of(BIGINT, 0L))).isTrue();
+        assertThat(SortedRangeSet.all(BIGINT).overlaps(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)))).isTrue();
+        assertThat(SortedRangeSet.all(BIGINT).overlaps(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)))).isTrue();
+        assertThat(SortedRangeSet.all(BIGINT).overlaps(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L), Range.lessThan(BIGINT, 0L)))).isTrue();
 
-        assertFalse(SortedRangeSet.none(BIGINT).overlaps(SortedRangeSet.all(BIGINT)));
-        assertFalse(SortedRangeSet.none(BIGINT).overlaps(SortedRangeSet.none(BIGINT)));
-        assertFalse(SortedRangeSet.none(BIGINT).overlaps(SortedRangeSet.of(BIGINT, 0L)));
-        assertFalse(SortedRangeSet.none(BIGINT).overlaps(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L))));
-        assertFalse(SortedRangeSet.none(BIGINT).overlaps(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L))));
-        assertFalse(SortedRangeSet.none(BIGINT).overlaps(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L), Range.lessThan(BIGINT, 0L))));
+        assertThat(SortedRangeSet.none(BIGINT).overlaps(SortedRangeSet.all(BIGINT))).isFalse();
+        assertThat(SortedRangeSet.none(BIGINT).overlaps(SortedRangeSet.none(BIGINT))).isFalse();
+        assertThat(SortedRangeSet.none(BIGINT).overlaps(SortedRangeSet.of(BIGINT, 0L))).isFalse();
+        assertThat(SortedRangeSet.none(BIGINT).overlaps(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)))).isFalse();
+        assertThat(SortedRangeSet.none(BIGINT).overlaps(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)))).isFalse();
+        assertThat(SortedRangeSet.none(BIGINT).overlaps(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L), Range.lessThan(BIGINT, 0L)))).isFalse();
 
-        assertTrue(SortedRangeSet.of(BIGINT, 0L).overlaps(SortedRangeSet.all(BIGINT)));
-        assertFalse(SortedRangeSet.of(BIGINT, 0L).overlaps(SortedRangeSet.none(BIGINT)));
-        assertTrue(SortedRangeSet.of(BIGINT, 0L).overlaps(SortedRangeSet.of(BIGINT, 0L)));
-        assertTrue(SortedRangeSet.of(BIGINT, 0L).overlaps(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L))));
-        assertFalse(SortedRangeSet.of(BIGINT, 0L).overlaps(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L))));
-        assertFalse(SortedRangeSet.of(BIGINT, 0L).overlaps(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L), Range.lessThan(BIGINT, 0L))));
+        assertThat(SortedRangeSet.of(BIGINT, 0L).overlaps(SortedRangeSet.all(BIGINT))).isTrue();
+        assertThat(SortedRangeSet.of(BIGINT, 0L).overlaps(SortedRangeSet.none(BIGINT))).isFalse();
+        assertThat(SortedRangeSet.of(BIGINT, 0L).overlaps(SortedRangeSet.of(BIGINT, 0L))).isTrue();
+        assertThat(SortedRangeSet.of(BIGINT, 0L).overlaps(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)))).isTrue();
+        assertThat(SortedRangeSet.of(BIGINT, 0L).overlaps(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)))).isFalse();
+        assertThat(SortedRangeSet.of(BIGINT, 0L).overlaps(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L), Range.lessThan(BIGINT, 0L)))).isFalse();
 
-        assertTrue(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)).overlaps(SortedRangeSet.of(Range.equal(BIGINT, 1L))));
-        assertFalse(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)).overlaps(SortedRangeSet.of(Range.equal(BIGINT, 2L))));
-        assertTrue(SortedRangeSet.of(Range.greaterThanOrEqual(BIGINT, 0L)).overlaps(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L))));
-        assertTrue(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)).overlaps(SortedRangeSet.of(Range.greaterThanOrEqual(BIGINT, 0L))));
-        assertFalse(SortedRangeSet.of(Range.lessThan(BIGINT, 0L)).overlaps(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L))));
+        assertThat(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)).overlaps(SortedRangeSet.of(Range.equal(BIGINT, 1L)))).isTrue();
+        assertThat(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)).overlaps(SortedRangeSet.of(Range.equal(BIGINT, 2L)))).isFalse();
+        assertThat(SortedRangeSet.of(Range.greaterThanOrEqual(BIGINT, 0L)).overlaps(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)))).isTrue();
+        assertThat(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)).overlaps(SortedRangeSet.of(Range.greaterThanOrEqual(BIGINT, 0L)))).isTrue();
+        assertThat(SortedRangeSet.of(Range.lessThan(BIGINT, 0L)).overlaps(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)))).isFalse();
     }
 
     @Test
     public void testContains()
     {
-        assertTrue(SortedRangeSet.all(BIGINT).contains(SortedRangeSet.all(BIGINT)));
-        assertTrue(SortedRangeSet.all(BIGINT).contains(SortedRangeSet.none(BIGINT)));
-        assertTrue(SortedRangeSet.all(BIGINT).contains(SortedRangeSet.of(BIGINT, 0L)));
-        assertTrue(SortedRangeSet.all(BIGINT).contains(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L))));
-        assertTrue(SortedRangeSet.all(BIGINT).contains(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L))));
-        assertTrue(SortedRangeSet.all(BIGINT).contains(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L), Range.lessThan(BIGINT, 0L))));
+        assertThat(SortedRangeSet.all(BIGINT).contains(SortedRangeSet.all(BIGINT))).isTrue();
+        assertThat(SortedRangeSet.all(BIGINT).contains(SortedRangeSet.none(BIGINT))).isTrue();
+        assertThat(SortedRangeSet.all(BIGINT).contains(SortedRangeSet.of(BIGINT, 0L))).isTrue();
+        assertThat(SortedRangeSet.all(BIGINT).contains(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)))).isTrue();
+        assertThat(SortedRangeSet.all(BIGINT).contains(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)))).isTrue();
+        assertThat(SortedRangeSet.all(BIGINT).contains(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L), Range.lessThan(BIGINT, 0L)))).isTrue();
 
-        assertFalse(SortedRangeSet.none(BIGINT).contains(SortedRangeSet.all(BIGINT)));
-        assertTrue(SortedRangeSet.none(BIGINT).contains(SortedRangeSet.none(BIGINT)));
-        assertFalse(SortedRangeSet.none(BIGINT).contains(SortedRangeSet.of(BIGINT, 0L)));
-        assertFalse(SortedRangeSet.none(BIGINT).contains(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L))));
-        assertFalse(SortedRangeSet.none(BIGINT).contains(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L))));
-        assertFalse(SortedRangeSet.none(BIGINT).contains(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L), Range.lessThan(BIGINT, 0L))));
+        assertThat(SortedRangeSet.none(BIGINT).contains(SortedRangeSet.all(BIGINT))).isFalse();
+        assertThat(SortedRangeSet.none(BIGINT).contains(SortedRangeSet.none(BIGINT))).isTrue();
+        assertThat(SortedRangeSet.none(BIGINT).contains(SortedRangeSet.of(BIGINT, 0L))).isFalse();
+        assertThat(SortedRangeSet.none(BIGINT).contains(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)))).isFalse();
+        assertThat(SortedRangeSet.none(BIGINT).contains(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)))).isFalse();
+        assertThat(SortedRangeSet.none(BIGINT).contains(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L), Range.lessThan(BIGINT, 0L)))).isFalse();
 
         ValueSet valueSet = SortedRangeSet.of(BIGINT, 0L);
-        assertTrue(valueSet.contains(valueSet));
+        assertThat(valueSet.contains(valueSet)).isTrue();
 
-        assertFalse(SortedRangeSet.of(BIGINT, 0L).contains(SortedRangeSet.all(BIGINT)));
-        assertTrue(SortedRangeSet.of(BIGINT, 0L).contains(SortedRangeSet.none(BIGINT)));
-        assertTrue(SortedRangeSet.of(BIGINT, 0L).contains(SortedRangeSet.of(BIGINT, 0L)));
-        assertFalse(SortedRangeSet.of(BIGINT, 0L).contains(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L))));
-        assertFalse(SortedRangeSet.of(BIGINT, 0L).contains(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L))));
-        assertFalse(SortedRangeSet.of(BIGINT, 0L).contains(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L), Range.lessThan(BIGINT, 0L))));
+        assertThat(SortedRangeSet.of(BIGINT, 0L).contains(SortedRangeSet.all(BIGINT))).isFalse();
+        assertThat(SortedRangeSet.of(BIGINT, 0L).contains(SortedRangeSet.none(BIGINT))).isTrue();
+        assertThat(SortedRangeSet.of(BIGINT, 0L).contains(SortedRangeSet.of(BIGINT, 0L))).isTrue();
+        assertThat(SortedRangeSet.of(BIGINT, 0L).contains(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)))).isFalse();
+        assertThat(SortedRangeSet.of(BIGINT, 0L).contains(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)))).isFalse();
+        assertThat(SortedRangeSet.of(BIGINT, 0L).contains(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L), Range.lessThan(BIGINT, 0L)))).isFalse();
 
-        assertTrue(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)).contains(SortedRangeSet.of(Range.equal(BIGINT, 1L))));
-        assertFalse(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)).contains(SortedRangeSet.of(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L))));
-        assertTrue(SortedRangeSet.of(Range.greaterThanOrEqual(BIGINT, 0L)).contains(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L))));
-        assertFalse(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)).contains(SortedRangeSet.of(Range.greaterThanOrEqual(BIGINT, 0L))));
-        assertFalse(SortedRangeSet.of(Range.lessThan(BIGINT, 0L)).contains(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L))));
+        assertThat(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)).contains(SortedRangeSet.of(Range.equal(BIGINT, 1L)))).isTrue();
+        assertThat(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)).contains(SortedRangeSet.of(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L)))).isFalse();
+        assertThat(SortedRangeSet.of(Range.greaterThanOrEqual(BIGINT, 0L)).contains(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)))).isTrue();
+        assertThat(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)).contains(SortedRangeSet.of(Range.greaterThanOrEqual(BIGINT, 0L)))).isFalse();
+        assertThat(SortedRangeSet.of(Range.lessThan(BIGINT, 0L)).contains(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)))).isFalse();
 
         Range rangeA = Range.range(BIGINT, 0L, true, 2L, true);
         Range rangeB = Range.range(BIGINT, 4L, true, 6L, true);
         Range rangeC = Range.range(BIGINT, 8L, true, 10L, true);
-        assertFalse(SortedRangeSet.of(rangeA, rangeB).contains(SortedRangeSet.of(rangeC)));
-        assertFalse(SortedRangeSet.of(rangeB, rangeC).contains(SortedRangeSet.of(rangeA)));
-        assertFalse(SortedRangeSet.of(rangeA, rangeC).contains(SortedRangeSet.of(rangeB)));
-        assertFalse(SortedRangeSet.of(rangeA, rangeB).contains(SortedRangeSet.of(rangeB, rangeC)));
-        assertTrue(SortedRangeSet.of(rangeA, rangeB, rangeC).contains(SortedRangeSet.of(rangeA)));
-        assertTrue(SortedRangeSet.of(rangeA, rangeB, rangeC).contains(SortedRangeSet.of(rangeB)));
-        assertTrue(SortedRangeSet.of(rangeA, rangeB, rangeC).contains(SortedRangeSet.of(rangeC)));
-        assertTrue(SortedRangeSet.of(rangeA, rangeB, rangeC).contains(
-                SortedRangeSet.of(Range.equal(BIGINT, 4L), Range.equal(BIGINT, 6L), Range.equal(BIGINT, 9L))));
-        assertFalse(SortedRangeSet.of(rangeA, rangeB, rangeC).contains(
-                SortedRangeSet.of(Range.equal(BIGINT, 1L), Range.range(BIGINT, 6L, true, 10L, true))));
+        assertThat(SortedRangeSet.of(rangeA, rangeB).contains(SortedRangeSet.of(rangeC))).isFalse();
+        assertThat(SortedRangeSet.of(rangeB, rangeC).contains(SortedRangeSet.of(rangeA))).isFalse();
+        assertThat(SortedRangeSet.of(rangeA, rangeC).contains(SortedRangeSet.of(rangeB))).isFalse();
+        assertThat(SortedRangeSet.of(rangeA, rangeB).contains(SortedRangeSet.of(rangeB, rangeC))).isFalse();
+        assertThat(SortedRangeSet.of(rangeA, rangeB, rangeC).contains(SortedRangeSet.of(rangeA))).isTrue();
+        assertThat(SortedRangeSet.of(rangeA, rangeB, rangeC).contains(SortedRangeSet.of(rangeB))).isTrue();
+        assertThat(SortedRangeSet.of(rangeA, rangeB, rangeC).contains(SortedRangeSet.of(rangeC))).isTrue();
+        assertThat(SortedRangeSet.of(rangeA, rangeB, rangeC).contains(
+                SortedRangeSet.of(Range.equal(BIGINT, 4L), Range.equal(BIGINT, 6L), Range.equal(BIGINT, 9L)))).isTrue();
+        assertThat(SortedRangeSet.of(rangeA, rangeB, rangeC).contains(
+                SortedRangeSet.of(Range.equal(BIGINT, 1L), Range.range(BIGINT, 6L, true, 10L, true)))).isFalse();
     }
 
     @Test
@@ -397,45 +387,29 @@ public class TestSortedRangeSet
     @Test
     public void testIntersect()
     {
-        assertEquals(
-                SortedRangeSet.none(BIGINT).intersect(
-                        SortedRangeSet.none(BIGINT)),
-                SortedRangeSet.none(BIGINT));
+        assertThat(SortedRangeSet.none(BIGINT).intersect(
+                SortedRangeSet.none(BIGINT))).isEqualTo(SortedRangeSet.none(BIGINT));
 
-        assertEquals(
-                SortedRangeSet.all(BIGINT).intersect(
-                        SortedRangeSet.all(BIGINT)),
-                SortedRangeSet.all(BIGINT));
+        assertThat(SortedRangeSet.all(BIGINT).intersect(
+                SortedRangeSet.all(BIGINT))).isEqualTo(SortedRangeSet.all(BIGINT));
 
-        assertEquals(
-                SortedRangeSet.none(BIGINT).intersect(
-                        SortedRangeSet.all(BIGINT)),
-                SortedRangeSet.none(BIGINT));
+        assertThat(SortedRangeSet.none(BIGINT).intersect(
+                SortedRangeSet.all(BIGINT))).isEqualTo(SortedRangeSet.none(BIGINT));
 
-        assertEquals(
-                SortedRangeSet.of(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L), Range.equal(BIGINT, 3L)).intersect(
-                        SortedRangeSet.of(Range.equal(BIGINT, 2L), Range.equal(BIGINT, 4L))),
-                SortedRangeSet.of(Range.equal(BIGINT, 2L)));
+        assertThat(SortedRangeSet.of(Range.equal(BIGINT, 1L), Range.equal(BIGINT, 2L), Range.equal(BIGINT, 3L)).intersect(
+                SortedRangeSet.of(Range.equal(BIGINT, 2L), Range.equal(BIGINT, 4L)))).isEqualTo(SortedRangeSet.of(Range.equal(BIGINT, 2L)));
 
-        assertEquals(
-                SortedRangeSet.all(BIGINT).intersect(
-                        SortedRangeSet.of(Range.equal(BIGINT, 2L), Range.equal(BIGINT, 4L))),
-                SortedRangeSet.of(Range.equal(BIGINT, 2L), Range.equal(BIGINT, 4L)));
+        assertThat(SortedRangeSet.all(BIGINT).intersect(
+                SortedRangeSet.of(Range.equal(BIGINT, 2L), Range.equal(BIGINT, 4L)))).isEqualTo(SortedRangeSet.of(Range.equal(BIGINT, 2L), Range.equal(BIGINT, 4L)));
 
-        assertEquals(
-                SortedRangeSet.of(Range.range(BIGINT, 0L, true, 4L, false)).intersect(
-                        SortedRangeSet.of(Range.equal(BIGINT, 2L), Range.greaterThan(BIGINT, 3L))),
-                SortedRangeSet.of(Range.equal(BIGINT, 2L), Range.range(BIGINT, 3L, false, 4L, false)));
+        assertThat(SortedRangeSet.of(Range.range(BIGINT, 0L, true, 4L, false)).intersect(
+                SortedRangeSet.of(Range.equal(BIGINT, 2L), Range.greaterThan(BIGINT, 3L)))).isEqualTo(SortedRangeSet.of(Range.equal(BIGINT, 2L), Range.range(BIGINT, 3L, false, 4L, false)));
 
-        assertEquals(
-                SortedRangeSet.of(Range.greaterThanOrEqual(BIGINT, 0L)).intersect(
-                        SortedRangeSet.of(Range.lessThanOrEqual(BIGINT, 0L))),
-                SortedRangeSet.of(Range.equal(BIGINT, 0L)));
+        assertThat(SortedRangeSet.of(Range.greaterThanOrEqual(BIGINT, 0L)).intersect(
+                SortedRangeSet.of(Range.lessThanOrEqual(BIGINT, 0L)))).isEqualTo(SortedRangeSet.of(Range.equal(BIGINT, 0L)));
 
-        assertEquals(
-                SortedRangeSet.of(Range.greaterThanOrEqual(BIGINT, -1L)).intersect(
-                        SortedRangeSet.of(Range.lessThanOrEqual(BIGINT, 1L))),
-                SortedRangeSet.of(Range.range(BIGINT, -1L, true, 1L, true)));
+        assertThat(SortedRangeSet.of(Range.greaterThanOrEqual(BIGINT, -1L)).intersect(
+                SortedRangeSet.of(Range.lessThanOrEqual(BIGINT, 1L)))).isEqualTo(SortedRangeSet.of(Range.range(BIGINT, -1L, true, 1L, true)));
     }
 
     @Test
@@ -521,85 +495,35 @@ public class TestSortedRangeSet
     @Test
     public void testSubtract()
     {
-        assertEquals(
-                SortedRangeSet.all(BIGINT).subtract(SortedRangeSet.all(BIGINT)),
-                SortedRangeSet.none(BIGINT));
-        assertEquals(
-                SortedRangeSet.all(BIGINT).subtract(SortedRangeSet.none(BIGINT)),
-                SortedRangeSet.all(BIGINT));
-        assertEquals(
-                SortedRangeSet.all(BIGINT).subtract(SortedRangeSet.of(BIGINT, 0L)),
-                SortedRangeSet.of(BIGINT, 0L).complement());
-        assertEquals(
-                SortedRangeSet.all(BIGINT).subtract(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L))),
-                SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)).complement());
-        assertEquals(
-                SortedRangeSet.all(BIGINT).subtract(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L))),
-                SortedRangeSet.of(Range.lessThanOrEqual(BIGINT, 0L)));
+        assertThat(SortedRangeSet.all(BIGINT).subtract(SortedRangeSet.all(BIGINT))).isEqualTo(SortedRangeSet.none(BIGINT));
+        assertThat(SortedRangeSet.all(BIGINT).subtract(SortedRangeSet.none(BIGINT))).isEqualTo(SortedRangeSet.all(BIGINT));
+        assertThat(SortedRangeSet.all(BIGINT).subtract(SortedRangeSet.of(BIGINT, 0L))).isEqualTo(SortedRangeSet.of(BIGINT, 0L).complement());
+        assertThat(SortedRangeSet.all(BIGINT).subtract(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)))).isEqualTo(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)).complement());
+        assertThat(SortedRangeSet.all(BIGINT).subtract(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)))).isEqualTo(SortedRangeSet.of(Range.lessThanOrEqual(BIGINT, 0L)));
 
-        assertEquals(
-                SortedRangeSet.none(BIGINT).subtract(SortedRangeSet.all(BIGINT)),
-                SortedRangeSet.none(BIGINT));
-        assertEquals(
-                SortedRangeSet.none(BIGINT).subtract(SortedRangeSet.none(BIGINT)),
-                SortedRangeSet.none(BIGINT));
-        assertEquals(
-                SortedRangeSet.none(BIGINT).subtract(SortedRangeSet.of(BIGINT, 0L)),
-                SortedRangeSet.none(BIGINT));
-        assertEquals(
-                SortedRangeSet.none(BIGINT).subtract(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L))),
-                SortedRangeSet.none(BIGINT));
-        assertEquals(
-                SortedRangeSet.none(BIGINT).subtract(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L))),
-                SortedRangeSet.none(BIGINT));
+        assertThat(SortedRangeSet.none(BIGINT).subtract(SortedRangeSet.all(BIGINT))).isEqualTo(SortedRangeSet.none(BIGINT));
+        assertThat(SortedRangeSet.none(BIGINT).subtract(SortedRangeSet.none(BIGINT))).isEqualTo(SortedRangeSet.none(BIGINT));
+        assertThat(SortedRangeSet.none(BIGINT).subtract(SortedRangeSet.of(BIGINT, 0L))).isEqualTo(SortedRangeSet.none(BIGINT));
+        assertThat(SortedRangeSet.none(BIGINT).subtract(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)))).isEqualTo(SortedRangeSet.none(BIGINT));
+        assertThat(SortedRangeSet.none(BIGINT).subtract(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)))).isEqualTo(SortedRangeSet.none(BIGINT));
 
-        assertEquals(
-                SortedRangeSet.of(BIGINT, 0L).subtract(SortedRangeSet.all(BIGINT)),
-                SortedRangeSet.none(BIGINT));
-        assertEquals(
-                SortedRangeSet.of(BIGINT, 0L).subtract(SortedRangeSet.none(BIGINT)),
-                SortedRangeSet.of(BIGINT, 0L));
-        assertEquals(
-                SortedRangeSet.of(BIGINT, 0L).subtract(SortedRangeSet.of(BIGINT, 0L)),
-                SortedRangeSet.none(BIGINT));
-        assertEquals(
-                SortedRangeSet.of(BIGINT, 0L).subtract(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L))),
-                SortedRangeSet.none(BIGINT));
-        assertEquals(
-                SortedRangeSet.of(BIGINT, 0L).subtract(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L))),
-                SortedRangeSet.of(BIGINT, 0L));
+        assertThat(SortedRangeSet.of(BIGINT, 0L).subtract(SortedRangeSet.all(BIGINT))).isEqualTo(SortedRangeSet.none(BIGINT));
+        assertThat(SortedRangeSet.of(BIGINT, 0L).subtract(SortedRangeSet.none(BIGINT))).isEqualTo(SortedRangeSet.of(BIGINT, 0L));
+        assertThat(SortedRangeSet.of(BIGINT, 0L).subtract(SortedRangeSet.of(BIGINT, 0L))).isEqualTo(SortedRangeSet.none(BIGINT));
+        assertThat(SortedRangeSet.of(BIGINT, 0L).subtract(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)))).isEqualTo(SortedRangeSet.none(BIGINT));
+        assertThat(SortedRangeSet.of(BIGINT, 0L).subtract(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)))).isEqualTo(SortedRangeSet.of(BIGINT, 0L));
 
-        assertEquals(
-                SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)).subtract(SortedRangeSet.all(BIGINT)),
-                SortedRangeSet.none(BIGINT));
-        assertEquals(
-                SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)).subtract(SortedRangeSet.none(BIGINT)),
-                SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)));
-        assertEquals(
-                SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)).subtract(SortedRangeSet.of(BIGINT, 0L)),
-                SortedRangeSet.of(BIGINT, 1L));
-        assertEquals(
-                SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)).subtract(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L))),
-                SortedRangeSet.none(BIGINT));
-        assertEquals(
-                SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)).subtract(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L))),
-                SortedRangeSet.of(Range.equal(BIGINT, 0L)));
+        assertThat(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)).subtract(SortedRangeSet.all(BIGINT))).isEqualTo(SortedRangeSet.none(BIGINT));
+        assertThat(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)).subtract(SortedRangeSet.none(BIGINT))).isEqualTo(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)));
+        assertThat(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)).subtract(SortedRangeSet.of(BIGINT, 0L))).isEqualTo(SortedRangeSet.of(BIGINT, 1L));
+        assertThat(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)).subtract(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)))).isEqualTo(SortedRangeSet.none(BIGINT));
+        assertThat(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)).subtract(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)))).isEqualTo(SortedRangeSet.of(Range.equal(BIGINT, 0L)));
 
-        assertEquals(
-                SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)).subtract(SortedRangeSet.all(BIGINT)),
-                SortedRangeSet.none(BIGINT));
-        assertEquals(
-                SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)).subtract(SortedRangeSet.none(BIGINT)),
-                SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)));
-        assertEquals(
-                SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)).subtract(SortedRangeSet.of(BIGINT, 0L)),
-                SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)));
-        assertEquals(
-                SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)).subtract(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L))),
-                SortedRangeSet.of(Range.range(BIGINT, 0L, false, 1L, false), Range.greaterThan(BIGINT, 1L)));
-        assertEquals(
-                SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)).subtract(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L))),
-                SortedRangeSet.none(BIGINT));
+        assertThat(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)).subtract(SortedRangeSet.all(BIGINT))).isEqualTo(SortedRangeSet.none(BIGINT));
+        assertThat(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)).subtract(SortedRangeSet.none(BIGINT))).isEqualTo(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)));
+        assertThat(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)).subtract(SortedRangeSet.of(BIGINT, 0L))).isEqualTo(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)));
+        assertThat(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)).subtract(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)))).isEqualTo(SortedRangeSet.of(Range.range(BIGINT, 0L, false, 1L, false), Range.greaterThan(BIGINT, 1L)));
+        assertThat(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)).subtract(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)))).isEqualTo(SortedRangeSet.none(BIGINT));
     }
 
     @Test
@@ -616,138 +540,134 @@ public class TestSortedRangeSet
                         .addDeserializer(Block.class, new TestingBlockJsonSerde.Deserializer(blockEncodingSerde)));
 
         SortedRangeSet set = SortedRangeSet.all(BIGINT);
-        assertEquals(set, mapper.readValue(mapper.writeValueAsString(set), SortedRangeSet.class));
+        assertThat(set).isEqualTo(mapper.readValue(mapper.writeValueAsString(set), SortedRangeSet.class));
 
         set = SortedRangeSet.none(DOUBLE);
-        assertEquals(set, mapper.readValue(mapper.writeValueAsString(set), SortedRangeSet.class));
+        assertThat(set).isEqualTo(mapper.readValue(mapper.writeValueAsString(set), SortedRangeSet.class));
 
         set = SortedRangeSet.of(VARCHAR, utf8Slice("abc"));
-        assertEquals(set, mapper.readValue(mapper.writeValueAsString(set), SortedRangeSet.class));
+        assertThat(set).isEqualTo(mapper.readValue(mapper.writeValueAsString(set), SortedRangeSet.class));
 
         set = SortedRangeSet.of(Range.equal(BOOLEAN, true), Range.equal(BOOLEAN, false));
-        assertEquals(set, mapper.readValue(mapper.writeValueAsString(set), SortedRangeSet.class));
+        assertThat(set).isEqualTo(mapper.readValue(mapper.writeValueAsString(set), SortedRangeSet.class));
     }
 
-    @DataProvider
-    public Object[][] denseTypes()
+    @Test
+    public void testExpandRangesForDenseType()
     {
-        return new Object[][] {{BIGINT}, {INTEGER}, {SMALLINT}, {TINYINT}, {createDecimalType(2)}};
-    }
+        for (Type type : Arrays.asList(BIGINT, INTEGER, SMALLINT, TINYINT, createDecimalType(2))) {
+            assertThat(ValueSet.ofRanges(Range.equal(type, 1L))
+                    .tryExpandRanges(0))
+                    .isEqualTo(Optional.empty());
 
-    @Test(dataProvider = "denseTypes")
-    public void testExpandRangesForDenseType(Type type)
-    {
-        assertThat(ValueSet.ofRanges(Range.equal(type, 1L))
-                .tryExpandRanges(0))
-                .isEqualTo(Optional.empty());
+            assertThat(ValueSet.none(type)
+                    .tryExpandRanges(0))
+                    .isEqualTo(Optional.of(List.of()));
 
-        assertThat(ValueSet.none(type)
-                .tryExpandRanges(0))
-                .isEqualTo(Optional.of(List.of()));
-
-        assertThat(ValueSet.ofRanges(Range.range(type, 1L, true, 5L, true))
-                .tryExpandRanges(10))
-                .isEqualTo(Optional.of(List.of(1L, 2L, 3L, 4L, 5L)));
-
-        assertThat(ValueSet.of(type, 1L, 2L, 3L, 4L, 5L)
-                .tryExpandRanges(10))
-                .isEqualTo(Optional.of(List.of(1L, 2L, 3L, 4L, 5L)));
-
-        type.getRange().ifPresent(range -> {
-            long min = (long) range.getMin();
-
-            assertThat(ValueSet.ofRanges(Range.range(type, min, true, min + 3, true))
+            assertThat(ValueSet.ofRanges(Range.range(type, 1L, true, 5L, true))
                     .tryExpandRanges(10))
-                    .isEqualTo(Optional.of(List.of(min, min + 1, min + 2, min + 3)));
-            assertThat(ValueSet.ofRanges(Range.lessThan(type, min + 4))
+                    .isEqualTo(Optional.of(List.of(1L, 2L, 3L, 4L, 5L)));
+
+            assertThat(ValueSet.of(type, 1L, 2L, 3L, 4L, 5L)
                     .tryExpandRanges(10))
-                    .isEqualTo(Optional.of(List.of(min, min + 1, min + 2, min + 3)));
-            assertThat(ValueSet.ofRanges(Range.lessThanOrEqual(type, min + 3))
+                    .isEqualTo(Optional.of(List.of(1L, 2L, 3L, 4L, 5L)));
+
+            type.getRange().ifPresent(range -> {
+                long min = (long) range.getMin();
+
+                assertThat(ValueSet.ofRanges(Range.range(type, min, true, min + 3, true))
+                        .tryExpandRanges(10))
+                        .isEqualTo(Optional.of(List.of(min, min + 1, min + 2, min + 3)));
+                assertThat(ValueSet.ofRanges(Range.lessThan(type, min + 4))
+                        .tryExpandRanges(10))
+                        .isEqualTo(Optional.of(List.of(min, min + 1, min + 2, min + 3)));
+                assertThat(ValueSet.ofRanges(Range.lessThanOrEqual(type, min + 3))
+                        .tryExpandRanges(10))
+                        .isEqualTo(Optional.of(List.of(min, min + 1, min + 2, min + 3)));
+
+                long max = (long) range.getMax();
+
+                assertThat(ValueSet.ofRanges(Range.range(type, max - 3, true, max, true))
+                        .tryExpandRanges(10))
+                        .isEqualTo(Optional.of(List.of(max - 3, max - 2, max - 1, max)));
+                assertThat(ValueSet.ofRanges(Range.greaterThan(type, max - 4))
+                        .tryExpandRanges(10))
+                        .isEqualTo(Optional.of(List.of(max - 3, max - 2, max - 1, max)));
+                assertThat(ValueSet.ofRanges(Range.greaterThanOrEqual(type, max - 3))
+                        .tryExpandRanges(10))
+                        .isEqualTo(Optional.of(List.of(max - 3, max - 2, max - 1, max)));
+            });
+
+            assertThat(ValueSet.ofRanges(Range.range(type, 1L, true, 5L, true))
                     .tryExpandRanges(10))
-                    .isEqualTo(Optional.of(List.of(min, min + 1, min + 2, min + 3)));
+                    .isEqualTo(Optional.of(List.of(1L, 2L, 3L, 4L, 5L)));
 
-            long max = (long) range.getMax();
+            assertThat(ValueSet.ofRanges(Range.range(type, 1L, true, 5L, true))
+                    .tryExpandRanges(5))
+                    .isEqualTo(Optional.of(List.of(1L, 2L, 3L, 4L, 5L)));
 
-            assertThat(ValueSet.ofRanges(Range.range(type, max - 3, true, max, true))
-                    .tryExpandRanges(10))
-                    .isEqualTo(Optional.of(List.of(max - 3, max - 2, max - 1, max)));
-            assertThat(ValueSet.ofRanges(Range.greaterThan(type, max - 4))
-                    .tryExpandRanges(10))
-                    .isEqualTo(Optional.of(List.of(max - 3, max - 2, max - 1, max)));
-            assertThat(ValueSet.ofRanges(Range.greaterThanOrEqual(type, max - 3))
-                    .tryExpandRanges(10))
-                    .isEqualTo(Optional.of(List.of(max - 3, max - 2, max - 1, max)));
-        });
+            assertThat(ValueSet.ofRanges(Range.range(type, 1L, true, 5L, false))
+                    .tryExpandRanges(5))
+                    .isEqualTo(Optional.of(List.of(1L, 2L, 3L, 4L)));
 
-        assertThat(ValueSet.ofRanges(Range.range(type, 1L, true, 5L, true))
-                .tryExpandRanges(10))
-                .isEqualTo(Optional.of(List.of(1L, 2L, 3L, 4L, 5L)));
+            assertThat(ValueSet.ofRanges(Range.range(type, 1L, true, 6L, true))
+                    .tryExpandRanges(5))
+                    .isEqualTo(Optional.empty());
 
-        assertThat(ValueSet.ofRanges(Range.range(type, 1L, true, 5L, true))
-                .tryExpandRanges(5))
-                .isEqualTo(Optional.of(List.of(1L, 2L, 3L, 4L, 5L)));
+            assertThat(ValueSet.ofRanges(Range.range(type, 1L, true, 6L, false))
+                    .tryExpandRanges(5))
+                    .isEqualTo(Optional.of(List.of(1L, 2L, 3L, 4L, 5L)));
 
-        assertThat(ValueSet.ofRanges(Range.range(type, 1L, true, 5L, false))
-                .tryExpandRanges(5))
-                .isEqualTo(Optional.of(List.of(1L, 2L, 3L, 4L)));
+            assertThat(ValueSet.ofRanges(Range.range(type, 1L, false, 5L, true))
+                    .tryExpandRanges(5))
+                    .isEqualTo(Optional.of(List.of(2L, 3L, 4L, 5L)));
 
-        assertThat(ValueSet.ofRanges(Range.range(type, 1L, true, 6L, true))
-                .tryExpandRanges(5))
-                .isEqualTo(Optional.empty());
+            assertThat(ValueSet.ofRanges(Range.range(type, 1L, true, 5L, false))
+                    .tryExpandRanges(5))
+                    .isEqualTo(Optional.of(List.of(1L, 2L, 3L, 4L)));
 
-        assertThat(ValueSet.ofRanges(Range.range(type, 1L, true, 6L, false))
-                .tryExpandRanges(5))
-                .isEqualTo(Optional.of(List.of(1L, 2L, 3L, 4L, 5L)));
+            assertThat(ValueSet.ofRanges(Range.range(type, 1L, false, 5L, false))
+                    .tryExpandRanges(5))
+                    .isEqualTo(Optional.of(List.of(2L, 3L, 4L)));
 
-        assertThat(ValueSet.ofRanges(Range.range(type, 1L, false, 5L, true))
-                .tryExpandRanges(5))
-                .isEqualTo(Optional.of(List.of(2L, 3L, 4L, 5L)));
+            assertThat(ValueSet.ofRanges(Range.range(type, 1L, false, 2L, false))
+                    .tryExpandRanges(5))
+                    .isEqualTo(Optional.of(List.of()));
 
-        assertThat(ValueSet.ofRanges(Range.range(type, 1L, true, 5L, false))
-                .tryExpandRanges(5))
-                .isEqualTo(Optional.of(List.of(1L, 2L, 3L, 4L)));
+            assertThat(ValueSet.ofRanges(Range.range(type, 1L, false, 3L, false))
+                    .tryExpandRanges(5))
+                    .isEqualTo(Optional.of(List.of(2L)));
 
-        assertThat(ValueSet.ofRanges(Range.range(type, 1L, false, 5L, false))
-                .tryExpandRanges(5))
-                .isEqualTo(Optional.of(List.of(2L, 3L, 4L)));
+            assertThat(ValueSet.ofRanges(Range.range(type, 1L, true, 5L, true))
+                    .tryExpandRanges(3))
+                    .isEqualTo(Optional.empty());
 
-        assertThat(ValueSet.ofRanges(Range.range(type, 1L, false, 2L, false))
-                .tryExpandRanges(5))
-                .isEqualTo(Optional.of(List.of()));
+            assertThat(ValueSet.of(type, 1L, 2L, 3L, 4L, 5L)
+                    .tryExpandRanges(3))
+                    .isEqualTo(Optional.empty());
 
-        assertThat(ValueSet.ofRanges(Range.range(type, 1L, false, 3L, false))
-                .tryExpandRanges(5))
-                .isEqualTo(Optional.of(List.of(2L)));
+            assertThat(ValueSet.ofRanges(Range.greaterThan(type, 1L))
+                    .tryExpandRanges(3))
+                    .isEqualTo(Optional.empty());
 
-        assertThat(ValueSet.ofRanges(Range.range(type, 1L, true, 5L, true))
-                .tryExpandRanges(3))
-                .isEqualTo(Optional.empty());
+            assertThat(ValueSet.ofRanges(Range.greaterThanOrEqual(type, 1L))
+                    .tryExpandRanges(3))
+                    .isEqualTo(Optional.empty());
 
-        assertThat(ValueSet.of(type, 1L, 2L, 3L, 4L, 5L)
-                .tryExpandRanges(3))
-                .isEqualTo(Optional.empty());
+            assertThat(ValueSet.ofRanges(Range.lessThan(type, 1L))
+                    .tryExpandRanges(3))
+                    .isEqualTo(Optional.empty());
 
-        assertThat(ValueSet.ofRanges(Range.greaterThan(type, 1L))
-                .tryExpandRanges(3))
-                .isEqualTo(Optional.empty());
-
-        assertThat(ValueSet.ofRanges(Range.greaterThanOrEqual(type, 1L))
-                .tryExpandRanges(3))
-                .isEqualTo(Optional.empty());
-
-        assertThat(ValueSet.ofRanges(Range.lessThan(type, 1L))
-                .tryExpandRanges(3))
-                .isEqualTo(Optional.empty());
-
-        assertThat(ValueSet.ofRanges(Range.lessThanOrEqual(type, 1L))
-                .tryExpandRanges(3))
-                .isEqualTo(Optional.empty());
+            assertThat(ValueSet.ofRanges(Range.lessThanOrEqual(type, 1L))
+                    .tryExpandRanges(3))
+                    .isEqualTo(Optional.empty());
+        }
     }
 
     private void assertUnion(SortedRangeSet first, SortedRangeSet second, SortedRangeSet expected)
     {
-        assertEquals(first.union(second), expected);
-        assertEquals(first.union(ImmutableList.of(first, second)), expected);
+        assertThat(first.union(second)).isEqualTo(expected);
+        assertThat(first.union(ImmutableList.of(first, second))).isEqualTo(expected);
     }
 
     private static SortedRangeSetAssert assertSortedRangeSet(SortedRangeSet sortedRangeSet)

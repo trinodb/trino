@@ -24,18 +24,44 @@ jobs:
       m2RepoContainerPath: /tmp/m2/repository
       JAVA_TOOL_OPTIONS: " -Xmx8g"
     container:
-      image: uchimera.azurecr.io/cccs/dev/projector-intellij-ce:trino_20230921152943_b7790
+      image: uchimera.azurecr.io/cccs/dev/projector-intellij-ce:trino_20231124192524_b8342
       options: --entrypoint="" --user=0
       volumes:
         - "${{ variables.m2RepoNodePath }}:${{ variables.m2RepoContainerPath }}"
       endpoint: uchimera
     steps:
-      - bash: |
-          BRANCH_NAME=$(echo "$SYSTEM_PULLREQUEST_SOURCEBRANCH $BUILD_SOURCEBRANCH" | sed -r 's/^\s*(refs\/heads\/)?(\S*).*$/\2/' | sed 's/\//_/g')
-          echo "##vso[task.setvariable variable=BRANCH_NAME]$BRANCH_NAME"
+      - task: DownloadSecureFile@1
+        name: cccs_stratus_m2_settings
+        displayName: "Download settings.xml"
+        inputs:
+          secureFile: "cccs-stratus-m2-settings.xml"
+      - task: Bash@3
+        displayName: "Move settings to .m2"
+        inputs:
+          targetType: "inline"
+          script: |
+            mkdir -p "${HOME}/.m2"
+            cp "$(cccs_stratus_m2_settings.secureFilePath)" "${HOME}/.m2/settings.xml"
+      - task: MavenAuthenticate@0
+        inputs:
+          artifactsFeeds: cccs-stratus
+      - task: Bash@3
+        name: setBranchName
+        inputs:
+          targetType: 'inline'
+          script: |
+            BRANCH_NAME=$(echo "$SYSTEM_PULLREQUEST_SOURCEBRANCH $BUILD_SOURCEBRANCH" | sed -r 's/^\s*(refs\/heads\/)?(\S*).*$/\2/' | sed 's/\//_/g')
+            echo "##vso[task.setvariable variable=BRANCH_NAME;isOutput=true;]$BRANCH_NAME"
         displayName: Parse Source Control Branch Name
-      - bash: |
-          $(Build.SourcesDirectory)/mvnw clean install -e -DskipTests -pl '!:trino-docs' -Dmaven.repo.local=${{ variables.m2RepoContainerPath }}
+      - task: Bash@3
+        name: setTrinoVersion
+        inputs:
+          targetType: 'inline'
+          script: |
+            TRINO_VERSION=$(./mvnw --quiet help:evaluate -Dexpression=project.version -DforceStdout)
+            echo "##vso[task.setvariable variable=TRINO_VERSION;isOutput=true;]$TRINO_VERSION"
+            echo "home directory listing"
+            $(Build.SourcesDirectory)/mvnw clean install -e -DskipTests -pl '!:trino-docs' -Dmaven.repo.local=${{ variables.m2RepoContainerPath }}
         displayName: Maven build
   - job: DockerBuildnPush
     dependsOn: ContainerBuild
@@ -44,27 +70,38 @@ jobs:
       containerRegistry: uchimera
       imageRepository: cccs/trino-base
       buildTimestamp: $[format('{0:yyyyMMddHHmmss}', pipeline.startTime)]
+      m2RepoContainerPath: /tmp/m2/repository
+      TRINO_VERSION: $[ dependencies.ContainerBuild.outputs['setTrinoVersion.TRINO_VERSION'] ]
+      BRANCH_NAME: $[ dependencies.ContainerBuild.outputs['setBranchName.BRANCH_NAME'] ]
       DOCKER_BUILDKIT: 1
+    container:
+      image: uchimera.azurecr.io/cccs/dev/projector-intellij-ce:feature_update-to-431-mmrouet_20231103154823_b8123
+      options: --entrypoint="" --user=0
+      volumes:
+        - "${{ variables.m2RepoNodePath }}:${{ variables.m2RepoContainerPath }}"
+      endpoint: uchimera
     steps:
-      - bash: |
-          BRANCH_NAME=$(echo "$SYSTEM_PULLREQUEST_SOURCEBRANCH $BUILD_SOURCEBRANCH" | sed -r 's/^\s*(refs\/heads\/)?(\S*).*$/\2/' | sed 's/\//_/g')
-          echo "##vso[task.setvariable variable=BRANCH_NAME]$BRANCH_NAME"
-        displayName: Parse Source Control Branch Name
-      - bash: |
-          cd $(Build.SourcesDirectory)/core/docker
-          chmod +x ./build.sh
-          ./build.sh -a amd64
-          if [ $? -ne 0 ]; then
+      - task: Bash@3
+        name: CreateTrinoDockerFile
+        inputs:
+          targetType: 'inline'
+          script: |
+            cd $(Build.SourcesDirectory)/core/docker
+            chmod g+w ${HOME}
+            chmod ug+x ./build.sh
+            ./build.sh -a amd64
+            if [ $? -ne 0 ]; then
             echo "Docker build failed"
             exit 1
-          fi
-          cd $(Build.SourcesDirectory)
-          TRINO_VERSION=$(./mvnw --quiet help:evaluate -Dexpression=project.version -DforceStdout)
-          DOCKERFILE="FROM trino:${TRINO_VERSION}-amd64
-          LABEL cccs.trino.upstream.version=${TRINO_VERSION}"
-          DOCKERFILE_PATH=$(mktemp -d)/Dockerfile
-          echo "${DOCKERFILE}" > "${DOCKERFILE_PATH}"
-          echo "##vso[task.setvariable variable=DOCKERFILE_PATH]$DOCKERFILE_PATH"
+            fi
+            cd $(Build.SourcesDirectory)
+            DOCKERFILE="FROM trino:${TRINO_VERSION}-amd64
+            LABEL cccs.trino.upstream.version=${TRINO_VERSION}"
+            DOCKERFILE_PATH=$(mktemp -d)/Dockerfile
+            echo "${DOCKERFILE}" > "${DOCKERFILE_PATH}"
+            echo "##vso[task.setvariable variable=DOCKERFILE_PATH]$DOCKERFILE_PATH"
+            echo "DOCKERFILE:"
+            echo "${DOCKERFILE}"
         displayName: Docker build
       - task: Docker@2
         displayName: Login to ${{ variables.containerRegistry }}

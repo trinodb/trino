@@ -13,41 +13,25 @@
  */
 package io.trino.operator.aggregation.multimapagg;
 
-import io.trino.array.ObjectBigArray;
-import io.trino.operator.scalar.BlockSet;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.MapBlockBuilder;
+import io.trino.spi.block.ValueBlock;
 import io.trino.spi.function.AggregationFunction;
 import io.trino.spi.function.AggregationState;
 import io.trino.spi.function.BlockIndex;
 import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.CombineFunction;
-import io.trino.spi.function.Convention;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.InputFunction;
-import io.trino.spi.function.OperatorDependency;
-import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.OutputFunction;
 import io.trino.spi.function.SqlNullable;
 import io.trino.spi.function.SqlType;
 import io.trino.spi.function.TypeParameter;
-import io.trino.spi.type.ArrayType;
-import io.trino.spi.type.Type;
-import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
-import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
-
-import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
-import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
-import static io.trino.type.TypeUtils.expectedValueSize;
 
 @AggregationFunction(value = "multimap_agg", isOrderSensitive = true)
 @Description("Aggregates all the rows (key/value pairs) into a single multimap")
 public final class MultimapAggregationFunction
 {
-    private static final int EXPECTED_ENTRY_SIZE = 100;
-
     private MultimapAggregationFunction() {}
 
     @InputFunction
@@ -55,11 +39,12 @@ public final class MultimapAggregationFunction
     @TypeParameter("V")
     public static void input(
             @AggregationState({"K", "V"}) MultimapAggregationState state,
-            @BlockPosition @SqlType("K") Block key,
-            @SqlNullable @BlockPosition @SqlType("V") Block value,
-            @BlockIndex int position)
+            @BlockPosition @SqlType("K") ValueBlock key,
+            @BlockIndex int keyPosition,
+            @SqlNullable @BlockPosition @SqlType("V") ValueBlock value,
+            @BlockIndex int valuePosition)
     {
-        state.add(key, value, position);
+        state.add(key, keyPosition, value, valuePosition);
     }
 
     @CombineFunction
@@ -71,50 +56,8 @@ public final class MultimapAggregationFunction
     }
 
     @OutputFunction("map(K, array(V))")
-    public static void output(
-            @TypeParameter("K") Type keyType,
-            @OperatorDependency(
-                    operator = OperatorType.IS_DISTINCT_FROM,
-                    argumentTypes = {"K", "K"},
-                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = NULLABLE_RETURN))
-                    BlockPositionIsDistinctFrom keyDistinctFrom,
-            @OperatorDependency(
-                    operator = OperatorType.HASH_CODE,
-                    argumentTypes = "K",
-                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL))
-                    BlockPositionHashCode keyHashCode,
-            @TypeParameter("V") Type valueType,
-            @AggregationState({"K", "V"}) MultimapAggregationState state,
-            BlockBuilder out)
+    public static void output(@AggregationState({"K", "V"}) MultimapAggregationState state, BlockBuilder out)
     {
-        if (state.isEmpty()) {
-            out.appendNull();
-        }
-        else {
-            // TODO: Avoid copy value block associated with the same key by using strategy similar to multimap_from_entries
-            ObjectBigArray<BlockBuilder> valueArrayBlockBuilders = new ObjectBigArray<>();
-            valueArrayBlockBuilders.ensureCapacity(state.getEntryCount());
-            BlockBuilder distinctKeyBlockBuilder = keyType.createBlockBuilder(null, state.getEntryCount(), expectedValueSize(keyType, 100));
-            BlockSet keySet = new BlockSet(keyType, keyDistinctFrom, keyHashCode, state.getEntryCount());
-
-            state.forEach((key, value, keyValueIndex) -> {
-                // Merge values of the same key into an array
-                if (keySet.add(key, keyValueIndex)) {
-                    keyType.appendTo(key, keyValueIndex, distinctKeyBlockBuilder);
-                    BlockBuilder valueArrayBuilder = valueType.createBlockBuilder(null, 10, expectedValueSize(valueType, EXPECTED_ENTRY_SIZE));
-                    valueArrayBlockBuilders.set(keySet.positionOf(key, keyValueIndex), valueArrayBuilder);
-                }
-                valueType.appendTo(value, keyValueIndex, valueArrayBlockBuilders.get(keySet.positionOf(key, keyValueIndex)));
-            });
-
-            // Write keys and value arrays into one Block
-            Type valueArrayType = new ArrayType(valueType);
-            ((MapBlockBuilder) out).buildEntry((keyBuilder, valueBuilder) -> {
-                for (int i = 0; i < distinctKeyBlockBuilder.getPositionCount(); i++) {
-                    keyType.appendTo(distinctKeyBlockBuilder, i, keyBuilder);
-                    valueArrayType.writeObject(valueBuilder, valueArrayBlockBuilders.get(i).build());
-                }
-            });
-        }
+        state.writeAll((MapBlockBuilder) out);
     }
 }

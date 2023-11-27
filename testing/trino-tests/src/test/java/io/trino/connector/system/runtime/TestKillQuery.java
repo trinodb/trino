@@ -19,8 +19,12 @@ import io.trino.spi.security.Identity;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import io.trino.testng.services.ManageTestResources;
+import io.trino.testng.services.ReportOrphanedExecutors;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -39,12 +43,15 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.testng.Assert.assertFalse;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
 public class TestKillQuery
         extends AbstractTestQueryFramework
 {
+    @ManageTestResources.Suppress(because = "Not a TestNG test class")
+    @ReportOrphanedExecutors.Suppress(because = "Not a TestNG test class")
     private final ExecutorService executor = Executors.newSingleThreadScheduledExecutor(threadsNamed(TestKillQuery.class.getSimpleName()));
 
     @Override
@@ -62,13 +69,14 @@ public class TestKillQuery
         return queryRunner;
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         executor.shutdownNow();
     }
 
-    @Test(timeOut = 60_000)
+    @Test
+    @Timeout(60)
     public void testKillQuery()
     {
         killQuery(queryId -> format("CALL system.runtime.kill_query('%s', 'because')", queryId), "Message: because");

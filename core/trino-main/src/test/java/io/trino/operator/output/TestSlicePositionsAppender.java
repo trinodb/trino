@@ -17,7 +17,8 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import org.testng.annotations.Test;
+import io.trino.spi.block.ValueBlock;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 
@@ -34,7 +35,7 @@ public class TestSlicePositionsAppender
     {
         // test SlicePositionAppender.appendRle with empty value (Slice with length 0)
         PositionsAppender positionsAppender = new SlicePositionsAppender(1, 100);
-        Block value = createStringsBlock("");
+        ValueBlock value = createStringsBlock("");
         positionsAppender.appendRle(value, 10);
 
         Block actualBlock = positionsAppender.build();

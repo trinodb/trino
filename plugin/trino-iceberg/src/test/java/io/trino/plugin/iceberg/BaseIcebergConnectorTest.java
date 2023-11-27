@@ -103,8 +103,8 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
-import static io.trino.SystemSessionProperties.TASK_PARTITIONED_WRITER_COUNT;
-import static io.trino.SystemSessionProperties.TASK_WRITER_COUNT;
+import static io.trino.SystemSessionProperties.TASK_MAX_WRITER_COUNT;
+import static io.trino.SystemSessionProperties.TASK_MIN_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.USE_PREFERRED_WRITE_PARTITIONING;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
@@ -128,6 +128,7 @@ import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
+import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingConnectorSession.SESSION;
@@ -216,7 +217,8 @@ public abstract class BaseIcebergConnectorTest
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
         return switch (connectorBehavior) {
-            case SUPPORTS_REPORTING_WRITTEN_BYTES -> true;
+            case SUPPORTS_CREATE_OR_REPLACE_TABLE,
+                    SUPPORTS_REPORTING_WRITTEN_BYTES -> true;
             case SUPPORTS_ADD_COLUMN_NOT_NULL_CONSTRAINT,
                     SUPPORTS_RENAME_MATERIALIZED_VIEW_ACROSS_SCHEMAS,
                     SUPPORTS_TOPN_PUSHDOWN,
@@ -260,7 +262,8 @@ public abstract class BaseIcebergConnectorTest
                         "Unsupported type for temporal table version: .*|" +
                         "Unsupported type for table version: .*|" +
                         "No version history table tpch.nation at or before .*|" +
-                        "Iceberg snapshot ID does not exists: .*");
+                        "Iceberg snapshot ID does not exists: .*|" +
+                        "Cannot find snapshot with reference name: .*");
     }
 
     @Override
@@ -1344,7 +1347,7 @@ public abstract class BaseIcebergConnectorTest
             assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM nation WHERE nationkey >= 10 AND nationkey < 20", 10);
             assertUpdate("INSERT INTO " + table.getName() + " SELECT * FROM nation WHERE nationkey >= 20", 5);
             assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES sorted_by = ARRAY['comment']");
-            // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+            // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
             assertUpdate(withSingleWriterPerTask(withSmallRowGroups), "ALTER TABLE " + table.getName() + " EXECUTE optimize");
 
             for (Object filePath : computeActual("SELECT file_path from \"" + table.getName() + "$files\"").getOnlyColumnAsSet()) {
@@ -4090,7 +4093,7 @@ public abstract class BaseIcebergConnectorTest
 
     private void withTransaction(Consumer<Session> consumer)
     {
-        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getMetadata(), getQueryRunner().getAccessControl())
                 .readCommitted()
                 .execute(getSession(), consumer);
     }
@@ -4685,7 +4688,7 @@ public abstract class BaseIcebergConnectorTest
             verifySplitCount("SELECT row_id FROM " + tableName + " WHERE col > " + sampleValue,
                     (format == ORC && testSetup.getTrinoTypeName().contains("timestamp") ? 2 : expectedSplitCount));
             verifySplitCount("SELECT row_id FROM " + tableName + " WHERE col < " + highValue,
-                    (format == ORC && testSetup.getTrinoTypeName().contains("timestamp") ? 2 : expectedSplitCount));
+                    (format == ORC && testSetup.getTrinoTypeName().contains("timestamp(6)") ? 2 : expectedSplitCount));
         }
     }
 
@@ -4702,7 +4705,7 @@ public abstract class BaseIcebergConnectorTest
         assertThat(actual).isNotNull();
         MaterializedResult expected = resultBuilder(getSession())
                 .row("write.format.default", format.name())
-                .build();
+                .row("write.parquet.compression-codec", "zstd").build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
 
@@ -4816,14 +4819,6 @@ public abstract class BaseIcebergConnectorTest
             // These types are not supported by Iceberg
             return Optional.of(dataMappingTestSetup.asUnsupported());
         }
-
-        // According to Iceberg specification all time and timestamp values are stored with microsecond precision.
-        if (typeName.equals("time") ||
-                typeName.equals("timestamp") ||
-                typeName.equals("timestamp(3) with time zone")) {
-            return Optional.of(dataMappingTestSetup.asUnsupported());
-        }
-
         return Optional.of(dataMappingTestSetup);
     }
 
@@ -4949,7 +4944,7 @@ public abstract class BaseIcebergConnectorTest
                 // Verify we have sufficiently many test rows with respect to worker count.
                 .hasSizeGreaterThan(workerCount);
 
-        // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+        // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
         computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
         assertThat(query("SELECT sum(key), listagg(value, ' ') WITHIN GROUP (ORDER BY key) FROM " + tableName))
                 .matches("VALUES (BIGINT '65', VARCHAR 'eleven zwölf trzynaście quatorze пʼятнадцять')");
@@ -4962,7 +4957,7 @@ public abstract class BaseIcebergConnectorTest
                 .containsExactlyInAnyOrderElementsOf(concat(initialFiles, updatedFiles));
 
         // optimize with low retention threshold, nothing should change
-        // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+        // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
         computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE (file_size_threshold => '33B')");
         assertThat(query("SELECT sum(key), listagg(value, ' ') WITHIN GROUP (ORDER BY key) FROM " + tableName))
                 .matches("VALUES (BIGINT '65', VARCHAR 'eleven zwölf trzynaście quatorze пʼятнадцять')");
@@ -5009,7 +5004,7 @@ public abstract class BaseIcebergConnectorTest
         List<String> initialFiles = getActiveFiles(tableName);
         assertThat(initialFiles).hasSize(10);
 
-        // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+        // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
         computeActual(withSingleWriterPerTask(session), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
 
         assertThat(query(session, "SELECT sum(value), listagg(key, ' ') WITHIN GROUP (ORDER BY key) FROM " + tableName))
@@ -5069,7 +5064,7 @@ public abstract class BaseIcebergConnectorTest
                 .isGreaterThanOrEqualTo(5);
 
         assertUpdate(
-                // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+                // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
                 // Use UTC zone so that DATE and TIMESTAMP WITH TIME ZONE comparisons align with partition boundaries.
                 withSingleWriterPerTask(Session.builder(getSession())
                         .setTimeZoneKey(UTC_KEY)
@@ -5085,7 +5080,7 @@ public abstract class BaseIcebergConnectorTest
 
         // Verify that WHERE CAST(p AS date) ... form works in non-UTC zone
         assertUpdate(
-                // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+                // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
                 withSingleWriterPerTask(Session.builder(getSession())
                         .setTimeZoneKey(getTimeZoneKey("Asia/Kathmandu"))
                         .build()),
@@ -5131,7 +5126,7 @@ public abstract class BaseIcebergConnectorTest
                 "SELECT summary['total-delete-files'] FROM \"" + tableName + "$snapshots\" WHERE snapshot_id = " + getCurrentSnapshotId(tableName),
                 "VALUES '1'");
 
-        // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+        // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
         computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
 
         List<String> updatedFiles = getActiveFiles(tableName);
@@ -5165,7 +5160,7 @@ public abstract class BaseIcebergConnectorTest
         List<String> allDataFilesAfterDelete = getAllDataFilesFromTableDirectory(tableName);
         assertThat(allDataFilesAfterDelete).hasSize(6);
 
-        // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+        // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
         computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE regionkey = 4");
         computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')");
         computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')");
@@ -5182,7 +5177,7 @@ public abstract class BaseIcebergConnectorTest
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("SELECT * FROM nation WHERE nationkey != 7");
 
-        // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+        // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
         computeActual(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
         computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE EXPIRE_SNAPSHOTS (retention_threshold => '0s')");
         computeActual(sessionWithShortRetentionUnlocked, "ALTER TABLE " + tableName + " EXECUTE REMOVE_ORPHAN_FILES (retention_threshold => '0s')");
@@ -5272,7 +5267,7 @@ public abstract class BaseIcebergConnectorTest
         @Language("SQL") String createTableSql = format("CREATE TABLE %s AS SELECT * FROM tpch.sf1.lineitem LIMIT 100000", tableName);
 
         Session session = Session.builder(getSession())
-                .setSystemProperty("task_writer_count", "1")
+                .setSystemProperty("task_min_writer_count", "1")
                 // task scale writers should be disabled since we want to write with a single task writer
                 .setSystemProperty("task_scale_writers_enabled", "false")
                 .build();
@@ -5283,7 +5278,7 @@ public abstract class BaseIcebergConnectorTest
 
         DataSize maxSize = DataSize.of(40, DataSize.Unit.KILOBYTE);
         session = Session.builder(getSession())
-                .setSystemProperty("task_writer_count", "1")
+                .setSystemProperty("task_min_writer_count", "1")
                 // task scale writers should be disabled since we want to write with a single task writer
                 .setSystemProperty("task_scale_writers_enabled", "false")
                 .setCatalogSessionProperty("iceberg", "target_max_file_size", maxSize.toString())
@@ -5308,7 +5303,7 @@ public abstract class BaseIcebergConnectorTest
         @Language("SQL") String createTableSql = format("CREATE TABLE %s WITH (sorted_by = ARRAY['shipdate']) AS SELECT * FROM tpch.sf1.lineitem LIMIT 100000", tableName);
 
         Session session = Session.builder(getSession())
-                .setSystemProperty("task_writer_count", "1")
+                .setSystemProperty("task_min_writer_count", "1")
                 // task scale writers should be disabled since we want to write with a single task writer
                 .setSystemProperty("task_scale_writers_enabled", "false")
                 .build();
@@ -5319,7 +5314,7 @@ public abstract class BaseIcebergConnectorTest
 
         DataSize maxSize = DataSize.of(40, DataSize.Unit.KILOBYTE);
         session = Session.builder(getSession())
-                .setSystemProperty("task_writer_count", "1")
+                .setSystemProperty("task_min_writer_count", "1")
                 // task scale writers should be disabled since we want to write with a single task writer
                 .setSystemProperty("task_scale_writers_enabled", "false")
                 .setCatalogSessionProperty("iceberg", "target_max_file_size", maxSize.toString())
@@ -5432,7 +5427,7 @@ public abstract class BaseIcebergConnectorTest
         List<String> initialFiles = getActiveFiles(tableName);
         assertThat(initialFiles).hasSize(4);
 
-        // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+        // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
         assertQuerySucceeds(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE \"$path\" = '" + firstPath + "' OR \"$path\" = '" + secondPath + "'");
         assertQuerySucceeds(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE \"$path\" = '" + thirdPath + "' OR \"$path\" = '" + fourthPath + "'");
 
@@ -5531,7 +5526,7 @@ public abstract class BaseIcebergConnectorTest
         assertThat(initialFiles).hasSize(4);
 
         storageTimePrecision.sleep(1);
-        // For optimize we need to set task_writer_count to 1, otherwise it will create more than one file.
+        // For optimize we need to set task_min_writer_count to 1, otherwise it will create more than one file.
         assertQuerySucceeds(withSingleWriterPerTask(getSession()), "ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE " +
                 "\"$file_modified_time\" = from_iso8601_timestamp('" + firstFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "') OR " +
                 "\"$file_modified_time\" = from_iso8601_timestamp('" + secondFileModifiedTime.format(ISO_OFFSET_DATE_TIME) + "')");
@@ -6068,8 +6063,8 @@ public abstract class BaseIcebergConnectorTest
         int taskWriterCount = 4;
         assertThat(taskWriterCount).isGreaterThan(getQueryRunner().getNodeCount());
         Session session = Session.builder(getSession())
-                .setSystemProperty(TASK_WRITER_COUNT, String.valueOf(taskWriterCount))
-                .setSystemProperty(TASK_PARTITIONED_WRITER_COUNT, String.valueOf(taskWriterCount))
+                .setSystemProperty(TASK_MIN_WRITER_COUNT, String.valueOf(taskWriterCount))
+                .setSystemProperty(TASK_MAX_WRITER_COUNT, String.valueOf(taskWriterCount))
                 .build();
 
         String tableName = "test_inserting_into_bucketed_column_task_writer_count_" + randomNameSuffix();
@@ -6274,6 +6269,109 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
+    public void testCreateOrReplaceTableSnapshots()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_", " AS SELECT BIGINT '42' a, DOUBLE '-38.5' b")) {
+            long v1SnapshotId = getCurrentSnapshotId(table.getName());
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT BIGINT '-42' a, DOUBLE '38.5' b", 1);
+            assertThat(query("SELECT CAST(a AS bigint), b FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '-42', 385e-1)");
+
+            assertThat(query("SELECT a, b  FROM " + table.getName() + " FOR VERSION AS OF " + v1SnapshotId))
+                    .matches("VALUES (BIGINT '42', -385e-1)");
+        }
+    }
+
+    @Test
+    public void testCreateOrReplaceTableChangeColumnNamesAndTypes()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_", " AS SELECT BIGINT '42' a, DOUBLE '-38.5' b")) {
+            long v1SnapshotId = getCurrentSnapshotId(table.getName());
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT CAST(ARRAY[ROW('test')] AS ARRAY(ROW(field VARCHAR))) a, VARCHAR 'test2' b", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (CAST(ARRAY[ROW('test')] AS ARRAY(ROW(field VARCHAR))), VARCHAR 'test2')");
+
+            assertThat(query("SELECT * FROM " + table.getName() + " FOR VERSION AS OF " + v1SnapshotId))
+                    .matches("VALUES (BIGINT '42', -385e-1)");
+        }
+    }
+
+    @Test
+    public void testCreateOrReplaceTableChangePartitionedTableIntoUnpartitioned()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_", " WITH (partitioning=ARRAY['a']) AS SELECT BIGINT '42' a, 'some data' b UNION ALL SELECT BIGINT '43' a, 'another data' b")) {
+            long v1SnapshotId = getCurrentSnapshotId(table.getName());
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " WITH (sorted_by=ARRAY['a']) AS SELECT BIGINT '22' a, 'new data' b", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '22', CAST('new data' AS VARCHAR))");
+
+            assertThat(query("SELECT partition FROM \"" + table.getName() + "$partitions\""))
+                    .matches("VALUES (ROW(CAST (ROW(NULL) AS ROW(a BIGINT))))");
+
+            assertThat(query("SELECT * FROM " + table.getName() + " FOR VERSION AS OF " + v1SnapshotId))
+                    .matches("VALUES (BIGINT '42', CAST('some data' AS VARCHAR)), (BIGINT '43', CAST('another data' AS VARCHAR))");
+
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("sorted_by = ARRAY['a ASC NULLS FIRST']");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .doesNotContain("partitioning = ARRAY['a']");
+        }
+    }
+
+    @Test
+    public void testCreateOrReplaceTableChangeUnpartitionedTableIntoPartitioned()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_", " WITH (sorted_by=ARRAY['a']) AS SELECT BIGINT '22' a, CAST('some data' AS VARCHAR) b")) {
+            long v1SnapshotId = getCurrentSnapshotId(table.getName());
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " WITH (partitioning=ARRAY['a']) AS SELECT BIGINT '42' a, 'some data' b UNION ALL SELECT BIGINT '43' a, 'another data' b", 2);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES (BIGINT '42', CAST('some data' AS VARCHAR)), (BIGINT '43', CAST('another data' AS VARCHAR))");
+
+            assertThat(query("SELECT partition FROM \"" + table.getName() + "$partitions\""))
+                    .matches("VALUES (ROW(CAST (ROW(BIGINT '42') AS ROW(a BIGINT)))), (ROW(CAST (ROW(BIGINT '43') AS ROW(a BIGINT))))");
+
+            assertThat(query("SELECT * FROM " + table.getName() + " FOR VERSION AS OF " + v1SnapshotId))
+                    .matches("VALUES (BIGINT '22', CAST('some data' AS VARCHAR))");
+
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("partitioning = ARRAY['a']");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .doesNotContain("sorted_by = ARRAY['a ASC NULLS FIRST']");
+        }
+    }
+
+    @Test
+    public void testCreateOrReplaceTableWithComments()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_or_replace_", " (a BIGINT COMMENT 'This is a column') COMMENT 'This is a table'")) {
+            long v1SnapshotId = getCurrentSnapshotId(table.getName());
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT 1 a", 1);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .matches("VALUES 1");
+
+            assertThat(query("SELECT * FROM " + table.getName() + " FOR VERSION AS OF " + v1SnapshotId))
+                    .returnsEmptyResult();
+
+            assertThat(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), table.getName()))
+                    .isNull();
+            assertThat(getColumnComment(table.getName(), "a"))
+                    .isNull();
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " (a BIGINT COMMENT 'This is a column') COMMENT 'This is a table'");
+
+            assertThat(getTableComment(getSession().getCatalog().orElseThrow(), getSession().getSchema().orElseThrow(), table.getName()))
+                    .isEqualTo("This is a table");
+            assertThat(getColumnComment(table.getName(), "a"))
+                    .isEqualTo("This is a column");
+        }
+    }
+
+    @Test
     public void testMergeSimpleSelectPartitioned()
     {
         String targetTable = "merge_simple_target_" + randomNameSuffix();
@@ -6303,7 +6401,7 @@ public abstract class BaseIcebergConnectorTest
     public void testMergeUpdateWithVariousLayouts(int writers, String partitioning)
     {
         Session session = Session.builder(getSession())
-                .setSystemProperty(TASK_WRITER_COUNT, String.valueOf(writers))
+                .setSystemProperty(TASK_MIN_WRITER_COUNT, String.valueOf(writers))
                 .build();
 
         String targetTable = "merge_formats_target_" + randomNameSuffix();
@@ -6354,8 +6452,8 @@ public abstract class BaseIcebergConnectorTest
     public void testMergeMultipleOperations(int writers, String partitioning)
     {
         Session session = Session.builder(getSession())
-                .setSystemProperty(TASK_WRITER_COUNT, String.valueOf(writers))
-                .setSystemProperty(TASK_PARTITIONED_WRITER_COUNT, String.valueOf(writers))
+                .setSystemProperty(TASK_MIN_WRITER_COUNT, String.valueOf(writers))
+                .setSystemProperty(TASK_MAX_WRITER_COUNT, String.valueOf(writers))
                 .build();
 
         int targetCustomerCount = 32;
@@ -6934,15 +7032,426 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
+    @Test
+    public void testTableChangesFunctionAfterSchemaChange()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_table_changes_function_",
+                "AS SELECT nationkey, name FROM tpch.tiny.nation WITH NO DATA")) {
+            long initialSnapshot = getCurrentSnapshotId(table.getName());
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT nationkey, name FROM nation WHERE nationkey < 5", 5);
+            long snapshotAfterInsert = getCurrentSnapshotId(table.getName());
+
+            assertUpdate("ALTER TABLE " + table.getName() + " DROP COLUMN name");
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT nationkey FROM nation WHERE nationkey >= 5 AND nationkey < 10", 5);
+            long snapshotAfterDropColumn = getCurrentSnapshotId(table.getName());
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN comment VARCHAR");
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT nationkey, comment FROM nation WHERE nationkey >= 10 AND nationkey < 15", 5);
+            long snapshotAfterAddColumn = getCurrentSnapshotId(table.getName());
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN name VARCHAR");
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT nationkey, comment, name FROM nation WHERE nationkey >= 15", 10);
+            long snapshotAfterReaddingNameColumn = getCurrentSnapshotId(table.getName());
+
+            assertQuery(
+                    "SELECT nationkey, name, _change_type, _change_version_id, _change_ordinal " +
+                            "FROM TABLE(system.table_changes('tpch', '%s', %s, %s))".formatted(table.getName(), initialSnapshot, snapshotAfterInsert),
+                    "SELECT nationkey, name, 'insert', %s, 0 FROM nation WHERE nationkey < 5".formatted(snapshotAfterInsert));
+
+            assertQuery(
+                    "SELECT nationkey, _change_type, _change_version_id, _change_ordinal " +
+                            "FROM TABLE(system.table_changes('tpch', '%s', %s, %s))".formatted(table.getName(), initialSnapshot, snapshotAfterDropColumn),
+                    "SELECT nationkey, 'insert', %s, 0 FROM nation WHERE nationkey < 5 UNION SELECT nationkey, 'insert', %s, 1 FROM nation WHERE nationkey >= 5 AND nationkey < 10 ".formatted(snapshotAfterInsert, snapshotAfterDropColumn));
+
+            assertQuery(
+                    "SELECT nationkey, comment, _change_type, _change_version_id, _change_ordinal " +
+                            "FROM TABLE(system.table_changes('tpch', '%s', %s, %s))".formatted(table.getName(), initialSnapshot, snapshotAfterAddColumn),
+                    ("SELECT nationkey, NULL, 'insert', %s, 0 FROM nation WHERE nationkey < 5 " +
+                            "UNION SELECT nationkey, NULL, 'insert', %s, 1 FROM nation WHERE nationkey >= 5 AND nationkey < 10 " +
+                            "UNION SELECT nationkey, comment, 'insert', %s, 2 FROM nation WHERE nationkey >= 10 AND nationkey < 15").formatted(snapshotAfterInsert, snapshotAfterDropColumn, snapshotAfterAddColumn));
+
+            assertQuery(
+                    "SELECT nationkey, comment, name, _change_type, _change_version_id, _change_ordinal " +
+                            "FROM TABLE(system.table_changes('tpch', '%s', %s, %s))".formatted(table.getName(), initialSnapshot, snapshotAfterReaddingNameColumn),
+                    ("SELECT nationkey, NULL, NULL, 'insert', %s, 0 FROM nation WHERE nationkey < 5 " +
+                            "UNION SELECT nationkey, NULL, NULL, 'insert', %s, 1 FROM nation WHERE nationkey >= 5 AND nationkey < 10 " +
+                            "UNION SELECT nationkey, comment, NULL, 'insert', %s, 2 FROM nation WHERE nationkey >= 10 AND nationkey < 15" +
+                            "UNION SELECT nationkey, comment, name, 'insert', %s, 3 FROM nation WHERE nationkey >= 15").formatted(snapshotAfterInsert, snapshotAfterDropColumn, snapshotAfterAddColumn, snapshotAfterReaddingNameColumn));
+        }
+    }
+
+    @Test
+    public void testIdentityPartitionFilterMissing()
+    {
+        String tableName = "test_partition_" + randomNameSuffix();
+
+        Session session = withPartitionFilterRequired(getSession());
+
+        assertUpdate(session, "CREATE TABLE " + tableName + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['ds'])");
+        assertUpdate(session, "INSERT INTO " + tableName + " (id, a, ds) VALUES (1, 'a', 'a')", 1);
+        assertQueryFails(session, "SELECT id FROM " + tableName + " WHERE ds IS NOT null OR true", "Filter required for tpch\\." + tableName + " on at least one of the partition columns: ds");
+        assertUpdate(session, "DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testBucketPartitionFilterMissing()
+    {
+        String tableName = "test_partition_" + randomNameSuffix();
+
+        Session session = withPartitionFilterRequired(getSession());
+
+        assertUpdate(session, "CREATE TABLE " + tableName + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['bucket(ds, 16)'])");
+        assertUpdate(session, "INSERT INTO " + tableName + " (id, a, ds) VALUES (1, 'a', 'a')", 1);
+        assertQueryFails(session, "SELECT id FROM " + tableName + " WHERE ds IS NOT null OR true", "Filter required for tpch\\." + tableName + " on at least one of the partition columns: ds");
+        assertUpdate(session, "DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testIdentityPartitionFilterIncluded()
+    {
+        String tableName = "test_partition_" + randomNameSuffix();
+
+        Session session = withPartitionFilterRequired(getSession());
+
+        assertUpdate(session, "CREATE TABLE " + tableName + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['ds'])");
+        assertUpdate(session, "INSERT INTO " + tableName + " (id, a, ds) VALUES (1, 'a', 'a')", 1);
+        String query = "SELECT id FROM " + tableName + " WHERE ds = 'a'";
+        assertQuery(session, query, "VALUES 1");
+        assertUpdate(session, "DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testBucketPartitionFilterIncluded()
+    {
+        String tableName = "test_partition_" + randomNameSuffix();
+
+        Session session = withPartitionFilterRequired(getSession());
+
+        assertUpdate(session, "CREATE TABLE " + tableName + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['bucket(ds, 16)'])");
+        assertUpdate(session, "INSERT INTO " + tableName + " (id, a, ds) VALUES (1, 'a', 'a'), (2, 'b', 'b')", 2);
+        String query = "SELECT id FROM " + tableName + " WHERE ds = 'a'";
+        assertQuery(session, query, "VALUES 1");
+        assertUpdate(session, "DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testMultiPartitionedTableFilterIncluded()
+    {
+        String tableName = "test_partition_" + randomNameSuffix();
+
+        Session session = withPartitionFilterRequired(getSession());
+
+        assertUpdate(session, "CREATE TABLE " + tableName + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['id', 'bucket(ds, 16)'])");
+        assertUpdate(session, "INSERT INTO " + tableName + " (id, a, ds) VALUES (1, 'a', 'a'), (2, 'b', 'b')", 2);
+        // include predicate only on 'id', not on 'ds'
+        String query = "SELECT id, ds FROM " + tableName + " WHERE id = 2";
+        assertQuery(session, query, "VALUES (2, 'b')");
+        assertUpdate(session, "DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testIdentityPartitionIsNotNullFilter()
+    {
+        String tableName = "test_partition_" + randomNameSuffix();
+
+        Session session = withPartitionFilterRequired(getSession());
+
+        assertUpdate(session, "CREATE TABLE " + tableName + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['ds'])");
+        assertUpdate(session, "INSERT INTO " + tableName + " (id, a, ds) VALUES (1, 'a', 'a')", 1);
+        assertQuery(session, "SELECT id FROM " + tableName + " WHERE ds IS NOT null", "VALUES 1");
+        assertUpdate(session, "DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testJoinPartitionFilterIncluded()
+    {
+        String tableName1 = "test_partition_" + randomNameSuffix();
+        String tableName2 = "test_partition_" + randomNameSuffix();
+
+        Session session = withPartitionFilterRequired(getSession());
+
+        assertUpdate(session, "CREATE TABLE " + tableName1 + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['ds'])");
+        assertUpdate(session, "INSERT INTO " + tableName1 + " (id, a, ds) VALUES (1, 'a', 'a')", 1);
+        assertUpdate(session, "CREATE TABLE " + tableName2 + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['ds'])");
+        assertUpdate(session, "INSERT INTO " + tableName2 + " (id, a, ds) VALUES (1, 'a', 'a')", 1);
+        assertQuery(session, "SELECT a.id, b.id FROM " + tableName1 + " a JOIN " + tableName2 + " b ON (a.ds = b.ds) WHERE a.ds = 'a'", "VALUES (1, 1)");
+        assertUpdate(session, "DROP TABLE " + tableName1);
+        assertUpdate(session, "DROP TABLE " + tableName2);
+    }
+
+    @Test
+    public void testJoinWithMissingPartitionFilter()
+    {
+        String tableName1 = "test_partition_" + randomNameSuffix();
+        String tableName2 = "test_partition_" + randomNameSuffix();
+
+        Session session = withPartitionFilterRequired(getSession());
+
+        assertUpdate(session, "CREATE TABLE " + tableName1 + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['ds'])");
+        assertUpdate(session, "INSERT INTO " + tableName1 + " (id, a, ds) VALUES (1, 'a', 'a')", 1);
+        assertUpdate(session, "CREATE TABLE " + tableName2 + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['ds'])");
+        assertUpdate(session, "INSERT INTO " + tableName2 + " (id, a, ds) VALUES (1, 'a', 'a')", 1);
+        assertQueryFails(session, "SELECT a.id, b.id FROM " + tableName1 + " a JOIN " + tableName2 + " b ON (a.id = b.id) WHERE a.ds = 'a'", "Filter required for tpch\\." + tableName2 + " on at least one of the partition columns: ds");
+        assertUpdate(session, "DROP TABLE " + tableName1);
+        assertUpdate(session, "DROP TABLE " + tableName2);
+    }
+
+    @Test
+    public void testJoinWithPartitionFilterOnPartitionedTable()
+    {
+        String tableName1 = "test_partition_" + randomNameSuffix();
+        String tableName2 = "test_partition_" + randomNameSuffix();
+
+        Session session = withPartitionFilterRequired(getSession());
+
+        assertUpdate(session, "CREATE TABLE " + tableName1 + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['ds'])");
+        assertUpdate(session, "INSERT INTO " + tableName1 + " (id, a, ds) VALUES (1, 'a', 'a')", 1);
+        assertUpdate(session, "CREATE TABLE " + tableName2 + " (id integer, a varchar, b varchar, ds varchar)");
+        assertUpdate(session, "INSERT INTO " + tableName2 + " (id, a, ds) VALUES (1, 'a', 'a')", 1);
+        assertQuery(session, "SELECT a.id, b.id FROM " + tableName1 + " a JOIN " + tableName2 + " b ON (a.id = b.id) WHERE a.ds = 'a'", "VALUES (1, 1)");
+        assertUpdate(session, "DROP TABLE " + tableName1);
+        assertUpdate(session, "DROP TABLE " + tableName2);
+    }
+
+    @Test
+    public void testPartitionPredicateWithCasting()
+    {
+        String tableName = "test_partition_" + randomNameSuffix();
+
+        Session session = withPartitionFilterRequired(getSession());
+
+        assertUpdate(session, "CREATE TABLE " + tableName + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['ds'])");
+        assertUpdate(session, "INSERT INTO " + tableName + " (id, a, ds) VALUES (1, '1', '1')", 1);
+        String query = "SELECT id FROM " + tableName + " WHERE cast(ds as integer) = 1";
+        assertQuery(session, query, "VALUES 1");
+        assertUpdate(session, "DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testNestedQueryWithInnerPartitionPredicate()
+    {
+        String tableName = "test_partition_" + randomNameSuffix();
+
+        Session session = withPartitionFilterRequired(getSession());
+
+        assertUpdate(session, "CREATE TABLE " + tableName + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['ds'])");
+        assertUpdate(session, "INSERT INTO " + tableName + " (id, a, ds) VALUES (1, '1', '1')", 1);
+        String query = "SELECT id FROM (SELECT * FROM " + tableName + " WHERE cast(ds as integer) = 1) WHERE cast(a as integer) = 1";
+        assertQuery(session, query, "VALUES 1");
+        assertUpdate(session, "DROP TABLE " + tableName + "");
+    }
+
+    @Test
+    public void testPredicateOnNonPartitionColumn()
+    {
+        String tableName = "test_partition_" + randomNameSuffix();
+
+        Session session = withPartitionFilterRequired(getSession());
+
+        assertUpdate(session, "CREATE TABLE " + tableName + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['ds'])");
+        assertUpdate(session, "INSERT INTO " + tableName + " (id, a, ds) VALUES (1, '1', '1')", 1);
+        String query = "SELECT id FROM " + tableName + " WHERE cast(b as integer) = 1";
+        assertQueryFails(session, query, "Filter required for tpch\\." + tableName + " on at least one of the partition columns: ds");
+        assertUpdate(session, "DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testNonSelectStatementsWithPartitionFilterRequired()
+    {
+        String tableName1 = "test_partition_" + randomNameSuffix();
+        String tableName2 = "test_partition_" + randomNameSuffix();
+
+        Session session = withPartitionFilterRequired(getSession());
+
+        assertUpdate(session, "CREATE TABLE " + tableName1 + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['ds'])");
+        assertUpdate(session, "CREATE TABLE " + tableName2 + " (id integer, a varchar, b varchar, ds varchar) WITH (partitioning = ARRAY['ds'])");
+        assertUpdate(session, "INSERT INTO " + tableName1 + " (id, a, ds) VALUES (1, '1', '1'), (2, '2', '2')", 2);
+        assertUpdate(session, "INSERT INTO " + tableName2 + " (id, a, ds) VALUES (1, '1', '1'), (3, '3', '3')", 2);
+
+        // These non-SELECT statements fail without a partition filter
+        String errorMessage = "Filter required for tpch\\." + tableName1 + " on at least one of the partition columns: ds";
+        assertQueryFails(session, "ALTER TABLE " + tableName1 + " EXECUTE optimize", errorMessage);
+        assertQueryFails(session, "UPDATE " + tableName1 + " SET a = 'New'", errorMessage);
+        assertQueryFails(session, "MERGE INTO " + tableName1 + " AS a USING " + tableName2 + " AS b ON (a.ds = b.ds) WHEN MATCHED THEN UPDATE SET a = 'New'", errorMessage);
+        assertQueryFails(session, "DELETE FROM " + tableName1 + " WHERE a = '1'", errorMessage);
+
+        // Adding partition filters to each solves the problem
+        assertQuerySucceeds(session, "ALTER TABLE " + tableName1 + " EXECUTE optimize WHERE ds in ('2', '4')");
+        assertQuerySucceeds(session, "UPDATE " + tableName1 + " SET a = 'New' WHERE ds = '2'");
+        assertQuerySucceeds(session, "MERGE INTO " + tableName1 + " AS a USING (SELECT * FROM " + tableName2 + " WHERE ds = '1') AS b ON (a.ds = b.ds) WHEN MATCHED THEN UPDATE SET a = 'New'");
+        assertQuerySucceeds(session, "DELETE FROM " + tableName1 + " WHERE ds = '1'");
+
+        // Analyze should always succeed, since currently it cannot take a partition argument like Hive
+        assertQuerySucceeds(session, "ANALYZE " + tableName1);
+        assertQuerySucceeds(session, "ANALYZE " + tableName2 + " WITH (columns = ARRAY['id', 'a'])");
+
+        assertUpdate(session, "DROP TABLE " + tableName1);
+        assertUpdate(session, "DROP TABLE " + tableName2);
+    }
+
+    private static Session withPartitionFilterRequired(Session session)
+    {
+        return Session.builder(session)
+                .setCatalogSessionProperty("iceberg", "query_partition_filter_required", "true")
+                .build();
+    }
+
     @Override
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageMatching("Table name must be shorter than or equal to '128' characters but got .*");
     }
 
+    @Test(dataProvider = "testTimestampPrecisionOnCreateTableAsSelect")
+    public void testTimestampPrecisionOnCreateTableAsSelect(TimestampPrecisionTestSetup setup)
+    {
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_coercion_show_create_table",
+                format("AS SELECT %s a", setup.sourceValueLiteral))) {
+            assertEquals(getColumnType(testTable.getName(), "a"), setup.newColumnType);
+            assertQuery(
+                    format("SELECT * FROM %s", testTable.getName()),
+                    format("VALUES (%s)", setup.newValueLiteral));
+        }
+    }
+
+    @Test(dataProvider = "testTimestampPrecisionOnCreateTableAsSelect")
+    public void testTimestampPrecisionOnCreateTableAsSelectWithNoData(TimestampPrecisionTestSetup setup)
+    {
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_coercion_show_create_table",
+                format("AS SELECT %s a WITH NO DATA", setup.sourceValueLiteral))) {
+            assertEquals(getColumnType(testTable.getName(), "a"), setup.newColumnType);
+        }
+    }
+
+    @DataProvider(name = "testTimestampPrecisionOnCreateTableAsSelect")
+    public Object[][] timestampPrecisionOnCreateTableAsSelectProvider()
+    {
+        return timestampPrecisionOnCreateTableAsSelectData().stream()
+                .map(this::filterTimestampPrecisionOnCreateTableAsSelectProvider)
+                .flatMap(Optional::stream)
+                .collect(toDataProvider());
+    }
+
+    protected Optional<TimestampPrecisionTestSetup> filterTimestampPrecisionOnCreateTableAsSelectProvider(TimestampPrecisionTestSetup setup)
+    {
+        return Optional.of(setup);
+    }
+
+    private List<TimestampPrecisionTestSetup> timestampPrecisionOnCreateTableAsSelectData()
+    {
+        return ImmutableList.<TimestampPrecisionTestSetup>builder()
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.000000'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.9'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.900000'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.56'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.560000'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.123'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123000'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.4896'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.489600'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.89356'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.893560'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.123000'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123000'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.999'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.999000'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.123456'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123456'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '2020-09-27 12:34:56.1'", "timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.100000'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '2020-09-27 12:34:56.9'", "timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.900000'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '2020-09-27 12:34:56.123'", "timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.123000'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '2020-09-27 12:34:56.123000'", "timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.123000'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '2020-09-27 12:34:56.999'", "timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.999000'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '2020-09-27 12:34:56.123456'", "timestamp(6)", "TIMESTAMP '2020-09-27 12:34:56.123456'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.1234561'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123456'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.123456499'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123456'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.123456499999'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123456'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.1234565'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.123457'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.111222333444'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.111222'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 00:00:00.9999995'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:01.000000'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1970-01-01 23:59:59.9999995'", "timestamp(6)", "TIMESTAMP '1970-01-02 00:00:00.000000'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1969-12-31 23:59:59.9999995'", "timestamp(6)", "TIMESTAMP '1970-01-01 00:00:00.000000'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1969-12-31 23:59:59.999999499999'", "timestamp(6)", "TIMESTAMP '1969-12-31 23:59:59.999999'"))
+                .add(new TimestampPrecisionTestSetup("TIMESTAMP '1969-12-31 23:59:59.9999994'", "timestamp(6)", "TIMESTAMP '1969-12-31 23:59:59.999999'"))
+                .build();
+    }
+
+    public record TimestampPrecisionTestSetup(String sourceValueLiteral, String newColumnType, String newValueLiteral)
+    {
+        public TimestampPrecisionTestSetup
+        {
+            requireNonNull(sourceValueLiteral, "sourceValueLiteral is null");
+            requireNonNull(newColumnType, "newColumnType is null");
+            requireNonNull(newValueLiteral, "newValueLiteral is null");
+        }
+
+        public TimestampPrecisionTestSetup withNewValueLiteral(String newValueLiteral)
+        {
+            return new TimestampPrecisionTestSetup(sourceValueLiteral, newColumnType, newValueLiteral);
+        }
+    }
+
+    @Test(dataProvider = "testTimePrecisionOnCreateTableAsSelect")
+    public void testTimePrecisionOnCreateTableAsSelect(String inputType, String tableType, String tableValue)
+    {
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_coercion_show_create_table",
+                format("AS SELECT %s a", inputType))) {
+            assertEquals(getColumnType(testTable.getName(), "a"), tableType);
+            assertQuery(
+                    format("SELECT * FROM %s", testTable.getName()),
+                    format("VALUES (%s)", tableValue));
+        }
+    }
+
+    @Test(dataProvider = "testTimePrecisionOnCreateTableAsSelect")
+    public void testTimePrecisionOnCreateTableAsSelectWithNoData(String inputType, String tableType, String ignored)
+    {
+        try (TestTable testTable = new TestTable(
+                getQueryRunner()::execute,
+                "test_coercion_show_create_table",
+                format("AS SELECT %s a WITH NO DATA", inputType))) {
+            assertEquals(getColumnType(testTable.getName(), "a"), tableType);
+        }
+    }
+
+    @DataProvider(name = "testTimePrecisionOnCreateTableAsSelect")
+    public static Object[][] timePrecisionOnCreateTableAsSelectProvider()
+    {
+        return new Object[][] {
+                {"TIME '00:00:00'", "time(6)", "TIME '00:00:00.000000'"},
+                {"TIME '00:00:00.9'", "time(6)", "TIME '00:00:00.900000'"},
+                {"TIME '00:00:00.56'", "time(6)", "TIME '00:00:00.560000'"},
+                {"TIME '00:00:00.123'", "time(6)", "TIME '00:00:00.123000'"},
+                {"TIME '00:00:00.4896'", "time(6)", "TIME '00:00:00.489600'"},
+                {"TIME '00:00:00.89356'", "time(6)", "TIME '00:00:00.893560'"},
+                {"TIME '00:00:00.123000'", "time(6)", "TIME '00:00:00.123000'"},
+                {"TIME '00:00:00.999'", "time(6)", "TIME '00:00:00.999000'"},
+                {"TIME '00:00:00.123456'", "time(6)", "TIME '00:00:00.123456'"},
+                {"TIME '12:34:56.1'", "time(6)", "TIME '12:34:56.100000'"},
+                {"TIME '12:34:56.9'", "time(6)", "TIME '12:34:56.900000'"},
+                {"TIME '12:34:56.123'", "time(6)", "TIME '12:34:56.123000'"},
+                {"TIME '12:34:56.123000'", "time(6)", "TIME '12:34:56.123000'"},
+                {"TIME '12:34:56.999'", "time(6)", "TIME '12:34:56.999000'"},
+                {"TIME '12:34:56.123456'", "time(6)", "TIME '12:34:56.123456'"},
+                {"TIME '00:00:00.1234561'", "time(6)", "TIME '00:00:00.123456'"},
+                {"TIME '00:00:00.123456499'", "time(6)", "TIME '00:00:00.123456'"},
+                {"TIME '00:00:00.123456499999'", "time(6)", "TIME '00:00:00.123456'"},
+                {"TIME '00:00:00.1234565'", "time(6)", "TIME '00:00:00.123457'"},
+                {"TIME '00:00:00.111222333444'", "time(6)", "TIME '00:00:00.111222'"},
+                {"TIME '00:00:00.9999995'", "time(6)", "TIME '00:00:01.000000'"},
+                {"TIME '23:59:59.9999995'", "time(6)", "TIME '00:00:00.000000'"},
+                {"TIME '23:59:59.9999995'", "time(6)", "TIME '00:00:00.000000'"},
+                {"TIME '23:59:59.999999499999'", "time(6)", "TIME '23:59:59.999999'"},
+                {"TIME '23:59:59.9999994'", "time(6)", "TIME '23:59:59.999999'"}};
+    }
+
     @Override
     protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
     {
+        if (setup.sourceColumnType().equals("timestamp(3) with time zone")) {
+            // The connector returns UTC instead of the given time zone
+            return Optional.of(setup.withNewValueLiteral("TIMESTAMP '2020-02-12 14:03:00.123000 +00:00'"));
+        }
         switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
             case "bigint -> integer":
             case "decimal(5,3) -> decimal(5,2)":
@@ -7021,10 +7530,19 @@ public abstract class BaseIcebergConnectorTest
         return false;
     }
 
+    @Override
+    protected Session withoutSmallFileThreshold(Session session)
+    {
+        return Session.builder(session)
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "parquet_small_file_threshold", "0B")
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "orc_tiny_stripe_threshold", "0B")
+                .build();
+    }
+
     private Session withSingleWriterPerTask(Session session)
     {
         return Session.builder(session)
-                .setSystemProperty("task_writer_count", "1")
+                .setSystemProperty("task_min_writer_count", "1")
                 .build();
     }
 

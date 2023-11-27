@@ -45,6 +45,7 @@ public class MemoryManagerConfig
     private LowMemoryQueryKillerPolicy lowMemoryQueryKillerPolicy = LowMemoryQueryKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
     private LowMemoryTaskKillerPolicy lowMemoryTaskKillerPolicy = LowMemoryTaskKillerPolicy.TOTAL_RESERVATION_ON_BLOCKED_NODES;
     private boolean faultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled = true;
+    private DataSize faultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit = DataSize.of(20, GIGABYTE);
 
     /**
      * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}}
@@ -201,6 +202,18 @@ public class MemoryManagerConfig
     public MemoryManagerConfig setFaultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled(boolean faultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled)
     {
         this.faultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled = faultTolerantExecutionMemoryRequirementIncreaseOnWorkerCrashEnabled;
+        return this;
+    }
+
+    public DataSize getFaultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit()
+    {
+        return faultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit;
+    }
+
+    @Config("fault-tolerant-execution-eager-speculative-tasks-node_memory-overcommit")
+    public MemoryManagerConfig setFaultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit(DataSize faultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit)
+    {
+        this.faultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit = faultTolerantExecutionEagerSpeculativeTasksNodeMemoryOvercommit;
         return this;
     }
 

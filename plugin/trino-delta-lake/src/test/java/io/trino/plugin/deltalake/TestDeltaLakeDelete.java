@@ -19,7 +19,7 @@ import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Set;
 
@@ -67,9 +67,13 @@ public class TestDeltaLakeDelete
                 "AS VALUES " +
                 "(1, 'with-hyphen'), " +
                 "(2, 'with:colon'), " +
-                "(3, 'with?question')", 3);
+                "(3, 'with:colon'), " + // create two rows in a single file to trigger parquet file rewrite on delete
+                "(4, 'with?question')", 4);
+        assertQuery("SELECT count(*), count(DISTINCT \"$path\"), col_name FROM " + tableName + " GROUP BY 3", "VALUES (1, 1, 'with-hyphen'), (2, 1, 'with:colon'), (1, 1, 'with?question')");
         assertUpdate("DELETE FROM " + tableName + " WHERE id = 2", 1);
-        assertQuery("SELECT * FROM " + tableName, "VALUES(1, 'with-hyphen'), (3, 'with?question')");
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'with-hyphen'), (3, 'with:colon'), (4, 'with?question')");
+        assertUpdate("DELETE FROM " + tableName, 3);
+        assertQueryReturnsEmptyResult("SELECT * FROM " + tableName);
     }
 
     @Test

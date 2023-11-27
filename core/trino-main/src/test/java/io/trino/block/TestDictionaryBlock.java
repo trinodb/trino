@@ -22,7 +22,7 @@ import io.trino.spi.block.DictionaryId;
 import io.trino.spi.block.IntArrayBlock;
 import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Optional;

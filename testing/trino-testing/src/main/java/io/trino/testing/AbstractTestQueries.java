@@ -19,8 +19,7 @@ import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.tpch.TpchTable;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Set;
@@ -36,7 +35,6 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.StatefulSleepingSum.STATEFUL_SLEEPING_SUM;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static io.trino.tpch.TpchTable.CUSTOMER;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static io.trino.tpch.TpchTable.REGION;
@@ -50,7 +48,7 @@ import static org.testng.Assert.assertTrue;
 public abstract class AbstractTestQueries
         extends AbstractTestQueryFramework
 {
-    protected static final List<TpchTable<?>> REQUIRED_TPCH_TABLES = ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION);
+    protected static final List<TpchTable<?>> REQUIRED_TPCH_TABLES = ImmutableList.of(NATION, ORDERS, REGION);
 
     // We can just use the default type registry, since we don't use any parametric types
     protected static final FunctionBundle CUSTOM_FUNCTIONS = InternalFunctionBundle.builder()
@@ -244,33 +242,24 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT orderkey FROM orders WHERE totalprice IN (1, 2, 3)");
     }
 
-    @Test(dataProvider = "largeInValuesCount")
-    public void testLargeIn(int valuesCount)
+    @Test
+    public void testLargeIn()
     {
-        String longValues = range(0, valuesCount)
-                .mapToObj(Integer::toString)
-                .collect(joining(", "));
-        assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (" + longValues + ")");
-        assertQuery("SELECT orderkey FROM orders WHERE orderkey NOT IN (" + longValues + ")");
+        for (int count : largeInValuesCountData()) {
+            String longValues = range(0, count)
+                    .mapToObj(Integer::toString)
+                    .collect(joining(", "));
+            assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (" + longValues + ")");
+            assertQuery("SELECT orderkey FROM orders WHERE orderkey NOT IN (" + longValues + ")");
 
-        assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (mod(1000, orderkey), " + longValues + ")");
-        assertQuery("SELECT orderkey FROM orders WHERE orderkey NOT IN (mod(1000, orderkey), " + longValues + ")");
+            assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (mod(1000, orderkey), " + longValues + ")");
+            assertQuery("SELECT orderkey FROM orders WHERE orderkey NOT IN (mod(1000, orderkey), " + longValues + ")");
+        }
     }
 
-    @DataProvider
-    public Object[][] largeInValuesCount()
+    protected List<Integer> largeInValuesCountData()
     {
-        return largeInValuesCountData();
-    }
-
-    protected Object[][] largeInValuesCountData()
-    {
-        return new Object[][] {
-                {200},
-                {500},
-                {1000},
-                {5000}
-        };
+        return ImmutableList.of(200, 500, 1000, 5000);
     }
 
     @Test
@@ -374,8 +363,8 @@ public abstract class AbstractTestQueries
                 "SELECT table_name FROM information_schema.tables WHERE table_name = 'orders' LIMIT 1",
                 "SELECT 'orders' table_name");
         assertQuery(
-                "SELECT table_name FROM information_schema.columns WHERE data_type = 'bigint' AND table_name = 'customer' and column_name = 'custkey' LIMIT 1",
-                "SELECT 'customer' table_name");
+                "SELECT table_name FROM information_schema.columns WHERE data_type = 'bigint' AND table_name = 'nation' and column_name = 'nationkey' LIMIT 1",
+                "SELECT 'nation' table_name");
     }
 
     @Test

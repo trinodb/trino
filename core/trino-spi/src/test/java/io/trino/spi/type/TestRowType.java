@@ -13,7 +13,7 @@
  */
 package io.trino.spi.type;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
@@ -21,7 +21,7 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Arrays.asList;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRowType
 {
@@ -37,9 +37,7 @@ public class TestRowType
                 RowType.field("map_col", new MapType(BOOLEAN, DOUBLE, typeOperators)));
 
         RowType row = RowType.from(fields);
-        assertEquals(
-                row.getDisplayName(),
-                "row(bool_col boolean, double_col double, array_col array(varchar), map_col map(boolean, double))");
+        assertThat(row.getDisplayName()).isEqualTo("row(bool_col boolean, double_col double, array_col array(varchar), map_col map(boolean, double))");
     }
 
     @Test
@@ -51,9 +49,7 @@ public class TestRowType
                 new ArrayType(VARCHAR),
                 new MapType(BOOLEAN, DOUBLE, typeOperators));
         RowType row = RowType.anonymous(types);
-        assertEquals(
-                row.getDisplayName(),
-                "row(boolean, double, array(varchar), map(boolean, double))");
+        assertThat(row.getDisplayName()).isEqualTo("row(boolean, double, array(varchar), map(boolean, double))");
     }
 
     @Test
@@ -66,8 +62,6 @@ public class TestRowType
                 RowType.field("map_col", new MapType(BOOLEAN, DOUBLE, typeOperators)));
 
         RowType row = RowType.from(fields);
-        assertEquals(
-                row.getDisplayName(),
-                "row(boolean, double_col double, array(varchar), map_col map(boolean, double))");
+        assertThat(row.getDisplayName()).isEqualTo("row(boolean, double_col double, array(varchar), map_col map(boolean, double))");
     }
 }

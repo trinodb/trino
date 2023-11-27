@@ -22,11 +22,11 @@ import okhttp3.Response;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.Set;
 
 import static jakarta.ws.rs.core.HttpHeaders.AUTHORIZATION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.fail;
-import static org.assertj.core.api.InstanceOfAssertFactories.list;
 
 public class TestOAuth2WebUiAuthenticationFilterWithOpaque
         extends BaseOAuth2WebUiAuthenticationFilterTest
@@ -43,6 +43,7 @@ public class TestOAuth2WebUiAuthenticationFilterWithOpaque
                 .put("http-server.authentication.oauth2.issuer", "https://localhost:4444/")
                 .put("http-server.authentication.oauth2.auth-url", idpUrl + "/oauth2/auth")
                 .put("http-server.authentication.oauth2.token-url", idpUrl + "/oauth2/token")
+                .put("http-server.authentication.oauth2.end-session-url", idpUrl + "/oauth2/sessions/logout")
                 .put("http-server.authentication.oauth2.jwks-url", idpUrl + "/.well-known/jwks.json")
                 .put("http-server.authentication.oauth2.userinfo-url", idpUrl + "/userinfo")
                 .put("http-server.authentication.oauth2.client-id", TRINO_CLIENT_ID)
@@ -75,7 +76,7 @@ public class TestOAuth2WebUiAuthenticationFilterWithOpaque
             assertThat(response.body()).isNotNull();
             DefaultClaims claims = new DefaultClaims(JsonCodec.mapJsonCodec(String.class, Object.class).fromJson(response.body().bytes()));
             assertThat(claims.getSubject()).isEqualTo("foo@bar.com");
-            assertThat(claims.get("aud")).asInstanceOf(list(String.class)).contains(TRINO_CLIENT_ID);
+            assertThat(claims.get("aud")).isEqualTo(Set.of(TRINO_CLIENT_ID));
         }
         catch (IOException e) {
             fail("Exception while calling /userinfo", e);

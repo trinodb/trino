@@ -28,6 +28,7 @@ import io.trino.spi.security.TrinoPrincipal;
 import org.apache.iceberg.rest.DelegatingRestSessionCatalog;
 import org.apache.iceberg.rest.RESTSessionCatalog;
 import org.assertj.core.util.Files;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 
@@ -61,6 +62,7 @@ public class TestTrinoRestCatalog
         return new TrinoRestCatalog(restSessionCatalog, new CatalogName(catalogName), NONE, "test", useUniqueTableLocations);
     }
 
+    @Test
     @Override
     public void testView()
     {
@@ -68,6 +70,7 @@ public class TestTrinoRestCatalog
                 .hasMessageContaining("createView is not supported for Iceberg REST catalog");
     }
 
+    @Test
     @Override
     public void testNonLowercaseNamespace()
     {

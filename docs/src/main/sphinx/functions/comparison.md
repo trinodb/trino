@@ -4,28 +4,27 @@
 
 ## Comparison operators
 
-```{eval-rst}
-.. list-table::
-   :widths: 30, 70
-   :header-rows: 1
+:::{list-table}
+:widths: 30, 70
+:header-rows: 1
 
-   * - Operator
-     - Description
-   * - ``<``
-     - Less than
-   * - ``>``
-     - Greater than
-   * - ``<=``
-     - Less than or equal to
-   * - ``>=``
-     - Greater than or equal to
-   * - ``=``
-     - Equal
-   * - ``<>``
-     - Not equal
-   * - ``!=``
-     - Not equal (non-standard but popular syntax)
-```
+* - Operator
+  - Description
+* - `<`
+  - Less than
+* - `>`
+  - Greater than
+* - `<=`
+  - Less than or equal to
+* - `>=`
+  - Greater than or equal to
+* - `=`
+  - Equal
+* - `<>`
+  - Not equal
+* - `!=`
+  - Not equal (non-standard but popular syntax)
+:::
 
 (range-operator)=
 
@@ -178,27 +177,26 @@ SELECT 42 >= SOME (SELECT 41 UNION ALL SELECT 42 UNION ALL SELECT 43); -- true
 
 Here are the meanings of some quantifier and comparison operator combinations:
 
-```{eval-rst}
-.. list-table::
-   :widths: 40, 60
-   :header-rows: 1
+:::{list-table}
+:widths: 40, 60
+:header-rows: 1
 
-   * - Expression
-     - Meaning
-   * - ``A = ALL (...)``
-     - Evaluates to ``true`` when ``A`` is equal to all values.
-   * - ``A <> ALL (...)``
-     - Evaluates to ``true`` when ``A`` doesn't match any value.
-   * - ``A < ALL (...)``
-     - Evaluates to ``true`` when ``A`` is smaller than the smallest value.
-   * - ``A = ANY (...)``
-     - Evaluates to ``true`` when ``A`` is equal to any of the values. This form
-       is equivalent to ``A IN (...)``.
-   * - ``A <> ANY (...)``
-     - Evaluates to ``true`` when ``A`` doesn't match one or more values.
-   * - ``A < ANY (...)``
-     - Evaluates to ``true`` when ``A`` is smaller than the biggest value.
-```
+* - Expression
+  - Meaning
+* - `A = ALL (...)`
+  - Evaluates to `true` when `A` is equal to all values.
+* - `A <> ALL (...)`
+  - Evaluates to `true` when `A` doesn't match any value.
+* - `A < ALL (...)`
+  - Evaluates to `true` when `A` is smaller than the smallest value.
+* - `A = ANY (...)`
+  - Evaluates to `true` when `A` is equal to any of the values. This form
+    is equivalent to `A IN (...)`.
+* - `A <> ANY (...)`
+  - Evaluates to `true` when `A` doesn't match one or more values.
+* - `A < ANY (...)`
+  - Evaluates to `true` when `A` is smaller than the biggest value.
+:::
 
 `ANY` and `SOME` have the same meaning and can be used interchangeably.
 
@@ -256,3 +254,50 @@ you need to match the used escape character as well, you can escape it.
 
 If you want to match for the chosen escape character, you simply escape itself.
 For example, you can use `\\` to match for `\`.
+
+(in-operator)=
+
+## Row comparison: IN
+
+The `IN` operator can be used in a `WHERE` clause to compare column values with 
+a list of values. The list of values can be supplied by a subquery or directly 
+as static values in an array:
+
+```sql
+... WHERE column [NOT] IN ('value1','value2');
+... WHERE column [NOT] IN ( subquery );
+```
+
+Use the optional `NOT` keyword to negate the condition.
+
+The following example shows a simple usage with a static array:
+
+```sql
+SELECT * FROM region WHERE name IN ('AMERICA', 'EUROPE');
+```
+
+The values in the clause are used for multiple comparisons that are combined as
+a logical `OR`. The preceding query is equivalent to the following query:
+
+```sql
+SELECT * FROM region WHERE name = 'AMERICA' OR name = 'EUROPE';
+```
+
+You can negate the comparisons by adding `NOT`, and get all other regions
+except the values in list:
+
+```sql
+SELECT * FROM region WHERE name NOT IN ('AMERICA', 'EUROPE');
+```
+
+When using a subquery to determine the values to use in the comparison, the
+subquery must return a single column and one or more rows.
+
+```sql
+SELECT name
+FROM nation
+WHERE regionkey IN (
+    SELECT starts_with(regionkey,"A") AS regionkey
+    FROM region
+);
+```

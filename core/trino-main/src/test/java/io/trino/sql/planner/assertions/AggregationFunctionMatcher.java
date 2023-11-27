@@ -15,6 +15,7 @@ package io.trino.sql.planner.assertions;
 
 import io.trino.Session;
 import io.trino.metadata.Metadata;
+import io.trino.spi.function.CatalogSchemaFunctionName;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -26,8 +27,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.metadata.ResolvedFunction.extractFunctionName;
+import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
+import static io.trino.metadata.ResolvedFunction.isResolved;
 import static java.util.Objects.requireNonNull;
 
 public class AggregationFunctionMatcher
@@ -65,7 +68,12 @@ public class AggregationFunctionMatcher
         if (expectedCall.getWindow().isPresent()) {
             return false;
         }
-        return Objects.equals(extractFunctionName(expectedCall.getName()), aggregation.getResolvedFunction().getSignature().getName()) &&
+
+        checkArgument(!isResolved(expectedCall.getName()), "Expected function call must not be resolved");
+        checkArgument(expectedCall.getName().getParts().size() == 1, "Expected function call name must not be qualified: %s", expectedCall.getName());
+        CatalogSchemaFunctionName expectedFunctionName = builtinFunctionName(expectedCall.getName().getSuffix());
+
+        return Objects.equals(expectedFunctionName, aggregation.getResolvedFunction().getSignature().getName()) &&
                 Objects.equals(expectedCall.getFilter(), aggregation.getFilter().map(Symbol::toSymbolReference)) &&
                 Objects.equals(expectedCall.getOrderBy().map(OrderingScheme::fromOrderBy), aggregation.getOrderingScheme()) &&
                 Objects.equals(expectedCall.isDistinct(), aggregation.isDistinct()) &&

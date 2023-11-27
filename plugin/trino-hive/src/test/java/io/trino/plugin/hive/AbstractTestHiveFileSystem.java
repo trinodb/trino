@@ -113,7 +113,6 @@ import static io.trino.plugin.hive.HiveTestUtils.PAGE_SORTER;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHivePageSourceFactories;
-import static io.trino.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorProviders;
 import static io.trino.plugin.hive.HiveTestUtils.getHiveSessionProperties;
 import static io.trino.plugin.hive.HiveTestUtils.getTypes;
 import static io.trino.plugin.hive.HiveType.HIVE_LONG;
@@ -186,7 +185,7 @@ public abstract class AbstractTestHiveFileSystem
 
     protected void onSetupComplete() {}
 
-    protected void setup(String host, int port, String databaseName, boolean s3SelectPushdownEnabled, HdfsConfiguration hdfsConfiguration)
+    protected void setup(String host, int port, String databaseName, HdfsConfiguration hdfsConfiguration)
     {
         database = databaseName;
         table = new SchemaTableName(database, "trino_test_external_fs");
@@ -198,8 +197,7 @@ public abstract class AbstractTestHiveFileSystem
         temporaryCreateTableWithExternalLocation = new SchemaTableName(database, "tmp_trino_test_create_external" + random);
 
         config = new HiveConfig()
-                .setWritesToNonManagedTablesEnabled(true)
-                .setS3SelectPushdownEnabled(s3SelectPushdownEnabled);
+                .setWritesToNonManagedTablesEnabled(true);
 
         HivePartitionManager hivePartitionManager = new HivePartitionManager(config);
 
@@ -247,7 +245,6 @@ public abstract class AbstractTestHiveFileSystem
                 hivePartitionManager,
                 new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
                 new HdfsNamenodeStats(),
-                hdfsEnvironment,
                 new BoundedExecutor(executor, config.getMaxSplitIteratorThreads()),
                 new CounterStat(),
                 config.getMaxOutstandingSplits(),
@@ -260,14 +257,12 @@ public abstract class AbstractTestHiveFileSystem
                 config.getRecursiveDirWalkerEnabled(),
                 TESTING_TYPE_MANAGER,
                 config.getMaxPartitionsPerScan());
-        TypeOperators typeOperators = new TypeOperators();
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(config, hdfsEnvironment),
                 new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
-                hdfsEnvironment,
                 PAGE_SORTER,
                 HiveMetastoreFactory.ofInstance(metastoreClient),
-                new GroupByHashPageIndexerFactory(new JoinCompiler(typeOperators), typeOperators),
+                new GroupByHashPageIndexerFactory(new JoinCompiler(new TypeOperators())),
                 TESTING_TYPE_MANAGER,
                 config,
                 new SortingFileWriterConfig(),
@@ -279,11 +274,8 @@ public abstract class AbstractTestHiveFileSystem
                 new HiveWriterStats());
         pageSourceProvider = new HivePageSourceProvider(
                 TESTING_TYPE_MANAGER,
-                hdfsEnvironment,
                 config,
-                getDefaultHivePageSourceFactories(hdfsEnvironment, config),
-                getDefaultHiveRecordCursorProviders(config, hdfsEnvironment),
-                new GenericHiveRecordCursorProvider(hdfsEnvironment, config));
+                getDefaultHivePageSourceFactories(hdfsEnvironment, config));
 
         onSetupComplete();
     }
@@ -302,12 +294,6 @@ public abstract class AbstractTestHiveFileSystem
             throws IOException
     {
         return HiveFileSystemTestUtils.readTable(tableName, transactionManager, config, pageSourceProvider, splitManager);
-    }
-
-    protected MaterializedResult filterTable(SchemaTableName tableName, List<ColumnHandle> projectedColumns)
-            throws IOException
-    {
-        return HiveFileSystemTestUtils.filterTable(tableName, projectedColumns, transactionManager, config, pageSourceProvider, splitManager);
     }
 
     @Test

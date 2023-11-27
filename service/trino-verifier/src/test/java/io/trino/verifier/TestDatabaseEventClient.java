@@ -17,10 +17,11 @@ import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.containers.MySQLContainer;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -30,11 +31,10 @@ import java.sql.Statement;
 import java.util.List;
 
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestDatabaseEventClient
 {
     private static final VerifierQueryEvent FULL_EVENT = new VerifierQueryEvent(
@@ -98,7 +98,7 @@ public class TestDatabaseEventClient
     private JsonCodec<List<String>> codec;
     private DatabaseEventClient eventClient;
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
     {
         mysqlContainer = new MySQLContainer<>("mysql:8.0.30");
@@ -120,7 +120,7 @@ public class TestDatabaseEventClient
                 container.getPassword());
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void teardown()
     {
         if (mysqlContainer != null) {
@@ -142,28 +142,28 @@ public class TestDatabaseEventClient
             try (Statement statement = connection.createStatement()) {
                 statement.execute("SELECT * FROM verifier_query_events WHERE suite = 'suite_full'");
                 try (ResultSet resultSet = statement.getResultSet()) {
-                    assertTrue(resultSet.next());
-                    assertEquals(resultSet.getString("suite"), "suite_full");
-                    assertEquals(resultSet.getString("run_id"), "runid");
-                    assertEquals(resultSet.getString("source"), "source");
-                    assertEquals(resultSet.getString("name"), "name");
-                    assertTrue(resultSet.getBoolean("failed"));
-                    assertEquals(resultSet.getString("test_catalog"), "testcatalog");
-                    assertEquals(resultSet.getString("test_schema"), "testschema");
-                    assertEquals(resultSet.getString("test_setup_query_ids_json"), codec.toJson(FULL_EVENT.getTestSetupQueryIds()));
-                    assertEquals(resultSet.getString("test_query_id"), "TEST_QUERY_ID");
-                    assertEquals(resultSet.getString("test_teardown_query_ids_json"), codec.toJson(FULL_EVENT.getTestTeardownQueryIds()));
-                    assertEquals(resultSet.getDouble("test_cpu_time_seconds"), 1.1);
-                    assertEquals(resultSet.getDouble("test_wall_time_seconds"), 2.2);
-                    assertEquals(resultSet.getString("control_catalog"), "controlcatalog");
-                    assertEquals(resultSet.getString("control_schema"), "controlschema");
-                    assertEquals(resultSet.getString("control_setup_query_ids_json"), codec.toJson(FULL_EVENT.getControlSetupQueryIds()));
-                    assertEquals(resultSet.getString("control_query_id"), "CONTROL_QUERY_ID");
-                    assertEquals(resultSet.getString("control_teardown_query_ids_json"), codec.toJson(FULL_EVENT.getControlTeardownQueryIds()));
-                    assertEquals(resultSet.getDouble("control_cpu_time_seconds"), 3.3);
-                    assertEquals(resultSet.getDouble("control_wall_time_seconds"), 4.4);
-                    assertEquals(resultSet.getString("error_message"), "error message");
-                    assertFalse(resultSet.next());
+                    assertThat(resultSet.next()).isTrue();
+                    assertThat(resultSet.getString("suite")).isEqualTo("suite_full");
+                    assertThat(resultSet.getString("run_id")).isEqualTo("runid");
+                    assertThat(resultSet.getString("source")).isEqualTo("source");
+                    assertThat(resultSet.getString("name")).isEqualTo("name");
+                    assertThat(resultSet.getBoolean("failed")).isTrue();
+                    assertThat(resultSet.getString("test_catalog")).isEqualTo("testcatalog");
+                    assertThat(resultSet.getString("test_schema")).isEqualTo("testschema");
+                    assertThat(resultSet.getString("test_setup_query_ids_json")).isEqualTo(codec.toJson(FULL_EVENT.getTestSetupQueryIds()));
+                    assertThat(resultSet.getString("test_query_id")).isEqualTo("TEST_QUERY_ID");
+                    assertThat(resultSet.getString("test_teardown_query_ids_json")).isEqualTo(codec.toJson(FULL_EVENT.getTestTeardownQueryIds()));
+                    assertThat(resultSet.getDouble("test_cpu_time_seconds")).isEqualTo(1.1);
+                    assertThat(resultSet.getDouble("test_wall_time_seconds")).isEqualTo(2.2);
+                    assertThat(resultSet.getString("control_catalog")).isEqualTo("controlcatalog");
+                    assertThat(resultSet.getString("control_schema")).isEqualTo("controlschema");
+                    assertThat(resultSet.getString("control_setup_query_ids_json")).isEqualTo(codec.toJson(FULL_EVENT.getControlSetupQueryIds()));
+                    assertThat(resultSet.getString("control_query_id")).isEqualTo("CONTROL_QUERY_ID");
+                    assertThat(resultSet.getString("control_teardown_query_ids_json")).isEqualTo(codec.toJson(FULL_EVENT.getControlTeardownQueryIds()));
+                    assertThat(resultSet.getDouble("control_cpu_time_seconds")).isEqualTo(3.3);
+                    assertThat(resultSet.getDouble("control_wall_time_seconds")).isEqualTo(4.4);
+                    assertThat(resultSet.getString("error_message")).isEqualTo("error message");
+                    assertThat(resultSet.next()).isFalse();
                 }
             }
         }
@@ -179,28 +179,28 @@ public class TestDatabaseEventClient
             try (Statement statement = connection.createStatement()) {
                 statement.execute("SELECT * FROM verifier_query_events WHERE suite = 'suite_minimal'");
                 try (ResultSet resultSet = statement.getResultSet()) {
-                    assertTrue(resultSet.next());
-                    assertEquals(resultSet.getString("suite"), "suite_minimal");
-                    assertNull(resultSet.getString("run_id"));
-                    assertNull(resultSet.getString("source"));
-                    assertNull(resultSet.getString("name"));
-                    assertFalse(resultSet.getBoolean("failed"));
-                    assertNull(resultSet.getString("test_catalog"));
-                    assertNull(resultSet.getString("test_schema"));
-                    assertNull(resultSet.getString("test_setup_query_ids_json"));
-                    assertNull(resultSet.getString("test_query_id"));
-                    assertNull(resultSet.getString("test_teardown_query_ids_json"));
-                    assertNull(resultSet.getObject("test_cpu_time_seconds"));
-                    assertNull(resultSet.getObject("test_wall_time_seconds"));
-                    assertNull(resultSet.getString("control_catalog"));
-                    assertNull(resultSet.getString("control_schema"));
-                    assertNull(resultSet.getString("control_setup_query_ids_json"));
-                    assertNull(resultSet.getString("control_query_id"));
-                    assertNull(resultSet.getString("control_teardown_query_ids_json"));
-                    assertNull(resultSet.getObject("control_cpu_time_seconds"));
-                    assertNull(resultSet.getObject("control_wall_time_seconds"));
-                    assertNull(resultSet.getString("error_message"));
-                    assertFalse(resultSet.next());
+                    assertThat(resultSet.next()).isTrue();
+                    assertThat(resultSet.getString("suite")).isEqualTo("suite_minimal");
+                    assertThat(resultSet.getString("run_id")).isNull();
+                    assertThat(resultSet.getString("source")).isNull();
+                    assertThat(resultSet.getString("name")).isNull();
+                    assertThat(resultSet.getBoolean("failed")).isFalse();
+                    assertThat(resultSet.getString("test_catalog")).isNull();
+                    assertThat(resultSet.getString("test_schema")).isNull();
+                    assertThat(resultSet.getString("test_setup_query_ids_json")).isNull();
+                    assertThat(resultSet.getString("test_query_id")).isNull();
+                    assertThat(resultSet.getString("test_teardown_query_ids_json")).isNull();
+                    assertThat(resultSet.getObject("test_cpu_time_seconds")).isNull();
+                    assertThat(resultSet.getObject("test_wall_time_seconds")).isNull();
+                    assertThat(resultSet.getString("control_catalog")).isNull();
+                    assertThat(resultSet.getString("control_schema")).isNull();
+                    assertThat(resultSet.getString("control_setup_query_ids_json")).isNull();
+                    assertThat(resultSet.getString("control_query_id")).isNull();
+                    assertThat(resultSet.getString("control_teardown_query_ids_json")).isNull();
+                    assertThat(resultSet.getObject("control_cpu_time_seconds")).isNull();
+                    assertThat(resultSet.getObject("control_wall_time_seconds")).isNull();
+                    assertThat(resultSet.getString("error_message")).isNull();
+                    assertThat(resultSet.next()).isFalse();
                 }
             }
         }

@@ -17,6 +17,7 @@ import io.airlift.slice.XxHash64;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
+import io.trino.spi.block.Int128ArrayBlock;
 import io.trino.spi.block.Int128ArrayBlockBuilder;
 import io.trino.spi.block.PageBuilderStatus;
 import io.trino.spi.connector.ConnectorSession;
@@ -49,7 +50,7 @@ final class LongDecimalType
 
     LongDecimalType(int precision, int scale)
     {
-        super(precision, scale, Int128.class);
+        super(precision, scale, Int128.class, Int128ArrayBlock.class);
         checkArgument(Decimals.MAX_SHORT_PRECISION < precision && precision <= Decimals.MAX_PRECISION, "Invalid precision: %s", precision);
         checkArgument(0 <= scale && scale <= precision, "Invalid scale for precision %s: %s", precision, scale);
     }
@@ -99,7 +100,7 @@ final class LongDecimalType
         if (block.isNull(position)) {
             return null;
         }
-        Int128 value = (Int128) getObject(block, position);
+        Int128 value = getObject(block, position);
         BigInteger unscaledValue = value.toBigInteger();
         return new SqlDecimal(unscaledValue, getPrecision(), getScale());
     }
@@ -111,9 +112,9 @@ final class LongDecimalType
             blockBuilder.appendNull();
         }
         else {
-            ((Int128ArrayBlockBuilder) blockBuilder).writeInt128(
-                    block.getLong(position, 0),
-                    block.getLong(position, SIZE_OF_LONG));
+            Int128ArrayBlock valueBlock = (Int128ArrayBlock) block.getUnderlyingValueBlock();
+            int valuePosition = block.getUnderlyingValuePosition(position);
+            ((Int128ArrayBlockBuilder) blockBuilder).writeInt128(valueBlock.getInt128High(valuePosition), valueBlock.getInt128Low(valuePosition));
         }
     }
 
@@ -125,17 +126,21 @@ final class LongDecimalType
     }
 
     @Override
-    public Object getObject(Block block, int position)
+    public Int128 getObject(Block block, int position)
     {
-        return Int128.valueOf(
-                block.getLong(position, 0),
-                block.getLong(position, SIZE_OF_LONG));
+        return read((Int128ArrayBlock) block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
     }
 
     @Override
     public int getFlatFixedSize()
     {
         return INT128_BYTES;
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static Int128 read(@BlockPosition Int128ArrayBlock block, @BlockIndex int position)
+    {
+        return block.getInt128(position);
     }
 
     @ScalarOperator(READ_VALUE)
@@ -175,15 +180,15 @@ final class LongDecimalType
 
     @ScalarOperator(READ_VALUE)
     private static void writeBlockToFlat(
-            @BlockPosition Block block,
+            @BlockPosition Int128ArrayBlock block,
             @BlockIndex int position,
             byte[] fixedSizeSlice,
             int fixedSizeOffset,
             byte[] unusedVariableSizeSlice,
             int unusedVariableSizeOffset)
     {
-        LONG_HANDLE.set(fixedSizeSlice, fixedSizeOffset, block.getLong(position, 0));
-        LONG_HANDLE.set(fixedSizeSlice, fixedSizeOffset + SIZE_OF_LONG, block.getLong(position, SIZE_OF_LONG));
+        LONG_HANDLE.set(fixedSizeSlice, fixedSizeOffset, block.getInt128High(position));
+        LONG_HANDLE.set(fixedSizeSlice, fixedSizeOffset + SIZE_OF_LONG, block.getInt128Low(position));
     }
 
     @ScalarOperator(EQUAL)
@@ -193,10 +198,10 @@ final class LongDecimalType
     }
 
     @ScalarOperator(EQUAL)
-    private static boolean equalOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    private static boolean equalOperator(@BlockPosition Int128ArrayBlock leftBlock, @BlockIndex int leftPosition, @BlockPosition Int128ArrayBlock rightBlock, @BlockIndex int rightPosition)
     {
-        return leftBlock.getLong(leftPosition, 0) == rightBlock.getLong(rightPosition, 0) &&
-                leftBlock.getLong(leftPosition, SIZE_OF_LONG) == rightBlock.getLong(rightPosition, SIZE_OF_LONG);
+        return leftBlock.getInt128High(leftPosition) == rightBlock.getInt128High(rightPosition) &&
+                leftBlock.getInt128Low(leftPosition) == rightBlock.getInt128Low(rightPosition);
     }
 
     @ScalarOperator(XX_HASH_64)
@@ -206,9 +211,9 @@ final class LongDecimalType
     }
 
     @ScalarOperator(XX_HASH_64)
-    private static long xxHash64Operator(@BlockPosition Block block, @BlockIndex int position)
+    private static long xxHash64Operator(@BlockPosition Int128ArrayBlock block, @BlockIndex int position)
     {
-        return xxHash64(block.getLong(position, 0), block.getLong(position, SIZE_OF_LONG));
+        return xxHash64(block.getInt128High(position), block.getInt128Low(position));
     }
 
     private static long xxHash64(long low, long high)
@@ -223,12 +228,12 @@ final class LongDecimalType
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_LAST)
-    private static long comparisonOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    private static long comparisonOperator(@BlockPosition Int128ArrayBlock leftBlock, @BlockIndex int leftPosition, @BlockPosition Int128ArrayBlock rightBlock, @BlockIndex int rightPosition)
     {
         return Int128.compare(
-                leftBlock.getLong(leftPosition, 0),
-                leftBlock.getLong(leftPosition, SIZE_OF_LONG),
-                rightBlock.getLong(rightPosition, 0),
-                rightBlock.getLong(rightPosition, SIZE_OF_LONG));
+                leftBlock.getInt128High(leftPosition),
+                leftBlock.getInt128Low(leftPosition),
+                rightBlock.getInt128High(rightPosition),
+                rightBlock.getInt128Low(rightPosition));
     }
 }

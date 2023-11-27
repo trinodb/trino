@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.block.VariableWidthBlock;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.AbstractVariableWidthType;
@@ -40,19 +41,15 @@ public class CodePointsType
     }
 
     @Override
-    public void appendTo(Block block, int position, BlockBuilder blockBuilder)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public Object getObject(Block block, int position)
     {
         if (block.isNull(position)) {
             return null;
         }
 
-        Slice slice = block.getSlice(position, 0, block.getSliceLength(position));
+        VariableWidthBlock valueBlock = (VariableWidthBlock) block.getUnderlyingValueBlock();
+        int valuePosition = block.getUnderlyingValuePosition(position);
+        Slice slice = valueBlock.getSlice(valuePosition);
         int[] codePoints = new int[slice.length() / Integer.BYTES];
         slice.getInts(0, codePoints);
         return codePoints;

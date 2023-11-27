@@ -15,7 +15,7 @@ package io.trino.plugin.hive;
 
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.DistributedQueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

@@ -16,7 +16,7 @@ package io.trino.operator;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 import io.trino.operator.OperationTimer.OperationTiming;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Random;
 import java.util.function.Consumer;

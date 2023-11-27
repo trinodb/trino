@@ -14,11 +14,11 @@
 package io.trino.spi.block;
 
 import io.airlift.slice.DynamicSliceOutput;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.block.BlockTestUtils.assertBlockEquals;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDictionaryBlockEncoding
 {
@@ -59,7 +59,7 @@ public class TestDictionaryBlockEncoding
         DictionaryBlock dictionaryBlock = (DictionaryBlock) DictionaryBlock.create(ids.length, dictionary, ids);
 
         Block actualBlock = roundTripBlock(dictionaryBlock);
-        assertTrue(actualBlock instanceof VariableWidthBlock);
+        assertThat(actualBlock).isInstanceOf(VariableWidthBlock.class);
         assertBlockEquals(VARCHAR, actualBlock, dictionary.getPositions(ids, 0, 3));
     }
 
@@ -70,7 +70,7 @@ public class TestDictionaryBlockEncoding
         DictionaryBlock dictionaryBlock = (DictionaryBlock) DictionaryBlock.create(ids.length, dictionary, ids);
 
         Block actualBlock = roundTripBlock(dictionaryBlock);
-        assertTrue(actualBlock instanceof VariableWidthBlock);
+        assertThat(actualBlock).isInstanceOf(VariableWidthBlock.class);
         assertBlockEquals(VARCHAR, actualBlock, dictionary.getPositions(ids, 0, 4));
     }
 

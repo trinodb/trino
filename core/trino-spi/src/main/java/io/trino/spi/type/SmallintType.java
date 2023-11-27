@@ -19,8 +19,11 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockBuilderStatus;
 import io.trino.spi.block.PageBuilderStatus;
+import io.trino.spi.block.ShortArrayBlock;
 import io.trino.spi.block.ShortArrayBlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.BlockIndex;
+import io.trino.spi.function.BlockPosition;
 import io.trino.spi.function.FlatFixed;
 import io.trino.spi.function.FlatFixedOffset;
 import io.trino.spi.function.FlatVariableWidth;
@@ -56,7 +59,7 @@ public final class SmallintType
 
     private SmallintType()
     {
-        super(new TypeSignature(StandardTypes.SMALLINT), long.class);
+        super(new TypeSignature(StandardTypes.SMALLINT), long.class, ShortArrayBlock.class);
     }
 
     @Override
@@ -117,7 +120,7 @@ public final class SmallintType
             return null;
         }
 
-        return block.getShort(position, 0);
+        return getShort(block, position);
     }
 
     @Override
@@ -161,7 +164,7 @@ public final class SmallintType
             blockBuilder.appendNull();
         }
         else {
-            ((ShortArrayBlockBuilder) blockBuilder).writeShort(block.getShort(position, 0));
+            ((ShortArrayBlockBuilder) blockBuilder).writeShort(getShort(block, position));
         }
     }
 
@@ -173,7 +176,7 @@ public final class SmallintType
 
     public short getShort(Block block, int position)
     {
-        return block.getShort(position, 0);
+        return readShort((ShortArrayBlock) block.getUnderlyingValueBlock(), block.getUnderlyingValuePosition(position));
     }
 
     @Override
@@ -188,7 +191,7 @@ public final class SmallintType
         ((ShortArrayBlockBuilder) blockBuilder).writeShort(value);
     }
 
-    private void checkValueValid(long value)
+    private static void checkValueValid(long value)
     {
         if (value > Short.MAX_VALUE) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, format("Value %d exceeds MAX_SHORT", value));
@@ -215,6 +218,17 @@ public final class SmallintType
     public int hashCode()
     {
         return getClass().hashCode();
+    }
+
+    @ScalarOperator(READ_VALUE)
+    private static long read(@BlockPosition ShortArrayBlock block, @BlockIndex int position)
+    {
+        return readShort(block, position);
+    }
+
+    private static short readShort(ShortArrayBlock block, int position)
+    {
+        return block.getShort(position);
     }
 
     @ScalarOperator(READ_VALUE)

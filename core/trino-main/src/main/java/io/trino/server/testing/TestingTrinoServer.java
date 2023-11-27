@@ -62,6 +62,7 @@ import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.InternalNodeManager;
+import io.trino.metadata.LanguageFunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ProcedureRegistry;
 import io.trino.metadata.SessionPropertyManager;
@@ -72,6 +73,7 @@ import io.trino.security.AccessControlManager;
 import io.trino.security.GroupProviderManager;
 import io.trino.server.GracefulShutdownHandler;
 import io.trino.server.PluginInstaller;
+import io.trino.server.PrefixObjectNameGeneratorModule;
 import io.trino.server.Server;
 import io.trino.server.ServerMainModule;
 import io.trino.server.SessionPropertyDefaults;
@@ -163,6 +165,7 @@ public class TestingTrinoServer
     private final QueryExplainer queryExplainer;
     private final SessionPropertyManager sessionPropertyManager;
     private final FunctionManager functionManager;
+    private final LanguageFunctionManager languageFunctionManager;
     private final GlobalFunctionCatalog globalFunctionCatalog;
     private final StatsCalculator statsCalculator;
     private final ProcedureRegistry procedureRegistry;
@@ -243,16 +246,14 @@ public class TestingTrinoServer
                 .put("catalog.management", "dynamic")
                 .put("task.concurrency", "4")
                 .put("task.max-worker-threads", "4")
-                // Use task.writer-count > 1, as this allows to expose writer-concurrency related bugs.
-                .put("task.writer-count", "2")
+                // Use task.min-writer-count > 1, as this allows to expose writer-concurrency related bugs.
+                .put("task.min-writer-count", "2")
                 .put("exchange.client-threads", "4")
                 // Reduce memory footprint in tests
                 .put("exchange.max-buffer-size", "4MB")
                 .put("internal-communication.shared-secret", "internal-shared-secret");
 
         if (coordinator) {
-            // TODO: enable failure detector
-            serverProperties.put("failure-detector.enabled", "false");
             serverProperties.put("catalog.store", "memory");
 
             // Reduce memory footprint in tests
@@ -267,6 +268,7 @@ public class TestingTrinoServer
                 .add(new JsonModule())
                 .add(new JaxrsModule())
                 .add(new MBeanModule())
+                .add(new PrefixObjectNameGeneratorModule("io.trino"))
                 .add(new TestingJmxModule())
                 .add(new JmxOpenMetricsModule())
                 .add(new EventModule())
@@ -357,6 +359,7 @@ public class TestingTrinoServer
             sessionPropertyDefaults = injector.getInstance(SessionPropertyDefaults.class);
             nodePartitioningManager = injector.getInstance(NodePartitioningManager.class);
             clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
+            languageFunctionManager = injector.getInstance(LanguageFunctionManager.class);
             statsCalculator = injector.getInstance(StatsCalculator.class);
             procedureRegistry = injector.getInstance(ProcedureRegistry.class);
             injector.getInstance(CertificateAuthenticatorManager.class).useDefaultAuthenticator();
@@ -369,6 +372,7 @@ public class TestingTrinoServer
             sessionPropertyDefaults = null;
             nodePartitioningManager = null;
             clusterMemoryManager = null;
+            languageFunctionManager = null;
             statsCalculator = null;
             procedureRegistry = null;
         }
@@ -543,6 +547,12 @@ public class TestingTrinoServer
     public FunctionManager getFunctionManager()
     {
         return functionManager;
+    }
+
+    public LanguageFunctionManager getLanguageFunctionManager()
+    {
+        checkState(coordinator, "not a coordinator");
+        return languageFunctionManager;
     }
 
     public void addFunctions(FunctionBundle functionBundle)

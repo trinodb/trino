@@ -16,6 +16,7 @@ package io.trino.likematcher;
 import com.google.common.base.Strings;
 import io.trino.type.LikePattern;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
@@ -108,6 +109,13 @@ public class TestLikeMatcher
             assertTrue(multipleOptimized.match(value.getBytes(StandardCharsets.UTF_8)));
             assertTrue(multiple.match(value.getBytes(StandardCharsets.UTF_8)));
         }
+    }
+
+    @Test
+    @Timeout(2)
+    public void testExponentialBehavior()
+    {
+        assertTrue(match("%a________________", "xyza1234567890123456"));
     }
 
     @Test

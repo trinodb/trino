@@ -13,7 +13,7 @@
  */
 package io.trino.hdfs.azure;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Set;
 import java.util.function.BiConsumer;

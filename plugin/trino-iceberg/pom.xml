@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>426</version>
+        <version>431</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -25,10 +25,36 @@
           -->
         <air.test.parallel>instances</air.test.parallel>
         <!-- Nessie version (matching to Iceberg release) must be bumped along with Iceberg version bump to avoid compatibility issues -->
-        <dep.nessie.version>0.59.0</dep.nessie.version>
+        <dep.nessie.version>0.71.0</dep.nessie.version>
     </properties>
 
     <dependencies>
+
+        <dependency>
+            <groupId>cccs.ap.iceberg</groupId>
+            <artifactId>iceberg-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>cccs.ap.iceberg</groupId>
+            <artifactId>iceberg-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>cccs.ap.iceberg</groupId>
+            <artifactId>iceberg-nessie</artifactId>
+            <version>${dep.iceberg.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>cccs.ap.iceberg</groupId>
+            <artifactId>iceberg-orc</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>cccs.ap.iceberg</groupId>
+            <artifactId>iceberg-parquet</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-core</artifactId>
@@ -149,11 +175,6 @@
                     <groupId>io.airlift</groupId>
                     <artifactId>http-client</artifactId>
                 </exclusion>
-                <!-- TODO: remove when removed from trino-hive -->
-                <exclusion>
-                    <groupId>io.trino.hive</groupId>
-                    <artifactId>hive-apache</artifactId>
-                </exclusion>
             </exclusions>
         </dependency>
 
@@ -211,39 +232,13 @@
         <dependency>
             <groupId>org.apache.datasketches</groupId>
             <artifactId>datasketches-java</artifactId>
-            <version>3.3.0</version>
+            <version>4.2.0</version>
         </dependency>
 
         <dependency>
             <groupId>org.apache.datasketches</groupId>
             <artifactId>datasketches-memory</artifactId>
-            <version>2.1.0</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.iceberg</groupId>
-            <artifactId>iceberg-api</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.iceberg</groupId>
-            <artifactId>iceberg-core</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.iceberg</groupId>
-            <artifactId>iceberg-nessie</artifactId>
-            <version>${dep.iceberg.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.iceberg</groupId>
-            <artifactId>iceberg-orc</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.iceberg</groupId>
-            <artifactId>iceberg-parquet</artifactId>
+            <version>2.2.0</version>
         </dependency>
 
         <dependency>
@@ -330,6 +325,13 @@
         </dependency>
 
         <dependency>
+            <groupId>cccs.ap.iceberg</groupId>
+            <artifactId>iceberg-bundled-guava</artifactId>
+            <version>${dep.iceberg.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-s3</artifactId>
             <scope>runtime</scope>
@@ -392,13 +394,6 @@
         </dependency>
 
         <dependency>
-            <groupId>org.apache.iceberg</groupId>
-            <artifactId>iceberg-bundled-guava</artifactId>
-            <version>${dep.iceberg.version}</version>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
             <groupId>org.jetbrains</groupId>
             <artifactId>annotations</artifactId>
             <scope>runtime</scope>
@@ -411,8 +406,21 @@
         </dependency>
 
         <dependency>
+            <groupId>cccs.ap.iceberg</groupId>
+            <artifactId>iceberg-core</artifactId>
+            <classifier>tests</classifier>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>http-server</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>junit-extensions</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -540,15 +548,14 @@
         </dependency>
 
         <dependency>
-            <groupId>io.trino.tpch</groupId>
-            <artifactId>tpch</artifactId>
+            <groupId>io.trino.hive</groupId>
+            <artifactId>hive-apache</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>org.apache.iceberg</groupId>
-            <artifactId>iceberg-core</artifactId>
-            <classifier>tests</classifier>
+            <groupId>io.trino.tpch</groupId>
+            <artifactId>tpch</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -577,6 +584,12 @@
         </dependency>
 
         <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>postgresql</artifactId>
             <scope>test</scope>
@@ -597,7 +610,7 @@
         <dependency>
             <groupId>org.xerial</groupId>
             <artifactId>sqlite-jdbc</artifactId>
-            <version>3.36.0.3</version>
+            <version>3.43.0.0</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

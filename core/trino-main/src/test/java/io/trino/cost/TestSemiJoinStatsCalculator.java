@@ -15,8 +15,7 @@
 package io.trino.cost;
 
 import io.trino.sql.planner.Symbol;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.cost.PlanNodeStatsAssertion.assertThat;
 import static io.trino.cost.SemiJoinStatsCalculator.computeAntiJoin;
@@ -27,116 +26,100 @@ import static java.lang.Double.POSITIVE_INFINITY;
 
 public class TestSemiJoinStatsCalculator
 {
-    private PlanNodeStatsEstimate inputStatistics;
-    private SymbolStatsEstimate uStats;
-    private SymbolStatsEstimate wStats;
-    private SymbolStatsEstimate xStats;
-    private SymbolStatsEstimate yStats;
-    private SymbolStatsEstimate zStats;
-    private SymbolStatsEstimate leftOpenStats;
-    private SymbolStatsEstimate rightOpenStats;
-    private SymbolStatsEstimate unknownRangeStats;
-    private SymbolStatsEstimate emptyRangeStats;
-    private SymbolStatsEstimate fractionalNdvStats;
+    private final SymbolStatsEstimate uStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(8.0)
+            .setDistinctValuesCount(300)
+            .setLowValue(0)
+            .setHighValue(20)
+            .setNullsFraction(0.1)
+            .build();
+    private final SymbolStatsEstimate wStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(8.0)
+            .setDistinctValuesCount(30)
+            .setLowValue(0)
+            .setHighValue(20)
+            .setNullsFraction(0.1)
+            .build();
+    private final SymbolStatsEstimate xStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(4.0)
+            .setDistinctValuesCount(40.0)
+            .setLowValue(-10.0)
+            .setHighValue(10.0)
+            .setNullsFraction(0.25)
+            .build();
+    private final SymbolStatsEstimate yStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(4.0)
+            .setDistinctValuesCount(20.0)
+            .setLowValue(0.0)
+            .setHighValue(5.0)
+            .setNullsFraction(0.5)
+            .build();
+    private final SymbolStatsEstimate zStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(4.0)
+            .setDistinctValuesCount(5.0)
+            .setLowValue(-100.0)
+            .setHighValue(100.0)
+            .setNullsFraction(0.1)
+            .build();
+    private final SymbolStatsEstimate leftOpenStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(4.0)
+            .setDistinctValuesCount(50.0)
+            .setLowValue(NEGATIVE_INFINITY)
+            .setHighValue(15.0)
+            .setNullsFraction(0.1)
+            .build();
+    private final SymbolStatsEstimate rightOpenStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(4.0)
+            .setDistinctValuesCount(50.0)
+            .setLowValue(-15.0)
+            .setHighValue(POSITIVE_INFINITY)
+            .setNullsFraction(0.1)
+            .build();
+    private final SymbolStatsEstimate unknownRangeStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(4.0)
+            .setDistinctValuesCount(50.0)
+            .setLowValue(NEGATIVE_INFINITY)
+            .setHighValue(POSITIVE_INFINITY)
+            .setNullsFraction(0.1)
+            .build();
+    private final SymbolStatsEstimate emptyRangeStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(4.0)
+            .setDistinctValuesCount(0.0)
+            .setLowValue(NaN)
+            .setHighValue(NaN)
+            .setNullsFraction(NaN)
+            .build();
+    private final SymbolStatsEstimate fractionalNdvStats = SymbolStatsEstimate.builder()
+            .setAverageRowSize(NaN)
+            .setDistinctValuesCount(0.1)
+            .setNullsFraction(0)
+            .build();
 
-    private Symbol u = new Symbol("u");
-    private Symbol w = new Symbol("w");
-    private Symbol x = new Symbol("x");
-    private Symbol y = new Symbol("y");
-    private Symbol z = new Symbol("z");
-    private Symbol leftOpen = new Symbol("leftOpen");
-    private Symbol rightOpen = new Symbol("rightOpen");
-    private Symbol unknownRange = new Symbol("unknownRange");
-    private Symbol emptyRange = new Symbol("emptyRange");
-    private Symbol unknown = new Symbol("unknown");
-    private Symbol fractionalNdv = new Symbol("fractionalNdv");
-
-    @BeforeClass
-    public void setUp()
-    {
-        uStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(8.0)
-                .setDistinctValuesCount(300)
-                .setLowValue(0)
-                .setHighValue(20)
-                .setNullsFraction(0.1)
-                .build();
-        wStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(8.0)
-                .setDistinctValuesCount(30)
-                .setLowValue(0)
-                .setHighValue(20)
-                .setNullsFraction(0.1)
-                .build();
-        xStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(4.0)
-                .setDistinctValuesCount(40.0)
-                .setLowValue(-10.0)
-                .setHighValue(10.0)
-                .setNullsFraction(0.25)
-                .build();
-        yStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(4.0)
-                .setDistinctValuesCount(20.0)
-                .setLowValue(0.0)
-                .setHighValue(5.0)
-                .setNullsFraction(0.5)
-                .build();
-        zStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(4.0)
-                .setDistinctValuesCount(5.0)
-                .setLowValue(-100.0)
-                .setHighValue(100.0)
-                .setNullsFraction(0.1)
-                .build();
-        leftOpenStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(4.0)
-                .setDistinctValuesCount(50.0)
-                .setLowValue(NEGATIVE_INFINITY)
-                .setHighValue(15.0)
-                .setNullsFraction(0.1)
-                .build();
-        rightOpenStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(4.0)
-                .setDistinctValuesCount(50.0)
-                .setLowValue(-15.0)
-                .setHighValue(POSITIVE_INFINITY)
-                .setNullsFraction(0.1)
-                .build();
-        unknownRangeStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(4.0)
-                .setDistinctValuesCount(50.0)
-                .setLowValue(NEGATIVE_INFINITY)
-                .setHighValue(POSITIVE_INFINITY)
-                .setNullsFraction(0.1)
-                .build();
-        emptyRangeStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(4.0)
-                .setDistinctValuesCount(0.0)
-                .setLowValue(NaN)
-                .setHighValue(NaN)
-                .setNullsFraction(NaN)
-                .build();
-        fractionalNdvStats = SymbolStatsEstimate.builder()
-                .setAverageRowSize(NaN)
-                .setDistinctValuesCount(0.1)
-                .setNullsFraction(0)
-                .build();
-        inputStatistics = PlanNodeStatsEstimate.builder()
-                .addSymbolStatistics(u, uStats)
-                .addSymbolStatistics(w, wStats)
-                .addSymbolStatistics(x, xStats)
-                .addSymbolStatistics(y, yStats)
-                .addSymbolStatistics(z, zStats)
-                .addSymbolStatistics(leftOpen, leftOpenStats)
-                .addSymbolStatistics(rightOpen, rightOpenStats)
-                .addSymbolStatistics(unknownRange, unknownRangeStats)
-                .addSymbolStatistics(emptyRange, emptyRangeStats)
-                .addSymbolStatistics(unknown, SymbolStatsEstimate.unknown())
-                .addSymbolStatistics(fractionalNdv, fractionalNdvStats)
-                .setOutputRowCount(1000.0)
-                .build();
-    }
+    private final Symbol u = new Symbol("u");
+    private final Symbol w = new Symbol("w");
+    private final Symbol x = new Symbol("x");
+    private final Symbol y = new Symbol("y");
+    private final Symbol z = new Symbol("z");
+    private final Symbol leftOpen = new Symbol("leftOpen");
+    private final Symbol rightOpen = new Symbol("rightOpen");
+    private final Symbol unknownRange = new Symbol("unknownRange");
+    private final Symbol emptyRange = new Symbol("emptyRange");
+    private final Symbol unknown = new Symbol("unknown");
+    private final Symbol fractionalNdv = new Symbol("fractionalNdv");
+    private final PlanNodeStatsEstimate inputStatistics = PlanNodeStatsEstimate.builder()
+            .addSymbolStatistics(u, uStats)
+            .addSymbolStatistics(w, wStats)
+            .addSymbolStatistics(x, xStats)
+            .addSymbolStatistics(y, yStats)
+            .addSymbolStatistics(z, zStats)
+            .addSymbolStatistics(leftOpen, leftOpenStats)
+            .addSymbolStatistics(rightOpen, rightOpenStats)
+            .addSymbolStatistics(unknownRange, unknownRangeStats)
+            .addSymbolStatistics(emptyRange, emptyRangeStats)
+            .addSymbolStatistics(unknown, SymbolStatsEstimate.unknown())
+            .addSymbolStatistics(fractionalNdv, fractionalNdvStats)
+            .setOutputRowCount(1000.0)
+            .build();
 
     @Test
     public void testSemiJoin()

@@ -32,7 +32,6 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.RowExpression;
-import io.trino.sql.tree.QualifiedName;
 import io.trino.type.BlockTypeOperators;
 import io.trino.type.BlockTypeOperators.BlockPositionComparison;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -112,7 +111,7 @@ public class BenchmarkArraySort
                 Type elementType = TYPES.get(i);
                 ArrayType arrayType = new ArrayType(elementType);
                 projectionsBuilder.add(new CallExpression(
-                        functionResolution.resolveFunction(QualifiedName.of(name), fromTypes(arrayType)),
+                        functionResolution.resolveFunction(name, fromTypes(arrayType)),
                         ImmutableList.of(field(i, arrayType))));
                 blocks[i] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
             }
