@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.trino.tempto.BeforeMethodWithContext;
-import io.trino.tempto.assertions.QueryAssert;
+import io.trino.tempto.assertions.QueryAssert.Row;
 import io.trino.testng.services.Flaky;
 import io.trino.tests.product.deltalake.util.DatabricksVersion;
 import org.testng.SkipException;
@@ -95,7 +95,7 @@ public class TestDeltaLakeCheckpointsCompatibility
             onDelta().executeQuery("DELETE FROM default." + tableName + " WHERE a_string = 'jeza'");
             onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE a_string = 'bobra'");
 
-            List<QueryAssert.Row> expectedRows = ImmutableList.of(
+            List<Row> expectedRows = ImmutableList.of(
                     row(1, "ala"),
                     row(2, "kota"),
                     row(3, "osla"),
@@ -250,7 +250,7 @@ public class TestDeltaLakeCheckpointsCompatibility
 
     private void testCheckpointMinMaxStatisticsForRowType(Consumer<String> sqlExecutor, String tableName, String qualifiedTableName)
     {
-        List<QueryAssert.Row> expectedRows = ImmutableList.of(
+        List<Row> expectedRows = ImmutableList.of(
                 row(1, "ala"),
                 row(2, "kota"),
                 row(3, "osla"),
@@ -287,7 +287,7 @@ public class TestDeltaLakeCheckpointsCompatibility
             assertThat(explainSelectMax).matches("== Physical Plan ==\\s*LocalTableScan \\[max\\(" + column + "\\).*]\\s*");
 
             // check both engines can read both tables
-            List<QueryAssert.Row> maxMin = ImmutableList.of(row(3, "ala"));
+            List<Row> maxMin = ImmutableList.of(row(3, "ala"));
             assertThat(onDelta().executeQuery("SELECT max(root.entry_one), min(root.entry_two) FROM default." + tableName))
                     .containsOnly(maxMin);
             assertThat(onTrino().executeQuery("SELECT max(root.entry_one), min(root.entry_two) FROM delta.default." + tableName))
@@ -317,7 +317,7 @@ public class TestDeltaLakeCheckpointsCompatibility
 
     private void testCheckpointNullStatisticsForRowType(Consumer<String> sqlExecutor, String tableName, String qualifiedTableName)
     {
-        List<QueryAssert.Row> expectedRows = ImmutableList.of(
+        List<Row> expectedRows = ImmutableList.of(
                 row(1, "ala"),
                 row(2, "kota"),
                 row(null, null),
