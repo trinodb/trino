@@ -30,6 +30,7 @@ import io.trino.sql.planner.OptimizerConfig;
 import io.trino.sql.planner.OptimizerConfig.DistinctAggregationsStrategy;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
+import io.trino.sql.planner.OptimizerConfig.MarkDistinctStrategy;
 
 import java.util.List;
 import java.util.Optional;
@@ -119,6 +120,7 @@ public final class SystemSessionProperties
     public static final String GATHER_PARTIAL_TOPN = "gather_partial_topn";
     public static final String USE_PARTIAL_DISTINCT_LIMIT = "use_partial_distinct_limit";
     public static final String MAX_RECURSION_DEPTH = "max_recursion_depth";
+    public static final String MARK_DISTINCT_STRATEGY = "mark_distinct_strategy";
     public static final String DISTINCT_AGGREGATIONS_STRATEGY = "distinct_aggregations_strategy";
     public static final String PREFER_PARTIAL_AGGREGATION = "prefer_partial_aggregation";
     public static final String OPTIMIZE_TOP_N_RANKING = "optimize_top_n_ranking";
@@ -579,6 +581,12 @@ public final class SystemSessionProperties
                         false,
                         value -> validateIntegerValue(value, MAX_RECURSION_DEPTH, 1, false),
                         object -> object),
+                enumProperty(
+                        MARK_DISTINCT_STRATEGY,
+                        "",
+                        MarkDistinctStrategy.class,
+                        optimizerConfig.getMarkDistinctStrategy(),
+                        false),
                 enumProperty(
                         DISTINCT_AGGREGATIONS_STRATEGY,
                         "",
@@ -1394,7 +1402,24 @@ public final class SystemSessionProperties
 
     public static DistinctAggregationsStrategy distinctAggregationsStrategy(Session session)
     {
-        return session.getSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, DistinctAggregationsStrategy.class);
+        DistinctAggregationsStrategy distinctAggregationsStrategy = session.getSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, DistinctAggregationsStrategy.class);
+
+        if (distinctAggregationsStrategy != null) {
+            // distinct_aggregations_strategy is set, so it takes precedence over mark_distinct_strategy
+            return distinctAggregationsStrategy;
+        }
+
+        MarkDistinctStrategy markDistinctStrategy = session.getSystemProperty(MARK_DISTINCT_STRATEGY, MarkDistinctStrategy.class);
+        if (markDistinctStrategy == null) {
+            // both distinct_aggregations_strategy and mark_distinct_strategy have default null values, use AUTOMATIC
+            return DistinctAggregationsStrategy.AUTOMATIC;
+        }
+        // mark_distinct_strategy is set but distinct_aggregations_strategy is not, map mark_distinct_strategy to distinct_aggregations_strategy
+        return switch (markDistinctStrategy) {
+            case AUTOMATIC -> DistinctAggregationsStrategy.AUTOMATIC;
+            case ALWAYS -> DistinctAggregationsStrategy.MARK_DISTINCT;
+            case NONE -> DistinctAggregationsStrategy.SINGLE_STEP;
+        };
     }
 
     public static boolean preferPartialAggregation(Session session)

@@ -70,7 +70,7 @@ public class TestOptimizerConfig
                 .setPushAggregationThroughOuterJoin(true)
                 .setPushPartialAggregationThroughJoin(true)
                 .setPreAggregateCaseAggregationsEnabled(true)
-                .setDistinctAggregationsStrategy(OptimizerConfig.DistinctAggregationsStrategy.AUTOMATIC)
+                .setDistinctAggregationsStrategy(null)
                 .setPreferPartialAggregation(true)
                 .setOptimizeTopNRanking(true)
                 .setDistributedSortEnabled(true)
