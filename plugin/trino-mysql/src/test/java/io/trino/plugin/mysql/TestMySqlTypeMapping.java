@@ -599,13 +599,13 @@ public class TestMySqlTypeMapping
     @Test
     public void testTimeFromMySql()
     {
-        testTimestampFromMySql(UTC);
-        testTimestampFromMySql(ZoneId.systemDefault());
+        testTimeFromMySql(UTC);
+        testTimeFromMySql(ZoneId.systemDefault());
         // no DST in 1970, but has DST in later years (e.g. 2018)
-        testTimestampFromMySql(ZoneId.of("Europe/Vilnius"));
+        testTimeFromMySql(ZoneId.of("Europe/Vilnius"));
         // minutes offset change since 1970-01-01, no DST
-        testTimestampFromMySql(ZoneId.of("Asia/Kathmandu"));
-        testTimestampFromMySql(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
+        testTimeFromMySql(ZoneId.of("Asia/Kathmandu"));
+        testTimeFromMySql(TestingSession.DEFAULT_TIME_ZONE_KEY.getZoneId());
     }
 
     private void testTimeFromMySql(ZoneId sessionZone)
