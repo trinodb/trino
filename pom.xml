@@ -2671,13 +2671,15 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <properties>
-                        <configurationParameters>junit.jupiter.execution.timeout.thread.mode.default = SEPARATE_THREAD
-                            junit.jupiter.extensions.autodetection.enabled = true
-                            junit.jupiter.execution.parallel.enabled = true
-                            junit.jupiter.execution.parallel.mode.default = concurrent
-                            junit.jupiter.execution.parallel.mode.classes.default = concurrent</configurationParameters>
-                    </properties>
+                    <!-- TODO: these should use https://junit.org/junit5/docs/current/user-guide/#running-tests-build-maven-config-params -->
+                    <!-- use system properties to work around https://youtrack.jetbrains.com/issue/IDEA-339034 -->
+                    <systemPropertyVariables>
+                        <junit.jupiter.execution.timeout.thread.mode.default>SEPARATE_THREAD</junit.jupiter.execution.timeout.thread.mode.default>
+                        <junit.jupiter.extensions.autodetection.enabled>true</junit.jupiter.extensions.autodetection.enabled>
+                        <junit.jupiter.execution.parallel.enabled>true</junit.jupiter.execution.parallel.enabled>
+                        <junit.jupiter.execution.parallel.mode.default>concurrent</junit.jupiter.execution.parallel.mode.default>
+                        <junit.jupiter.execution.parallel.mode.classes.default>concurrent</junit.jupiter.execution.parallel.mode.classes.default>
+                    </systemPropertyVariables>
                     <includes>
                         <!-- Tests classes should start with "Test", but we do also want to include tests incorrectly named, with "Test" at the end -->
                         <include>**/Test*.java</include>
