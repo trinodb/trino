@@ -46,8 +46,8 @@ public class TestHudiSmokeTest
     public void testReadNonPartitionedTable()
     {
         assertQuery(
-                "SELECT rowid, name FROM " + HUDI_NON_PART_COW,
-                "SELECT * FROM VALUES ('row_1', 'bob'), ('row_2', 'john'), ('row_3', 'tom')");
+                "SELECT id, name FROM " + HUDI_NON_PART_COW,
+                "SELECT * FROM VALUES (1, 'a1'), (2, 'a2')");
     }
 
     @Test
