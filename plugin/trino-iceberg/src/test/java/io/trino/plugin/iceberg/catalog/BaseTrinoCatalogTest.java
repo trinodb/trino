@@ -387,6 +387,47 @@ public abstract class BaseTrinoCatalogTest
         }
     }
 
+    @Test
+    public void testListTables()
+            throws Exception
+    {
+        TrinoCatalog catalog = createTrinoCatalog(false);
+        TrinoPrincipal principal = new TrinoPrincipal(PrincipalType.USER, SESSION.getUser());
+        String ns1 = "ns1";
+        String ns2 = "ns2";
+
+        catalog.createNamespace(SESSION, ns1, defaultNamespaceProperties(ns1), principal);
+        catalog.createNamespace(SESSION, ns2, defaultNamespaceProperties(ns2), principal);
+        SchemaTableName table1 = new SchemaTableName(ns1, "t1");
+        SchemaTableName table2 = new SchemaTableName(ns2, "t2");
+        catalog.newCreateTableTransaction(
+                        SESSION,
+                        table1,
+                        new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
+                        PartitionSpec.unpartitioned(),
+                        SortOrder.unsorted(),
+                        arbitraryTableLocation(catalog, SESSION, table1),
+                        ImmutableMap.of())
+                .commitTransaction();
+
+        catalog.newCreateTableTransaction(
+                        SESSION,
+                        table2,
+                        new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
+                        PartitionSpec.unpartitioned(),
+                        SortOrder.unsorted(),
+                        arbitraryTableLocation(catalog, SESSION, table2),
+                        ImmutableMap.of())
+                .commitTransaction();
+
+        // No namespace provided, all tables across all namespaces should be returned
+        assertThat(catalog.listTables(SESSION, Optional.empty())).containsAll(ImmutableList.of(table1, table2));
+        // Namespace is provided and exists
+        assertThat(catalog.listTables(SESSION, Optional.of(ns1))).isEqualTo(ImmutableList.of(table1));
+        // Namespace is provided and does not exist
+        assertThat(catalog.listTables(SESSION, Optional.of("non_existing"))).isEmpty();
+    }
+
     private String arbitraryTableLocation(TrinoCatalog catalog, ConnectorSession session, SchemaTableName schemaTableName)
             throws Exception
     {
