@@ -375,7 +375,7 @@ public class ParquetReader
         }
 
         if (columnChunk == null) {
-            throw new ParquetCorruptionException(dataSource.getId(), "Struct field does not have any children: %s", field);
+            throw new ParquetCorruptionException(dataSource.getId(), format("Struct field does not have any children: %s", field));
         }
 
         StructColumnReader.RowBlockPositions structIsNull = StructColumnReader.calculateStructOffsets(field, columnChunk.getDefinitionLevels(), columnChunk.getRepetitionLevels());
@@ -498,7 +498,7 @@ public class ParquetReader
                 return metadata;
             }
         }
-        throw new ParquetCorruptionException(dataSource.getId(), "Metadata is missing for column: %s", columnDescriptor);
+        throw new ParquetCorruptionException(dataSource.getId(), format("Metadata is missing for column: %s", columnDescriptor));
     }
 
     private void initializeColumnReaders()
@@ -614,13 +614,12 @@ public class ParquetReader
         }
     }
 
-    @SuppressWarnings("FormatStringAnnotation")
     @FormatMethod
     private void validateWrite(java.util.function.Predicate<ParquetWriteValidation> test, String messageFormat, Object... args)
             throws ParquetCorruptionException
     {
         if (writeValidation.isPresent() && !test.test(writeValidation.get())) {
-            throw new ParquetCorruptionException(dataSource.getId(), "Write validation failed: " + messageFormat, args);
+            throw new ParquetCorruptionException(dataSource.getId(), format("Write validation failed: " + messageFormat, args));
         }
     }
 }

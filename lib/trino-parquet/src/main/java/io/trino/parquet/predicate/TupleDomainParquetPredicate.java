@@ -601,12 +601,12 @@ public class TupleDomainParquetPredicate
 
     private static ParquetCorruptionException corruptionException(String column, ParquetDataSourceId id, Statistics<?> statistics, Exception cause)
     {
-        return new ParquetCorruptionException(cause, id, "Corrupted statistics for column \"%s\": [%s]", column, statistics);
+        return new ParquetCorruptionException(id, format("Corrupted statistics for column \"%s\": [%s]", column, statistics), cause);
     }
 
     private static ParquetCorruptionException corruptionException(String column, ParquetDataSourceId id, ColumnIndex columnIndex, Exception cause)
     {
-        return new ParquetCorruptionException(cause, id, "Corrupted statistics for column \"%s\". Corrupted column index: [%s]", column, columnIndex);
+        return new ParquetCorruptionException(id, format("Corrupted statistics for column \"%s\". Corrupted column index: [%s]", column, columnIndex), cause);
     }
 
     private static boolean isCorruptedColumnIndex(

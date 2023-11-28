@@ -15,6 +15,8 @@ package io.trino.parquet;
 
 import com.google.errorprone.annotations.FormatMethod;
 
+import static java.lang.String.format;
+
 public final class ParquetValidationUtils
 {
     private ParquetValidationUtils() {}
@@ -24,7 +26,7 @@ public final class ParquetValidationUtils
             throws ParquetCorruptionException
     {
         if (!condition) {
-            throw new ParquetCorruptionException(dataSourceId, formatString, args);
+            throw new ParquetCorruptionException(dataSourceId, format(formatString, args));
         }
     }
 }

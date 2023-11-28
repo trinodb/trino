@@ -53,6 +53,7 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.parquet.ColumnStatisticsValidation.ColumnStatistics;
 import static io.trino.parquet.ParquetValidationUtils.validateParquet;
 import static io.trino.parquet.ParquetWriteValidation.IndexReferenceValidation.fromIndexReference;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ParquetWriteValidation
@@ -582,12 +583,13 @@ public class ParquetWriteValidation
         if (!condition) {
             throw new ParquetCorruptionException(
                     dataSourceId,
-                    "%s [%s] for column %s in row group %d did not match [%s]",
-                    name,
-                    actual,
-                    path,
-                    rowGroup,
-                    expected);
+                    format(
+                            "%s [%s] for column %s in row group %d did not match [%s]",
+                            name,
+                            actual,
+                            path,
+                            rowGroup,
+                            expected));
         }
     }
 
