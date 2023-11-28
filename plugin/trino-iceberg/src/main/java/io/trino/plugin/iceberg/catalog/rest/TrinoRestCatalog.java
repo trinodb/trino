@@ -183,16 +183,7 @@ public class TrinoRestCatalog
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> namespace)
     {
         SessionContext sessionContext = convert(session);
-        List<Namespace> namespaces;
-
-        if (namespace.isPresent() && namespaceExists(session, namespace.get())) {
-            namespaces = ImmutableList.of(Namespace.of(namespace.get()));
-        }
-        else {
-            namespaces = listNamespaces(session).stream()
-                    .map(Namespace::of)
-                    .collect(toImmutableList());
-        }
+        List<Namespace> namespaces = listNamespaces(session, namespace);
 
         ImmutableList.Builder<SchemaTableName> tables = ImmutableList.builder();
         for (Namespace restNamespace : namespaces) {
@@ -554,5 +545,16 @@ public class TrinoRestCatalog
     private static TableIdentifier toIdentifier(SchemaTableName schemaTableName)
     {
         return TableIdentifier.of(schemaTableName.getSchemaName(), schemaTableName.getTableName());
+    }
+
+    private List<Namespace> listNamespaces(ConnectorSession session, Optional<String> namespace)
+    {
+        if (namespace.isEmpty()) {
+            return listNamespaces(session).stream()
+                    .map(Namespace::of)
+                    .collect(toImmutableList());
+        }
+
+        return ImmutableList.of(Namespace.of(namespace.get()));
     }
 }
