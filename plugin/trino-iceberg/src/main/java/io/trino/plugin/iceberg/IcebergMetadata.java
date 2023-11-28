@@ -2755,9 +2755,15 @@ public class IcebergMetadata
     }
 
     @Override
-    public void createMaterializedView(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
+    public void createMaterializedView(
+            ConnectorSession session,
+            SchemaTableName viewName,
+            ConnectorMaterializedViewDefinition definition,
+            Map<String, Object> properties,
+            boolean replace,
+            boolean ignoreExisting)
     {
-        catalog.createMaterializedView(session, viewName, definition, replace, ignoreExisting);
+        catalog.createMaterializedView(session, viewName, definition, properties, replace, ignoreExisting);
     }
 
     @Override
@@ -2885,6 +2891,12 @@ public class IcebergMetadata
     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         return catalog.getMaterializedView(session, viewName);
+    }
+
+    @Override
+    public Map<String, Object> getMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition)
+    {
+        return catalog.getMaterializedViewProperties(session, viewName, definition);
     }
 
     @Override

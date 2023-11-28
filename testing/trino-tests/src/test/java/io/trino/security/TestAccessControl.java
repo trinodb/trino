@@ -217,8 +217,7 @@ public class TestAccessControl
                                 Optional.of(Duration.ZERO),
                                 Optional.of("comment"),
                                 Optional.of("owner"),
-                                ImmutableList.of(),
-                                ImmutableMap.of());
+                                ImmutableList.of());
                         return ImmutableMap.of(
                                 new SchemaTableName("default", "test_materialized_view"), materializedViewDefinition);
                     }

@@ -134,13 +134,13 @@ public class TestMaterializedViews
                 Optional.empty(),
                 Identity.ofUser("some user"),
                 ImmutableList.of(),
-                Optional.of(new CatalogSchemaTableName(TEST_CATALOG_NAME, SCHEMA, "storage_table")),
-                ImmutableMap.of());
+                Optional.of(new CatalogSchemaTableName(TEST_CATALOG_NAME, SCHEMA, "storage_table")));
         queryRunner.inTransaction(session -> {
             metadata.createMaterializedView(
                     session,
                     freshMaterializedView,
                     materializedViewDefinition,
+                    ImmutableMap.of(),
                     false,
                     false);
             return null;
@@ -153,6 +153,7 @@ public class TestMaterializedViews
                     session,
                     notFreshMaterializedView,
                     materializedViewDefinition,
+                    ImmutableMap.of(),
                     false,
                     false);
             return null;
@@ -167,14 +168,14 @@ public class TestMaterializedViews
                 Optional.empty(),
                 Identity.ofUser("some user"),
                 ImmutableList.of(),
-                Optional.of(new CatalogSchemaTableName(TEST_CATALOG_NAME, SCHEMA, "storage_table_with_casts")),
-                ImmutableMap.of());
+                Optional.of(new CatalogSchemaTableName(TEST_CATALOG_NAME, SCHEMA, "storage_table_with_casts")));
         QualifiedObjectName materializedViewWithCasts = new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, "materialized_view_with_casts");
         queryRunner.inTransaction(session -> {
             metadata.createMaterializedView(
                     session,
                     materializedViewWithCasts,
                     materializedViewDefinitionWithCasts,
+                    ImmutableMap.of(),
                     false,
                     false);
             return null;
@@ -186,6 +187,7 @@ public class TestMaterializedViews
                     session,
                     new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, "stale_materialized_view_with_casts"),
                     materializedViewDefinitionWithCasts,
+                    ImmutableMap.of(),
                     false,
                     false);
             return null;

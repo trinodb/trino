@@ -6849,9 +6849,14 @@ public class TestAnalyzer
                 Optional.of("comment"),
                 Identity.ofUser("user"),
                 ImmutableList.of(),
-                Optional.empty(),
-                ImmutableMap.of());
-        inSetupTransaction(session -> metadata.createMaterializedView(session, new QualifiedObjectName(TPCH_CATALOG, "s1", "mv1"), materializedViewData1, false, true));
+                Optional.empty());
+        inSetupTransaction(session -> metadata.createMaterializedView(
+                session,
+                new QualifiedObjectName(TPCH_CATALOG, "s1", "mv1"),
+                materializedViewData1,
+                ImmutableMap.of(),
+                false,
+                true));
 
         // valid view referencing table in same schema
         ViewDefinition viewData1 = new ViewDefinition(
@@ -6973,8 +6978,8 @@ public class TestAnalyzer
                         Optional.empty(),
                         Identity.ofUser("some user"),
                         ImmutableList.of(),
-                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t1")),
-                        ImmutableMap.of()),
+                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t1"))),
+                ImmutableMap.of(),
                 false,
                 false));
         ViewDefinition viewDefinition = new ViewDefinition(
@@ -7026,8 +7031,8 @@ public class TestAnalyzer
                         Identity.ofUser("some user"),
                         ImmutableList.of(),
                         // t3 has a, b column and hidden column x
-                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t3")),
-                        ImmutableMap.of()),
+                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t3"))),
+                ImmutableMap.of(),
                 false,
                 false));
         testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedView.asSchemaTableName());
@@ -7045,8 +7050,8 @@ public class TestAnalyzer
                         Optional.empty(),
                         Identity.ofUser("some user"),
                         ImmutableList.of(),
-                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
-                        ImmutableMap.of()),
+                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2"))),
+                ImmutableMap.of(),
                 false,
                 false));
         testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedViewMismatchedColumnCount.asSchemaTableName());
@@ -7064,8 +7069,8 @@ public class TestAnalyzer
                         Optional.empty(),
                         Identity.ofUser("some user"),
                         ImmutableList.of(),
-                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
-                        ImmutableMap.of()),
+                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2"))),
+                ImmutableMap.of(),
                 false,
                 false));
         testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedMismatchedColumnName.asSchemaTableName());
@@ -7083,8 +7088,8 @@ public class TestAnalyzer
                         Optional.empty(),
                         Identity.ofUser("some user"),
                         ImmutableList.of(),
-                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2")),
-                        ImmutableMap.of()),
+                        Optional.of(new CatalogSchemaTableName(TPCH_CATALOG, "s1", "t2"))),
+                ImmutableMap.of(),
                 false,
                 false));
         testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedMismatchedColumnType.asSchemaTableName());

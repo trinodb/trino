@@ -762,10 +762,10 @@ public class TestIcebergFileOperations
                         .build());
 
         // Bulk retrieval without selecting freshness
-        assertFileSystemAccesses(session, "SELECT schema_name, name FROM system.metadata.materialized_views WHERE schema_name = CURRENT_SCHEMA",
-                ImmutableMultiset.<FileOperation>builder()
-                        .addCopies(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM), 2)
-                        .build());
+        assertFileSystemAccesses(
+                session,
+                "SELECT schema_name, name FROM system.metadata.materialized_views WHERE schema_name = CURRENT_SCHEMA",
+                ImmutableMultiset.of());
 
         // Bulk retrieval for two schemas
         assertFileSystemAccesses(session, "SELECT * FROM system.metadata.materialized_views WHERE schema_name IN (CURRENT_SCHEMA, 'non_existent')",
@@ -780,15 +780,15 @@ public class TestIcebergFileOperations
                         .build());
 
         // Pointed lookup without selecting freshness
-        assertFileSystemAccesses(session, "SELECT schema_name, name FROM system.metadata.materialized_views WHERE schema_name = CURRENT_SCHEMA AND name = 'mv1'",
-                ImmutableMultiset.<FileOperation>builder()
-                        .add(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM))
-                        .build());
+        assertFileSystemAccesses(
+                session,
+                "SELECT schema_name, name FROM system.metadata.materialized_views WHERE schema_name = CURRENT_SCHEMA AND name = 'mv1'",
+                ImmutableMultiset.of());
 
-        assertFileSystemAccesses(session, "SELECT * FROM iceberg.information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name = 'mv1'",
-                ImmutableMultiset.<FileOperation>builder()
-                        .add(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM))
-                        .build());
+        assertFileSystemAccesses(
+                session,
+                "SELECT * FROM iceberg.information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name = 'mv1'",
+                ImmutableMultiset.of());
 
         assertUpdate("DROP SCHEMA " + schemaName + " CASCADE");
     }

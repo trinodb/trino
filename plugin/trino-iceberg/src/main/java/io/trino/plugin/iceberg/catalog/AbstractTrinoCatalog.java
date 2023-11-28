@@ -78,6 +78,7 @@ import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.mappedCopy;
 import static io.trino.plugin.hive.util.HiveUtil.escapeTableName;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewAdditionalProperties.STORAGE_SCHEMA;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewAdditionalProperties.getStorageSchema;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.decodeMaterializedViewData;
@@ -202,6 +203,25 @@ public abstract class AbstractTrinoCatalog
 
     protected abstract Optional<ConnectorMaterializedViewDefinition> doGetMaterializedView(ConnectorSession session, SchemaTableName schemaViewName);
 
+    @Override
+    public Map<String, Object> getMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition)
+    {
+        SchemaTableName storageTableName = definition.getStorageTable()
+                .orElseThrow(() -> new TrinoException(ICEBERG_INVALID_METADATA, "Materialized view definition is missing a storage table"))
+                .getSchemaTableName();
+
+        try {
+            Table storageTable = loadTable(session, definition.getStorageTable().orElseThrow().getSchemaTableName());
+            return ImmutableMap.<String, Object>builder()
+                    .putAll(getIcebergTableProperties(storageTable))
+                    .put(STORAGE_SCHEMA, storageTableName.getSchemaName())
+                    .buildOrThrow();
+        }
+        catch (RuntimeException e) {
+            throw new TrinoException(ICEBERG_FILESYSTEM_ERROR, "Unable to load storage table metadata for materialized view: " + viewName);
+        }
+    }
+
     protected Transaction newCreateTableTransaction(
             ConnectorSession session,
             SchemaTableName schemaTableName,
@@ -282,20 +302,24 @@ public abstract class AbstractTrinoCatalog
         }
     }
 
-    protected Location createMaterializedViewStorage(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition)
+    protected Location createMaterializedViewStorage(
+            ConnectorSession session,
+            SchemaTableName viewName,
+            ConnectorMaterializedViewDefinition definition,
+            Map<String, Object> materializedViewProperties)
     {
-        if (getStorageSchema(definition.getProperties()).isPresent()) {
+        if (getStorageSchema(materializedViewProperties).isPresent()) {
             throw new TrinoException(NOT_SUPPORTED, "Materialized view property '%s' is not supported when hiding materialized view storage tables is enabled".formatted(STORAGE_SCHEMA));
         }
         SchemaTableName storageTableName = new SchemaTableName(viewName.getSchemaName(), tableNameWithType(viewName.getTableName(), MATERIALIZED_VIEW_STORAGE));
-        String tableLocation = getTableLocation(definition.getProperties())
+        String tableLocation = getTableLocation(materializedViewProperties)
                 .orElseGet(() -> defaultTableLocation(session, viewName));
-        List<ColumnMetadata> columns = columnsForMaterializedView(definition);
+        List<ColumnMetadata> columns = columnsForMaterializedView(definition, materializedViewProperties);
 
         Schema schema = schemaFromMetadata(columns);
-        PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(definition.getProperties()));
-        SortOrder sortOrder = parseSortFields(schema, getSortOrder(definition.getProperties()));
-        Map<String, String> properties = createTableProperties(new ConnectorTableMetadata(storageTableName, columns, definition.getProperties(), Optional.empty()));
+        PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(materializedViewProperties));
+        SortOrder sortOrder = parseSortFields(schema, getSortOrder(materializedViewProperties));
+        Map<String, String> properties = createTableProperties(new ConnectorTableMetadata(storageTableName, columns, materializedViewProperties, Optional.empty()));
 
         TableMetadata metadata = newTableMetadata(schema, partitionSpec, sortOrder, tableLocation, properties);
 
@@ -308,17 +332,21 @@ public abstract class AbstractTrinoCatalog
         return metadataFileLocation;
     }
 
-    protected SchemaTableName createMaterializedViewStorageTable(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition)
+    protected SchemaTableName createMaterializedViewStorageTable(
+            ConnectorSession session,
+            SchemaTableName viewName,
+            ConnectorMaterializedViewDefinition definition,
+            Map<String, Object> materializedViewProperties)
     {
         // Generate a storage table name and create a storage table. The properties in the definition are table properties for the
         // storage table as indicated in the materialized view definition.
         String storageTableName = "st_" + randomUUID().toString().replace("-", "");
 
-        String storageSchema = getStorageSchema(definition.getProperties()).orElse(viewName.getSchemaName());
+        String storageSchema = getStorageSchema(materializedViewProperties).orElse(viewName.getSchemaName());
         SchemaTableName storageTable = new SchemaTableName(storageSchema, storageTableName);
-        List<ColumnMetadata> columns = columnsForMaterializedView(definition);
+        List<ColumnMetadata> columns = columnsForMaterializedView(definition, materializedViewProperties);
 
-        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(storageTable, columns, definition.getProperties(), Optional.empty());
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(storageTable, columns, materializedViewProperties, Optional.empty());
         Transaction transaction = IcebergUtil.newCreateTableTransaction(this, tableMetadata, session, false, LocationAccessControl.ALLOW_ALL);
         AppendFiles appendFiles = transaction.newAppend();
         commit(appendFiles, session);
@@ -326,7 +354,7 @@ public abstract class AbstractTrinoCatalog
         return storageTable;
     }
 
-    private List<ColumnMetadata> columnsForMaterializedView(ConnectorMaterializedViewDefinition definition)
+    private List<ColumnMetadata> columnsForMaterializedView(ConnectorMaterializedViewDefinition definition, Map<String, Object> materializedViewProperties)
     {
         Schema schemaWithTimestampTzPreserved = schemaFromMetadata(mappedCopy(
                 definition.getColumns(),
@@ -341,7 +369,7 @@ public abstract class AbstractTrinoCatalog
                     }
                     return new ColumnMetadata(column.getName(), type);
                 }));
-        PartitionSpec partitionSpec = parsePartitionFields(schemaWithTimestampTzPreserved, getPartitioning(definition.getProperties()));
+        PartitionSpec partitionSpec = parsePartitionFields(schemaWithTimestampTzPreserved, getPartitioning(materializedViewProperties));
         Set<String> temporalPartitioningSources = partitionSpec.fields().stream()
                 .flatMap(partitionField -> {
                     Types.NestedField sourceField = schemaWithTimestampTzPreserved.findField(partitionField.sourceId());
@@ -423,7 +451,6 @@ public abstract class AbstractTrinoCatalog
     }
 
     protected ConnectorMaterializedViewDefinition getMaterializedViewDefinition(
-            Table icebergTable,
             Optional<String> owner,
             String viewOriginalText,
             SchemaTableName storageTableName)
@@ -438,11 +465,7 @@ public abstract class AbstractTrinoCatalog
                 definition.getGracePeriod(),
                 definition.getComment(),
                 owner,
-                definition.getPath(),
-                ImmutableMap.<String, Object>builder()
-                        .putAll(getIcebergTableProperties(icebergTable))
-                        .put(STORAGE_SCHEMA, storageTableName.getSchemaName())
-                        .buildOrThrow());
+                definition.getPath());
     }
 
     protected List<ConnectorMaterializedViewDefinition.Column> toSpiMaterializedViewColumns(List<IcebergMaterializedViewDefinition.Column> columns)

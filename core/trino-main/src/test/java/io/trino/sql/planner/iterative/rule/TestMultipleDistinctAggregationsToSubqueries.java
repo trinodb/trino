@@ -1943,9 +1943,15 @@ public class TestMultipleDistinctAggregationsToSubqueries
         }
 
         @Override
-        public void createMaterializedView(Session session, QualifiedObjectName viewName, MaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
+        public void createMaterializedView(
+                Session session,
+                QualifiedObjectName viewName,
+                MaterializedViewDefinition definition,
+                Map<String, Object> properties,
+                boolean replace,
+                boolean ignoreExisting)
         {
-            metadata.createMaterializedView(session, viewName, definition, replace, ignoreExisting);
+            metadata.createMaterializedView(session, viewName, definition, properties, replace, ignoreExisting);
         }
 
         @Override
@@ -1976,6 +1982,12 @@ public class TestMultipleDistinctAggregationsToSubqueries
         public Optional<MaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName)
         {
             return metadata.getMaterializedView(session, viewName);
+        }
+
+        @Override
+        public Map<String, Object> getMaterializedViewProperties(Session session, QualifiedObjectName objectName, MaterializedViewDefinition materializedViewDefinition)
+        {
+            return metadata.getMaterializedViewProperties(session, objectName, materializedViewDefinition);
         }
 
         @Override

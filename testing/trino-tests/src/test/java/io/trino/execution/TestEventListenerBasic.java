@@ -180,8 +180,7 @@ public class TestEventListenerBasic
                                     Optional.of(Duration.ZERO),
                                     Optional.empty(),
                                     Optional.of("alice"),
-                                    ImmutableList.of(),
-                                    ImmutableMap.of());
+                                    ImmutableList.of());
                             SchemaTableName materializedViewName = new SchemaTableName("default", "test_materialized_view");
                             return ImmutableMap.of(materializedViewName, definition);
                         })
