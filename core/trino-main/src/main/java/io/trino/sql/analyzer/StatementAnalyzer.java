@@ -1766,11 +1766,6 @@ class StatementAnalyzer
                     argumentScope.getRelationType().getAllFields()
                             .forEach(fields::add);
                 }
-                else if (argument.getPartitionBy().isPresent()) {
-                    argument.getPartitionBy().get().stream()
-                            .map(expression -> validateAndGetInputField(expression, argumentScope))
-                            .forEach(fields::add);
-                }
             }
 
             analysis.setTableFunctionAnalysis(node, new TableFunctionInvocationAnalysis(

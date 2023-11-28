@@ -109,8 +109,7 @@ public class TestTableFunctionInvocation
                                         "INPUT_3",
                                         tableArgument(2)
                                                 .specification(specification(ImmutableList.of("c3"), ImmutableList.of(), ImmutableMap.of()))
-                                                .pruneWhenEmpty()
-                                                .passThroughSymbols(ImmutableSet.of("c3")))
+                                                .pruneWhenEmpty())
                                 .addTableArgument(
                                         "INPUT_2",
                                         tableArgument(1)
@@ -146,13 +145,11 @@ public class TestTableFunctionInvocation
                                 .addTableArgument(
                                         "INPUT1",
                                         tableArgument(0)
-                                                .specification(specification(ImmutableList.of("c1_coerced"), ImmutableList.of(), ImmutableMap.of()))
-                                                .passThroughSymbols(ImmutableSet.of("c1")))
+                                                .specification(specification(ImmutableList.of("c1_coerced"), ImmutableList.of(), ImmutableMap.of())))
                                 .addTableArgument(
                                         "INPUT2",
                                         tableArgument(1)
-                                                .specification(specification(ImmutableList.of("c2"), ImmutableList.of(), ImmutableMap.of()))
-                                                .passThroughSymbols(ImmutableSet.of("c2")))
+                                                .specification(specification(ImmutableList.of("c2"), ImmutableList.of(), ImmutableMap.of())))
                                 .addCopartitioning(ImmutableList.of("INPUT1", "INPUT2"))
                                 .properOutputs(ImmutableList.of("COLUMN")),
                         project(ImmutableMap.of("c1_coerced", expression("CAST(c1 AS INTEGER)")),
