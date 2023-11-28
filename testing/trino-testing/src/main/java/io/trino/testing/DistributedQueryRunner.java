@@ -80,6 +80,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
+import static io.airlift.log.Level.DEBUG;
 import static io.airlift.log.Level.ERROR;
 import static io.airlift.log.Level.WARN;
 import static io.airlift.testing.Closeables.closeAllSuppress;
@@ -234,6 +235,7 @@ public class DistributedQueryRunner
         logging.setLevel("org.hibernate.validator.internal.util.Version", WARN);
         logging.setLevel(PluginManager.class.getName(), WARN);
         logging.setLevel(CoordinatorDynamicCatalogManager.class.getName(), WARN);
+        logging.setLevel("io.trino.execution.scheduler.faulttolerant", DEBUG);
     }
 
     private static TestingTrinoServer createTestingTrinoServer(
