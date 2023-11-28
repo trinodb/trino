@@ -113,7 +113,7 @@ public class TestSetColumnTypeTask
     public void testSetDataTypeOnMaterializedView()
     {
         QualifiedObjectName materializedViewName = qualifiedObjectName("existing_materialized_view");
-        metadata.createMaterializedView(testSession, QualifiedObjectName.valueOf(materializedViewName.toString()), someMaterializedView(), false, false);
+        metadata.createMaterializedView(testSession, QualifiedObjectName.valueOf(materializedViewName.toString()), someMaterializedView(), MATERIALIZED_VIEW_PROPERTIES, false, false);
 
         assertTrinoExceptionThrownBy(() -> getFutureValue(executeSetColumnType(asQualifiedName(materializedViewName), QualifiedName.of("test"), toSqlType(INTEGER), false)))
                 .hasErrorCode(TABLE_NOT_FOUND)

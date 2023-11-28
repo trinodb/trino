@@ -163,6 +163,7 @@ public interface TrinoCatalog
             ConnectorSession session,
             SchemaTableName viewName,
             ConnectorMaterializedViewDefinition definition,
+            Map<String, Object> materializedViewProperties,
             boolean replace,
             boolean ignoreExisting);
 
@@ -171,6 +172,8 @@ public interface TrinoCatalog
     void dropMaterializedView(ConnectorSession session, SchemaTableName viewName);
 
     Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName);
+
+    Map<String, Object> getMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition);
 
     Optional<BaseTable> getMaterializedViewStorageTable(ConnectorSession session, SchemaTableName viewName);
 

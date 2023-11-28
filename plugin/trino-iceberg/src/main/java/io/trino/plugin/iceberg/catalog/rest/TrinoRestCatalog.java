@@ -438,7 +438,13 @@ public class TrinoRestCatalog
     }
 
     @Override
-    public void createMaterializedView(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
+    public void createMaterializedView(
+            ConnectorSession session,
+            SchemaTableName viewName,
+            ConnectorMaterializedViewDefinition definition,
+            Map<String, Object> materializedViewProperties,
+            boolean replace,
+            boolean ignoreExisting)
     {
         throw new TrinoException(NOT_SUPPORTED, "createMaterializedView is not supported for Iceberg REST catalog");
     }
@@ -459,6 +465,12 @@ public class TrinoRestCatalog
     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         return Optional.empty();
+    }
+
+    @Override
+    public Map<String, Object> getMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "The Iceberg REST catalog does not support materialized views");
     }
 
     @Override

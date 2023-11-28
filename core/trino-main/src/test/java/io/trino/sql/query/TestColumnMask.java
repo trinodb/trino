@@ -122,8 +122,7 @@ public class TestColumnMask
                 Optional.of(Duration.ZERO),
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
-                ImmutableList.of(),
-                ImmutableMap.of());
+                ImmutableList.of());
 
         ConnectorMaterializedViewDefinition freshMaterializedView = new ConnectorMaterializedViewDefinition(
                 "SELECT * FROM local.tiny.nation",
@@ -138,8 +137,7 @@ public class TestColumnMask
                 Optional.of(Duration.ZERO),
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
-                ImmutableList.of(),
-                ImmutableMap.of());
+                ImmutableList.of());
 
         ConnectorMaterializedViewDefinition materializedViewWithCasts = new ConnectorMaterializedViewDefinition(
                 "SELECT nationkey, cast(name as varchar(1)) as name, regionkey, comment FROM local.tiny.nation",
@@ -154,8 +152,7 @@ public class TestColumnMask
                 Optional.of(Duration.ZERO),
                 Optional.empty(),
                 Optional.of(VIEW_OWNER),
-                ImmutableList.of(),
-                ImmutableMap.of());
+                ImmutableList.of());
 
         MockConnectorFactory mock = MockConnectorFactory.builder()
                 .withGetColumns(schemaTableName -> {
