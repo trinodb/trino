@@ -170,12 +170,12 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
     {
         assertMetastoreInvocations(
                 "SELECT * FROM information_schema.tables WHERE table_schema = 'test_schema_0'",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_RELATION_TYPES_FROM_DATABASE)
                         .build());
         assertMetastoreInvocations(
                 "SELECT * FROM system.jdbc.tables WHERE table_schem = 'test_schema_0'",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_RELATION_TYPES_FROM_DATABASE)
                         .build());
     }
@@ -185,13 +185,13 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
     {
         assertMetastoreInvocations(
                 "SELECT * FROM information_schema.tables WHERE table_schema LIKE 'test%'",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_DATABASES)
                         .add(GET_ALL_RELATION_TYPES)
                         .build());
         assertMetastoreInvocations(
                 "SELECT * FROM system.jdbc.tables WHERE table_schem LIKE 'test%'",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_RELATION_TYPES)
                         .build());
     }
@@ -201,7 +201,7 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
     {
         assertMetastoreInvocations(
                 "SELECT * FROM information_schema.tables WHERE table_name = 'test_table_0'",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_DATABASES)
                         .add(GET_ALL_RELATION_TYPES)
                         .build());
@@ -219,13 +219,13 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
     {
         assertMetastoreInvocations(
                 "SELECT * FROM information_schema.tables WHERE table_name LIKE 'test%'",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_DATABASES)
                         .add(GET_ALL_RELATION_TYPES)
                         .build());
         assertMetastoreInvocations(
                 "SELECT * FROM system.jdbc.tables WHERE table_name LIKE 'test%'",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_RELATION_TYPES)
                         .build());
     }
@@ -236,7 +236,7 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
         assertMetastoreInvocations("SELECT * FROM information_schema.views", ImmutableMultiset.of(GET_ALL_VIEWS));
         assertMetastoreInvocations(
                 "SELECT * FROM system.jdbc.tables WHERE table_type = 'VIEW'",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_RELATION_TYPES)
                         .build());
     }
@@ -253,7 +253,7 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
     {
         assertMetastoreInvocations("SELECT * FROM information_schema.views WHERE table_schema = 'test_schema_0'", ImmutableMultiset.of(GET_ALL_VIEWS_FROM_DATABASE));
         assertMetastoreInvocations("SELECT * FROM system.jdbc.tables WHERE table_type = 'VIEW' AND table_schem = 'test_schema_0'",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_RELATION_TYPES_FROM_DATABASE)
                         .build());
     }
@@ -263,13 +263,13 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
     {
         assertMetastoreInvocations(
                 "SELECT * FROM information_schema.views WHERE table_schema LIKE 'test%'",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_DATABASES)
                         .add(GET_ALL_VIEWS)
                         .build());
         assertMetastoreInvocations(
                 "SELECT * FROM system.jdbc.tables WHERE table_type = 'VIEW' AND table_schem LIKE 'test%'",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_RELATION_TYPES)
                         .build());
     }
@@ -279,13 +279,13 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
     {
         assertMetastoreInvocations(
                 "SELECT * FROM information_schema.views WHERE table_name = 'test_table_0'",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_DATABASES)
                         .add(GET_ALL_VIEWS)
                         .build());
         assertMetastoreInvocations(
                 "SELECT * FROM system.jdbc.tables WHERE table_type = 'VIEW' AND table_name = 'test_table_0'",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_RELATION_TYPES)
                         .build());
     }
@@ -295,13 +295,13 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
     {
         assertMetastoreInvocations(
                 "SELECT * FROM information_schema.views WHERE table_name LIKE 'test%'",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_DATABASES)
                         .add(GET_ALL_VIEWS)
                         .build());
         assertMetastoreInvocations(
                 "SELECT * FROM system.jdbc.tables WHERE table_type = 'VIEW' AND table_name LIKE 'test%'",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_RELATION_TYPES)
                         .build());
     }
@@ -329,25 +329,25 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
     public void testSelectColumnsFilterBySchema()
     {
         assertMetastoreInvocations("SELECT * FROM information_schema.columns WHERE table_schema = 'test_schema_0'",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_TABLES_FROM_DATABASE)
                         .add(GET_ALL_VIEWS_FROM_DATABASE)
                         .addCopies(GET_TABLE, TEST_TABLES_IN_SCHEMA_COUNT)
                         .build());
         assertMetastoreInvocations("SELECT * FROM system.jdbc.columns WHERE table_schem = 'test_schema_0'",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_TABLES_FROM_DATABASE)
                         .add(GET_ALL_VIEWS_FROM_DATABASE)
                         .addCopies(GET_TABLE, TEST_TABLES_IN_SCHEMA_COUNT)
                         .build());
         assertMetastoreInvocations("SELECT * FROM system.jdbc.columns WHERE table_schem LIKE 'test\\_schema\\_0' ESCAPE '\\'",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_TABLES_FROM_DATABASE)
                         .add(GET_ALL_VIEWS_FROM_DATABASE)
                         .addCopies(GET_TABLE, TEST_TABLES_IN_SCHEMA_COUNT)
                         .build());
         assertMetastoreInvocations("SELECT * FROM system.jdbc.columns WHERE table_schem LIKE 'test_schema_0' ESCAPE '\\'",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_DATABASES)
                         .add(GET_ALL_TABLES_FROM_DATABASE)
                         .add(GET_ALL_VIEWS_FROM_DATABASE)
@@ -360,7 +360,7 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
     {
         assertMetastoreInvocations(
                 "SELECT * FROM information_schema.columns WHERE table_schema LIKE 'test%'",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_DATABASES)
                         .add(GET_ALL_TABLES)
                         .add(GET_ALL_VIEWS)
@@ -368,7 +368,7 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
                         .build());
         assertMetastoreInvocations(
                 "SELECT * FROM system.jdbc.columns WHERE table_schem LIKE 'test%'",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_DATABASES)
                         .addCopies(GET_ALL_TABLES_FROM_DATABASE, TEST_SCHEMAS_COUNT)
                         .addCopies(GET_TABLE, TEST_ALL_TABLES_COUNT)
@@ -380,7 +380,7 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
     {
         assertMetastoreInvocations(
                 "SELECT * FROM information_schema.columns WHERE table_name = 'test_table_0'",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_DATABASES)
                         .add(GET_ALL_TABLES)
                         .add(GET_ALL_VIEWS)
@@ -390,21 +390,21 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
                         .build());
         assertMetastoreInvocations(
                 "SELECT * FROM system.jdbc.columns WHERE table_name = 'test_table_0'",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_DATABASES)
                         .add(GET_ALL_TABLES_FROM_DATABASE)
                         .addCopies(GET_TABLE, TEST_SCHEMAS_COUNT + 1)
                         .build());
         assertMetastoreInvocations(
                 "SELECT * FROM system.jdbc.columns WHERE table_name LIKE 'test\\_table\\_0' ESCAPE '\\'",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_DATABASES)
                         .add(GET_ALL_TABLES_FROM_DATABASE)
                         .addCopies(GET_TABLE, TEST_SCHEMAS_COUNT + 1)
                         .build());
         assertMetastoreInvocations(
                 "SELECT * FROM system.jdbc.columns WHERE table_name LIKE 'test_table_0' ESCAPE '\\'",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_DATABASES)
                         .add(GET_ALL_TABLES_FROM_DATABASE)
                         .addCopies(GET_ALL_TABLES_FROM_DATABASE, TEST_SCHEMAS_COUNT)
@@ -416,14 +416,14 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
     public void testSelectColumnsWithLikeOverTableName()
     {
         assertMetastoreInvocations("SELECT * FROM information_schema.columns WHERE table_name LIKE 'test%'",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_DATABASES)
                         .add(GET_ALL_TABLES)
                         .add(GET_ALL_VIEWS)
                         .addCopies(GET_TABLE, TEST_ALL_TABLES_COUNT)
                         .build());
         assertMetastoreInvocations("SELECT * FROM system.jdbc.columns WHERE table_name LIKE 'test%'",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_DATABASES)
                         .addCopies(GET_ALL_TABLES_FROM_DATABASE, TEST_SCHEMAS_COUNT + 1)
                         .addCopies(GET_TABLE, TEST_ALL_TABLES_COUNT)
@@ -435,14 +435,14 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
     {
         assertMetastoreInvocations(
                 "SELECT * FROM information_schema.columns WHERE column_name = 'name'",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_TABLES)
                         .add(GET_ALL_VIEWS)
                         .addCopies(GET_TABLE, TEST_ALL_TABLES_COUNT)
                         .build());
         assertMetastoreInvocations(
                 "SELECT * FROM system.jdbc.columns WHERE column_name = 'name'",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_TABLES)
                         .add(GET_ALL_VIEWS)
                         .addCopies(GET_TABLE, TEST_ALL_TABLES_COUNT)
@@ -454,7 +454,7 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
     {
         assertMetastoreInvocations(
                 "SELECT * FROM information_schema.columns WHERE column_name LIKE 'n%'",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_DATABASES)
                         .add(GET_ALL_TABLES)
                         .add(GET_ALL_VIEWS)
@@ -462,7 +462,7 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
                         .build());
         assertMetastoreInvocations(
                 "SELECT * FROM system.jdbc.columns WHERE column_name LIKE 'n%'",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_TABLES)
                         .add(GET_ALL_VIEWS)
                         .addCopies(GET_TABLE, TEST_ALL_TABLES_COUNT)
@@ -476,14 +476,14 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
         assertMetastoreInvocations("SELECT * FROM system.jdbc.columns WHERE table_schem = 'test_schema_0' AND table_name = 'test_table_0'", ImmutableMultiset.of(GET_TABLE));
         assertMetastoreInvocations("SELECT * FROM system.jdbc.columns WHERE table_schem LIKE 'test\\_schema\\_0' ESCAPE '\\' AND table_name LIKE 'test\\_table\\_0' ESCAPE '\\'", ImmutableMultiset.of(GET_TABLE));
         assertMetastoreInvocations("SELECT * FROM system.jdbc.columns WHERE table_schem LIKE 'test_schema_0' ESCAPE '\\' AND table_name LIKE 'test_table_0' ESCAPE '\\'",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_DATABASES)
                         .add(GET_ALL_TABLES_FROM_DATABASE)
                         .add(GET_TABLE)
                         .build());
     }
 
-    private void assertMetastoreInvocations(@Language("SQL") String query, Multiset<?> expectedInvocations)
+    private void assertMetastoreInvocations(@Language("SQL") String query, Multiset<MetastoreMethod> expectedInvocations)
     {
         CountingAccessHiveMetastoreUtil.assertMetastoreInvocations(metastore, getQueryRunner(), getQueryRunner().getDefaultSession(), query, expectedInvocations);
     }
