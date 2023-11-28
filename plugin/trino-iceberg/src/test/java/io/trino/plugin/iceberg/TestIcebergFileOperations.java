@@ -785,6 +785,11 @@ public class TestIcebergFileOperations
                         .add(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM))
                         .build());
 
+        assertFileSystemAccesses(session, "SELECT * FROM iceberg.information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name = 'mv1'",
+                ImmutableMultiset.<FileOperation>builder()
+                        .add(new FileOperation(METADATA_JSON, INPUT_FILE_NEW_STREAM))
+                        .build());
+
         assertUpdate("DROP SCHEMA " + schemaName + " CASCADE");
     }
 
