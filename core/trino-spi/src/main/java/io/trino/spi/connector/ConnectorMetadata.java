@@ -901,6 +901,12 @@ public interface ConnectorMetadata
      * Do whatever is necessary to start an MERGE query, returning the {@link ConnectorMergeTableHandle}
      * instance that will be passed to the PageSink, and to the {@link #finishMerge} method.
      */
+    @Deprecated
+    default ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
+    {
+        throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
+    }
+
     default ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode, List<ColumnHandle> mergableColumns)
     {
         throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
