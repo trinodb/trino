@@ -14,6 +14,7 @@
 package io.trino.plugin.jdbc.jmx;
 
 import io.trino.plugin.jdbc.ColumnMapping;
+import io.trino.plugin.jdbc.ForwardingJdbcClient;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
@@ -62,7 +63,7 @@ import java.util.Set;
 import static java.util.Objects.requireNonNull;
 
 public final class StatisticsAwareJdbcClient
-        implements JdbcClient
+        extends ForwardingJdbcClient
 {
     private final JdbcClientStats stats = new JdbcClientStats();
     private final JdbcClient delegate;
@@ -72,7 +73,8 @@ public final class StatisticsAwareJdbcClient
         this.delegate = requireNonNull(delegate, "delegate is null");
     }
 
-    private JdbcClient delegate()
+    @Override
+    protected JdbcClient delegate()
     {
         return delegate;
     }
