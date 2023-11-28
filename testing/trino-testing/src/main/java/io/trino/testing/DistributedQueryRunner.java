@@ -56,7 +56,6 @@ import io.trino.sql.analyzer.QueryExplainer;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.Plan;
-import io.trino.sql.tree.Statement;
 import io.trino.testing.containers.OpenTracingCollector;
 import io.trino.transaction.TransactionManager;
 import org.intellij.lang.annotations.Language;
@@ -148,7 +147,15 @@ public class DistributedQueryRunner
             closer.register(() -> extraCloseables.forEach(DistributedQueryRunner::closeUnchecked));
             log.info("Created TestingDiscoveryServer in %s", nanosSince(discoveryStart));
 
-            registerNewWorker = () -> createServer(false, extraProperties, environment, additionalModule, baseDataDir, Optional.empty(), Optional.of(ImmutableList.of()), ImmutableList.of());
+            registerNewWorker = () -> createServer(
+                    false,
+                    extraProperties,
+                    environment,
+                    additionalModule,
+                    baseDataDir,
+                    Optional.empty(),
+                    Optional.of(ImmutableList.of()),
+                    ImmutableList.of());
 
             int coordinatorCount = backupCoordinatorProperties.isEmpty() ? 1 : 2;
             checkArgument(nodeCount >= coordinatorCount, "nodeCount includes coordinator(s) count, so must be at least %s, got: %s", coordinatorCount, nodeCount);
@@ -167,7 +174,16 @@ public class DistributedQueryRunner
                 extraCoordinatorProperties.put("web-ui.user", "admin");
             }
 
-            coordinator = createServer(true, extraCoordinatorProperties, environment, additionalModule, baseDataDir, systemAccessControlConfiguration, systemAccessControls, eventListeners);
+            coordinator = createServer(
+                    true,
+                    extraCoordinatorProperties,
+                    environment,
+                    additionalModule,
+                    baseDataDir,
+                    systemAccessControlConfiguration,
+                    systemAccessControls,
+                    eventListeners);
+
             if (backupCoordinatorProperties.isPresent()) {
                 Map<String, String> extraBackupCoordinatorProperties = new HashMap<>();
                 extraBackupCoordinatorProperties.putAll(extraProperties);
@@ -196,7 +212,11 @@ public class DistributedQueryRunner
         }
 
         // copy session using property manager in coordinator
-        defaultSession = defaultSession.toSessionRepresentation().toSession(coordinator.getSessionPropertyManager(), defaultSession.getIdentity().getExtraCredentials(), defaultSession.getExchangeEncryptionKey());
+        defaultSession = defaultSession.toSessionRepresentation().toSession(
+                coordinator.getSessionPropertyManager(),
+                defaultSession.getIdentity().getExtraCredentials(),
+                defaultSession.getExchangeEncryptionKey());
+
         this.trinoClient = closer.register(testingTrinoClientFactory.create(coordinator, defaultSession));
 
         ensureNodesGloballyVisible();
@@ -536,9 +556,12 @@ public class DistributedQueryRunner
         // session must be in a transaction registered with the transaction manager in this query runner
         getTransactionManager().getTransactionInfo(session.getRequiredTransactionId());
 
-        SqlParser sqlParser = coordinator.getInstance(Key.get(SqlParser.class));
-        Statement statement = sqlParser.createStatement(sql);
-        return coordinator.getQueryExplainer().getLogicalPlan(session, statement, ImmutableList.of(), WarningCollector.NOOP, createPlanOptimizersStatsCollector());
+        return coordinator.getQueryExplainer().getLogicalPlan(
+                session,
+                coordinator.getInstance(Key.get(SqlParser.class)).createStatement(sql),
+                ImmutableList.of(),
+                WarningCollector.NOOP,
+                createPlanOptimizersStatsCollector());
     }
 
     public Plan getQueryPlan(QueryId queryId)
