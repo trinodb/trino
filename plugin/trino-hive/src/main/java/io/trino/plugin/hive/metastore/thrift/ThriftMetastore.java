@@ -46,7 +46,8 @@ import java.util.function.Function;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
-public interface ThriftMetastore
+public sealed interface ThriftMetastore
+        permits ThriftHiveMetastore
 {
     void createDatabase(Database database);
 
