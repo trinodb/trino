@@ -227,7 +227,9 @@ public final class OrcInputStream
         int decompressedOffset = decodeDecompressedOffset(checkpoint);
         // if checkpoint is within the current buffer, seek locally
         int currentDecompressedBufferOffset = decodeDecompressedOffset(lastCheckpoint);
-        if (current != null && compressedOffset == decodeCompressedBlockOffset(lastCheckpoint) && decompressedOffset < currentDecompressedBufferOffset + current.length()) {
+        if (current != null && compressedOffset == decodeCompressedBlockOffset(lastCheckpoint)
+                && decompressedOffset >= currentDecompressedBufferOffset
+                && decompressedOffset < currentDecompressedBufferOffset + current.length()) {
             current.setPosition(decompressedOffset - currentDecompressedBufferOffset);
             return;
         }
