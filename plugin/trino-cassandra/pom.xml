@@ -27,7 +27,7 @@
         <dependency>
             <groupId>com.datastax.oss</groupId>
             <artifactId>java-driver-query-builder</artifactId>
-            <version>${dep.casandra.version}</version>
+            <version>${dep.cassandra.version}</version>
             <exclusions>
                 <exclusion>
                     <groupId>com.github.spotbugs</groupId>

@@ -179,7 +179,7 @@
         <dep.arrow.version>14.0.1</dep.arrow.version>
         <dep.avro.version>1.11.3</dep.avro.version>
         <dep.aws-sdk.version>1.12.595</dep.aws-sdk.version>
-        <dep.casandra.version>4.17.0</dep.casandra.version>
+        <dep.cassandra.version>4.17.0</dep.cassandra.version>
         <dep.confluent.version>7.5.1</dep.confluent.version>
         <dep.docker.images.version>87</dep.docker.images.version>
         <dep.drift.version>1.21</dep.drift.version>
@@ -454,7 +454,7 @@
             <dependency>
                 <groupId>com.datastax.oss</groupId>
                 <artifactId>java-driver-core</artifactId>
-                <version>${dep.casandra.version}</version>
+                <version>${dep.cassandra.version}</version>
                 <exclusions>
                     <exclusion>
                         <groupId>org.ow2.asm</groupId>
