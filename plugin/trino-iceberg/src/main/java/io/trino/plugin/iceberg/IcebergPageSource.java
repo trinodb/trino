@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -111,6 +112,12 @@ public class IcebergPageSource
     public boolean isFinished()
     {
         return delegate.isFinished();
+    }
+
+    @Override
+    public CompletableFuture<?> isBlocked()
+    {
+        return delegate.isBlocked();
     }
 
     @Override
