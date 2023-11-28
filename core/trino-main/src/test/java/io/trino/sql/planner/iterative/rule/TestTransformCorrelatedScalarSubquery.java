@@ -21,6 +21,7 @@ import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.LongLiteral;
@@ -45,6 +46,8 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.markDistinct;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expressions;
+import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 public class TestTransformCorrelatedScalarSubquery
@@ -186,6 +189,9 @@ public class TestTransformCorrelatedScalarSubquery
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
+                        // make sure INNER correlated join is transformed to LEFT join if subplan could produce 0 rows
+                        INNER,
+                        TRUE_LITERAL,
                         p.enforceSingleRow(
                                 p.filter(
                                         PlanBuilder.expression("1 = a"), // TODO use correlated predicate, it requires support for correlated subqueries in plan matchers
@@ -196,7 +202,8 @@ public class TestTransformCorrelatedScalarSubquery
                                 values("corr"),
                                 filter(
                                         "1 = a",
-                                        values("a"))));
+                                        values("a")))
+                                .with(CorrelatedJoinNode.class, join -> join.getType() == LEFT));
     }
 
     private Expression ensureScalarSubquery()
