@@ -144,7 +144,7 @@ import static java.lang.System.nanoTime;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
-public class ThriftHiveMetastore
+public final class ThriftHiveMetastore
         implements ThriftMetastore
 {
     private static final Logger log = Logger.get(ThriftHiveMetastore.class);
