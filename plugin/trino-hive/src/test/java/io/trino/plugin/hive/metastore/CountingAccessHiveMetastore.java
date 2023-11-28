@@ -36,51 +36,43 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_RELATION_TYPES;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_TABLES;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_VIEWS;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_RELATION_TYPES_FROM_DATABASE;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.ADD_PARTITIONS;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.CREATE_DATABASE;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.CREATE_TABLE;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.DROP_DATABASE;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.DROP_TABLE;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_ALL_DATABASES;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_ALL_RELATION_TYPES;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_ALL_TABLES;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_ALL_TABLES_FROM_DATABASE;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_ALL_VIEWS;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_ALL_VIEWS_FROM_DATABASE;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_DATABASE;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_PARTITION;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_PARTITIONS_BY_NAMES;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_PARTITION_NAMES_BY_FILTER;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_PARTITION_STATISTICS;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_RELATION_TYPES_FROM_DATABASE;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLE;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLES_WITH_PARAMETER;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLE_STATISTICS;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.REPLACE_TABLE;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.UPDATE_PARTITION_STATISTICS;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.UPDATE_TABLE_STATISTICS;
 
 @ThreadSafe
 public class CountingAccessHiveMetastore
         implements HiveMetastore
 {
-    public enum Method
-    {
-        CREATE_DATABASE,
-        DROP_DATABASE,
-        CREATE_TABLE,
-        GET_ALL_DATABASES,
-        GET_DATABASE,
-        GET_TABLE,
-        GET_ALL_TABLES,
-        GET_ALL_TABLES_FROM_DATABASE,
-        GET_RELATION_TYPES_FROM_DATABASE,
-        GET_ALL_RELATION_TYPES,
-        GET_TABLES_WITH_PARAMETER,
-        GET_TABLE_STATISTICS,
-        GET_ALL_VIEWS,
-        GET_ALL_VIEWS_FROM_DATABASE,
-        UPDATE_TABLE_STATISTICS,
-        ADD_PARTITIONS,
-        GET_PARTITION_NAMES_BY_FILTER,
-        GET_PARTITIONS_BY_NAMES,
-        GET_PARTITION,
-        GET_PARTITION_STATISTICS,
-        UPDATE_PARTITION_STATISTICS,
-        REPLACE_TABLE,
-        DROP_TABLE,
-    }
-
     private final HiveMetastore delegate;
-    private final ConcurrentHashMultiset<Method> methodInvocations = ConcurrentHashMultiset.create();
+    private final ConcurrentHashMultiset<MetastoreMethod> methodInvocations = ConcurrentHashMultiset.create();
 
     public CountingAccessHiveMetastore(HiveMetastore delegate)
     {
         this.delegate = delegate;
     }
 
-    public Multiset<Method> getMethodInvocations()
+    public Multiset<MetastoreMethod> getMethodInvocations()
     {
         return ImmutableMultiset.copyOf(methodInvocations);
     }
@@ -93,7 +85,7 @@ public class CountingAccessHiveMetastore
     @Override
     public Optional<Table> getTable(String databaseName, String tableName)
     {
-        methodInvocations.add(Method.GET_TABLE);
+        methodInvocations.add(GET_TABLE);
         return delegate.getTable(databaseName, tableName);
     }
 
@@ -107,28 +99,28 @@ public class CountingAccessHiveMetastore
     @Override
     public List<String> getAllDatabases()
     {
-        methodInvocations.add(Method.GET_ALL_DATABASES);
+        methodInvocations.add(GET_ALL_DATABASES);
         return delegate.getAllDatabases();
     }
 
     @Override
     public Optional<Database> getDatabase(String databaseName)
     {
-        methodInvocations.add(Method.GET_DATABASE);
+        methodInvocations.add(GET_DATABASE);
         return delegate.getDatabase(databaseName);
     }
 
     @Override
     public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
     {
-        methodInvocations.add(Method.GET_TABLES_WITH_PARAMETER);
+        methodInvocations.add(GET_TABLES_WITH_PARAMETER);
         return delegate.getTablesWithParameter(databaseName, parameterKey, parameterValue);
     }
 
     @Override
     public List<String> getAllViews(String databaseName)
     {
-        methodInvocations.add(Method.GET_ALL_VIEWS_FROM_DATABASE);
+        methodInvocations.add(GET_ALL_VIEWS_FROM_DATABASE);
         return delegate.getAllViews(databaseName);
     }
 
@@ -145,14 +137,14 @@ public class CountingAccessHiveMetastore
     @Override
     public void createDatabase(Database database)
     {
-        methodInvocations.add(Method.CREATE_DATABASE);
+        methodInvocations.add(CREATE_DATABASE);
         delegate.createDatabase(database);
     }
 
     @Override
     public void dropDatabase(String databaseName, boolean deleteData)
     {
-        methodInvocations.add(Method.DROP_DATABASE);
+        methodInvocations.add(DROP_DATABASE);
         delegate.dropDatabase(databaseName, deleteData);
     }
 
@@ -171,21 +163,21 @@ public class CountingAccessHiveMetastore
     @Override
     public void createTable(Table table, PrincipalPrivileges principalPrivileges)
     {
-        methodInvocations.add(Method.CREATE_TABLE);
+        methodInvocations.add(CREATE_TABLE);
         delegate.createTable(table, principalPrivileges);
     }
 
     @Override
     public void dropTable(String databaseName, String tableName, boolean deleteData)
     {
-        methodInvocations.add(Method.DROP_TABLE);
+        methodInvocations.add(DROP_TABLE);
         delegate.dropTable(databaseName, tableName, deleteData);
     }
 
     @Override
     public void replaceTable(String databaseName, String tableName, Table newTable, PrincipalPrivileges principalPrivileges)
     {
-        methodInvocations.add(Method.REPLACE_TABLE);
+        methodInvocations.add(REPLACE_TABLE);
         delegate.replaceTable(databaseName, tableName, newTable, principalPrivileges);
     }
 
@@ -234,7 +226,7 @@ public class CountingAccessHiveMetastore
     @Override
     public Optional<Partition> getPartition(Table table, List<String> partitionValues)
     {
-        methodInvocations.add(Method.GET_PARTITION);
+        methodInvocations.add(GET_PARTITION);
         return delegate.getPartition(table, partitionValues);
     }
 
@@ -244,21 +236,21 @@ public class CountingAccessHiveMetastore
             List<String> columnNames,
             TupleDomain<String> partitionKeysFilter)
     {
-        methodInvocations.add(Method.GET_PARTITION_NAMES_BY_FILTER);
+        methodInvocations.add(GET_PARTITION_NAMES_BY_FILTER);
         return delegate.getPartitionNamesByFilter(databaseName, tableName, columnNames, partitionKeysFilter);
     }
 
     @Override
     public Map<String, Optional<Partition>> getPartitionsByNames(Table table, List<String> partitionNames)
     {
-        methodInvocations.add(Method.GET_PARTITIONS_BY_NAMES);
+        methodInvocations.add(GET_PARTITIONS_BY_NAMES);
         return delegate.getPartitionsByNames(table, partitionNames);
     }
 
     @Override
     public void addPartitions(String databaseName, String tableName, List<PartitionWithStatistics> partitions)
     {
-        methodInvocations.add(Method.ADD_PARTITIONS);
+        methodInvocations.add(ADD_PARTITIONS);
         delegate.addPartitions(databaseName, tableName, partitions);
     }
 
@@ -331,14 +323,14 @@ public class CountingAccessHiveMetastore
     @Override
     public PartitionStatistics getTableStatistics(Table table)
     {
-        methodInvocations.add(Method.GET_TABLE_STATISTICS);
+        methodInvocations.add(GET_TABLE_STATISTICS);
         return delegate.getTableStatistics(table);
     }
 
     @Override
     public Map<String, PartitionStatistics> getPartitionStatistics(Table table, List<Partition> partitions)
     {
-        methodInvocations.add(Method.GET_PARTITION_STATISTICS);
+        methodInvocations.add(GET_PARTITION_STATISTICS);
         return delegate.getPartitionStatistics(table, partitions);
     }
 
@@ -348,21 +340,21 @@ public class CountingAccessHiveMetastore
             AcidTransaction transaction,
             Function<PartitionStatistics, PartitionStatistics> update)
     {
-        methodInvocations.add(Method.UPDATE_TABLE_STATISTICS);
+        methodInvocations.add(UPDATE_TABLE_STATISTICS);
         delegate.updateTableStatistics(databaseName, tableName, transaction, update);
     }
 
     @Override
     public void updatePartitionStatistics(Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
     {
-        methodInvocations.add(Method.UPDATE_PARTITION_STATISTICS);
+        methodInvocations.add(UPDATE_PARTITION_STATISTICS);
         delegate.updatePartitionStatistics(table, updates);
     }
 
     @Override
     public List<String> getAllTables(String databaseName)
     {
-        methodInvocations.add(Method.GET_ALL_TABLES_FROM_DATABASE);
+        methodInvocations.add(GET_ALL_TABLES_FROM_DATABASE);
         return delegate.getAllTables(databaseName);
     }
 

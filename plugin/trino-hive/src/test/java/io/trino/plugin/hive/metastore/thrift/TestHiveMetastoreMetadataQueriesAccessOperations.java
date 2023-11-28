@@ -23,10 +23,10 @@ import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.CountingAccessHiveMetastore;
-import io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method;
 import io.trino.plugin.hive.metastore.CountingAccessHiveMetastoreUtil;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.MetastoreMethod;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -42,14 +42,14 @@ import java.util.Optional;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_DATABASES;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_RELATION_TYPES;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_TABLES;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_TABLES_FROM_DATABASE;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_VIEWS;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_ALL_VIEWS_FROM_DATABASE;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_RELATION_TYPES_FROM_DATABASE;
-import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.GET_TABLE;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_ALL_DATABASES;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_ALL_RELATION_TYPES;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_ALL_TABLES;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_ALL_TABLES_FROM_DATABASE;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_ALL_VIEWS;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_ALL_VIEWS_FROM_DATABASE;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_RELATION_TYPES_FROM_DATABASE;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLE;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -151,7 +151,7 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
     @Test
     public void testSelectTablesWithoutPredicate()
     {
-        Multiset<Method> tables = ImmutableMultiset.<Method>builder()
+        Multiset<MetastoreMethod> tables = ImmutableMultiset.<MetastoreMethod>builder()
                 .add(GET_ALL_RELATION_TYPES)
                 .build();
         assertMetastoreInvocations("SELECT * FROM information_schema.tables", tables);
@@ -206,7 +206,7 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
                         .add(GET_ALL_RELATION_TYPES)
                         .build());
 
-        Multiset<Method> tables = ImmutableMultiset.<Method>builder()
+        Multiset<MetastoreMethod> tables = ImmutableMultiset.<MetastoreMethod>builder()
                 .add(GET_ALL_RELATION_TYPES)
                 .build();
         assertMetastoreInvocations("SELECT * FROM system.jdbc.tables WHERE table_name = 'test_table_0'", tables);
@@ -309,7 +309,7 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
     @Test
     public void testSelectColumnsWithoutPredicate()
     {
-        ImmutableMultiset<Method> tables = ImmutableMultiset.<Method>builder()
+        ImmutableMultiset<MetastoreMethod> tables = ImmutableMultiset.<MetastoreMethod>builder()
                 .add(GET_ALL_TABLES)
                 .add(GET_ALL_VIEWS)
                 .addCopies(GET_TABLE, TEST_ALL_TABLES_COUNT)
