@@ -35,7 +35,6 @@ import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
-import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -389,13 +388,6 @@ public class PlanNodeDecorrelator
                 return Optional.empty();
             }
             return Optional.of(new OrderingScheme(nonConstantOrderBy.build(), nonConstantOrderings.buildOrThrow()));
-        }
-
-        @Override
-        public Optional<DecorrelationResult> visitEnforceSingleRow(EnforceSingleRowNode node, Void context)
-        {
-            Optional<DecorrelationResult> childDecorrelationResultOptional = node.getSource().accept(this, null);
-            return childDecorrelationResultOptional.filter(result -> result.atMostSingleRow);
         }
 
         @Override

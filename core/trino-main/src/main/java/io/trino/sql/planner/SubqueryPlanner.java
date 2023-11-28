@@ -268,7 +268,9 @@ class SubqueryPlanner
                 subPlan,
                 root,
                 scalarSubquery.getQuery(),
-                CorrelatedJoinNode.Type.LEFT,
+                // Scalar subquery always contains EnforceSingleRowNode. Therefore, it's guaranteed
+                // that subquery will return single row. Hence, correlated join can be of INNER type.
+                CorrelatedJoinNode.Type.INNER,
                 TRUE_LITERAL,
                 mapAll(cluster, subPlan.getScope(), column));
     }
