@@ -29,7 +29,7 @@ public final class CountingAccessHiveMetastoreUtil
             QueryRunner queryRunner,
             Session session,
             @Language("SQL") String query,
-            Multiset<?> expectedInvocations)
+            Multiset<MetastoreMethod> expectedInvocations)
     {
         metastore.resetCounters();
         queryRunner.execute(session, query);

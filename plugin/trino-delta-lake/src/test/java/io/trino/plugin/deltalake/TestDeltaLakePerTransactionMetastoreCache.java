@@ -24,6 +24,7 @@ import io.trino.plugin.base.util.Closables;
 import io.trino.plugin.hive.metastore.CountingAccessHiveMetastore;
 import io.trino.plugin.hive.metastore.CountingAccessHiveMetastoreUtil;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.plugin.hive.metastore.MetastoreMethod;
 import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
 import io.trino.plugin.tpch.TpchPlugin;
@@ -110,7 +111,7 @@ public class TestDeltaLakePerTransactionMetastoreCache
         try (DistributedQueryRunner queryRunner = createQueryRunner(true)) {
             // Verify cache works; we expect only two calls to `getTable` because we have two tables in a query.
             assertMetastoreInvocations(queryRunner, "SELECT * FROM nation JOIN region ON nation.regionkey = region.regionkey",
-                    ImmutableMultiset.builder()
+                    ImmutableMultiset.<MetastoreMethod>builder()
                             .addCopies(GET_TABLE, 2)
                             .build());
         }
@@ -122,13 +123,13 @@ public class TestDeltaLakePerTransactionMetastoreCache
     {
         try (DistributedQueryRunner queryRunner = createQueryRunner(false)) {
             assertMetastoreInvocations(queryRunner, "SELECT * FROM nation JOIN region ON nation.regionkey = region.regionkey",
-                    ImmutableMultiset.builder()
+                    ImmutableMultiset.<MetastoreMethod>builder()
                             .addCopies(GET_TABLE, 2)
                             .build());
         }
     }
 
-    private void assertMetastoreInvocations(QueryRunner queryRunner, @Language("SQL") String query, Multiset<?> expectedInvocations)
+    private void assertMetastoreInvocations(QueryRunner queryRunner, @Language("SQL") String query, Multiset<MetastoreMethod> expectedInvocations)
     {
         CountingAccessHiveMetastoreUtil.assertMetastoreInvocations(metastore, queryRunner, queryRunner.getDefaultSession(), query, expectedInvocations);
     }

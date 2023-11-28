@@ -25,6 +25,7 @@ import io.trino.plugin.deltalake.TestingDeltaLakePlugin;
 import io.trino.plugin.hive.metastore.CountingAccessHiveMetastore;
 import io.trino.plugin.hive.metastore.CountingAccessHiveMetastoreUtil;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.plugin.hive.metastore.MetastoreMethod;
 import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -98,7 +99,7 @@ public class TestDeltaLakeMetastoreAccessOperations
     public void testCreateTable()
     {
         assertMetastoreInvocations("CREATE TABLE test_create (id VARCHAR, age INT)",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(CREATE_TABLE)
                         .add(GET_DATABASE)
                         .add(GET_TABLE)
@@ -109,13 +110,13 @@ public class TestDeltaLakeMetastoreAccessOperations
     public void testCreateOrReplaceTable()
     {
         assertMetastoreInvocations("CREATE OR REPLACE TABLE test_create_or_replace (id VARCHAR, age INT)",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_DATABASE)
                         .add(GET_TABLE)
                         .add(CREATE_TABLE)
                         .build());
         assertMetastoreInvocations("CREATE OR REPLACE TABLE test_create_or_replace (id VARCHAR, age INT)",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_DATABASE)
                         .add(GET_TABLE)
                         .add(REPLACE_TABLE)
@@ -126,7 +127,7 @@ public class TestDeltaLakeMetastoreAccessOperations
     public void testCreateTableAsSelect()
     {
         assertMetastoreInvocations("CREATE TABLE test_ctas AS SELECT 1 AS age",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_DATABASE)
                         .add(CREATE_TABLE)
                         .add(GET_TABLE)
@@ -138,7 +139,7 @@ public class TestDeltaLakeMetastoreAccessOperations
     {
         assertMetastoreInvocations(
                 "CREATE OR REPLACE TABLE test_cortas AS SELECT 1 AS age",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_DATABASE)
                         .add(GET_TABLE)
                         .add(CREATE_TABLE)
@@ -146,7 +147,7 @@ public class TestDeltaLakeMetastoreAccessOperations
 
         assertMetastoreInvocations(
                 "CREATE OR REPLACE TABLE test_cortas AS SELECT 1 AS age",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_DATABASE)
                         .add(GET_TABLE)
                         .add(REPLACE_TABLE)
@@ -159,7 +160,7 @@ public class TestDeltaLakeMetastoreAccessOperations
         assertUpdate("CREATE TABLE test_select_from (id VARCHAR, age INT)");
 
         assertMetastoreInvocations("SELECT * FROM test_select_from",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_TABLE)
                         .build());
     }
@@ -170,7 +171,7 @@ public class TestDeltaLakeMetastoreAccessOperations
         assertUpdate("CREATE TABLE test_select_from_where AS SELECT 2 as age", 1);
 
         assertMetastoreInvocations("SELECT * FROM test_select_from_where WHERE age = 2",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_TABLE)
                         .build());
     }
@@ -182,7 +183,7 @@ public class TestDeltaLakeMetastoreAccessOperations
         assertUpdate("CREATE VIEW test_select_view_view AS SELECT id, age FROM test_select_view_table");
 
         assertMetastoreInvocations("SELECT * FROM test_select_view_view",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .addCopies(GET_TABLE, 2)
                         .build());
     }
@@ -194,7 +195,7 @@ public class TestDeltaLakeMetastoreAccessOperations
         assertUpdate("CREATE VIEW test_select_view_where_view AS SELECT age FROM test_select_view_where_table");
 
         assertMetastoreInvocations("SELECT * FROM test_select_view_where_view WHERE age = 2",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .addCopies(GET_TABLE, 2)
                         .build());
     }
@@ -233,7 +234,7 @@ public class TestDeltaLakeMetastoreAccessOperations
         assertUpdate("CREATE TABLE test_join_t2 AS SELECT 'name1' as name, 'id1' AS id", 1);
 
         assertMetastoreInvocations("SELECT name, age FROM test_join_t1 JOIN test_join_t2 ON test_join_t2.id = test_join_t1.id",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .addCopies(GET_TABLE, 2)
                         .build());
     }
@@ -244,7 +245,7 @@ public class TestDeltaLakeMetastoreAccessOperations
         assertUpdate("CREATE TABLE test_self_join_table AS SELECT 2 as age, 0 parent, 3 AS id", 1);
 
         assertMetastoreInvocations("SELECT child.age, parent.age FROM test_self_join_table child JOIN test_self_join_table parent ON child.parent = parent.id",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_TABLE)
                         .build());
     }
@@ -255,7 +256,7 @@ public class TestDeltaLakeMetastoreAccessOperations
         assertUpdate("CREATE TABLE test_explain AS SELECT 2 as age", 1);
 
         assertMetastoreInvocations("EXPLAIN SELECT * FROM test_explain",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_TABLE)
                         .build());
     }
@@ -266,7 +267,7 @@ public class TestDeltaLakeMetastoreAccessOperations
         assertUpdate("CREATE TABLE test_show_stats AS SELECT 2 as age", 1);
 
         assertMetastoreInvocations("SHOW STATS FOR test_show_stats",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_TABLE)
                         .build());
     }
@@ -277,7 +278,7 @@ public class TestDeltaLakeMetastoreAccessOperations
         assertUpdate("CREATE TABLE test_show_stats_with_filter AS SELECT 2 as age", 1);
 
         assertMetastoreInvocations("SHOW STATS FOR (SELECT * FROM test_show_stats_with_filter where age >= 2)",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_TABLE)
                         .build());
     }
@@ -288,7 +289,7 @@ public class TestDeltaLakeMetastoreAccessOperations
         assertUpdate("CREATE TABLE test_drop_table AS SELECT 20050910 as a_number", 1);
 
         assertMetastoreInvocations("DROP TABLE test_drop_table",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_TABLE)
                         .add(DROP_TABLE)
                         .build());
@@ -298,13 +299,13 @@ public class TestDeltaLakeMetastoreAccessOperations
     public void testShowTables()
     {
         assertMetastoreInvocations("SHOW TABLES",
-                ImmutableMultiset.builder()
+                ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_DATABASES)
                         .add(GET_ALL_TABLES_FROM_DATABASE)
                         .build());
     }
 
-    private void assertMetastoreInvocations(@Language("SQL") String query, Multiset<?> expectedInvocations)
+    private void assertMetastoreInvocations(@Language("SQL") String query, Multiset<MetastoreMethod> expectedInvocations)
     {
         assertUpdate("CALL system.flush_metadata_cache()");
 
