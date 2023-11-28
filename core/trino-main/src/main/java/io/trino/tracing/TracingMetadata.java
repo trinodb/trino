@@ -1302,11 +1302,17 @@ public class TracingMetadata
     }
 
     @Override
-    public void createMaterializedView(Session session, QualifiedObjectName viewName, MaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
+    public void createMaterializedView(
+            Session session,
+            QualifiedObjectName viewName,
+            MaterializedViewDefinition definition,
+            Map<String, Object> properties,
+            boolean replace,
+            boolean ignoreExisting)
     {
         Span span = startSpan("createMaterializedView", viewName);
         try (var ignored = scopedSpan(span)) {
-            delegate.createMaterializedView(session, viewName, definition, replace, ignoreExisting);
+            delegate.createMaterializedView(session, viewName, definition, properties, replace, ignoreExisting);
         }
     }
 
@@ -1352,6 +1358,15 @@ public class TracingMetadata
         Span span = startSpan("getMaterializedView", viewName);
         try (var ignored = scopedSpan(span)) {
             return delegate.getMaterializedView(session, viewName);
+        }
+    }
+
+    @Override
+    public Map<String, Object> getMaterializedViewProperties(Session session, QualifiedObjectName objectName, MaterializedViewDefinition materializedViewDefinition)
+    {
+        Span span = startSpan("getMaterializedViewProperties", objectName);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.getMaterializedViewProperties(session, objectName, materializedViewDefinition);
         }
     }
 

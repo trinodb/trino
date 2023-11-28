@@ -606,7 +606,7 @@ public final class ShowQueriesRewrite
 
                 accessControl.checkCanShowCreateTable(session.toSecurityContext(), new QualifiedObjectName(catalogName.getValue(), schemaName.getValue(), tableName.getValue()));
 
-                Map<String, Object> properties = viewDefinition.get().getProperties();
+                Map<String, Object> properties = metadata.getMaterializedViewProperties(session, objectName, viewDefinition.get());
                 CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, catalogName.getValue());
                 Collection<PropertyMetadata<?>> allMaterializedViewProperties = materializedViewPropertyManager.getAllProperties(catalogHandle);
                 List<Property> propertyNodes = buildProperties(objectName, Optional.empty(), INVALID_MATERIALIZED_VIEW_PROPERTY, properties, allMaterializedViewProperties);

@@ -1661,7 +1661,13 @@ public interface ConnectorMetadata
      *
      * @throws TrinoException with {@code ALREADY_EXISTS} if the object already exists and {@param ignoreExisting} is not set
      */
-    default void createMaterializedView(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
+    default void createMaterializedView(
+            ConnectorSession session,
+            SchemaTableName viewName,
+            ConnectorMaterializedViewDefinition definition,
+            Map<String, Object> properties,
+            boolean replace,
+            boolean ignoreExisting)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating materialized views");
     }
@@ -1707,6 +1713,11 @@ public interface ConnectorMetadata
     default Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         return Optional.empty();
+    }
+
+    default Map<String, Object> getMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition materializedViewDefinition)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
     }
 
     /**
