@@ -456,9 +456,9 @@ public class TestCheckpointEntryIterator
                         IntStream.rangeClosed(1, countStringColumns)
                                 .boxed()
                                 .map("{\"name\":\"stringcol%s\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}"::formatted)
-                                .collect(Collectors.joining(",", "", ",")) +
-                        "{\"name\":\"part_key\",\"type\":\"timestamp\",\"nullable\":true,\"metadata\":{}}]}",
-                ImmutableList.of("part_key"),
+                                .collect(Collectors.joining(",")) +
+                        "]}",
+                ImmutableList.of(),
                 ImmutableMap.of("delta.checkpoint.writeStatsAsJson", "false", "delta.checkpoint.writeStatsAsStruct", "true"),
                 1000);
         ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.empty(), Optional.empty());
