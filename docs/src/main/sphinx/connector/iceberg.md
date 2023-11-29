@@ -159,6 +159,10 @@ implementation is used:
     materialized view definition. When the `storage_schema` materialized view
     property is specified, it takes precedence over this catalog property.
   - Empty
+* - `iceberg.materialized-views.hide-storage-table`
+  - Hide the information about the storage table backing the materialized view
+    in the metastore.
+  - `true`
 * - `iceberg.register-table-procedure.enabled`
   - Enable to allow user to call `register_table` procedure.
   - `false`
