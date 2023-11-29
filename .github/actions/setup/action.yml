@@ -39,7 +39,9 @@ runs:
       - name: Free additional disk space
         if: ${{ format('{0}', inputs.cleanup-node) == 'true' }}
         shell: bash
-        run: ./.github/bin/free-disk-space.sh
+        # Skip free-disk-space.sh. It was added for GHA and is not needed on Starburst fleet. And sometimes conflicts with apt-get.
+        run: "true"
+        #run: ./.github/bin/free-disk-space.sh
       - uses: actions/setup-java@v3
         if: ${{ inputs.java-version != '' }}
         with:
