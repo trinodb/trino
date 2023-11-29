@@ -171,7 +171,7 @@ public class TrinoGlueCatalog
 {
     private static final Logger LOG = Logger.get(TrinoGlueCatalog.class);
 
-    private static final int PER_QUERY_CACHE_SIZE = 1000;
+    private static final int PER_QUERY_CACHES_SIZE = 1000;
 
     private final String trinoVersion;
     private final TypeManager typeManager;
@@ -185,17 +185,17 @@ public class TrinoGlueCatalog
 
     private final Cache<SchemaTableName, com.amazonaws.services.glue.model.Table> glueTableCache = EvictableCacheBuilder.newBuilder()
             // Even though this is query-scoped, this still needs to be bounded. information_schema queries can access large number of tables.
-            .maximumSize(Math.max(PER_QUERY_CACHE_SIZE, IcebergMetadata.GET_METADATA_BATCH_SIZE))
+            .maximumSize(Math.max(PER_QUERY_CACHES_SIZE, IcebergMetadata.GET_METADATA_BATCH_SIZE))
             .build();
 
     private final Cache<SchemaTableName, TableMetadata> tableMetadataCache = EvictableCacheBuilder.newBuilder()
-            .maximumSize(PER_QUERY_CACHE_SIZE)
+            .maximumSize(PER_QUERY_CACHES_SIZE)
             .build();
     private final Cache<SchemaTableName, ConnectorViewDefinition> viewCache = EvictableCacheBuilder.newBuilder()
-            .maximumSize(PER_QUERY_CACHE_SIZE)
+            .maximumSize(PER_QUERY_CACHES_SIZE)
             .build();
     private final Cache<SchemaTableName, MaterializedViewData> materializedViewCache = EvictableCacheBuilder.newBuilder()
-            .maximumSize(PER_QUERY_CACHE_SIZE)
+            .maximumSize(PER_QUERY_CACHES_SIZE)
             .build();
 
     public TrinoGlueCatalog(
@@ -419,7 +419,7 @@ public class TrinoGlueCatalog
                         }
                         else {
                             unprocessed.put(name, table);
-                            if (unprocessed.size() >= PER_QUERY_CACHE_SIZE) {
+                            if (unprocessed.size() >= PER_QUERY_CACHES_SIZE) {
                                 getColumnsFromIcebergMetadata(session, unprocessed, relationFilter, filteredResult::add);
                                 unprocessed.clear();
                             }
@@ -514,7 +514,7 @@ public class TrinoGlueCatalog
                         }
                         else {
                             unprocessed.put(name, table);
-                            if (unprocessed.size() >= PER_QUERY_CACHE_SIZE) {
+                            if (unprocessed.size() >= PER_QUERY_CACHES_SIZE) {
                                 getCommentsFromIcebergMetadata(session, unprocessed, relationFilter, filteredResult::add);
                                 unprocessed.clear();
                             }
