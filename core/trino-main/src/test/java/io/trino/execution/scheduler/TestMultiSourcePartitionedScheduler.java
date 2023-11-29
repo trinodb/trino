@@ -523,7 +523,7 @@ public class TestMultiSourcePartitionedScheduler
         Symbol symbol = new Symbol("column");
         Symbol buildSymbol = new Symbol("buildColumn");
 
-        TableScanNode tableScanOne = new TableScanNode(
+        TableScanNode tableScanOne = TableScanNode.newInstance(
                 TABLE_SCAN_1_NODE_ID,
                 firstTableHandle,
                 ImmutableList.of(symbol),
@@ -534,7 +534,7 @@ public class TestMultiSourcePartitionedScheduler
                 new PlanNodeId("filter_node_id"),
                 tableScanOne,
                 createDynamicFilterExpression(createTestMetadataManager(), DYNAMIC_FILTER_ID, VARCHAR, symbol.toSymbolReference()));
-        TableScanNode tableScanTwo = new TableScanNode(
+        TableScanNode tableScanTwo = TableScanNode.newInstance(
                 TABLE_SCAN_2_NODE_ID,
                 secondTableHandle,
                 ImmutableList.of(symbol),
