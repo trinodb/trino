@@ -220,7 +220,7 @@ public class DefaultCatalogFactory
                 pageIndexerFactory,
                 duplicatePluginClassLoaderFactory);
 
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(connectorFactory.getClass().getClassLoader())) {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(duplicatePluginClassLoaderFactory.get())) {
             return connectorFactory.create(catalogName, properties, context);
         }
     }
