@@ -395,7 +395,7 @@ public class PlanNodeDecorrelator
         {
             // Aggregation with global grouping cannot be converted to aggregation grouped on constants.
             // Theoretically, if there are no constants to group on, the aggregation could be successfully decorrelated.
-            // However, it can only happen in the when where Aggregation's source plan is not correlated.
+            // However, it can only happen when Aggregation's source plan is not correlated.
             // Then:
             // - either we should not reach here because uncorrelated subplans of correlated filters are not explored,
             // - or the aggregation contains correlation which is unresolvable. This is indicated by returning Optional.empty().
