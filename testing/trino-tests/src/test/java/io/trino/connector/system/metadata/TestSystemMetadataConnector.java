@@ -335,7 +335,7 @@ public class TestSystemMetadataConnector
                 // TODO introduce materialized views in CountingMockConnector
                 "VALUES 0",
                 ImmutableMultiset.<String>builder()
-                        .add("ConnectorMetadata.getMaterializedViews")
+                        .add("ConnectorMetadata.listMaterializedViews")
                         .build());
 
         // Big LIMIT
@@ -344,7 +344,7 @@ public class TestSystemMetadataConnector
                 // TODO introduce thousands of materialized views in CountingMockConnector
                 "VALUES 0",
                 ImmutableMultiset.<String>builder()
-                        .add("ConnectorMetadata.getMaterializedViews")
+                        .add("ConnectorMetadata.listMaterializedViews")
                         .build());
 
         // Non-existent catalog
