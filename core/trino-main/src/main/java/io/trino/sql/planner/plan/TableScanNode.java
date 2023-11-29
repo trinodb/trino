@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.DoNotCall;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.metadata.TableHandle;
@@ -75,19 +76,32 @@ public class TableScanNode
         return new TableScanNode(id, table, outputs, assignments, TupleDomain.all(), Optional.empty(), updateTarget, useConnectorNodePartitioning);
     }
 
-    /*
-     * This constructor is for JSON deserialization only. Do not use.
-     * It's marked as @Deprecated to help avoid usage, and not because we plan to remove it.
-     */
-    /* TODO @DoNotCall once it's applicable to constructors */
+    @DoNotCall // For JSON serialization only
     @JsonCreator
-    public TableScanNode(
+    public static TableScanNode fromJson(
             @JsonProperty("id") PlanNodeId id,
             @JsonProperty("table") TableHandle table,
             @JsonProperty("outputSymbols") List<Symbol> outputs,
             @JsonProperty("assignments") Map<Symbol, ColumnHandle> assignments,
             @JsonProperty("updateTarget") boolean updateTarget,
             @JsonProperty("useConnectorNodePartitioning") Optional<Boolean> useConnectorNodePartitioning)
+    {
+        return new TableScanNode(
+                id,
+                table,
+                outputs,
+                assignments,
+                updateTarget,
+                useConnectorNodePartitioning);
+    }
+
+    private TableScanNode(
+            PlanNodeId id,
+            TableHandle table,
+            List<Symbol> outputs,
+            Map<Symbol, ColumnHandle> assignments,
+            boolean updateTarget,
+            Optional<Boolean> useConnectorNodePartitioning)
     {
         super(id);
         this.table = requireNonNull(table, "table is null");
