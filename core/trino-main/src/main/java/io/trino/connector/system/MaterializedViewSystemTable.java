@@ -22,6 +22,7 @@ import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.QualifiedTablePrefix;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -35,12 +36,10 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.LongTimestampWithTimeZone;
 
-import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.collect.MoreCollectors.onlyElement;
-import static com.google.common.collect.Streams.mapWithIndex;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.connector.system.jdbc.FilterUtil.isImpossibleObjectName;
 import static io.trino.connector.system.jdbc.FilterUtil.tablePrefix;
 import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
@@ -53,8 +52,6 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTim
 import static io.trino.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static java.lang.Math.toIntExact;
-import static java.util.Map.entry;
 import static java.util.Objects.requireNonNull;
 
 public class MaterializedViewSystemTable
@@ -104,6 +101,11 @@ public class MaterializedViewSystemTable
             Set<Integer> requiredColumns)
     {
         Session session = ((FullConnectorSession) connectorSession).getSession();
+        Set<String> requiredColumnNames = requiredColumns.stream()
+                .map(TABLE_DEFINITION.getColumns()::get)
+                .map(ColumnMetadata::getName)
+                .collect(toImmutableSet());
+
         InMemoryRecordSet.Builder displayTable = InMemoryRecordSet.builder(getTableMetadata());
 
         Domain catalogDomain = constraint.getDomain(0, VARCHAR);
@@ -115,7 +117,7 @@ public class MaterializedViewSystemTable
         }
 
         Optional<String> tableFilter = tryGetSingleVarcharValue(tableDomain);
-        boolean needFreshness = requiredColumns.contains(columnIndex("freshness")) || requiredColumns.contains(columnIndex("last_fresh_time"));
+        boolean needFreshness = requiredColumnNames.contains("freshness") || requiredColumnNames.contains("last_fresh_time");
 
         listCatalogNames(session, metadata, accessControl, catalogDomain).forEach(catalogName -> {
             // TODO A connector may be able to pull information from multiple schemas at once, so pass the schema filter to the connector instead.
@@ -207,13 +209,5 @@ public class MaterializedViewSystemTable
                 comment,
                 definition,
         };
-    }
-
-    private static int columnIndex(String columnName)
-    {
-        return toIntExact(mapWithIndex(TABLE_DEFINITION.getColumns().stream(), (column, index) -> entry(column.getName(), index))
-                .filter(entry -> entry.getKey().equals(columnName))
-                .map(Entry::getValue)
-                .collect(onlyElement()));
     }
 }
