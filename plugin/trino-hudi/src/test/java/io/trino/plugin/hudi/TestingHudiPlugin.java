@@ -14,11 +14,10 @@
 package io.trino.plugin.hudi;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.spi.connector.ConnectorFactory;
 
+import java.nio.file.Path;
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
 import static java.util.Objects.requireNonNull;
@@ -26,11 +25,11 @@ import static java.util.Objects.requireNonNull;
 public class TestingHudiPlugin
         extends HudiPlugin
 {
-    private final Optional<HiveMetastore> metastore;
+    private final Path localFileSystemRootPath;
 
-    public TestingHudiPlugin(Optional<HiveMetastore> metastore)
+    public TestingHudiPlugin(Path localFileSystemRootPath)
     {
-        this.metastore = requireNonNull(metastore, "metastore is null");
+        this.localFileSystemRootPath = requireNonNull(localFileSystemRootPath, "localFileSystemRootPath is null");
     }
 
     @Override
@@ -39,6 +38,6 @@ public class TestingHudiPlugin
         List<ConnectorFactory> connectorFactories = ImmutableList.copyOf(super.getConnectorFactories());
         verify(connectorFactories.size() == 1, "Unexpected connector factories: %s", connectorFactories);
 
-        return ImmutableList.of(new TestingHudiConnectorFactory(metastore));
+        return ImmutableList.of(new TestingHudiConnectorFactory(localFileSystemRootPath));
     }
 }
