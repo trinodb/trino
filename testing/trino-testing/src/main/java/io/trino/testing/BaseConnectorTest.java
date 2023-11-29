@@ -1052,15 +1052,15 @@ public abstract class BaseConnectorTest
                 .containsAll("VALUES '" + view.getObjectName() + "'");
         // information_schema.tables without table_name filter so that ConnectorMetadata.listViews is exercised
         assertThat(query(
-                "SELECT table_name, table_type FROM information_schema.tables " +
+                "SELECT table_name, table_type, trino_relation_type FROM information_schema.tables " +
                         "WHERE table_schema = '" + view.getSchemaName() + "'"))
                 .skippingTypesCheck()
-                .containsAll("VALUES ('" + view.getObjectName() + "', 'BASE TABLE')");
+                .containsAll("VALUES ('" + view.getObjectName() + "', 'BASE TABLE', 'MATERIALIZED VIEW')");
         // information_schema.tables with table_name filter
         assertQuery(
-                "SELECT table_name, table_type FROM information_schema.tables " +
+                "SELECT table_name, table_type, trino_relation_type FROM information_schema.tables " +
                         "WHERE table_schema = '" + view.getSchemaName() + "' and table_name = '" + view.getObjectName() + "'",
-                "VALUES ('" + view.getObjectName() + "', 'BASE TABLE')");
+                "VALUES ('" + view.getObjectName() + "', 'BASE TABLE', 'MATERIALIZED VIEW')");
 
         // system.jdbc.tables without filter
         assertThat(query("SELECT table_schem, table_name, table_type FROM system.jdbc.tables"))
