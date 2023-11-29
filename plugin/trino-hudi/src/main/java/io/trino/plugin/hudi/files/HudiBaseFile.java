@@ -18,7 +18,9 @@ import io.trino.filesystem.Location;
 
 import java.util.Objects;
 
+import static io.trino.plugin.hudi.files.FSUtils.isBaseFile;
 import static io.trino.plugin.hudi.files.FSUtils.isLogFile;
+import static io.trino.plugin.hudi.timeline.HudiTimeline.NO_META_BOOTSTRAP_INSTANT_TS;
 import static java.util.Objects.requireNonNull;
 
 public class HudiBaseFile
@@ -70,7 +72,11 @@ public class HudiBaseFile
 
     public String getFileId()
     {
-        return getFileName().split("_")[0];
+        String fullFileName = getFileName();
+        if (isBaseFile(fullFileName)) {
+            return fullFileName.split("_")[0];
+        }
+        return fullFileName;
     }
 
     public String getCommitTime()
@@ -79,7 +85,10 @@ public class HudiBaseFile
         if (isLogFile(fileName)) {
             return fileName.split("_")[1].split("\\.")[0];
         }
-        return fileName.split("_")[2].split("\\.")[0];
+        if (isBaseFile(fileName)) {
+            return fileName.split("_")[2].split("\\.")[0];
+        }
+        return NO_META_BOOTSTRAP_INSTANT_TS;
     }
 
     @Override

@@ -29,6 +29,8 @@ public final class FSUtils
     {
     }
 
+    public static final Pattern BASE_FILE_PATTERN =
+            Pattern.compile("^(.+)_((\\d+)-(\\d+)-(\\d+))_(.*)\\.(parquet|hfile|orc)$");
     public static final Pattern LOG_FILE_PATTERN =
             Pattern.compile("\\.(.*)_(.*)\\.(.*)\\.([0-9]*)(_(([0-9]*)-([0-9]*)-([0-9]*)))?");
 
@@ -48,6 +50,12 @@ public final class FSUtils
             throw new TrinoException(HUDI_BAD_DATA, "Invalid LogFile " + location);
         }
         return matcher.group(2);
+    }
+
+    public static boolean isBaseFile(String fileName)
+    {
+        Matcher matcher = BASE_FILE_PATTERN.matcher(fileName);
+        return matcher.find();
     }
 
     public static boolean isLogFile(String fileName)
