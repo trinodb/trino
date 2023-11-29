@@ -24,7 +24,6 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
-import io.trino.testng.services.Flaky;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -122,15 +121,6 @@ public abstract class BaseSqlServerConnectorTest
         assertThat(getQueryRunner().tableExists(getSession(), "test_view")).isTrue();
         assertQuery("SELECT orderkey FROM test_view", "SELECT orderkey FROM orders");
         onRemoteDatabase().execute("DROP VIEW IF EXISTS test_view");
-    }
-
-    // TODO (https://github.com/trinodb/trino/issues/10846): Test is expected to be flaky because tests execute in parallel
-    @Flaky(issue = "https://github.com/trinodb/trino/issues/10846", match = "was deadlocked on lock resources with another process and has been chosen as the deadlock victim")
-    @Test
-    @Override
-    public void testSelectInformationSchemaColumns()
-    {
-        super.testSelectInformationSchemaColumns();
     }
 
     @Override

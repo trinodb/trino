@@ -19,7 +19,6 @@ import io.trino.Session;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
-import io.trino.testng.services.Flaky;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.Test;
@@ -91,7 +90,6 @@ public class TestSqlServerConnectorTest
         assertUpdate("DROP TABLE " + table);
     }
 
-    @Flaky(issue = "fn_dblog() returns information only about the active portion of the transaction log, therefore it is flaky", match = ".*")
     @Test
     public void testInsertWriteBulkiness()
             throws SQLException
