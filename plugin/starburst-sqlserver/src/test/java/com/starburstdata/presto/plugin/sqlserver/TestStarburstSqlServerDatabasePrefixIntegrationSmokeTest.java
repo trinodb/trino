@@ -185,7 +185,7 @@ public class TestStarburstSqlServerDatabasePrefixIntegrationSmokeTest
             assertThat(computeActual(format("SHOW TABLES FROM \"%s.dbo\"", sqlServerDatabaseName)).getOnlyColumnAsSet())
                     .contains(tableName);
             // try to create duplicate table
-            assertQueryFails(format("CREATE TABLE %s (columnB BIGINT)", table.getName()), format("line 1:1: Table 'sqlserver.%s.dbo.%s' already exists", sqlServerDatabaseName, tableName));
+            assertQueryFails(format("CREATE TABLE %s (columnB BIGINT)", table.getName()), format("line 1:1: Table 'sqlserver.\"%s.dbo\".%s' already exists", sqlServerDatabaseName, tableName));
         }
     }
 
