@@ -16,7 +16,6 @@ package io.trino.execution.scheduler.faulttolerant;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.Split;
 import io.trino.spi.HostAddress;
-import io.trino.spi.SplitWeight;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
@@ -38,19 +37,12 @@ class TestingConnectorSplit
     private final int id;
     private final OptionalInt bucket;
     private final Optional<List<HostAddress>> addresses;
-    private final SplitWeight weight;
 
     public TestingConnectorSplit(int id, OptionalInt bucket, Optional<List<HostAddress>> addresses)
-    {
-        this(id, bucket, addresses, SplitWeight.standard().getRawValue());
-    }
-
-    public TestingConnectorSplit(int id, OptionalInt bucket, Optional<List<HostAddress>> addresses, long weight)
     {
         this.id = id;
         this.bucket = requireNonNull(bucket, "bucket is null");
         this.addresses = addresses.map(ImmutableList::copyOf);
-        this.weight = SplitWeight.fromRawValue(weight);
     }
 
     public int getId()
@@ -73,12 +65,6 @@ class TestingConnectorSplit
     public List<HostAddress> getAddresses()
     {
         return addresses.orElse(ImmutableList.of());
-    }
-
-    @Override
-    public SplitWeight getSplitWeight()
-    {
-        return weight;
     }
 
     @Override
@@ -105,13 +91,13 @@ class TestingConnectorSplit
             return false;
         }
         TestingConnectorSplit that = (TestingConnectorSplit) o;
-        return id == that.id && weight.equals(that.weight) && Objects.equals(bucket, that.bucket) && Objects.equals(addresses, that.addresses);
+        return id == that.id && Objects.equals(bucket, that.bucket) && Objects.equals(addresses, that.addresses);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(id, bucket, addresses, weight);
+        return Objects.hash(id, bucket, addresses);
     }
 
     @Override
@@ -121,7 +107,6 @@ class TestingConnectorSplit
                 .add("id", id)
                 .add("bucket", bucket)
                 .add("addresses", addresses)
-                .add("weight", weight)
                 .toString();
     }
 
