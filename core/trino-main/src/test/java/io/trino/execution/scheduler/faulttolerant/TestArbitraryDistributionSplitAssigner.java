@@ -683,7 +683,7 @@ public class TestArbitraryDistributionSplitAssigner
                                 hostRequirement = Optional.of(hostAddress);
                                 break;
                             }
-                            else if (currentAssignment.getSplits().size() < splitCount) {
+                            if (currentAssignment.getSplits().size() < splitCount) {
                                 splitCount = currentAssignment.getSplits().size();
                                 hostRequirement = Optional.of(hostAddress);
                             }
