@@ -2146,10 +2146,10 @@ public class TestHiveTransactionalTable
         log.info("Running %s compaction on %s", compactMode, tableName);
 
         Failsafe.with(
-                RetryPolicy.builder()
-                        .withMaxDuration(java.time.Duration.ofMillis(timeout.toMillis()))
-                        .withMaxAttempts(Integer.MAX_VALUE) // limited by MaxDuration
-                        .build())
+                        RetryPolicy.builder()
+                                .withMaxDuration(java.time.Duration.ofMillis(timeout.toMillis()))
+                                .withMaxAttempts(Integer.MAX_VALUE) // limited by MaxDuration
+                                .build())
                 .onFailure(event -> {
                     throw new IllegalStateException(format("Could not compact table %s in %d retries", tableName, event.getAttemptCount()), event.getException());
                 })
