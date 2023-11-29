@@ -1954,7 +1954,7 @@ public class TestHiveTransactionalTable
                         "files in %s are not directly under table location", path));
     }
 
-    @Test
+    @Test(groups = HIVE_TRANSACTIONAL)
     public void testDeleteAfterMajorCompaction()
     {
         withTemporaryTable("test_delete_after_major_compaction", true, false, NONE, tableName -> {
@@ -1965,13 +1965,13 @@ public class TestHiveTransactionalTable
         });
     }
 
-    @Test
+    @Test(groups = HIVE_TRANSACTIONAL)
     public void testUnbucketedPartitionedTransactionalTableWithTaskWriterCountGreaterThanOne()
     {
         unbucketedTransactionalTableWithTaskWriterCountGreaterThanOne(true);
     }
 
-    @Test
+    @Test(groups = HIVE_TRANSACTIONAL)
     public void testUnbucketedTransactionalTableWithTaskWriterCountGreaterThanOne()
     {
         unbucketedTransactionalTableWithTaskWriterCountGreaterThanOne(false);
