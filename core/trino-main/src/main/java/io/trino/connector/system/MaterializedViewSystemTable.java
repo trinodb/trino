@@ -20,7 +20,6 @@ import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.QualifiedTablePrefix;
-import io.trino.metadata.ViewInfo;
 import io.trino.security.AccessControl;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorSession;
@@ -154,42 +153,59 @@ public class MaterializedViewSystemTable
                 }
             }
 
-            Object[] materializedViewRow = createMaterializedViewRow(name, freshness, definition);
-            displayTable.addRow(materializedViewRow);
+            displayTable.addRow(createMaterializedViewRow(
+                    name.getCatalogName(),
+                    name.getSchemaName(),
+                    name.getObjectName(),
+                    definition.getStorageTable()
+                            .map(CatalogSchemaTableName::getCatalogName)
+                            .orElse(""),
+                    definition.getStorageTable()
+                            .map(storageTable -> storageTable.getSchemaTableName().getSchemaName())
+                            .orElse(""),
+                    definition.getStorageTable()
+                            .map(storageTable -> storageTable.getSchemaTableName().getTableName())
+                            .orElse(""),
+                    // freshness
+                    freshness.map(MaterializedViewFreshness::getFreshness)
+                            .map(Enum::name)
+                            .orElse(null),
+                    // last_fresh_time
+                    freshness.flatMap(MaterializedViewFreshness::getLastFreshTime)
+                            .map(instant -> LongTimestampWithTimeZone.fromEpochSecondsAndFraction(
+                                    instant.getEpochSecond(),
+                                    (long) instant.getNano() * PICOSECONDS_PER_NANOSECOND,
+                                    UTC_KEY))
+                            .orElse(null),
+                    definition.getComment().orElse(""),
+                    definition.getOriginalSql()));
         });
     }
 
+    // Table schema as a Java method signature
     private static Object[] createMaterializedViewRow(
-            QualifiedObjectName name,
-            Optional<MaterializedViewFreshness> freshness,
-            ViewInfo definition)
+            String catalogName,
+            String schemaName,
+            String name,
+            String storageCatalog,
+            String storageSchema,
+            String storageTable,
+            String freshness,
+            LongTimestampWithTimeZone lastFreshTime,
+            String comment,
+            String definition)
     {
         return new Object[] {
-                name.getCatalogName(),
-                name.getSchemaName(),
-                name.getObjectName(),
-                definition.getStorageTable()
-                        .map(CatalogSchemaTableName::getCatalogName)
-                        .orElse(""),
-                definition.getStorageTable()
-                        .map(storageTable -> storageTable.getSchemaTableName().getSchemaName())
-                        .orElse(""),
-                definition.getStorageTable()
-                        .map(storageTable -> storageTable.getSchemaTableName().getTableName())
-                        .orElse(""),
-                // freshness
-                freshness.map(MaterializedViewFreshness::getFreshness)
-                        .map(Enum::name)
-                        .orElse(null),
-                // last_fresh_time
-                freshness.flatMap(MaterializedViewFreshness::getLastFreshTime)
-                        .map(instant -> LongTimestampWithTimeZone.fromEpochSecondsAndFraction(
-                                instant.getEpochSecond(),
-                                (long) instant.getNano() * PICOSECONDS_PER_NANOSECOND,
-                                UTC_KEY))
-                        .orElse(null),
-                definition.getComment().orElse(""),
-                definition.getOriginalSql()
+                catalogName,
+                schemaName,
+                name,
+                storageCatalog,
+                storageSchema,
+                storageTable,
+                freshness,
+                lastFreshTime,
+                comment,
+                definition,
         };
     }
 
