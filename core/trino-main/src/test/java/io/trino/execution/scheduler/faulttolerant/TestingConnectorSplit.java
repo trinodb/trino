@@ -105,7 +105,7 @@ class TestingConnectorSplit
             return false;
         }
         TestingConnectorSplit that = (TestingConnectorSplit) o;
-        return id == that.id && weight == that.weight && Objects.equals(bucket, that.bucket) && Objects.equals(addresses, that.addresses);
+        return id == that.id && weight.equals(that.weight) && Objects.equals(bucket, that.bucket) && Objects.equals(addresses, that.addresses);
     }
 
     @Override
