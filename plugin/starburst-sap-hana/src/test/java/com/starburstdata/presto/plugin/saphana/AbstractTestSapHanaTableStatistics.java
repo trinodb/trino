@@ -14,9 +14,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.jdbc.BaseJdbcTableStatisticsTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
-import org.testng.SkipException;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Locale;
@@ -26,6 +24,7 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.sql.TestTable.fromColumns;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public abstract class AbstractTestSapHanaTableStatistics
         extends BaseJdbcTableStatisticsTest
@@ -158,7 +157,7 @@ public abstract class AbstractTestSapHanaTableStatistics
     @Test
     public void testAverageColumnLength()
     {
-        throw new SkipException("SAP HANA connector does not report average column length");
+        abort("SAP HANA connector does not report average column length");
     }
 
     @Override
@@ -166,33 +165,45 @@ public abstract class AbstractTestSapHanaTableStatistics
     public void testPartitionedTable()
     {
         // TODO test with partitioned table
-        throw new SkipException("Not implemented");
+        abort("Not implemented");
     }
 
     @Override
     @Test
     public void testView()
     {
-        throw new SkipException("SAP HANA doesn't support statistics for views");
+        abort("SAP HANA doesn't support statistics for views");
     }
 
     @Override
     @Test
     public void testMaterializedView()
     {
-        throw new SkipException("SAP HANA does not have Materialized Views");
+        abort("SAP HANA does not have Materialized Views");
     }
 
     @Test
     public void testCachedView()
     {
         // TODO test with cached view
-        throw new SkipException("Not implemented");
+        abort("Not implemented");
+    }
+
+    @Test
+    @Override
+    public void testCaseColumnNames()
+    {
+        String suffix = randomNameSuffix();
+        testCaseColumnNames("TEST_STATS_MIXED_UNQUOTED_UPPER_" + suffix.toUpperCase(Locale.ENGLISH));
+        testCaseColumnNames("test_stats_mixed_unquoted_lower_" + suffix.toLowerCase(Locale.ENGLISH));
+        testCaseColumnNames("test_stats_mixed_uNQuoTeD_miXED_" + suffix);
+        testCaseColumnNames(format("\"TEST_STATS_MIXED_QUOTED_UPPER_%s\"", suffix.toUpperCase(Locale.ENGLISH)));
+        testCaseColumnNames(format("\"test_stats_mixed_quoted_lower_%s\"", suffix.toLowerCase(Locale.ENGLISH)));
+        testCaseColumnNames(format("\"test_stats_mixed_QuoTeD_miXED_%s\"", suffix));
     }
 
     @Override
-    @Test(dataProvider = "testCaseColumnNamesWithRandomSuffixDataProvider")
-    public void testCaseColumnNames(String tableName)
+    protected void testCaseColumnNames(String tableName)
     {
         String schemaName = getSession().getSchema().orElseThrow();
         sapHanaServer.execute(("" +
@@ -268,19 +279,5 @@ public abstract class AbstractTestSapHanaTableStatistics
                             "('long_decimals_big_integral', null, 2.0, 0.0, null, '-1.2345678901234568E36', '1.2345678901234568E36')," +
                             "(null, null, null, null, 2, null, null)");
         }
-    }
-
-    @DataProvider
-    public Object[][] testCaseColumnNamesWithRandomSuffixDataProvider()
-    {
-        String suffix = randomNameSuffix();
-        return new Object[][] {
-                {"TEST_STATS_MIXED_UNQUOTED_UPPER_" + suffix.toUpperCase(Locale.ENGLISH)},
-                {"test_stats_mixed_unquoted_lower_" + suffix.toLowerCase(Locale.ENGLISH)},
-                {"test_stats_mixed_uNQuoTeD_miXED_" + suffix},
-                {format("\"TEST_STATS_MIXED_QUOTED_UPPER_%s\"", suffix.toUpperCase(Locale.ENGLISH))},
-                {format("\"test_stats_mixed_quoted_lower_%s\"", suffix.toLowerCase(Locale.ENGLISH))},
-                {format("\"test_stats_mixed_QuoTeD_miXED_%s\"", suffix)},
-        };
     }
 }
