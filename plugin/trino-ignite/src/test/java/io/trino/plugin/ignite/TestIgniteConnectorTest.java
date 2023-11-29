@@ -22,8 +22,6 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
-import io.trino.testng.services.Flaky;
-import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -42,10 +40,6 @@ import static org.junit.jupiter.api.Assumptions.abort;
 public class TestIgniteConnectorTest
         extends BaseJdbcConnectorTest
 {
-    private static final String SCHEMA_CHANGE_OPERATION_FAIL_ISSUE = "https://github.com/trinodb/trino/issues/14391";
-    @Language("RegExp")
-    private static final String SCHEMA_CHANGE_OPERATION_FAIL_MATCH = "Schema change operation failed: Thread got interrupted while trying to acquire table lock.";
-
     private TestingIgniteServer igniteServer;
 
     @Override
@@ -338,7 +332,6 @@ public class TestIgniteConnectorTest
 
     @Test
     @Override
-    @Flaky(issue = SCHEMA_CHANGE_OPERATION_FAIL_ISSUE, match = SCHEMA_CHANGE_OPERATION_FAIL_MATCH)
     public void testDropAndAddColumnWithSameName()
     {
         // Override because Ignite can access old data after dropping and adding a column with same name
@@ -349,38 +342,6 @@ public class TestIgniteConnectorTest
             assertUpdate("ALTER TABLE " + table.getName() + " ADD COLUMN y int");
             assertQuery("SELECT * FROM " + table.getName(), "VALUES (1, 3, 2)");
         }
-    }
-
-    @Test
-    @Override
-    @Flaky(issue = SCHEMA_CHANGE_OPERATION_FAIL_ISSUE, match = SCHEMA_CHANGE_OPERATION_FAIL_MATCH)
-    public void testAddColumn()
-    {
-        super.testAddColumn();
-    }
-
-    @Test
-    @Override
-    @Flaky(issue = SCHEMA_CHANGE_OPERATION_FAIL_ISSUE, match = SCHEMA_CHANGE_OPERATION_FAIL_MATCH)
-    public void testDropColumn()
-    {
-        super.testDropColumn();
-    }
-
-    @Test
-    @Override
-    @Flaky(issue = SCHEMA_CHANGE_OPERATION_FAIL_ISSUE, match = SCHEMA_CHANGE_OPERATION_FAIL_MATCH)
-    public void testAlterTableAddLongColumnName()
-    {
-        super.testAlterTableAddLongColumnName();
-    }
-
-    @Test
-    @Override
-    @Flaky(issue = SCHEMA_CHANGE_OPERATION_FAIL_ISSUE, match = SCHEMA_CHANGE_OPERATION_FAIL_MATCH)
-    public void testAddAndDropColumnName()
-    {
-        super.testAddAndDropColumnName();
     }
 
     @Override
