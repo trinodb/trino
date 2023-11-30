@@ -125,7 +125,9 @@ values. Typical usage does not require you to configure them.
   - Enable writing row statistics to checkpoint files.
   - `true`
 * - ``delta.checkpoint-filtering.enabled``
-  - Enable partition pruning when reading checkpoint files.
+  - Enable pruning of data file entries as well as data file statistics
+    columns which are irrelevant for the query when reading Delta Lake
+    checkpoint files.
     The equivalent catalog session property is ``checkpoint_filtering_enabled``.
   - ``false``
 * - `delta.dynamic-filtering.wait-timeout`
