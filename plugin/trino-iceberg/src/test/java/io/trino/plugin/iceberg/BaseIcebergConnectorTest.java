@@ -5745,7 +5745,7 @@ public abstract class BaseIcebergConnectorTest
         List<String> prunedMetadataFiles = getAllMetadataFilesFromTableDirectory(tableDirectory);
         List<Long> prunedSnapshots = getSnapshotIds(tableName);
         assertThat(prunedMetadataFiles).as("prunedMetadataFiles")
-                .hasSize(initialMetadataFiles.size() - 3);
+                .hasSize(initialMetadataFiles.size() - 2);
         assertThat(prunedSnapshots).as("prunedSnapshots")
                 .hasSizeLessThan(initialSnapshots.size())
                 .hasSize(1);
