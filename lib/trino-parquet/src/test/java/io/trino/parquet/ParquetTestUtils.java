@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.parquet.reader.ParquetReader;
+import io.trino.parquet.reader.RowGroupInfo;
 import io.trino.parquet.writer.ParquetSchemaConverter;
 import io.trino.parquet.writer.ParquetWriter;
 import io.trino.parquet.writer.ParquetWriterOptions;
@@ -55,7 +56,6 @@ import static io.trino.spi.block.ArrayBlock.fromElementBlock;
 import static io.trino.spi.block.MapBlock.fromKeyValueBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
-import static java.util.Collections.nCopies;
 import static org.joda.time.DateTimeZone.UTC;
 
 public class ParquetTestUtils
@@ -114,17 +114,15 @@ public class ParquetTestUtils
                             .orElseThrow()));
         }
         long nextStart = 0;
-        ImmutableList.Builder<Long> blockStartsBuilder = ImmutableList.builder();
+        ImmutableList.Builder<RowGroupInfo> rowGroupInfoBuilder = ImmutableList.builder();
         for (BlockMetaData block : parquetMetadata.getBlocks()) {
-            blockStartsBuilder.add(nextStart);
+            rowGroupInfoBuilder.add(new RowGroupInfo(block, nextStart, Optional.empty()));
             nextStart += block.getRowCount();
         }
-        List<Long> blockStarts = blockStartsBuilder.build();
         return new ParquetReader(
                 Optional.ofNullable(fileMetaData.getCreatedBy()),
                 columnFields.build(),
-                parquetMetadata.getBlocks(),
-                blockStarts,
+                rowGroupInfoBuilder.build(),
                 input,
                 UTC,
                 memoryContext,
@@ -134,7 +132,6 @@ public class ParquetTestUtils
                     return new RuntimeException(exception);
                 },
                 Optional.empty(),
-                nCopies(blockStarts.size(), Optional.empty()),
                 Optional.empty());
     }
 
