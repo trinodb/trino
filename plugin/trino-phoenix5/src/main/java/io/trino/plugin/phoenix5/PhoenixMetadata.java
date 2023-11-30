@@ -41,6 +41,7 @@ import io.trino.spi.connector.ConnectorTableProperties;
 import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.spi.connector.RetryMode;
+import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SortingProperty;
 import io.trino.spi.expression.Constant;
@@ -57,6 +58,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
@@ -67,6 +69,7 @@ import static io.trino.plugin.phoenix5.PhoenixClient.MERGE_ROW_ID_COLUMN_NAME;
 import static io.trino.plugin.phoenix5.PhoenixErrorCode.PHOENIX_METADATA_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
+import static io.trino.spi.connector.RowChangeParadigm.UPDATE_PARTIAL_COLUMNS;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.phoenix.util.SchemaUtil.getEscapedArgument;
@@ -309,7 +312,11 @@ public class PhoenixMetadata
         JdbcTableHandle plainTable = phoenixClient.buildPlainTable(handle);
         JdbcColumnHandle mergeRowIdColumnHandle = getMergeRowIdColumnHandle(session, plainTable);
 
+        Set<JdbcColumnHandle> updatedColumnsSet = updatedColumns.stream()
+                .map(JdbcColumnHandle.class::cast)
+                .collect(Collectors.toSet());
         List<JdbcColumnHandle> columns = phoenixClient.getColumns(session, plainTable).stream()
+                .filter(column -> updatedColumnsSet.contains(column))
                 .filter(column -> !ROWKEY.equalsIgnoreCase(column.getColumnName()))
                 .collect(toImmutableList());
         PhoenixOutputTableHandle phoenixOutputTableHandle = (PhoenixOutputTableHandle) beginInsert(session, plainTable, ImmutableList.copyOf(columns), retryMode);
@@ -341,5 +348,11 @@ public class PhoenixMetadata
     {
         // TODO support aggregation pushdown
         return Optional.empty();
+    }
+
+    @Override
+    public RowChangeParadigm getRowChangeParadigm(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return UPDATE_PARTIAL_COLUMNS;
     }
 }

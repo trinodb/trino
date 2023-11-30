@@ -60,21 +60,19 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.kudu.KuduColumnHandle.ROW_ID;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
-import static io.trino.spi.connector.RowChangeParadigm.UPDATE_PARTIAL_COLUMNS;
+import static io.trino.spi.connector.RowChangeParadigm.CHANGE_ONLY_UPDATED_COLUMNS;
 import static java.util.Objects.requireNonNull;
 
 public class KuduMetadata
@@ -393,7 +391,7 @@ public class KuduMetadata
     @Override
     public RowChangeParadigm getRowChangeParadigm(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        return UPDATE_PARTIAL_COLUMNS;
+        return CHANGE_ONLY_UPDATED_COLUMNS;
     }
 
     @Override
@@ -408,17 +406,10 @@ public class KuduMetadata
         KuduTableHandle kuduTableHandle = (KuduTableHandle) tableHandle;
         KuduTable table = kuduTableHandle.getTable(clientSession);
         Schema schema = table.getSchema();
-        List<KuduColumnHandle> columnHandles = new LinkedList<>();
-        for (int ordinal = 0; ordinal < schema.getColumnCount(); ordinal++) {
-            ColumnSchema col = schema.getColumnByIndex(ordinal);
-            String name = col.getName();
-            Type type = TypeHelper.fromKuduColumn(col);
-            columnHandles.add(new KuduColumnHandle(name, ordinal, type));
-        }
-        List<Type> columnTypes = columnHandles.stream()
-                .filter(kuduColumnHandle -> updatedColumns.contains((ColumnHandle) kuduColumnHandle))
-                .map(KuduColumnHandle::getType)
-                .collect(Collectors.toList());
+        List<ColumnSchema> columns = schema.getColumns();
+        List<Type> columnTypes = columns.stream()
+                .map(TypeHelper::fromKuduColumn)
+                .collect(toImmutableList());
         ConnectorTableMetadata tableMetadata = getTableMetadata(kuduTableHandle);
         List<Type> columnOriginalTypes = tableMetadata.getColumns().stream()
                 .map(ColumnMetadata::getType)

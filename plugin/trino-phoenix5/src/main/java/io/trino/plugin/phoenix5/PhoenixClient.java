@@ -389,12 +389,13 @@ public class PhoenixClient
         String columns = handle.getColumnNames().stream()
                 .map(SchemaUtil::getEscapedArgument)
                 .collect(joining(","));
+        String comma = (params.isEmpty() || columns.isEmpty()) ? " " : ", ";
         if (outputHandle.rowkeyColumn().isPresent()) {
             String nextId = format(
-                    "NEXT VALUE FOR %s, ",
+                    "NEXT VALUE FOR %s" + comma,
                     quoted(null, handle.getSchemaName(), handle.getTableName() + "_sequence"));
             params = nextId + params;
-            columns = outputHandle.rowkeyColumn().get() + ", " + columns;
+            columns = outputHandle.rowkeyColumn().get() + comma + columns;
         }
         return format(
                 "UPSERT INTO %s (%s) VALUES (%s)",
