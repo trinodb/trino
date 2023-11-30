@@ -47,7 +47,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
-import static io.trino.plugin.hive.HiveMetadata.PRESTO_VERSION_NAME;
+import static io.trino.plugin.hive.HiveMetadata.TRINO_VERSION_NAME;
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.util.HiveClassNames.AVRO_CONTAINER_OUTPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnNames;
@@ -126,7 +126,7 @@ public class AvroFileWriterFactory
                     inputColumnTypes,
                     compressionKind,
                     ImmutableMap.<String, String>builder()
-                            .put(PRESTO_VERSION_NAME, nodeVersion.toString())
+                            .put(TRINO_VERSION_NAME, nodeVersion.toString())
                             .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
                             .buildOrThrow()));
         }
