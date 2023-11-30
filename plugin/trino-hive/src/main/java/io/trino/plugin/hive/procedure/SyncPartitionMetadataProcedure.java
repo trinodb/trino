@@ -48,7 +48,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Sets.difference;
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
-import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
+import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HivePartitionManager.extractPartitionValues;
 import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -267,7 +267,7 @@ public class SyncPartitionMetadataProcedure
                 .setTableName(table.getTableName())
                 .setColumns(table.getDataColumns())
                 .setValues(extractPartitionValues(partitionName))
-                .setParameters(ImmutableMap.of(PRESTO_QUERY_ID_NAME, session.getQueryId()))
+                .setParameters(ImmutableMap.of(TRINO_QUERY_ID_NAME, session.getQueryId()))
                 .withStorage(storage -> storage
                         .setStorageFormat(table.getStorage().getStorageFormat())
                         .setLocation(Location.of(table.getStorage().getLocation()).appendPath(partitionName).toString())

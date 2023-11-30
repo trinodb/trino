@@ -41,7 +41,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
-import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
+import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -79,7 +79,7 @@ public class TestIcebergCreateTableInternalRetry
                 if (table.getTableName().startsWith("test_different_session")) {
                     // By modifying query id test simulates that table was created from different session.
                     table = Table.builder(table)
-                            .setParameters(ImmutableMap.of(PRESTO_QUERY_ID_NAME, "new_query_id"))
+                            .setParameters(ImmutableMap.of(TRINO_QUERY_ID_NAME, "new_query_id"))
                             .build();
                 }
                 // Simulate retry mechanism with timeout failure of ThriftHiveMetastore.
