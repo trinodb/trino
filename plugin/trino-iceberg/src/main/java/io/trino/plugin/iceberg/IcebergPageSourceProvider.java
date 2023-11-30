@@ -38,7 +38,6 @@ import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcRecordReader;
 import io.trino.orc.TupleDomainOrcPredicate;
 import io.trino.orc.TupleDomainOrcPredicate.TupleDomainOrcPredicateBuilder;
-import io.trino.parquet.BloomFilterStore;
 import io.trino.parquet.Column;
 import io.trino.parquet.Field;
 import io.trino.parquet.ParquetCorruptionException;
@@ -46,9 +45,9 @@ import io.trino.parquet.ParquetDataSource;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.predicate.TupleDomainParquetPredicate;
-import io.trino.parquet.reader.Decompressor;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.ParquetReader;
+import io.trino.parquet.reader.RowGroupInfo;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.ReaderColumns;
 import io.trino.plugin.hive.ReaderPageSource;
@@ -110,7 +109,6 @@ import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.util.StructLikeSet;
 import org.apache.iceberg.util.StructProjection;
 import org.apache.parquet.column.ColumnDescriptor;
-import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.io.ColumnIO;
@@ -146,11 +144,10 @@ import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregate
 import static io.trino.orc.OrcReader.INITIAL_BATCH_SIZE;
 import static io.trino.orc.OrcReader.ProjectedLayout;
 import static io.trino.orc.OrcReader.fullyProjectedLayout;
-import static io.trino.parquet.BloomFilterStore.getBloomFilterStore;
 import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
 import static io.trino.parquet.ParquetTypeUtils.getDescriptors;
 import static io.trino.parquet.predicate.PredicateUtils.buildPredicate;
-import static io.trino.parquet.predicate.PredicateUtils.predicateMatches;
+import static io.trino.parquet.predicate.PredicateUtils.getFilteredRowGroups;
 import static io.trino.plugin.hive.parquet.ParquetPageSourceFactory.createDataSource;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_PARTITION_DATA;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.TRINO_MERGE_PARTITION_SPEC_ID;
@@ -593,7 +590,9 @@ public class IcebergPageSourceProvider
                                 .withSmallFileThreshold(getParquetSmallFileThreshold(session))
                                 .withBloomFilter(useParquetBloomFilter(session))
                                 .withNativeZstdDecompressorEnabled(isParquetNativeZstdDecompressorEnabled(session))
-                                .withNativeSnappyDecompressorEnabled(isParquetNativeSnappyDecompressorEnabled(session)),
+                                .withNativeSnappyDecompressorEnabled(isParquetNativeSnappyDecompressorEnabled(session))
+                                // TODO https://github.com/trinodb/trino/issues/11000
+                                .withUseColumnIndex(false),
                         predicate,
                         fileFormatDataSourceStats,
                         nameMapping,
@@ -967,36 +966,23 @@ public class IcebergPageSourceProvider
             TupleDomain<ColumnDescriptor> parquetTupleDomain = getParquetTupleDomain(descriptorsByPath, effectivePredicate);
             TupleDomainParquetPredicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath, UTC);
 
-            long nextStart = 0;
+            List<RowGroupInfo> rowGroups = getFilteredRowGroups(
+                    start,
+                    length,
+                    dataSource,
+                    parquetMetadata.getBlocks(),
+                    ImmutableList.of(parquetTupleDomain),
+                    ImmutableList.of(parquetPredicate),
+                    descriptorsByPath,
+                    UTC,
+                    ICEBERG_DOMAIN_COMPACTION_THRESHOLD,
+                    options);
             Optional<Long> startRowPosition = Optional.empty();
             Optional<Long> endRowPosition = Optional.empty();
-            ImmutableList.Builder<Long> blockStarts = ImmutableList.builder();
-            List<BlockMetaData> blocks = new ArrayList<>();
-            Decompressor decompressor = new Decompressor(options);
-            for (BlockMetaData block : parquetMetadata.getBlocks()) {
-                long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
-                Optional<BloomFilterStore> bloomFilterStore = getBloomFilterStore(dataSource, block, parquetTupleDomain, options);
-
-                if (start <= firstDataPage && firstDataPage < start + length &&
-                        predicateMatches(
-                                parquetPredicate,
-                                block,
-                                dataSource,
-                                descriptorsByPath,
-                                parquetTupleDomain,
-                                Optional.empty(),
-                                bloomFilterStore,
-                                UTC,
-                                ICEBERG_DOMAIN_COMPACTION_THRESHOLD,
-                                decompressor)) {
-                    blocks.add(block);
-                    blockStarts.add(nextStart);
-                    if (startRowPosition.isEmpty()) {
-                        startRowPosition = Optional.of(nextStart);
-                    }
-                    endRowPosition = Optional.of(nextStart + block.getRowCount());
-                }
-                nextStart += block.getRowCount();
+            if (!rowGroups.isEmpty()) {
+                startRowPosition = Optional.of(rowGroups.get(0).fileRowOffset());
+                RowGroupInfo lastRowGroup = rowGroups.get(rowGroups.size() - 1);
+                endRowPosition = Optional.of(lastRowGroup.fileRowOffset() + lastRowGroup.blockMetaData().getRowCount());
             }
 
             MessageColumnIO messageColumnIO = getColumnIO(fileSchema, requestedSchema);
@@ -1059,13 +1045,14 @@ public class IcebergPageSourceProvider
             ParquetReader parquetReader = new ParquetReader(
                     Optional.ofNullable(fileMetaData.getCreatedBy()),
                     parquetColumnFieldsBuilder.build(),
-                    blocks,
-                    blockStarts.build(),
+                    rowGroups,
                     dataSource,
                     UTC,
                     memoryContext,
                     options,
-                    exception -> handleException(dataSourceId, exception));
+                    exception -> handleException(dataSourceId, exception),
+                    Optional.empty(),
+                    Optional.empty());
             return new ReaderPageSourceWithRowPositions(
                     new ReaderPageSource(
                             pageSourceBuilder.build(parquetReader),
