@@ -96,15 +96,6 @@ public class FaultTolerantPartitioningScheme
         return partitionToNodeMap;
     }
 
-    public FaultTolerantPartitioningScheme withPartitionCount(int partitionCount)
-    {
-        return new FaultTolerantPartitioningScheme(
-                partitionCount,
-                this.bucketToPartitionMap,
-                this.splitToBucketFunction,
-                this.partitionToNodeMap);
-    }
-
     @Override
     public String toString()
     {
