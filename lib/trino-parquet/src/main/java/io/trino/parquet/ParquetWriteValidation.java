@@ -18,6 +18,7 @@ import io.airlift.slice.SizeOf;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
+import io.trino.parquet.reader.RowGroupInfo;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
@@ -126,17 +127,17 @@ public class ParquetWriteValidation
         }
     }
 
-    public void validateBlocksMetadata(ParquetDataSourceId dataSourceId, List<BlockMetaData> blocksMetaData)
+    public void validateBlocksMetadata(ParquetDataSourceId dataSourceId, List<RowGroupInfo> rowGroupInfos)
             throws ParquetCorruptionException
     {
         validateParquet(
-                blocksMetaData.size() == rowGroups.size(),
+                rowGroupInfos.size() == rowGroups.size(),
                 dataSourceId,
                 "Number of row groups %d did not match %d",
-                blocksMetaData.size(),
+                rowGroupInfos.size(),
                 rowGroups.size());
-        for (int rowGroupIndex = 0; rowGroupIndex < blocksMetaData.size(); rowGroupIndex++) {
-            BlockMetaData block = blocksMetaData.get(rowGroupIndex);
+        for (int rowGroupIndex = 0; rowGroupIndex < rowGroupInfos.size(); rowGroupIndex++) {
+            BlockMetaData block = rowGroupInfos.get(rowGroupIndex).blockMetaData();
             RowGroup rowGroup = rowGroups.get(rowGroupIndex);
             validateParquet(
                     block.getRowCount() == rowGroup.getNum_rows(),
