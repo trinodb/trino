@@ -22,7 +22,6 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.memory.context.AggregatedMemoryContext;
-import io.trino.parquet.BloomFilterStore;
 import io.trino.parquet.Column;
 import io.trino.parquet.Field;
 import io.trino.parquet.ParquetCorruptionException;
@@ -33,6 +32,7 @@ import io.trino.parquet.ParquetWriteValidation;
 import io.trino.parquet.predicate.TupleDomainParquetPredicate;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.parquet.reader.ParquetReader;
+import io.trino.parquet.reader.RowGroupInfo;
 import io.trino.plugin.hive.AcidInfo;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.HiveColumnHandle;
@@ -49,10 +49,8 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import org.apache.parquet.column.ColumnDescriptor;
-import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
-import org.apache.parquet.internal.filter2.columnindex.ColumnIndexStore;
 import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
@@ -71,15 +69,13 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.trino.parquet.BloomFilterStore.getBloomFilterStore;
 import static io.trino.parquet.ParquetTypeUtils.constructField;
 import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
 import static io.trino.parquet.ParquetTypeUtils.getDescriptors;
 import static io.trino.parquet.ParquetTypeUtils.getParquetTypeByName;
 import static io.trino.parquet.ParquetTypeUtils.lookupColumnByName;
 import static io.trino.parquet.predicate.PredicateUtils.buildPredicate;
-import static io.trino.parquet.predicate.PredicateUtils.predicateMatches;
-import static io.trino.parquet.reader.TrinoColumnIndexStore.getColumnIndexStore;
+import static io.trino.parquet.predicate.PredicateUtils.getFilteredRowGroups;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
@@ -249,36 +245,17 @@ public class ParquetPageSourceFactory
                 parquetPredicates = parquetPredicatesBuilder.build();
             }
 
-            long nextStart = 0;
-            ImmutableList.Builder<BlockMetaData> blocks = ImmutableList.builder();
-            ImmutableList.Builder<Long> blockStarts = ImmutableList.builder();
-            ImmutableList.Builder<Optional<ColumnIndexStore>> columnIndexes = ImmutableList.builder();
-            for (BlockMetaData block : parquetMetadata.getBlocks()) {
-                long firstDataPage = block.getColumns().get(0).getFirstDataPageOffset();
-                for (int i = 0; i < parquetTupleDomains.size(); i++) {
-                    TupleDomain<ColumnDescriptor> parquetTupleDomain = parquetTupleDomains.get(i);
-                    TupleDomainParquetPredicate parquetPredicate = parquetPredicates.get(i);
-                    Optional<ColumnIndexStore> columnIndex = getColumnIndexStore(dataSource, block, descriptorsByPath, parquetTupleDomain, options);
-                    Optional<BloomFilterStore> bloomFilterStore = getBloomFilterStore(dataSource, block, parquetTupleDomain, options);
-                    if (start <= firstDataPage && firstDataPage < start + length
-                            && predicateMatches(
-                            parquetPredicate,
-                            block,
-                            dataSource,
-                            descriptorsByPath,
-                            parquetTupleDomain,
-                            columnIndex,
-                            bloomFilterStore,
-                            timeZone,
-                            domainCompactionThreshold)) {
-                        blocks.add(block);
-                        blockStarts.add(nextStart);
-                        columnIndexes.add(columnIndex);
-                        break;
-                    }
-                }
-                nextStart += block.getRowCount();
-            }
+            List<RowGroupInfo> rowGroups = getFilteredRowGroups(
+                    start,
+                    length,
+                    dataSource,
+                    parquetMetadata.getBlocks(),
+                    parquetTupleDomains,
+                    parquetPredicates,
+                    descriptorsByPath,
+                    timeZone,
+                    domainCompactionThreshold,
+                    options);
 
             Optional<ReaderColumns> readerProjections = projectBaseColumns(columns, useColumnNames);
             List<HiveColumnHandle> baseColumns = readerProjections.map(projection ->
@@ -292,8 +269,7 @@ public class ParquetPageSourceFactory
             ParquetReaderProvider parquetReaderProvider = fields -> new ParquetReader(
                     Optional.ofNullable(fileMetaData.getCreatedBy()),
                     fields,
-                    blocks.build(),
-                    blockStarts.build(),
+                    rowGroups,
                     finalDataSource,
                     timeZone,
                     memoryContext,
@@ -302,7 +278,6 @@ public class ParquetPageSourceFactory
                     // We avoid using disjuncts of parquetPredicate for page pruning in ParquetReader as currently column indexes
                     // are not present in the Parquet files which are read with disjunct predicates.
                     parquetPredicates.size() == 1 ? Optional.of(parquetPredicates.get(0)) : Optional.empty(),
-                    columnIndexes.build(),
                     parquetWriteValidation);
             ConnectorPageSource parquetPageSource = createParquetPageSource(baseColumns, fileSchema, messageColumn, useColumnNames, parquetReaderProvider);
             return new ReaderPageSource(parquetPageSource, readerProjections);
