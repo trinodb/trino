@@ -20,6 +20,8 @@ import io.trino.plugin.hive.HiveColumnStatisticType;
 import io.trino.plugin.hive.HivePartition;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.PartitionStatistics;
+import io.trino.plugin.hive.SchemaAlreadyExistsException;
+import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.plugin.hive.acid.AcidTransaction;
 import io.trino.plugin.hive.metastore.AcidTransactionOwner;
@@ -54,6 +56,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
+import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.isAvroTableWithSchemaSet;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.csvSchemaFields;
@@ -194,7 +197,24 @@ public class BridgingHiveMetastore
     @Override
     public void createDatabase(Database database)
     {
-        delegate.createDatabase(toMetastoreApiDatabase(database));
+        try {
+            delegate.createDatabase(toMetastoreApiDatabase(database));
+        }
+        catch (SchemaAlreadyExistsException e) {
+            // Ignore SchemaAlreadyExistsException when this query has already created the database.
+            // This may happen when an actually successful metastore create call is retried,
+            // because of a timeout on our side.
+            String expectedQueryId = database.getParameters().get(TRINO_QUERY_ID_NAME);
+            if (expectedQueryId != null) {
+                String existingQueryId = getDatabase(database.getDatabaseName())
+                        .map(Database::getParameters)
+                        .map(parameters -> parameters.get(TRINO_QUERY_ID_NAME))
+                        .orElse(null);
+                if (!expectedQueryId.equals(existingQueryId)) {
+                    throw e;
+                }
+            }
+        }
     }
 
     @Override
@@ -235,7 +255,24 @@ public class BridgingHiveMetastore
     @Override
     public void createTable(Table table, PrincipalPrivileges principalPrivileges)
     {
-        delegate.createTable(toMetastoreApiTable(table, principalPrivileges));
+        try {
+            delegate.createTable(toMetastoreApiTable(table, principalPrivileges));
+        }
+        catch (TableAlreadyExistsException e) {
+            // Ignore TableAlreadyExistsException when this query has already created the table.
+            // This may happen when an actually successful metastore create call is retried,
+            // because of a timeout on our side.
+            String expectedQueryId = table.getParameters().get(TRINO_QUERY_ID_NAME);
+            if (expectedQueryId != null) {
+                String existingQueryId = getTable(table.getDatabaseName(), table.getTableName())
+                        .map(Table::getParameters)
+                        .map(parameters -> parameters.get(TRINO_QUERY_ID_NAME))
+                        .orElse(null);
+                if (!expectedQueryId.equals(existingQueryId)) {
+                    throw e;
+                }
+            }
+        }
     }
 
     @Override

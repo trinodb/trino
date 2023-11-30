@@ -67,8 +67,6 @@ import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriter;
 import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogWriterFactory;
 import io.trino.plugin.hive.HiveType;
 import io.trino.plugin.hive.LocationAccessControl;
-import io.trino.plugin.hive.SchemaAlreadyExistsException;
-import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
@@ -844,18 +842,7 @@ public class DeltaLakeMetadata
                 "Database '%s' does not have correct query id set",
                 database.getDatabaseName());
 
-        try {
-            metastore.createDatabase(database);
-        }
-        catch (SchemaAlreadyExistsException e) {
-            // Ignore SchemaAlreadyExistsException when database looks like created by us.
-            // This may happen when an actually successful metastore create call is retried
-            // e.g. because of a timeout on our side.
-            Optional<Database> existingDatabase = metastore.getDatabase(schemaName);
-            if (existingDatabase.isEmpty() || !isCreatedBy(existingDatabase.get(), queryId)) {
-                throw e;
-            }
-        }
+        metastore.createDatabase(database);
     }
 
     @Override
@@ -1040,21 +1027,7 @@ public class DeltaLakeMetadata
             metastore.replaceTable(session, table, principalPrivileges);
         }
         else {
-            try {
-                metastore.createTable(
-                        session,
-                        table,
-                        principalPrivileges);
-            }
-            catch (TableAlreadyExistsException e) {
-                // Ignore TableAlreadyExistsException when table looks like created by us.
-                // This may happen when an actually successful metastore create call is retried
-                // e.g. because of a timeout on our side.
-                Optional<Table> existingTable = metastore.getRawMetastoreTable(schemaName, tableName);
-                if (existingTable.isEmpty() || !isCreatedBy(existingTable.get(), queryId)) {
-                    throw e;
-                }
-            }
+            metastore.createTable(session, table, principalPrivileges);
         }
     }
 
@@ -1452,18 +1425,7 @@ public class DeltaLakeMetadata
                 metastore.replaceTable(session, table, principalPrivileges);
             }
             else {
-                try {
-                    metastore.createTable(session, table, principalPrivileges);
-                }
-                catch (TableAlreadyExistsException e) {
-                    // Ignore TableAlreadyExistsException when table looks like created by us.
-                    // This may happen when an actually successful metastore create call is retried
-                    // e.g. because of a timeout on our side.
-                    Optional<Table> existingTable = metastore.getRawMetastoreTable(schemaName, tableName);
-                    if (existingTable.isEmpty() || !isCreatedBy(existingTable.get(), queryId)) {
-                        throw e;
-                    }
-                }
+                metastore.createTable(session, table, principalPrivileges);
             }
         }
         catch (Exception e) {
@@ -1486,18 +1448,6 @@ public class DeltaLakeMetadata
         }
 
         return Optional.empty();
-    }
-
-    private static boolean isCreatedBy(Database database, String queryId)
-    {
-        Optional<String> databaseQueryId = getQueryId(database);
-        return databaseQueryId.isPresent() && databaseQueryId.get().equals(queryId);
-    }
-
-    public static boolean isCreatedBy(Table table, String queryId)
-    {
-        Optional<String> tableQueryId = getQueryId(table);
-        return tableQueryId.isPresent() && tableQueryId.get().equals(queryId);
     }
 
     @Override
