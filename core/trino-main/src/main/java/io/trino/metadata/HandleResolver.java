@@ -40,12 +40,6 @@ public final class HandleResolver
         checkState(existingClassLoader == null, "Class loader already registered: %s", classLoader.getId());
     }
 
-    public void unregisterClassLoader(PluginClassLoader classLoader)
-    {
-        boolean result = classLoaders.remove(classLoader.getId(), classLoader);
-        checkState(result, "Class loader not registered: %s", classLoader.getId());
-    }
-
     public String getId(Object handle)
     {
         return classId(handle.getClass());
