@@ -138,7 +138,7 @@ public abstract class BaseTestSqlTaskManager
             TaskId taskId = newTaskId();
             createTask(sqlTaskManager, taskId, ImmutableSet.of(SPLIT), PipelinedOutputBuffers.createInitial(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
 
-            TaskInfo taskInfo = sqlTaskManager.getTaskInfo(taskId, TaskStatus.STARTING_VERSION).get();
+            TaskInfo taskInfo = sqlTaskManager.getTaskInfo(taskId, TaskStatus.STARTING_VERSION + 1).get();
             assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.FLUSHING);
 
             BufferResult results = sqlTaskManager.getTaskResults(taskId, OUT, 0, DataSize.of(1, Unit.MEGABYTE)).getResultsFuture().get();
@@ -220,7 +220,7 @@ public abstract class BaseTestSqlTaskManager
             TaskId taskId = newTaskId();
             createTask(sqlTaskManager, taskId, ImmutableSet.of(SPLIT), PipelinedOutputBuffers.createInitial(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
 
-            TaskInfo taskInfo = sqlTaskManager.getTaskInfo(taskId, TaskStatus.STARTING_VERSION).get();
+            TaskInfo taskInfo = sqlTaskManager.getTaskInfo(taskId, TaskStatus.STARTING_VERSION + 1).get();
             assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.FLUSHING);
 
             sqlTaskManager.destroyTaskResults(taskId, OUT);

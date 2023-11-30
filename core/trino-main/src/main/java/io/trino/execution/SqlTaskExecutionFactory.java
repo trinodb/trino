@@ -13,6 +13,7 @@
  */
 package io.trino.execution;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.concurrent.SetThreadName;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
@@ -44,6 +45,9 @@ public class SqlTaskExecutionFactory
     private final Tracer tracer;
     private final boolean perOperatorCpuTimerEnabled;
     private final boolean cpuTimerEnabled;
+    // SqlTaskManager is responsible for moving task from INITIALIZE -> RUNNING.
+    // When using this factory without SqlTaskManager, set to true
+    private final boolean ignoreInitTaskStage;
 
     public SqlTaskExecutionFactory(
             Executor taskNotificationExecutor,
@@ -53,6 +57,25 @@ public class SqlTaskExecutionFactory
             Tracer tracer,
             TaskManagerConfig config)
     {
+        this(taskNotificationExecutor,
+                taskExecutor,
+                planner,
+                splitMonitor,
+                tracer,
+                config,
+                false);
+    }
+
+    @VisibleForTesting
+    public SqlTaskExecutionFactory(
+            Executor taskNotificationExecutor,
+            TaskExecutor taskExecutor,
+            LocalExecutionPlanner planner,
+            SplitMonitor splitMonitor,
+            Tracer tracer,
+            TaskManagerConfig config,
+            boolean ignoreInitTaskStage)
+    {
         this.taskNotificationExecutor = requireNonNull(taskNotificationExecutor, "taskNotificationExecutor is null");
         this.taskExecutor = requireNonNull(taskExecutor, "taskExecutor is null");
         this.planner = requireNonNull(planner, "planner is null");
@@ -60,6 +83,7 @@ public class SqlTaskExecutionFactory
         this.tracer = requireNonNull(tracer, "tracer is null");
         this.perOperatorCpuTimerEnabled = config.isPerOperatorCpuTimerEnabled();
         this.cpuTimerEnabled = config.isTaskCpuTimerEnabled();
+        this.ignoreInitTaskStage = ignoreInitTaskStage;
     }
 
     public SqlTaskExecution create(
@@ -95,6 +119,9 @@ public class SqlTaskExecutionFactory
                 throwIfUnchecked(e);
                 throw new RuntimeException(e);
             }
+        }
+        if (ignoreInitTaskStage) {
+            taskStateMachine.transitionToRunning();
         }
         return new SqlTaskExecution(
                 taskStateMachine,

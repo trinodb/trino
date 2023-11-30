@@ -101,7 +101,8 @@ public class TestMemoryRevokingScheduler
                 planner,
                 createTestSplitMonitor(),
                 noopTracer(),
-                new TaskManagerConfig());
+                new TaskManagerConfig(),
+                true);
 
         allOperatorContexts = null;
     }

@@ -114,6 +114,7 @@ import static io.trino.SystemSessionProperties.isRemoteTaskAdaptiveUpdateRequest
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static io.trino.execution.TaskInfo.createInitialTask;
 import static io.trino.execution.TaskState.FAILED;
+import static io.trino.execution.TaskState.INITIALIZING;
 import static io.trino.execution.TaskStatus.failWith;
 import static io.trino.server.remotetask.RequestErrorTracker.logError;
 import static io.trino.spi.HostAddress.fromUri;
@@ -620,6 +621,10 @@ public final class HttpRemoteTask
     private synchronized void processTaskUpdate(TaskInfo newValue, List<SplitAssignment> splitAssignments)
     {
         updateTaskInfo(newValue);
+        if (taskStatusFetcher.getTaskStatus().getState() == INITIALIZING) {
+            pendingRequestsCounter.incrementAndGet();
+            return;
+        }
 
         // remove acknowledged splits, which frees memory
         for (SplitAssignment assignment : splitAssignments) {
@@ -1167,6 +1172,7 @@ public final class HttpRemoteTask
                 processTaskUpdate(value, splitAssignments);
                 if (pendingRequestsCounter.addAndGet(-currentPendingRequestsCounter) > 0) {
                     // schedule an update because triggerUpdate was called in the meantime
+                    // or the task is still initializing
                     scheduleUpdate();
                 }
             }

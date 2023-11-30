@@ -104,6 +104,8 @@ public class TestSqlTaskExecution
         taskExecutor.start();
         try {
             TaskStateMachine taskStateMachine = new TaskStateMachine(TASK_ID, taskNotificationExecutor);
+            // simulate pre-execution checks passed
+            taskStateMachine.transitionToRunning();
             PartitionedOutputBuffer outputBuffer = newTestingOutputBuffer(taskNotificationExecutor);
             OutputBufferConsumer outputBufferConsumer = new OutputBufferConsumer(outputBuffer, OUTPUT_BUFFER_ID);
 

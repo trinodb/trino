@@ -41,6 +41,7 @@ import static io.trino.execution.TaskState.FAILED;
 import static io.trino.execution.TaskState.FAILING;
 import static io.trino.execution.TaskState.FINISHED;
 import static io.trino.execution.TaskState.FLUSHING;
+import static io.trino.execution.TaskState.INITIALIZING;
 import static io.trino.execution.TaskState.RUNNING;
 import static io.trino.execution.TaskState.TERMINAL_TASK_STATES;
 import static java.util.Objects.requireNonNull;
@@ -66,7 +67,7 @@ public class TaskStateMachine
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.executor = requireNonNull(executor, "executor is null");
-        taskState = new StateMachine<>("task " + taskId, executor, RUNNING, TERMINAL_TASK_STATES);
+        taskState = new StateMachine<>("task " + taskId, executor, INITIALIZING, TERMINAL_TASK_STATES);
         taskState.addStateChangeListener(newState -> log.debug("Task %s is %s", taskId, newState));
     }
 
@@ -103,9 +104,14 @@ public class TaskStateMachine
         return failureCauses;
     }
 
+    public void transitionToRunning()
+    {
+        taskState.setIf(RUNNING, currentState -> currentState == INITIALIZING);
+    }
+
     public void transitionToFlushing()
     {
-        taskState.setIf(FLUSHING, currentState -> currentState == RUNNING);
+        taskState.setIf(FLUSHING, currentState -> currentState == RUNNING || currentState == INITIALIZING);
     }
 
     public void finished()

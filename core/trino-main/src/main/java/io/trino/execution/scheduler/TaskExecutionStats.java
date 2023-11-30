@@ -56,6 +56,7 @@ public class TaskExecutionStats
                 abortedTasks.update(info.getStats());
                 break;
             case PLANNED:
+            case INITIALIZING:
             case RUNNING:
             case FLUSHING:
             default:

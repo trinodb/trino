@@ -68,12 +68,13 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTERS_VERSION;
 import static io.trino.execution.DynamicFiltersCollector.INITIAL_DYNAMIC_FILTER_DOMAINS;
 import static io.trino.execution.TaskState.FAILED;
 import static io.trino.execution.TaskState.FAILING;
-import static io.trino.execution.TaskState.RUNNING;
+import static io.trino.execution.TaskState.INITIALIZING;
 import static io.trino.util.Failures.toFailures;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -107,6 +108,7 @@ public class SqlTask
     private final AtomicReference<Span> taskSpan = new AtomicReference<>(Span.getInvalid());
     private final AtomicReference<String> traceToken = new AtomicReference<>();
     private final AtomicReference<Set<CatalogHandle>> catalogs = new AtomicReference<>();
+    private final AtomicReference<ListenableFuture<Void>> catalogsLoadedFuture = new AtomicReference<>();
 
     public static SqlTask createSqlTask(
             TaskId taskId,
@@ -227,8 +229,8 @@ public class SqlTask
                 }
             }
 
-            // notify that task state changed (apart from initial RUNNING state notification)
-            if (newState != RUNNING) {
+            // notify that task state changed (apart from initial INITIALIZING state notification)
+            if (newState != INITIALIZING) {
                 notifyStatusChanged();
             }
 
@@ -290,7 +292,16 @@ public class SqlTask
     public boolean setCatalogs(Set<CatalogHandle> catalogs)
     {
         requireNonNull(catalogs, "catalogs is null");
-        return this.catalogs.compareAndSet(null, requireNonNull(catalogs, "catalogs is null"));
+        return this.catalogs.compareAndSet(null, catalogs);
+    }
+
+    public void setCatalogsLoaded(ListenableFuture<Void> catalogsLoadedFuture)
+    {
+        requireNonNull(catalogsLoadedFuture, "catalogsLoaded is null");
+        if (this.catalogsLoadedFuture.compareAndSet(null, catalogsLoadedFuture)) {
+            catalogsLoadedFuture.addListener(taskStateMachine::transitionToRunning, directExecutor());
+            addExceptionCallback(catalogsLoadedFuture, taskStateMachine::failed);
+        }
     }
 
     public VersionedDynamicFilterDomains acknowledgeAndGetNewDynamicFilterDomains(long callersDynamicFiltersVersion)

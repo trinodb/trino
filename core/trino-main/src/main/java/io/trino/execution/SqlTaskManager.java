@@ -18,6 +18,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.airlift.concurrent.ThreadPoolExecutorMBean;
@@ -74,10 +75,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Predicate;
 
@@ -85,6 +88,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.trino.SystemSessionProperties.getQueryMaxMemoryPerNode;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
@@ -120,6 +124,7 @@ public class SqlTaskManager
     private final ConnectorServicesProvider connectorServicesProvider;
     private final ExecutorService taskNotificationExecutor;
     private final ThreadPoolExecutorMBean taskNotificationExecutorMBean;
+    private final ExecutorService catalogLoadingExecutor = newFixedThreadPool(4, threadsNamed("task-catalog-loading-%s"));
 
     private final ScheduledExecutorService taskManagementExecutor;
     private final ScheduledExecutorService driverYieldExecutor;
@@ -531,22 +536,38 @@ public class SqlTaskManager
             }
         }
 
-        fragment.map(PlanFragment::getActiveCatalogs)
-                .ifPresent(activeCatalogs -> {
-                    Set<CatalogHandle> catalogHandles = activeCatalogs.stream()
-                            .map(CatalogProperties::getCatalogHandle)
-                            .collect(toImmutableSet());
-                    if (sqlTask.setCatalogs(catalogHandles)) {
-                        ReentrantReadWriteLock.ReadLock catalogInitLock = catalogsLock.readLock();
-                        catalogInitLock.lock();
-                        try {
-                            connectorServicesProvider.ensureCatalogsLoaded(session, activeCatalogs);
-                        }
-                        finally {
-                            catalogInitLock.unlock();
-                        }
+        Optional<List<CatalogProperties>> activeCatalogsOpt = fragment.map(PlanFragment::getActiveCatalogs);
+        if (activeCatalogsOpt.isPresent()) {
+            List<CatalogProperties> activeCatalogs = activeCatalogsOpt.get();
+            Set<CatalogHandle> catalogHandles = activeCatalogs.stream()
+                    .map(CatalogProperties::getCatalogHandle)
+                    .collect(toImmutableSet());
+            if (sqlTask.setCatalogs(catalogHandles)) {
+                ListenableFuture<Void> catalogLoading = Futures.submit(() -> {
+                    ReentrantReadWriteLock.ReadLock catalogInitLock = catalogsLock.readLock();
+                    catalogInitLock.lock();
+                    try {
+                        connectorServicesProvider.ensureCatalogsLoaded(session, activeCatalogs);
                     }
-                });
+                    finally {
+                        catalogInitLock.unlock();
+                    }
+                }, catalogLoadingExecutor);
+                try {
+                    catalogLoading.get(5, SECONDS);
+                    sqlTask.setCatalogsLoaded(immediateVoidFuture());
+                }
+                catch (ExecutionException | InterruptedException e) {
+                    sqlTask.failed(e);
+                }
+                catch (TimeoutException e) {
+                    sqlTask.setCatalogsLoaded(catalogLoading);
+                }
+            }
+        }
+        else {
+            sqlTask.setCatalogsLoaded(immediateVoidFuture());
+        }
 
         fragment.map(PlanFragment::getLanguageFunctions)
                 .ifPresent(languageFunctions -> languageFunctionProvider.registerTask(taskId, languageFunctions));

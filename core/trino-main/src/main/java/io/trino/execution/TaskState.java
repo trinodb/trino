@@ -29,6 +29,10 @@ public enum TaskState
     /**
      * Task is running.
      */
+    INITIALIZING(false, false),
+    /**
+     * Task is running.
+     */
     RUNNING(false, false),
     /**
      * Task has finished executing and output is left to be consumed.

@@ -114,7 +114,8 @@ public class TestSqlTask
                 planner,
                 createTestSplitMonitor(),
                 noopTracer(),
-                new TaskManagerConfig());
+                new TaskManagerConfig(),
+                true);
     }
 
     @AfterAll
@@ -144,11 +145,11 @@ public class TestSqlTask
                 ImmutableMap.of(),
                 false);
         assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.RUNNING);
-        assertThat(taskInfo.getTaskStatus().getVersion()).isEqualTo(STARTING_VERSION);
+        assertThat(taskInfo.getTaskStatus().getVersion()).isEqualTo(STARTING_VERSION + 1);
 
         taskInfo = sqlTask.getTaskInfo();
         assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.RUNNING);
-        assertThat(taskInfo.getTaskStatus().getVersion()).isEqualTo(STARTING_VERSION);
+        assertThat(taskInfo.getTaskStatus().getVersion()).isEqualTo(STARTING_VERSION + 1);
 
         taskInfo = sqlTask.updateTask(TEST_SESSION,
                 Span.getInvalid(),
@@ -171,7 +172,7 @@ public class TestSqlTask
     {
         SqlTask sqlTask = createInitialTask();
 
-        assertThat(sqlTask.getTaskStatus().getState()).isEqualTo(TaskState.RUNNING);
+        assertThat(sqlTask.getTaskStatus().getState()).isEqualTo(TaskState.INITIALIZING);
         assertThat(sqlTask.getTaskStatus().getVersion()).isEqualTo(STARTING_VERSION);
         sqlTask.updateTask(TEST_SESSION,
                 Span.getInvalid(),
@@ -181,9 +182,9 @@ public class TestSqlTask
                 ImmutableMap.of(),
                 false);
 
-        TaskInfo taskInfo = sqlTask.getTaskInfo(STARTING_VERSION).get();
+        TaskInfo taskInfo = sqlTask.getTaskInfo(STARTING_VERSION + 1).get();
         assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.FLUSHING);
-        assertThat(taskInfo.getTaskStatus().getVersion()).isEqualTo(STARTING_VERSION + 1);
+        assertThat(taskInfo.getTaskStatus().getVersion()).isEqualTo(STARTING_VERSION + 2);
 
         // completed future should be returned immediately when old caller's version is used
         assertThat(sqlTask.getTaskInfo(STARTING_VERSION).isDone()).isTrue();
@@ -259,7 +260,7 @@ public class TestSqlTask
     {
         SqlTask sqlTask = createInitialTask();
 
-        assertThat(sqlTask.getTaskStatus().getState()).isEqualTo(TaskState.RUNNING);
+        assertThat(sqlTask.getTaskStatus().getState()).isEqualTo(TaskState.INITIALIZING);
         assertThat(sqlTask.getTaskStatus().getVersion()).isEqualTo(STARTING_VERSION);
         sqlTask.updateTask(TEST_SESSION,
                 Span.getInvalid(),
@@ -269,9 +270,12 @@ public class TestSqlTask
                 ImmutableMap.of(),
                 false);
 
-        TaskInfo taskInfo = sqlTask.getTaskInfo(STARTING_VERSION).get();
+        assertThat(sqlTask.getTaskStatus().getState()).isEqualTo(TaskState.RUNNING);
+        assertThat(sqlTask.getTaskStatus().getVersion()).isEqualTo(STARTING_VERSION + 1);
+
+        TaskInfo taskInfo = sqlTask.getTaskInfo(STARTING_VERSION + 1).get();
         assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.FLUSHING);
-        assertThat(taskInfo.getTaskStatus().getVersion()).isEqualTo(STARTING_VERSION + 1);
+        assertThat(taskInfo.getTaskStatus().getVersion()).isEqualTo(STARTING_VERSION + 2);
 
         sqlTask.destroyTaskResults(OUT);
 
@@ -381,12 +385,12 @@ public class TestSqlTask
 
         TaskContext taskContext = sqlTask.getQueryContext().getTaskContextByTaskId(sqlTask.getTaskId());
 
-        ListenableFuture<?> future = sqlTask.getTaskStatus(STARTING_VERSION);
+        ListenableFuture<?> future = sqlTask.getTaskStatus(STARTING_VERSION + 1);
         assertThat(future.isDone()).isFalse();
 
         // make sure future gets unblocked when dynamic filters version is updated
         taskContext.updateDomains(ImmutableMap.of(DYNAMIC_FILTER_SOURCE_ID, Domain.none(BIGINT)));
-        assertThat(sqlTask.getTaskStatus().getVersion()).isEqualTo(STARTING_VERSION + 1);
+        assertThat(sqlTask.getTaskStatus().getVersion()).isEqualTo(STARTING_VERSION + 2);
         assertThat(sqlTask.getTaskStatus().getDynamicFiltersVersion()).isEqualTo(INITIAL_DYNAMIC_FILTERS_VERSION + 1);
         future.get();
     }
