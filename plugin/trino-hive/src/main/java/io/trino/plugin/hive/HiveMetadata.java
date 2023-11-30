@@ -334,7 +334,7 @@ public class HiveMetadata
 
     public static final String TRINO_VERSION_NAME = "trino_version";
     public static final String TRINO_CREATED_BY = "trino_created_by";
-    public static final String PRESTO_QUERY_ID_NAME = "presto_query_id";
+    public static final String TRINO_QUERY_ID_NAME = "trino_query_id";
     public static final String BUCKETING_VERSION = "bucketing_version";
     public static final String TABLE_COMMENT = "comment";
     public static final String STORAGE_TABLE = "storage_table";
@@ -985,7 +985,7 @@ public class HiveMetadata
                 .setLocation(location)
                 .setOwnerType(accessControlMetadata.isUsingSystemSecurity() ? Optional.empty() : Optional.of(owner.getType()))
                 .setOwnerName(accessControlMetadata.isUsingSystemSecurity() ? Optional.empty() : Optional.of(owner.getName()))
-                .setParameters(ImmutableMap.of(PRESTO_QUERY_ID_NAME, session.getQueryId()))
+                .setParameters(ImmutableMap.of(TRINO_QUERY_ID_NAME, session.getQueryId()))
                 .build();
 
         metastore.createDatabase(session, database);
@@ -1438,7 +1438,7 @@ public class HiveMetadata
 
         ImmutableMap.Builder<String, String> tableParameters = ImmutableMap.<String, String>builder()
                 .put(TRINO_VERSION_NAME, trinoVersion)
-                .put(PRESTO_QUERY_ID_NAME, queryId)
+                .put(TRINO_QUERY_ID_NAME, queryId)
                 .putAll(additionalTableParameters);
 
         if (external) {
@@ -2376,7 +2376,7 @@ public class HiveMetadata
                 .setValues(extractPartitionValues(partitionUpdate.getName()))
                 .setParameters(ImmutableMap.<String, String>builder()
                         .put(TRINO_VERSION_NAME, trinoVersion)
-                        .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
+                        .put(TRINO_QUERY_ID_NAME, session.getQueryId())
                         .buildOrThrow())
                 .withStorage(storage -> storage
                         .setStorageFormat(isRespectTableFormat(session) ?
@@ -2692,7 +2692,7 @@ public class HiveMetadata
                 .put(PRESTO_VIEW_FLAG, "true")
                 .put(TRINO_CREATED_BY, "Trino Hive connector")
                 .put(TRINO_VERSION_NAME, trinoVersion)
-                .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
+                .put(TRINO_QUERY_ID_NAME, session.getQueryId())
                 .buildOrThrow();
 
         Column dummyColumn = new Column("dummy", HIVE_STRING, Optional.empty(), ImmutableMap.of());

@@ -341,7 +341,7 @@ public class TrinoHiveCatalog
                 .withStorage(storage -> storage.setStorageFormat(ICEBERG_METASTORE_STORAGE_FORMAT))
                 // This is a must-have property for the EXTERNAL_TABLE table type
                 .setParameter("EXTERNAL", "TRUE")
-                .setParameter(PRESTO_QUERY_ID_NAME, session.getQueryId())
+                .setParameter(TRINO_QUERY_ID_NAME, session.getQueryId())
                 .setParameter(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toUpperCase(ENGLISH))
                 .setParameter(METADATA_LOCATION_PROP, tableMetadata.metadataFileLocation());
 
@@ -368,7 +368,7 @@ public class TrinoHiveCatalog
 
     private static Optional<String> getQueryId(io.trino.plugin.hive.metastore.Table table)
     {
-        return Optional.ofNullable(table.getParameters().get(PRESTO_QUERY_ID_NAME));
+        return Optional.ofNullable(table.getParameters().get(TRINO_QUERY_ID_NAME));
     }
 
     @Override

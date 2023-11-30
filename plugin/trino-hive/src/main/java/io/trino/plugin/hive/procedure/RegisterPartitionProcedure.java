@@ -44,7 +44,7 @@ import java.util.Optional;
 
 import static io.trino.plugin.base.util.Procedures.checkProcedureArgument;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
-import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
+import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.procedure.Procedures.checkIsPartitionedTable;
 import static io.trino.plugin.hive.procedure.Procedures.checkPartitionColumns;
 import static io.trino.plugin.hive.util.HiveUtil.makePartName;
@@ -171,7 +171,7 @@ public class RegisterPartitionProcedure
                 .setTableName(table.getTableName())
                 .setColumns(table.getDataColumns())
                 .setValues(partitionValues)
-                .setParameters(ImmutableMap.of(PRESTO_QUERY_ID_NAME, session.getQueryId()))
+                .setParameters(ImmutableMap.of(TRINO_QUERY_ID_NAME, session.getQueryId()))
                 .withStorage(storage -> storage
                         .setStorageFormat(table.getStorage().getStorageFormat())
                         .setLocation(location.toString())
