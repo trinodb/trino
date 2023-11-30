@@ -43,7 +43,7 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.plugin.deltalake.DeltaLakeConnectorFactory.CONNECTOR_NAME;
-import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
+import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -82,7 +82,7 @@ public class TestDeltaLakeCreateTableInternalRetry
                 if (table.getTableName().startsWith("test_different_session")) {
                     // By modifying query id test simulates that table was created from different session.
                     table = Table.builder(table)
-                            .setParameters(ImmutableMap.of(PRESTO_QUERY_ID_NAME, "new_query_id"))
+                            .setParameters(ImmutableMap.of(TRINO_QUERY_ID_NAME, "new_query_id"))
                             .build();
                 }
                 // Simulate retry mechanism with timeout failure of ThriftHiveMetastore.

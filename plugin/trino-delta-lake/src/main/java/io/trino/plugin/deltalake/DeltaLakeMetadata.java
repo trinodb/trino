@@ -255,7 +255,7 @@ import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.getM
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.getTransactionLogDir;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.METADATA;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
-import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
+import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 import static io.trino.plugin.hive.TableType.VIRTUAL_VIEW;
@@ -828,7 +828,7 @@ public class DeltaLakeMetadata
                 .setLocation(location)
                 .setOwnerType(Optional.of(owner.getType()))
                 .setOwnerName(Optional.of(owner.getName()))
-                .setParameters(ImmutableMap.of(PRESTO_QUERY_ID_NAME, queryId))
+                .setParameters(ImmutableMap.of(TRINO_QUERY_ID_NAME, queryId))
                 .build();
 
         // Ensure the database has queryId set. This is relied on for exception handling
@@ -1028,7 +1028,7 @@ public class DeltaLakeMetadata
     private static Map<String, String> deltaTableProperties(ConnectorSession session, String location, boolean external)
     {
         ImmutableMap.Builder<String, String> properties = ImmutableMap.<String, String>builder()
-                .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
+                .put(TRINO_QUERY_ID_NAME, session.getQueryId())
                 .put(LOCATION_PROPERTY, location)
                 .put(TABLE_PROVIDER_PROPERTY, TABLE_PROVIDER_VALUE)
                 // Set bogus table stats to prevent Hive 3.x from gathering these stats at table creation.
@@ -3791,11 +3791,11 @@ public class DeltaLakeMetadata
 
     private static Optional<String> getQueryId(Database database)
     {
-        return Optional.ofNullable(database.getParameters().get(PRESTO_QUERY_ID_NAME));
+        return Optional.ofNullable(database.getParameters().get(TRINO_QUERY_ID_NAME));
     }
 
     public static Optional<String> getQueryId(Table table)
     {
-        return Optional.ofNullable(table.getParameters().get(PRESTO_QUERY_ID_NAME));
+        return Optional.ofNullable(table.getParameters().get(TRINO_QUERY_ID_NAME));
     }
 }

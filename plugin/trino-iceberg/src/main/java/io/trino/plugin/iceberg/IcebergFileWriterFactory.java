@@ -52,7 +52,7 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
+import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_VERSION_NAME;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITER_OPEN_ERROR;
@@ -252,7 +252,7 @@ public class IcebergFileWriterFactory
                     IntStream.range(0, fileColumnNames.size()).toArray(),
                     ImmutableMap.<String, String>builder()
                             .put(TRINO_VERSION_NAME, nodeVersion.toString())
-                            .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
+                            .put(TRINO_QUERY_ID_NAME, session.getQueryId())
                             .buildOrThrow(),
                     validationInputFactory,
                     getOrcWriterValidateMode(session),

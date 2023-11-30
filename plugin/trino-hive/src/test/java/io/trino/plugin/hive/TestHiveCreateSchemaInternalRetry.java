@@ -27,7 +27,7 @@ import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 
-import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
+import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -67,7 +67,7 @@ public class TestHiveCreateSchemaInternalRetry
                 if (database.getDatabaseName().equals(TEST_SCHEMA_DIFFERENT_SESSION)) {
                     // By modifying query id test simulates that schema was created from different session.
                     database = Database.builder(database)
-                            .setParameters(ImmutableMap.of(PRESTO_QUERY_ID_NAME, "new_query_id"))
+                            .setParameters(ImmutableMap.of(TRINO_QUERY_ID_NAME, "new_query_id"))
                             .build();
                 }
                 // Simulate retry mechanism with timeout failure.

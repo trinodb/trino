@@ -118,7 +118,7 @@ public abstract class AbstractTrinoCatalog
 {
     public static final String TRINO_CREATED_BY_VALUE = "Trino Iceberg connector";
     protected static final String TRINO_CREATED_BY = HiveMetadata.TRINO_CREATED_BY;
-    protected static final String PRESTO_QUERY_ID_NAME = HiveMetadata.PRESTO_QUERY_ID_NAME;
+    protected static final String TRINO_QUERY_ID_NAME = HiveMetadata.TRINO_QUERY_ID_NAME;
 
     private final CatalogName catalogName;
     private final TypeManager typeManager;
@@ -454,7 +454,7 @@ public abstract class AbstractTrinoCatalog
     protected Map<String, String> createMaterializedViewProperties(ConnectorSession session, SchemaTableName storageTableName)
     {
         return ImmutableMap.<String, String>builder()
-                .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
+                .put(TRINO_QUERY_ID_NAME, session.getQueryId())
                 .put(STORAGE_SCHEMA, storageTableName.getSchemaName())
                 .put(STORAGE_TABLE, storageTableName.getTableName())
                 .put(PRESTO_VIEW_FLAG, "true")
@@ -466,7 +466,7 @@ public abstract class AbstractTrinoCatalog
     protected Map<String, String> createMaterializedViewProperties(ConnectorSession session, Location storageMetadataLocation)
     {
         return ImmutableMap.<String, String>builder()
-                .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
+                .put(TRINO_QUERY_ID_NAME, session.getQueryId())
                 .put(METADATA_LOCATION_PROP, storageMetadataLocation.toString())
                 .put(PRESTO_VIEW_FLAG, "true")
                 .put(TRINO_CREATED_BY, TRINO_CREATED_BY_VALUE)
