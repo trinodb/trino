@@ -94,8 +94,8 @@ import static io.trino.hive.formats.FormatTestUtils.toHiveWriteValue;
 import static io.trino.hive.formats.FormatTestUtils.writeTrinoValue;
 import static io.trino.hive.formats.ReadWriteUtils.findFirstSyncPosition;
 import static io.trino.hive.formats.compression.CompressionKind.LZOP;
-import static io.trino.hive.formats.rcfile.RcFileWriter.PRESTO_RCFILE_WRITER_VERSION;
-import static io.trino.hive.formats.rcfile.RcFileWriter.PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY;
+import static io.trino.hive.formats.rcfile.RcFileWriter.TRINO_RCFILE_WRITER_VERSION;
+import static io.trino.hive.formats.rcfile.RcFileWriter.TRINO_RCFILE_WRITER_VERSION_METADATA_KEY;
 import static io.trino.spi.type.StandardTypes.MAP;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -340,7 +340,7 @@ public class RcFileTester
 
                     Map<String, String> expectedMetadata = ImmutableMap.<String, String>builder()
                             .putAll(metadata)
-                            .put(PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY, PRESTO_RCFILE_WRITER_VERSION)
+                            .put(TRINO_RCFILE_WRITER_VERSION_METADATA_KEY, TRINO_RCFILE_WRITER_VERSION)
                             .buildOrThrow();
 
                     assertFileContentsNew(type, tempFile, format, finalValues, false, expectedMetadata);
