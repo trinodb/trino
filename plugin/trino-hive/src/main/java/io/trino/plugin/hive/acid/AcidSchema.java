@@ -92,7 +92,7 @@ public final class AcidSchema
         return ImmutableList.of(HIVE_INT, HIVE_LONG, HIVE_INT, HIVE_LONG, HIVE_LONG, rowType);
     }
 
-    public static List<Type> createAcidColumnPrestoTypes(Type rowType)
+    public static List<Type> createAcidColumnTrinoTypes(Type rowType)
     {
         return ImmutableList.of(INTEGER, BIGINT, INTEGER, BIGINT, BIGINT, rowType);
     }
