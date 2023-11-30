@@ -42,7 +42,7 @@ public class TestHivePropertiesTable
                 .containsOnly(
                         row("comment", "varchar", "", ""),
                         row("presto_query_id", "varchar", "", ""),
-                        row("presto_version", "varchar", "", ""),
+                        row("trino_version", "varchar", "", ""),
                         row("presto_view", "varchar", "", ""),
                         row("transient_lastddltime", "varchar", "", ""),
                         row("trino_created_by", "varchar", "", ""));
