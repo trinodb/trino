@@ -290,20 +290,8 @@
             <scope>test</scope>
             <exclusions>
                 <exclusion>
-                    <groupId>javax.annotation</groupId>
-                    <artifactId>javax.annotation-api</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>javax.inject</groupId>
-                    <artifactId>javax.inject</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>log4j</groupId>
-                    <artifactId>log4j</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-log4j12</artifactId>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -315,27 +303,7 @@
             <scope>test</scope>
             <exclusions>
                 <exclusion>
-                    <groupId>javax.annotation</groupId>
-                    <artifactId>javax.annotation-api</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>javax.inject</groupId>
-                    <artifactId>javax.inject</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>javax.servlet</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.codehaus.jackson</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.mortbay.jetty</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>tomcat</groupId>
+                    <groupId>*</groupId>
                     <artifactId>*</artifactId>
                 </exclusion>
             </exclusions>
