@@ -68,12 +68,12 @@ public class RcFileWriter
     private static final DataSize MIN_BUFFER_SIZE = DataSize.of(4, KILOBYTE);
     private static final DataSize MAX_BUFFER_SIZE = DataSize.of(1, MEGABYTE);
 
-    static final String PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY = "presto.writer.version";
-    static final String PRESTO_RCFILE_WRITER_VERSION;
+    static final String TRINO_RCFILE_WRITER_VERSION_METADATA_KEY = "trino.writer.version";
+    static final String TRINO_RCFILE_WRITER_VERSION;
 
     static {
         String version = RcFileWriter.class.getPackage().getImplementationVersion();
-        PRESTO_RCFILE_WRITER_VERSION = version == null ? "UNKNOWN" : version;
+        TRINO_RCFILE_WRITER_VERSION = version == null ? "UNKNOWN" : version;
     }
 
     private final DataOutputStream output;
@@ -135,7 +135,7 @@ public class RcFileWriter
         requireNonNull(compressionKind, "compressionKind is null");
         checkArgument(!compressionKind.equals(Optional.of(LZOP)), "LZOP cannot be use with RCFile.  LZO compression can be used, but LZ4 is preferred.");
         requireNonNull(metadata, "metadata is null");
-        checkArgument(!metadata.containsKey(PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY), "Cannot set property %s", PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY);
+        checkArgument(!metadata.containsKey(TRINO_RCFILE_WRITER_VERSION_METADATA_KEY), "Cannot set property %s", TRINO_RCFILE_WRITER_VERSION_METADATA_KEY);
         checkArgument(!metadata.containsKey(COLUMN_COUNT_METADATA_KEY), "Cannot set property %s", COLUMN_COUNT_METADATA_KEY);
         requireNonNull(targetMinRowGroupSize, "targetMinRowGroupSize is null");
         requireNonNull(targetMaxRowGroupSize, "targetMaxRowGroupSize is null");
@@ -162,7 +162,7 @@ public class RcFileWriter
         // write metadata
         output.writeInt(Integer.reverseBytes(metadata.size() + 2));
         writeMetadataProperty(COLUMN_COUNT_METADATA_KEY, Integer.toString(types.size()));
-        writeMetadataProperty(PRESTO_RCFILE_WRITER_VERSION_METADATA_KEY, PRESTO_RCFILE_WRITER_VERSION);
+        writeMetadataProperty(TRINO_RCFILE_WRITER_VERSION_METADATA_KEY, TRINO_RCFILE_WRITER_VERSION);
         for (Entry<String, String> entry : metadata.entrySet()) {
             writeMetadataProperty(entry.getKey(), entry.getValue());
         }
