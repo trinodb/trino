@@ -25,7 +25,6 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HiveSchemaProperties;
-import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
@@ -346,29 +345,7 @@ public class TrinoHiveCatalog
                 .setParameter(METADATA_LOCATION_PROP, tableMetadata.metadataFileLocation());
 
         PrincipalPrivileges privileges = owner.map(MetastoreUtil::buildInitialPrivilegeSet).orElse(NO_PRIVILEGES);
-        try {
-            metastore.createTable(builder.build(), privileges);
-        }
-        catch (TableAlreadyExistsException e) {
-            // Ignore TableAlreadyExistsException when table looks like created by us.
-            // This may happen when an actually successful metastore create call is retried
-            // e.g. because of a timeout on our side.
-            Optional<io.trino.plugin.hive.metastore.Table> existingTable = metastore.getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName());
-            if (existingTable.isEmpty() || !isCreatedBy(existingTable.get(), session.getQueryId())) {
-                throw e;
-            }
-        }
-    }
-
-    public static boolean isCreatedBy(io.trino.plugin.hive.metastore.Table table, String queryId)
-    {
-        Optional<String> tableQueryId = getQueryId(table);
-        return tableQueryId.isPresent() && tableQueryId.get().equals(queryId);
-    }
-
-    private static Optional<String> getQueryId(io.trino.plugin.hive.metastore.Table table)
-    {
-        return Optional.ofNullable(table.getParameters().get(TRINO_QUERY_ID_NAME));
+        metastore.createTable(builder.build(), privileges);
     }
 
     @Override

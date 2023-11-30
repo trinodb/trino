@@ -96,6 +96,7 @@ import static com.google.common.hash.Hashing.sha256;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_CONCURRENT_MODIFICATION_DETECTED;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
+import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HivePartitionManager.extractPartitionValues;
 import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
@@ -194,7 +195,18 @@ public class FileHiveMetastore
                 database.getParameters());
 
         verifyDatabaseNameLength(database.getDatabaseName());
-        verifyDatabaseNotExists(database.getDatabaseName());
+
+        Optional<Database> existingDatabase = getDatabase(database.getDatabaseName());
+        if (existingDatabase.isPresent()) {
+            // Do not throw SchemaAlreadyExistsException if this query has already created the database.
+            // This may happen when an actually successful metastore create call is retried,
+            // because of a timeout on our side.
+            String expectedQueryId = database.getParameters().get(TRINO_QUERY_ID_NAME);
+            if (expectedQueryId != null && expectedQueryId.equals(existingDatabase.get().getParameters().get(TRINO_QUERY_ID_NAME))) {
+                return;
+            }
+            throw new SchemaAlreadyExistsException(database.getDatabaseName());
+        }
 
         Location databaseMetadataDirectory = getDatabaseMetadataDirectory(database.getDatabaseName());
         writeSchemaFile(DATABASE, databaseMetadataDirectory, databaseCodec, new DatabaseMetadata(currentVersion, database), false);
@@ -340,7 +352,18 @@ public class FileHiveMetastore
     {
         verifyTableNameLength(table.getTableName());
         verifyDatabaseExists(table.getDatabaseName());
-        verifyTableNotExists(table.getDatabaseName(), table.getTableName());
+
+        Optional<Table> existingTable = getTable(table.getDatabaseName(), table.getTableName());
+        if (existingTable.isPresent()) {
+            // Do not throw TableAlreadyExistsException if this query has already created the table.
+            // This may happen when an actually successful metastore create call is retried,
+            // because of a timeout on our side.
+            String expectedQueryId = table.getParameters().get(TRINO_QUERY_ID_NAME);
+            if (expectedQueryId != null && expectedQueryId.equals(existingTable.get().getParameters().get(TRINO_QUERY_ID_NAME))) {
+                return;
+            }
+            throw new TableAlreadyExistsException(new SchemaTableName(table.getDatabaseName(), table.getTableName()));
+        }
 
         Location tableMetadataDirectory = getTableMetadataDirectory(table);
 
