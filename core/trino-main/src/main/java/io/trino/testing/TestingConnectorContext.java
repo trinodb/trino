@@ -104,10 +104,4 @@ public final class TestingConnectorContext
     {
         return pageIndexerFactory;
     }
-
-    @Override
-    public ClassLoader duplicatePluginClassLoader()
-    {
-        return getClass().getClassLoader();
-    }
 }

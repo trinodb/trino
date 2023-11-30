@@ -14,13 +14,10 @@
 package io.trino.server;
 
 import io.trino.spi.Plugin;
-import io.trino.spi.connector.CatalogHandle;
-
-import java.util.function.Function;
 
 public interface PluginInstaller
 {
     void loadPlugins();
 
-    void installPlugin(Plugin plugin, Function<CatalogHandle, ClassLoader> duplicatePluginClassLoaderFactory);
+    void installPlugin(Plugin plugin);
 }
