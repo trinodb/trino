@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
+import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.DynamicHdfsConfiguration;
 import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsConfigurationInitializer;
@@ -39,6 +40,7 @@ import io.trino.tpch.TpchTable;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.hive.HiveTestUtils.SOCKS_PROXY;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -66,7 +68,7 @@ public final class S3HudiQueryRunner
         HiveMetastore metastore = new BridgingHiveMetastore(
                 testingThriftHiveMetastoreBuilder()
                         .metastoreClient(hiveMinioDataLake.getHiveHadoop().getHiveMetastoreEndpoint())
-                        .hdfsEnvironment(hdfsEnvironment)
+                        .fileSystemFactory(new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS))
                         .build());
         Database database = Database.builder()
                 .setDatabaseName(TPCH_SCHEMA)

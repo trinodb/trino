@@ -796,7 +796,7 @@ public abstract class AbstractTestHive
                         .hiveConfig(hiveConfig)
                         .thriftMetastoreConfig(new ThriftMetastoreConfig()
                                 .setAssumeCanonicalPartitionKeys(true))
-                        .hdfsEnvironment(hdfsEnvironment)
+                        .fileSystemFactory(new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS))
                         .build()),
                 new Duration(1, MINUTES),
                 new Duration(1, MINUTES),
