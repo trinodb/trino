@@ -71,7 +71,6 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.DoubleSupplier;
-import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static io.airlift.tracing.Tracing.noopTracer;
@@ -112,7 +111,7 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
     private static final CatalogFactory MOCK_CATALOG_FACTORY = new CatalogFactory()
     {
         @Override
-        public void addConnectorFactory(ConnectorFactory connectorFactory, Function<CatalogHandle, ClassLoader> duplicatePluginClassLoaderFactory) {}
+        public void addConnectorFactory(ConnectorFactory connectorFactory) {}
 
         @Override
         public CatalogConnector createCatalog(CatalogProperties catalogProperties)
@@ -121,8 +120,7 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
             ConnectorServices noOpConnectorService = new ConnectorServices(
                     Tracing.noopTracer(),
                     catalogProperties.getCatalogHandle(),
-                    connector,
-                    () -> {});
+                    connector);
             return new CatalogConnector(
                     catalogProperties.getCatalogHandle(),
                     new ConnectorName("mock"),
