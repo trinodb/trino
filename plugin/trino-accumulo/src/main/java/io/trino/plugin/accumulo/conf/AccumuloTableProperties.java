@@ -138,7 +138,7 @@ public final class AccumuloTableProperties
         }
 
         // Parse out the column mapping
-        // This is a comma-delimited list of "(presto, column:accumulo, fam:accumulo qualifier)" triplets
+        // This is a comma-delimited list of "(trinoName, column:accumulo, fam:accumulo qualifier)" triplets
         ImmutableMap.Builder<String, Entry<String, String>> mapping = ImmutableMap.builder();
         for (String m : COMMA_SPLITTER.split(strMapping)) {
             String[] tokens = Iterables.toArray(COLON_SPLITTER.split(m), String.class);

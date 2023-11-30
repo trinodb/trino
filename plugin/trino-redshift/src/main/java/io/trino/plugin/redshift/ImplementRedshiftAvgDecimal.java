@@ -62,7 +62,7 @@ public class ImplementRedshiftAvgDecimal
 
         ParameterizedExpression rewrittenArgument = context.rewriteExpression(input).orElseThrow();
 
-        // When decimal type has maximum precision we can get result that is not matching Presto avg semantics.
+        // When decimal type has maximum precision we can get result that is not matching Trino avg semantics.
         if (type.getPrecision() == REDSHIFT_MAX_DECIMAL_PRECISION) {
             return Optional.of(new JdbcExpression(
                     format("avg(CAST(%s AS decimal(%s, %s)))", rewrittenArgument.expression(), type.getPrecision(), type.getScale()),
@@ -71,7 +71,7 @@ public class ImplementRedshiftAvgDecimal
         }
 
         // Redshift avg function rounds down resulting decimal.
-        // To match Presto avg semantics, we extend scale by 1 and round result to target scale.
+        // To match Trino avg semantics, we extend scale by 1 and round result to target scale.
         return Optional.of(new JdbcExpression(
                 format("round(avg(CAST(%s AS decimal(%s, %s))), %s)", rewrittenArgument.expression(), type.getPrecision() + 1, type.getScale() + 1, type.getScale()),
                 rewrittenArgument.parameters(),
