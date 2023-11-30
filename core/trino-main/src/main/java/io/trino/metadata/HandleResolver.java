@@ -46,11 +46,9 @@ public final class HandleResolver
         checkState(result, "Class loader not registered: %s", classLoader.getId());
     }
 
-    @SuppressWarnings("MethodMayBeStatic")
-    public String getId(Object tableHandle)
+    public String getId(Object handle)
     {
-        Class<?> handleClass = tableHandle.getClass();
-        return classId(handleClass);
+        return classId(handle.getClass());
     }
 
     public Class<?> getHandleClass(String id)
@@ -80,8 +78,8 @@ public final class HandleResolver
     private static String classLoaderId(Class<?> handleClass)
     {
         ClassLoader classLoader = handleClass.getClassLoader();
-        if (classLoader instanceof PluginClassLoader) {
-            return ((PluginClassLoader) classLoader).getId();
+        if (classLoader instanceof PluginClassLoader pluginClassLoader) {
+            return pluginClassLoader.getId();
         }
         checkArgument(classLoader == HandleResolver.class.getClassLoader(),
                 "Handle [%s] has unknown class loader [%s]",
