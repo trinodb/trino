@@ -24,6 +24,7 @@ import io.trino.spi.eventlistener.EventListenerFactory;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.eventlistener.QueryCreatedEvent;
 import io.trino.spi.eventlistener.SplitCompletedEvent;
+import jakarta.annotation.PreDestroy;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -217,5 +218,18 @@ public class EventListenerManager
     public TimeStat getSplitCompletedTime()
     {
         return splitCompletedTime;
+    }
+
+    @PreDestroy
+    public void shutdown()
+    {
+        for (EventListener listener : configuredEventListeners.getAndSet(List.of())) {
+            try {
+                listener.shutdown();
+            }
+            catch (Throwable e) {
+                log.warn(e, "Failed to shutdown event listener: " + listener.getClass().getCanonicalName());
+            }
+        }
     }
 }
