@@ -23,6 +23,7 @@ import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
+import io.trino.plugin.base.mapping.DefaultIdentifierMapping;
 import io.trino.plugin.kudu.schema.NoSchemaEmulation;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.connector.DynamicFilter;
@@ -236,6 +237,7 @@ public class TestKuduScannerKeepAlive
                 .setScannerKeepAliveInterval(scannerKeepAliveInterval);
 
         return new KuduRecordSet(
+                session.toConnectorSession(),
                 kuduClientSession,
                 (KuduSplit) splits.get(0).getConnectorSplit(),
                 ImmutableList.of(
@@ -314,6 +316,7 @@ public class TestKuduScannerKeepAlive
                 true,
                 DataSize.ofBytes(128),
                 scannerKeepAliveInterval,
-                Duration.valueOf("30s"));
+                Duration.valueOf("30s"),
+                new DefaultIdentifierMapping());
     }
 }

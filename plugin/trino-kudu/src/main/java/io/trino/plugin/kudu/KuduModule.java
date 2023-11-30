@@ -20,6 +20,7 @@ import com.google.inject.multibindings.ProvidesIntoSet;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.classloader.ClassLoaderSafeNodePartitioningProvider;
 import io.trino.plugin.base.classloader.ForClassLoaderSafe;
+import io.trino.plugin.base.mapping.IdentifierMappingModule;
 import io.trino.plugin.kudu.procedures.RangePartitionProcedures;
 import io.trino.plugin.kudu.properties.KuduTableProperties;
 import io.trino.spi.connector.ConnectorNodePartitioningProvider;
@@ -66,6 +67,7 @@ public class KuduModule
         binder.bind(KuduScannerAliveKeeper.class).in(Scopes.SINGLETON);
 
         install(new KuduSecurityModule());
+        install(new IdentifierMappingModule());
     }
 
     @ProvidesIntoSet

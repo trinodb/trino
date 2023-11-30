@@ -16,6 +16,7 @@ package io.trino.plugin.kudu;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
@@ -39,21 +40,24 @@ public class KuduTableHandle
     private final boolean requiresRowId;
     private final OptionalInt bucketCount;
     private final OptionalLong limit;
+    private final RemoteTableName remoteTableName;
 
     @JsonCreator
     public KuduTableHandle(
             @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
+            @JsonProperty("remoteTableName") RemoteTableName remoteTableName,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
             @JsonProperty("desiredColumns") Optional<List<ColumnHandle>> desiredColumns,
             @JsonProperty("requiresRowId") boolean requiresRowId,
             @JsonProperty("bucketCount") OptionalInt bucketCount,
             @JsonProperty("limit") OptionalLong limit)
     {
-        this(schemaTableName, null, constraint, desiredColumns, requiresRowId, bucketCount, limit);
+        this(schemaTableName, remoteTableName, null, constraint, desiredColumns, requiresRowId, bucketCount, limit);
     }
 
     public KuduTableHandle(
             SchemaTableName schemaTableName,
+            RemoteTableName remoteTableName,
             KuduTable table,
             TupleDomain<ColumnHandle> constraint,
             Optional<List<ColumnHandle>> desiredColumns,
@@ -62,6 +66,7 @@ public class KuduTableHandle
             @JsonProperty("limit") OptionalLong limit)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+        this.remoteTableName = requireNonNull(remoteTableName, "remoteTableName is null");
         this.table = table;
         this.constraint = requireNonNull(constraint, "constraint is null");
         this.desiredColumns = requireNonNull(desiredColumns, "desiredColumns is null");
@@ -74,6 +79,7 @@ public class KuduTableHandle
     {
         return new KuduTableHandle(
             schemaTableName,
+            remoteTableName,
             table,
             constraint,
             desiredColumns,
@@ -82,10 +88,10 @@ public class KuduTableHandle
             limit);
     }
 
-    public KuduTable getTable(KuduClientSession session)
+    public KuduTable getTable(ConnectorSession connectorSession, KuduClientSession session)
     {
         if (table == null) {
-            table = session.openTable(schemaTableName);
+            table = session.openTable(connectorSession, schemaTableName);
         }
         return table;
     }
@@ -94,6 +100,12 @@ public class KuduTableHandle
     public SchemaTableName getSchemaTableName()
     {
         return schemaTableName;
+    }
+
+    @JsonProperty
+    public RemoteTableName getRemoteTableName()
+    {
+        return remoteTableName;
     }
 
     @JsonProperty

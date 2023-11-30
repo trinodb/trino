@@ -20,6 +20,7 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.authentication.CachingKerberosAuthentication;
 import io.trino.plugin.base.authentication.KerberosAuthentication;
 import io.trino.plugin.base.authentication.KerberosConfiguration;
+import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.kudu.schema.NoSchemaEmulation;
 import io.trino.plugin.kudu.schema.SchemaEmulation;
 import io.trino.plugin.kudu.schema.SchemaEmulationByTableNameConvention;
@@ -63,10 +64,10 @@ public class KuduSecurityModule
 
         @Provides
         @Singleton
-        public static KuduClientSession createKuduClientSession(KuduClientConfig config)
+        public static KuduClientSession createKuduClientSession(KuduClientConfig config, IdentifierMapping identifierMapping)
         {
             return KuduSecurityModule.createKuduClientSession(config,
-                    builder -> new PassthroughKuduClient(builder.build()));
+                    builder -> new PassthroughKuduClient(builder.build()), identifierMapping);
         }
     }
 
@@ -81,7 +82,7 @@ public class KuduSecurityModule
 
         @Provides
         @Singleton
-        public static KuduClientSession createKuduClientSession(KuduClientConfig config, KuduKerberosConfig kuduKerberosConfig)
+        public static KuduClientSession createKuduClientSession(KuduClientConfig config, KuduKerberosConfig kuduKerberosConfig, IdentifierMapping identifierMapping)
         {
             return KuduSecurityModule.createKuduClientSession(config,
                     builder -> {
@@ -94,11 +95,12 @@ public class KuduSecurityModule
                                         .build());
                         CachingKerberosAuthentication cachingKerberosAuthentication = new CachingKerberosAuthentication(kerberosAuthentication);
                         return new KerberizedKuduClient(builder, cachingKerberosAuthentication);
-                    });
+                    },
+                    identifierMapping);
         }
     }
 
-    private static KuduClientSession createKuduClientSession(KuduClientConfig config, Function<KuduClientBuilder, KuduClientWrapper> kuduClientFactory)
+    private static KuduClientSession createKuduClientSession(KuduClientConfig config, Function<KuduClientBuilder, KuduClientWrapper> kuduClientFactory, IdentifierMapping identifierMapping)
     {
         KuduClient.KuduClientBuilder builder = new KuduClientBuilder(config.getMasterAddresses());
         builder.defaultAdminOperationTimeoutMs(config.getDefaultAdminOperationTimeout().toMillis());
@@ -121,6 +123,7 @@ public class KuduSecurityModule
                 config.isAllowLocalScheduling(),
                 config.getScannerBatchSize(),
                 config.getScannerKeepAliveInterval(),
-                config.getScannerScanRequestTimeout());
+                config.getScannerScanRequestTimeout(),
+                identifierMapping);
     }
 }

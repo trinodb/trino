@@ -80,7 +80,7 @@ public class KuduPageSink
             KuduClientSession clientSession,
             KuduInsertTableHandle tableHandle)
     {
-        this(connectorSession, clientSession, tableHandle.getTable(clientSession), tableHandle);
+        this(connectorSession, clientSession, tableHandle.getTable(connectorSession, clientSession), tableHandle);
     }
 
     public KuduPageSink(
@@ -88,7 +88,7 @@ public class KuduPageSink
             KuduClientSession clientSession,
             KuduOutputTableHandle tableHandle)
     {
-        this(connectorSession, clientSession, tableHandle.getTable(clientSession), tableHandle);
+        this(connectorSession, clientSession, tableHandle.getTable(connectorSession, clientSession), tableHandle);
     }
 
     public KuduPageSink(
@@ -96,7 +96,7 @@ public class KuduPageSink
             KuduClientSession clientSession,
             KuduMergeTableHandle tableHandle)
     {
-        this(connectorSession, clientSession, tableHandle.getOutputTableHandle().getTable(clientSession), tableHandle);
+        this(connectorSession, clientSession, tableHandle.getOutputTableHandle().getTable(connectorSession, clientSession), tableHandle);
     }
 
     private KuduPageSink(

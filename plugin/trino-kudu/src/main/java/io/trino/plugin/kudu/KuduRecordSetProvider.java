@@ -47,6 +47,6 @@ public class KuduRecordSetProvider
 
         KuduSplit kuduSplit = (KuduSplit) split;
 
-        return new KuduRecordSet(clientSession, kuduSplit, columns, kuduScannerAliveKeeper);
+        return new KuduRecordSet(session, clientSession, kuduSplit, columns, kuduScannerAliveKeeper);
     }
 }

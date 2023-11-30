@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.Type;
 import org.apache.kudu.client.KuduTable;
@@ -85,10 +86,10 @@ public class KuduOutputTableHandle
         return originalColumnTypes;
     }
 
-    public KuduTable getTable(KuduClientSession session)
+    public KuduTable getTable(ConnectorSession connectorSession, KuduClientSession session)
     {
         if (table == null) {
-            table = session.openTable(schemaTableName);
+            table = session.openTable(connectorSession, schemaTableName);
         }
         return table;
     }

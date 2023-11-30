@@ -15,6 +15,7 @@ package io.trino.plugin.kudu;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordSet;
 import io.trino.spi.type.Type;
@@ -37,13 +38,15 @@ public class KuduRecordSet
     private final KuduScannerAliveKeeper kuduScannerAliveKeeper;
 
     private KuduTable kuduTable;
+    private final ConnectorSession connectorSession;
 
-    public KuduRecordSet(KuduClientSession clientSession, KuduSplit kuduSplit, List<? extends ColumnHandle> columns, KuduScannerAliveKeeper kuduScannerAliveKeeper)
+    public KuduRecordSet(ConnectorSession connectorSession, KuduClientSession clientSession, KuduSplit kuduSplit, List<? extends ColumnHandle> columns, KuduScannerAliveKeeper kuduScannerAliveKeeper)
     {
         this.clientSession = clientSession;
         this.kuduSplit = kuduSplit;
         this.columns = columns;
         this.kuduScannerAliveKeeper = kuduScannerAliveKeeper;
+        this.connectorSession = connectorSession;
     }
 
     @Override
@@ -77,7 +80,7 @@ public class KuduRecordSet
     KuduTable getTable()
     {
         if (kuduTable == null) {
-            kuduTable = clientSession.openTable(kuduSplit.getSchemaTableName());
+            kuduTable = clientSession.openTable(connectorSession, kuduSplit.getSchemaTableName());
         }
         return kuduTable;
     }

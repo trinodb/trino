@@ -53,22 +53,23 @@ public class KuduSplitManager
     {
         long timeoutMillis = getDynamicFilteringWaitTimeout(session).toMillis();
         if (timeoutMillis == 0 || !dynamicFilter.isAwaitable()) {
-            return getSplitSource(table, dynamicFilter);
+            return getSplitSource(session, table, dynamicFilter);
         }
         CompletableFuture<?> dynamicFilterFuture = whenCompleted(dynamicFilter)
                 .completeOnTimeout(null, timeoutMillis, MILLISECONDS);
         CompletableFuture<ConnectorSplitSource> splitSourceFuture = dynamicFilterFuture.thenApply(
-                ignored -> getSplitSource(table, dynamicFilter));
+                ignored -> getSplitSource(session, table, dynamicFilter));
         return new KuduDynamicFilteringSplitSource(dynamicFilterFuture, splitSourceFuture);
     }
 
     private ConnectorSplitSource getSplitSource(
+            ConnectorSession session,
             ConnectorTableHandle table,
             DynamicFilter dynamicFilter)
     {
         KuduTableHandle handle = (KuduTableHandle) table;
 
-        List<KuduSplit> splits = clientSession.buildKuduSplits(handle, dynamicFilter);
+        List<KuduSplit> splits = clientSession.buildKuduSplits(session, handle, dynamicFilter);
 
         return new FixedSplitSource(splits);
     }

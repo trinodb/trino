@@ -115,7 +115,7 @@ public class KuduMetadata
         for (SchemaTableName tableName : tables) {
             KuduTableHandle tableHandle = getTableHandle(session, tableName);
             if (tableHandle != null) {
-                ConnectorTableMetadata tableMetadata = getTableMetadata(tableHandle);
+                ConnectorTableMetadata tableMetadata = getTableMetadata(session, tableHandle);
                 columns.put(tableName, tableMetadata.getColumns());
             }
         }
@@ -158,9 +158,9 @@ public class KuduMetadata
                 .build();
     }
 
-    private ConnectorTableMetadata getTableMetadata(KuduTableHandle tableHandle)
+    private ConnectorTableMetadata getTableMetadata(ConnectorSession connectorSesssion, KuduTableHandle tableHandle)
     {
-        KuduTable table = tableHandle.getTable(clientSession);
+        KuduTable table = tableHandle.getTable(connectorSesssion, clientSession);
         Schema schema = table.getSchema();
         // Kudu returns empty string as a table comment by default
         Optional<String> tableComment = Optional.ofNullable(emptyToNull(table.getComment()));
@@ -170,7 +170,7 @@ public class KuduMetadata
                 .map(this::getColumnMetadata)
                 .collect(toImmutableList());
 
-        Map<String, Object> properties = clientSession.getTableProperties(tableHandle);
+        Map<String, Object> properties = clientSession.getTableProperties(connectorSesssion, tableHandle);
         return new ConnectorTableMetadata(tableHandle.getSchemaTableName(), columnsMetaList, properties, tableComment);
     }
 
@@ -179,7 +179,7 @@ public class KuduMetadata
     {
         KuduTableHandle tableHandle = (KuduTableHandle) connectorTableHandle;
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
-        Schema schema = clientSession.getTableSchema(tableHandle);
+        Schema schema = clientSession.getTableSchema(session, tableHandle);
         forAllColumnHandles(schema, column -> columnHandles.put(column.getName(), column));
         return columnHandles.buildOrThrow();
     }
@@ -213,7 +213,7 @@ public class KuduMetadata
     public KuduTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
     {
         try {
-            KuduTable table = clientSession.openTable(schemaTableName);
+            KuduTable table = clientSession.openTable(session, schemaTableName);
             OptionalInt bucketCount = OptionalInt.empty();
             List<HashBucketSchema> bucketSchemas = table.getPartitionSchema().getHashBucketSchemas();
             if (!bucketSchemas.isEmpty()) {
@@ -221,7 +221,7 @@ public class KuduMetadata
                         .mapToInt(HashBucketSchema::getNumBuckets)
                         .reduce(1, Math::multiplyExact));
             }
-            return new KuduTableHandle(schemaTableName, table, TupleDomain.all(), Optional.empty(), false, bucketCount, OptionalLong.empty());
+            return new KuduTableHandle(schemaTableName, new RemoteTableName(schemaTableName.getSchemaName(), schemaTableName.getTableName()), table, TupleDomain.all(), Optional.empty(), false, bucketCount, OptionalLong.empty());
         }
         catch (NotFoundException e) {
             return null;
@@ -232,7 +232,7 @@ public class KuduMetadata
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         KuduTableHandle kuduTableHandle = (KuduTableHandle) tableHandle;
-        return getTableMetadata(kuduTableHandle);
+        return getTableMetadata(session, kuduTableHandle);
     }
 
     @Override
@@ -253,28 +253,28 @@ public class KuduMetadata
         if (tableMetadata.getColumns().stream().anyMatch(column -> column.getComment() != null)) {
             throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
         }
-        clientSession.createTable(tableMetadata, ignoreExisting);
+        clientSession.createTable(session, tableMetadata, ignoreExisting);
     }
 
     @Override
     public void dropTable(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         KuduTableHandle kuduTableHandle = (KuduTableHandle) tableHandle;
-        clientSession.dropTable(kuduTableHandle.getSchemaTableName());
+        clientSession.dropTable(session, kuduTableHandle.getSchemaTableName());
     }
 
     @Override
     public void renameTable(ConnectorSession session, ConnectorTableHandle tableHandle, SchemaTableName newTableName)
     {
         KuduTableHandle kuduTableHandle = (KuduTableHandle) tableHandle;
-        clientSession.renameTable(kuduTableHandle.getSchemaTableName(), newTableName);
+        clientSession.renameTable(session, kuduTableHandle.getSchemaTableName(), newTableName);
     }
 
     @Override
     public void addColumn(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnMetadata column)
     {
         KuduTableHandle kuduTableHandle = (KuduTableHandle) tableHandle;
-        clientSession.addColumn(kuduTableHandle.getSchemaTableName(), column);
+        clientSession.addColumn(session, kuduTableHandle.getSchemaTableName(), column);
     }
 
     @Override
@@ -282,7 +282,7 @@ public class KuduMetadata
     {
         KuduTableHandle kuduTableHandle = (KuduTableHandle) tableHandle;
         KuduColumnHandle kuduColumnHandle = (KuduColumnHandle) column;
-        clientSession.dropColumn(kuduTableHandle.getSchemaTableName(), kuduColumnHandle.getName());
+        clientSession.dropColumn(session, kuduTableHandle.getSchemaTableName(), kuduColumnHandle.getName());
     }
 
     @Override
@@ -290,7 +290,7 @@ public class KuduMetadata
     {
         KuduTableHandle kuduTableHandle = (KuduTableHandle) tableHandle;
         KuduColumnHandle kuduColumnHandle = (KuduColumnHandle) source;
-        clientSession.renameColumn(kuduTableHandle.getSchemaTableName(), kuduColumnHandle.getName(), target);
+        clientSession.renameColumn(session, kuduTableHandle.getSchemaTableName(), kuduColumnHandle.getName(), target);
     }
 
     @Override
@@ -302,7 +302,7 @@ public class KuduMetadata
 
         KuduTableHandle tableHandle = (KuduTableHandle) connectorTableHandle;
 
-        KuduTable table = tableHandle.getTable(clientSession);
+        KuduTable table = tableHandle.getTable(session, clientSession);
         Schema schema = table.getSchema();
 
         List<ColumnSchema> columns = schema.getColumns();
@@ -360,7 +360,7 @@ public class KuduMetadata
             finalTableMetadata = new ConnectorTableMetadata(tableMetadata.getTable(),
                     finalColumns, finalProperties, tableMetadata.getComment());
         }
-        KuduTable table = clientSession.createTable(finalTableMetadata, false);
+        KuduTable table = clientSession.createTable(session, finalTableMetadata, false);
 
         Schema schema = table.getSchema();
 
@@ -404,13 +404,13 @@ public class KuduMetadata
     public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
     {
         KuduTableHandle kuduTableHandle = (KuduTableHandle) tableHandle;
-        KuduTable table = kuduTableHandle.getTable(clientSession);
+        KuduTable table = kuduTableHandle.getTable(session, clientSession);
         Schema schema = table.getSchema();
         List<ColumnSchema> columns = schema.getColumns();
         List<Type> columnTypes = columns.stream()
                 .map(TypeHelper::fromKuduColumn)
                 .collect(toImmutableList());
-        ConnectorTableMetadata tableMetadata = getTableMetadata(kuduTableHandle);
+        ConnectorTableMetadata tableMetadata = getTableMetadata(session, kuduTableHandle);
         List<Type> columnOriginalTypes = tableMetadata.getColumns().stream()
                 .map(ColumnMetadata::getType)
                 .collect(toImmutableList());
@@ -455,7 +455,8 @@ public class KuduMetadata
 
         handle = new KuduTableHandle(
                 handle.getSchemaTableName(),
-                handle.getTable(clientSession),
+                new RemoteTableName(handle.getSchemaTableName().getSchemaName(), handle.getSchemaTableName().getTableName()),
+                handle.getTable(session, clientSession),
                 newDomain,
                 handle.getDesiredColumns(),
                 handle.isRequiresRowId(),
@@ -513,7 +514,8 @@ public class KuduMetadata
 
         handle = new KuduTableHandle(
                 handle.getSchemaTableName(),
-                handle.getTable(clientSession),
+                new RemoteTableName(handle.getSchemaTableName().getSchemaName(), handle.getSchemaTableName().getTableName()),
+                handle.getTable(session, clientSession),
                 handle.getConstraint(),
                 Optional.of(desiredColumns.build()),
                 handle.isRequiresRowId(),
@@ -534,7 +536,8 @@ public class KuduMetadata
 
         handle = new KuduTableHandle(
                 handle.getSchemaTableName(),
-                handle.getTable(clientSession),
+                new RemoteTableName(handle.getSchemaTableName().getSchemaName(), handle.getSchemaTableName().getTableName()),
+                handle.getTable(session, clientSession),
                 handle.getConstraint(),
                 handle.getDesiredColumns(),
                 handle.isRequiresRowId(),

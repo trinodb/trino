@@ -23,6 +23,7 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
+import org.apache.kudu.client.KuduClient;
 
 import java.util.Map;
 import java.util.Optional;
@@ -63,6 +64,21 @@ public final class KuduQueryRunnerFactory
 
             installKuduConnector(kuduServer.getMasterAddress(), runner, kuduSchema, Optional.of(""), ImmutableMap.of());
 
+            return runner;
+        }
+        catch (Throwable e) {
+            closeAllSuppress(e, runner);
+            throw e;
+        }
+    }
+
+    public static QueryRunner createKuduQueryRunner(String kuduSchema, Map<String, String> connectorProperties)
+            throws Exception
+    {
+        QueryRunner runner = null;
+        try {
+            runner = DistributedQueryRunner.builder(createSession(kuduSchema)).build();
+            installKuduConnector(runner, connectorProperties);
             return runner;
         }
         catch (Throwable e) {
@@ -132,7 +148,26 @@ public final class KuduQueryRunnerFactory
         }
     }
 
-    private static void installKuduConnector(HostAndPort masterAddress, QueryRunner runner, String kuduSchema, Optional<String> kuduSchemaEmulationPrefix, Map<String, String> kuduExtraProperties)
+    public static KuduClient createKuduClient(TestingKuduServer kuduServer)
+    {
+        KuduClient.KuduClientBuilder builder = new KuduClient.KuduClientBuilder(kuduServer.getMasterAddress().toString());
+        return builder.build();
+    }
+
+    private static void installKuduConnector(
+            QueryRunner runner,
+            Map<String, String> connectorProperties)
+    {
+        runner.installPlugin(new KuduPlugin());
+        runner.createCatalog("kudu", "kudu", connectorProperties);
+    }
+
+    private static void installKuduConnector(
+            HostAndPort masterAddress,
+            QueryRunner runner,
+            String kuduSchema,
+            Optional<String> kuduSchemaEmulationPrefix,
+            Map<String, String> kuduExtraProperties)
     {
         ImmutableMap.Builder<String, String> properties = ImmutableMap.<String, String>builder()
                 .putAll(kuduExtraProperties);

@@ -18,6 +18,7 @@ import com.google.inject.Inject;
 import io.trino.plugin.kudu.KuduClientSession;
 import io.trino.plugin.kudu.properties.KuduTableProperties;
 import io.trino.plugin.kudu.properties.RangePartition;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.procedure.Procedure.Argument;
@@ -35,8 +36,8 @@ public class RangePartitionProcedures
 
     static {
         try {
-            ADD = lookup().unreflect(RangePartitionProcedures.class.getMethod("addRangePartition", String.class, String.class, String.class));
-            DROP = lookup().unreflect(RangePartitionProcedures.class.getMethod("dropRangePartition", String.class, String.class, String.class));
+            ADD = lookup().unreflect(RangePartitionProcedures.class.getMethod("addRangePartition", ConnectorSession.class, String.class, String.class, String.class));
+            DROP = lookup().unreflect(RangePartitionProcedures.class.getMethod("dropRangePartition", ConnectorSession.class, String.class, String.class, String.class));
         }
         catch (ReflectiveOperationException e) {
             throw new AssertionError(e);
@@ -75,17 +76,17 @@ public class RangePartitionProcedures
                 DROP.bindTo(this));
     }
 
-    public void addRangePartition(String schema, String table, String rangeBounds)
+    public void addRangePartition(ConnectorSession session, String schema, String table, String rangeBounds)
     {
         SchemaTableName schemaTableName = new SchemaTableName(schema, table);
         RangePartition rangePartition = KuduTableProperties.parseRangePartition(rangeBounds);
-        clientSession.addRangePartition(schemaTableName, rangePartition);
+        clientSession.addRangePartition(session, schemaTableName, rangePartition);
     }
 
-    public void dropRangePartition(String schema, String table, String rangeBounds)
+    public void dropRangePartition(ConnectorSession session, String schema, String table, String rangeBounds)
     {
         SchemaTableName schemaTableName = new SchemaTableName(schema, table);
         RangePartition rangePartition = KuduTableProperties.parseRangePartition(rangeBounds);
-        clientSession.dropRangePartition(schemaTableName, rangePartition);
+        clientSession.dropRangePartition(session, schemaTableName, rangePartition);
     }
 }

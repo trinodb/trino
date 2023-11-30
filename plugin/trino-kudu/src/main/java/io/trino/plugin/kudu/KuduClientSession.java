@@ -14,9 +14,12 @@
 package io.trino.plugin.kudu;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.plugin.base.mapping.IdentifierMapping;
+import io.trino.plugin.base.mapping.RemoteIdentifiers;
 import io.trino.plugin.kudu.properties.ColumnDesign;
 import io.trino.plugin.kudu.properties.HashPartitionDefinition;
 import io.trino.plugin.kudu.properties.KuduTableProperties;
@@ -28,6 +31,7 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.SchemaNotFoundException;
@@ -65,11 +69,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.spi.HostAddress.fromParts;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
@@ -93,6 +99,7 @@ public class KuduClientSession
     private final DataSize scannerBatchSize;
     private final Duration scannerKeepAliveInterval;
     private final Duration scannerScanRequestTimeout;
+    private final IdentifierMapping identifierMapping;
 
     public KuduClientSession(
             KuduClientWrapper client,
@@ -100,7 +107,8 @@ public class KuduClientSession
             boolean allowLocalScheduling,
             DataSize scannerBatchSize,
             Duration scannerKeepAliveInterval,
-            Duration scannerScanRequestTimeout)
+            Duration scannerScanRequestTimeout,
+            IdentifierMapping identifierMapping)
     {
         this.client = client;
         this.schemaEmulation = schemaEmulation;
@@ -108,6 +116,7 @@ public class KuduClientSession
         this.scannerBatchSize = scannerBatchSize;
         this.scannerKeepAliveInterval = scannerKeepAliveInterval;
         this.scannerScanRequestTimeout = scannerScanRequestTimeout;
+        this.identifierMapping = identifierMapping;
     }
 
     public List<String> listSchemaNames()
@@ -119,9 +128,13 @@ public class KuduClientSession
     {
         try {
             if (prefix.isEmpty()) {
-                return client.getTablesList().getTablesList();
+                return client.getTablesList().getTablesList().stream()
+                        .map(remoteTableName -> identifierMapping.fromRemoteTableName("", remoteTableName))
+                        .collect(toList());
             }
-            return client.getTablesList(prefix).getTablesList();
+            return client.getTablesList(prefix).getTablesList().stream()
+                    .map(remoteTableName -> identifierMapping.fromRemoteTableName(prefix, remoteTableName))
+                    .collect(toList());
         }
         catch (KuduException e) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
@@ -156,21 +169,21 @@ public class KuduClientSession
                 .collect(toImmutableList());
     }
 
-    public Schema getTableSchema(KuduTableHandle tableHandle)
+    public Schema getTableSchema(ConnectorSession session, KuduTableHandle tableHandle)
     {
-        KuduTable table = tableHandle.getTable(this);
+        KuduTable table = tableHandle.getTable(session, this);
         return table.getSchema();
     }
 
-    public Map<String, Object> getTableProperties(KuduTableHandle tableHandle)
+    public Map<String, Object> getTableProperties(ConnectorSession session, KuduTableHandle tableHandle)
     {
-        KuduTable table = tableHandle.getTable(this);
+        KuduTable table = tableHandle.getTable(session, this);
         return KuduTableProperties.toMap(table);
     }
 
-    public List<KuduSplit> buildKuduSplits(KuduTableHandle tableHandle, DynamicFilter dynamicFilter)
+    public List<KuduSplit> buildKuduSplits(ConnectorSession session, KuduTableHandle tableHandle, DynamicFilter dynamicFilter)
     {
-        KuduTable table = tableHandle.getTable(this);
+        KuduTable table = tableHandle.getTable(session, this);
         int primaryKeyColumnCount = table.getSchema().getPrimaryKeyColumnCount();
         KuduScanToken.KuduScanTokenBuilder builder = client.newScanTokenBuilder(table);
         // TODO: remove when kudu client bug is fixed: https://gerrit.cloudera.org/#/c/18166/
@@ -253,9 +266,9 @@ public class KuduClientSession
         }
     }
 
-    public KuduTable openTable(SchemaTableName schemaTableName)
+    public KuduTable openTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        String rawName = schemaEmulation.toRawName(schemaTableName);
+        String rawName = toRemoteTableName(session, schemaTableName);
         try {
             return client.openTable(rawName);
         }
@@ -283,10 +296,10 @@ public class KuduClientSession
         schemaEmulation.dropSchema(client, schemaName, cascade);
     }
 
-    public void dropTable(SchemaTableName schemaTableName)
+    public void dropTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
         try {
-            String rawName = schemaEmulation.toRawName(schemaTableName);
+            String rawName = toRemoteTableName(session, schemaTableName);
             client.deleteTable(rawName);
         }
         catch (KuduException e) {
@@ -294,11 +307,11 @@ public class KuduClientSession
         }
     }
 
-    public void renameTable(SchemaTableName schemaTableName, SchemaTableName newSchemaTableName)
+    public void renameTable(ConnectorSession session, SchemaTableName schemaTableName, SchemaTableName newSchemaTableName)
     {
         try {
-            String rawName = schemaEmulation.toRawName(schemaTableName);
-            String newRawName = schemaEmulation.toRawName(newSchemaTableName);
+            String rawName = toRemoteTableName(session, schemaTableName);
+            String newRawName = toRemoteTableName(session, newSchemaTableName);
             AlterTableOptions alterOptions = new AlterTableOptions();
             alterOptions.renameTable(newRawName);
             client.alterTable(rawName, alterOptions);
@@ -308,10 +321,10 @@ public class KuduClientSession
         }
     }
 
-    public KuduTable createTable(ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
+    public KuduTable createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, boolean ignoreExisting)
     {
         try {
-            String rawName = schemaEmulation.toRawName(tableMetadata.getTable());
+            String rawName = toRemoteTableName(session, tableMetadata.getTable());
             if (ignoreExisting) {
                 if (client.tableExists(rawName)) {
                     return null;
@@ -335,10 +348,10 @@ public class KuduClientSession
         }
     }
 
-    public void addColumn(SchemaTableName schemaTableName, ColumnMetadata column)
+    public void addColumn(ConnectorSession session, SchemaTableName schemaTableName, ColumnMetadata column)
     {
         try {
-            String rawName = schemaEmulation.toRawName(schemaTableName);
+            String rawName = toRemoteTableName(session, schemaTableName);
             AlterTableOptions alterOptions = new AlterTableOptions();
             Type type = TypeHelper.toKuduClientType(column.getType());
             alterOptions.addColumn(
@@ -354,10 +367,10 @@ public class KuduClientSession
         }
     }
 
-    public void dropColumn(SchemaTableName schemaTableName, String name)
+    public void dropColumn(ConnectorSession session, SchemaTableName schemaTableName, String name)
     {
         try {
-            String rawName = schemaEmulation.toRawName(schemaTableName);
+            String rawName = toRemoteTableName(session, schemaTableName);
             AlterTableOptions alterOptions = new AlterTableOptions();
             alterOptions.dropColumn(name);
             client.alterTable(rawName, alterOptions);
@@ -367,10 +380,10 @@ public class KuduClientSession
         }
     }
 
-    public void renameColumn(SchemaTableName schemaTableName, String oldName, String newName)
+    public void renameColumn(ConnectorSession session, SchemaTableName schemaTableName, String oldName, String newName)
     {
         try {
-            String rawName = schemaEmulation.toRawName(schemaTableName);
+            String rawName = toRemoteTableName(session, schemaTableName);
             AlterTableOptions alterOptions = new AlterTableOptions();
             alterOptions.renameColumn(oldName, newName);
             client.alterTable(rawName, alterOptions);
@@ -380,21 +393,21 @@ public class KuduClientSession
         }
     }
 
-    public void addRangePartition(SchemaTableName schemaTableName, RangePartition rangePartition)
+    public void addRangePartition(ConnectorSession session, SchemaTableName schemaTableName, RangePartition rangePartition)
     {
-        changeRangePartition(schemaTableName, rangePartition, RangePartitionChange.ADD);
+        changeRangePartition(session, schemaTableName, rangePartition, RangePartitionChange.ADD);
     }
 
-    public void dropRangePartition(SchemaTableName schemaTableName, RangePartition rangePartition)
+    public void dropRangePartition(ConnectorSession session, SchemaTableName schemaTableName, RangePartition rangePartition)
     {
-        changeRangePartition(schemaTableName, rangePartition, RangePartitionChange.DROP);
+        changeRangePartition(session, schemaTableName, rangePartition, RangePartitionChange.DROP);
     }
 
-    private void changeRangePartition(SchemaTableName schemaTableName, RangePartition rangePartition,
+    private void changeRangePartition(ConnectorSession session, SchemaTableName schemaTableName, RangePartition rangePartition,
             RangePartitionChange change)
     {
         try {
-            String rawName = schemaEmulation.toRawName(schemaTableName);
+            String rawName = toRemoteTableName(session, schemaTableName);
             KuduTable table = client.openTable(rawName);
             Schema schema = table.getSchema();
             PartitionDesign design = KuduTableProperties.getPartitionDesign(table);
@@ -655,10 +668,53 @@ public class KuduClientSession
         }
     }
 
+    private String toRemoteTableName(ConnectorSession session, SchemaTableName schemaTableName)
+    {
+        String tableName = schemaEmulation.toRawName(schemaTableName);
+        verify(tableName.equals(tableName.toLowerCase(ENGLISH)), "tableName not in lower-case: %s", tableName);
+        RemoteIdentifiers remoteIdentifiers = getRemoteIdentifiers();
+        String schemaName = identifierMapping.toRemoteSchemaName(remoteIdentifiers, session.getIdentity(), schemaTableName.getSchemaName());
+        String prefix = schemaEmulation.getPrefixForTablesOfSchema(schemaName);
+        return identifierMapping.toRemoteTableName(remoteIdentifiers, session.getIdentity(), prefix, tableName);
+    }
+
     @PreDestroy
     public void close()
             throws KuduException
     {
         this.client.close();
+    }
+
+    private RemoteIdentifiers getRemoteIdentifiers()
+    {
+        return new RemoteIdentifiers()
+        {
+            @Override
+            public Set<String> getRemoteSchemas()
+            {
+                return listSchemaNames()
+                        .stream().collect(toImmutableSet());
+            }
+
+            @Override
+            public Set<String> getRemoteTables(String remoteSchema)
+            {
+                try {
+                    if (remoteSchema.isEmpty()) {
+                        return ImmutableSet.copyOf(client.getTablesList().getTablesList());
+                    }
+                    return ImmutableSet.copyOf(client.getTablesList(remoteSchema).getTablesList());
+                }
+                catch (KuduException e) {
+                    throw new TrinoException(GENERIC_INTERNAL_ERROR, e);
+                }
+            }
+
+            @Override
+            public boolean storesUpperCaseIdentifiers()
+            {
+                return false;
+            }
+        };
     }
 }
