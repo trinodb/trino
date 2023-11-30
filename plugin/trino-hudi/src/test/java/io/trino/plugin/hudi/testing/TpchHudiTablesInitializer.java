@@ -40,6 +40,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hudi.client.HoodieJavaWriteClient;
 import org.apache.hudi.client.common.HoodieJavaEngineContext;
 import org.apache.hudi.common.bootstrap.index.NoOpBootstrapIndex;
+import org.apache.hudi.common.config.HoodieMetadataConfig;
 import org.apache.hudi.common.model.HoodieAvroPayload;
 import org.apache.hudi.common.model.HoodieAvroRecord;
 import org.apache.hudi.common.model.HoodieKey;
@@ -222,6 +223,9 @@ public class TpchHudiTablesInitializer
                 .withArchivalConfig(archivalConfig)
                 .withEmbeddedTimelineServerEnabled(false)
                 .withMarkersType(MarkerType.DIRECT.name())
+                // Disabling Hudi metadata table (MDT) in tests as the support of
+                // reading MDT is broken after removal of Hudi dependencies from compile time
+                .withMetadataConfig(HoodieMetadataConfig.newBuilder().enable(false).build())
                 .build();
         return new HoodieJavaWriteClient<>(new HoodieJavaEngineContext(conf), cfg);
     }
