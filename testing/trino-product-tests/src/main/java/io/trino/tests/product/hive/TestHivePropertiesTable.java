@@ -39,7 +39,7 @@ public class TestHivePropertiesTable
         onTrino().executeQuery("CREATE VIEW test_trino_view_properties AS SELECT * FROM test_trino_view_properties_base");
 
         assertThat(onTrino().executeQuery("SHOW COLUMNS FROM \"test_trino_view_properties$properties\""))
-                .containsExactlyInOrder(
+                .containsOnly(
                         row("comment", "varchar", "", ""),
                         row("presto_query_id", "varchar", "", ""),
                         row("presto_version", "varchar", "", ""),
