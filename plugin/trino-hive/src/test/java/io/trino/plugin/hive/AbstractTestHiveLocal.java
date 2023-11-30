@@ -52,8 +52,8 @@ import java.util.OptionalInt;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
+import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_VERSION_NAME;
 import static io.trino.plugin.hive.HiveStorageFormat.ORC;
 import static io.trino.plugin.hive.HiveStorageFormat.TEXTFILE;
@@ -309,7 +309,7 @@ public abstract class AbstractTestHiveLocal
                     .setTableType(EXTERNAL_TABLE.name())
                     .setParameters(ImmutableMap.of(
                             TRINO_VERSION_NAME, TEST_SERVER_VERSION,
-                            PRESTO_QUERY_ID_NAME, session.getQueryId()))
+                            TRINO_QUERY_ID_NAME, session.getQueryId()))
                     .setDataColumns(columns)
                     .setPartitionColumns(partitionColumns);
 

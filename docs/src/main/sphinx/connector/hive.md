@@ -909,7 +909,7 @@ SELECT * FROM example.web."page_views$properties";
 ```
 
 ```text
-       stats_generated_via_stats_task        | auto.purge |       presto_query_id       | trino_version | transactional
+       stats_generated_via_stats_task        | auto.purge |       trino_query_id       | trino_version | transactional
 ---------------------------------------------+------------+-----------------------------+---------------+---------------
  workaround for potential lack of HIVE-12730 | false      | 20230705_152456_00001_nfugi | 434           | false
 ```

@@ -21,10 +21,10 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveMetadata.PRESTO_VIEW_COMMENT;
 import static io.trino.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_CREATED_BY;
+import static io.trino.plugin.hive.HiveMetadata.TRINO_QUERY_ID_NAME;
 import static io.trino.plugin.hive.HiveMetadata.TRINO_VERSION_NAME;
 import static io.trino.plugin.hive.ViewReaderUtil.PRESTO_VIEW_FLAG;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoView;
@@ -67,7 +67,7 @@ public final class TrinoViewUtil
                 .put(PRESTO_VIEW_FLAG, "true")
                 .put(TRINO_CREATED_BY, connectorName)
                 .put(TRINO_VERSION_NAME, trinoVersion)
-                .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
+                .put(TRINO_QUERY_ID_NAME, session.getQueryId())
                 .put(TABLE_COMMENT, PRESTO_VIEW_COMMENT)
                 .buildOrThrow();
     }

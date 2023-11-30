@@ -41,7 +41,7 @@ public class TestHivePropertiesTable
         assertThat(onTrino().executeQuery("SHOW COLUMNS FROM \"test_trino_view_properties$properties\""))
                 .containsOnly(
                         row("comment", "varchar", "", ""),
-                        row("presto_query_id", "varchar", "", ""),
+                        row("trino_query_id", "varchar", "", ""),
                         row("trino_version", "varchar", "", ""),
                         row("presto_view", "varchar", "", ""),
                         row("transient_lastddltime", "varchar", "", ""),
