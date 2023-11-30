@@ -42,7 +42,6 @@ import io.trino.plugin.hive.LocationHandle.WriteMode;
 import io.trino.plugin.hive.PartitionNotFoundException;
 import io.trino.plugin.hive.PartitionStatistics;
 import io.trino.plugin.hive.PartitionUpdateAndMergeResults;
-import io.trino.plugin.hive.SchemaAlreadyExistsException;
 import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.TableInvalidationCallback;
 import io.trino.plugin.hive.acid.AcidOperation;
@@ -464,26 +463,7 @@ public class SemiTransactionalHiveMetastore
                 "Database '%s' does not have correct query id set",
                 database.getDatabaseName());
 
-        setExclusive(delegate -> {
-            try {
-                delegate.createDatabase(database);
-            }
-            catch (SchemaAlreadyExistsException e) {
-                // Ignore SchemaAlreadyExistsException when database looks like created by us.
-                // This may happen when an actually successful metastore create call is retried
-                // e.g. because of a timeout on our side.
-                Optional<Database> existingDatabase = delegate.getDatabase(database.getDatabaseName());
-                if (existingDatabase.isEmpty() || !isCreatedBy(existingDatabase.get(), queryId)) {
-                    throw e;
-                }
-            }
-        });
-    }
-
-    private static boolean isCreatedBy(Database database, String queryId)
-    {
-        Optional<String> databaseQueryId = getQueryId(database);
-        return databaseQueryId.isPresent() && databaseQueryId.get().equals(queryId);
+        setExclusive(delegate -> delegate.createDatabase(database));
     }
 
     public synchronized void dropDatabase(ConnectorSession session, String schemaName)
