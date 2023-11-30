@@ -369,3 +369,47 @@ BEGIN
   RETURN r;
 END
 ```
+
+## Date string parsing example
+
+This example routine parses a date string of type `VARCHAR` into `TIMESTAMP WITH
+TIME ZONE`. Date strings are commonly represented by ISO 8601 standard, such as
+`2023-12-01`, `2023-12-01T23`. Date strings are also often represented in the
+`YYYYmmdd` and `YYYYmmddHH` format, such as `20230101` and `2023010123`. Hive
+tables can use this format to represent day and hourly partitions, for example
+`/day=20230101`, `/hour=2023010123`. 
+
+This routine parses date strings in a best-effort fashion and can be used as a
+replacement for date string manipulation functions such as `date`, `date_parse`,
+`from_iso8601_date`,  and `from_iso8601_timestamp`. 
+
+Note that the routine defaults the time value to `00:00:00.000` and the time
+zone to the session time zone.
+
+
+```sql
+FUNCTION from_date_string(date_string VARCHAR)
+RETURNS TIMESTAMP WITH TIME ZONE
+BEGIN
+  IF date_string like '%-%' THEN -- ISO 8601
+    RETURN from_iso8601_timestamp(date_string);
+  ELSEIF length(date_string) = 8 THEN -- YYYYmmdd
+      RETURN date_parse(date_string, '%Y%m%d');
+  ELSEIF length(date_string) = 10 THEN -- YYYYmmddHH
+      RETURN date_parse(date_string, '%Y%m%d%H');
+  END IF;
+  RETURN NULL;
+END
+```
+
+Following are a couple of example invocations with result and explanation:
+
+```sql
+SELECT from_date_string('2023-01-01'); -- 2023-01-01 00:00:00.000 UTC (using the ISO 8601 format)
+SELECT from_date_string('2023-01-01T23'); -- 2023-01-01 23:00:00.000 UTC (using the ISO 8601 format)
+SELECT from_date_string('2023-01-01T23:23:23'); -- 2023-01-01 23:23:23.000 UTC (using the ISO 8601 format)
+SELECT from_date_string('20230101'); -- 2023-01-01 00:00:00.000 UTC (using the YYYYmmdd format)
+SELECT from_date_string('2023010123'); -- 2023-01-01 23:00:00.000 UTC (using the YYYYmmddHH format)
+SELECT from_date_string(NULL); -- NULL (handles NULL string)
+SELECT from_date_string('abc'); -- NULL (not matched to any format)
+```
