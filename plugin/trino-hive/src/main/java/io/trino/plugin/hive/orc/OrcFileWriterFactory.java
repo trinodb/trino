@@ -63,7 +63,7 @@ import static io.trino.plugin.hive.HiveSessionProperties.getOrcStringStatisticsL
 import static io.trino.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.trino.plugin.hive.HiveSessionProperties.isOrcOptimizedWriterValidate;
 import static io.trino.plugin.hive.acid.AcidSchema.ACID_COLUMN_NAMES;
-import static io.trino.plugin.hive.acid.AcidSchema.createAcidColumnPrestoTypes;
+import static io.trino.plugin.hive.acid.AcidSchema.createAcidColumnTrinoTypes;
 import static io.trino.plugin.hive.acid.AcidSchema.createRowType;
 import static io.trino.plugin.hive.util.HiveClassNames.ORC_OUTPUT_FORMAT_CLASS;
 import static io.trino.plugin.hive.util.HiveUtil.getColumnNames;
@@ -177,7 +177,7 @@ public class OrcFileWriterFactory
                 // by bucket and writeId.
                 Type rowType = createRowType(fileColumnNames, fileColumnTypes);
                 fileColumnNames = ACID_COLUMN_NAMES;
-                fileColumnTypes = createAcidColumnPrestoTypes(rowType);
+                fileColumnTypes = createAcidColumnTrinoTypes(rowType);
             }
 
             return Optional.of(new OrcFileWriter(
