@@ -83,8 +83,25 @@ public final class KuduQueryRunnerFactory
         return createKuduQueryRunnerTpch(kuduServer, kuduSchemaEmulationPrefix, ImmutableMap.of(), ImmutableMap.of(), tables);
     }
 
+    public static QueryRunner createKuduQueryRunnerTpch(HostAndPort kuduServerMasterAddress, Optional<String> kuduSchemaEmulationPrefix, Iterable<TpchTable<?>> tables)
+            throws Exception
+    {
+        return createKuduQueryRunnerTpch(kuduServerMasterAddress, kuduSchemaEmulationPrefix, ImmutableMap.of(), ImmutableMap.of(), tables);
+    }
+
     public static QueryRunner createKuduQueryRunnerTpch(
             TestingKuduServer kuduServer,
+            Optional<String> kuduSchemaEmulationPrefix,
+            Map<String, String> kuduSessionProperties,
+            Map<String, String> extraProperties,
+            Iterable<TpchTable<?>> tables)
+            throws Exception
+    {
+        return createKuduQueryRunnerTpch(kuduServer.getMasterAddress(), kuduSchemaEmulationPrefix, kuduSessionProperties, extraProperties, tables);
+    }
+
+    public static QueryRunner createKuduQueryRunnerTpch(
+            HostAndPort masterAddress,
             Optional<String> kuduSchemaEmulationPrefix,
             Map<String, String> kuduSessionProperties,
             Map<String, String> extraProperties,
@@ -102,7 +119,7 @@ public final class KuduQueryRunnerFactory
             runner.installPlugin(new TpchPlugin());
             runner.createCatalog("tpch", "tpch");
 
-            installKuduConnector(kuduServer.getMasterAddress(), runner, kuduSchema, kuduSchemaEmulationPrefix);
+            installKuduConnector(masterAddress, runner, kuduSchema, kuduSchemaEmulationPrefix);
 
             copyTpchTables(runner, "tpch", TINY_SCHEMA_NAME, session, tables);
 
