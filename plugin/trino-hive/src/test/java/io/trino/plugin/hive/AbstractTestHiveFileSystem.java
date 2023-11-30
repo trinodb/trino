@@ -207,7 +207,7 @@ public abstract class AbstractTestHiveFileSystem
                         testingThriftHiveMetastoreBuilder()
                                 .metastoreClient(HostAndPort.fromParts(host, port))
                                 .hiveConfig(config)
-                                .hdfsEnvironment(hdfsEnvironment)
+                                .fileSystemFactory(new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS))
                                 .build()),
                 getBasePath(),
                 hdfsEnvironment);
