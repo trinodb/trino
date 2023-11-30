@@ -30,11 +30,13 @@ public class KuduRecordSetProvider
         implements ConnectorRecordSetProvider
 {
     private final KuduClientSession clientSession;
+    private final KuduScannerAliveKeeper kuduScannerAliveKeeper;
 
     @Inject
-    public KuduRecordSetProvider(KuduClientSession clientSession)
+    public KuduRecordSetProvider(KuduClientSession clientSession, KuduScannerAliveKeeper kuduScannerAliveKeeper)
     {
         this.clientSession = clientSession;
+        this.kuduScannerAliveKeeper = kuduScannerAliveKeeper;
     }
 
     @Override
@@ -45,6 +47,6 @@ public class KuduRecordSetProvider
 
         KuduSplit kuduSplit = (KuduSplit) split;
 
-        return new KuduRecordSet(clientSession, kuduSplit, columns);
+        return new KuduRecordSet(clientSession, kuduSplit, columns, kuduScannerAliveKeeper);
     }
 }

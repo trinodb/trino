@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.kudu;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.io.Closer;
 import com.google.common.net.HostAndPort;
 import io.trino.testing.ResourcePresence;
@@ -24,6 +25,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.List;
 
 import static java.lang.String.format;
 
@@ -52,13 +54,18 @@ public class TestingKuduServer
         this(LATEST_TAG);
     }
 
+    public TestingKuduServer(String kuduVersion)
+    {
+        this(kuduVersion, ImmutableList.of());
+    }
+
     /**
      * Kudu tablets needs to know the host/mapped port it will be bound to in order to configure --rpc_advertised_addresses
      * However when using non-fixed ports in testcontainers, we only know the mapped port after the container starts up
      * In order to workaround this, create a proxy to forward traffic from the host to the underlying tablets
      * Since the ToxiProxy container starts up *before* kudu, we know the mapped port when configuring the kudu tablets
      */
-    public TestingKuduServer(String kuduVersion)
+    public TestingKuduServer(String kuduVersion, List<String> extraTServerArgs)
     {
         network = Network.newNetwork();
 
@@ -79,11 +86,13 @@ public class TestingKuduServer
 
         String instanceName = "kudu-tserver";
         ToxiproxyContainer.ContainerProxy proxy = toxiProxy.getProxy(instanceName, KUDU_TSERVER_PORT);
+        String tServerArgs = "--fs_wal_dir=/var/lib/kudu/tserver --logtostderr --use_hybrid_clock=false --rpc_bind_addresses=%s:%s --rpc_advertised_addresses=%s:%s %s"
+                .formatted(instanceName, KUDU_TSERVER_PORT, hostIP, proxy.getProxyPort(), String.join(" ", extraTServerArgs));
         tabletServer = new GenericContainer<>(format("%s:%s", KUDU_IMAGE, kuduVersion))
                 .withExposedPorts(KUDU_TSERVER_PORT)
                 .withCommand("tserver")
                 .withEnv("KUDU_MASTERS", format("%s:%s", masterContainerAlias, KUDU_MASTER_PORT))
-                .withEnv("TSERVER_ARGS", format("--fs_wal_dir=/var/lib/kudu/tserver --logtostderr --use_hybrid_clock=false --rpc_bind_addresses=%s:%s --rpc_advertised_addresses=%s:%s", instanceName, KUDU_TSERVER_PORT, hostIP, proxy.getProxyPort()))
+                .withEnv("TSERVER_ARGS", tServerArgs)
                 .withNetwork(network)
                 .withNetworkAliases(instanceName)
                 .dependsOn(master);

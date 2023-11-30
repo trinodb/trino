@@ -29,6 +29,7 @@ import org.apache.kudu.client.RowResult;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ScheduledFuture;
 
 import static io.trino.plugin.kudu.KuduColumnHandle.ROW_ID_POSITION;
 import static java.util.Objects.requireNonNull;
@@ -41,18 +42,20 @@ public class KuduRecordCursor
     private final KuduTable table;
     private final Map<Integer, Integer> fieldMapping;
     private final KuduScannerIterator kuduScannerIterator;
+    private final ScheduledFuture<?> scannerAliveKeeperTask;
     private RowResult currentRow;
 
     private long totalBytes;
 
     private volatile boolean closed;
 
-    public KuduRecordCursor(KuduScanner scanner, KuduTable table, List<Type> columnTypes, Map<Integer, Integer> fieldMapping)
+    public KuduRecordCursor(KuduScanner scanner, KuduTable table, List<Type> columnTypes, Map<Integer, Integer> fieldMapping, ScheduledFuture<?> scannerAliveKeeperTask)
     {
         this.scanner = requireNonNull(scanner, "scanner is null");
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
         this.table = requireNonNull(table, "table is null");
         this.fieldMapping = ImmutableMap.copyOf(requireNonNull(fieldMapping, "fieldMapping is null"));
+        this.scannerAliveKeeperTask = requireNonNull(scannerAliveKeeperTask, "scannerAliveKeeperTask is null");
         kuduScannerIterator = scanner.iterator();
     }
 
@@ -158,6 +161,7 @@ public class KuduRecordCursor
     {
         if (!closed) {
             try {
+                scannerAliveKeeperTask.cancel(true);
                 scanner.close();
             }
             catch (KuduException e) {

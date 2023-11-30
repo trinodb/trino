@@ -44,7 +44,7 @@ public final class KuduQueryRunnerFactory
         try {
             runner = DistributedQueryRunner.builder(session).build();
 
-            installKuduConnector(kuduServer.getMasterAddress(), runner, session.getSchema().orElse("kudu_smoke_test"), Optional.of(""));
+            installKuduConnector(kuduServer.getMasterAddress(), runner, session.getSchema().orElse("kudu_smoke_test"), Optional.of(""), ImmutableMap.of());
 
             return runner;
         }
@@ -61,7 +61,7 @@ public final class KuduQueryRunnerFactory
         try {
             runner = DistributedQueryRunner.builder(createSession(kuduSchema)).build();
 
-            installKuduConnector(kuduServer.getMasterAddress(), runner, kuduSchema, Optional.of(""));
+            installKuduConnector(kuduServer.getMasterAddress(), runner, kuduSchema, Optional.of(""), ImmutableMap.of());
 
             return runner;
         }
@@ -86,7 +86,7 @@ public final class KuduQueryRunnerFactory
     public static QueryRunner createKuduQueryRunnerTpch(HostAndPort kuduServerMasterAddress, Optional<String> kuduSchemaEmulationPrefix, Iterable<TpchTable<?>> tables)
             throws Exception
     {
-        return createKuduQueryRunnerTpch(kuduServerMasterAddress, kuduSchemaEmulationPrefix, ImmutableMap.of(), ImmutableMap.of(), tables);
+        return createKuduQueryRunnerTpch(kuduServerMasterAddress, kuduSchemaEmulationPrefix, ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of(), tables);
     }
 
     public static QueryRunner createKuduQueryRunnerTpch(
@@ -97,13 +97,14 @@ public final class KuduQueryRunnerFactory
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
-        return createKuduQueryRunnerTpch(kuduServer.getMasterAddress(), kuduSchemaEmulationPrefix, kuduSessionProperties, extraProperties, tables);
+        return createKuduQueryRunnerTpch(kuduServer.getMasterAddress(), kuduSchemaEmulationPrefix, kuduSessionProperties, ImmutableMap.of(), extraProperties, tables);
     }
 
     public static QueryRunner createKuduQueryRunnerTpch(
             HostAndPort masterAddress,
             Optional<String> kuduSchemaEmulationPrefix,
             Map<String, String> kuduSessionProperties,
+            Map<String, String> kuduExtraProperties,
             Map<String, String> extraProperties,
             Iterable<TpchTable<?>> tables)
             throws Exception
@@ -119,7 +120,7 @@ public final class KuduQueryRunnerFactory
             runner.installPlugin(new TpchPlugin());
             runner.createCatalog("tpch", "tpch");
 
-            installKuduConnector(masterAddress, runner, kuduSchema, kuduSchemaEmulationPrefix);
+            installKuduConnector(masterAddress, runner, kuduSchema, kuduSchemaEmulationPrefix, kuduExtraProperties);
 
             copyTpchTables(runner, "tpch", TINY_SCHEMA_NAME, session, tables);
 
@@ -131,23 +132,22 @@ public final class KuduQueryRunnerFactory
         }
     }
 
-    private static void installKuduConnector(HostAndPort masterAddress, QueryRunner runner, String kuduSchema, Optional<String> kuduSchemaEmulationPrefix)
+    private static void installKuduConnector(HostAndPort masterAddress, QueryRunner runner, String kuduSchema, Optional<String> kuduSchemaEmulationPrefix, Map<String, String> kuduExtraProperties)
     {
-        Map<String, String> properties;
+        ImmutableMap.Builder<String, String> properties = ImmutableMap.<String, String>builder()
+                .putAll(kuduExtraProperties);
         if (kuduSchemaEmulationPrefix.isPresent()) {
-            properties = ImmutableMap.of(
-                    "kudu.schema-emulation.enabled", "true",
-                    "kudu.schema-emulation.prefix", kuduSchemaEmulationPrefix.get(),
-                    "kudu.client.master-addresses", masterAddress.toString());
+            properties.put("kudu.schema-emulation.enabled", "true");
+            properties.put("kudu.schema-emulation.prefix", kuduSchemaEmulationPrefix.get());
+            properties.put("kudu.client.master-addresses", masterAddress.toString());
         }
         else {
-            properties = ImmutableMap.of(
-                    "kudu.schema-emulation.enabled", "false",
-                    "kudu.client.master-addresses", masterAddress.toString());
+            properties.put("kudu.schema-emulation.enabled", "false");
+            properties.put("kudu.client.master-addresses", masterAddress.toString());
         }
 
         runner.installPlugin(new KuduPlugin());
-        runner.createCatalog("kudu", "kudu", properties);
+        runner.createCatalog("kudu", "kudu", properties.buildOrThrow());
 
         if (kuduSchemaEmulationPrefix.isPresent()) {
             runner.execute("DROP SCHEMA IF EXISTS " + kuduSchema);

@@ -23,6 +23,7 @@ import org.apache.kudu.client.KuduScanner;
 import org.apache.kudu.client.KuduTable;
 
 import java.util.List;
+import java.util.concurrent.ScheduledFuture;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.kudu.KuduColumnHandle.ROW_ID_POSITION;
@@ -33,14 +34,16 @@ public class KuduRecordSet
     private final KuduClientSession clientSession;
     private final KuduSplit kuduSplit;
     private final List<? extends ColumnHandle> columns;
+    private final KuduScannerAliveKeeper kuduScannerAliveKeeper;
 
     private KuduTable kuduTable;
 
-    public KuduRecordSet(KuduClientSession clientSession, KuduSplit kuduSplit, List<? extends ColumnHandle> columns)
+    public KuduRecordSet(KuduClientSession clientSession, KuduSplit kuduSplit, List<? extends ColumnHandle> columns, KuduScannerAliveKeeper kuduScannerAliveKeeper)
     {
         this.clientSession = clientSession;
         this.kuduSplit = kuduSplit;
         this.columns = columns;
+        this.kuduScannerAliveKeeper = kuduScannerAliveKeeper;
     }
 
     @Override
@@ -55,6 +58,7 @@ public class KuduRecordSet
     public RecordCursor cursor()
     {
         KuduScanner scanner = clientSession.createScanner(kuduSplit);
+        ScheduledFuture<?> scannerAliveKeeperTask = kuduScannerAliveKeeper.add(scanner);
         Schema projectedSchema = scanner.getProjectionSchema();
         ImmutableMap.Builder<Integer, Integer> builder = ImmutableMap.builder();
         for (int i = 0; i < columns.size(); i++) {
@@ -67,7 +71,7 @@ public class KuduRecordSet
             }
         }
 
-        return new KuduRecordCursor(scanner, getTable(), getColumnTypes(), builder.buildOrThrow());
+        return new KuduRecordCursor(scanner, getTable(), getColumnTypes(), builder.buildOrThrow(), scannerAliveKeeperTask);
     }
 
     KuduTable getTable()

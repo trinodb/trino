@@ -63,6 +63,8 @@ public class KuduModule
         binder.bind(RangePartitionProcedures.class).in(Scopes.SINGLETON);
         Multibinder.newSetBinder(binder, Procedure.class);
 
+        binder.bind(KuduScannerAliveKeeper.class).in(Scopes.SINGLETON);
+
         install(new KuduSecurityModule());
     }
 
