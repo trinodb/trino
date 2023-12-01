@@ -888,7 +888,7 @@ public class SqlServerClient
 
     private static LongReadFunction sqlServerDateReadFunction()
     {
-        return (resultSet, index) -> LocalDate.parse(resultSet.getString(index), DATE_FORMATTER).toEpochDay();
+        return (resultSet, index) -> resultSet.getDate(index).toLocalDate().toEpochDay();
     }
 
     private static ColumnMapping timestampWithTimeZoneColumnMapping(int precision)
