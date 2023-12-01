@@ -1212,18 +1212,18 @@ public abstract class BaseJdbcConnectorTest
     @Test
     public void testJoinPushdown()
     {
+        Session session = joinPushdownEnabled(getSession());
+
+        if (!hasBehavior(SUPPORTS_JOIN_PUSHDOWN)) {
+            assertThat(query(session, "SELECT r.name, n.name FROM nation n JOIN region r ON n.regionkey = r.regionkey"))
+                    .joinIsNotFullyPushedDown();
+            return;
+        }
+
         for (JoinOperator joinOperator : JoinOperator.values()) {
-            Session session = joinPushdownEnabled(getSession());
-
-            if (!hasBehavior(SUPPORTS_JOIN_PUSHDOWN)) {
-                assertThat(query(session, "SELECT r.name, n.name FROM nation n JOIN region r ON n.regionkey = r.regionkey"))
-                        .joinIsNotFullyPushedDown();
-                return;
-            }
-
             if (joinOperator == FULL_JOIN && !hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN)) {
                 // Covered by verifySupportsJoinPushdownWithFullJoinDeclaration
-                return;
+                continue;
             }
 
             // Disable DF here for the sake of negative test cases' expected plan. With DF enabled, some operators return in DF's FilterNode and some do not.
