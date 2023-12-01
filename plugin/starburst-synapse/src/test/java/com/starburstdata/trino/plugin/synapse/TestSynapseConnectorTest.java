@@ -76,6 +76,8 @@ public class TestSynapseConnectorTest
             case SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN:
             case SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY:
                 return false;
+            case SUPPORTS_PREDICATE_ARITHMETIC_EXPRESSION_PUSHDOWN:
+                return true;
             default:
                 return super.hasBehavior(connectorBehavior);
         }

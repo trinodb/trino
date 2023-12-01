@@ -527,18 +527,12 @@ public abstract class BaseJdbcClient
             ConnectorSession session,
             JoinType joinType,
             PreparedQuery leftSource,
+            Map<JdbcColumnHandle, String> leftProjections,
             PreparedQuery rightSource,
-            List<JdbcJoinCondition> joinConditions,
-            Map<JdbcColumnHandle, String> rightAssignments,
-            Map<JdbcColumnHandle, String> leftAssignments,
+            Map<JdbcColumnHandle, String> rightProjections,
+            List<ParameterizedExpression> joinConditions,
             JoinStatistics statistics)
     {
-        for (JdbcJoinCondition joinCondition : joinConditions) {
-            if (!isSupportedJoinCondition(session, joinCondition)) {
-                return Optional.empty();
-            }
-        }
-
         try (Connection connection = this.connectionFactory.openConnection(session)) {
             return Optional.of(queryBuilder.prepareJoinQuery(
                     this,
@@ -546,10 +540,10 @@ public abstract class BaseJdbcClient
                     connection,
                     joinType,
                     leftSource,
+                    leftProjections,
                     rightSource,
-                    joinConditions,
-                    leftAssignments,
-                    rightAssignments));
+                    rightProjections,
+                    joinConditions));
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
