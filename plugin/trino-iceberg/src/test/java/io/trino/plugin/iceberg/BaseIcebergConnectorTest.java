@@ -6445,7 +6445,7 @@ public abstract class BaseIcebergConnectorTest
         testMergeMultipleOperations(4, "WITH (partitioning = ARRAY['bucket(purchase, 4)'])", true);
     }
 
-    public void testMergeMultipleOperations(int writers, String partitioning, boolean determinePartitionCountForWrite)
+    private void testMergeMultipleOperations(int writers, String partitioning, boolean determinePartitionCountForWrite)
     {
         Session session = Session.builder(getSession())
                 .setSystemProperty(TASK_MIN_WRITER_COUNT, String.valueOf(writers))
