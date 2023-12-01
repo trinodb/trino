@@ -108,6 +108,10 @@ configuration properties:
 - `internal-communication.https.keystore.path`
 - `internal-communication.https.truststore.path`
 - `node.internal-address-source`
+
+Also, note that you need to configure `http-server.https.automatic-shared-secret`
+(similarly to the `internal-communication.shared-secret`) for workers and coordinator
+in `etc/config.properties`
 :::
 
 ### Performance with SSL/TLS enabled
