@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>433-cork-1-SNAPSHOT</version>
+        <version>434-cork-1-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -246,6 +246,23 @@
                                     <code>java.method.returnTypeChangedCovariantly</code>
                                     <old>method io.trino.spi.block.BlockBuilder io.trino.spi.block.ShortArrayBlockBuilder::writeShort(short)</old>
                                     <new>method io.trino.spi.block.ShortArrayBlockBuilder io.trino.spi.block.ShortArrayBlockBuilder::writeShort(short)</new>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method long io.trino.spi.connector.DynamicFilter::getPreferredDynamicFilterTimeout()</new>
+                                    <justification>ADD YOUR EXPLANATION FOR THE NECESSITY OF THIS CHANGE</justification>
+                                    <!--
+                                    Additionally, the following attachments can be used to further identify the difference:
+
+                                    <package>io.trino.spi.connector</package>
+                                    <classQualifiedName>io.trino.spi.connector.DynamicFilter</classQualifiedName>
+                                    <classSimpleName>DynamicFilter</classSimpleName>
+                                    <methodName>getPreferredDynamicFilterTimeout</methodName>
+                                    <elementKind>method</elementKind>
+                                    <newArchive>io.trino:trino-spi:jar:434-cork-1-SNAPSHOT</newArchive>
+                                    <newArchiveRole>primary</newArchiveRole>
+                                    -->
                                 </item>
                             </differences>
                         </revapi.differences>
