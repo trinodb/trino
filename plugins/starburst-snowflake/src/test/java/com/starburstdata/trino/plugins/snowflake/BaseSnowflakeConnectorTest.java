@@ -784,6 +784,13 @@ public abstract class BaseSnowflakeConnectorTest
         abort("https://starburstdata.atlassian.net/browse/SEP-9733");
     }
 
+    @Test
+    @Override
+    public void testJoinPushdownWithLongIdentifiers()
+    {
+        abort("https://starburstdata.atlassian.net/browse/SEP-9733");
+    }
+
     @Override
     protected OptionalInt maxSchemaNameLength()
     {

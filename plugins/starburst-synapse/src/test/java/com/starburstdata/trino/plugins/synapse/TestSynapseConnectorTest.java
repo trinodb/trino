@@ -129,13 +129,6 @@ public class TestSynapseConnectorTest
     }
 
     @Test
-    @Override
-    public void testReadMetadataWithRelationsConcurrentModifications()
-    {
-        abort("This test is flaky and will be removed when updating Trino version to 434");
-    }
-
-    @Test
     @Override // Needs an override because the SQL Server override is different from the base version of the test
     public void testColumnComment()
     {

@@ -9,6 +9,7 @@
  */
 package com.starburstdata.trino.plugins.snowflake.distributed;
 
+import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.units.Duration;
@@ -47,7 +48,17 @@ public class SnowflakeMetadataFactory
     public SnowflakeMetadata create(JdbcTransactionHandle handle)
     {
         return new SnowflakeMetadata(
-                new CachingJdbcClient(jdbcClient, Set.of(), new SingletonIdentityCacheMapping(), new Duration(1, TimeUnit.DAYS), true, Integer.MAX_VALUE),
+                new CachingJdbcClient(
+                        Ticker.systemTicker(),
+                        jdbcClient,
+                        Set.of(),
+                        new SingletonIdentityCacheMapping(),
+                        new Duration(1, TimeUnit.DAYS),
+                        new Duration(1, TimeUnit.DAYS),
+                        new Duration(1, TimeUnit.DAYS),
+                        new Duration(1, TimeUnit.DAYS),
+                        true,
+                        Integer.MAX_VALUE),
                 jdbcQueryEventListeners);
     }
 }
