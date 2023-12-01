@@ -270,6 +270,15 @@ public class MySqlClient
 
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
+                // No "real" on the list; pushdown on REAL is disabled also in toColumnMapping
+                .withTypeClass("numeric_type", ImmutableSet.of("tinyint", "smallint", "integer", "bigint", "decimal", "double"))
+                .map("$equal(left: numeric_type, right: numeric_type)").to("left = right")
+                .map("$not_equal(left: numeric_type, right: numeric_type)").to("left <> right")
+                // .map("$is_distinct_from(left: numeric_type, right: numeric_type)").to("left IS DISTINCT FROM right")
+                .map("$less_than(left: numeric_type, right: numeric_type)").to("left < right")
+                .map("$less_than_or_equal(left: numeric_type, right: numeric_type)").to("left <= right")
+                .map("$greater_than(left: numeric_type, right: numeric_type)").to("left > right")
+                .map("$greater_than_or_equal(left: numeric_type, right: numeric_type)").to("left >= right")
                 .add(new RewriteLikeWithCaseSensitivity())
                 .add(new RewriteLikeEscapeWithCaseSensitivity())
                 .build();
@@ -1005,10 +1014,10 @@ public class MySqlClient
             ConnectorSession session,
             JoinType joinType,
             PreparedQuery leftSource,
+            Map<JdbcColumnHandle, String> leftProjections,
             PreparedQuery rightSource,
-            List<JdbcJoinCondition> joinConditions,
-            Map<JdbcColumnHandle, String> rightAssignments,
-            Map<JdbcColumnHandle, String> leftAssignments,
+            Map<JdbcColumnHandle, String> rightProjections,
+            List<ParameterizedExpression> joinConditions,
             JoinStatistics statistics)
     {
         if (joinType == JoinType.FULL_OUTER) {
@@ -1021,7 +1030,7 @@ public class MySqlClient
                 leftSource,
                 rightSource,
                 statistics,
-                () -> super.implementJoin(session, joinType, leftSource, rightSource, joinConditions, rightAssignments, leftAssignments, statistics));
+                () -> super.implementJoin(session, joinType, leftSource, leftProjections, rightSource, rightProjections, joinConditions, statistics));
     }
 
     @Override

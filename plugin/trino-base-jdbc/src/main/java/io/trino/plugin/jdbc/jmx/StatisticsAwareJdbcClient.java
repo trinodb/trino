@@ -17,7 +17,6 @@ import io.trino.plugin.jdbc.ColumnMapping;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
-import io.trino.plugin.jdbc.JdbcJoinCondition;
 import io.trino.plugin.jdbc.JdbcOutputTableHandle;
 import io.trino.plugin.jdbc.JdbcProcedureHandle;
 import io.trino.plugin.jdbc.JdbcProcedureHandle.ProcedureQuery;
@@ -231,13 +230,13 @@ public final class StatisticsAwareJdbcClient
     public Optional<PreparedQuery> implementJoin(ConnectorSession session,
             JoinType joinType,
             PreparedQuery leftSource,
+            Map<JdbcColumnHandle, String> leftProjections,
             PreparedQuery rightSource,
-            List<JdbcJoinCondition> joinConditions,
-            Map<JdbcColumnHandle, String> rightAssignments,
-            Map<JdbcColumnHandle, String> leftAssignments,
+            Map<JdbcColumnHandle, String> rightProjections,
+            List<ParameterizedExpression> joinConditions,
             JoinStatistics statistics)
     {
-        return stats.getImplementJoin().wrap(() -> delegate().implementJoin(session, joinType, leftSource, rightSource, joinConditions, rightAssignments, leftAssignments, statistics));
+        return stats.getImplementJoin().wrap(() -> delegate().implementJoin(session, joinType, leftSource, leftProjections, rightSource, rightProjections, joinConditions, statistics));
     }
 
     @Override
