@@ -53,6 +53,10 @@ public final class ConnectorExpressions
 
     private static void extractConjuncts(ConnectorExpression expression, ImmutableList.Builder<ConnectorExpression> resultBuilder)
     {
+        if (expression.equals(TRUE)) {
+            // Skip useless conjuncts.
+            return;
+        }
         if (expression instanceof Call call) {
             if (AND_FUNCTION_NAME.equals(call.getFunctionName())) {
                 for (ConnectorExpression argument : call.getArguments()) {

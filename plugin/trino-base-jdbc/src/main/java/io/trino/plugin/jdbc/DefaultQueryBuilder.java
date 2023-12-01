@@ -117,35 +117,32 @@ public class DefaultQueryBuilder
             Connection connection,
             JoinType joinType,
             PreparedQuery leftSource,
+            Map<JdbcColumnHandle, String> leftProjections,
             PreparedQuery rightSource,
-            List<JdbcJoinCondition> joinConditions,
-            Map<JdbcColumnHandle, String> leftAssignments,
-            Map<JdbcColumnHandle, String> rightAssignments)
+            Map<JdbcColumnHandle, String> rightProjections,
+            List<ParameterizedExpression> joinConditions)
     {
-        // Verify assignments are present. This is safe assumption as join conditions are not pruned, and simplifies the code here.
-        verify(!leftAssignments.isEmpty(), "leftAssignments is empty");
-        verify(!rightAssignments.isEmpty(), "rightAssignments is empty");
         // Joins wih no conditions are not pushed down, so it is a same assumption and simplifies the code here
         verify(!joinConditions.isEmpty(), "joinConditions is empty");
 
-        String leftRelationAlias = "l";
-        String rightRelationAlias = "r";
-
         String query = format(
-                "SELECT %s, %s FROM (%s) %s %s (%s) %s ON %s",
-                formatAssignments(client, leftRelationAlias, leftAssignments),
-                formatAssignments(client, rightRelationAlias, rightAssignments),
+                // The subquery aliases (`l` and `r`) are needed by some databases, but are not needed for expressions
+                // The joinConditions and output columns are aliased to use unique names.
+                "SELECT * FROM (SELECT %s FROM (%s) l) l %s (SELECT %s FROM (%s) r) r ON %s",
+                formatProjections(client, leftProjections),
                 leftSource.getQuery(),
-                leftRelationAlias,
                 formatJoinType(joinType),
+                formatProjections(client, rightProjections),
                 rightSource.getQuery(),
-                rightRelationAlias,
                 joinConditions.stream()
-                        .map(condition -> formatJoinCondition(client, leftRelationAlias, rightRelationAlias, condition))
-                        .collect(joining(" AND ")));
+                        .map(ParameterizedExpression::expression)
+                        .collect(joining(") AND (", "(", ")")));
         List<QueryParameter> parameters = ImmutableList.<QueryParameter>builder()
                 .addAll(leftSource.getParameters())
                 .addAll(rightSource.getParameters())
+                .addAll(joinConditions.stream()
+                        .flatMap(expression -> expression.parameters().stream())
+                        .iterator())
                 .build();
         return new PreparedQuery(query, parameters);
     }
@@ -294,6 +291,13 @@ public class DefaultQueryBuilder
     protected String buildJoinColumn(JdbcClient client, JdbcColumnHandle columnHandle)
     {
         return client.quoted(columnHandle.getColumnName());
+    }
+
+    protected String formatProjections(JdbcClient client, Map<JdbcColumnHandle, String> projections)
+    {
+        return projections.entrySet().stream()
+                .map(entry -> format("%s AS %s", client.quoted(entry.getKey().getColumnName()), client.quoted(entry.getValue())))
+                .collect(joining(", "));
     }
 
     protected String formatAssignments(JdbcClient client, String relationAlias, Map<JdbcColumnHandle, String> assignments)
