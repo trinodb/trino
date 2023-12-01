@@ -117,7 +117,7 @@ public final class TypeConverter
         if (type instanceof BooleanType) {
             return Types.BooleanType.get();
         }
-        if (type instanceof IntegerType) {
+        if (type instanceof IntegerType || type instanceof SmallintType || type instanceof TinyintType ) {
             return Types.IntegerType.get();
         }
         if (type instanceof BigintType) {
@@ -132,7 +132,7 @@ public final class TypeConverter
         if (type instanceof DecimalType) {
             return fromDecimal((DecimalType) type);
         }
-        if (type instanceof VarcharType) {
+        if (type instanceof VarcharType || type instanceof CharType) {
             return Types.StringType.get();
         }
         if (type instanceof VarbinaryType) {

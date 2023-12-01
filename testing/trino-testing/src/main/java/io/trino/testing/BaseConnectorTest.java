@@ -2838,6 +2838,12 @@ public abstract class BaseConnectorTest
             return new SetColumnTypeSetup(sourceColumnType, sourceValueLiteral, newColumnType, newValueLiteral, unsupportedType);
         }
 
+        public SetColumnTypeSetup withNewColumnType(String newColumnType)
+        {
+            checkState(!unsupportedType);
+            return new SetColumnTypeSetup(sourceColumnType, sourceValueLiteral, newColumnType, newValueLiteral, unsupportedType);
+        }
+
         public SetColumnTypeSetup asUnsupported()
         {
             return new SetColumnTypeSetup(sourceColumnType, sourceValueLiteral, newColumnType, newValueLiteral, true);

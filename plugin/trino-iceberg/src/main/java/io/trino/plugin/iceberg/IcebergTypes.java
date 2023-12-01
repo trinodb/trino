@@ -114,7 +114,7 @@ public final class IcebergTypes
             return timestampTzToMicros((LongTimestampWithTimeZone) trinoNativeValue);
         }
 
-        if (type instanceof VarcharType) {
+        if (type instanceof VarcharType || type instanceof CharType) {
             return ((Slice) trinoNativeValue).toStringUtf8();
         }
 

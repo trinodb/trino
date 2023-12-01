@@ -291,14 +291,6 @@ public abstract class BaseIcebergConnectorTest
 
     @Test
     @Override
-    public void testCharVarcharComparison()
-    {
-        assertThatThrownBy(super::testCharVarcharComparison)
-                .hasMessage("Type not supported for Iceberg: char(3)");
-    }
-
-    @Test
-    @Override
     public void testShowCreateSchema()
     {
         assertThat(computeActual("SHOW CREATE SCHEMA tpch").getOnlyValue().toString())
@@ -4798,19 +4790,6 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Override
-    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
-    {
-        String typeName = dataMappingTestSetup.getTrinoTypeName();
-        if (typeName.equals("tinyint")
-                || typeName.equals("smallint")
-                || typeName.startsWith("char(")) {
-            // These types are not supported by Iceberg
-            return Optional.of(dataMappingTestSetup.asUnsupported());
-        }
-        return Optional.of(dataMappingTestSetup);
-    }
-
-    @Override
     protected Optional<DataMappingTestSetup> filterCaseSensitiveDataMappingTestData(DataMappingTestSetup dataMappingTestSetup)
     {
         String typeName = dataMappingTestSetup.getTrinoTypeName();
@@ -7482,6 +7461,12 @@ public abstract class BaseIcebergConnectorTest
         if (setup.sourceColumnType().equals("timestamp(3) with time zone")) {
             // The connector returns UTC instead of the given time zone
             return Optional.of(setup.withNewValueLiteral("TIMESTAMP '2020-02-12 14:03:00.123000 +00:00'"));
+        }
+        if (setup.sourceColumnType().equals("smallint")) {
+            return Optional.of(setup.withNewColumnType("integer").withNewValueLiteral("INTEGER '32767'"));
+        }
+        if (setup.sourceColumnType().equals("tinyint")) {
+            return Optional.of(setup.withNewColumnType("integer").withNewValueLiteral("INTEGER '127'"));
         }
         switch ("%s -> %s".formatted(setup.sourceColumnType(), setup.newColumnType())) {
             case "bigint -> integer":

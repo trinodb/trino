@@ -277,6 +277,7 @@ import static io.trino.spi.connector.RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.TimeType.TIME_MICROS;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
@@ -921,6 +922,12 @@ public class IcebergMetadata
         }
         if (type instanceof TimeType) {
             return Optional.of(TIME_MICROS);
+        }
+        if (type instanceof TinyintType || type instanceof SmallintType){
+            return Optional.of(INTEGER);
+        }
+        if (type instanceof CharType) {
+            return Optional.of(CharType.createCharType(((CharType) type).getLength()));
         }
         return Optional.empty();
     }
