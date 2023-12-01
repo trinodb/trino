@@ -45,6 +45,7 @@ public class MongoClientModule
     public void setup(Binder binder)
     {
         binder.bind(MongoConnector.class).in(Scopes.SINGLETON);
+        binder.bind(MongoTransactionManager.class).in(Scopes.SINGLETON);
         binder.bind(MongoSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(MongoPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(MongoPageSinkProvider.class).in(Scopes.SINGLETON);
