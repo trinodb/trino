@@ -22,7 +22,6 @@ import io.airlift.slice.Slice;
 import io.trino.plugin.mongodb.MongoColumnHandle;
 import io.trino.plugin.mongodb.MongoMetadata;
 import io.trino.plugin.mongodb.MongoMetadataFactory;
-import io.trino.plugin.mongodb.MongoSession;
 import io.trino.plugin.mongodb.MongoTableHandle;
 import io.trino.plugin.mongodb.RemoteTableName;
 import io.trino.spi.TrinoException;
@@ -34,6 +33,7 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.function.table.AbstractConnectorTableFunction;
 import io.trino.spi.function.table.Argument;
 import io.trino.spi.function.table.ConnectorTableFunction;
@@ -53,6 +53,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -63,29 +64,25 @@ public class Query
     public static final String NAME = "query";
 
     private final MongoMetadata metadata;
-    private final MongoSession session;
 
     @Inject
-    public Query(MongoMetadataFactory mongoMetadataFactory, MongoSession session)
+    public Query(MongoMetadataFactory mongoMetadataFactory)
     {
-        requireNonNull(session, "session is null");
         this.metadata = mongoMetadataFactory.create();
-        this.session = session;
     }
 
     @Override
     public ConnectorTableFunction get()
     {
-        return new QueryFunction(metadata, session);
+        return new QueryFunction(metadata);
     }
 
     public static class QueryFunction
             extends AbstractConnectorTableFunction
     {
         private final MongoMetadata metadata;
-        private final MongoSession mongoSession;
 
-        public QueryFunction(MongoMetadata metadata, MongoSession mongoSession)
+        public QueryFunction(MongoMetadata metadata)
         {
             super(
                     SCHEMA_NAME,
@@ -105,7 +102,6 @@ public class Query
                                     .build()),
                     GENERIC_TABLE);
             this.metadata = requireNonNull(metadata, "metadata is null");
-            this.mongoSession = requireNonNull(mongoSession, "mongoSession is null");
         }
 
         @Override
@@ -124,11 +120,16 @@ public class Query
             if (!collection.equals(collection.toLowerCase(ENGLISH))) {
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Only lowercase collection name is supported");
             }
-            RemoteTableName remoteTableName = mongoSession.toRemoteSchemaTableName(new SchemaTableName(database, collection));
+            SchemaTableName schemaTableName = new SchemaTableName(database, collection);
+            MongoTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
+            if (tableHandle == null) {
+                throw new TableNotFoundException(schemaTableName, format("Table '%s.%s' not found", database, collection), null);
+            }
+            RemoteTableName remoteTableName = metadata.getTableHandle(session, new SchemaTableName(database, collection)).getRemoteTableName();
             // Don't store Document object to MongoTableHandle for avoiding serialization issue
             parseFilter(filter);
 
-            MongoTableHandle tableHandle = new MongoTableHandle(new SchemaTableName(database, collection), remoteTableName, Optional.of(filter));
+            tableHandle = new MongoTableHandle(new SchemaTableName(database, collection), remoteTableName, Optional.of(filter));
             ConnectorTableSchema tableSchema = metadata.getTableSchema(session, tableHandle);
             Map<String, ColumnHandle> columnsByName = metadata.getColumnHandles(session, tableHandle);
             List<ColumnHandle> columns = tableSchema.getColumns().stream()
