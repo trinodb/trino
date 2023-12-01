@@ -571,7 +571,10 @@ public class QueryAssertions
 
         /**
          * Verifies join query is not fully pushed down by containing JOIN node.
+         *
+         * @deprecated because the method is not tested in BaseQueryAssertionsTest yet
          */
+        @Deprecated
         @CanIgnoreReturnValue
         public QueryAssert joinIsNotFullyPushedDown()
         {
@@ -580,6 +583,7 @@ public class QueryAssertions
                         .whereIsInstanceOfAny(JoinNode.class)
                         .findFirst()
                         .isEmpty()) {
+                    // TODO show then plan when assertions fails (like hasPlan()) and add negative test coverage in BaseQueryAssertionsTest
                     throw new IllegalStateException("Join node should be present in explain plan, when pushdown is not applied");
                 }
             });

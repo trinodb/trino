@@ -22,7 +22,6 @@ import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
-import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
@@ -517,17 +516,17 @@ public class TestDefaultJdbcQueryBuilder
                 connection,
                 JoinType.INNER,
                 new PreparedQuery("SELECT * FROM \"test_table\"", List.of()),
+                ImmutableMap.of(columns.get(2), "name1", columns.get(7), "lcol7"),
                 new PreparedQuery("SELECT * FROM \"test_table\"", List.of()),
-                List.of(new JdbcJoinCondition(columns.get(7), JoinCondition.Operator.EQUAL, columns.get(8))),
-                Map.of(columns.get(2), "name1"),
-                Map.of(columns.get(3), "name2"));
+                ImmutableMap.of(columns.get(3), "name2", columns.get(8), "rcol8"),
+                List.of(new ParameterizedExpression("\"lcol7\" = \"rcol8\"", List.of())));
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery, Optional.empty())) {
-            assertThat(preparedQuery.getQuery()).isEqualTo("" +
-                    "SELECT l.\"col_2\" AS \"name1\", r.\"col_3\" AS \"name2\" FROM " +
-                    "(SELECT * FROM \"test_table\") l " +
-                    "INNER JOIN " +
-                    "(SELECT * FROM \"test_table\") r " +
-                    "ON l.\"col_7\" = r.\"col_8\"");
+            assertThat(preparedQuery.getQuery()).isEqualTo("""
+                    SELECT * FROM \
+                    (SELECT "col_2" AS "name1", "col_7" AS "lcol7" FROM (SELECT * FROM "test_table") l) l \
+                    INNER JOIN \
+                    (SELECT "col_3" AS "name2", "col_8" AS "rcol8" FROM (SELECT * FROM "test_table") r) r \
+                    ON ("lcol7" = "rcol8")""");
             long count = 0;
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
                 while (resultSet.next()) {
