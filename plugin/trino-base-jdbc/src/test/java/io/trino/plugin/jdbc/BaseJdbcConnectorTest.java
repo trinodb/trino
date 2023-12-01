@@ -1256,31 +1256,31 @@ public abstract class BaseJdbcConnectorTest
             return;
         }
 
-        for (JoinOperator joinOperator : JoinOperator.values()) {
-            if (joinOperator == FULL_JOIN && !hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN)) {
-                assertThat(query(session, "SELECT r.name, n.name FROM nation n FULL JOIN region r ON n.regionkey = r.regionkey"))
-                        .joinIsNotFullyPushedDown();
-                continue;
-            }
+        try (TestTable nationLowercaseTable = new TestTable(
+                // If a connector supports Join pushdown, but does not allow CTAS, we need to make the table creation here overridable.
+                getQueryRunner()::execute,
+                "nation_lowercase",
+                "AS SELECT nationkey, lower(name) name, regionkey FROM nation")) {
+            for (JoinOperator joinOperator : JoinOperator.values()) {
+                if (joinOperator == FULL_JOIN && !hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN)) {
+                    assertThat(query(session, "SELECT r.name, n.name FROM nation n FULL JOIN region r ON n.regionkey = r.regionkey"))
+                            .joinIsNotFullyPushedDown();
+                    continue;
+                }
 
-            // Disable DF here for the sake of negative test cases' expected plan. With DF enabled, some operators return in DF's FilterNode and some do not.
-            Session withoutDynamicFiltering = Session.builder(session)
-                    .setSystemProperty("enable_dynamic_filtering", "false")
-                    .build();
+                // Disable DF here for the sake of negative test cases' expected plan. With DF enabled, some operators return in DF's FilterNode and some do not.
+                Session withoutDynamicFiltering = Session.builder(session)
+                        .setSystemProperty("enable_dynamic_filtering", "false")
+                        .build();
 
-            String notDistinctOperator = "IS NOT DISTINCT FROM";
-            List<String> nonEqualities = Stream.concat(
-                            Stream.of(JoinCondition.Operator.values())
-                                    .filter(operator -> operator != JoinCondition.Operator.EQUAL)
-                                    .map(JoinCondition.Operator::getValue),
-                            Stream.of(notDistinctOperator))
-                    .collect(toImmutableList());
+                String notDistinctOperator = "IS NOT DISTINCT FROM";
+                List<String> nonEqualities = Stream.concat(
+                                Stream.of(JoinCondition.Operator.values())
+                                        .filter(operator -> operator != JoinCondition.Operator.EQUAL)
+                                        .map(JoinCondition.Operator::getValue),
+                                Stream.of(notDistinctOperator))
+                        .collect(toImmutableList());
 
-            try (TestTable nationLowercaseTable = new TestTable(
-                    // If a connector supports Join pushdown, but does not allow CTAS, we need to make the table creation here overridable.
-                    getQueryRunner()::execute,
-                    "nation_lowercase",
-                    "AS SELECT nationkey, lower(name) name, regionkey FROM nation")) {
                 // basic case
                 assertThat(query(session, format("SELECT r.name, n.name FROM nation n %s region r ON n.regionkey = r.regionkey", joinOperator))).isFullyPushedDown();
 
