@@ -519,13 +519,13 @@ public class TestSynapseConnectorTest
                         assertJoinConditionallyPushedDown(
                                 withoutDynamicFiltering,
                                 format("SELECT r.name, n.name FROM nation n %s region r ON n.regionkey %s r.regionkey", joinOperator, operator),
-                                expectJoinPushdown(operator) && expectJoinPushdowOnInequalityOperator(joinOperator));
+                                expectJoinPushdown(operator) && expectJoinPushdownOnInequalityOperator(joinOperator));
 
                         // varchar inequality predicate
                         assertJoinConditionallyPushedDown(
                                 withoutDynamicFiltering,
                                 format("SELECT n.name, nl.name FROM %s n %s %s nl ON n.name %s nl.name", caseSensitiveNation, joinOperator, nationLowercaseTable.getName(), operator),
-                                expectVarcharJoinPushdown(operator) && expectJoinPushdowOnInequalityOperator(joinOperator));
+                                expectVarcharJoinPushdown(operator) && expectJoinPushdownOnInequalityOperator(joinOperator));
                     }
 
                     // inequality along with an equality, which constitutes an equi-condition and allows filter to remain as part of the Join
