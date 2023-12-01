@@ -21,8 +21,8 @@ import com.google.inject.Provider;
 import io.airlift.slice.Slice;
 import io.trino.plugin.mongodb.MongoColumnHandle;
 import io.trino.plugin.mongodb.MongoMetadata;
-import io.trino.plugin.mongodb.MongoMetadataFactory;
 import io.trino.plugin.mongodb.MongoTableHandle;
+import io.trino.plugin.mongodb.MongoTransactionManager;
 import io.trino.plugin.mongodb.RemoteTableName;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -53,7 +53,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -63,26 +62,26 @@ public class Query
     public static final String SCHEMA_NAME = "system";
     public static final String NAME = "query";
 
-    private final MongoMetadata metadata;
+    private final MongoTransactionManager transactionManager;
 
     @Inject
-    public Query(MongoMetadataFactory mongoMetadataFactory)
+    public Query(MongoTransactionManager transactionManager)
     {
-        this.metadata = mongoMetadataFactory.create();
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
     }
 
     @Override
     public ConnectorTableFunction get()
     {
-        return new QueryFunction(metadata);
+        return new QueryFunction(transactionManager);
     }
 
     public static class QueryFunction
             extends AbstractConnectorTableFunction
     {
-        private final MongoMetadata metadata;
+        private final MongoTransactionManager transactionManager;
 
-        public QueryFunction(MongoMetadata metadata)
+        public QueryFunction(MongoTransactionManager transactionManager)
         {
             super(
                     SCHEMA_NAME,
@@ -101,7 +100,7 @@ public class Query
                                     .type(VARCHAR)
                                     .build()),
                     GENERIC_TABLE);
-            this.metadata = requireNonNull(metadata, "metadata is null");
+            this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         }
 
         @Override
@@ -111,6 +110,7 @@ public class Query
                 Map<String, Argument> arguments,
                 ConnectorAccessControl accessControl)
         {
+            MongoMetadata metadata = transactionManager.getMetadata(transaction);
             String database = ((Slice) ((ScalarArgument) arguments.get("DATABASE")).getValue()).toStringUtf8();
             String collection = ((Slice) ((ScalarArgument) arguments.get("COLLECTION")).getValue()).toStringUtf8();
             String filter = ((Slice) ((ScalarArgument) arguments.get("FILTER")).getValue()).toStringUtf8();
@@ -123,13 +123,14 @@ public class Query
             SchemaTableName schemaTableName = new SchemaTableName(database, collection);
             MongoTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
             if (tableHandle == null) {
-                throw new TableNotFoundException(schemaTableName, format("Table '%s.%s' not found", database, collection), null);
+                throw new TableNotFoundException(schemaTableName);
             }
-            RemoteTableName remoteTableName = metadata.getTableHandle(session, new SchemaTableName(database, collection)).getRemoteTableName();
+
+            RemoteTableName remoteTableName = tableHandle.getRemoteTableName();
             // Don't store Document object to MongoTableHandle for avoiding serialization issue
             parseFilter(filter);
 
-            tableHandle = new MongoTableHandle(new SchemaTableName(database, collection), remoteTableName, Optional.of(filter));
+            tableHandle = new MongoTableHandle(schemaTableName, remoteTableName, Optional.of(filter));
             ConnectorTableSchema tableSchema = metadata.getTableSchema(session, tableHandle);
             Map<String, ColumnHandle> columnsByName = metadata.getColumnHandles(session, tableHandle);
             List<ColumnHandle> columns = tableSchema.getColumns().stream()
