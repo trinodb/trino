@@ -100,6 +100,7 @@ import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
+import static io.trino.SystemSessionProperties.DETERMINE_PARTITION_COUNT_FOR_WRITE_ENABLED;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
 import static io.trino.SystemSessionProperties.TASK_MAX_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.TASK_MIN_WRITER_COUNT;
@@ -6428,23 +6429,28 @@ public abstract class BaseIcebergConnectorTest
     @Override
     public void testMergeMultipleOperations()
     {
-        testMergeMultipleOperations(1, "");
-        testMergeMultipleOperations(4, "");
-        testMergeMultipleOperations(1, "WITH (partitioning = ARRAY['customer'])");
-        testMergeMultipleOperations(4, "WITH (partitioning = ARRAY['customer'])");
-        testMergeMultipleOperations(1, "WITH (partitioning = ARRAY['purchase'])");
-        testMergeMultipleOperations(4, "WITH (partitioning = ARRAY['purchase'])");
-        testMergeMultipleOperations(1, "WITH (partitioning = ARRAY['bucket(customer, 3)'])");
-        testMergeMultipleOperations(4, "WITH (partitioning = ARRAY['bucket(customer, 3)'])");
-        testMergeMultipleOperations(1, "WITH (partitioning = ARRAY['bucket(purchase, 4)'])");
-        testMergeMultipleOperations(4, "WITH (partitioning = ARRAY['bucket(purchase, 4)'])");
+        testMergeMultipleOperations(1, "", false);
+        testMergeMultipleOperations(4, "", false);
+        testMergeMultipleOperations(1, "WITH (partitioning = ARRAY['customer'])", false);
+        testMergeMultipleOperations(4, "WITH (partitioning = ARRAY['customer'])", false);
+        testMergeMultipleOperations(1, "WITH (partitioning = ARRAY['purchase'])", false);
+        testMergeMultipleOperations(4, "WITH (partitioning = ARRAY['purchase'])", false);
+        testMergeMultipleOperations(1, "WITH (partitioning = ARRAY['bucket(customer, 3)'])", false);
+        testMergeMultipleOperations(4, "WITH (partitioning = ARRAY['bucket(customer, 3)'])", false);
+        testMergeMultipleOperations(1, "WITH (partitioning = ARRAY['bucket(purchase, 4)'])", false);
+        testMergeMultipleOperations(4, "WITH (partitioning = ARRAY['bucket(purchase, 4)'])", false);
+        testMergeMultipleOperations(1, "", true);
+        testMergeMultipleOperations(4, "WITH (partitioning = ARRAY['customer'])", true);
+        testMergeMultipleOperations(1, "WITH (partitioning = ARRAY['bucket(customer, 3)'])", true);
+        testMergeMultipleOperations(4, "WITH (partitioning = ARRAY['bucket(purchase, 4)'])", true);
     }
 
-    public void testMergeMultipleOperations(int writers, String partitioning)
+    public void testMergeMultipleOperations(int writers, String partitioning, boolean determinePartitionCountForWrite)
     {
         Session session = Session.builder(getSession())
                 .setSystemProperty(TASK_MIN_WRITER_COUNT, String.valueOf(writers))
                 .setSystemProperty(TASK_MAX_WRITER_COUNT, String.valueOf(writers))
+                .setSystemProperty(DETERMINE_PARTITION_COUNT_FOR_WRITE_ENABLED, Boolean.toString(determinePartitionCountForWrite))
                 .build();
 
         int targetCustomerCount = 32;
