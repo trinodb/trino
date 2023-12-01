@@ -1194,21 +1194,6 @@ public abstract class BaseJdbcConnectorTest
                 .joinIsNotFullyPushedDown();
     }
 
-    /**
-     * Verify !SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN declaration is true.
-     */
-    @Test
-    public void verifySupportsJoinPushdownWithFullJoinDeclaration()
-    {
-        if (hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN)) {
-            // Covered by testJoinPushdown
-            return;
-        }
-
-        assertThat(query(joinPushdownEnabled(getSession()), "SELECT r.name, n.name FROM nation n FULL JOIN region r ON n.regionkey = r.regionkey"))
-                .joinIsNotFullyPushedDown();
-    }
-
     @Test
     public void testJoinPushdown()
     {
@@ -1222,7 +1207,8 @@ public abstract class BaseJdbcConnectorTest
 
         for (JoinOperator joinOperator : JoinOperator.values()) {
             if (joinOperator == FULL_JOIN && !hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN)) {
-                // Covered by verifySupportsJoinPushdownWithFullJoinDeclaration
+                assertThat(query(session, "SELECT r.name, n.name FROM nation n FULL JOIN region r ON n.regionkey = r.regionkey"))
+                        .joinIsNotFullyPushedDown();
                 continue;
             }
 
