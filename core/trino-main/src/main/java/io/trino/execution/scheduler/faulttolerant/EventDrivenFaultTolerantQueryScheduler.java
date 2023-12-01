@@ -935,6 +935,7 @@ public class EventDrivenFaultTolerantQueryScheduler
 
             log.debug("Scheduler debug info for %s START; reason=%s", queryStateMachine.getQueryId(), reason);
             log.debug("General state: %s", toStringHelper(this)
+                    .add("queryState", queryStateMachine.getQueryState())
                     .add("maxTaskExecutionAttempts", maxTaskExecutionAttempts)
                     .add("maxTasksWaitingForNode", maxTasksWaitingForNode)
                     .add("maxTasksWaitingForExecution", maxTasksWaitingForExecution)
