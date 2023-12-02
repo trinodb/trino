@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import io.airlift.json.JsonCodec;
+import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
@@ -91,6 +92,8 @@ import static org.apache.iceberg.FileContent.DATA;
 public class IcebergPageSink
         implements ConnectorPageSink
 {
+    private static final Logger LOG = Logger.get(IcebergPageSink.class);
+
     private static final int MAX_PAGE_POSITIONS = 4096;
 
     private final int maxOpenWriters;
@@ -105,6 +108,7 @@ public class IcebergPageSink
     private final MetricsConfig metricsConfig;
     private final PagePartitioner pagePartitioner;
     private final long targetMaxFileSize;
+    private final long idleWriterMinFileSize;
     private final Map<String, String> storageProperties;
     private final List<TrinoSortField> sortOrder;
     private final boolean sortedWritingEnabled;
@@ -120,6 +124,7 @@ public class IcebergPageSink
     private final List<WriteContext> writers = new ArrayList<>();
     private final List<Closeable> closedWriterRollbackActions = new ArrayList<>();
     private final Collection<Slice> commitTasks = new ArrayList<>();
+    private final List<Boolean> activeWriters = new ArrayList<>();
 
     private long writtenBytes;
     private long memoryUsage;
@@ -157,6 +162,7 @@ public class IcebergPageSink
         this.maxOpenWriters = maxOpenWriters;
         this.pagePartitioner = new PagePartitioner(pageIndexerFactory, toPartitionColumns(inputColumns, partitionSpec));
         this.targetMaxFileSize = IcebergSessionProperties.getTargetMaxFileSize(session);
+        this.idleWriterMinFileSize = IcebergSessionProperties.getIdleWriterMinFileSize(session);
         this.storageProperties = requireNonNull(storageProperties, "storageProperties is null");
         this.sortOrder = requireNonNull(sortOrder, "sortOrder is null");
         this.sortedWritingEnabled = isSortedWritingEnabled(session);
@@ -300,7 +306,9 @@ public class IcebergPageSink
                 pageForWriter = pageForWriter.getPositions(positions, 0, positions.length);
             }
 
-            IcebergFileWriter writer = writers.get(index).getWriter();
+            WriteContext writeContext = writers.get(index);
+            verify(writeContext != null, "Expected writer at index %s", index);
+            IcebergFileWriter writer = writeContext.getWriter();
 
             long currentWritten = writer.getWrittenBytes();
             long currentMemory = writer.getMemoryUsage();
@@ -309,6 +317,8 @@ public class IcebergPageSink
 
             writtenBytes += (writer.getWrittenBytes() - currentWritten);
             memoryUsage += (writer.getMemoryUsage() - currentMemory);
+            // Mark this writer as active (i.e. not idle)
+            activeWriters.set(index, true);
         }
     }
 
@@ -323,6 +333,7 @@ public class IcebergPageSink
         // expand writers list to new size
         while (writers.size() <= pagePartitioner.getMaxIndex()) {
             writers.add(null);
+            activeWriters.add(false);
         }
 
         // create missing writers
@@ -369,14 +380,30 @@ public class IcebergPageSink
             memoryUsage += writer.getWriter().getMemoryUsage();
         }
         verify(writers.size() == pagePartitioner.getMaxIndex() + 1);
-        verify(!writers.contains(null));
 
         return writerIndexes;
+    }
+
+    @Override
+    public void closeIdleWriters()
+    {
+        for (int writerIndex = 0; writerIndex < writers.size(); writerIndex++) {
+            WriteContext writeContext = writers.get(writerIndex);
+            if (activeWriters.get(writerIndex) || writeContext == null || writeContext.getWriter().getWrittenBytes() <= idleWriterMinFileSize) {
+                activeWriters.set(writerIndex, false);
+                continue;
+            }
+            LOG.debug("Closing writer %s with %s bytes written", writerIndex, writeContext.getWriter().getWrittenBytes());
+            closeWriter(writerIndex);
+        }
     }
 
     private void closeWriter(int writerIndex)
     {
         WriteContext writeContext = writers.get(writerIndex);
+        if (writeContext == null) {
+            return;
+        }
         IcebergFileWriter writer = writeContext.getWriter();
 
         long currentWritten = writer.getWrittenBytes();
