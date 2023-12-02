@@ -218,12 +218,6 @@
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-benchmark</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.trino</groupId>
             <artifactId>trino-client</artifactId>
             <scope>test</scope>
         </dependency>
