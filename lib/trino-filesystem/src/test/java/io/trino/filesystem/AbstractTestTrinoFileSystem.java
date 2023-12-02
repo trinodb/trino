@@ -73,11 +73,6 @@ public abstract class AbstractTestTrinoFileSystem
         return true;
     }
 
-    protected boolean deleteFileFailsIfNotExists()
-    {
-        return true;
-    }
-
     protected boolean normalizesListFilesResult()
     {
         return false;
@@ -671,16 +666,8 @@ public abstract class AbstractTestTrinoFileSystem
                 .hasMessageContaining(createLocation("foo/").toString());
 
         try (TempBlob tempBlob = randomBlobLocation("delete")) {
-            if (deleteFileFailsIfNotExists()) {
-                // deleting a non-existent file is an error
-                assertThatThrownBy(() -> getFileSystem().deleteFile(tempBlob.location()))
-                        .isInstanceOf(FileNotFoundException.class)
-                        .hasMessageContaining(tempBlob.location().toString());
-            }
-            else {
-                // deleting a non-existent file is a no-op
-                getFileSystem().deleteFile(tempBlob.location());
-            }
+            // deleting a non-existent file is a no-op
+            getFileSystem().deleteFile(tempBlob.location());
 
             tempBlob.createOrOverwrite("delete me");
 

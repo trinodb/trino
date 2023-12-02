@@ -94,12 +94,6 @@ public abstract class AbstractTestS3FileSystem
     }
 
     @Override
-    protected final boolean deleteFileFailsIfNotExists()
-    {
-        return false;
-    }
-
-    @Override
     protected final void verifyFileSystemIsEmpty()
     {
         try (S3Client client = createS3Client()) {
