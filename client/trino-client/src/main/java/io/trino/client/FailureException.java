@@ -11,42 +11,47 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.execution;
+package io.trino.client;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-@SuppressWarnings("ExceptionClassNameDoesntEndWithException")
-public class Failure
+public final class FailureException
         extends RuntimeException
 {
     private static final Pattern STACK_TRACE_PATTERN = Pattern.compile("(.*)\\.(.*)\\(([^:]*)(?::(.*))?\\)");
 
-    private final ExecutionFailureInfo failureInfo;
+    private final FailureInfo failureInfo;
 
-    Failure(ExecutionFailureInfo failureInfo)
+    FailureException(FailureInfo failureInfo)
     {
-        super(failureInfo.getMessage(), failureInfo.getCause() == null ? null : new Failure(failureInfo.getCause()));
+        super(failureInfo.getMessage(), failureInfo.getCause() == null ? null : new FailureException(failureInfo.getCause()));
         this.failureInfo = failureInfo;
 
-        for (ExecutionFailureInfo suppressed : failureInfo.getSuppressed()) {
-            addSuppressed(new Failure(suppressed));
+        for (FailureInfo suppressed : failureInfo.getSuppressed()) {
+            addSuppressed(new FailureException(suppressed));
         }
         setStackTrace(failureInfo.getStack().stream()
-                .map(Failure::toStackTraceElement)
+                .map(FailureException::toStackTraceElement)
                 .toArray(StackTraceElement[]::new));
     }
 
-    public ExecutionFailureInfo getFailureInfo()
+    public FailureInfo getFailureInfo()
     {
         return failureInfo;
     }
 
     @Override
+    public synchronized FailureException getCause()
+    {
+        return (FailureException) super.getCause();
+    }
+
+    @Override
     public String toString()
     {
-        String type = getFailureInfo().getType();
-        String message = getMessage();
+        String type = failureInfo.getType();
+        String message = failureInfo.getMessage();
         if (message != null) {
             return type + ": " + message;
         }
