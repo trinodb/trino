@@ -554,36 +554,4 @@
             </plugin>
         </plugins>
     </build>
-
-    <profiles>
-        <profile>
-            <id>benchmarks</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>exec-maven-plugin</artifactId>
-                        <configuration>
-                            <executable>${java.home}/bin/java</executable>
-                            <arguments>
-                                <argument>-DoutputDirectory=benchmark_outputs</argument>
-                                <argument>-classpath</argument>
-                                <classpath />
-                                <argument>io.trino.benchmark.BenchmarkSuite</argument>
-                            </arguments>
-                            <classpathScope>test</classpathScope>
-                        </configuration>
-                        <executions>
-                            <execution>
-                                <id>benchmarks</id>
-                                <goals>
-                                    <goal>exec</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
 </project>
