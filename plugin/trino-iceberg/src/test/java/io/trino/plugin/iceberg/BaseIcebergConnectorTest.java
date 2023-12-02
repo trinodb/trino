@@ -4789,16 +4789,6 @@ public abstract class BaseIcebergConnectorTest
         return abort("Iceberg connector does not support column default values");
     }
 
-    @Override
-    protected Optional<DataMappingTestSetup> filterCaseSensitiveDataMappingTestData(DataMappingTestSetup dataMappingTestSetup)
-    {
-        String typeName = dataMappingTestSetup.getTrinoTypeName();
-        if (typeName.equals("char(1)")) {
-            return Optional.of(dataMappingTestSetup.asUnsupported());
-        }
-        return Optional.of(dataMappingTestSetup);
-    }
-
     @Test
     public void testAmbiguousColumnsWithDots()
     {
