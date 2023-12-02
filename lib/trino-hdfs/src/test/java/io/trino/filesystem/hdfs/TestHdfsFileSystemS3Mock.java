@@ -115,12 +115,6 @@ public class TestHdfsFileSystemS3Mock
     }
 
     @Override
-    protected final boolean deleteFileFailsIfNotExists()
-    {
-        return false;
-    }
-
-    @Override
     protected boolean normalizesListFilesResult()
     {
         return true;

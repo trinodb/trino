@@ -114,9 +114,8 @@ class HdfsFileSystem
                 }
                 return null;
             }
-            catch (FileNotFoundException e) {
-                stats.getDeleteFileCalls().recordException(e);
-                throw new FileNotFoundException(location.toString());
+            catch (FileNotFoundException ignored) {
+                return null;
             }
             catch (IOException e) {
                 stats.getDeleteFileCalls().recordException(e);
