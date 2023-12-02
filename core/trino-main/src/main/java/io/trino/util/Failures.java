@@ -82,7 +82,7 @@ public final class Failures
         String type;
         HostAddress remoteHost = null;
         if (throwable instanceof Failure) {
-            type = ((Failure) throwable).getType();
+            type = ((Failure) throwable).getFailureInfo().getType();
         }
         else {
             Class<?> clazz = throwable.getClass();
@@ -154,8 +154,8 @@ public final class Failures
         if (throwable instanceof TrinoException trinoException) {
             return trinoException.getErrorCode();
         }
-        if (throwable instanceof Failure failure && failure.getErrorCode() != null) {
-            return failure.getErrorCode();
+        if (throwable instanceof Failure failure) {
+            return failure.getFailureInfo().getErrorCode();
         }
         if (throwable instanceof ParsingException) {
             return SYNTAX_ERROR.toErrorCode();

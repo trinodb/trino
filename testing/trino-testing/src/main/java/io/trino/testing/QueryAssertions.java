@@ -22,6 +22,7 @@ import com.google.common.collect.Multisets;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.client.FailureException;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.spi.QueryId;
@@ -551,16 +552,9 @@ public final class QueryAssertions
             return true;
         }
 
-        if (exception.getClass().getName().equals("io.trino.client.FailureInfo$FailureException")) {
-            try {
-                String originalClassName = exception.toString().split(":", 2)[0];
-                Class<? extends Throwable> originalClass = Class.forName(originalClassName).asSubclass(Throwable.class);
-                return TrinoException.class.isAssignableFrom(originalClass) ||
-                        ParsingException.class.isAssignableFrom(originalClass);
-            }
-            catch (ClassNotFoundException e) {
-                return false;
-            }
+        if (exception instanceof FailureException failureException) {
+            String type = failureException.getFailureInfo().getType();
+            return type.equals(TrinoException.class.getName()) || type.equals(ParsingException.class.getName());
         }
 
         return false;
