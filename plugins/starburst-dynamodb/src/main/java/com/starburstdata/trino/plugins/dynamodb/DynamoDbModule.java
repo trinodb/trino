@@ -10,6 +10,8 @@
 package com.starburstdata.trino.plugins.dynamodb;
 
 import com.google.inject.Binder;
+import com.google.inject.BindingAnnotation;
+import com.google.inject.Key;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
@@ -26,6 +28,11 @@ import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.credential.CredentialProviderModule;
 import io.trino.plugin.jdbc.jmx.StatisticsAwareConnectionFactory;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
@@ -62,11 +69,17 @@ public class DynamoDbModule
         // Set the connection URL to some value as it is a required property in the JdbcModule
         // The actual connection URL is set via the DynamoDbConnectionFactory
         configBinder(binder).bindConfigDefaults(BaseJdbcConfig.class, config -> config.setConnectionUrl("jdbc:dynamodb:"));
+
+        // Using optional binder for overriding ConnectionFactory in Galaxy
+        newOptionalBinder(binder, Key.get(ConnectionFactory.class, ForBaseJdbc.class))
+                .setDefault()
+                .to(Key.get(ConnectionFactory.class, DefaultDynamoDbBinding.class))
+                .in(Scopes.SINGLETON);
     }
 
     @Provides
     @Singleton
-    @ForBaseJdbc
+    @DefaultDynamoDbBinding
     public ConnectionFactory getConnectionFactory(DynamoDbConfig dynamoDbConfig, CredentialProvider credentialProvider)
     {
         // The CData JDBC driver will intermittently throw an exception with no error message
@@ -76,4 +89,9 @@ public class DynamoDbModule
                         new DynamoDbConnectionFactory(dynamoDbConfig, credentialProvider)),
                 new DefaultRetryStrategy());
     }
+
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
+    @BindingAnnotation
+    public @interface DefaultDynamoDbBinding {}
 }
