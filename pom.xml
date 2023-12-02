@@ -114,7 +114,6 @@
         <module>plugin/trino-tpch</module>
         <module>service/trino-proxy</module>
         <module>service/trino-verifier</module>
-        <module>testing/trino-benchmark</module>
         <module>testing/trino-benchmark-queries</module>
         <module>testing/trino-benchto-benchmarks</module>
         <module>testing/trino-faulttolerant-tests</module>
@@ -970,12 +969,6 @@
                 <artifactId>trino-base-jdbc</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
-            </dependency>
-
-            <dependency>
-                <groupId>io.trino</groupId>
-                <artifactId>trino-benchmark</artifactId>
-                <version>${project.version}</version>
             </dependency>
 
             <dependency>
