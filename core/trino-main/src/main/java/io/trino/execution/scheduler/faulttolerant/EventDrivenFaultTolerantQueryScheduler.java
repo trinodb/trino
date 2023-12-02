@@ -2415,6 +2415,10 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         public void fail(Throwable t)
         {
+            if (stage.getState().isDone()) {
+                // stage already done; ignore
+                return;
+            }
             Closer closer = createStageExecutionCloser();
             closer.register(() -> stage.fail(t));
             try {
