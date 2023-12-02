@@ -134,6 +134,35 @@ public class ParquetReaderConfig
         return options.useBloomFilter();
     }
 
+    // TODO (wyu): The following properties will be directly translated to parquet modular encryption properties and passed to parquet lib.
+    // Another way to pass it is to use hive.config.resources. It could be better because 1. we don't need to translate all properties
+    // and 2. the parquet lib expects a hadoop.conf.Configuration class as an argument which is also the output of HdfsConfigurationInitializer.
+    @Config("parquet.crypto-factory-class")
+    @ConfigDescription("Crypto factory class to encrypt or decrypt parquet files")
+    public ParquetReaderConfig setCryptoFactoryClass(String cryptoFactoryClass)
+    {
+        options = options.withCryptoFactoryClass(cryptoFactoryClass);
+        return this;
+    }
+
+    public String getCryptoFactoryClass()
+    {
+        return options.getCryptoFactoryClass();
+    }
+
+    @Config("parquet.encryption-kms-client-class")
+    @ConfigDescription("Class implementing the KmsClient interface. KMS stands for “key management service")
+    public ParquetReaderConfig setEncryptionKmsClientClass(String encryptionKmsClientClass)
+    {
+        options = options.withEncryptionKmsClientClass(encryptionKmsClientClass);
+        return this;
+    }
+
+    public String getEncryptionKmsClientClass()
+    {
+        return options.getEncryptionKmsClientClass();
+    }
+
     @Config("parquet.small-file-threshold")
     @ConfigDescription("Size below which a parquet file will be read entirely")
     public ParquetReaderConfig setSmallFileThreshold(DataSize smallFileThreshold)

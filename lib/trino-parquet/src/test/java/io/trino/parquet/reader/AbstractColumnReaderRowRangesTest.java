@@ -284,8 +284,8 @@ public abstract class AbstractColumnReaderRowRangesTest
     private static ColumnReaderInput[] getColumnReaderInputs(ColumnReaderProvider columnReaderProvider)
     {
         Object[][] definitionLevelsProviders = Arrays.stream(DefinitionLevelsProvider.ofDefinitionLevel(
-                columnReaderProvider.getField().getDefinitionLevel(),
-                columnReaderProvider.getField().isRequired()))
+                        columnReaderProvider.getField().getDefinitionLevel(),
+                        columnReaderProvider.getField().isRequired()))
                 .collect(toDataProvider());
         PrimitiveField field = columnReaderProvider.getField();
 
@@ -563,7 +563,8 @@ public abstract class AbstractColumnReaderRowRangesTest
                 UNCOMPRESSED,
                 inputPages.iterator(),
                 dictionaryEncoding == DictionaryEncoding.ALL || (dictionaryEncoding == DictionaryEncoding.MIXED && testingPages.size() == 1),
-                false);
+                false,
+                Optional.empty(), null, null);
     }
 
     private static List<Page> createDataPages(List<TestingPage> testingPages, ValuesWriter encoder, int maxDef, boolean required)

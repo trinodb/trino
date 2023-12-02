@@ -47,6 +47,7 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 import org.apache.parquet.column.ColumnDescriptor;
+import org.apache.parquet.crypto.InternalFileDecryptor;
 import org.apache.parquet.filter2.compat.FilterCompat;
 import org.apache.parquet.filter2.predicate.FilterPredicate;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
@@ -127,6 +128,7 @@ public class ParquetReader
     private final FilteredRowRanges[] blockRowRanges;
     private final ParquetBlockFactory blockFactory;
     private final Map<String, Metric<?>> codecMetrics;
+    private final Optional<InternalFileDecryptor> fileDecryptor;
 
     private long columnIndexRowsFiltered = -1;
 
@@ -140,7 +142,8 @@ public class ParquetReader
             ParquetReaderOptions options,
             Function<Exception, RuntimeException> exceptionTransform,
             Optional<TupleDomainParquetPredicate> parquetPredicate,
-            Optional<ParquetWriteValidation> writeValidation)
+            Optional<ParquetWriteValidation> writeValidation,
+            Optional<InternalFileDecryptor> fileDecryptor)
             throws IOException
     {
         this.fileCreatedBy = requireNonNull(fileCreatedBy, "fileCreatedBy is null");
@@ -156,6 +159,7 @@ public class ParquetReader
         this.maxBatchSize = options.getMaxReadBlockRowCount();
         this.columnReaders = new HashMap<>();
         this.maxBytesPerCell = new HashMap<>();
+        this.fileDecryptor = requireNonNull(fileDecryptor, "fileDecryptor is null");
 
         this.writeValidation = requireNonNull(writeValidation, "writeValidation is null");
         validateWrite(
@@ -454,8 +458,14 @@ public class ParquetReader
                 offsetIndex = getFilteredOffsetIndex(rowRanges, currentRowGroup, currentBlockMetadata.getRowCount(), metadata.getPath());
             }
             ChunkedInputStream columnChunkInputStream = chunkReaders.get(new ChunkKey(fieldId, currentRowGroup));
+
+            Optional<InternalFileDecryptor> fileDecryptorForPageReader = fileDecryptor;
+            if (!isColumnEncrypted(fileDecryptor, columnDescriptor)) {
+                // wyu: fileDecryptor is not required to be passed into the page reader.
+                fileDecryptorForPageReader = Optional.empty();
+            }
             columnReader.setPageReader(
-                    createPageReader(dataSource.getId(), columnChunkInputStream, metadata, columnDescriptor, offsetIndex, fileCreatedBy),
+                    createPageReader(dataSource.getId(), columnChunkInputStream, metadata, columnDescriptor, offsetIndex, fileCreatedBy, fileDecryptorForPageReader, currentRowGroup),
                     Optional.ofNullable(rowRanges));
         }
         ColumnChunk columnChunk = columnReader.readPrimitive();
@@ -475,6 +485,12 @@ public class ParquetReader
     public List<Column> getColumnFields()
     {
         return columnFields;
+    }
+
+    private static boolean isColumnEncrypted(Optional<InternalFileDecryptor> fileDecryptor, ColumnDescriptor columnDescriptor)
+    {
+        ColumnPath columnPath = ColumnPath.get(columnDescriptor.getPath());
+        return fileDecryptor.isPresent() && !fileDecryptor.get().plaintextFile() && fileDecryptor.get().getColumnSetup(columnPath).isEncrypted();
     }
 
     public Metrics getMetrics()

@@ -16,6 +16,7 @@ package io.trino.parquet.reader;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
+import io.airlift.slice.Slice;
 import io.trino.parquet.DataPage;
 import io.trino.parquet.DataPageV1;
 import io.trino.parquet.DataPageV2;
@@ -25,8 +26,14 @@ import io.trino.parquet.ParquetDataSourceId;
 import jakarta.annotation.Nullable;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.statistics.Statistics;
+import org.apache.parquet.crypto.AesCipher;
+import org.apache.parquet.crypto.InternalColumnDecryptionSetup;
+import org.apache.parquet.crypto.InternalFileDecryptor;
+import org.apache.parquet.crypto.ModuleCipherFactory;
+import org.apache.parquet.format.BlockCipher;
 import org.apache.parquet.format.CompressionCodec;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
+import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.internal.column.columnindex.OffsetIndex;
 
 import java.io.IOException;
@@ -35,6 +42,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.trino.parquet.ParquetCompressionUtils.decompress;
 import static io.trino.parquet.ParquetReaderUtils.isOnlyDictionaryEncodingPages;
 import static java.util.Objects.requireNonNull;
@@ -50,13 +58,20 @@ public final class PageReader
     private boolean dictionaryAlreadyRead;
     private int dataPageReadCount;
 
+    // For parquet modular encryption
+    private final Optional<BlockCipher.Decryptor> blockDecryptor;
+    private byte[] dataPageAdditionalAuthenticationData;
+    private byte[] dictionaryPageAdditionalAuthenticationData;
+
     public static PageReader createPageReader(
             ParquetDataSourceId dataSourceId,
             ChunkedInputStream columnChunk,
             ColumnChunkMetaData metadata,
             ColumnDescriptor columnDescriptor,
             @Nullable OffsetIndex offsetIndex,
-            Optional<String> fileCreatedBy)
+            Optional<String> fileCreatedBy,
+            Optional<InternalFileDecryptor> fileDecryptor,
+            int rowGroupOrdinal)
     {
         // Parquet schema may specify a column definition as OPTIONAL even though there are no nulls in the actual data.
         // Row-group column statistics can be used to identify such cases and switch to faster non-nullable read
@@ -64,20 +79,43 @@ public final class PageReader
         Statistics<?> columnStatistics = metadata.getStatistics();
         boolean hasNoNulls = columnStatistics != null && columnStatistics.getNumNulls() == 0;
         boolean hasOnlyDictionaryEncodedPages = isOnlyDictionaryEncodingPages(metadata);
+
+        Optional<BlockCipher.Decryptor> dataDecryptor = Optional.empty();
+        byte[] dataPageAdditionalAuthenticationData = null;
+        byte[] dictionaryPageAdditionalAuthenticationData = null;
+        int columnOrdinal = -1;
+
+        if (fileDecryptor.isPresent()) {
+            InternalFileDecryptor fileDecryptorValue = fileDecryptor.get();
+            byte[] fileAdditionalAuthenticationData = fileDecryptorValue.getFileAAD();
+
+            ColumnPath columnPath = ColumnPath.get(columnDescriptor.getPath());
+            InternalColumnDecryptionSetup columnDecryptionSetup = fileDecryptorValue.getColumnSetup(columnPath);
+            dataDecryptor = getDataDecryptor(columnDecryptionSetup);
+
+            columnOrdinal = columnDecryptionSetup.getOrdinal();
+            dataPageAdditionalAuthenticationData = AesCipher.createModuleAAD(fileAdditionalAuthenticationData, ModuleCipherFactory.ModuleType.DataPage, rowGroupOrdinal, columnOrdinal, 0);
+            dictionaryPageAdditionalAuthenticationData = AesCipher.createModuleAAD(fileAdditionalAuthenticationData, ModuleCipherFactory.ModuleType.DictionaryPage, rowGroupOrdinal, columnOrdinal, -1);
+        }
+
         ParquetColumnChunkIterator compressedPages = new ParquetColumnChunkIterator(
                 dataSourceId,
                 fileCreatedBy,
                 columnDescriptor,
                 metadata,
                 columnChunk,
-                offsetIndex);
+                offsetIndex,
+                fileDecryptor,
+                rowGroupOrdinal,
+                columnOrdinal);
 
         return new PageReader(
                 dataSourceId,
                 metadata.getCodec().getParquetCompressionCodec(),
                 compressedPages,
                 hasOnlyDictionaryEncodedPages,
-                hasNoNulls);
+                hasNoNulls,
+                dataDecryptor, dataPageAdditionalAuthenticationData, dictionaryPageAdditionalAuthenticationData);
     }
 
     @VisibleForTesting
@@ -86,13 +124,20 @@ public final class PageReader
             CompressionCodec codec,
             Iterator<? extends Page> compressedPages,
             boolean hasOnlyDictionaryEncodedPages,
-            boolean hasNoNulls)
+            boolean hasNoNulls,
+            Optional<BlockCipher.Decryptor> blockDecryptor,
+            byte[] dataPageAdditionalAuthenticationData,
+            byte[] dictionaryPageAdditionalAuthenticationData)
     {
         this.dataSourceId = requireNonNull(dataSourceId, "dataSourceId is null");
         this.codec = codec;
         this.compressedPages = Iterators.peekingIterator(compressedPages);
         this.hasOnlyDictionaryEncodedPages = hasOnlyDictionaryEncodedPages;
         this.hasNoNulls = hasNoNulls;
+
+        this.blockDecryptor = blockDecryptor;
+        this.dataPageAdditionalAuthenticationData = dataPageAdditionalAuthenticationData;
+        this.dictionaryPageAdditionalAuthenticationData = dictionaryPageAdditionalAuthenticationData;
     }
 
     public boolean hasNoNulls()
@@ -110,16 +155,23 @@ public final class PageReader
         if (!compressedPages.hasNext()) {
             return null;
         }
+
+        if (blockDecryptor.isPresent()) {
+            AesCipher.quickUpdatePageAAD(dataPageAdditionalAuthenticationData, dataPageReadCount);
+        }
+
         Page compressedPage = compressedPages.next();
         checkState(compressedPage instanceof DataPage, "Found page %s instead of a DataPage", compressedPage);
         dataPageReadCount++;
         try {
+            Slice slice = decryptSliceIfNeeded(((DataPage) compressedPage).getSlice(), dataPageAdditionalAuthenticationData);
+
             if (compressedPage instanceof DataPageV1 dataPageV1) {
                 if (!arePagesCompressed()) {
                     return dataPageV1;
                 }
                 return new DataPageV1(
-                        decompress(dataSourceId, codec, dataPageV1.getSlice(), dataPageV1.getUncompressedSize()),
+                        decompress(dataSourceId, codec, slice, dataPageV1.getUncompressedSize()),
                         dataPageV1.getValueCount(),
                         dataPageV1.getUncompressedSize(),
                         dataPageV1.getFirstRowIndex(),
@@ -141,7 +193,7 @@ public final class PageReader
                     dataPageV2.getRepetitionLevels(),
                     dataPageV2.getDefinitionLevels(),
                     dataPageV2.getDataEncoding(),
-                    decompress(dataSourceId, codec, dataPageV2.getSlice(), uncompressedSize),
+                    decompress(dataSourceId, codec, slice, uncompressedSize),
                     dataPageV2.getUncompressedSize(),
                     dataPageV2.getFirstRowIndex(),
                     dataPageV2.getStatistics(),
@@ -162,8 +214,9 @@ public final class PageReader
         }
         try {
             DictionaryPage compressedDictionaryPage = (DictionaryPage) compressedPages.next();
+            Slice slice = decryptSliceIfNeeded(compressedDictionaryPage.getSlice(), dictionaryPageAdditionalAuthenticationData);
             return new DictionaryPage(
-                    decompress(dataSourceId, codec, compressedDictionaryPage.getSlice(), compressedDictionaryPage.getUncompressedSize()),
+                    decompress(dataSourceId, codec, slice, compressedDictionaryPage.getUncompressedSize()),
                     compressedDictionaryPage.getDictionarySize(),
                     compressedDictionaryPage.getEncoding());
         }
@@ -198,5 +251,24 @@ public final class PageReader
     private void verifyDictionaryPageRead()
     {
         checkArgument(dictionaryAlreadyRead, "Dictionary has to be read first");
+    }
+
+    // additional authenticated data for AES cipher
+    private Slice decryptSliceIfNeeded(Slice slice, byte[] additionalAuthenticationData)
+            throws IOException
+    {
+        if (blockDecryptor.isEmpty()) {
+            return slice;
+        }
+        byte[] plainText = blockDecryptor.get().decrypt(slice.getBytes(), additionalAuthenticationData);
+        return wrappedBuffer(plainText);
+    }
+
+    private static Optional<BlockCipher.Decryptor> getDataDecryptor(InternalColumnDecryptionSetup columnDecryptionSetup)
+    {
+        if (columnDecryptionSetup == null || columnDecryptionSetup.getDataDecryptor() == null) {
+            return Optional.empty();
+        }
+        return Optional.of(columnDecryptionSetup.getDataDecryptor());
     }
 }

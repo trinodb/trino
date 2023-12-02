@@ -13,6 +13,8 @@
  */
 package io.trino.parquet;
 
+import io.airlift.slice.Slice;
+
 import java.util.OptionalLong;
 
 public abstract sealed class DataPage
@@ -41,4 +43,6 @@ public abstract sealed class DataPage
     {
         return valueCount;
     }
+
+    public abstract Slice getSlice();
 }

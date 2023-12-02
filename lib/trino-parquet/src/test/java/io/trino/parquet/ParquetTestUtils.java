@@ -132,6 +132,7 @@ public class ParquetTestUtils
                     return new RuntimeException(exception);
                 },
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
     }
 

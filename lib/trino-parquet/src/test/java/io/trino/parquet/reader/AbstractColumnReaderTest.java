@@ -698,7 +698,7 @@ public abstract class AbstractColumnReaderTest
                             return ((DataPageV2) page).getDataEncoding();
                         })
                         .allMatch(encoding -> encoding == PLAIN_DICTIONARY || encoding == RLE_DICTIONARY),
-                hasNoNulls);
+                hasNoNulls, Optional.empty(), null, null);
     }
 
     private DataPage createDataPage(DataPageVersion version, ParquetEncoding encoding, ValuesWriter writer, int valueCount)
