@@ -16,13 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.math.LongMath;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.trino.spi.type.DecimalType;
-import io.trino.spi.type.Decimals;
-import io.trino.spi.type.Int128;
-import io.trino.spi.type.LongTimestampWithTimeZone;
-import io.trino.spi.type.UuidType;
-import io.trino.spi.type.VarbinaryType;
-import io.trino.spi.type.VarcharType;
+import io.trino.spi.type.*;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 
