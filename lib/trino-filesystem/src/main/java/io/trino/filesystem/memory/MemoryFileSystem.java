@@ -23,7 +23,6 @@ import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.filesystem.memory.MemoryOutputFile.OutputBlob;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.Iterator;
@@ -96,9 +95,7 @@ public class MemoryFileSystem
     public void deleteFile(Location location)
             throws IOException
     {
-        if (blobs.remove(toBlobKey(location)) == null) {
-            throw new FileNotFoundException(location.toString());
-        }
+        blobs.remove(toBlobKey(location));
     }
 
     @Override

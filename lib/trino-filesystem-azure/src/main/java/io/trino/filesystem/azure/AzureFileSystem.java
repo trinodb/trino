@@ -53,6 +53,7 @@ import static com.azure.storage.common.implementation.Constants.HeaderConstants.
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.filesystem.azure.AzureUtils.handleAzureException;
+import static io.trino.filesystem.azure.AzureUtils.isFileNotFoundException;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -123,6 +124,9 @@ public class AzureFileSystem
             client.delete();
         }
         catch (RuntimeException e) {
+            if (isFileNotFoundException(e)) {
+                return;
+            }
             throw handleAzureException(e, "deleting file", azureLocation);
         }
     }
