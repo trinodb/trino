@@ -23,6 +23,7 @@ import io.trino.filesystem.TrinoOutputFile;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
@@ -74,6 +75,8 @@ public class LocalFileSystem
         Path filePath = toFilePath(location);
         try {
             Files.delete(filePath);
+        }
+        catch (NoSuchFileException ignored) {
         }
         catch (IOException e) {
             throw handleException(location, e);
