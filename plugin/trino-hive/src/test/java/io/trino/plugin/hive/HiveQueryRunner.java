@@ -19,7 +19,6 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.inject.Module;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.opentelemetry.api.OpenTelemetry;
 import io.trino.Session;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.plugin.hive.fs.DirectoryLister;
@@ -106,7 +105,6 @@ public final class HiveQueryRunner
         private List<TpchTable<?>> initialTables = ImmutableList.of();
         private Optional<String> initialSchemasLocationBase = Optional.empty();
         private Optional<Function<DistributedQueryRunner, HiveMetastore>> metastore = Optional.empty();
-        private Optional<OpenTelemetry> openTelemetry = Optional.empty();
         private Module module = EMPTY_MODULE;
         private Optional<DirectoryLister> directoryLister = Optional.empty();
         private boolean tpcdsCatalogEnabled;
@@ -165,13 +163,6 @@ public final class HiveQueryRunner
         public SELF setMetastore(Function<DistributedQueryRunner, HiveMetastore> metastore)
         {
             this.metastore = Optional.of(metastore);
-            return self();
-        }
-
-        @CanIgnoreReturnValue
-        public SELF setOpenTelemetry(OpenTelemetry openTelemetry)
-        {
-            this.openTelemetry = Optional.of(openTelemetry);
             return self();
         }
 
@@ -247,7 +238,13 @@ public final class HiveQueryRunner
 
                 Optional<HiveMetastore> metastore = this.metastore.map(factory -> factory.apply(queryRunner));
                 Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data");
-                queryRunner.installPlugin(new TestingHivePlugin(dataDir, metastore, openTelemetry, module, directoryLister));
+
+                if (metastore.isEmpty() && !hiveProperties.buildOrThrow().containsKey("hive.metastore")) {
+                    hiveProperties.put("hive.metastore", "file");
+                    hiveProperties.put("hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toString());
+                }
+
+                queryRunner.installPlugin(new TestingHivePlugin(dataDir, metastore, module, directoryLister));
 
                 Map<String, String> hiveProperties = new HashMap<>();
                 if (!skipTimezoneSetup) {

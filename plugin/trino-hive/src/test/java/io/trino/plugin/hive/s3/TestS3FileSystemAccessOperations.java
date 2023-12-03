@@ -18,12 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import io.airlift.units.DataSize;
-import io.opentelemetry.api.OpenTelemetry;
-import io.opentelemetry.sdk.OpenTelemetrySdk;
-import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
-import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import io.opentelemetry.sdk.trace.data.SpanData;
-import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
 import io.trino.Session;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -39,7 +34,7 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Maps.uniqueIndex;
@@ -60,7 +55,6 @@ public class TestS3FileSystemAccessOperations
     private static final String BUCKET = "test-bucket";
 
     private Minio minio;
-    private InMemorySpanExporter spanExporter;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -69,16 +63,6 @@ public class TestS3FileSystemAccessOperations
         minio = closeAfterClass(Minio.builder().build());
         minio.start();
         minio.createBucket(BUCKET);
-
-        spanExporter = closeAfterClass(InMemorySpanExporter.create());
-
-        SdkTracerProvider tracerProvider = SdkTracerProvider.builder()
-                .addSpanProcessor(SimpleSpanProcessor.create(spanExporter))
-                .build();
-
-        OpenTelemetry openTelemetry = OpenTelemetrySdk.builder()
-                .setTracerProvider(tracerProvider)
-                .build();
 
         return HiveQueryRunner.builder()
                 .setHiveProperties(ImmutableMap.<String, String>builder()
@@ -91,8 +75,9 @@ public class TestS3FileSystemAccessOperations
                         .put("s3.endpoint", minio.getMinioAddress())
                         .put("s3.path-style-access", "true")
                         .put("hive.non-managed-table-writes-enabled", "true")
+                        .put("hive.metastore", "file")
+                        .put("hive.metastore.catalog.dir", "s3://%s/catalog".formatted(BUCKET))
                         .buildOrThrow())
-                .setOpenTelemetry(openTelemetry)
                 .setInitialSchemasLocationBase("s3://" + BUCKET)
                 .build();
     }
@@ -101,7 +86,6 @@ public class TestS3FileSystemAccessOperations
     public void tearDown()
     {
         // closed by closeAfterClass
-        spanExporter = null;
         minio = null;
     }
 
@@ -181,23 +165,32 @@ public class TestS3FileSystemAccessOperations
     private void assertFileSystemAccesses(Session session, @Language("SQL") String query, Multiset<String> expectedAccesses)
     {
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
-        spanExporter.reset();
         queryRunner.executeWithQueryId(session, query);
-        assertMultisetsEqual(getOperations(), expectedAccesses);
+        assertMultisetsEqual(getOperations(queryRunner.getSpans()), expectedAccesses);
     }
 
-    private Multiset<String> getOperations()
+    private static Multiset<String> getOperations(List<SpanData> items)
     {
-        List<SpanData> items = spanExporter.getFinishedSpanItems();
         Map<String, SpanData> spansById = uniqueIndex(items, SpanData::getSpanId);
         return items.stream()
                 .filter(span -> span.getName().startsWith("S3."))
-                .filter(span -> Optional.ofNullable(span.getParentSpanId())
-                        .map(spansById::get)
-                        .map(parent -> !parent.getName().startsWith("HiveMetastore."))
-                        .orElse(true))
+                .filter(span -> !hasAncestor(span, spansById, parent -> parent.getName().startsWith("HiveMetastore.")))
                 .map(SpanData::getName)
                 .collect(toCollection(HashMultiset::create));
+    }
+
+    private static boolean hasAncestor(SpanData span, Map<String, SpanData> spansById, Predicate<SpanData> predicate)
+    {
+        while (true) {
+            SpanData parent = spansById.get(span.getParentSpanId());
+            if (parent == null) {
+                return false;
+            }
+            if (predicate.test(parent)) {
+                return true;
+            }
+            span = parent;
+        }
     }
 
     private static int occurrences(StorageFormat tableType, int orcValue, int parquetValue)
