@@ -145,7 +145,7 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
+    public List<String> getTables(String databaseName)
     {
         return delegate.getAllTables(databaseName);
     }
@@ -154,8 +154,8 @@ public class BridgingHiveMetastore
     public Map<String, RelationType> getRelationTypes(String databaseName)
     {
         ImmutableMap.Builder<String, RelationType> relationTypes = ImmutableMap.builder();
-        getAllTables(databaseName).forEach(name -> relationTypes.put(name, RelationType.TABLE));
-        getAllViews(databaseName).forEach(name -> relationTypes.put(name, RelationType.VIEW));
+        getTables(databaseName).forEach(name -> relationTypes.put(name, RelationType.TABLE));
+        getViews(databaseName).forEach(name -> relationTypes.put(name, RelationType.VIEW));
         return relationTypes.buildKeepingLast();
     }
 
@@ -166,7 +166,7 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public List<String> getAllViews(String databaseName)
+    public List<String> getViews(String databaseName)
     {
         return delegate.getAllViews(databaseName);
     }
@@ -178,7 +178,7 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public Optional<Map<SchemaTableName, RelationType>> getRelationTypes()
+    public Optional<Map<SchemaTableName, RelationType>> getAllRelationTypes()
     {
         return getAllTables().flatMap(relations -> getAllViews().map(views -> {
             ImmutableMap.Builder<SchemaTableName, RelationType> relationTypes = ImmutableMap.builder();
@@ -611,7 +611,7 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public Collection<LanguageFunction> getFunctions(String databaseName)
+    public Collection<LanguageFunction> getAllFunctions(String databaseName)
     {
         return getFunctionsByPattern(databaseName, "trino__*");
     }

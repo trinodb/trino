@@ -95,12 +95,12 @@ public abstract class ForwardingHiveMetastore
     }
 
     @Override
-    public void updatePartitionStatistics(
+    public void updatePartitionsStatistics(
             Table table,
             String partitionName,
             Function<PartitionStatistics, PartitionStatistics> update)
     {
-        delegate.updatePartitionStatistics(table, partitionName, update);
+        delegate.updatePartitionsStatistics(table, partitionName, update);
     }
 
     @Override
@@ -112,9 +112,9 @@ public abstract class ForwardingHiveMetastore
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
+    public List<String> getTables(String databaseName)
     {
-        return delegate.getAllTables(databaseName);
+        return delegate.getTables(databaseName);
     }
 
     @Override
@@ -130,9 +130,9 @@ public abstract class ForwardingHiveMetastore
     }
 
     @Override
-    public Optional<Map<SchemaTableName, RelationType>> getRelationTypes()
+    public Optional<Map<SchemaTableName, RelationType>> getAllRelationTypes()
     {
-        return delegate.getRelationTypes();
+        return delegate.getAllRelationTypes();
     }
 
     @Override
@@ -142,9 +142,9 @@ public abstract class ForwardingHiveMetastore
     }
 
     @Override
-    public List<String> getAllViews(String databaseName)
+    public List<String> getViews(String databaseName)
     {
-        return delegate.getAllViews(databaseName);
+        return delegate.getViews(databaseName);
     }
 
     @Override
@@ -472,9 +472,9 @@ public abstract class ForwardingHiveMetastore
     }
 
     @Override
-    public Collection<LanguageFunction> getFunctions(String databaseName)
+    public Collection<LanguageFunction> getAllFunctions(String databaseName)
     {
-        return delegate.getFunctions(databaseName);
+        return delegate.getAllFunctions(databaseName);
     }
 
     @Override

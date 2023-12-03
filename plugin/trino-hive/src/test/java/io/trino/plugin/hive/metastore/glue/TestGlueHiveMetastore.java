@@ -395,8 +395,8 @@ public class TestGlueHiveMetastore
                     .map(partitionName -> new PartitionWithStatistics(createDummyPartition(table, partitionName), partitionName, PartitionStatistics.empty()))
                     .collect(toImmutableList());
             metastoreClient.addPartitions(tableName.getSchemaName(), tableName.getTableName(), partitions);
-            metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), partitionName1, currentStatistics -> ZERO_TABLE_STATISTICS);
-            metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), partitionName2, currentStatistics -> ZERO_TABLE_STATISTICS);
+            metastoreClient.updatePartitionsStatistics(tableName.getSchemaName(), tableName.getTableName(), partitionName1, currentStatistics -> ZERO_TABLE_STATISTICS);
+            metastoreClient.updatePartitionsStatistics(tableName.getSchemaName(), tableName.getTableName(), partitionName2, currentStatistics -> ZERO_TABLE_STATISTICS);
 
             Optional<List<String>> partitionNames = metastoreClient.getPartitionNamesByFilter(
                     tableName.getSchemaName(),
@@ -1261,7 +1261,7 @@ public class TestGlueHiveMetastore
             GlueHiveMetastore metastoreClient = (GlueHiveMetastore) getMetastoreClient();
             double countBefore = metastoreClient.getStats().getBatchUpdatePartition().getTime().getAllTime().getCount();
 
-            metastore.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), "ds=2016-01-01", actualStatistics -> partitionStatistics);
+            metastore.updatePartitionsStatistics(tableName.getSchemaName(), tableName.getTableName(), "ds=2016-01-01", actualStatistics -> partitionStatistics);
 
             assertThat(metastoreClient.getStats().getBatchUpdatePartition().getTime().getAllTime().getCount()).isEqualTo(countBefore + 1);
             PartitionStatistics tableStatistics = new PartitionStatistics(createEmptyStatistics(), Map.of());
@@ -1554,7 +1554,7 @@ public class TestGlueHiveMetastore
                         });
         metastoreClient.addPartitions(tableName.getSchemaName(), tableName.getTableName(), partitions);
         partitionNames.forEach(
-                partitionName -> metastoreClient.updatePartitionStatistics(
+                partitionName -> metastoreClient.updatePartitionsStatistics(
                         tableName.getSchemaName(), tableName.getTableName(), partitionName, currentStatistics -> ZERO_TABLE_STATISTICS));
     }
 
