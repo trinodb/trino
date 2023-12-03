@@ -44,18 +44,18 @@ import static io.trino.plugin.hive.metastore.MetastoreMethod.DROP_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_ALL_DATABASES;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_ALL_RELATION_TYPES;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_ALL_TABLES;
-import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_ALL_TABLES_FROM_DATABASE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_ALL_VIEWS;
-import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_ALL_VIEWS_FROM_DATABASE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_DATABASE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_PARTITION;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_PARTITIONS_BY_NAMES;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_PARTITION_NAMES_BY_FILTER;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_PARTITION_STATISTICS;
-import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_RELATION_TYPES_FROM_DATABASE;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_RELATION_TYPES;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLE;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLES;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLES_WITH_PARAMETER;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLE_STATISTICS;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_VIEWS;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.REPLACE_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.UPDATE_PARTITION_STATISTICS;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.UPDATE_TABLE_STATISTICS;
@@ -118,10 +118,10 @@ public class CountingAccessHiveMetastore
     }
 
     @Override
-    public List<String> getAllViews(String databaseName)
+    public List<String> getViews(String databaseName)
     {
-        methodInvocations.add(GET_ALL_VIEWS_FROM_DATABASE);
-        return delegate.getAllViews(databaseName);
+        methodInvocations.add(GET_VIEWS);
+        return delegate.getViews(databaseName);
     }
 
     @Override
@@ -352,10 +352,10 @@ public class CountingAccessHiveMetastore
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
+    public List<String> getTables(String databaseName)
     {
-        methodInvocations.add(GET_ALL_TABLES_FROM_DATABASE);
-        return delegate.getAllTables(databaseName);
+        methodInvocations.add(GET_TABLES);
+        return delegate.getTables(databaseName);
     }
 
     @Override
@@ -371,14 +371,14 @@ public class CountingAccessHiveMetastore
     @Override
     public Map<String, RelationType> getRelationTypes(String databaseName)
     {
-        methodInvocations.add(GET_RELATION_TYPES_FROM_DATABASE);
+        methodInvocations.add(GET_RELATION_TYPES);
         return delegate.getRelationTypes(databaseName);
     }
 
     @Override
-    public Optional<Map<SchemaTableName, RelationType>> getRelationTypes()
+    public Optional<Map<SchemaTableName, RelationType>> getAllRelationTypes()
     {
-        Optional<Map<SchemaTableName, RelationType>> relationTypes = delegate.getRelationTypes();
+        Optional<Map<SchemaTableName, RelationType>> relationTypes = delegate.getAllRelationTypes();
         if (relationTypes.isPresent()) {
             methodInvocations.add(GET_ALL_RELATION_TYPES);
         }
@@ -392,7 +392,7 @@ public class CountingAccessHiveMetastore
     }
 
     @Override
-    public Collection<LanguageFunction> getFunctions(String databaseName)
+    public Collection<LanguageFunction> getAllFunctions(String databaseName)
     {
         throw new UnsupportedOperationException();
     }

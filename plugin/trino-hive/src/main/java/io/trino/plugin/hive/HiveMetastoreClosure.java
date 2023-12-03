@@ -140,13 +140,13 @@ public class HiveMetastoreClosure
         delegate.updateTableStatistics(databaseName, tableName, transaction, update);
     }
 
-    public void updatePartitionStatistics(String databaseName,
+    public void updatePartitionsStatistics(String databaseName,
             String tableName,
             String partitionName,
             Function<PartitionStatistics, PartitionStatistics> update)
     {
         Table table = getExistingTable(databaseName, tableName);
-        delegate.updatePartitionStatistics(table, partitionName, update);
+        delegate.updatePartitionsStatistics(table, partitionName, update);
     }
 
     public void updatePartitionStatistics(String databaseName, String tableName, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
@@ -155,9 +155,9 @@ public class HiveMetastoreClosure
         delegate.updatePartitionStatistics(table, updates);
     }
 
-    public List<String> getAllTables(String databaseName)
+    public List<String> getTables(String databaseName)
     {
-        return delegate.getAllTables(databaseName);
+        return delegate.getTables(databaseName);
     }
 
     public Optional<List<SchemaTableName>> getAllTables()
@@ -170,14 +170,14 @@ public class HiveMetastoreClosure
         return delegate.getRelationTypes(databaseName);
     }
 
-    public Optional<Map<SchemaTableName, RelationType>> getRelationTypes()
+    public Optional<Map<SchemaTableName, RelationType>> getAllRelationTypes()
     {
-        return delegate.getRelationTypes();
+        return delegate.getAllRelationTypes();
     }
 
-    public List<String> getAllViews(String databaseName)
+    public List<String> getViews(String databaseName)
     {
-        return delegate.getAllViews(databaseName);
+        return delegate.getViews(databaseName);
     }
 
     public Optional<List<SchemaTableName>> getAllViews()
@@ -453,9 +453,9 @@ public class HiveMetastoreClosure
         return delegate.functionExists(name.getSchemaName(), name.getFunctionName(), signatureToken);
     }
 
-    public Collection<LanguageFunction> getFunctions(String schemaName)
+    public Collection<LanguageFunction> getAllFunctions(String schemaName)
     {
-        return delegate.getFunctions(schemaName);
+        return delegate.getAllFunctions(schemaName);
     }
 
     public Collection<LanguageFunction> getFunctions(SchemaFunctionName name)

@@ -13,6 +13,9 @@
  */
 package io.trino.plugin.hive.metastore;
 
+import static com.google.common.base.CaseFormat.LOWER_CAMEL;
+import static com.google.common.base.CaseFormat.UPPER_UNDERSCORE;
+
 public enum MetastoreMethod
 {
     CREATE_DATABASE,
@@ -22,13 +25,13 @@ public enum MetastoreMethod
     GET_DATABASE,
     GET_TABLE,
     GET_ALL_TABLES,
-    GET_ALL_TABLES_FROM_DATABASE,
-    GET_RELATION_TYPES_FROM_DATABASE,
+    GET_TABLES,
+    GET_RELATION_TYPES,
     GET_ALL_RELATION_TYPES,
     GET_TABLES_WITH_PARAMETER,
     GET_TABLE_STATISTICS,
     GET_ALL_VIEWS,
-    GET_ALL_VIEWS_FROM_DATABASE,
+    GET_VIEWS,
     UPDATE_TABLE_STATISTICS,
     ADD_PARTITIONS,
     GET_PARTITION_NAMES_BY_FILTER,
@@ -38,4 +41,10 @@ public enum MetastoreMethod
     UPDATE_PARTITION_STATISTICS,
     REPLACE_TABLE,
     DROP_TABLE,
+    /**/;
+
+    public static MetastoreMethod fromMethodName(String name)
+    {
+        return valueOf(LOWER_CAMEL.to(UPPER_UNDERSCORE, name));
+    }
 }

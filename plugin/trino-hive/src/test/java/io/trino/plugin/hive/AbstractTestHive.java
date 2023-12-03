@@ -3628,8 +3628,8 @@ public abstract class AbstractTestHive
                 .map(partitionName -> new PartitionWithStatistics(createDummyPartition(table, partitionName), partitionName, PartitionStatistics.empty()))
                 .collect(toImmutableList());
         metastoreClient.addPartitions(tableName.getSchemaName(), tableName.getTableName(), partitions);
-        metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), firstPartitionName, currentStatistics -> ZERO_TABLE_STATISTICS);
-        metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), secondPartitionName, currentStatistics -> ZERO_TABLE_STATISTICS);
+        metastoreClient.updatePartitionsStatistics(tableName.getSchemaName(), tableName.getTableName(), firstPartitionName, currentStatistics -> ZERO_TABLE_STATISTICS);
+        metastoreClient.updatePartitionsStatistics(tableName.getSchemaName(), tableName.getTableName(), secondPartitionName, currentStatistics -> ZERO_TABLE_STATISTICS);
     }
 
     protected void testUpdatePartitionStatistics(
@@ -3653,11 +3653,11 @@ public abstract class AbstractTestHive
         for (int i = 0; i < firstPartitionStatistics.size(); i++) {
             PartitionStatistics statisticsPartition1 = firstPartitionStatistics.get(i);
             PartitionStatistics statisticsPartition2 = secondPartitionStatistics.get(i);
-            metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), firstPartitionName, actualStatistics -> {
+            metastoreClient.updatePartitionsStatistics(tableName.getSchemaName(), tableName.getTableName(), firstPartitionName, actualStatistics -> {
                 assertThat(actualStatistics).isEqualTo(expectedStatisticsPartition1.get());
                 return statisticsPartition1;
             });
-            metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), secondPartitionName, actualStatistics -> {
+            metastoreClient.updatePartitionsStatistics(tableName.getSchemaName(), tableName.getTableName(), secondPartitionName, actualStatistics -> {
                 assertThat(actualStatistics).isEqualTo(expectedStatisticsPartition2.get());
                 return statisticsPartition2;
             });
@@ -3669,11 +3669,11 @@ public abstract class AbstractTestHive
 
         assertThat(metastoreClient.getPartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), ImmutableSet.of(firstPartitionName, secondPartitionName)))
                 .isEqualTo(ImmutableMap.of(firstPartitionName, expectedStatisticsPartition1.get(), secondPartitionName, expectedStatisticsPartition2.get()));
-        metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), firstPartitionName, currentStatistics -> {
+        metastoreClient.updatePartitionsStatistics(tableName.getSchemaName(), tableName.getTableName(), firstPartitionName, currentStatistics -> {
             assertThat(currentStatistics).isEqualTo(expectedStatisticsPartition1.get());
             return initialStatistics;
         });
-        metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), secondPartitionName, currentStatistics -> {
+        metastoreClient.updatePartitionsStatistics(tableName.getSchemaName(), tableName.getTableName(), secondPartitionName, currentStatistics -> {
             assertThat(currentStatistics).isEqualTo(expectedStatisticsPartition2.get());
             return initialStatistics;
         });
@@ -3798,8 +3798,8 @@ public abstract class AbstractTestHive
         try {
             createDummyPartitionedTable(tableName, columns);
             HiveMetastoreClosure metastoreClient = new HiveMetastoreClosure(getMetastoreClient(), TESTING_TYPE_MANAGER, false);
-            metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), "ds=2016-01-01", actualStatistics -> statistics);
-            metastoreClient.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), "ds=2016-01-02", actualStatistics -> statistics);
+            metastoreClient.updatePartitionsStatistics(tableName.getSchemaName(), tableName.getTableName(), "ds=2016-01-01", actualStatistics -> statistics);
+            metastoreClient.updatePartitionsStatistics(tableName.getSchemaName(), tableName.getTableName(), "ds=2016-01-02", actualStatistics -> statistics);
 
             try (Transaction transaction = newTransaction()) {
                 ConnectorSession session = newSession();
@@ -4911,7 +4911,7 @@ public abstract class AbstractTestHive
                     .map(Optional::get)
                     .collect(toImmutableList());
             for (Partition partition : partitions) {
-                metastoreClient.updatePartitionStatistics(
+                metastoreClient.updatePartitionsStatistics(
                         table,
                         makePartName(partitionColumns, partition.getValues()),
                         statistics -> new PartitionStatistics(createEmptyStatistics(), ImmutableMap.of()));

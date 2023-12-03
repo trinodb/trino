@@ -559,10 +559,10 @@ public final class CachingHiveMetastore
     }
 
     @Override
-    public void updatePartitionStatistics(Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updatePartitionsStatistics(Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
     {
         try {
-            delegate.updatePartitionStatistics(table, partitionName, update);
+            delegate.updatePartitionsStatistics(table, partitionName, update);
         }
         finally {
             HivePartitionName hivePartitionName = hivePartitionName(hiveTableName(table.getDatabaseName(), table.getTableName()), partitionName);
@@ -589,7 +589,7 @@ public final class CachingHiveMetastore
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
+    public List<String> getTables(String databaseName)
     {
         Map<String, RelationType> relationTypes = relationTypesCache.getIfPresent(databaseName);
         if (relationTypes != null) {
@@ -600,7 +600,7 @@ public final class CachingHiveMetastore
 
     private List<String> loadAllTables(String databaseName)
     {
-        return delegate.getAllTables(databaseName);
+        return delegate.getTables(databaseName);
     }
 
     @Override
@@ -630,14 +630,14 @@ public final class CachingHiveMetastore
     }
 
     @Override
-    public Optional<Map<SchemaTableName, RelationType>> getRelationTypes()
+    public Optional<Map<SchemaTableName, RelationType>> getAllRelationTypes()
     {
         return getOptional(allRelationTypesCache, SingletonCacheKey.INSTANCE);
     }
 
     private Optional<Map<SchemaTableName, RelationType>> loadRelationTypes()
     {
-        return delegate.getRelationTypes();
+        return delegate.getAllRelationTypes();
     }
 
     @Override
@@ -653,14 +653,14 @@ public final class CachingHiveMetastore
     }
 
     @Override
-    public List<String> getAllViews(String databaseName)
+    public List<String> getViews(String databaseName)
     {
         return get(viewNamesCache, databaseName);
     }
 
     private List<String> loadAllViews(String databaseName)
     {
-        return delegate.getAllViews(databaseName);
+        return delegate.getViews(databaseName);
     }
 
     @Override
@@ -1204,9 +1204,9 @@ public final class CachingHiveMetastore
     }
 
     @Override
-    public Collection<LanguageFunction> getFunctions(String databaseName)
+    public Collection<LanguageFunction> getAllFunctions(String databaseName)
     {
-        return delegate.getFunctions(databaseName);
+        return delegate.getAllFunctions(databaseName);
     }
 
     @Override

@@ -45,11 +45,11 @@ import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThri
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_ALL_DATABASES;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_ALL_RELATION_TYPES;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_ALL_TABLES;
-import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_ALL_TABLES_FROM_DATABASE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_ALL_VIEWS;
-import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_ALL_VIEWS_FROM_DATABASE;
-import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_RELATION_TYPES_FROM_DATABASE;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_RELATION_TYPES;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLE;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLES;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_VIEWS;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -171,12 +171,12 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
         assertMetastoreInvocations(
                 "SELECT * FROM information_schema.tables WHERE table_schema = 'test_schema_0'",
                 ImmutableMultiset.<MetastoreMethod>builder()
-                        .add(GET_RELATION_TYPES_FROM_DATABASE)
+                        .add(GET_RELATION_TYPES)
                         .build());
         assertMetastoreInvocations(
                 "SELECT * FROM system.jdbc.tables WHERE table_schem = 'test_schema_0'",
                 ImmutableMultiset.<MetastoreMethod>builder()
-                        .add(GET_RELATION_TYPES_FROM_DATABASE)
+                        .add(GET_RELATION_TYPES)
                         .build());
     }
 
@@ -251,10 +251,10 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
     @Test
     public void testSelectViewsWithFilterBySchema()
     {
-        assertMetastoreInvocations("SELECT * FROM information_schema.views WHERE table_schema = 'test_schema_0'", ImmutableMultiset.of(GET_ALL_VIEWS_FROM_DATABASE));
+        assertMetastoreInvocations("SELECT * FROM information_schema.views WHERE table_schema = 'test_schema_0'", ImmutableMultiset.of(GET_VIEWS));
         assertMetastoreInvocations("SELECT * FROM system.jdbc.tables WHERE table_type = 'VIEW' AND table_schem = 'test_schema_0'",
                 ImmutableMultiset.<MetastoreMethod>builder()
-                        .add(GET_RELATION_TYPES_FROM_DATABASE)
+                        .add(GET_RELATION_TYPES)
                         .build());
     }
 
@@ -330,27 +330,27 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
     {
         assertMetastoreInvocations("SELECT * FROM information_schema.columns WHERE table_schema = 'test_schema_0'",
                 ImmutableMultiset.<MetastoreMethod>builder()
-                        .add(GET_ALL_TABLES_FROM_DATABASE)
-                        .add(GET_ALL_VIEWS_FROM_DATABASE)
+                        .add(GET_TABLES)
+                        .add(GET_VIEWS)
                         .addCopies(GET_TABLE, TEST_TABLES_IN_SCHEMA_COUNT)
                         .build());
         assertMetastoreInvocations("SELECT * FROM system.jdbc.columns WHERE table_schem = 'test_schema_0'",
                 ImmutableMultiset.<MetastoreMethod>builder()
-                        .add(GET_ALL_TABLES_FROM_DATABASE)
-                        .add(GET_ALL_VIEWS_FROM_DATABASE)
+                        .add(GET_TABLES)
+                        .add(GET_VIEWS)
                         .addCopies(GET_TABLE, TEST_TABLES_IN_SCHEMA_COUNT)
                         .build());
         assertMetastoreInvocations("SELECT * FROM system.jdbc.columns WHERE table_schem LIKE 'test\\_schema\\_0' ESCAPE '\\'",
                 ImmutableMultiset.<MetastoreMethod>builder()
-                        .add(GET_ALL_TABLES_FROM_DATABASE)
-                        .add(GET_ALL_VIEWS_FROM_DATABASE)
+                        .add(GET_TABLES)
+                        .add(GET_VIEWS)
                         .addCopies(GET_TABLE, TEST_TABLES_IN_SCHEMA_COUNT)
                         .build());
         assertMetastoreInvocations("SELECT * FROM system.jdbc.columns WHERE table_schem LIKE 'test_schema_0' ESCAPE '\\'",
                 ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_DATABASES)
-                        .add(GET_ALL_TABLES_FROM_DATABASE)
-                        .add(GET_ALL_VIEWS_FROM_DATABASE)
+                        .add(GET_TABLES)
+                        .add(GET_VIEWS)
                         .addCopies(GET_TABLE, TEST_TABLES_IN_SCHEMA_COUNT)
                         .build());
     }
@@ -370,7 +370,7 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
                 "SELECT * FROM system.jdbc.columns WHERE table_schem LIKE 'test%'",
                 ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_DATABASES)
-                        .addCopies(GET_ALL_TABLES_FROM_DATABASE, TEST_SCHEMAS_COUNT)
+                        .addCopies(GET_TABLES, TEST_SCHEMAS_COUNT)
                         .addCopies(GET_TABLE, TEST_ALL_TABLES_COUNT)
                         .build());
     }
@@ -392,22 +392,22 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
                 "SELECT * FROM system.jdbc.columns WHERE table_name = 'test_table_0'",
                 ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_DATABASES)
-                        .add(GET_ALL_TABLES_FROM_DATABASE)
+                        .add(GET_TABLES)
                         .addCopies(GET_TABLE, TEST_SCHEMAS_COUNT + 1)
                         .build());
         assertMetastoreInvocations(
                 "SELECT * FROM system.jdbc.columns WHERE table_name LIKE 'test\\_table\\_0' ESCAPE '\\'",
                 ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_DATABASES)
-                        .add(GET_ALL_TABLES_FROM_DATABASE)
+                        .add(GET_TABLES)
                         .addCopies(GET_TABLE, TEST_SCHEMAS_COUNT + 1)
                         .build());
         assertMetastoreInvocations(
                 "SELECT * FROM system.jdbc.columns WHERE table_name LIKE 'test_table_0' ESCAPE '\\'",
                 ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_DATABASES)
-                        .add(GET_ALL_TABLES_FROM_DATABASE)
-                        .addCopies(GET_ALL_TABLES_FROM_DATABASE, TEST_SCHEMAS_COUNT)
+                        .add(GET_TABLES)
+                        .addCopies(GET_TABLES, TEST_SCHEMAS_COUNT)
                         .addCopies(GET_TABLE, TEST_SCHEMAS_COUNT)
                         .build());
     }
@@ -425,7 +425,7 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
         assertMetastoreInvocations("SELECT * FROM system.jdbc.columns WHERE table_name LIKE 'test%'",
                 ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_DATABASES)
-                        .addCopies(GET_ALL_TABLES_FROM_DATABASE, TEST_SCHEMAS_COUNT + 1)
+                        .addCopies(GET_TABLES, TEST_SCHEMAS_COUNT + 1)
                         .addCopies(GET_TABLE, TEST_ALL_TABLES_COUNT)
                         .build());
     }
@@ -478,7 +478,7 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
         assertMetastoreInvocations("SELECT * FROM system.jdbc.columns WHERE table_schem LIKE 'test_schema_0' ESCAPE '\\' AND table_name LIKE 'test_table_0' ESCAPE '\\'",
                 ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_ALL_DATABASES)
-                        .add(GET_ALL_TABLES_FROM_DATABASE)
+                        .add(GET_TABLES)
                         .add(GET_TABLE)
                         .build());
     }
