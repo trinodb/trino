@@ -125,7 +125,7 @@ public class DropStatsProcedure
                         .collect(toImmutableList());
                 validatePartitions(partitionStringValues, partitionColumns);
 
-                partitionStringValues.forEach(values -> metastore.updatePartitionStatistics(
+                partitionStringValues.forEach(values -> metastore.updatePartitionsStatistics(
                         schema,
                         table,
                         makePartName(partitionColumns, values),
@@ -144,7 +144,7 @@ public class DropStatsProcedure
                 else {
                     // the table is partitioned; remove stats for every partition
                     metastore.getPartitionNamesByFilter(handle.getSchemaName(), handle.getTableName(), partitionColumns, TupleDomain.all())
-                            .ifPresent(partitions -> partitions.forEach(partitionName -> metastore.updatePartitionStatistics(
+                            .ifPresent(partitions -> partitions.forEach(partitionName -> metastore.updatePartitionsStatistics(
                                     schema,
                                     table,
                                     partitionName,
