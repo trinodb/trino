@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
+import io.airlift.tracing.Tracing;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.TypeDeserializer;
 import io.trino.plugin.hive.LocationAccessControl;
@@ -111,7 +112,8 @@ public class TestIcebergCacheIds
                                 true,
                                 new FileHiveMetastoreConfig()
                                         .setCatalogDirectory(tempDir.toURI().toString())
-                                        .setMetastoreUser("user")),
+                                        .setMetastoreUser("user"),
+                                Tracing.noopTracer()),
                         HDFS_FILE_SYSTEM_FACTORY,
                         TESTING_TYPE_MANAGER,
                         tableOperationsProvider,
