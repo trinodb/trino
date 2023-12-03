@@ -35,9 +35,9 @@ import java.util.Optional;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.CREATE_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.DROP_TABLE;
-import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_ALL_TABLES_FROM_DATABASE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_DATABASE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLE;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLES;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLES_WITH_PARAMETER;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.REPLACE_TABLE;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
@@ -398,7 +398,7 @@ public class TestIcebergMetastoreAccessOperations
         // Bulk retrieval
         assertMetastoreInvocations(session, "SELECT * FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name LIKE 'test_select_i_s_columns%'",
                 ImmutableMultiset.<MetastoreMethod>builder()
-                        .add(GET_ALL_TABLES_FROM_DATABASE)
+                        .add(GET_TABLES)
                         .addCopies(GET_TABLE, tables * 2)
                         .addCopies(GET_TABLES_WITH_PARAMETER, 2)
                         .build());
@@ -444,7 +444,7 @@ public class TestIcebergMetastoreAccessOperations
         // Bulk retrieval
         assertMetastoreInvocations(session, "SELECT * FROM system.metadata.table_comments WHERE schema_name = CURRENT_SCHEMA AND table_name LIKE 'test_select_s_m_t_comments%'",
                 ImmutableMultiset.<MetastoreMethod>builder()
-                        .add(GET_ALL_TABLES_FROM_DATABASE)
+                        .add(GET_TABLES)
                         .addCopies(GET_TABLE, tables * 2)
                         .addCopies(GET_TABLES_WITH_PARAMETER, 2)
                         .build());
@@ -452,7 +452,7 @@ public class TestIcebergMetastoreAccessOperations
         // Bulk retrieval for two schemas
         assertMetastoreInvocations(session, "SELECT * FROM system.metadata.table_comments WHERE schema_name IN (CURRENT_SCHEMA, 'non_existent') AND table_name LIKE 'test_select_s_m_t_comments%'",
                 ImmutableMultiset.<MetastoreMethod>builder()
-                        .addCopies(GET_ALL_TABLES_FROM_DATABASE, 2)
+                        .addCopies(GET_TABLES, 2)
                         .addCopies(GET_TABLES_WITH_PARAMETER, 4)
                         .addCopies(GET_TABLE, tables * 2)
                         .build());
@@ -538,7 +538,7 @@ public class TestIcebergMetastoreAccessOperations
         assertMetastoreInvocations("SHOW TABLES",
                 ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_DATABASE)
-                        .add(GET_ALL_TABLES_FROM_DATABASE)
+                        .add(GET_TABLES)
                         .build());
     }
 

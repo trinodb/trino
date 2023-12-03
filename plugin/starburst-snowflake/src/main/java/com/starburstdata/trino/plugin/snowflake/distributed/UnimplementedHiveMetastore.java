@@ -88,7 +88,7 @@ class UnimplementedHiveMetastore
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
+    public List<String> getTables(String databaseName)
     {
         throw new UnsupportedOperationException();
     }
@@ -106,7 +106,7 @@ class UnimplementedHiveMetastore
     }
 
     @Override
-    public Optional<Map<SchemaTableName, RelationType>> getRelationTypes()
+    public Optional<Map<SchemaTableName, RelationType>> getAllRelationTypes()
     {
         return Optional.empty();
     }
@@ -118,7 +118,7 @@ class UnimplementedHiveMetastore
     }
 
     @Override
-    public List<String> getAllViews(String databaseName)
+    public List<String> getViews(String databaseName)
     {
         throw new UnsupportedOperationException();
     }
@@ -310,7 +310,7 @@ class UnimplementedHiveMetastore
     }
 
     @Override
-    public Collection<LanguageFunction> getFunctions(String databaseName)
+    public Collection<LanguageFunction> getAllFunctions(String databaseName)
     {
         throw new UnsupportedOperationException();
     }

@@ -56,14 +56,14 @@ public interface HiveMetastore
 
     void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, Function<PartitionStatistics, PartitionStatistics> update);
 
-    default void updatePartitionStatistics(Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    default void updatePartitionsStatistics(Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
     {
         updatePartitionStatistics(table, ImmutableMap.of(partitionName, update));
     }
 
     void updatePartitionStatistics(Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates);
 
-    List<String> getAllTables(String databaseName);
+    List<String> getTables(String databaseName);
 
     /**
      * @return List of tables, views and materialized views names from all schemas or Optional.empty if operation is not supported
@@ -75,14 +75,14 @@ public interface HiveMetastore
     /**
      * @return empty if operation is not supported
      */
-    Optional<Map<SchemaTableName, RelationType>> getRelationTypes();
+    Optional<Map<SchemaTableName, RelationType>> getAllRelationTypes();
 
     List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue);
 
     /**
      * Lists views and materialized views from given database.
      */
-    List<String> getAllViews(String databaseName);
+    List<String> getViews(String databaseName);
 
     /**
      * @return List of views including materialized views names from all schemas or Optional.empty if operation is not supported
@@ -244,7 +244,7 @@ public interface HiveMetastore
 
     boolean functionExists(String databaseName, String functionName, String signatureToken);
 
-    Collection<LanguageFunction> getFunctions(String databaseName);
+    Collection<LanguageFunction> getAllFunctions(String databaseName);
 
     Collection<LanguageFunction> getFunctions(String databaseName, String functionName);
 

@@ -179,9 +179,9 @@ public class TestRecordingHiveMetastore
         assertThat(hiveMetastore.getPartitionStatistics(TABLE, ImmutableList.of(PARTITION, OTHER_PARTITION))).isEqualTo(ImmutableMap.of(
                 "column=value", PARTITION_STATISTICS,
                 "column=other_value", PARTITION_STATISTICS));
-        assertThat(hiveMetastore.getAllTables("database")).isEqualTo(ImmutableList.of("table"));
+        assertThat(hiveMetastore.getTables("database")).isEqualTo(ImmutableList.of("table"));
         assertThat(hiveMetastore.getTablesWithParameter("database", "param", "value3")).isEqualTo(ImmutableList.of("table"));
-        assertThat(hiveMetastore.getAllViews("database")).isEqualTo(ImmutableList.of());
+        assertThat(hiveMetastore.getViews("database")).isEqualTo(ImmutableList.of());
         assertThat(hiveMetastore.getPartition(TABLE, ImmutableList.of("value"))).isEqualTo(Optional.of(PARTITION));
         assertThat(hiveMetastore.getPartitionNamesByFilter("database", "table", PARTITION_COLUMN_NAMES, TupleDomain.all())).isEqualTo(Optional.of(ImmutableList.of("value")));
         assertThat(hiveMetastore.getPartitionNamesByFilter("database", "table", PARTITION_COLUMN_NAMES, TUPLE_DOMAIN)).isEqualTo(Optional.of(ImmutableList.of("value")));
@@ -256,7 +256,7 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
-        public List<String> getAllTables(String databaseName)
+        public List<String> getTables(String databaseName)
         {
             if (databaseName.equals("database")) {
                 return ImmutableList.of("table");
@@ -275,7 +275,7 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
-        public List<String> getAllViews(String databaseName)
+        public List<String> getViews(String databaseName)
         {
             return ImmutableList.of();
         }

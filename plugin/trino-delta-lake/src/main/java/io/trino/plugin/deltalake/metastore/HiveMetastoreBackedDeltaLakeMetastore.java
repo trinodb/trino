@@ -63,7 +63,7 @@ public class HiveMetastoreBackedDeltaLakeMetastore
         // it would be nice to filter out non-Delta tables; however, we can not call
         // metastore.getTablesWithParameter(schema, TABLE_PROVIDER_PROP, TABLE_PROVIDER_VALUE), because that property
         // contains a dot and must be compared case-insensitive
-        return delegate.getAllTables(databaseName);
+        return delegate.getTables(databaseName);
     }
 
     @Override

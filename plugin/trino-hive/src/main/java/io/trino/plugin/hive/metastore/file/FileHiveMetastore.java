@@ -227,7 +227,7 @@ public class FileHiveMetastore
         databaseName = databaseName.toLowerCase(ENGLISH);
 
         getRequiredDatabase(databaseName);
-        if (!getAllTables(databaseName).isEmpty()) {
+        if (!getTables(databaseName).isEmpty()) {
             throw new TrinoException(HIVE_METASTORE_ERROR, "Database " + databaseName + " is not empty");
         }
 
@@ -532,7 +532,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized List<String> getAllTables(String databaseName)
+    public synchronized List<String> getTables(String databaseName)
     {
         return listAllTables(databaseName).stream()
                 .filter(hideDeltaLakeTables
@@ -551,13 +551,13 @@ public class FileHiveMetastore
     public synchronized Map<String, RelationType> getRelationTypes(String databaseName)
     {
         ImmutableMap.Builder<String, RelationType> relationTypes = ImmutableMap.builder();
-        getAllTables(databaseName).forEach(name -> relationTypes.put(name, RelationType.TABLE));
-        getAllViews(databaseName).forEach(name -> relationTypes.put(name, RelationType.VIEW));
+        getTables(databaseName).forEach(name -> relationTypes.put(name, RelationType.TABLE));
+        getViews(databaseName).forEach(name -> relationTypes.put(name, RelationType.VIEW));
         return relationTypes.buildKeepingLast();
     }
 
     @Override
-    public Optional<Map<SchemaTableName, RelationType>> getRelationTypes()
+    public Optional<Map<SchemaTableName, RelationType>> getAllRelationTypes()
     {
         return Optional.empty();
     }
@@ -627,9 +627,9 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized List<String> getAllViews(String databaseName)
+    public synchronized List<String> getViews(String databaseName)
     {
-        return getAllTables(databaseName).stream()
+        return getTables(databaseName).stream()
                 .map(tableName -> getTable(databaseName, tableName))
                 .filter(Optional::isPresent)
                 .map(Optional::get)
@@ -1271,7 +1271,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized Collection<LanguageFunction> getFunctions(String databaseName)
+    public synchronized Collection<LanguageFunction> getAllFunctions(String databaseName)
     {
         return getFunctions(databaseName, Optional.empty());
     }

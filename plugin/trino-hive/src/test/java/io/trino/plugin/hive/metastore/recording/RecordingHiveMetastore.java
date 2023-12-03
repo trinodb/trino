@@ -115,10 +115,10 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public void updatePartitionStatistics(Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updatePartitionsStatistics(Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
     {
         verifyRecordingMode();
-        delegate.updatePartitionStatistics(table, partitionName, update);
+        delegate.updatePartitionsStatistics(table, partitionName, update);
     }
 
     @Override
@@ -129,9 +129,9 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
+    public List<String> getTables(String databaseName)
     {
-        return recording.getAllTables(databaseName, () -> delegate.getAllTables(databaseName));
+        return recording.getAllTables(databaseName, () -> delegate.getTables(databaseName));
     }
 
     @Override
@@ -142,9 +142,9 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public List<String> getAllViews(String databaseName)
+    public List<String> getViews(String databaseName)
     {
-        return recording.getAllViews(databaseName, () -> delegate.getAllViews(databaseName));
+        return recording.getAllViews(databaseName, () -> delegate.getViews(databaseName));
     }
 
     @Override
@@ -321,9 +321,9 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public Collection<LanguageFunction> getFunctions(String databaseName)
+    public Collection<LanguageFunction> getAllFunctions(String databaseName)
     {
-        return recording.getFunctions(databaseName, () -> delegate.getFunctions(databaseName));
+        return recording.getFunctions(databaseName, () -> delegate.getAllFunctions(databaseName));
     }
 
     @Override
@@ -418,9 +418,9 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public Optional<Map<SchemaTableName, RelationType>> getRelationTypes()
+    public Optional<Map<SchemaTableName, RelationType>> getAllRelationTypes()
     {
-        return delegate.getRelationTypes();
+        return delegate.getAllRelationTypes();
     }
 
     private void verifyRecordingMode()
