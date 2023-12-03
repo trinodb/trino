@@ -14,10 +14,8 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
-import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
-import io.opentelemetry.sdk.trace.SdkTracerProvider;
+import io.opentelemetry.sdk.testing.junit5.OpenTelemetryExtension;
 import io.opentelemetry.sdk.trace.data.SpanData;
-import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -32,6 +30,7 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
@@ -57,22 +56,18 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 public class TestIcebergGetTableStatisticsOperations
         extends AbstractTestQueryFramework
 {
+    @RegisterExtension
+    static final OpenTelemetryExtension TELEMETRY = OpenTelemetryExtension.create();
+
     private LocalQueryRunner localQueryRunner;
-    private InMemorySpanExporter spanExporter;
     private Path metastoreDir;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        spanExporter = closeAfterClass(InMemorySpanExporter.create());
-
-        SdkTracerProvider tracerProvider = SdkTracerProvider.builder()
-                .addSpanProcessor(SimpleSpanProcessor.create(spanExporter))
-                .build();
-
         localQueryRunner = LocalQueryRunner.builder(testSessionBuilder().build())
-                .withMetadataDecorator(metadata -> new TracingMetadata(tracerProvider.get("test"), metadata))
+                .withMetadataDecorator(metadata -> new TracingMetadata(TELEMETRY.getOpenTelemetry().getTracer("test"), metadata))
                 .build();
         localQueryRunner.installPlugin(new TpchPlugin());
         localQueryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
@@ -113,16 +108,9 @@ public class TestIcebergGetTableStatisticsOperations
         localQueryRunner.close();
     }
 
-    private void resetCounters()
-    {
-        spanExporter.reset();
-    }
-
     @Test
     public void testTwoWayJoin()
     {
-        resetCounters();
-
         planDistributedQuery("SELECT * " +
                 "FROM iceberg.tiny.orders o, iceberg.tiny.lineitem l " +
                 "WHERE o.orderkey = l.orderkey");
@@ -132,8 +120,6 @@ public class TestIcebergGetTableStatisticsOperations
     @Test
     public void testThreeWayJoin()
     {
-        resetCounters();
-
         planDistributedQuery("SELECT * " +
                 "FROM iceberg.tiny.customer c, iceberg.tiny.orders o, iceberg.tiny.lineitem l " +
                 "WHERE o.orderkey = l.orderkey AND c.custkey = o.custkey");
@@ -151,9 +137,9 @@ public class TestIcebergGetTableStatisticsOperations
                 createPlanOptimizersStatsCollector()));
     }
 
-    private long getTableStatisticsMethodInvocations()
+    private static long getTableStatisticsMethodInvocations()
     {
-        return spanExporter.getFinishedSpanItems().stream()
+        return TELEMETRY.getSpans().stream()
                 .map(SpanData::getName)
                 .filter(name -> name.equals("Metadata.getTableStatistics"))
                 .count();
