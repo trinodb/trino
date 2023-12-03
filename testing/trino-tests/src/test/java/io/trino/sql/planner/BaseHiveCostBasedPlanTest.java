@@ -63,7 +63,6 @@ public abstract class BaseHiveCostBasedPlanTest
         return new TestingHiveConnectorFactory(
                 Paths.get(".").toAbsolutePath(),
                 Optional.of(metastore),
-                Optional.empty(),
                 EMPTY_MODULE,
                 Optional.empty());
     }
