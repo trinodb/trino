@@ -69,7 +69,7 @@ public class GlueMetastoreModule
         binder.bind(GlueHiveMetastoreFactory.class).in(Scopes.SINGLETON);
         binder.bind(Key.get(GlueMetastoreStats.class, ForGlueHiveMetastore.class)).toInstance(new GlueMetastoreStats());
         binder.bind(AWSGlueAsync.class).toProvider(HiveGlueClientProvider.class).in(Scopes.SINGLETON);
-        newExporter(binder).export(GlueHiveMetastoreFactory.class).as(generator -> generator.generatedNameOf(GlueHiveMetastore.class));
+        newExporter(binder).export(GlueHiveMetastore.class).withGeneratedName();
 
         binder.bind(Key.get(boolean.class, AllowHiveTableRename.class)).toInstance(false);
 

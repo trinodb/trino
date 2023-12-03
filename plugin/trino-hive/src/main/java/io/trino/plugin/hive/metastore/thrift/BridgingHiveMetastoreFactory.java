@@ -14,8 +14,10 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.inject.Inject;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.plugin.hive.metastore.tracing.TracingHiveMetastore;
 import io.trino.spi.security.ConnectorIdentity;
 
 import java.util.Optional;
@@ -26,11 +28,13 @@ public class BridgingHiveMetastoreFactory
         implements HiveMetastoreFactory
 {
     private final ThriftMetastoreFactory thriftMetastoreFactory;
+    private final Tracer tracer;
 
     @Inject
-    public BridgingHiveMetastoreFactory(ThriftMetastoreFactory thriftMetastoreFactory)
+    public BridgingHiveMetastoreFactory(ThriftMetastoreFactory thriftMetastoreFactory, Tracer tracer)
     {
         this.thriftMetastoreFactory = requireNonNull(thriftMetastoreFactory, "thriftMetastore is null");
+        this.tracer = requireNonNull(tracer, "tracer is null");
     }
 
     @Override
@@ -42,6 +46,7 @@ public class BridgingHiveMetastoreFactory
     @Override
     public HiveMetastore createMetastore(Optional<ConnectorIdentity> identity)
     {
-        return new BridgingHiveMetastore(thriftMetastoreFactory.createMetastore(identity));
+        return new TracingHiveMetastore(tracer,
+                new BridgingHiveMetastore(thriftMetastoreFactory.createMetastore(identity)));
     }
 }
