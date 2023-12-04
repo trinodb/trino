@@ -22,6 +22,7 @@ import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
 import io.trino.testing.QueryRunner;
 import io.trino.tests.tpch.TpchQueryRunnerBuilder;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -30,6 +31,7 @@ import static java.lang.Runtime.getRuntime;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+@Isolated
 public class TestTaskSplitting
         extends AbstractTestQueryFramework
 {
