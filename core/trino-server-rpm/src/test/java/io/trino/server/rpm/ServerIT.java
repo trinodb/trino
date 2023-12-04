@@ -56,7 +56,6 @@ public class ServerIT
     @Test
     public void testInstall()
     {
-        testInstall("17");
         testInstall("21");
     }
 
@@ -107,7 +106,6 @@ public class ServerIT
     public void testUninstall()
             throws Exception
     {
-        testUninstall("17");
         testUninstall("21");
     }
 
