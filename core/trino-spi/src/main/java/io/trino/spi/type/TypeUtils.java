@@ -83,7 +83,7 @@ public final class TypeUtils
             type.writeDouble(blockBuilder, ((double) value));
         }
         else if (type.getJavaType() == long.class) {
-            type.writeLong(blockBuilder, ((long) value));
+            type.writeLong(blockBuilder, castToLong(value));
         }
         else if (type.getJavaType() == Slice.class) {
             Slice slice;
@@ -115,6 +115,15 @@ public final class TypeUtils
             return Float.isNaN(intBitsToFloat(toIntExact((long) value)));
         }
         return false;
+    }
+
+    private static long castToLong(Object value)
+    {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+
+        return (long) value;
     }
 
     static void checkElementNotNull(boolean isNull, String errorMsg)

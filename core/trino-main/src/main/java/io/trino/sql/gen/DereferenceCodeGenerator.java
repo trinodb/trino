@@ -44,7 +44,7 @@ public class DereferenceCodeGenerator
         returnType = specialForm.getType();
         checkArgument(specialForm.getArguments().size() == 2);
         base = specialForm.getArguments().get(0);
-        index = (int) ((ConstantExpression) specialForm.getArguments().get(1)).getValue();
+        index = toIntValue(((ConstantExpression) specialForm.getArguments().get(1)).getValue());
     }
 
     @Override
@@ -92,5 +92,14 @@ public class DereferenceCodeGenerator
                 .visitLabel(end);
 
         return block;
+    }
+
+    private static int toIntValue(Object value)
+    {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+
+        return (int) value;
     }
 }
