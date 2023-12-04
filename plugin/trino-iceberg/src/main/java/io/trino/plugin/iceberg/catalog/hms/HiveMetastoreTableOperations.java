@@ -112,6 +112,7 @@ public class HiveMetastoreTableOperations
                 // regardless of the exception thrown (e.g. : timeout exception) or it actually failed
                 throw new CommitStateUnknownException(e);
             }
+            deleteRemovedMetadataFiles(base, metadata);
         }
         finally {
             try {
