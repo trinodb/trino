@@ -37,6 +37,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.locks.Lock;
+import java.util.function.Function;
+
+import static io.trino.testing.TransactionBuilder.transaction;
 
 public interface QueryRunner
         extends Closeable
@@ -77,6 +80,18 @@ public interface QueryRunner
     default MaterializedResultWithPlan executeWithPlan(Session session, @Language("SQL") String sql, WarningCollector warningCollector)
     {
         throw new UnsupportedOperationException();
+    }
+
+    default <T> T inTransaction(Function<Session, T> transactionSessionConsumer)
+    {
+        return inTransaction(getDefaultSession(), transactionSessionConsumer);
+    }
+
+    default <T> T inTransaction(Session session, Function<Session, T> transactionSessionConsumer)
+    {
+        return transaction(getTransactionManager(), getPlannerContext().getMetadata(), getAccessControl())
+                .singleStatement()
+                .execute(session, transactionSessionConsumer);
     }
 
     default Plan createPlan(Session session, @Language("SQL") String sql)

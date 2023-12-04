@@ -840,18 +840,6 @@ public class LocalQueryRunner
         return inTransaction(session, transactionSession -> executeInternal(transactionSession, sql));
     }
 
-    public <T> T inTransaction(Function<Session, T> transactionSessionConsumer)
-    {
-        return inTransaction(defaultSession, transactionSessionConsumer);
-    }
-
-    public <T> T inTransaction(Session session, Function<Session, T> transactionSessionConsumer)
-    {
-        return transaction(transactionManager, plannerContext.getMetadata(), accessControl)
-                .singleStatement()
-                .execute(session, transactionSessionConsumer);
-    }
-
     private MaterializedResultWithPlan executeInternal(Session session, @Language("SQL") String sql)
     {
         lock.readLock().lock();
