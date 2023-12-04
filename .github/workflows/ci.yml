@@ -57,7 +57,6 @@ jobs:
       fail-fast: false
       matrix:
         java-version:
-          - 17 # Keep testing on JDK 17 to ensure basic backward compatibility
           - 21
     timeout-minutes: 45
     steps:
