@@ -14,16 +14,22 @@
 package io.trino.testing;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Key;
 import io.trino.Session;
 import io.trino.cache.CacheMetadata;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.metadata.FunctionBundle;
+import io.trino.metadata.MetadataUtil;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.metadata.QualifiedTablePrefix;
 import io.trino.metadata.SessionPropertyManager;
+import io.trino.operator.DirectExchangeClientSupplier;
+import io.trino.server.SessionContext;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
+import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
 import io.trino.sql.PlannerContext;
@@ -40,38 +46,33 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import static io.airlift.testing.Closeables.closeAll;
 import static java.util.Objects.requireNonNull;
 
 public final class StandaloneQueryRunner
         implements QueryRunner
 {
+    private final Session defaultSession;
     private final TestingTrinoServer server;
-
-    private final TestingTrinoClient trinoClient;
+    private final DirectTrinoClient trinoClient;
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
     public StandaloneQueryRunner(Session defaultSession)
     {
-        requireNonNull(defaultSession, "defaultSession is null");
-
+        this.defaultSession = requireNonNull(defaultSession, "defaultSession is null");
         this.server = createTestingTrinoServer();
-        this.trinoClient = new TestingTrinoClient(server, defaultSession);
 
-        server.addFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
+        this.trinoClient = new DirectTrinoClient(
+                server.getDispatchManager(),
+                server.getQueryManager(),
+                server.getInstance(Key.get(DirectExchangeClientSupplier.class)),
+                server.getInstance(Key.get(BlockEncodingSerde.class)));
     }
 
     @Override
     public MaterializedResult execute(@Language("SQL") String sql)
     {
-        lock.readLock().lock();
-        try {
-            return trinoClient.execute(sql).getResult();
-        }
-        finally {
-            lock.readLock().unlock();
-        }
+        return execute(defaultSession, sql);
     }
 
     @Override
@@ -79,7 +80,7 @@ public final class StandaloneQueryRunner
     {
         lock.readLock().lock();
         try {
-            return trinoClient.execute(session, sql).getResult();
+            return trinoClient.execute(sql, SessionContext.fromSession(session));
         }
         finally {
             lock.readLock().unlock();
@@ -90,7 +91,7 @@ public final class StandaloneQueryRunner
     public void close()
     {
         try {
-            closeAll(trinoClient, server);
+            server.close();
         }
         catch (IOException e) {
             throw new RuntimeException(e);
@@ -106,7 +107,7 @@ public final class StandaloneQueryRunner
     @Override
     public Session getDefaultSession()
     {
-        return trinoClient.getDefaultSession();
+        return defaultSession;
     }
 
     @Override
@@ -208,7 +209,8 @@ public final class StandaloneQueryRunner
     {
         lock.readLock().lock();
         try {
-            return trinoClient.listTables(session, catalog, schema);
+            return inTransaction(session, transactionSession ->
+                    server.getPlannerContext().getMetadata().listTables(transactionSession, new QualifiedTablePrefix(catalog, schema)));
         }
         finally {
             lock.readLock().unlock();
@@ -220,7 +222,8 @@ public final class StandaloneQueryRunner
     {
         lock.readLock().lock();
         try {
-            return trinoClient.tableExists(session, table);
+            return inTransaction(session, transactionSession ->
+                    MetadataUtil.tableExists(server.getPlannerContext().getMetadata(), transactionSession, table));
         }
         finally {
             lock.readLock().unlock();
