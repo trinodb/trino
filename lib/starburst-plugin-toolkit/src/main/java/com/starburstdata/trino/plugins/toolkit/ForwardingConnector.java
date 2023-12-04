@@ -39,13 +39,6 @@ public abstract class ForwardingConnector
 {
     protected abstract Connector delegate();
 
-    @SuppressWarnings({"deprecation", "DeprecatedApi"})
-    @Override
-    public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly)
-    {
-        return delegate().beginTransaction(isolationLevel, readOnly);
-    }
-
     @Override
     public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
     {
@@ -56,13 +49,6 @@ public abstract class ForwardingConnector
     public ConnectorMetadata getMetadata(ConnectorSession session, ConnectorTransactionHandle transactionHandle)
     {
         return delegate().getMetadata(session, transactionHandle);
-    }
-
-    @SuppressWarnings({"deprecation", "DeprecatedApi"})
-    @Override
-    public ConnectorMetadata getMetadata(ConnectorTransactionHandle transactionHandle)
-    {
-        return delegate().getMetadata(transactionHandle);
     }
 
     @Override

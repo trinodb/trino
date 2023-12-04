@@ -11,8 +11,7 @@ package com.starburstdata.trino.plugins.snowflake;
 
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import io.trino.testng.services.ManageTestResources;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -23,7 +22,6 @@ import static com.starburstdata.trino.plugins.snowflake.SnowflakeServer.TEST_DAT
 public class TestDistributedSnowflakeLargeScan
         extends AbstractTestQueryFramework
 {
-    @ManageTestResources.Suppress(because = "Mock to remote server")
     protected final SnowflakeServer server = new SnowflakeServer();
 
     @Override

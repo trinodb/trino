@@ -13,7 +13,6 @@ import com.google.common.io.Closer;
 import io.trino.plugin.jdbc.BaseJdbcConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import io.trino.testng.services.ManageTestResources;
 
 import java.util.Map;
 import java.util.Optional;
@@ -25,11 +24,8 @@ import static com.starburstdata.trino.plugins.snowflake.SnowflakeQueryRunner.par
 public class TestParallelSnowflakeConnectionPoolingConnectorSmokeTest
         extends BaseJdbcConnectorSmokeTest
 {
-    @ManageTestResources.Suppress(because = "Mock to remote server")
     private final SnowflakeServer server = new SnowflakeServer();
-    @ManageTestResources.Suppress(because = "Used by mocks")
     private final Closer closer = Closer.create();
-    @ManageTestResources.Suppress(because = "Mock to remote database")
     private final TestDatabase testDatabase = closer.register(server.createTestDatabase());
 
     @Override

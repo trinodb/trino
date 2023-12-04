@@ -16,10 +16,9 @@ import io.trino.operator.RetryPolicy;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.jdbc.BaseJdbcFailureRecoveryTest;
 import io.trino.testing.QueryRunner;
-import io.trino.testng.services.ManageTestResources;
 import io.trino.tpch.TpchTable;
 import org.assertj.core.api.Assertions;
-import org.testng.SkipException;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
@@ -28,12 +27,12 @@ import java.util.Optional;
 import static com.starburstdata.trino.plugins.synapse.SynapseQueryRunner.DEFAULT_CATALOG_NAME;
 import static com.starburstdata.trino.plugins.synapse.SynapseQueryRunner.createSynapseQueryRunner;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public abstract class BaseSynapseFailureRecoveryTest
         extends BaseJdbcFailureRecoveryTest
 {
-    @ManageTestResources.Suppress(because = "Mock to remote server")
-    private SynapseServer synapseServer;
+    private final SynapseServer synapseServer;
 
     public BaseSynapseFailureRecoveryTest(RetryPolicy retryPolicy)
     {
@@ -62,6 +61,7 @@ public abstract class BaseSynapseFailureRecoveryTest
                 });
     }
 
+    @Test
     @Override
     protected void testExplainAnalyze()
     {
@@ -69,27 +69,31 @@ public abstract class BaseSynapseFailureRecoveryTest
         this.testTableModification(Optional.of("CREATE TABLE <table> AS SELECT * FROM nation WITH NO DATA"), "EXPLAIN ANALYZE INSERT INTO <table> SELECT * FROM nation", Optional.of("DROP TABLE <table>"));
     }
 
+    @Test
     @Override
     protected void testAnalyzeTable()
     {
         Assertions.assertThatThrownBy(() -> {
             testNonSelect(Optional.empty(), Optional.of("CREATE TABLE <table> AS SELECT * FROM nation"), "ANALYZE <table>", Optional.of("DROP TABLE <table>"), false);
         }).hasMessageContaining("This connector does not support analyze");
-        throw new SkipException("skipped");
+        abort("skipped");
     }
 
+    @Test
     @Override
     protected void testCreateTable()
     {
         this.testTableModification(Optional.empty(), "CREATE TABLE <table> AS SELECT * FROM nation", Optional.of("DROP TABLE <table>"));
     }
 
+    @Test
     @Override
     protected void testInsert()
     {
         this.testTableModification(Optional.of("CREATE TABLE <table> AS SELECT * FROM nation WITH NO DATA"), "INSERT INTO <table> SELECT * FROM nation", Optional.of("DROP TABLE <table>"));
     }
 
+    @Test
     @Override
     protected void testDelete()
     {
@@ -99,24 +103,27 @@ public abstract class BaseSynapseFailureRecoveryTest
         this.assertThatQuery(testQuery).withSetupQuery(setupQuery).withCleanupQuery(cleanupQuery).isCoordinatorOnly();
     }
 
+    @Test
     @Override
     protected void testDeleteWithSubquery()
     {
         Assertions.assertThatThrownBy(() -> {
             this.testTableModification(Optional.of("CREATE TABLE <table> AS SELECT * FROM nation"), "DELETE FROM <table> WHERE nationkey IN (SELECT custkey FROM customer WHERE nationkey = 1)", Optional.of("DROP TABLE <table>"));
         }).hasMessageContaining("This connector does not support modifying table rows");
-        throw new SkipException("skipped");
+        abort("skipped");
     }
 
+    @Test
     @Override
     protected void testRefreshMaterializedView()
     {
         Assertions.assertThatThrownBy(() -> {
             this.testTableModification(Optional.of("CREATE MATERIALIZED VIEW <table> AS SELECT * FROM nation"), "REFRESH MATERIALIZED VIEW <table>", Optional.of("DROP MATERIALIZED VIEW <table>"));
         }).hasMessageContaining("This connector does not support creating materialized views");
-        throw new SkipException("skipped");
+        abort("skipped");
     }
 
+    @Test
     @Override
     protected void testUpdate()
     {
@@ -132,24 +139,27 @@ public abstract class BaseSynapseFailureRecoveryTest
                 .isCoordinatorOnly();
     }
 
+    @Test
     @Override
     protected void testUpdateWithSubquery()
     {
         assertThatThrownBy(() -> {
             this.testTableModification(Optional.of("CREATE TABLE <table> AS SELECT * FROM nation"), "UPDATE <table> SET name = 'Brasil' WHERE nationkey = (SELECT min(custkey) + 1 FROM customer)", Optional.of("DROP TABLE <table>"));
         }).hasMessageContaining("This connector does not support modifying table rows");
-        throw new SkipException("skipped");
+        abort("skipped");
     }
 
+    @Test
     @Override
     protected void testMerge()
     {
         Assertions.assertThatThrownBy(() -> {
             this.testTableModification(Optional.of("CREATE TABLE <table> AS SELECT * FROM nation"), "MERGE INTO <table> t\nUSING (SELECT nationkey, 'new_nation' name FROM <table>) s\nON t.nationkey = s.nationkey\nWHEN MATCHED AND s.nationkey > 10\n    THEN UPDATE SET name = t.name || s.name\nWHEN MATCHED AND s.nationkey <= 10\n    THEN DELETE\n", Optional.of("DROP TABLE <table>"));
         }).hasMessageContaining("This connector does not support modifying table rows");
-        throw new SkipException("skipped");
+        abort("skipped");
     }
 
+    @Test
     @Override
     protected void testRequestTimeouts()
     {

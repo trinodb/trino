@@ -10,7 +10,7 @@
 package com.starburstdata.trino.plugins.snowflake;
 
 import io.trino.Session;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeQueryRunner.parallelBuilder;
 

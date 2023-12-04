@@ -21,8 +21,7 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.SharedResource.Lease;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -57,12 +56,6 @@ public class TestOracleParallelQueries
                         .buildOrThrow())
                 .withUnlockEnterpriseFeatures(true)
                 .build();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void cleanup()
-    {
-        oracleServer = null;
     }
 
     @Test

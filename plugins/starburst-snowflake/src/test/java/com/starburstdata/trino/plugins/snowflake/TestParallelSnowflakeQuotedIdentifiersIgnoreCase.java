@@ -14,8 +14,7 @@ import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
-import io.trino.testng.services.ManageTestResources;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.sql.SQLException;
 import java.util.Optional;
@@ -32,7 +31,6 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 public class TestParallelSnowflakeQuotedIdentifiersIgnoreCase
         extends AbstractTestQueryFramework
 {
-    @ManageTestResources.Suppress(because = "Mock to remote service provider")
     private SnowflakeServer server;
     private String testDbName;
 

@@ -12,8 +12,7 @@ package com.starburstdata.trino.plugins.oracle;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.SharedResource;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static java.lang.String.format;
 
@@ -36,12 +35,6 @@ public class TestStarburstOracleConnectorSmokeTest
                         .buildOrThrow())
                 .withTables(REQUIRED_TPCH_TABLES)
                 .build();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void cleanup()
-    {
-        oracleServer = null;
     }
 
     /**

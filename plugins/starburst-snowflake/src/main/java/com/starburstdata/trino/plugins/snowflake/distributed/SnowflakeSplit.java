@@ -18,7 +18,7 @@ import io.trino.spi.HostAddress;
 import io.trino.spi.connector.ConnectorSplit;
 
 import java.util.List;
-import java.util.Properties;
+import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -32,7 +32,7 @@ public class SnowflakeSplit
     private final long start;
     private final long length;
     private final long fileSize;
-    private final Properties schema;
+    private final Map<String, String> schema;
     private final List<HostAddress> addresses;
     private final boolean forceLocalScheduling;
 
@@ -59,7 +59,7 @@ public class SnowflakeSplit
             @JsonProperty("start") long start,
             @JsonProperty("length") long length,
             @JsonProperty("fileSize") long fileSize,
-            @JsonProperty("schema") Properties schema,
+            @JsonProperty("schema") Map<String, String> schema,
             @JsonProperty("addresses") List<HostAddress> addresses,
             @JsonProperty("forceLocalScheduling") boolean forceLocalScheduling,
             @JsonProperty("stageAccessInfo") SnowflakeStageAccessInfo stageAccessInfo)
@@ -107,7 +107,7 @@ public class SnowflakeSplit
     }
 
     @JsonProperty
-    public Properties getSchema()
+    public Map<String, String> getSchema()
     {
         return schema;
     }

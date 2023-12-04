@@ -15,7 +15,6 @@ import io.netty.handler.codec.http.HttpRequest;
 import io.trino.plugin.jdbc.BaseJdbcConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import io.trino.testng.services.ManageTestResources;
 import org.littleshoot.proxy.ActivityTrackerAdapter;
 import org.littleshoot.proxy.FlowContext;
 import org.littleshoot.proxy.HttpProxyServer;
@@ -37,15 +36,11 @@ public class TestParallelSnowflakeWithProxyConnectorSmokeTest
     private static final String PROXY_USER = "proxyuser";
     private static final String PROXY_PASSWORD = "proxypassword";
 
-    @ManageTestResources.Suppress(because = "Mock to remote server")
     private final SnowflakeServer server = new SnowflakeServer();
-    @ManageTestResources.Suppress(because = "Used by mocks")
     private final Closer closer = Closer.create();
-    @ManageTestResources.Suppress(because = "Mock to remote database")
     private final TestDatabase testDatabase = closer.register(server.createTestDatabase());
 
     @SuppressWarnings("UnusedVariable")
-    @ManageTestResources.Suppress(because = "Mock to remote database")
     private final Closeable proxy = closer.register(createProxyServer());
 
     @Override

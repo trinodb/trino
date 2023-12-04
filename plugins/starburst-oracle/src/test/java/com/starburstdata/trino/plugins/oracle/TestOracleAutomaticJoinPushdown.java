@@ -12,7 +12,6 @@ package com.starburstdata.trino.plugins.oracle;
 import io.trino.plugin.jdbc.BaseAutomaticJoinPushdownTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.SharedResource.Lease;
-import org.testng.annotations.AfterClass;
 
 import java.sql.CallableStatement;
 import java.sql.SQLException;
@@ -30,12 +29,6 @@ public class TestOracleAutomaticJoinPushdown
         return OracleQueryRunner.builder(oracleServer)
                 .withUnlockEnterpriseFeatures(true)
                 .build();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void cleanup()
-    {
-        oracleServer = null;
     }
 
     @Override

@@ -13,9 +13,7 @@ import io.trino.plugin.sqlserver.BaseSqlServerTypeMapping;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.SqlExecutor;
-import io.trino.testng.services.ManageTestResources;
-import org.testng.SkipException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
@@ -23,11 +21,11 @@ import java.util.Map;
 import static com.starburstdata.trino.plugins.synapse.SynapseQueryRunner.createSynapseQueryRunner;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestSynapseTypeMapping
         extends BaseSqlServerTypeMapping
 {
-    @ManageTestResources.Suppress(because = "Mock to remote server")
     protected final SynapseServer synapseServer = new SynapseServer();
 
     @Override
@@ -47,7 +45,7 @@ public class TestSynapseTypeMapping
     public void testTrinoLongChar()
     {
         assertThatThrownBy(super::testTrinoLongChar).hasRootCauseMessage("Unsupported column type: char(4001)");
-        throw new SkipException("Synapse does not support char > 4000");
+        abort("Synapse does not support char > 4000");
     }
 
     @Override
@@ -55,7 +53,7 @@ public class TestSynapseTypeMapping
     public void testTrinoLongVarchar()
     {
         assertThatThrownBy(super::testTrinoLongVarchar).hasRootCauseMessage("Unsupported column type: varchar(4001)");
-        throw new SkipException("Synapse does not support varchar > 4000");
+        abort("Synapse does not support varchar > 4000");
     }
 
     @Override
@@ -63,7 +61,7 @@ public class TestSynapseTypeMapping
     public void testSqlServerLongVarchar()
     {
         assertThatThrownBy(super::testSqlServerLongVarchar).hasRootCauseMessage("Cannot find data type 'text'.");
-        throw new SkipException("Synapse does not support text and ntext data types");
+        abort("Synapse does not support text and ntext data types");
     }
 
     @Override

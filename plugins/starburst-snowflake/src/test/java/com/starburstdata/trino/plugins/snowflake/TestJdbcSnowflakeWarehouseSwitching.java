@@ -14,10 +14,9 @@ import com.google.common.io.Closer;
 import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import io.trino.testng.services.ManageTestResources;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.sql.SQLException;
@@ -36,11 +35,8 @@ public class TestJdbcSnowflakeWarehouseSwitching
     protected static final String COMPUTE_WAREHOUSE = "COMPUTE_WH";
     protected static final String INVALID_WAREHOUSE = "NOT_EXISTING_WH";
 
-    @ManageTestResources.Suppress(because = "Mock to remote server")
     protected final SnowflakeServer server = new SnowflakeServer();
-    @ManageTestResources.Suppress(because = "Used by mocks")
     protected final Closer closer = Closer.create();
-    @ManageTestResources.Suppress(because = "Mock to remote database")
     protected final TestDatabase testDB = closer.register(server.createTestDatabase());
 
     @Override
@@ -61,14 +57,14 @@ public class TestJdbcSnowflakeWarehouseSwitching
         return jdbcBuilder();
     }
 
-    @BeforeClass
+    @BeforeAll
     public void initialize()
             throws SQLException
     {
         server.executeOnDatabase(testDB.getName(), format("CREATE VIEW IF NOT EXISTS %s.current_warehouse (warehouse) AS SELECT current_warehouse();", TEST_SCHEMA));
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void cleanup()
             throws IOException
     {

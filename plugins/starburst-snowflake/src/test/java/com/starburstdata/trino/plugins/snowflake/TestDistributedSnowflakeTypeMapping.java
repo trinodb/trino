@@ -16,7 +16,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.TestTable;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.ZoneId;
 import java.util.Optional;
@@ -83,9 +83,8 @@ public class TestDistributedSnowflakeTypeMapping
                 .execute(getQueryRunner(), snowflakeCreateAsSelect());
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
     @Override
-    public void testTimestamp(ZoneId sessionZone)
+    protected void testTimestamp(ZoneId sessionZone)
     {
         // Override because the timestamp precision of result literal is different from JDBC client
         Session session = Session.builder(getQueryRunner().getDefaultSession())
@@ -171,7 +170,6 @@ public class TestDistributedSnowflakeTypeMapping
         }
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
     @Override
     public void testTimestampWithTimeZoneMapping(ZoneId sessionZone)
     {

@@ -24,10 +24,8 @@ import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import io.trino.type.JsonType;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -40,7 +38,6 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.starburstdata.trino.plugins.stargate.StargateQueryRunner.createRemoteStarburstQueryRunnerWithMemory;
-import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.trino.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -101,7 +98,7 @@ public class TestStargateTypeMapping
                 .build();
     }
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         checkIsGap(jvmZone, timeGapInJvmZone1);
@@ -119,18 +116,6 @@ public class TestStargateTypeMapping
                         .setCatalog("memory")
                         .setSchema("tiny")
                         .build());
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-            throws Exception
-    {
-        closeAll(
-                starburstEnterprise,
-                () -> {
-                    starburstEnterprise = null;
-                    remoteExecutor = null;
-                });
     }
 
     @Test
@@ -325,8 +310,18 @@ public class TestStargateTypeMapping
         }
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTime(ZoneId sessionZone)
+    @Test
+    public void testTime()
+    {
+        testTime(UTC);
+        testTime(jvmZone);
+        // using two non-JVM zones
+        testTime(vilnius);
+        testTime(kathmandu);
+        testTime(ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()));
+    }
+
+    private void testTime(ZoneId sessionZone)
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
@@ -387,8 +382,18 @@ public class TestStargateTypeMapping
                 .execute(getQueryRunner(), session, remoteConnectorCreateAndInsert(session, "test_time"));
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTimeWithTimeZone(ZoneId sessionZone)
+    @Test
+    public void testTimeWithTimeZone()
+    {
+        testTimeWithTimeZone(UTC);
+        testTimeWithTimeZone(jvmZone);
+        // using two non-JVM zones
+        testTimeWithTimeZone(vilnius);
+        testTimeWithTimeZone(kathmandu);
+        testTimeWithTimeZone(ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()));
+    }
+
+    private void testTimeWithTimeZone(ZoneId sessionZone)
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
@@ -467,8 +472,18 @@ public class TestStargateTypeMapping
                 .execute(getQueryRunner(), session, remoteConnectorCreateAndInsert(session, "test_time_with_time_zone"));
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTimestamp(ZoneId sessionZone)
+    @Test
+    public void testTimestamp()
+    {
+        testTimestamp(UTC);
+        testTimestamp(jvmZone);
+        // using two non-JVM zones
+        testTimestamp(vilnius);
+        testTimestamp(kathmandu);
+        testTimestamp(ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()));
+    }
+
+    private void testTimestamp(ZoneId sessionZone)
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
@@ -565,8 +580,18 @@ public class TestStargateTypeMapping
                 .execute(getQueryRunner(), session, remoteConnectorCreateAndInsert(session, "test_timestamp"));
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTimestampWithTimeZone(ZoneId sessionZone)
+    @Test
+    public void testTimestampWithTimeZone()
+    {
+        testTimestampWithTimeZone(UTC);
+        testTimestampWithTimeZone(jvmZone);
+        // using two non-JVM zones
+        testTimestampWithTimeZone(vilnius);
+        testTimestampWithTimeZone(kathmandu);
+        testTimestampWithTimeZone(ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()));
+    }
+
+    private void testTimestampWithTimeZone(ZoneId sessionZone)
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
@@ -805,19 +830,6 @@ public class TestStargateTypeMapping
                     "SELECT * FROM " + table.getName(),
                     format("VALUES ('null', NULL), ('value', %s), ('inserted null', NULL), ('inserted implicit null', NULL)", expectedReturnedValue));
         }
-    }
-
-    @DataProvider
-    public Object[][] sessionZonesDataProvider()
-    {
-        return new Object[][] {
-                {UTC},
-                {jvmZone},
-                // using two non-JVM zones
-                {vilnius},
-                {kathmandu},
-                {ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
-        };
     }
 
     private DataSetup remoteConnectorCreated(String tableNamePrefix)

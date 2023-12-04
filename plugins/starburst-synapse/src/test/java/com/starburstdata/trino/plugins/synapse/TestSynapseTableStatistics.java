@@ -19,7 +19,6 @@ import io.trino.spi.statistics.TableStatistics;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
-import io.trino.testng.services.ManageTestResources;
 import org.assertj.core.api.InstanceOfAssertFactories;
 import org.assertj.core.api.SoftAssertions;
 import org.junit.jupiter.api.Test;
@@ -44,7 +43,6 @@ import static org.junit.jupiter.api.Assumptions.abort;
 public class TestSynapseTableStatistics
         extends BaseJdbcTableStatisticsTest
 {
-    @ManageTestResources.Suppress(because = "Mock to remote server")
     private SynapseServer synapseServer;
 
     @Override

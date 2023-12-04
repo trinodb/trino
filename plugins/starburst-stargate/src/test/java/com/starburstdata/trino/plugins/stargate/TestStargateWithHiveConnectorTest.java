@@ -14,8 +14,7 @@ import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
-import org.testng.SkipException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -29,6 +28,7 @@ import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.testng.Assert.assertFalse;
 
 public class TestStargateWithHiveConnectorTest
@@ -77,58 +77,64 @@ public class TestStargateWithHiveConnectorTest
         }
     }
 
+    @Test
     @Override
     public void testCaseSensitiveAggregationPushdown()
     {
         // This is tested in TestStarburstRemoteWithMemoryWritesEnabledConnectorTest
         assertThatThrownBy(super::testCaseSensitiveAggregationPushdown)
                 .hasMessageStartingWith("This connector does not support creating tables");
-        throw new SkipException("tested elsewhere");
+        abort("tested elsewhere");
     }
 
+    @Test
     @Override
     public void testCaseSensitiveTopNPushdown()
     {
         // This is tested in TestStarburstRemoteWithMemoryWritesEnabledConnectorTest
         assertThatThrownBy(super::testCaseSensitiveTopNPushdown)
                 .hasMessageStartingWith("This connector does not support creating tables");
-        throw new SkipException("tested elsewhere");
+        abort("tested elsewhere");
     }
 
+    @Test
     @Override
     public void testNullSensitiveTopNPushdown()
     {
         // This is tested in TestStarburstRemoteWithMemoryWritesEnabledConnectorTest
         assertThatThrownBy(super::testNullSensitiveTopNPushdown)
                 .hasMessageStartingWith("This connector does not support creating tables");
-        throw new SkipException("tested elsewhere");
+        abort("tested elsewhere");
     }
 
+    @Test
     @Override
     public void testCommentColumn()
     {
         // TODO (https://starburstdata.atlassian.net/browse/SEP-4832) make sure this is tested
         assertThatThrownBy(super::testCommentColumn)
                 .hasMessageStartingWith("This connector does not support creating tables");
-        throw new SkipException("not supported");
+        abort("not supported");
     }
 
+    @Test
     @Override
-    public void testCommentColumnName(String columnName)
+    public void testCommentColumnName()
     {
         // TODO (https://starburstdata.atlassian.net/browse/SEP-4832) make sure this is tested
-        assertThatThrownBy(() -> super.testCommentColumnName(columnName))
+        assertThatThrownBy(super::testCommentColumnName)
                 .hasMessageStartingWith("This connector does not support creating tables");
-        throw new SkipException("not supported");
+        abort("not supported");
     }
 
+    @Test
     @Override
-    public void testCommentColumnSpecialCharacter(String comment)
+    public void testCommentColumnSpecialCharacter()
     {
         // TODO (https://starburstdata.atlassian.net/browse/SEP-4832) make sure this is tested
-        assertThatThrownBy(() -> super.testCommentColumnSpecialCharacter(comment))
+        assertThatThrownBy(super::testCommentColumnSpecialCharacter)
                 .hasMessageStartingWith("This connector does not support creating tables");
-        throw new SkipException("not supported");
+        abort("not supported");
     }
 
     @Test
@@ -459,15 +465,17 @@ public class TestStargateWithHiveConnectorTest
         // of on join pushdown.
         assertThatThrownBy(super::testJoinPushdown)
                 .hasMessageMatching("This connector does not support creating tables.*");
-        throw new SkipException("test requires table creation");
+        abort("test requires table creation");
     }
 
+    @Test
     @Override
     public void testNativeQuerySimple()
     {
         assertQuery("SELECT * FROM TABLE(system.query(query => 'SELECT 1 a'))", "VALUES 1");
     }
 
+    @Test
     @Override
     public void testNativeQueryCreateStatement()
     {
@@ -481,6 +489,7 @@ public class TestStargateWithHiveConnectorTest
         assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
     }
 
+    @Test
     @Override
     public void testNativeQueryInsertStatementTableExists()
     {
@@ -504,19 +513,21 @@ public class TestStargateWithHiveConnectorTest
         assertThat(e).hasMessageContaining("Schema name must be shorter than or equal to '128' characters but got '129'");
     }
 
+    @Test
     @Override
     public void testAlterTableRenameColumnToLongName()
     {
         assertThatThrownBy(super::testAlterTableRenameColumnToLongName)
                 .hasMessageMatching("This connector does not support creating tables with data");
-        throw new SkipException("https://starburstdata.atlassian.net/browse/SEP-9764");
+        abort("https://starburstdata.atlassian.net/browse/SEP-9764");
     }
 
+    @Test
     @Override
-    public void testRenameColumnName(String columnName)
+    public void testRenameColumnName()
     {
-        assertThatThrownBy(() -> super.testRenameColumnName(columnName))
+        assertThatThrownBy(super::testRenameColumnName)
                 .hasMessageMatching("This connector does not support creating tables");
-        throw new SkipException("https://starburstdata.atlassian.net/browse/SEP-9764");
+        abort("https://starburstdata.atlassian.net/browse/SEP-9764");
     }
 }

@@ -19,8 +19,8 @@ import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.jdbc.BaseJdbcFailureRecoveryTest;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
-import org.testng.SkipException;
-import org.testng.annotations.AfterClass;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.List;
@@ -31,36 +31,32 @@ import static com.starburstdata.trino.plugins.snowflake.SnowflakeQueryRunner.TES
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeQueryRunner.impersonationDisabled;
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeQueryRunner.jdbcBuilder;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public abstract class BaseSnowflakeFailureRecoveryTest
         extends BaseJdbcFailureRecoveryTest
 {
-    private SnowflakeServer snowflakeServer;
     private Closer closer;
-    private TestDatabase testDB;
 
     public BaseSnowflakeFailureRecoveryTest(RetryPolicy retryPolicy)
     {
         super(retryPolicy);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void cleanup()
             throws IOException
     {
         closer.close();
-        snowflakeServer = null;
-        closer = null;
-        testDB = null;
     }
 
     @Override
     protected QueryRunner createQueryRunner(List<TpchTable<?>> requiredTpchTables, Map<String, String> configProperties, Map<String, String> coordinatorProperties)
             throws Exception
     {
-        snowflakeServer = new SnowflakeServer();
+        SnowflakeServer snowflakeServer = new SnowflakeServer();
         closer = Closer.create();
-        testDB = closer.register(snowflakeServer.createTestDatabase());
+        TestDatabase testDB = closer.register(snowflakeServer.createTestDatabase());
         return getBuilder()
                 .withServer(snowflakeServer)
                 .withExtraProperties(configProperties)
@@ -83,13 +79,15 @@ public abstract class BaseSnowflakeFailureRecoveryTest
         return jdbcBuilder();
     }
 
+    @Test
     @Override
     protected void testUpdateWithSubquery()
     {
         assertThatThrownBy(super::testUpdateWithSubquery).hasMessageContaining("Unexpected Join over for-update table scan");
-        throw new SkipException("skipped");
+        abort("skipped");
     }
 
+    @Test
     @Override
     protected void testUpdate()
     {

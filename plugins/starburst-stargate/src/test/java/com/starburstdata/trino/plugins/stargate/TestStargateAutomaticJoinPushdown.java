@@ -17,8 +17,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
 import org.jdbi.v3.core.HandleConsumer;
 import org.jdbi.v3.core.Jdbi;
-import org.testng.SkipException;
-import org.testng.annotations.AfterClass;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
@@ -26,6 +25,7 @@ import java.util.Optional;
 import java.util.Properties;
 
 import static java.lang.String.format;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestStargateAutomaticJoinPushdown
         extends BaseAutomaticJoinPushdownTest
@@ -33,13 +33,6 @@ public class TestStargateAutomaticJoinPushdown
     private TestingPostgreSqlServer postgreSqlServer;
     private DistributedQueryRunner remoteStarburst;
     private Session remoteSession;
-
-    @AfterClass(alwaysRun = true)
-    public void cleanup()
-    {
-        remoteStarburst = null;
-        postgreSqlServer = null;
-    }
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -65,10 +58,11 @@ public class TestStargateAutomaticJoinPushdown
                 .build();
     }
 
+    @Test
     @Override
     public void testJoinPushdownWithEmptyStatsInitially()
     {
-        throw new SkipException("Remote with PostgreSQL statistics are automatically collected");
+        abort("Remote with PostgreSQL statistics are automatically collected");
     }
 
     @Override

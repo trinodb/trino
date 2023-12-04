@@ -22,10 +22,9 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.TestingSession;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
-import io.trino.testng.services.ManageTestResources;
-import org.testng.SkipException;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.sql.SQLException;
@@ -50,18 +49,16 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@Execution(CONCURRENT)
 public abstract class BaseSnowflakeConnectorTest
         // Using BaseJdbcConnectorTest as a base class is not strictly accurate as we have to flavours of Snowflake connector: jdbc and distributed.
         // Still most of the extra testcases defined in BaseJdbcConnectorTest are applicable to both.
         extends BaseJdbcConnectorTest
 {
-    @ManageTestResources.Suppress(because = "Mock to remote server")
     protected final SnowflakeServer server = new SnowflakeServer();
-    @ManageTestResources.Suppress(because = "Used by mocks")
     protected final Closer closer = Closer.create();
-    @ManageTestResources.Suppress(because = "Mock to remote database")
     protected final TestDatabase testDatabase = closer.register(server.createTestDatabase());
     protected final SqlExecutor snowflakeExecutor = (sql) -> server.safeExecuteOnDatabase(testDatabase.getName(), sql);
 
@@ -91,13 +88,14 @@ public abstract class BaseSnowflakeConnectorTest
         }
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void cleanup()
             throws IOException
     {
         closer.close();
     }
 
+    @Test
     @Override
     public void testCharVarcharComparison()
     {
@@ -158,7 +156,7 @@ public abstract class BaseSnowflakeConnectorTest
     }
 
     @Override
-    @org.junit.jupiter.api.Test
+    @Test
     public void testShowColumns()
     {
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
@@ -228,7 +226,7 @@ public abstract class BaseSnowflakeConnectorTest
     }
 
     @Override
-    @org.junit.jupiter.api.Test
+    @Test
     public void testInformationSchemaFiltering()
     {
         assertQuery(
@@ -240,12 +238,13 @@ public abstract class BaseSnowflakeConnectorTest
     }
 
     @Override
-    @org.junit.jupiter.api.Test
+    @Test
     public void testTableSampleBernoulli()
     {
         abort("This test takes more than 10 minutes to finish.");
     }
 
+    @Test
     @Override
     public void testDescribeTable()
     {
@@ -275,7 +274,7 @@ public abstract class BaseSnowflakeConnectorTest
     {
         String viewName = "test_view_" + randomNameSuffix();
         server.executeOnDatabase(testDatabase.getName(), format("CREATE VIEW %s.%s AS SELECT * FROM orders", TEST_SCHEMA, viewName));
-        assertTrue(getQueryRunner().tableExists(getSession(), viewName));
+        assertThat(getQueryRunner().tableExists(getSession(), viewName)).isTrue();
         assertQuery(format("SELECT orderkey FROM %s", viewName), "SELECT orderkey FROM orders");
         server.executeOnDatabase(testDatabase.getName(), format("DROP VIEW %s.%s", TEST_SCHEMA, viewName));
     }
@@ -290,7 +289,7 @@ public abstract class BaseSnowflakeConnectorTest
                 "(c_binary_float FLOAT, c_binary_double DOUBLE, c_number NUMBER(5,3))",
                 ImmutableList.of("5.0, 20.233, 5.0"))) {
             // this expects the unqualified table name as an argument
-            assertTrue(getQueryRunner().tableExists(getSession(), testTable.getName().substring(TEST_SCHEMA.length() + 1)));
+            assertThat(getQueryRunner().tableExists(getSession(), testTable.getName().substring(TEST_SCHEMA.length() + 1))).isTrue();
             assertQuery(format("SELECT c_binary_double FROM %s WHERE c_binary_float = cast(5.0 as real)", testTable.getName()), "SELECT 20.233");
             assertQuery(format("SELECT c_binary_float FROM %s WHERE c_binary_double = cast(20.233 as double)", testTable.getName()), "SELECT 5.0");
             assertQuery(format("SELECT c_binary_float FROM %s WHERE c_number = cast(5.0 as decimal(5,3))", testTable.getName()), "SELECT 5.0");
@@ -307,7 +306,7 @@ public abstract class BaseSnowflakeConnectorTest
                 "(c_char CHAR(7), c_varchar VARCHAR(20), c_long_char CHAR(2000), c_long_varchar VARCHAR(4000))",
                 ImmutableList.of("'my_char', 'my_varchar', 'my_long_char', 'my_long_varchar'"))) {
             // this expects the unqualified table name as an argument
-            assertTrue(getQueryRunner().tableExists(getSession(), testTable.getName().substring(TEST_SCHEMA.length() + 1)));
+            assertThat(getQueryRunner().tableExists(getSession(), testTable.getName().substring(TEST_SCHEMA.length() + 1))).isTrue();
             assertQuery(format("SELECT c_char FROM %s WHERE c_varchar = cast('my_varchar' as varchar(20))", testTable.getName()), "SELECT 'my_char'");
             assertQueryReturnsEmptyResult(format("SELECT c_char FROM %s WHERE c_long_char = '" + repeat("💩", 2000) + "'", testTable.getName()));
             assertQueryReturnsEmptyResult(format("SELECT c_char FROM %s WHERE c_long_varchar = '" + repeat("💩", 4000) + "'", testTable.getName()));
@@ -503,6 +502,7 @@ public abstract class BaseSnowflakeConnectorTest
         }
     }
 
+    @Test
     @Override
     public void testAggregationWithUnsupportedResultType()
     {
@@ -745,13 +745,6 @@ public abstract class BaseSnowflakeConnectorTest
 
     @Test
     @Override
-    public void testReadMetadataWithRelationsConcurrentModifications()
-    {
-        // TODO Fix concurrent metadata modification test https://starburstdata.atlassian.net/browse/SEP-8789
-        throw new SkipException("Test fails with a timeout sometimes and is flaky");
-    }
-
-    @Override
     public void testDeleteWithLike()
     {
         assertThatThrownBy(super::testDeleteWithLike)
@@ -774,21 +767,21 @@ public abstract class BaseSnowflakeConnectorTest
     @Test
     public void testCreateTableWithLongColumnName()
     {
-        throw new SkipException("https://starburstdata.atlassian.net/browse/SEP-9733");
+        abort("https://starburstdata.atlassian.net/browse/SEP-9733");
     }
 
     @Override
     @Test
     public void testAlterTableAddLongColumnName()
     {
-        throw new SkipException("https://starburstdata.atlassian.net/browse/SEP-9733");
+        abort("https://starburstdata.atlassian.net/browse/SEP-9733");
     }
 
     @Override
     @Test
     public void testAlterTableRenameColumnToLongName()
     {
-        throw new SkipException("https://starburstdata.atlassian.net/browse/SEP-9733");
+        abort("https://starburstdata.atlassian.net/browse/SEP-9733");
     }
 
     @Override

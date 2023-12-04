@@ -15,15 +15,20 @@ import io.trino.plugin.jdbc.IdentityCacheMapping;
 import io.trino.plugin.jdbc.IdentityCacheMapping.IdentityCacheKey;
 import io.trino.plugin.jdbc.SingletonIdentityCacheMapping;
 import io.trino.testing.TestingConnectorSession;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestWarehouseAwareIdentityCacheMapping
 {
-    @Test(dataProvider = "testKeyDataProvider")
-    public void testWarehouseAwareIdentityCacheKey(SnowflakeConfig snowflakeConfig)
+    @Test
+    public void testWarehouseAwareIdentityCacheKey()
+    {
+        testWarehouseAwareIdentityCacheKey(new SnowflakeConfig());
+        testWarehouseAwareIdentityCacheKey(new SnowflakeConfig().setWarehouse("test warehouse"));
+    }
+
+    private void testWarehouseAwareIdentityCacheKey(SnowflakeConfig snowflakeConfig)
     {
         IdentityCacheMapping delegate = new SingletonIdentityCacheMapping();
         WarehouseAwareIdentityCacheMapping cacheMapping = new WarehouseAwareIdentityCacheMapping(delegate);
@@ -37,14 +42,5 @@ public class TestWarehouseAwareIdentityCacheMapping
                 .isEqualTo(new Key(
                         delegate.getRemoteUserCacheKey(TestingConnectorSession.builder().build()),
                         snowflakeConfig.getWarehouse()));
-    }
-
-    @DataProvider
-    public static Object[][] testKeyDataProvider()
-    {
-        return new Object[][] {
-                {new SnowflakeConfig()},
-                {new SnowflakeConfig().setWarehouse("test warehouse")},
-        };
     }
 }

@@ -15,8 +15,7 @@ import com.starburstdata.trino.plugins.snowflake.distributed.SnowflakeDistribute
 import io.airlift.configuration.ConfigurationFactory;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
@@ -78,17 +77,14 @@ public class TestSnowflakeDistributedConfig
         assertFullMapping(properties, expected);
     }
 
-    @DataProvider
-    public Object[][] invalidSizes()
+    @Test
+    public void testInvalidExportFileSize()
     {
-        return new Object[][] {
-                {DataSize.of(16, KILOBYTE)},
-                {DataSize.of(6, GIGABYTE)}
-        };
+        testInvalidExportFileSize(DataSize.of(16, KILOBYTE));
+        testInvalidExportFileSize(DataSize.of(6, GIGABYTE));
     }
 
-    @Test(dataProvider = "invalidSizes")
-    public void testInvalidExportFileSize(DataSize size)
+    private void testInvalidExportFileSize(DataSize size)
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("snowflake.stage-schema", "test_schema_2")

@@ -19,8 +19,8 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
-import org.testng.SkipException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 import java.util.Optional;
@@ -33,7 +33,7 @@ import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.tpch.TpchTable.LINE_ITEM;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestDistributedSnowflakeConnectorTest
         extends BaseSnowflakeConnectorTest
@@ -84,7 +84,7 @@ public class TestDistributedSnowflakeConnectorTest
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
         MaterializedResultWithQueryId dynamicFilter = queryRunner.executeWithQueryId(fixedBroadcastJoinDistribution(true), sql);
         MaterializedResultWithQueryId noDynamicFilter = queryRunner.executeWithQueryId(fixedBroadcastJoinDistribution(false), sql);
-        assertEquals(dynamicFilter.getResult().getOnlyColumnAsSet(), noDynamicFilter.getResult().getOnlyColumnAsSet());
+        assertThat(dynamicFilter.getResult().getOnlyColumnAsSet()).isEqualTo(noDynamicFilter.getResult().getOnlyColumnAsSet());
 
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
         long dynamicFilterProcessedBytes = queryManager.getFullQueryInfo(dynamicFilter.getQueryId()).getQueryStats().getProcessedInputDataSize().toBytes();
@@ -95,8 +95,9 @@ public class TestDistributedSnowflakeConnectorTest
 
     // In the distributed SF connector, the page source on worker will accept and use dynamic filter
     // from the engine even though DFs are not pushed down to Snowflake as part of generated SQL query
+    @Test
     @Override
-    @Test(enabled = false)
+    @Disabled
     public void testDynamicFilteringWithLimit()
     {
     }
@@ -166,11 +167,12 @@ public class TestDistributedSnowflakeConnectorTest
         }
     }
 
+    @Test
     @Override
     public void testInsertRowConcurrently()
     {
         // TODO: Skip slow Snowflake insert tests (https://starburstdata.atlassian.net/browse/SEP-9214)
-        throw new SkipException("Snowflake INSERTs are slow and the futures sometimes timeout in the test. See https://starburstdata.atlassian.net/browse/SEP-9214.");
+        abort("Snowflake INSERTs are slow and the futures sometimes timeout in the test. See https://starburstdata.atlassian.net/browse/SEP-9214.");
     }
 
     @Test

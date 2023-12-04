@@ -13,8 +13,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
-import org.testng.SkipException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
@@ -24,6 +23,7 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.testng.Assert.assertFalse;
 
 public class TestStargateWithMemoryWritesEnabledConnectorTest
@@ -79,16 +79,25 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
         }
     }
 
+    @Test
     @Override
-    protected TestTable createTableWithDefaultColumns()
+    public void testSetColumnTypeWithDefaultColumn()
     {
-        throw new SkipException("not supported");
+        abort("not supported");
     }
 
+    @Test
+    @Override
+    public void testInsertForDefaultColumn()
+    {
+        abort("not supported");
+    }
+
+    @Test
     @Override
     public void testTruncateTable()
     {
-        throw new SkipException("Memory connector does not support truncate");
+        abort("Memory connector does not support truncate");
     }
 
     @Test
@@ -98,7 +107,7 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
         // Required because Stargate connector adds additional `Query failed (...):` prefix to the error message
         assertThatThrownBy(super::testAddColumn)
                 .hasMessageContaining("This connector does not support adding columns");
-        throw new SkipException("not supported");
+        abort("not supported");
     }
 
     @Test
@@ -108,7 +117,7 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
         // Required because Stargate connector adds additional `Query failed (...):` prefix to the error message
         assertThatThrownBy(super::testDropColumn)
                 .hasMessageContaining("This connector does not support dropping columns");
-        throw new SkipException("not supported");
+        abort("not supported");
     }
 
     @Test
@@ -118,7 +127,7 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
         // Required because Stargate connector adds additional `Query failed (...):` prefix to the error message
         assertThatThrownBy(super::testRenameColumn)
                 .hasMessageContaining("This connector does not support renaming columns");
-        throw new SkipException("not supported");
+        abort("not supported");
     }
 
     @Test
@@ -128,7 +137,7 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
         // Required because Stargate connector adds additional `Query failed (...):` prefix to the error message
         assertThatThrownBy(super::testSetColumnType)
                 .hasMessageContaining("This connector does not support setting column types");
-        throw new SkipException("not supported");
+        abort("not supported");
     }
 
     @Test
@@ -180,6 +189,7 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
         }
     }
 
+    @Test
     @Override
     public void testInsertIntoNotNullColumn()
     {
@@ -189,6 +199,7 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
                 ".* line 1:53: Catalog 'memory' does not support non-null column for column name '\"not_null_col\"'");
     }
 
+    @Test
     @Override
     public void testRenameSchema()
     {
@@ -199,12 +210,14 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
                 ".*This connector does not support renaming schemas");
     }
 
+    @Test
     @Override
     public void testNativeQuerySimple()
     {
         assertQuery("SELECT * FROM TABLE(system.query(query => 'SELECT 1 a'))", "VALUES 1");
     }
 
+    @Test
     @Override
     public void testNativeQueryCreateStatement()
     {
@@ -227,6 +240,7 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
                 .hasMessageContaining(format("Catalog '%s' does not support non-null column for column name '\"not_null_col\"'", getRemoteCatalogName()));
     }
 
+    @Test
     @Override
     public void testNativeQueryInsertStatementTableExists()
     {

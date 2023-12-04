@@ -19,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 public abstract class BaseStargateTableStatisticsTest
         extends BaseJdbcTableStatisticsTest
 {
+    @Test
     @Override
     public void testStatsWithPredicatePushdownWithStatsPrecalculationDisabled()
     {

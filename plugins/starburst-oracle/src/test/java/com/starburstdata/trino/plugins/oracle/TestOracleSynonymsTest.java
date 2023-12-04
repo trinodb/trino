@@ -15,8 +15,7 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.SharedResource.Lease;
 import io.trino.tpch.TpchTable;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
@@ -39,12 +38,6 @@ public class TestOracleSynonymsTest
                         .buildOrThrow())
                 .withTables(ImmutableList.of(TpchTable.ORDERS))
                 .build();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void cleanup()
-    {
-        oracleServer = null;
     }
 
     @Test

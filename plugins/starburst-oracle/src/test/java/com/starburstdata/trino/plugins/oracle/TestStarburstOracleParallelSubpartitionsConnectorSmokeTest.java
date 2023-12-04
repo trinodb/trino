@@ -14,7 +14,6 @@ import io.trino.plugin.oracle.BaseOracleConnectorSmokeTest;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.SharedResource;
 import io.trino.testing.TestingConnectorBehavior;
-import org.testng.annotations.AfterClass;
 
 import static com.starburstdata.trino.plugins.oracle.OracleQueryRunner.createSession;
 import static com.starburstdata.trino.plugins.oracle.OracleTestUsers.createStandardUsers;
@@ -44,12 +43,6 @@ public class TestStarburstOracleParallelSubpartitionsConnectorSmokeTest
                 .withCreateUsers(this::createUsers)
                 .withProvisionTables(this::partitionTables)
                 .build();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void cleanup()
-    {
-        oracleServer = null;
     }
 
     protected void createUsers()

@@ -12,14 +12,10 @@ package com.starburstdata.trino.plugins.snowflake;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.log.Logger;
-import io.trino.testng.services.ManageTestResources;
 import io.trino.tpch.TpchTable;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -77,19 +73,11 @@ public class TestSnowflakeInstanceCleaner
 
     public static final Collection<String> tableTypesToDrop = ImmutableList.of("BASE TABLE", "VIEW");
 
-    @ManageTestResources.Suppress(because = "Mock to remote server")
-    private SnowflakeServer snowflakeServer;
+    private final SnowflakeServer snowflakeServer;
 
-    @BeforeClass
-    public void setUp()
+    public TestSnowflakeInstanceCleaner()
     {
         snowflakeServer = new SnowflakeServer();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void cleanup()
-    {
-        snowflakeServer = null;
     }
 
     @Test
@@ -138,8 +126,13 @@ public class TestSnowflakeInstanceCleaner
         }
     }
 
-    @Test(dataProvider = "cleanUpSchemasDataProvider")
-    public void cleanUpTables(String schemaName)
+    @Test
+    public void cleanUpTables()
+    {
+        cleanUpTables(TEST_SCHEMA);
+    }
+
+    private void cleanUpTables(String schemaName)
     {
         logObjectsCount(schemaName);
         if (!tablesToKeep.isEmpty()) {
@@ -194,14 +187,6 @@ public class TestSnowflakeInstanceCleaner
         }
 
         logObjectsCount(schemaName);
-    }
-
-    @DataProvider
-    public static Object[][] cleanUpSchemasDataProvider()
-    {
-        return new Object[][] {
-                {TEST_SCHEMA},
-        };
     }
 
     private void logObjectsCount(String schemaName)

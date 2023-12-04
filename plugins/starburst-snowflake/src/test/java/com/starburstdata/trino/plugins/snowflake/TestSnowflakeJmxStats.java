@@ -16,9 +16,8 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
-import io.trino.testng.services.ManageTestResources;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.Optional;
@@ -30,16 +29,13 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSnowflakeJmxStats
         extends AbstractTestQueryFramework
 {
-    @ManageTestResources.Suppress(because = "Mock to remote server")
     protected final SnowflakeServer server = new SnowflakeServer();
-    @ManageTestResources.Suppress(because = "Used by mocks")
     protected final Closer closer = Closer.create();
-    @ManageTestResources.Suppress(because = "Mock to remote database")
     protected final TestDatabase testDatabase = closer.register(server.createTestDatabase());
     protected final String catalogName = "snowflake_" + randomNameSuffix();
 
@@ -59,7 +55,7 @@ public class TestSnowflakeJmxStats
                 .build();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void cleanup()
             throws IOException
     {
@@ -79,11 +75,11 @@ public class TestSnowflakeJmxStats
                         getJmxDomainBase(),
                         catalogName));
         // we are running with 2 nodes
-        assertEquals(rows.getRowCount(), 1);
+        assertThat(rows.getRowCount()).isEqualTo(1);
         MaterializedRow oktaStatsRow = rows.getMaterializedRows().get(0);
         // We should have made each call to Okta only once; after that, the cache should have been used
-        assertEquals(oktaStatsRow.getField(0), 1.0);
-        assertEquals(oktaStatsRow.getField(1), 1.0);
+        assertThat(oktaStatsRow.getField(0)).isEqualTo(1.0);
+        assertThat(oktaStatsRow.getField(1)).isEqualTo(1.0);
 
         rows = getQueryRunner().execute(
                 getSession(),
@@ -92,11 +88,11 @@ public class TestSnowflakeJmxStats
                                 + "FROM jmx.current.\"%s.auth:name=%s,type=statscollectingsnowflakeauthclient\"",
                         getJmxDomainBase(),
                         catalogName));
-        assertEquals(rows.getRowCount(), 1);
+        assertThat(rows.getRowCount()).isEqualTo(1);
         MaterializedRow snowflakeStatsRow = rows.getMaterializedRows().get(0);
         // We should have made each call to Snowflake only once; after that, the cache should have been used
-        assertEquals(snowflakeStatsRow.getField(0), 1.0);
-        assertEquals(snowflakeStatsRow.getField(1), 1.0);
+        assertThat(snowflakeStatsRow.getField(0)).isEqualTo(1.0);
+        assertThat(snowflakeStatsRow.getField(1)).isEqualTo(1.0);
     }
 
     /**

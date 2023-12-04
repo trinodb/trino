@@ -11,10 +11,10 @@ package com.starburstdata.trino.plugins.synapse;
 
 import com.microsoft.sqlserver.jdbc.SQLServerException;
 import io.airlift.log.Logger;
-import io.trino.testng.services.ManageTestResources;
 import io.trino.tpch.TpchTable;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -26,10 +26,11 @@ import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toUnmodifiableSet;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestSynapseInstanceCleaner
 {
-    @ManageTestResources.Suppress(because = "Mock to remote server")
     private SynapseServer synapseServer;
 
     private static final int ERROR_OBJECT_NOT_FOUND = 3701;
@@ -45,7 +46,7 @@ public class TestSynapseInstanceCleaner
                     .map(s -> s.toLowerCase(Locale.ENGLISH))
                     .collect(toUnmodifiableSet());
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         synapseServer = new SynapseServer();

@@ -14,12 +14,11 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestSnowflakePlugin
 {
@@ -28,7 +27,7 @@ public class TestSnowflakePlugin
     {
         Plugin plugin = new TestingSnowflakePlugin();
         List<ConnectorFactory> connectorFactories = ImmutableList.copyOf(plugin.getConnectorFactories());
-        assertEquals(connectorFactories.size(), 3);
+        assertThat(connectorFactories.size()).isEqualTo(3);
 
         connectorFactories.get(0).create("test",
                 ImmutableMap.of(
@@ -65,7 +64,7 @@ public class TestSnowflakePlugin
     {
         Plugin plugin = new TestingSnowflakePlugin();
         List<ConnectorFactory> connectorFactories = ImmutableList.copyOf(plugin.getConnectorFactories());
-        assertEquals(connectorFactories.size(), 3);
+        assertThat(connectorFactories.size()).isEqualTo(3);
 
         int created = 0;
         for (ConnectorFactory factory : connectorFactories) {

@@ -15,8 +15,7 @@ import io.trino.spi.security.Identity;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
-import org.testng.SkipException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 import java.util.Optional;
@@ -26,8 +25,9 @@ import static com.starburstdata.trino.plugins.snowflake.SnowflakeQueryRunner.imp
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeQueryRunner.jdbcBuilder;
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeServer.TEST_DATABASE;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertFalse;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestJdbcSnowflakeConnectorTest
         extends BaseSnowflakeConnectorTest
@@ -77,11 +77,12 @@ public class TestJdbcSnowflakeConnectorTest
         }
     }
 
+    @Test
     @Override
     public void testInsertRowConcurrently()
     {
         // TODO: Skip slow Snowflake insert tests (https://starburstdata.atlassian.net/browse/SEP-9214)
-        throw new SkipException("Snowflake INSERTs are slow and the futures sometimes timeout in the test. See https://starburstdata.atlassian.net/browse/SEP-9214.");
+        abort("Snowflake INSERTs are slow and the futures sometimes timeout in the test. See https://starburstdata.atlassian.net/browse/SEP-9214.");
     }
 
     @Override
@@ -99,19 +100,21 @@ public class TestJdbcSnowflakeConnectorTest
     // trino analyze stage passes without exceptions
     // Snowflake throws tested exception
     // TODO This is wrong !!! Trino should not allow query to execute on the underlying system
+    @Test
     @Override
     public void testNativeQueryCreateStatement()
     {
         String tableName = getSession().getSchema().orElseThrow() + ".numbers";
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
         assertThatThrownBy(() -> query(format("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE %s(n INTEGER)'))", tableName)))
                 .hasMessageContaining("unexpected 'CREATE'");
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
     }
 
     // trino analyze stage passes without exceptions
     // Snowflake throws tested exception
     // TODO This is wrong !!! Trino should not allow query to execute on the underlying system
+    @Test
     @Override
     public void testNativeQueryInsertStatementTableExists()
     {

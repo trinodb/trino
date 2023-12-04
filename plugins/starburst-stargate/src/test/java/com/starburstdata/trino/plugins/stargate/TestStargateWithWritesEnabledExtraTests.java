@@ -13,8 +13,7 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -41,8 +40,16 @@ public class TestStargateWithWritesEnabledExtraTests
                 .build();
     }
 
-    @Test(dataProvider = "largeInValuesCount")
-    public void testLargeInLongColumnName(int valuesCount)
+    @Test
+    public void testLargeInLongColumnName()
+    {
+        testLargeInLongColumnName(200);
+        testLargeInLongColumnName(500);
+        testLargeInLongColumnName(1000);
+        testLargeInLongColumnName(5000);
+    }
+
+    private void testLargeInLongColumnName(int valuesCount)
     {
         String tableName = "test_large_column_name_" + randomNameSuffix();
         String columnName = "this_is_a_very_looooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooong_column_name";
@@ -57,16 +64,5 @@ public class TestStargateWithWritesEnabledExtraTests
 
         assertQuery(format("SELECT * FROM %s WHERE %s IN (mod(1000, %s), %s)", tableName, columnName, columnName, longValues), "SELECT 1 WHERE 1=2");
         assertQuery(format("SELECT * FROM %s WHERE %s NOT IN (mod(1000, %s), %s)", tableName, columnName, columnName, longValues), "SELECT 1 WHERE 1=2");
-    }
-
-    @DataProvider
-    public static Object[][] largeInValuesCount()
-    {
-        return new Object[][] {
-                {200},
-                {500},
-                {1000},
-                {5000}
-        };
     }
 }

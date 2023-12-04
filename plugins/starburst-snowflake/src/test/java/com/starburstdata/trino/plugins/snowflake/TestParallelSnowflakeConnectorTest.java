@@ -12,7 +12,7 @@ package com.starburstdata.trino.plugins.snowflake;
 import io.trino.sql.planner.plan.TopNNode;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 import java.util.Optional;

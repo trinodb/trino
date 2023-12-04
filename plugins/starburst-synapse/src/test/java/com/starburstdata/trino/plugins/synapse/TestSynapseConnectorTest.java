@@ -15,7 +15,6 @@ import io.trino.Session;
 import io.trino.plugin.jdbc.JdbcTableHandle;
 import io.trino.plugin.jdbc.JoinOperator;
 import io.trino.plugin.sqlserver.BaseSqlServerConnectorTest;
-import io.trino.plugin.sqlserver.DataCompression;
 import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -24,15 +23,11 @@ import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.testing.DataProviders;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
-import io.trino.testng.services.ManageTestResources;
-import org.testng.SkipException;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
@@ -47,19 +42,17 @@ import static io.trino.plugin.sqlserver.SqlServerSessionProperties.BULK_COPY_FOR
 import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static io.trino.testing.DataProviders.cartesianProduct;
-import static io.trino.testing.DataProviders.trueFalse;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 import static org.testng.Assert.assertFalse;
 
 public class TestSynapseConnectorTest
         extends BaseSqlServerConnectorTest
 {
     public static final String CATALOG = "sqlserver";
-    @ManageTestResources.Suppress(because = "Mock to remote server")
     private SynapseServer synapseServer;
 
     @Override
@@ -108,10 +101,18 @@ public class TestSynapseConnectorTest
                         "col_required2 BIGINT NOT NULL)");
     }
 
+    @Test
     @Override
-    protected TestTable createTableWithUnsupportedColumn()
+    public void testInsertInPresenceOfNotSupportedColumn()
     {
-        throw new SkipException("All Synapse types are mapped either by Trino or the SQL Server JDBC");
+        abort("All Synapse types are mapped either by Trino or the SQL Server JDBC");
+    }
+
+    @Test
+    @Override
+    public void testNativeQuerySelectUnsupportedType()
+    {
+        abort("All Synapse types are mapped either by Trino or the SQL Server JDBC");
     }
 
     @Test
@@ -128,10 +129,17 @@ public class TestSynapseConnectorTest
     }
 
     @Test
+    @Override
+    public void testReadMetadataWithRelationsConcurrentModifications()
+    {
+        abort("This test is flaky and will be removed when updating Trino version to 434");
+    }
+
+    @Test
     @Override // Needs an override because the SQL Server override is different from the base version of the test
     public void testColumnComment()
     {
-        throw new SkipException("Synapse does not support column comments");
+        abort("Synapse does not support column comments");
     }
 
     @Test
@@ -183,32 +191,32 @@ public class TestSynapseConnectorTest
                         ")");
     }
 
-    @Test(dataProvider = "dataCompression")
+    @Test
     @Override
-    public void testCreateWithDataCompression(DataCompression compression)
+    public void testCreateWithDataCompression()
     {
-        throw new SkipException("data_compression not supported in Synapse");
+        abort("data_compression not supported in Synapse");
     }
 
     @Test
     @Override
     public void testShowCreateForPartitionedTablesWithDataCompression()
     {
-        throw new SkipException("CREATE PARTITION FUNCTION and data_compression not supported in Synapse");
+        abort("CREATE PARTITION FUNCTION and data_compression not supported in Synapse");
     }
 
     @Test
     @Override
     public void testShowCreateForIndexedAndCompressedTable()
     {
-        throw new SkipException("data_compression not supported in Synapse");
+        abort("data_compression not supported in Synapse");
     }
 
     @Test
     @Override
     public void testShowCreateForUniqueConstraintCompressedTable()
     {
-        throw new SkipException("data_compression not supported in Synapse");
+        abort("data_compression not supported in Synapse");
     }
 
     @Override
@@ -231,8 +239,14 @@ public class TestSynapseConnectorTest
                 .build();
     }
 
-    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
-    public void testCreateTableAsSelectWriteBulkiness(boolean bulkCopyForWrite)
+    @Test
+    public void testCreateTableAsSelectWriteBulkiness()
+    {
+        testCreateTableAsSelectWriteBulkiness(true);
+        testCreateTableAsSelectWriteBulkiness(false);
+    }
+
+    private void testCreateTableAsSelectWriteBulkiness(boolean bulkCopyForWrite)
     {
         String table = "bulk_copy_ctas_" + randomNameSuffix();
         Session session = Session.builder(getSession())
@@ -264,8 +278,16 @@ public class TestSynapseConnectorTest
         this.assertQueryFails(format("ALTER TABLE %s RENAME COLUMN %s TO %s", table, specialCharacterColumnName, normalColumnName), "\\QEither the parameter @objname is ambiguous or the claimed @objtype (COLUMN) is wrong.\\E.*");
     }
 
-    @Test(dataProvider = "doubleTrueFalse")
-    public void testInsertWriteBulkiness(boolean nonTransactionalInsert, boolean bulkCopyForWrite)
+    @Test
+    public void testInsertWriteBulkiness()
+    {
+        testInsertWriteBulkiness(true, true);
+        testInsertWriteBulkiness(true, false);
+        testInsertWriteBulkiness(false, true);
+        testInsertWriteBulkiness(false, false);
+    }
+
+    private void testInsertWriteBulkiness(boolean nonTransactionalInsert, boolean bulkCopyForWrite)
     {
         String table = "bulk_copy_insert_" + randomNameSuffix();
         assertQuerySucceeds(format("CREATE TABLE %s as SELECT * FROM tpch.tiny.customer WHERE 0 = 1", table));
@@ -285,6 +307,7 @@ public class TestSynapseConnectorTest
         assertUpdate("DROP TABLE " + table);
     }
 
+    @Test
     @Override
     public void testDelete()
     {
@@ -606,6 +629,7 @@ public class TestSynapseConnectorTest
                 .orElseThrow(() -> new IllegalArgumentException("Not found: " + operator));
     }
 
+    @Test
     @Override
     public void testPredicatePushdown()
     {
@@ -810,6 +834,7 @@ public class TestSynapseConnectorTest
         }
     }
 
+    @Test
     @Override
     public void testDeleteWithLike()
     {
@@ -817,18 +842,11 @@ public class TestSynapseConnectorTest
                 .hasStackTraceContaining("TrinoException: This connector does not support modifying table rows");
     }
 
-    @Override
     @Test
-    public void testReadMetadataWithRelationsConcurrentModifications()
-    {
-        // TODO Fix concurrent metadata modification test https://starburstdata.atlassian.net/browse/SEP-8789
-        throw new SkipException("Test fails with a timeout sometimes and is flaky");
-    }
-
     @Override
     public void testInsertRowConcurrently()
     {
-        throw new SkipException("Synapse INSERTs are slow and the futures sometimes timeout in the test. TODO https://starburstdata.atlassian.net/browse/SEP-9214");
+        abort("Synapse INSERTs are slow and the futures sometimes timeout in the test. TODO https://starburstdata.atlassian.net/browse/SEP-9214");
     }
 
     @Override
@@ -850,12 +868,7 @@ public class TestSynapseConnectorTest
                 .hasMessageMatching("(Parse Error: Identifier '.*' exceeded the maximum length of 128.|Table name must be shorter than or equal to '128' characters but got '129')");
     }
 
-    @DataProvider
-    public static Object[][] doubleTrueFalse()
-    {
-        return cartesianProduct(trueFalse(), trueFalse());
-    }
-
+    @Test
     @Override // Override because the JDBC prepares the query, but does not provide ResultSetMetadata
     public void testNativeQueryInsertStatementTableDoesNotExist()
     {
@@ -864,65 +877,73 @@ public class TestSynapseConnectorTest
                 .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: INSERT INTO non_existent_table VALUES (1)");
     }
 
+    @Test
     @Override
     public void testSelectFromProcedureFunction()
     {
         assertThatThrownBy(super::testSelectFromProcedureFunction)
                 .hasMessageMatching("^Execution of 'actual' query \\w+ failed:.*")
                 .cause().hasMessageMatching("line \\d+:\\d+: Table function 'system.procedure' not registered");
-        throw new SkipException("procedure() PTF not registered");
+        abort("procedure() PTF not registered");
     }
 
+    @Test
     @Override
     public void testSelectFromProcedureFunctionWithInputParameter()
     {
         assertThatThrownBy(super::testSelectFromProcedureFunctionWithInputParameter)
                 .hasMessageMatching("^Execution of 'actual' query \\w+ failed:.*")
                 .cause().hasMessageMatching("line \\d+:\\d+: Table function 'system.procedure' not registered");
-        throw new SkipException("procedure() PTF not registered");
+        abort("procedure() PTF not registered");
     }
 
+    @Test
     @Override
     public void testSelectFromProcedureFunctionWithOutputParameter()
     {
         assertThatThrownBy(super::testSelectFromProcedureFunctionWithOutputParameter)
                 .hasMessageMatching("\\QFailed to execute statement: [    CREATE PROCEDURE dbo.procedure\\E\\w+ @row_count bigint OUTPUT(?s:.*)");
-        throw new SkipException("procedure() PTF not registered");
+        abort("procedure() PTF not registered");
     }
 
+    @Test
     @Override
     public void testFilterPushdownRestrictedForProcedureFunction()
     {
         assertThatThrownBy(super::testFilterPushdownRestrictedForProcedureFunction)
                 .hasMessageMatching("line \\d+:\\d+: Table function 'system.procedure' not registered");
-        throw new SkipException("procedure() PTF not registered");
+        abort("procedure() PTF not registered");
     }
 
+    @Test
     @Override
     public void testAggregationPushdownRestrictedForProcedureFunction()
     {
         assertThatThrownBy(super::testAggregationPushdownRestrictedForProcedureFunction)
                 .hasMessageMatching("line \\d+:\\d+: Table function 'system.procedure' not registered");
-        throw new SkipException("procedure() PTF not registered");
+        abort("procedure() PTF not registered");
     }
 
+    @Test
     @Override
     public void testJoinPushdownRestrictedForProcedureFunction()
     {
         assertThatThrownBy(super::testJoinPushdownRestrictedForProcedureFunction)
                 .hasMessageMatching("line \\d+:\\d+: Table function 'system.procedure' not registered");
-        throw new SkipException("procedure() PTF not registered");
+        abort("procedure() PTF not registered");
     }
 
+    @Test
     @Override
     public void testProcedureWithSingleIfStatement()
     {
         assertThatThrownBy(super::testProcedureWithSingleIfStatement)
                 .hasMessageMatching("^Execution of 'actual' query \\w+ failed:.*")
                 .cause().hasMessageMatching("line \\d+:\\d+: Table function 'system.procedure' not registered");
-        throw new SkipException("procedure() PTF not registered");
+        abort("procedure() PTF not registered");
     }
 
+    @Test
     @Override
     public void testProcedureWithIfElseStatement()
     {
@@ -934,9 +955,10 @@ public class TestSynapseConnectorTest
                         to match regex:
                           "Procedure has multiple ResultSets for query: .*"
                         but did not.""");
-        throw new SkipException("procedure() PTF not registered");
+        abort("procedure() PTF not registered");
     }
 
+    @Test
     @Override
     public void testProcedureWithMultipleResultSet()
     {
@@ -948,9 +970,10 @@ public class TestSynapseConnectorTest
                         to match regex:
                           "Procedure has multiple ResultSets for query: .*"
                         but did not.""");
-        throw new SkipException("procedure() PTF not registered");
+        abort("procedure() PTF not registered");
     }
 
+    @Test
     @Override
     public void testProcedureWithCreateOperation()
     {
@@ -962,9 +985,10 @@ public class TestSynapseConnectorTest
                         to match regex:
                           "Failed to get table handle for procedure query. The statement did not return a result set."
                         but did not.""");
-        throw new SkipException("procedure() PTF not registered");
+        abort("procedure() PTF not registered");
     }
 
+    @Test
     @Override
     public void testProcedureWithDropOperation()
     {
@@ -976,9 +1000,10 @@ public class TestSynapseConnectorTest
                         to match regex:
                           "Failed to get table handle for procedure query. The statement did not return a result set."
                         but did not.""");
-        throw new SkipException("procedure() PTF not registered");
+        abort("procedure() PTF not registered");
     }
 
+    @Test
     @Override
     public void testProcedureWithInsertOperation()
     {
@@ -990,9 +1015,10 @@ public class TestSynapseConnectorTest
                         to match regex:
                           "Failed to get table handle for procedure query. The statement did not return a result set."
                         but did not.""");
-        throw new SkipException("procedure() PTF not registered");
+        abort("procedure() PTF not registered");
     }
 
+    @Test
     @Override
     public void testProcedureWithDeleteOperation()
     {
@@ -1004,9 +1030,10 @@ public class TestSynapseConnectorTest
                         to match regex:
                           "Failed to get table handle for procedure query. The statement did not return a result set."
                         but did not.""");
-        throw new SkipException("procedure() PTF not registered");
+        abort("procedure() PTF not registered");
     }
 
+    @Test
     @Override
     public void testProcedureWithUpdateOperation()
     {
@@ -1018,9 +1045,10 @@ public class TestSynapseConnectorTest
                         to match regex:
                           "Failed to get table handle for procedure query. The statement did not return a result set."
                         but did not.""");
-        throw new SkipException("procedure() PTF not registered");
+        abort("procedure() PTF not registered");
     }
 
+    @Test
     @Override
     public void testProcedureWithMergeOperation()
     {
@@ -1032,14 +1060,14 @@ public class TestSynapseConnectorTest
                         to match regex:
                           "Failed to get table handle for procedure query. The statement did not return a result set."
                         but did not.""");
-        throw new SkipException("procedure() PTF not registered");
+        abort("procedure() PTF not registered");
     }
 
     @Test
     @Override
     public void testWriteTaskParallelismSessionProperty()
     {
-        throw new SkipException("This test writes a table on sf100 scale. Will be re-nabled once we modify the base test to not use INSERT query. Re-enable this once https://github.com/starburstdata/starburst-trino-plugins/issues/253 is addressed");
+        abort("This test writes a table on sf100 scale. Will be re-nabled once we modify the base test to not use INSERT query. Re-enable this once https://github.com/starburstdata/starburst-trino-plugins/issues/253 is addressed");
     }
 
     @Test

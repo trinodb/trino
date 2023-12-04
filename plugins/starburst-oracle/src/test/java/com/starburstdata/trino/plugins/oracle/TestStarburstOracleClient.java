@@ -34,7 +34,7 @@ import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.DecimalType;
 import io.trino.testing.TestingConnectorSession;
 import oracle.jdbc.OracleTypes;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
@@ -45,7 +45,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
-import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
@@ -78,7 +77,13 @@ public class TestStarburstOracleClient
 
     public TestStarburstOracleClient()
     {
-        this(new StarburstOracleClient(
+        jdbcClient = createJdbcClient();
+    }
+
+    // Extension point for SEP. Multiple constructors are disallowed in JUnit.
+    public JdbcClient createJdbcClient()
+    {
+        return new StarburstOracleClient(
                 NOOP_LICENSE_MANAGER,
                 new BaseJdbcConfig(),
                 new JdbcMetadataConfig().setAggregationPushdownEnabled(true),
@@ -89,12 +94,7 @@ public class TestStarburstOracleClient
                 },
                 new DefaultQueryBuilder(RemoteQueryModifier.NONE),
                 new DefaultIdentifierMapping(),
-                RemoteQueryModifier.NONE));
-    }
-
-    public TestStarburstOracleClient(JdbcClient jdbcClient)
-    {
-        this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
+                RemoteQueryModifier.NONE);
     }
 
     @Test

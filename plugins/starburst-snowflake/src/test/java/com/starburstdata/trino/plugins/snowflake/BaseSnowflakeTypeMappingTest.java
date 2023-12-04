@@ -26,11 +26,9 @@ import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
-import io.trino.testng.services.ManageTestResources;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.sql.SQLException;
@@ -60,11 +58,8 @@ public abstract class BaseSnowflakeTypeMappingTest
         extends AbstractTestQueryFramework
 {
     protected static final int MAX_VARCHAR = 16777216;
-    @ManageTestResources.Suppress(because = "Mock to remote server")
     protected final SnowflakeServer server = new SnowflakeServer();
-    @ManageTestResources.Suppress(because = "Used by mocks")
     protected final Closer closer = Closer.create();
-    @ManageTestResources.Suppress(because = "Mock to remote database")
     protected final TestDatabase testDatabase = closer.register(server.createTestDatabase());
 
     private LocalDateTime dateTimeBeforeEpoch;
@@ -84,7 +79,7 @@ public abstract class BaseSnowflakeTypeMappingTest
     protected ZoneId kathmandu;
     private LocalDateTime dateTimeGapInKathmandu;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         dateTimeBeforeEpoch = LocalDateTime.of(1958, 1, 1, 13, 18, 3, 123_000_000);
@@ -113,7 +108,7 @@ public abstract class BaseSnowflakeTypeMappingTest
         checkIsGap(kathmandu, dateTimeGapInKathmandu);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void cleanup()
             throws IOException
     {
@@ -370,8 +365,19 @@ public abstract class BaseSnowflakeTypeMappingTest
                 .execute(getQueryRunner(), snowflakeCreateAsSelect());
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTime(ZoneId sessionZone)
+    @Test
+    public void testTime()
+    {
+        testTime(UTC);
+        testTime(jvmZone);
+        // using two non-JVM zones so that we don't need to worry what Snowflake system zone is
+        // no DST in 1970, but has DST in later years (e.g. 2018)
+        testTime(ZoneId.of("Europe/Vilnius"));
+        testTime(ZoneId.of("Asia/Kathmandu"));
+        testTime(ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()));
+    }
+
+    private void testTime(ZoneId sessionZone)
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
@@ -396,8 +402,19 @@ public abstract class BaseSnowflakeTypeMappingTest
                 .execute(getQueryRunner(), session, snowflakeCreateAndInsert());
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTimeArray(ZoneId sessionZone)
+    @Test
+    public void testTimeArray()
+    {
+        testTimeArray(UTC);
+        testTimeArray(jvmZone);
+        // using two non-JVM zones so that we don't need to worry what Snowflake system zone is
+        // no DST in 1970, but has DST in later years (e.g. 2018)
+        testTimeArray(ZoneId.of("Europe/Vilnius"));
+        testTimeArray(ZoneId.of("Asia/Kathmandu"));
+        testTimeArray(ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()));
+    }
+
+    private void testTimeArray(ZoneId sessionZone)
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
@@ -434,8 +451,19 @@ public abstract class BaseSnowflakeTypeMappingTest
                 .execute(getQueryRunner(), session, snowflakeCreateAsSelect());
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTimestamp(ZoneId sessionZone)
+    @Test
+    public void testTimestamp()
+    {
+        testTimestamp(UTC);
+        testTimestamp(jvmZone);
+        // using two non-JVM zones so that we don't need to worry what Snowflake system zone is
+        // no DST in 1970, but has DST in later years (e.g. 2018)
+        testTimestamp(ZoneId.of("Europe/Vilnius"));
+        testTimestamp(ZoneId.of("Asia/Kathmandu"));
+        testTimestamp(ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()));
+    }
+
+    protected void testTimestamp(ZoneId sessionZone)
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
@@ -524,8 +552,19 @@ public abstract class BaseSnowflakeTypeMappingTest
         }
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTimestampArray(ZoneId sessionZone)
+    @Test
+    public void testTimestampArray()
+    {
+        testTimestampArray(UTC);
+        testTimestampArray(jvmZone);
+        // using two non-JVM zones so that we don't need to worry what Snowflake system zone is
+        // no DST in 1970, but has DST in later years (e.g. 2018)
+        testTimestampArray(ZoneId.of("Europe/Vilnius"));
+        testTimestampArray(ZoneId.of("Asia/Kathmandu"));
+        testTimestampArray(ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()));
+    }
+
+    private void testTimestampArray(ZoneId sessionZone)
     {
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
@@ -557,8 +596,16 @@ public abstract class BaseSnowflakeTypeMappingTest
                 .execute(getQueryRunner(), session, snowflakeCreateAsSelect());
     }
 
-    @Test(dataProvider = "testTimestampWithTimeZoneDataProvider")
-    public void testTimestampWithTimeZone(boolean insertWithTrino, String timestampType, ZoneId resultZone)
+    @Test
+    public void testTimestampWithTimeZone()
+    {
+        testTimestampWithTimeZone(true, "TIMESTAMP_TZ", ZoneId.of("UTC"));
+        testTimestampWithTimeZone(false, "TIMESTAMP_TZ", ZoneId.of("UTC"));
+        testTimestampWithTimeZone(true, "TIMESTAMP_LTZ", ZoneId.of("UTC"));
+        testTimestampWithTimeZone(false, "TIMESTAMP_LTZ", ZoneId.of("America/Bahia_Banderas"));
+    }
+
+    private void testTimestampWithTimeZone(boolean insertWithTrino, String timestampType, ZoneId resultZone)
     {
         DataType<ZonedDateTime> dataType;
         DataSetup dataSetup;
@@ -628,19 +675,19 @@ public abstract class BaseSnowflakeTypeMappingTest
         return zonedDateTime.withFixedOffsetZone();
     }
 
-    @DataProvider
-    public Object[][] testTimestampWithTimeZoneDataProvider()
+    @Test
+    public void testTimestampWithTimeZoneMapping()
     {
-        return new Object[][] {
-                {true, "TIMESTAMP_TZ", ZoneId.of("UTC")},
-                {false, "TIMESTAMP_TZ", ZoneId.of("UTC")},
-                {true, "TIMESTAMP_LTZ", ZoneId.of("UTC")},
-                {false, "TIMESTAMP_LTZ", ZoneId.of("America/Bahia_Banderas")},
-        };
+        testTimestampWithTimeZoneMapping(UTC);
+        testTimestampWithTimeZoneMapping(jvmZone);
+        // using two non-JVM zones so that we don't need to worry what Snowflake system zone is
+        // no DST in 1970, but has DST in later years (e.g. 2018)
+        testTimestampWithTimeZoneMapping(ZoneId.of("Europe/Vilnius"));
+        testTimestampWithTimeZoneMapping(ZoneId.of("Asia/Kathmandu"));
+        testTimestampWithTimeZoneMapping(ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()));
     }
 
-    @Test(dataProvider = "sessionZonesDataProvider")
-    public void testTimestampWithTimeZoneMapping(ZoneId sessionZone)
+    protected void testTimestampWithTimeZoneMapping(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
@@ -696,21 +743,6 @@ public abstract class BaseSnowflakeTypeMappingTest
 
                 .execute(getQueryRunner(), session, trinoCreateAsSelect())
                 .execute(getQueryRunner(), session, trinoCreateAndInsert());
-    }
-
-    @DataProvider
-    public Object[][] sessionZonesDataProvider()
-    {
-        return new Object[][] {
-                {UTC},
-                {jvmZone},
-                // using two non-JVM zones so that we don't need to worry what Snowflake system zone is
-                // no DST in 1970, but has DST in later years (e.g. 2018)
-                {ZoneId.of("Europe/Vilnius")},
-                // minutes offset change since 1970-01-01, no DST
-                {ZoneId.of("Asia/Kathmandu")},
-                {ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
-        };
     }
 
     private static DataType<ZonedDateTime> trinoTimestampWithTimeZoneDataType(ZoneId resultZone)

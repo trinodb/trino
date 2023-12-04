@@ -386,7 +386,7 @@ public class SnowflakeSplitSource
         HiveMetastore metastore = new SnowflakeHiveMetastore(table);
         return new SemiTransactionalHiveMetastore(
                 new HdfsFileSystemFactory(hdfsEnvironment, new TrinoHdfsFileSystemStats()),
-                new HiveMetastoreClosure(metastore),
+                new HiveMetastoreClosure(metastore, typeManager, hiveConfig.isPartitionProjectionEnabled()),
                 executorService,
                 executorService,
                 executorService,
@@ -407,7 +407,7 @@ public class SnowflakeSplitSource
 
     private Column toHiveColumn(JdbcColumnHandle jdbcColumnHandle)
     {
-        return new Column(jdbcColumnHandle.getColumnName(), SnowflakeHiveTypeTranslator.toHiveType(jdbcColumnHandle.getColumnType()), Optional.empty());
+        return new Column(jdbcColumnHandle.getColumnName(), SnowflakeHiveTypeTranslator.toHiveType(jdbcColumnHandle.getColumnType()), Optional.empty(), ImmutableMap.of());
     }
 
     private String copyIntoStage(String sql, String stageName)

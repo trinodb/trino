@@ -18,9 +18,7 @@ import io.trino.testing.SharedResource;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
-import org.testng.SkipException;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -35,6 +33,7 @@ import static com.starburstdata.trino.plugins.oracle.OracleDataTypes.prestoTimes
 import static io.trino.testing.datatype.DataType.timestampDataType;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestStarburstOracleConnectorTest
         extends BaseOracleConnectorTest
@@ -56,12 +55,6 @@ public class TestStarburstOracleConnectorTest
                 .build();
     }
 
-    @AfterClass(alwaysRun = true)
-    public void cleanup()
-    {
-        oracleServer = null;
-    }
-
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -79,6 +72,7 @@ public class TestStarburstOracleConnectorTest
         }
     }
 
+    @Test
     @Override
     public void testPredicatePushdown()
     {
@@ -217,21 +211,21 @@ public class TestStarburstOracleConnectorTest
     @Override
     public void testCreateTableWithLongTableName()
     {
-        throw new SkipException("https://starburstdata.atlassian.net/browse/SEP-9681");
+        abort("https://starburstdata.atlassian.net/browse/SEP-9681");
     }
 
     @Test
     @Override
     public void testRenameSchemaToLongName()
     {
-        throw new SkipException("https://starburstdata.atlassian.net/browse/SEP-9681");
+        abort("https://starburstdata.atlassian.net/browse/SEP-9681");
     }
 
     @Test
     @Override
     public void testRenameTableToLongTableName()
     {
-        throw new SkipException("https://starburstdata.atlassian.net/browse/SEP-9681");
+        abort("https://starburstdata.atlassian.net/browse/SEP-9681");
     }
 
     @Override

@@ -15,7 +15,8 @@ import io.trino.execution.QueryStats;
 import io.trino.spi.QueryId;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.sql.TestTable;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
@@ -25,8 +26,8 @@ import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAS
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public abstract class AbstractDynamicFilteringTest
         extends BaseDynamicFilteringTest
@@ -63,13 +64,15 @@ public abstract class AbstractDynamicFilteringTest
         }
     }
 
-    @Test(timeOut = 240_000)
+    @Test
+    @Timeout(value = 240_000, unit = MILLISECONDS)
     public void testDynamicFiltering()
     {
         assertDynamicFilters("SELECT * FROM orders a JOIN orders b ON a.orderkey = b.orderkey AND b.totalprice < 1000");
     }
 
-    @Test(timeOut = 240_000)
+    @Test
+    @Timeout(value = 240_000, unit = MILLISECONDS)
     public void testDynamicFilteringWithAggregationGroupingColumn()
     {
         assertDynamicFilters(
@@ -77,7 +80,8 @@ public abstract class AbstractDynamicFilteringTest
                         "ON a.orderkey = b.orderkey AND b.totalprice < 1000");
     }
 
-    @Test(timeOut = 240_000)
+    @Test
+    @Timeout(value = 240_000, unit = MILLISECONDS)
     public void testDynamicFilteringWithAggregationAggregateColumn()
     {
         assertDynamicFilters(
@@ -85,7 +89,8 @@ public abstract class AbstractDynamicFilteringTest
                         "ON a.count = b.orderkey AND b.totalprice < 1000");
     }
 
-    @Test(timeOut = 240_000)
+    @Test
+    @Timeout(value = 240_000, unit = MILLISECONDS)
     public void testDynamicFilteringWithAggregationGroupingSet()
     {
         // DF pushdown is not supported for grouping column that is not part of every grouping set
@@ -94,7 +99,8 @@ public abstract class AbstractDynamicFilteringTest
                         "ON a.orderkey = b.orderkey AND b.totalprice < 1000");
     }
 
-    @Test(timeOut = 240_000)
+    @Test
+    @Timeout(value = 240_000, unit = MILLISECONDS)
     public void testDynamicFilteringWithLimit()
     {
         // DF pushdown is not supported for limit queries
@@ -103,7 +109,8 @@ public abstract class AbstractDynamicFilteringTest
                         "ON a.orderkey = b.orderkey AND b.totalprice < 1000");
     }
 
-    @Test(timeOut = 240_000)
+    @Test
+    @Timeout(value = 240_000, unit = MILLISECONDS)
     public void testDynamicFilteringBroadcastJoin()
     {
         String query = "SELECT * FROM orders a JOIN orders b " +
@@ -116,7 +123,8 @@ public abstract class AbstractDynamicFilteringTest
                 .isGreaterThan(filteredInputPositions);
     }
 
-    @Test(timeOut = 240_000)
+    @Test
+    @Timeout(value = 240_000, unit = MILLISECONDS)
     public void testDynamicFilteringDomainCompactionThreshold()
     {
         String tableName = "orderkeys_" + randomNameSuffix();
@@ -139,7 +147,8 @@ public abstract class AbstractDynamicFilteringTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(timeOut = 240_000)
+    @Test
+    @Timeout(value = 240_000, unit = MILLISECONDS)
     public void testDynamicFilteringCaseInsensitiveDomainCompaction()
     {
         try (TestTable table = new TestTable(
@@ -191,7 +200,7 @@ public abstract class AbstractDynamicFilteringTest
     {
         long filteredInputPositions = getQueryInputPositions(dynamicFiltering(true), query);
         long unfilteredInputPositions = getQueryInputPositions(dynamicFiltering(false), query);
-        assertEquals(filteredInputPositions, unfilteredInputPositions);
+        assertThat(filteredInputPositions).isEqualTo(unfilteredInputPositions);
     }
 
     protected long getQueryInputPositions(Session session, String sql)

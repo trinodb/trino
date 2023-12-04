@@ -17,9 +17,7 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
-import io.trino.testng.services.ManageTestResources;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static com.starburstdata.trino.plugins.snowflake.SnowflakeQueryRunner.jdbcBuilder;
 import static com.starburstdata.trino.plugins.snowflake.jdbc.SnowflakeClient.DATABASE_SEPARATOR;
@@ -34,7 +32,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestSnowflakeDatabasePrefixIntegrationSmokeTest
         extends AbstractTestQueryFramework
 {
-    @ManageTestResources.Suppress(because = "Mock to remote server")
     private SnowflakeServer server;
     private TestDatabase testDatabase;
     private TestDatabase testDatabase2;
@@ -64,14 +61,6 @@ public class TestSnowflakeDatabasePrefixIntegrationSmokeTest
     protected SnowflakeQueryRunner.Builder createBuilder()
     {
         return jdbcBuilder();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void cleanup()
-    {
-        server = null;
-        testDatabase = null;
-        testDatabase2 = null;
     }
 
     @Test

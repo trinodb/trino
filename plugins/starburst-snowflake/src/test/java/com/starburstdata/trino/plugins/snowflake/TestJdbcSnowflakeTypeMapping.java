@@ -13,7 +13,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.datatype.SqlDataTypeTest;
 import io.trino.testing.sql.TestTable;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
