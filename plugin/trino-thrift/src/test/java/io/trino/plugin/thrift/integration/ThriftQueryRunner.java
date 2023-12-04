@@ -42,7 +42,6 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
-import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.type.TypeManager;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
@@ -69,7 +68,7 @@ import static java.util.stream.Collectors.joining;
 
 public final class ThriftQueryRunner
 {
-    public static final ThriftCodecManager CODEC_MANAGER = new ThriftCodecManager();
+    private static final ThriftCodecManager CODEC_MANAGER = new ThriftCodecManager();
 
     private ThriftQueryRunner() {}
 
@@ -257,12 +256,6 @@ public final class ThriftQueryRunner
         public SplitManager getSplitManager()
         {
             return source.getSplitManager();
-        }
-
-        @Override
-        public ExchangeManager getExchangeManager()
-        {
-            return source.getExchangeManager();
         }
 
         @Override
