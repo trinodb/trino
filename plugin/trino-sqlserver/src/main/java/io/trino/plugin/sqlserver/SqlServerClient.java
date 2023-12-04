@@ -139,6 +139,7 @@ import static io.trino.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.charReadFunction;
 import static io.trino.plugin.jdbc.StandardColumnMappings.charWriteFunction;
+import static io.trino.plugin.jdbc.StandardColumnMappings.dateReadFunctionUsingLocalDate;
 import static io.trino.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
 import static io.trino.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
@@ -549,7 +550,7 @@ public class SqlServerClient
             case Types.DATE:
                 return Optional.of(ColumnMapping.longMapping(
                         DATE,
-                        sqlServerDateReadFunction(),
+                        dateReadFunctionUsingLocalDate(),
                         sqlServerDateWriteFunction()));
 
             case Types.TIME:
@@ -884,11 +885,6 @@ public class SqlServerClient
     private static LongWriteFunction sqlServerDateWriteFunction()
     {
         return (statement, index, day) -> statement.setString(index, DATE_FORMATTER.format(LocalDate.ofEpochDay(day)));
-    }
-
-    private static LongReadFunction sqlServerDateReadFunction()
-    {
-        return (resultSet, index) -> LocalDate.parse(resultSet.getString(index), DATE_FORMATTER).toEpochDay();
     }
 
     private static ColumnMapping timestampWithTimeZoneColumnMapping(int precision)

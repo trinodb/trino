@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.sqlserver;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.spi.type.TimeZoneKey;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -481,6 +480,9 @@ public abstract class BaseSqlServerTypeMapping
                 .addRoundTrip("date", inputLiteralFactory.apply("'0012-12-12'"), DATE, "DATE '0012-12-12'")
                 // before julian->gregorian switch
                 .addRoundTrip("date", inputLiteralFactory.apply("'1500-01-01'"), DATE, "DATE '1500-01-01'")
+                // during julian->gregorian switch
+                .addRoundTrip("date", inputLiteralFactory.apply("'1582-10-05'"), DATE, "DATE '1582-10-05'")
+                .addRoundTrip("date", inputLiteralFactory.apply("'1582-10-14'"), DATE, "DATE '1582-10-14'")
                 // before epoch
                 .addRoundTrip("date", inputLiteralFactory.apply("'1952-04-03'"), DATE, "DATE '1952-04-03'")
                 .addRoundTrip("date", inputLiteralFactory.apply("'1970-01-01'"), DATE, "DATE '1970-01-01'")
@@ -491,17 +493,6 @@ public abstract class BaseSqlServerTypeMapping
                 .addRoundTrip("date", inputLiteralFactory.apply("'2017-01-01'"), DATE, "DATE '2017-01-01'")
                 .addRoundTrip("date", inputLiteralFactory.apply("'1983-04-01'"), DATE, "DATE '1983-04-01'")
                 .addRoundTrip("date", inputLiteralFactory.apply("'1983-10-01'"), DATE, "DATE '1983-10-01'");
-    }
-
-    @Test
-    public void testDateJulianGregorianCalendarSwitch()
-    {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_old_date", "(dt DATE)", ImmutableList.of("DATE '1582-10-05'", "DATE '1582-10-14'"))) {
-            // SQL Server returns +10 days when the date is in the range of 1582-10-05 and 1582-10-14, but we need to pass the original value in predicates
-            assertQuery("SELECT * FROM " + table.getName(), "VALUES DATE '1582-10-15', DATE '1582-10-24'");
-            assertQuery("SELECT * FROM " + table.getName() + " WHERE dt = DATE '1582-10-05'", "VALUES DATE '1582-10-15'");
-            assertQueryReturnsEmptyResult("SELECT * FROM " + table.getName() + " WHERE dt = DATE '1582-10-15'");
-        }
     }
 
     @Test
