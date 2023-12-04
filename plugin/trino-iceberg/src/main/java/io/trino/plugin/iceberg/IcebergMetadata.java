@@ -2551,8 +2551,7 @@ public class IcebergMetadata
 
         if (newEnforcedConstraint.equals(table.getEnforcedPredicate())
                 && newUnenforcedConstraint.equals(table.getUnenforcedPredicate())
-                && newConstraintColumns.equals(table.getConstraintColumns())
-                && constraint.getPredicateColumns().isEmpty()) {
+                && newConstraintColumns.equals(table.getConstraintColumns())) {
             return Optional.empty();
         }
 
