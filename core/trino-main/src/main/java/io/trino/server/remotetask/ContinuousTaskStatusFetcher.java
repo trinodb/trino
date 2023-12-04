@@ -178,6 +178,7 @@ class ContinuousTaskStatusFetcher
                     errorTracker.requestSucceeded();
                 }
                 finally {
+                    cleanupRequest();
                     scheduleNextRequest();
                 }
             }
@@ -203,6 +204,7 @@ class ContinuousTaskStatusFetcher
                     onFail.accept(e);
                 }
                 finally {
+                    cleanupRequest();
                     scheduleNextRequest();
                 }
             }
@@ -215,6 +217,14 @@ class ContinuousTaskStatusFetcher
                 updateStats(requestStartNanos);
                 onFail.accept(cause);
             }
+        }
+    }
+
+    private synchronized void cleanupRequest()
+    {
+        if (future != null && future.isDone()) {
+            // remove outstanding reference to JSON response
+            future = null;
         }
     }
 
