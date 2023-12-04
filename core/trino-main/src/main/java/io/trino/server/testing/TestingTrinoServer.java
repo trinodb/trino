@@ -73,7 +73,8 @@ import io.trino.security.AccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
 import io.trino.security.GroupProviderManager;
-import io.trino.server.GracefulShutdownWorkerHandler;
+import io.trino.server.GracefulShutdownHandler;
+import io.trino.server.GracefulShutdownModule;
 import io.trino.server.PluginInstaller;
 import io.trino.server.PrefixObjectNameGeneratorModule;
 import io.trino.server.Server;
@@ -128,6 +129,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.lang.Integer.parseInt;
@@ -189,7 +191,7 @@ public class TestingTrinoServer
     private final DispatchManager dispatchManager;
     private final SqlQueryManager queryManager;
     private final SqlTaskManager taskManager;
-    private final GracefulShutdownWorkerHandler gracefulShutdownHandler;
+    private final GracefulShutdownHandler gracefulShutdownHandler;
     private final ShutdownAction shutdownAction;
     private final MBeanServer mBeanServer;
     private final boolean coordinator;
@@ -202,12 +204,12 @@ public class TestingTrinoServer
         private final CountDownLatch shutdownCalled = new CountDownLatch(1);
 
         @GuardedBy("this")
-        private boolean isWorkerShutdown;
+        private boolean isNodeShutdown;
 
         @Override
         public synchronized void onShutdown()
         {
-            isWorkerShutdown = true;
+            isNodeShutdown = true;
             shutdownCalled.countDown();
         }
 
@@ -217,9 +219,9 @@ public class TestingTrinoServer
             shutdownCalled.await(millis, MILLISECONDS);
         }
 
-        public synchronized boolean isWorkerShutdown()
+        public synchronized boolean isNodeShutdown()
         {
-            return isWorkerShutdown;
+            return isNodeShutdown;
         }
     }
 
@@ -285,6 +287,7 @@ public class TestingTrinoServer
                 .add(new TransactionManagerModule())
                 .add(new ServerMainModule(VERSION))
                 .add(new TestingWarningCollectorModule())
+                .add(new GracefulShutdownModule())
                 .add(binder -> {
                     binder.bind(EventListenerConfig.class).in(Scopes.SINGLETON);
                     binder.bind(AccessControlConfig.class).in(Scopes.SINGLETON);
@@ -298,8 +301,7 @@ public class TestingTrinoServer
                     binder.bind(GroupProviderManager.class).to(TestingGroupProviderManager.class).in(Scopes.SINGLETON);
                     binder.bind(AccessControl.class).annotatedWith(ForTracing.class).to(AccessControlManager.class).in(Scopes.SINGLETON);
                     binder.bind(AccessControl.class).to(TracingAccessControl.class).in(Scopes.SINGLETON);
-                    binder.bind(ShutdownAction.class).to(TestShutdownAction.class).in(Scopes.SINGLETON);
-                    binder.bind(GracefulShutdownWorkerHandler.class).in(Scopes.SINGLETON);
+                    newOptionalBinder(binder, ShutdownAction.class).setBinding().to(TestShutdownAction.class).in(Scopes.SINGLETON);
                     binder.bind(ProcedureTester.class).in(Scopes.SINGLETON);
                     binder.bind(ExchangeManagerRegistry.class).in(Scopes.SINGLETON);
                 });
@@ -385,7 +387,7 @@ public class TestingTrinoServer
         localMemoryManager = injector.getInstance(LocalMemoryManager.class);
         nodeManager = injector.getInstance(InternalNodeManager.class);
         serviceSelectorManager = injector.getInstance(ServiceSelectorManager.class);
-        gracefulShutdownHandler = injector.getInstance(GracefulShutdownWorkerHandler.class);
+        gracefulShutdownHandler = injector.getInstance(GracefulShutdownHandler.class);
         taskManager = injector.getInstance(SqlTaskManager.class);
         shutdownAction = injector.getInstance(ShutdownAction.class);
         mBeanServer = injector.getInstance(MBeanServer.class);
@@ -638,7 +640,7 @@ public class TestingTrinoServer
         return mBeanServer;
     }
 
-    public GracefulShutdownWorkerHandler getGracefulShutdownHandler()
+    public GracefulShutdownHandler getGracefulShutdownHandler()
     {
         return gracefulShutdownHandler;
     }

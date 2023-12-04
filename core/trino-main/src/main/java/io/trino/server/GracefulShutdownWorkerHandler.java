@@ -39,7 +39,8 @@ import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-public class GracefulShutdownWorkerHandler
+public final class GracefulShutdownWorkerHandler
+        implements GracefulShutdownHandler
 {
     private static final Logger log = Logger.get(GracefulShutdownWorkerHandler.class);
     private static final Duration LIFECYCLE_STOP_TIMEOUT = new Duration(30, SECONDS);
@@ -48,7 +49,6 @@ public class GracefulShutdownWorkerHandler
     private final ExecutorService lifeCycleStopper = newSingleThreadExecutor(threadsNamed("lifecycle-stopper-%s"));
     private final LifeCycleManager lifeCycleManager;
     private final SqlTaskManager sqlTaskManager;
-    private final boolean isCoordinator;
     private final ShutdownAction shutdownAction;
     private final Duration gracePeriod;
 
@@ -65,18 +65,13 @@ public class GracefulShutdownWorkerHandler
         this.sqlTaskManager = requireNonNull(sqlTaskManager, "sqlTaskManager is null");
         this.shutdownAction = requireNonNull(shutdownAction, "shutdownAction is null");
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
-        this.isCoordinator = serverConfig.isCoordinator();
         this.gracePeriod = serverConfig.getGracePeriod();
     }
 
+    @Override
     public synchronized void requestShutdown()
     {
         log.info("Shutdown requested");
-
-        if (isCoordinator) {
-            throw new UnsupportedOperationException("Cannot shutdown coordinator");
-        }
-
         if (shutdownRequested) {
             return;
         }
@@ -150,6 +145,7 @@ public class GracefulShutdownWorkerHandler
                 .collect(toImmutableList());
     }
 
+    @Override
     public synchronized boolean isShutdownRequested()
     {
         return shutdownRequested;

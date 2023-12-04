@@ -29,6 +29,9 @@ public class ServerConfig
     private boolean includeExceptionInResponse = true;
     private Duration gracePeriod = new Duration(2, MINUTES);
     private boolean queryResultsCompressionEnabled = true;
+
+    private CoordinatorShutdownStrategy shutdownStrategy = CoordinatorShutdownStrategy.ABORT_AFTER_WAITING;
+
     private Optional<String> queryInfoUrlTemplate = Optional.empty();
 
     public boolean isCoordinator()
@@ -80,6 +83,20 @@ public class ServerConfig
         return this;
     }
 
+    @NotNull
+    public CoordinatorShutdownStrategy getShutdownStrategy()
+    {
+        return shutdownStrategy;
+    }
+
+    @Config("shutdown.strategy")
+    @ConfigDescription("Strategy for handling running queries when coordinator is shutting down")
+    public ServerConfig setShutdownStrategy(CoordinatorShutdownStrategy shutdownStrategy)
+    {
+        this.shutdownStrategy = shutdownStrategy;
+        return this;
+    }
+
     public boolean isQueryResultsCompressionEnabled()
     {
         return queryResultsCompressionEnabled;
@@ -103,5 +120,11 @@ public class ServerConfig
     {
         this.queryInfoUrlTemplate = Optional.ofNullable(queryInfoUrlTemplate);
         return this;
+    }
+
+    public enum CoordinatorShutdownStrategy
+    {
+        CANCEL_RUNNING, // Cancel running queries after grace period has passed
+        ABORT_AFTER_WAITING // Wait for running queries to complete and abort shutdown after grace period has passed
     }
 }

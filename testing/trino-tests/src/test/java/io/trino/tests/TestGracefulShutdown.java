@@ -18,9 +18,12 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
+import io.airlift.units.Duration;
 import io.trino.Session;
+import io.trino.execution.QueryManager;
 import io.trino.execution.SqlTaskManager;
 import io.trino.server.BasicQueryInfo;
+import io.trino.server.ServerConfig.CoordinatorShutdownStrategy;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.server.testing.TestingTrinoServer.TestShutdownAction;
 import io.trino.testing.DistributedQueryRunner;
@@ -35,13 +38,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
-import static com.google.common.collect.MoreCollectors.onlyElement;
+import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.FINISHED;
 import static io.trino.memory.TestMemoryManager.createQueryRunner;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -116,24 +122,98 @@ public class TestGracefulShutdown
 
             TestShutdownAction shutdownAction = (TestShutdownAction) worker.getShutdownAction();
             shutdownAction.waitForShutdownComplete(SHUTDOWN_TIMEOUT_MILLIS);
-            assertThat(shutdownAction.isWorkerShutdown()).isTrue();
+            assertThat(shutdownAction.isNodeShutdown()).isTrue();
         }
     }
 
     @Test
-    public void testCoordinatorShutdown()
+    public void testWaitingCoordinatorShutdown()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, ImmutableMap.of())) {
-            @SuppressWarnings("resource")
-            TestingTrinoServer coordinator = queryRunner.getServers()
-                    .stream()
-                    .filter(TestingTrinoServer::isCoordinator)
-                    .collect(onlyElement());
+        testGracefulCoordinatorShutdown(CoordinatorShutdownStrategy.ABORT_AFTER_WAITING, new Duration(3, MINUTES), infos -> {
+            for (BasicQueryInfo info : infos) {
+                assertThat(info.getState()).isEqualTo(FINISHED);
+            }
+        });
+    }
 
-            assertThatThrownBy(coordinator.getGracefulShutdownHandler()::requestShutdown)
-                    .isInstanceOf(UnsupportedOperationException.class)
-                    .hasMessage("Cannot shutdown coordinator");
+    @Test
+    public void testCancellingCoordinatorShutdown()
+            throws Exception
+    {
+        testGracefulCoordinatorShutdown(CoordinatorShutdownStrategy.CANCEL_RUNNING, new Duration(10, SECONDS), infos -> {
+            int finished = 0;
+            int failed = 0;
+            for (BasicQueryInfo info : infos) {
+                assertThat(info.getState().isDone()).isTrue();
+
+                if (info.getState().equals(FAILED)) {
+                    failed++;
+                }
+                else {
+                    finished++;
+                }
+            }
+
+            assertThat(finished).isEqualTo(5);
+            assertThat(failed).isEqualTo(1);
+        });
+    }
+
+    private void testGracefulCoordinatorShutdown(CoordinatorShutdownStrategy strategy, Duration gracePeriod, Consumer<List<BasicQueryInfo>> finalStateAssertion)
+            throws Exception
+    {
+        Map<String, String> properties = ImmutableMap.<String, String>builder()
+                .put("node-scheduler.include-coordinator", "false")
+                .put("shutdown.grace-period", gracePeriod.toString())
+                .put("shutdown.strategy", strategy.name())
+                .buildOrThrow();
+
+        int queriesCount = 5;
+        try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
+            List<ListenableFuture<Void>> queryFutures = new ArrayList<>();
+            for (int i = 0; i < queriesCount; i++) {
+                queryFutures.add(Futures.submit(
+                        () -> {
+                            queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
+                        },
+                        executor));
+            }
+
+            // Submit long running query
+            queryFutures.add(Futures.submit(
+                    () -> {
+                        try {
+                            queryRunner.execute("SELECT AVG(quantity), shipmode FROM tpch.sf100.lineitem GROUP BY shipmode");
+                        }
+                        catch (Exception e) {
+                            assertThat(e).hasMessageContaining("Query was canceled");
+                        }
+                    },
+                    executor));
+
+            @SuppressWarnings("resource")
+            TestingTrinoServer coordinator = queryRunner.getCoordinator();
+            QueryManager queryManager = coordinator.getQueryManager();
+
+            // Wait until all queries show up on the coordinator
+            while (queryManager.getQueries().size() != queriesCount + 1) {
+                MILLISECONDS.sleep(500);
+            }
+
+            coordinator.getGracefulShutdownHandler().requestShutdown();
+
+            // New query submission will be rejected
+            assertThatThrownBy(() -> queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk"))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessageContaining("Trino server is shutting down");
+
+            Futures.allAsList(queryFutures).get(); // Wait for all futures to complete
+            finalStateAssertion.accept(queryManager.getQueries());
+
+            TestShutdownAction shutdownAction = (TestShutdownAction) coordinator.getShutdownAction();
+            shutdownAction.waitForShutdownComplete(SHUTDOWN_TIMEOUT_MILLIS);
+            assertThat(shutdownAction.isNodeShutdown()).isTrue();
         }
     }
 }

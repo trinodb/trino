@@ -22,6 +22,8 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.trino.server.ServerConfig.CoordinatorShutdownStrategy.ABORT_AFTER_WAITING;
+import static io.trino.server.ServerConfig.CoordinatorShutdownStrategy.CANCEL_RUNNING;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class TestServerConfig
@@ -34,6 +36,7 @@ public class TestServerConfig
                 .setConcurrentStartup(false)
                 .setIncludeExceptionInResponse(true)
                 .setGracePeriod(new Duration(2, MINUTES))
+                .setShutdownStrategy(ABORT_AFTER_WAITING)
                 .setQueryResultsCompressionEnabled(true)
                 .setQueryInfoUrlTemplate(null));
     }
@@ -46,6 +49,7 @@ public class TestServerConfig
                 .put("experimental.concurrent-startup", "true")
                 .put("http.include-exception-in-response", "false")
                 .put("shutdown.grace-period", "5m")
+                .put("shutdown.strategy", "cancel_running")
                 .put("query-results.compression-enabled", "false")
                 .put("query.info-url-template", "https://example.com/query/${QUERY_ID}")
                 .buildOrThrow();
@@ -55,6 +59,7 @@ public class TestServerConfig
                 .setConcurrentStartup(true)
                 .setIncludeExceptionInResponse(false)
                 .setGracePeriod(new Duration(5, MINUTES))
+                .setShutdownStrategy(CANCEL_RUNNING)
                 .setQueryResultsCompressionEnabled(false)
                 .setQueryInfoUrlTemplate("https://example.com/query/${QUERY_ID}");
 

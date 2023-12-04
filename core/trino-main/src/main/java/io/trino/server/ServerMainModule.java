@@ -207,6 +207,7 @@ public class ServerMainModule
         }
 
         binder.bind(StartupStatus.class).in(Scopes.SINGLETON);
+        binder.bind(ShutdownStatus.class).in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfigDefaults(HttpServerConfig.class, httpServerConfig -> {
             httpServerConfig.setAdminEnabled(false);

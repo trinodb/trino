@@ -17,13 +17,20 @@ import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+
 public class GracefulShutdownModule
         extends AbstractConfigurationAwareModule
 {
     @Override
     protected void setup(Binder binder)
     {
-        binder.bind(ShutdownAction.class).to(DefaultShutdownAction.class).in(Scopes.SINGLETON);
-        binder.bind(GracefulShutdownWorkerHandler.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, ShutdownAction.class).setDefault().to(DefaultShutdownAction.class).in(Scopes.SINGLETON);
+        if (buildConfigObject(ServerConfig.class).isCoordinator()) {
+            binder.bind(GracefulShutdownHandler.class).to(GracefulShutdownCoordinatorHandler.class).in(Scopes.SINGLETON);
+        }
+        else {
+            binder.bind(GracefulShutdownHandler.class).to(GracefulShutdownWorkerHandler.class).in(Scopes.SINGLETON);
+        }
     }
 }

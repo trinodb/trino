@@ -35,12 +35,14 @@ import io.trino.server.HttpRequestSessionContextFactory;
 import io.trino.server.ProtocolConfig;
 import io.trino.server.ServerConfig;
 import io.trino.server.SessionContext;
+import io.trino.server.ShutdownStatus;
 import io.trino.server.protocol.QueryInfoUrlFactory;
 import io.trino.server.protocol.Slug;
 import io.trino.server.security.InternalPrincipal;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.QueryId;
+import io.trino.spi.TrinoException;
 import io.trino.spi.security.Identity;
 import io.trino.tracing.TrinoAttributes;
 import jakarta.annotation.Nullable;
@@ -92,6 +94,7 @@ import static io.trino.server.protocol.Slug.Context.QUEUED_QUERY;
 import static io.trino.server.security.ResourceSecurity.AccessType.AUTHENTICATED_USER;
 import static io.trino.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.trino.spi.StandardErrorCode.SERVER_STOPPING;
 import static jakarta.ws.rs.core.MediaType.APPLICATION_JSON;
 import static jakarta.ws.rs.core.MediaType.TEXT_PLAIN_TYPE;
 import static jakarta.ws.rs.core.Response.Status.BAD_REQUEST;
@@ -122,9 +125,11 @@ public class QueuedStatementResource
     private final boolean compressionEnabled;
     private final Optional<String> alternateHeaderName;
     private final QueryManager queryManager;
+    private final ShutdownStatus status;
 
     @Inject
     public QueuedStatementResource(
+            ShutdownStatus status,
             HttpRequestSessionContextFactory sessionContextFactory,
             DispatchManager dispatchManager,
             Tracer tracer,
@@ -134,6 +139,7 @@ public class QueuedStatementResource
             ProtocolConfig protocolConfig,
             QueryManagerConfig queryManagerConfig)
     {
+        this.status = requireNonNull(status, "status is null");
         this.sessionContextFactory = requireNonNull(sessionContextFactory, "sessionContextFactory is null");
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.tracer = requireNonNull(tracer, "tracer is null");
@@ -168,6 +174,10 @@ public class QueuedStatementResource
     {
         if (isNullOrEmpty(statement)) {
             throw badRequest(BAD_REQUEST, "SQL statement is empty");
+        }
+
+        if (status.isShutdownStarted()) {
+            throw new TrinoException(SERVER_STOPPING, "Trino server is shutting down");
         }
 
         Query query = registerQuery(statement, servletRequest, httpHeaders);
