@@ -21,11 +21,11 @@ import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
 import io.trino.execution.QueryState;
 import io.trino.server.BasicQueryInfo;
+import io.trino.server.SessionContext;
 import io.trino.server.protocol.Slug;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.TestingSessionContext;
 import io.trino.tests.tpch.TpchQueryRunnerBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -62,7 +62,7 @@ public class TestQueryManager
                             queryId,
                             Span.getInvalid(),
                             Slug.createNew(),
-                            TestingSessionContext.fromSession(TEST_SESSION),
+                            SessionContext.fromSession(TEST_SESSION),
                             "SELECT * FROM lineitem")
                     .get();
 

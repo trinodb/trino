@@ -18,10 +18,10 @@ import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.server.BasicQueryInfo;
+import io.trino.server.SessionContext;
 import io.trino.server.protocol.Slug;
 import io.trino.spi.QueryId;
 import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.TestingSessionContext;
 
 import java.util.Set;
 
@@ -36,7 +36,7 @@ public final class QueryRunnerUtil
     public static QueryId createQuery(DistributedQueryRunner queryRunner, Session session, String sql)
     {
         DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
-        getFutureValue(dispatchManager.createQuery(session.getQueryId(), Span.getInvalid(), Slug.createNew(), TestingSessionContext.fromSession(session), sql));
+        getFutureValue(dispatchManager.createQuery(session.getQueryId(), Span.getInvalid(), Slug.createNew(), SessionContext.fromSession(session), sql));
         return session.getQueryId();
     }
 
