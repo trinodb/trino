@@ -18,8 +18,10 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDuration;
+import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -27,7 +29,9 @@ import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 /**
  * Configuration read from etc/catalog/kudu.properties
@@ -46,6 +50,9 @@ public class KuduClientConfig
     private String schemaEmulationPrefix = "presto::";
     private Duration dynamicFilteringWaitTimeout = new Duration(0, MINUTES);
     private boolean allowLocalScheduling;
+    private DataSize scannerBatchSize = DataSize.of(1, MEGABYTE);
+    private Duration scannerKeepAliveInterval = new Duration(15, SECONDS);
+    private Duration scannerScanRequestTimeout = DEFAULT_OPERATION_TIMEOUT;
 
     @NotNull
     @Size(min = 1)
@@ -156,6 +163,48 @@ public class KuduClientConfig
     public KuduClientConfig setAllowLocalScheduling(boolean allowLocalScheduling)
     {
         this.allowLocalScheduling = allowLocalScheduling;
+        return this;
+    }
+
+    @MinDataSize("1B")
+    public DataSize getScannerBatchSize()
+    {
+        return scannerBatchSize;
+    }
+
+    @Config("kudu.scanner.batch-size")
+    @ConfigDescription("Maximum data size returned per batch by the scanner")
+    public KuduClientConfig setScannerBatchSize(DataSize scannerBatchSize)
+    {
+        this.scannerBatchSize = scannerBatchSize;
+        return this;
+    }
+
+    @MinDuration("1ms")
+    public Duration getScannerKeepAliveInterval()
+    {
+        return scannerKeepAliveInterval;
+    }
+
+    @Config("kudu.scanner.keepalive-interval")
+    @ConfigDescription("Interval for sending keep-alive requests to the tablet server to prevent scanner timeouts")
+    public KuduClientConfig setScannerKeepAliveInterval(Duration scannerKeepAliveInterval)
+    {
+        this.scannerKeepAliveInterval = scannerKeepAliveInterval;
+        return this;
+    }
+
+    @MinDuration("1ms")
+    public Duration getScannerScanRequestTimeout()
+    {
+        return scannerScanRequestTimeout;
+    }
+
+    @Config("kudu.scanner.scan-request-timeout")
+    @ConfigDescription("Maximum duration for each scan request to a server")
+    public KuduClientConfig setScannerScanRequestTimeout(Duration scannerScanRequestTimeout)
+    {
+        this.scannerScanRequestTimeout = scannerScanRequestTimeout;
         return this;
     }
 }

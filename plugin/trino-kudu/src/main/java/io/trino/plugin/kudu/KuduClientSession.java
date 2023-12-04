@@ -15,6 +15,8 @@ package io.trino.plugin.kudu;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
+import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.trino.plugin.kudu.properties.ColumnDesign;
 import io.trino.plugin.kudu.properties.HashPartitionDefinition;
 import io.trino.plugin.kudu.properties.KuduTableProperties;
@@ -88,12 +90,24 @@ public class KuduClientSession
     private final KuduClientWrapper client;
     private final SchemaEmulation schemaEmulation;
     private final boolean allowLocalScheduling;
+    private final DataSize scannerBatchSize;
+    private final Duration scannerKeepAliveInterval;
+    private final Duration scannerScanRequestTimeout;
 
-    public KuduClientSession(KuduClientWrapper client, SchemaEmulation schemaEmulation, boolean allowLocalScheduling)
+    public KuduClientSession(
+            KuduClientWrapper client,
+            SchemaEmulation schemaEmulation,
+            boolean allowLocalScheduling,
+            DataSize scannerBatchSize,
+            Duration scannerKeepAliveInterval,
+            Duration scannerScanRequestTimeout)
     {
         this.client = client;
         this.schemaEmulation = schemaEmulation;
         this.allowLocalScheduling = allowLocalScheduling;
+        this.scannerBatchSize = scannerBatchSize;
+        this.scannerKeepAliveInterval = scannerKeepAliveInterval;
+        this.scannerScanRequestTimeout = scannerScanRequestTimeout;
     }
 
     public List<String> listSchemaNames()
@@ -161,6 +175,10 @@ public class KuduClientSession
         KuduScanToken.KuduScanTokenBuilder builder = client.newScanTokenBuilder(table);
         // TODO: remove when kudu client bug is fixed: https://gerrit.cloudera.org/#/c/18166/
         builder.includeTabletMetadata(false);
+
+        builder.batchSizeBytes((int) scannerBatchSize.toBytes());
+        builder.keepAlivePeriodMs(scannerKeepAliveInterval.toMillis());
+        builder.scanRequestTimeout(scannerScanRequestTimeout.toMillis());
 
         TupleDomain<ColumnHandle> constraint = tableHandle.getConstraint()
                 .intersect(dynamicFilter.getCurrentPredicate().simplify(100));

@@ -14,6 +14,7 @@
 package io.trino.plugin.kudu;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
@@ -22,6 +23,8 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.units.DataSize.Unit.KILOBYTE;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -38,7 +41,10 @@ public class TestKuduClientConfig
                 .setSchemaEmulationEnabled(false)
                 .setSchemaEmulationPrefix("presto::")
                 .setDynamicFilteringWaitTimeout(new Duration(0, MINUTES))
-                .setAllowLocalScheduling(false));
+                .setAllowLocalScheduling(false)
+                .setScannerBatchSize(DataSize.of(1, MEGABYTE))
+                .setScannerKeepAliveInterval(new Duration(15, SECONDS))
+                .setScannerScanRequestTimeout(new Duration(30, SECONDS)));
     }
 
     @Test
@@ -53,6 +59,9 @@ public class TestKuduClientConfig
                 .put("kudu.schema-emulation.prefix", "trino::")
                 .put("kudu.dynamic-filtering.wait-timeout", "30m")
                 .put("kudu.allow-local-scheduling", "true")
+                .put("kudu.scanner.batch-size", "128kB")
+                .put("kudu.scanner.keepalive-interval", "60s")
+                .put("kudu.scanner.scan-request-timeout", "5m")
                 .buildOrThrow();
 
         KuduClientConfig expected = new KuduClientConfig()
@@ -63,7 +72,10 @@ public class TestKuduClientConfig
                 .setSchemaEmulationEnabled(true)
                 .setSchemaEmulationPrefix("trino::")
                 .setDynamicFilteringWaitTimeout(new Duration(30, MINUTES))
-                .setAllowLocalScheduling(true);
+                .setAllowLocalScheduling(true)
+                .setScannerBatchSize(DataSize.of(128, KILOBYTE))
+                .setScannerKeepAliveInterval(new Duration(60, SECONDS))
+                .setScannerScanRequestTimeout(new Duration(5, MINUTES));
 
         assertFullMapping(properties, expected);
     }

@@ -56,6 +56,15 @@ kudu.client.master-addresses=localhost
 
 ## Assign Kudu splits to replica host if worker and kudu share the same cluster
 #kudu.allow-local-scheduling = false
+
+## Maximum data size returned per batch by the scanner
+#kudu.scanner.batch-size = 1MB
+
+## Interval for sending keep-alive requests to the tablet server to prevent scanner timeouts
+#kudu.scanner.keepalive-interval = 15s
+
+## Maximum duration for each scan request to a server
+#kudu.scanner.scan-request-timeout = 30s
 ```
 
 ## Kerberos support
