@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
 import io.airlift.node.NodeInfo;
-import io.airlift.tracing.Tracing;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
@@ -149,8 +148,6 @@ import io.trino.spi.Plugin;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
-import io.trino.spi.exchange.ExchangeManager;
-import io.trino.spi.session.PropertyMetadata;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spiller.FileSingleStreamSpillerFactory;
@@ -289,7 +286,6 @@ public class LocalQueryRunner
     private final TypeOperators typeOperators;
     private final BlockTypeOperators blockTypeOperators;
     private final PlannerContext plannerContext;
-    private final TypeRegistry typeRegistry;
     private final GlobalFunctionCatalog globalFunctionCatalog;
     private final FunctionManager functionManager;
     private final LanguageFunctionManager languageFunctionManager;
@@ -357,12 +353,10 @@ public class LocalQueryRunner
             CacheConfig cacheConfig,
             boolean alwaysRevokeMemory,
             int nodeCountForStats,
-            Map<String, List<PropertyMetadata<?>>> defaultSessionProperties,
             Function<Metadata, Metadata> metadataDecorator,
             Set<SystemSessionPropertiesProvider> extraSessionProperties)
     {
         requireNonNull(defaultSession, "defaultSession is null");
-        requireNonNull(defaultSessionProperties, "defaultSessionProperties is null");
 
         Tracer tracer = noopTracer();
         this.taskManagerConfig = new TaskManagerConfig().setTaskConcurrency(4);
@@ -393,7 +387,7 @@ public class LocalQueryRunner
                 notificationExecutor);
 
         BlockEncodingManager blockEncodingManager = new BlockEncodingManager();
-        typeRegistry = new TypeRegistry(typeOperators, featuresConfig);
+        TypeRegistry typeRegistry = new TypeRegistry(typeOperators, featuresConfig);
         TypeManager typeManager = new InternalTypeManager(typeRegistry);
         InternalBlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(blockEncodingManager, typeManager);
 
@@ -500,7 +494,7 @@ public class LocalQueryRunner
                 ImmutableSet.of(new ExcludeColumnsFunction()),
                 nodeManager);
 
-        exchangeManagerRegistry = new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer());
+        exchangeManagerRegistry = new ExchangeManagerRegistry(OpenTelemetry.noop(), noopTracer());
         cacheManagerRegistry = new CacheManagerRegistry(cacheConfig, new LocalMemoryManager(new NodeMemoryConfig()), plannerContext.getBlockEncodingSerde(), new CacheStats());
         this.pluginManager = new PluginManager(
                 (loader, createClassLoader) -> {},
@@ -661,20 +655,10 @@ public class LocalQueryRunner
         return analyzePropertyManager;
     }
 
-    public TypeRegistry getTypeRegistry()
-    {
-        return typeRegistry;
-    }
-
     @Override
     public TypeManager getTypeManager()
     {
         return plannerContext.getTypeManager();
-    }
-
-    public GlobalFunctionCatalog getGlobalFunctionCatalog()
-    {
-        return globalFunctionCatalog;
     }
 
     @Override
@@ -708,11 +692,6 @@ public class LocalQueryRunner
         return plannerContext.getTypeOperators();
     }
 
-    public BlockTypeOperators getBlockTypeOperators()
-    {
-        return blockTypeOperators;
-    }
-
     @Override
     public NodePartitioningManager getNodePartitioningManager()
     {
@@ -729,12 +708,6 @@ public class LocalQueryRunner
     public SplitManager getSplitManager()
     {
         return splitManager;
-    }
-
-    @Override
-    public ExchangeManager getExchangeManager()
-    {
-        return exchangeManagerRegistry.getExchangeManager();
     }
 
     @Override
@@ -784,11 +757,6 @@ public class LocalQueryRunner
     public Session getDefaultSession()
     {
         return defaultSession;
-    }
-
-    public ExpressionCompiler getExpressionCompiler()
-    {
-        return expressionCompiler;
     }
 
     public void createCatalog(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
@@ -996,7 +964,7 @@ public class LocalQueryRunner
         exchangeManagerRegistry.loadExchangeManager(name, properties);
     }
 
-    public List<Driver> createDrivers(Session session, @Language("SQL") String sql, OutputFactory outputFactory, TaskContext taskContext)
+    private List<Driver> createDrivers(Session session, @Language("SQL") String sql, OutputFactory outputFactory, TaskContext taskContext)
     {
         return inTransaction(session, transactionSession -> {
             Plan plan = createPlan(transactionSession, sql, getPlanOptimizers(true), getAlternativeOptimizers(), OPTIMIZED_AND_VALIDATED, NOOP, createPlanOptimizersStatsCollector());
@@ -1026,7 +994,7 @@ public class LocalQueryRunner
 
         SubPlan subplan = createSubPlans(session, plan, true);
         if (!subplan.getChildren().isEmpty()) {
-            throw new AssertionError("Expected subplan to have no children");
+            throw new AssertionError("Expected sub-plan to have no children");
         }
 
         TableExecuteContextManager tableExecuteContextManager = new TableExecuteContextManager();
@@ -1116,7 +1084,7 @@ public class LocalQueryRunner
         for (SplitAssignment splitAssignment : splitAssignments) {
             SplitDriverFactory driverFactory = driverFactoriesBySource.get(splitAssignment.getPlanNodeId());
             checkState(driverFactory != null);
-            boolean partitioned = partitionedSources.contains(driverFactory.getSourceId().get());
+            boolean partitioned = partitionedSources.contains(driverFactory.getSourceId().orElseThrow());
             for (ScheduledSplit split : splitAssignment.getSplits()) {
                 DriverContext driverContext = taskContext.addPipelineContext(driverFactory.getPipelineId(), driverFactory.isInputDriver(), driverFactory.isOutputDriver(), partitioned).addDriverContext();
                 Driver driver = driverFactory.createDriver(driverContext, Optional.of(split));
@@ -1268,7 +1236,6 @@ public class LocalQueryRunner
         private NodeSpillConfig nodeSpillConfig = new NodeSpillConfig();
         private CacheConfig cacheConfig = new CacheConfig();
         private boolean alwaysRevokeMemory;
-        private Map<String, List<PropertyMetadata<?>>> defaultSessionProperties = ImmutableMap.of();
         private Set<SystemSessionPropertiesProvider> extraSessionProperties = ImmutableSet.of();
         private int nodeCountForStats = 1;
         private Function<Metadata, Metadata> metadataDecorator = Function.identity();
@@ -1302,12 +1269,6 @@ public class LocalQueryRunner
             return this;
         }
 
-        public Builder withDefaultSessionProperties(Map<String, List<PropertyMetadata<?>>> defaultSessionProperties)
-        {
-            this.defaultSessionProperties = requireNonNull(defaultSessionProperties, "defaultSessionProperties is null");
-            return this;
-        }
-
         public Builder withNodeCountForStats(int nodeCountForStats)
         {
             this.nodeCountForStats = nodeCountForStats;
@@ -1323,7 +1284,7 @@ public class LocalQueryRunner
         /**
          * This method is required to pass in system session properties and their
          * metadata for Trino extension modules (separate from the default system
-         * session properties, provided to the query runner at {@link LocalQueryRunner#createSessionPropertyManager}.
+         * session properties), provided to the query runner at {@link LocalQueryRunner#createSessionPropertyManager}.
          */
         public Builder withExtraSystemSessionProperties(Set<SystemSessionPropertiesProvider> extraSessionProperties)
         {
@@ -1340,7 +1301,6 @@ public class LocalQueryRunner
                     cacheConfig,
                     alwaysRevokeMemory,
                     nodeCountForStats,
-                    defaultSessionProperties,
                     metadataDecorator,
                     extraSessionProperties);
         }

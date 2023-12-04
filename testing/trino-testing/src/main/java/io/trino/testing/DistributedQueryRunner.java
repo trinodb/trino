@@ -51,7 +51,6 @@ import io.trino.spi.Plugin;
 import io.trino.spi.QueryId;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
-import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.type.TypeManager;
 import io.trino.split.PageSourceManager;
@@ -411,12 +410,6 @@ public class DistributedQueryRunner
     }
 
     @Override
-    public ExchangeManager getExchangeManager()
-    {
-        return coordinator.getExchangeManager();
-    }
-
-    @Override
     public PageSourceManager getPageSourceManager()
     {
         return coordinator.getPageSourceManager();
@@ -454,11 +447,6 @@ public class DistributedQueryRunner
     public TestingTrinoServer getCoordinator()
     {
         return coordinator;
-    }
-
-    public Optional<TestingTrinoServer> getBackupCoordinator()
-    {
-        return backupCoordinator;
     }
 
     public List<TestingTrinoServer> getServers()
@@ -730,13 +718,6 @@ public class DistributedQueryRunner
         }
 
         @CanIgnoreReturnValue
-        public SELF addCoordinatorProperties(Map<String, String> coordinatorProperties)
-        {
-            this.coordinatorProperties = addProperties(this.coordinatorProperties, coordinatorProperties);
-            return self();
-        }
-
-        @CanIgnoreReturnValue
         public SELF addCoordinatorProperty(String key, String value)
         {
             this.coordinatorProperties = addProperty(this.coordinatorProperties, key, value);
@@ -837,6 +818,7 @@ public class DistributedQueryRunner
             return self();
         }
 
+        @CanIgnoreReturnValue
         public SELF withTracing()
         {
             this.withTracing = true;
