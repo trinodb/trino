@@ -97,5 +97,6 @@ public class FileMetastoreTableOperations
             }
             throw new CommitStateUnknownException(e);
         }
+        deleteRemovedMetadataFiles(base, metadata);
     }
 }
