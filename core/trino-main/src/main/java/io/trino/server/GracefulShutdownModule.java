@@ -24,6 +24,6 @@ public class GracefulShutdownModule
     protected void setup(Binder binder)
     {
         binder.bind(ShutdownAction.class).to(DefaultShutdownAction.class).in(Scopes.SINGLETON);
-        binder.bind(GracefulShutdownHandler.class).in(Scopes.SINGLETON);
+        binder.bind(GracefulShutdownWorkerHandler.class).in(Scopes.SINGLETON);
     }
 }
