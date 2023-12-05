@@ -644,13 +644,13 @@ type conversions.
 * - `CHAR`
   - narrowing conversions for `CHAR`
 * - `TINYINT`
-  - `VARCHAR`, `SMALLINT`, `INTEGER`, `BIGINT`, `DOUBLE`
+  - `VARCHAR`, `SMALLINT`, `INTEGER`, `BIGINT`, `DOUBLE`, `DECIMAL`
 * - `SMALLINT`
-  - `VARCHAR`, `INTEGER`, `BIGINT`, `DOUBLE`
+  - `VARCHAR`, `INTEGER`, `BIGINT`, `DOUBLE`, `DECIMAL`
 * - `INTEGER`
-  - `VARCHAR`, `BIGINT`, `DOUBLE`
+  - `VARCHAR`, `BIGINT`, `DOUBLE`, `DECIMAL`
 * - `BIGINT`
-  - `VARCHAR`, `DOUBLE`
+  - `VARCHAR`, `DOUBLE`, `DECIMAL`
 * - `REAL`
   - `DOUBLE`, `DECIMAL`
 * - `DOUBLE`
