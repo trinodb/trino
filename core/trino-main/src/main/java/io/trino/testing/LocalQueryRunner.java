@@ -273,8 +273,6 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 public class LocalQueryRunner
         implements QueryRunner
 {
-    private final EventListenerManager eventListenerManager = new EventListenerManager(new EventListenerConfig());
-
     private final Session defaultSession;
     private final ExecutorService notificationExecutor;
     private final ScheduledExecutorService yieldExecutor;
@@ -406,6 +404,7 @@ public class LocalQueryRunner
         typeRegistry.addType(new JsonPath2016Type(new TypeDeserializer(typeManager), blockEncodingSerde));
         this.joinCompiler = new JoinCompiler(typeOperators);
         PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler);
+        EventListenerManager eventListenerManager = new EventListenerManager(new EventListenerConfig());
         this.accessControl = new TestingAccessControlManager(transactionManager, eventListenerManager);
         accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
 
@@ -592,11 +591,6 @@ public class LocalQueryRunner
         catalogManager.stop();
         finalizerService.destroy();
         singleStreamSpillerFactory.destroy();
-    }
-
-    public void loadEventListeners()
-    {
-        this.eventListenerManager.loadEventListeners();
     }
 
     @Override

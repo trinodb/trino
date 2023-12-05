@@ -15,7 +15,6 @@ package io.trino.sql.query;
 
 import io.trino.metadata.InternalFunctionBundle;
 import io.trino.operator.scalar.TestStringFunctions;
-import io.trino.spi.TrinoException;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -23,8 +22,8 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -330,10 +329,8 @@ public class TestTrim
 
     private void assertInvalidFunction(@Language("SQL") String actual, String message)
     {
-        assertThatThrownBy(() -> assertions.query("SELECT " + actual))
-                .isInstanceOf(TrinoException.class)
+        assertTrinoExceptionThrownBy(() -> assertions.query("SELECT " + actual))
                 .hasMessage(message)
-                .extracting(e -> ((TrinoException) e).getErrorCode().getCode())
-                .isEqualTo(INVALID_FUNCTION_ARGUMENT.toErrorCode().getCode());
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 }

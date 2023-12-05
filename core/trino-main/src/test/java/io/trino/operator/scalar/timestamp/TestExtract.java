@@ -14,7 +14,6 @@
 package io.trino.operator.scalar.timestamp;
 
 import io.trino.spi.StandardErrorCode;
-import io.trino.sql.parser.ParsingException;
 import io.trino.sql.query.QueryAssertions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -22,9 +21,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
+import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -335,8 +334,8 @@ public class TestExtract
     @Test
     public void testMillisecond()
     {
-        assertThatThrownBy(assertions.expression("EXTRACT(MILLISECOND FROM TIMESTAMP '2020-05-10 12:34:56')")::evaluate)
-                .isInstanceOf(ParsingException.class)
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(MILLISECOND FROM TIMESTAMP '2020-05-10 12:34:56')")::evaluate)
+                .hasErrorCode(SYNTAX_ERROR)
                 .hasMessage("line 1:12: Invalid EXTRACT field: MILLISECOND");
 
         assertThat(assertions.expression("millisecond(TIMESTAMP '2020-05-10 12:34:56')")).matches("BIGINT '0'");
@@ -489,8 +488,8 @@ public class TestExtract
     @Test
     public void testWeekOfYear()
     {
-        assertThatThrownBy(assertions.expression("EXTRACT(WEEK_OF_YEAR FROM TIMESTAMP '2020-05-10 12:34:56')")::evaluate)
-                .isInstanceOf(ParsingException.class)
+        assertTrinoExceptionThrownBy(assertions.expression("EXTRACT(WEEK_OF_YEAR FROM TIMESTAMP '2020-05-10 12:34:56')")::evaluate)
+                .hasErrorCode(SYNTAX_ERROR)
                 .hasMessage("line 1:12: Invalid EXTRACT field: WEEK_OF_YEAR");
 
         assertThat(assertions.expression("week_of_year(TIMESTAMP '2020-05-10 12:34:56')")).matches("BIGINT '19'");

@@ -18,10 +18,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.MockConnectorTableHandle;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.plugin.tpch.ColumnNaming;
-import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.sql.planner.LogicalPlanner.Stage;
@@ -56,6 +57,7 @@ import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createP
 import static io.trino.execution.warnings.WarningCollector.NOOP;
 import static io.trino.jmh.Benchmarks.benchmark;
 import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_COLUMN_NAMING_PROPERTY;
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.planner.BenchmarkPlanner.Queries.TPCH;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
@@ -99,10 +101,14 @@ public class BenchmarkPlanner
                     .build();
 
             queryRunner = LocalQueryRunner.create(session);
-            queryRunner.createCatalog(tpch, new TpchConnectorFactory(4), ImmutableMap.of(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.STANDARD.name()));
+            queryRunner.installPlugin(new TpchPlugin());
+            queryRunner.createCatalog(tpch, "tpch", ImmutableMap.<String, String>builder()
+                    .put(TPCH_SPLITS_PER_NODE, "4")
+                    .put(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.STANDARD.name())
+                    .buildOrThrow());
 
-            MockConnectorFactory.Builder builder = MockConnectorFactory.builder()
-                    .withGetTableHandle((session, schemaTableName) -> new MockConnectorTableHandle(schemaTableName))
+            queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
+                    .withGetTableHandle((session1, schemaTableName) -> new MockConnectorTableHandle(schemaTableName))
                     .withGetColumns(name -> {
                         if (!name.equals(TABLE)) {
                             throw new IllegalArgumentException();
@@ -110,8 +116,9 @@ public class BenchmarkPlanner
                         return IntStream.rangeClosed(0, 500)
                                 .mapToObj(i -> new ColumnMetadata("col_varchar_" + i, VARCHAR))
                                 .collect(toImmutableList());
-                    });
-            queryRunner.createCatalog("mock", builder.build(), ImmutableMap.of());
+                    })
+                    .build()));
+            queryRunner.createCatalog("mock", "mock", ImmutableMap.of());
         }
 
         @TearDown

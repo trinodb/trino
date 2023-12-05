@@ -24,10 +24,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
-import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.util.function.BiFunction;
 
+import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
 import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.type.DateTimes.PICOSECONDS_PER_SECOND;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -605,7 +605,7 @@ public class TestTimeWithTimeZone
     {
         // round down
         Session session = assertions.sessionBuilder()
-                .setStart(Instant.from(ZonedDateTime.of(2020, 5, 1, 12, 34, 56, 111111111, assertions.getDefaultSession().getTimeZoneKey().getZoneId())))
+                .setSystemProperty(SESSION_START_TIME_PROPERTY, ZonedDateTime.of(2020, 5, 1, 12, 34, 56, 111111111, assertions.getDefaultSession().getTimeZoneKey().getZoneId()).toInstant().toString())
                 .build();
 
         assertThat(assertions.expression("current_time(0)", session)).matches("TIME '12:34:56 +13:00'");
@@ -624,7 +624,7 @@ public class TestTimeWithTimeZone
 
         // round up
         session = assertions.sessionBuilder()
-                .setStart(Instant.from(ZonedDateTime.of(2020, 5, 1, 12, 34, 56, 555555555, assertions.getDefaultSession().getTimeZoneKey().getZoneId())))
+                .setSystemProperty(SESSION_START_TIME_PROPERTY, ZonedDateTime.of(2020, 5, 1, 12, 34, 56, 555555555, assertions.getDefaultSession().getTimeZoneKey().getZoneId()).toInstant().toString())
                 .build();
 
         assertThat(assertions.expression("current_time(0)", session)).matches("TIME '12:34:57 +13:00'");
@@ -643,7 +643,7 @@ public class TestTimeWithTimeZone
 
         // round up at the boundary
         session = assertions.sessionBuilder()
-                .setStart(Instant.from(ZonedDateTime.of(2020, 5, 1, 23, 59, 59, 999999999, assertions.getDefaultSession().getTimeZoneKey().getZoneId())))
+                .setSystemProperty(SESSION_START_TIME_PROPERTY, ZonedDateTime.of(2020, 5, 1, 23, 59, 59, 999999999, assertions.getDefaultSession().getTimeZoneKey().getZoneId()).toInstant().toString())
                 .build();
 
         assertThat(assertions.expression("current_time(0)", session)).matches("TIME '00:00:00 +13:00'");
@@ -971,7 +971,7 @@ public class TestTimeWithTimeZone
     public void testCastToTimestampWithTimeZone()
     {
         Session session = assertions.sessionBuilder()
-                .setStart(Instant.from(ZonedDateTime.of(2020, 5, 1, 12, 34, 56, 111111111, assertions.getDefaultSession().getTimeZoneKey().getZoneId())))
+                .setSystemProperty(SESSION_START_TIME_PROPERTY, ZonedDateTime.of(2020, 5, 1, 12, 34, 56, 111111111, assertions.getDefaultSession().getTimeZoneKey().getZoneId()).toInstant().toString())
                 .build();
 
         // source = target
@@ -1302,7 +1302,7 @@ public class TestTimeWithTimeZone
     public void testCastToTimestamp()
     {
         Session session = assertions.sessionBuilder()
-                .setStart(Instant.from(ZonedDateTime.of(2020, 5, 1, 12, 34, 56, 111111111, assertions.getDefaultSession().getTimeZoneKey().getZoneId())))
+                .setSystemProperty(SESSION_START_TIME_PROPERTY, ZonedDateTime.of(2020, 5, 1, 12, 34, 56, 111111111, assertions.getDefaultSession().getTimeZoneKey().getZoneId()).toInstant().toString())
                 .build();
 
         // source = target
@@ -1700,7 +1700,7 @@ public class TestTimeWithTimeZone
     public void testCastFromVarcharWithoutTimeZone()
     {
         Session session = assertions.sessionBuilder()
-                .setStart(Instant.from(ZonedDateTime.of(2020, 5, 1, 12, 34, 56, 111111111, assertions.getDefaultSession().getTimeZoneKey().getZoneId())))
+                .setSystemProperty(SESSION_START_TIME_PROPERTY, ZonedDateTime.of(2020, 5, 1, 12, 34, 56, 111111111, assertions.getDefaultSession().getTimeZoneKey().getZoneId()).toInstant().toString())
                 .build();
 
         // round down

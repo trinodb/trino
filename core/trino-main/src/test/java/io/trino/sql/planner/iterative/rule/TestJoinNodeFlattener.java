@@ -34,7 +34,8 @@ import io.trino.sql.tree.ArithmeticUnaryExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.LongLiteral;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -77,12 +78,12 @@ public class TestJoinNodeFlattener
 {
     private static final int DEFAULT_JOIN_LIMIT = 10;
 
-    private LocalQueryRunner queryRunner;
+    private QueryRunner queryRunner;
 
     @BeforeAll
     public void setUp()
     {
-        queryRunner = LocalQueryRunner.create(testSessionBuilder().build());
+        queryRunner = new StandaloneQueryRunner(testSessionBuilder().build());
     }
 
     @AfterAll

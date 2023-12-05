@@ -38,6 +38,7 @@ import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import org.assertj.core.api.AbstractAssert;
 import org.assertj.core.api.AssertProvider;
 import org.assertj.core.api.ListAssert;
@@ -87,7 +88,7 @@ public class QueryAssertions
 
     public QueryAssertions(Session session)
     {
-        this(LocalQueryRunner.create(session));
+        this(new StandaloneQueryRunner(session));
     }
 
     public QueryAssertions(QueryRunner runner)

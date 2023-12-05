@@ -16,8 +16,10 @@ package io.trino.sql.query;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorPlugin;
 import io.trino.spi.connector.ColumnMetadata;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -39,31 +41,28 @@ public class TestShowQueries
 
     public TestShowQueries()
     {
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(testSessionBuilder()
+        QueryRunner queryRunner = new StandaloneQueryRunner(testSessionBuilder()
                 .setCatalog("local")
                 .setSchema("default")
                 .build());
-        queryRunner.createCatalog(
-                "mock",
-                MockConnectorFactory.builder()
-                        .withGetColumns(schemaTableName ->
-                                ImmutableList.of(
-                                        ColumnMetadata.builder()
-                                                .setName("colaa")
-                                                .setType(BIGINT)
-                                                .build(),
-                                        ColumnMetadata.builder()
-                                                .setName("cola_")
-                                                .setType(BIGINT)
-                                                .build(),
-                                        ColumnMetadata.builder()
-                                                .setName("colabc")
-                                                .setType(BIGINT)
-                                                .build()))
-                        .withListSchemaNames(session -> ImmutableList.of("mockschema"))
-                        .withListTables((session, schemaName) -> ImmutableList.of("mockTable"))
-                        .build(),
-                ImmutableMap.of());
+        queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
+                .withGetColumns(schemaTableName -> ImmutableList.of(
+                        ColumnMetadata.builder()
+                                .setName("colaa")
+                                .setType(BIGINT)
+                                .build(),
+                        ColumnMetadata.builder()
+                                .setName("cola_")
+                                .setType(BIGINT)
+                                .build(),
+                        ColumnMetadata.builder()
+                                .setName("colabc")
+                                .setType(BIGINT)
+                                .build()))
+                .withListSchemaNames(session -> ImmutableList.of("mockschema"))
+                .withListTables((session, schemaName) -> ImmutableList.of("mockTable"))
+                .build()));
+        queryRunner.createCatalog("mock", "mock", ImmutableMap.of());
         queryRunner.createCatalog("testing_catalog", "mock", ImmutableMap.of());
         assertions = new QueryAssertions(queryRunner);
     }

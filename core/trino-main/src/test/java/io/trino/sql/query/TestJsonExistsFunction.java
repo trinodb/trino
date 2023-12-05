@@ -13,9 +13,6 @@
  */
 package io.trino.sql.query;
 
-import io.trino.json.PathEvaluationException;
-import io.trino.operator.scalar.json.JsonInputConversionException;
-import io.trino.sql.parser.ParsingException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -24,10 +21,15 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.nio.charset.Charset;
 
 import static com.google.common.io.BaseEncoding.base16;
+import static io.trino.spi.StandardErrorCode.INVALID_PATH;
+import static io.trino.spi.StandardErrorCode.JSON_INPUT_CONVERSION_ERROR;
+import static io.trino.spi.StandardErrorCode.PATH_EVALUATION_ERROR;
+import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
+import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -80,9 +82,9 @@ public class TestJsonExistsFunction
                 "SELECT json_exists('" + INPUT + "', 'strict $[100]' UNKNOWN ON ERROR)"))
                 .matches("VALUES cast(null AS boolean)");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertTrinoExceptionThrownBy(() -> assertions.query(
                 "SELECT json_exists('" + INPUT + "', 'strict $[100]' ERROR ON ERROR)"))
-                .isInstanceOf(PathEvaluationException.class)
+                .hasErrorCode(PATH_EVALUATION_ERROR)
                 .hasMessage("path evaluation failed: structural error: invalid array subscript: [100, 100] for array of size 3");
     }
 
@@ -99,8 +101,9 @@ public class TestJsonExistsFunction
                 "SELECT json_exists('" + INPUT + "' FORMAT JSON, 'lax $[1]')"))
                 .matches("VALUES true");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertTrinoExceptionThrownBy(() -> assertions.query(
                 "SELECT json_exists('" + INPUT + "' FORMAT JSON ENCODING UTF8, 'lax $[1]')"))
+                .hasErrorCode(TYPE_MISMATCH)
                 .hasMessage("line 1:20: Cannot read input of type varchar(15) as JSON using formatting JSON ENCODING UTF8");
 
         // FORMAT JSON is default for binary string input
@@ -136,8 +139,9 @@ public class TestJsonExistsFunction
 
         // the encoding must match the actual data
         String finalVarbinaryLiteral = varbinaryLiteral;
-        assertThatThrownBy(() -> assertions.query(
+        assertTrinoExceptionThrownBy(() -> assertions.query(
                 "SELECT json_exists(" + finalVarbinaryLiteral + " FORMAT JSON ENCODING UTF8, 'lax $[1]' ERROR ON ERROR)"))
+                .hasErrorCode(JSON_INPUT_CONVERSION_ERROR)
                 .hasMessage("conversion to JSON failed: ");
     }
 
@@ -163,9 +167,9 @@ public class TestJsonExistsFunction
                 "SELECT json_exists('" + INCORRECT_INPUT + "', 'strict $[1]' UNKNOWN ON ERROR)"))
                 .matches("VALUES cast(null AS boolean)");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertTrinoExceptionThrownBy(() -> assertions.query(
                 "SELECT json_exists('" + INCORRECT_INPUT + "', 'strict $[1]' ERROR ON ERROR)"))
-                .isInstanceOf(JsonInputConversionException.class)
+                .hasErrorCode(JSON_INPUT_CONVERSION_ERROR)
                 .hasMessage("conversion to JSON failed: ");
     }
 
@@ -173,8 +177,9 @@ public class TestJsonExistsFunction
     public void testPassingClause()
     {
         // watch out for case sensitive identifiers in JSON path
-        assertThatThrownBy(() -> assertions.query(
+        assertTrinoExceptionThrownBy(() -> assertions.query(
                 "SELECT json_exists('" + INPUT + "', 'lax $number + 1' PASSING 2 AS number)"))
+                .hasErrorCode(INVALID_PATH)
                 .hasMessage("line 1:39: no value passed for parameter number. Try quoting \"number\" in the PASSING clause to match case");
 
         assertThat(assertions.query(
@@ -191,9 +196,9 @@ public class TestJsonExistsFunction
                 "SELECT json_exists('" + INPUT + "', 'lax $array[0]' PASSING '[...' FORMAT JSON AS \"array\")"))
                 .matches("VALUES false");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertTrinoExceptionThrownBy(() -> assertions.query(
                 "SELECT json_exists('" + INPUT + "', 'lax $array[0]' PASSING '[...' FORMAT JSON AS \"array\" ERROR ON ERROR)"))
-                .isInstanceOf(JsonInputConversionException.class)
+                .hasErrorCode(JSON_INPUT_CONVERSION_ERROR)
                 .hasMessage("conversion to JSON failed: ");
 
         // array index out of bounds
@@ -205,9 +210,9 @@ public class TestJsonExistsFunction
     @Test
     public void testIncorrectPath()
     {
-        assertThatThrownBy(() -> assertions.query(
+        assertTrinoExceptionThrownBy(() -> assertions.query(
                 "SELECT json_exists('" + INPUT + "', 'certainly not a valid path')"))
-                .isInstanceOf(ParsingException.class)
+                .hasErrorCode(SYNTAX_ERROR)
                 .hasMessage("line 1:40: mismatched input 'certainly' expecting {'lax', 'strict'}");
     }
 

@@ -15,7 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
@@ -32,6 +32,7 @@ import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.RunnerException;
 
 import static io.trino.jmh.Benchmarks.benchmark;
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.openjdk.jmh.annotations.Mode.AverageTime;
@@ -65,7 +66,7 @@ public class BenchmarkReorderChainedJoins
         @Param({"ELIMINATE_CROSS_JOINS", "AUTOMATIC"})
         private String joinReorderingStrategy;
 
-        private LocalQueryRunner queryRunner;
+        private QueryRunner queryRunner;
 
         @Setup
         public void setup()
@@ -77,7 +78,8 @@ public class BenchmarkReorderChainedJoins
                     .setSchema("tiny")
                     .build();
             queryRunner = LocalQueryRunner.create(session);
-            queryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
+            queryRunner.installPlugin(new TpchPlugin());
+            queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
         }
 
         public QueryRunner getQueryRunner()

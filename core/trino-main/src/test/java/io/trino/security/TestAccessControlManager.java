@@ -46,8 +46,8 @@ import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.security.SystemAccessControlFactory;
 import io.trino.spi.security.SystemSecurityContext;
 import io.trino.spi.security.TrinoPrincipal;
-import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import io.trino.testing.TestingEventListenerManager;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
@@ -303,7 +303,7 @@ public class TestAccessControlManager
     @Test
     public void testRemovedMethodsCannotBeDeclared()
     {
-        try (QueryRunner queryRunner = LocalQueryRunner.create(TEST_SESSION)) {
+        try (QueryRunner queryRunner = new StandaloneQueryRunner(TEST_SESSION)) {
             TransactionManager transactionManager = queryRunner.getTransactionManager();
             AccessControlManager accessControlManager = createAccessControlManager(transactionManager);
 
@@ -358,7 +358,7 @@ public class TestAccessControlManager
 
     private static void assertAccessControl(SystemAccessControl systemAccessControl, ConnectorAccessControl accessControl, BiConsumer<AccessControlManager, SecurityContext> test)
     {
-        try (QueryRunner queryRunner = LocalQueryRunner.create(TEST_SESSION)) {
+        try (QueryRunner queryRunner = new StandaloneQueryRunner(TEST_SESSION)) {
             TransactionManager transactionManager = queryRunner.getTransactionManager();
             AccessControlManager accessControlManager = createAccessControlManager(transactionManager);
             accessControlManager.setSystemAccessControls(ImmutableList.of(systemAccessControl));

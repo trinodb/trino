@@ -17,8 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorPlugin;
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorViewDefinition;
@@ -28,7 +29,8 @@ import io.trino.spi.security.ViewExpression;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.VarcharType;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import io.trino.testing.TestingAccessControlManager;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -41,6 +43,7 @@ import java.util.Optional;
 
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_WITH_HIDDEN_COLUMN;
 import static io.trino.connector.MockConnectorEntities.TPCH_WITH_HIDDEN_COLUMN_DATA;
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
@@ -72,9 +75,9 @@ public class TestColumnMask
 
     public TestColumnMask()
     {
-        LocalQueryRunner runner = LocalQueryRunner.builder(SESSION).build();
-
-        runner.createCatalog(LOCAL_CATALOG, new TpchConnectorFactory(1), ImmutableMap.of());
+        QueryRunner runner = new StandaloneQueryRunner(SESSION);
+        runner.installPlugin(new TpchPlugin());
+        runner.createCatalog(LOCAL_CATALOG, "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
 
         ConnectorViewDefinition view = new ConnectorViewDefinition(
                 "SELECT nationkey, name FROM local.tiny.nation",
@@ -154,7 +157,7 @@ public class TestColumnMask
                 Optional.of(VIEW_OWNER),
                 ImmutableList.of());
 
-        MockConnectorFactory mock = MockConnectorFactory.builder()
+        runner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                 .withGetColumns(schemaTableName -> {
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation_with_hidden_column"))) {
                         return TPCH_NATION_WITH_HIDDEN_COLUMN;
@@ -174,9 +177,8 @@ public class TestColumnMask
                         new SchemaTableName("default", "nation_materialized_view"), materializedView,
                         new SchemaTableName("default", "nation_fresh_materialized_view"), freshMaterializedView,
                         new SchemaTableName("default", "materialized_view_with_casts"), materializedViewWithCasts))
-                .build();
-
-        runner.createCatalog(MOCK_CATALOG, mock, ImmutableMap.of());
+                .build()));
+        runner.createCatalog(MOCK_CATALOG, "mock", ImmutableMap.of());
 
         assertions = new QueryAssertions(runner);
         accessControl = assertions.getQueryRunner().getAccessControl();

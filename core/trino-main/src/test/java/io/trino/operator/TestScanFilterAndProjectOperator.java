@@ -43,8 +43,9 @@ import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.relational.RowExpression;
-import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import io.trino.testing.TestingSplit;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -92,13 +93,13 @@ public class TestScanFilterAndProjectOperator
 
     private ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
     private ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
-    private LocalQueryRunner runner;
+    private QueryRunner runner;
     private ExpressionCompiler expressionCompiler;
 
     @BeforeAll
     public final void initTestFunctions()
     {
-        runner = LocalQueryRunner.builder(session).build();
+        runner = new StandaloneQueryRunner(session);
         expressionCompiler = new ExpressionCompiler(
                 runner.getPlannerContext().getFunctionManager(),
                 new PageFunctionCompiler(runner.getPlannerContext().getFunctionManager(), 0),

@@ -85,7 +85,7 @@ public class TestPartialTopNWithPresortedInput
                 .setCatalog(MOCK_CATALOG)
                 .setSchema(TEST_SCHEMA)
                 .build();
-        LocalQueryRunner queryRunner = LocalQueryRunner.builder(session).build();
+        LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
         MockConnectorFactory mockFactory = MockConnectorFactory.builder()
                 .withGetTableProperties((connectorSession, handle) -> {
                     MockConnectorTableHandle tableHandle = (MockConnectorTableHandle) handle;
