@@ -333,7 +333,7 @@ public class TestReorderWindows
     private void assertUnitPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
-                new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
+                new UnaliasSymbolReferences(getQueryRunner().getPlannerContext().getMetadata()),
                 new PredicatePushDown(
                         getQueryRunner().getPlannerContext(),
                         createTestingTypeAnalyzer(getQueryRunner().getPlannerContext()),
@@ -349,7 +349,7 @@ public class TestReorderWindows
                                 .add(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0))
                                 .add(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(1))
                                 .add(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(2))
-                                .addAll(columnPruningRules(getQueryRunner().getMetadata()))
+                                .addAll(columnPruningRules(getQueryRunner().getPlannerContext().getMetadata()))
                                 .build()));
         assertPlan(sql, pattern, optimizers);
     }

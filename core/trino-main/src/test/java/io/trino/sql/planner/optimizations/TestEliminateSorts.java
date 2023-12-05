@@ -109,7 +109,7 @@ public class TestEliminateSorts
                         getQueryRunner().getCostCalculator(),
                         ImmutableSet.of(
                                 new RemoveRedundantIdentityProjections(),
-                                new DetermineTableScanNodePartitioning(getQueryRunner().getMetadata(), getQueryRunner().getNodePartitioningManager(), new TaskCountEstimator(() -> 10)))),
+                                new DetermineTableScanNodePartitioning(getQueryRunner().getPlannerContext().getMetadata(), getQueryRunner().getNodePartitioningManager(), new TaskCountEstimator(() -> 10)))),
                 new AddExchanges(getQueryRunner().getPlannerContext(), typeAnalyzer, getQueryRunner().getStatsCalculator(), getQueryRunner().getTaskCountEstimator()));
 
         assertPlan(sql, pattern, optimizers);

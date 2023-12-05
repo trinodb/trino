@@ -93,7 +93,7 @@ public class TestMetadataManager
             }
         });
         queryRunner.createCatalog("upper_case_schema_catalog", "mock");
-        metadataManager = (MetadataManager) ((TracingMetadata) queryRunner.getMetadata()).getDelegate();
+        metadataManager = (MetadataManager) ((TracingMetadata) queryRunner.getPlannerContext().getMetadata()).getDelegate();
     }
 
     @AfterAll
@@ -176,7 +176,7 @@ public class TestMetadataManager
                         TEST_SESSION,
                         transactionSession -> {
                             List<String> expectedSchemas = ImmutableList.of("information_schema", "upper_case_schema");
-                            assertThat(queryRunner.getMetadata().listSchemaNames(transactionSession, "upper_case_schema_catalog")).isEqualTo(expectedSchemas);
+                            assertThat(queryRunner.getPlannerContext().getMetadata().listSchemaNames(transactionSession, "upper_case_schema_catalog")).isEqualTo(expectedSchemas);
                             return null;
                         });
     }

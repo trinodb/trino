@@ -583,7 +583,7 @@ public class TestMergeWindows
     private void assertUnitPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
-                new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
+                new UnaliasSymbolReferences(getQueryRunner().getPlannerContext().getMetadata()),
                 new IterativeOptimizer(
                         getQueryRunner().getPlannerContext(),
                         new RuleStatsRecorder(),
@@ -592,7 +592,7 @@ public class TestMergeWindows
                         ImmutableSet.<Rule<?>>builder()
                                 .add(new RemoveRedundantIdentityProjections())
                                 .addAll(GatherAndMergeWindows.rules())
-                                .addAll(columnPruningRules(getQueryRunner().getMetadata()))
+                                .addAll(columnPruningRules(getQueryRunner().getPlannerContext().getMetadata()))
                                 .build()));
         assertPlan(sql, pattern, optimizers);
     }

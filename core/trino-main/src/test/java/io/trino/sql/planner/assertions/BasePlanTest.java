@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.metadata.Metadata;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.planner.LogicalPlanner;
@@ -103,12 +104,12 @@ public class BasePlanTest
 
     protected CatalogHandle getCurrentCatalogHandle()
     {
-        return queryRunner.inTransaction(transactionSession -> queryRunner.getMetadata().getCatalogHandle(transactionSession, transactionSession.getCatalog().get())).get();
+        return queryRunner.inTransaction(transactionSession -> queryRunner.getPlannerContext().getMetadata().getCatalogHandle(transactionSession, transactionSession.getCatalog().get())).get();
     }
 
     protected CatalogHandle getCatalogHandle(String catalogName)
     {
-        return queryRunner.inTransaction(transactionSession -> queryRunner.getMetadata().getCatalogHandle(transactionSession, catalogName)).get();
+        return queryRunner.inTransaction(transactionSession -> queryRunner.getPlannerContext().getMetadata().getCatalogHandle(transactionSession, catalogName)).get();
     }
 
     protected LocalQueryRunner getQueryRunner()
@@ -152,7 +153,7 @@ public class BasePlanTest
         try {
             queryRunner.inTransaction(transactionSession -> {
                 Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers, stage, NOOP, createPlanOptimizersStatsCollector());
-                PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getFunctionManager(), queryRunner.getStatsCalculator(), actualPlan, pattern);
+                PlanAssert.assertPlan(transactionSession, queryRunner.getPlannerContext().getMetadata(), queryRunner.getPlannerContext().getFunctionManager(), queryRunner.getStatsCalculator(), actualPlan, pattern);
                 return null;
             });
         }
@@ -174,8 +175,9 @@ public class BasePlanTest
 
     protected void assertMinimallyOptimizedPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
+        Metadata metadata = getQueryRunner().getPlannerContext().getMetadata();
         List<PlanOptimizer> optimizers = ImmutableList.of(
-                new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
+                new UnaliasSymbolReferences(metadata),
                 new IterativeOptimizer(
                         queryRunner.getPlannerContext(),
                         new RuleStatsRecorder(),
@@ -183,7 +185,7 @@ public class BasePlanTest
                         queryRunner.getCostCalculator(),
                         ImmutableSet.<Rule<?>>builder()
                                 .add(new RemoveRedundantIdentityProjections())
-                                .addAll(columnPruningRules(getQueryRunner().getMetadata()))
+                                .addAll(columnPruningRules(metadata))
                                 .build()));
 
         assertPlan(sql, OPTIMIZED, pattern, optimizers);
@@ -200,7 +202,7 @@ public class BasePlanTest
                         OPTIMIZED_AND_VALIDATED,
                         NOOP,
                         createPlanOptimizersStatsCollector());
-                PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getFunctionManager(), queryRunner.getStatsCalculator(), actualPlan, pattern);
+                PlanAssert.assertPlan(transactionSession, queryRunner.getPlannerContext().getMetadata(), queryRunner.getPlannerContext().getFunctionManager(), queryRunner.getStatsCalculator(), actualPlan, pattern);
                 return null;
             });
         }
@@ -215,7 +217,7 @@ public class BasePlanTest
         try {
             queryRunner.inTransaction(session, transactionSession -> {
                 Plan actualPlan = queryRunner.createPlan(transactionSession, sql, queryRunner.getPlanOptimizers(forceSingleNode), OPTIMIZED_AND_VALIDATED, NOOP, createPlanOptimizersStatsCollector());
-                PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getFunctionManager(), queryRunner.getStatsCalculator(), actualPlan, pattern);
+                PlanAssert.assertPlan(transactionSession, queryRunner.getPlannerContext().getMetadata(), queryRunner.getPlannerContext().getFunctionManager(), queryRunner.getStatsCalculator(), actualPlan, pattern);
                 planValidator.accept(actualPlan);
                 return null;
             });

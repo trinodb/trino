@@ -86,8 +86,8 @@ public class TestStatsCalculator
             Plan actualPlan = queryRunner.createPlan(transactionSession, sql, queryRunner.getPlanOptimizers(true), stage, NOOP, createPlanOptimizersStatsCollector());
             PlanAssert.assertPlan(
                     transactionSession,
-                    queryRunner.getMetadata(),
-                    queryRunner.getFunctionManager(),
+                    queryRunner.getPlannerContext().getMetadata(),
+                    queryRunner.getPlannerContext().getFunctionManager(),
                     queryRunner.getStatsCalculator(),
                     actualPlan,
                     pattern);

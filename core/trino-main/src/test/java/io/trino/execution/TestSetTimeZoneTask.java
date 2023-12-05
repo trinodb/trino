@@ -114,7 +114,7 @@ public class TestSetTimeZoneTask
                 new NodeLocation(1, 1),
                 Optional.of(new FunctionCall(
                         new NodeLocation(1, 15),
-                        localQueryRunner.getMetadata().resolveBuiltinFunction("concat_ws", fromTypes(VARCHAR, VARCHAR, VARCHAR)).toQualifiedName(),
+                        localQueryRunner.getPlannerContext().getMetadata().resolveBuiltinFunction("concat_ws", fromTypes(VARCHAR, VARCHAR, VARCHAR)).toQualifiedName(),
                         ImmutableList.of(
                                 new StringLiteral(
                                         new NodeLocation(1, 25),
@@ -181,7 +181,7 @@ public class TestSetTimeZoneTask
                 new NodeLocation(1, 1),
                 Optional.of(new FunctionCall(
                         new NodeLocation(1, 24),
-                        localQueryRunner.getMetadata().resolveBuiltinFunction("parse_duration", fromTypes(VARCHAR)).toQualifiedName(),
+                        localQueryRunner.getPlannerContext().getMetadata().resolveBuiltinFunction("parse_duration", fromTypes(VARCHAR)).toQualifiedName(),
                         ImmutableList.of(
                                 new StringLiteral(
                                         new NodeLocation(1, 39),
@@ -201,7 +201,7 @@ public class TestSetTimeZoneTask
                 new NodeLocation(1, 1),
                 Optional.of(new FunctionCall(
                         new NodeLocation(1, 24),
-                        localQueryRunner.getMetadata().resolveBuiltinFunction("parse_duration", fromTypes(VARCHAR)).toQualifiedName(),
+                        localQueryRunner.getPlannerContext().getMetadata().resolveBuiltinFunction("parse_duration", fromTypes(VARCHAR)).toQualifiedName(),
                         ImmutableList.of(
                                 new StringLiteral(
                                         new NodeLocation(1, 39),
@@ -262,7 +262,7 @@ public class TestSetTimeZoneTask
                 localQueryRunner.getTransactionManager(),
                 localQueryRunner.getAccessControl(),
                 executor,
-                localQueryRunner.getMetadata(),
+                localQueryRunner.getPlannerContext().getMetadata(),
                 WarningCollector.NOOP,
                 createPlanOptimizersStatsCollector(),
                 Optional.empty(),

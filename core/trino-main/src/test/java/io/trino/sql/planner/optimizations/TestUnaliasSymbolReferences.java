@@ -65,7 +65,7 @@ public class TestUnaliasSymbolReferences
         String probeTable = "supplier";
         String buildTable = "nation";
         assertOptimizedPlan(
-                new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
+                new UnaliasSymbolReferences(getQueryRunner().getPlannerContext().getMetadata()),
                 (p, session, metadata) -> {
                     ColumnHandle column = new TpchColumnHandle("nationkey", BIGINT);
                     Symbol buildColumnSymbol = p.symbol("nationkey");
@@ -119,7 +119,7 @@ public class TestUnaliasSymbolReferences
     public void testGroupIdGroupingSetsDeduplicated()
     {
         assertOptimizedPlan(
-                new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
+                new UnaliasSymbolReferences(getQueryRunner().getPlannerContext().getMetadata()),
                 (p, session, metadata) -> {
                     Symbol symbol = p.symbol("symbol");
                     Symbol alias1 = p.symbol("alias1");
@@ -142,7 +142,7 @@ public class TestUnaliasSymbolReferences
     {
         LocalQueryRunner queryRunner = getQueryRunner();
         queryRunner.inTransaction(session -> {
-            Metadata metadata = queryRunner.getMetadata();
+            Metadata metadata = queryRunner.getPlannerContext().getMetadata();
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
             PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
             PlanBuilder planBuilder = new PlanBuilder(idAllocator, queryRunner.getPlannerContext(), session);
@@ -160,7 +160,7 @@ public class TestUnaliasSymbolReferences
                     new CachingTableStatsProvider(metadata, session));
 
             Plan actual = new Plan(optimized, planBuilder.getTypes(), StatsAndCosts.empty());
-            PlanAssert.assertPlan(session, queryRunner.getMetadata(), queryRunner.getFunctionManager(), queryRunner.getStatsCalculator(), actual, pattern);
+            PlanAssert.assertPlan(session, queryRunner.getPlannerContext().getMetadata(), queryRunner.getPlannerContext().getFunctionManager(), queryRunner.getStatsCalculator(), actual, pattern);
             return null;
         });
     }

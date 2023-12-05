@@ -295,7 +295,7 @@ public abstract class AbstractTestQueryFramework
 
     protected TransactionBuilder newTransaction()
     {
-        return transaction(queryRunner.getTransactionManager(), queryRunner.getMetadata(), queryRunner.getAccessControl());
+        return transaction(queryRunner.getTransactionManager(), queryRunner.getPlannerContext().getMetadata(), queryRunner.getAccessControl());
     }
 
     protected void inTransaction(Consumer<Session> callback)
@@ -721,14 +721,14 @@ public abstract class AbstractTestQueryFramework
     {
         return inTransaction(getSession(), transactionSession -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
-            getQueryRunner().getMetadata().getCatalogHandle(transactionSession, tableHandle.getCatalogHandle().getCatalogName());
-            return getQueryRunner().getMetadata().getTableName(transactionSession, tableHandle);
+            getQueryRunner().getPlannerContext().getMetadata().getCatalogHandle(transactionSession, tableHandle.getCatalogHandle().getCatalogName());
+            return getQueryRunner().getPlannerContext().getMetadata().getTableName(transactionSession, tableHandle);
         });
     }
 
     private <T> T inTransaction(Session session, Function<Session, T> transactionSessionConsumer)
     {
-        return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getMetadata(), getQueryRunner().getAccessControl())
+        return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getPlannerContext().getMetadata(), getQueryRunner().getAccessControl())
                 .singleStatement()
                 .execute(session, transactionSessionConsumer);
     }

@@ -88,7 +88,7 @@ public class TestResetSessionTask
 
         transactionManager = queryRunner.getTransactionManager();
         accessControl = queryRunner.getAccessControl();
-        metadata = queryRunner.getMetadata();
+        metadata = queryRunner.getPlannerContext().getMetadata();
         sessionPropertyManager = queryRunner.getSessionPropertyManager();
     }
 

@@ -572,6 +572,6 @@ public class TestSpatialJoinPlanning
 
     private FunctionCall functionCall(String name, List<Type> types, List<Expression> arguments)
     {
-        return new FunctionCall(getQueryRunner().getMetadata().resolveBuiltinFunction(name, fromTypes(types)).toQualifiedName(), arguments);
+        return new FunctionCall(getQueryRunner().getPlannerContext().getMetadata().resolveBuiltinFunction(name, fromTypes(types)).toQualifiedName(), arguments);
     }
 }

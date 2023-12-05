@@ -81,7 +81,7 @@ public class TestMaterializedViews
         LocalQueryRunner queryRunner = LocalQueryRunner.create(sessionBuilder.build());
         queryRunner.createCatalog(TEST_CATALOG_NAME, new StaticConnectorFactory("test", new TestMaterializedViewConnector(testingConnectorMetadata)), ImmutableMap.of());
 
-        Metadata metadata = queryRunner.getMetadata();
+        Metadata metadata = queryRunner.getPlannerContext().getMetadata();
         SchemaTableName testTable = new SchemaTableName(SCHEMA, "test_table");
         queryRunner.inTransaction(session -> {
             metadata.createTable(

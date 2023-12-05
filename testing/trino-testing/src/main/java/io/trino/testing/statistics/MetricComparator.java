@@ -54,7 +54,7 @@ final class MetricComparator
 
     private static List<OptionalDouble> getEstimatedValues(List<Metric> metrics, String query, QueryRunner runner)
     {
-        return transaction(runner.getTransactionManager(), runner.getMetadata(), runner.getAccessControl())
+        return transaction(runner.getTransactionManager(), runner.getPlannerContext().getMetadata(), runner.getAccessControl())
                 .singleStatement()
                 .execute(runner.getDefaultSession(), (Session session) -> getEstimatedValuesInternal(metrics, query, runner, session));
     }

@@ -14,6 +14,7 @@
 package io.trino.plugin.redis;
 
 import com.google.common.collect.ImmutableMap;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.security.AllowAllAccessControl;
@@ -42,10 +43,11 @@ public class TestMinimalFunctionality
     public void testTableExists()
     {
         QualifiedObjectName name = new QualifiedObjectName("redis", "default", tableName);
-        transaction(queryRunner.getTransactionManager(), queryRunner.getMetadata(), new AllowAllAccessControl())
+        Metadata metadata = queryRunner.getPlannerContext().getMetadata();
+        transaction(queryRunner.getTransactionManager(), metadata, new AllowAllAccessControl())
                 .singleStatement()
                 .execute(SESSION, session -> {
-                    Optional<TableHandle> handle = queryRunner.getServer().getMetadata().getTableHandle(session, name);
+                    Optional<TableHandle> handle = metadata.getTableHandle(session, name);
                     assertThat(handle).isPresent();
                 });
     }

@@ -274,8 +274,6 @@ public class LocalQueryRunner
     private final BlockTypeOperators blockTypeOperators;
     private final PlannerContext plannerContext;
     private final GlobalFunctionCatalog globalFunctionCatalog;
-    private final FunctionManager functionManager;
-    private final LanguageFunctionManager languageFunctionManager;
     private final StatsCalculator statsCalculator;
     private final ScalarStatsCalculator scalarStatsCalculator;
     private final CostCalculator costCalculator;
@@ -374,13 +372,13 @@ public class LocalQueryRunner
         InternalBlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(blockEncodingManager, typeManager);
 
         this.globalFunctionCatalog = new GlobalFunctionCatalog(
-                this::getMetadata,
-                this::getTypeManager,
-                this::getFunctionManager);
+                () -> getPlannerContext().getMetadata(),
+                () -> getPlannerContext().getTypeManager(),
+                () -> getPlannerContext().getFunctionManager());
         globalFunctionCatalog.addFunctions(new InternalFunctionBundle(new LiteralFunction(blockEncodingSerde)));
         globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(featuresConfig, typeOperators, blockTypeOperators, nodeManager.getCurrentNode().getNodeVersion()));
         this.groupProvider = new TestingGroupProviderManager();
-        this.languageFunctionManager = new LanguageFunctionManager(sqlParser, typeManager, groupProvider);
+        LanguageFunctionManager languageFunctionManager = new LanguageFunctionManager(sqlParser, typeManager, groupProvider);
         Metadata metadata = metadataDecorator.apply(new MetadataManager(
                 new DisabledSystemSecurityMetadata(),
                 transactionManager,
@@ -415,7 +413,7 @@ public class LocalQueryRunner
         this.sessionPropertyManager = createSessionPropertyManager(catalogManager, extraSessionProperties, taskManagerConfig, featuresConfig, optimizerConfig);
         this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, typeOperators, createNodePartitioningProvider(catalogManager));
         TableProceduresRegistry tableProceduresRegistry = new TableProceduresRegistry(createTableProceduresProvider(catalogManager));
-        this.functionManager = new FunctionManager(createFunctionProvider(catalogManager), globalFunctionCatalog, languageFunctionManager);
+        FunctionManager functionManager = new FunctionManager(createFunctionProvider(catalogManager), globalFunctionCatalog, languageFunctionManager);
         TableFunctionRegistry tableFunctionRegistry = new TableFunctionRegistry(createTableFunctionProvider(catalogManager));
         this.schemaPropertyManager = createSchemaPropertyManager(catalogManager);
         this.columnPropertyManager = createColumnPropertyManager(catalogManager);
@@ -590,15 +588,10 @@ public class LocalQueryRunner
         return sqlParser;
     }
 
+    @Override
     public PlannerContext getPlannerContext()
     {
         return plannerContext;
-    }
-
-    @Override
-    public Metadata getMetadata()
-    {
-        return plannerContext.getMetadata();
     }
 
     public TablePropertyManager getTablePropertyManager()
@@ -622,12 +615,6 @@ public class LocalQueryRunner
     }
 
     @Override
-    public TypeManager getTypeManager()
-    {
-        return plannerContext.getTypeManager();
-    }
-
-    @Override
     public QueryExplainer getQueryExplainer()
     {
         QueryExplainerFactory queryExplainerFactory = createQueryExplainerFactory(getPlanOptimizers(true));
@@ -639,23 +626,6 @@ public class LocalQueryRunner
     public SessionPropertyManager getSessionPropertyManager()
     {
         return sessionPropertyManager;
-    }
-
-    @Override
-    public FunctionManager getFunctionManager()
-    {
-        return functionManager;
-    }
-
-    @Override
-    public LanguageFunctionManager getLanguageFunctionManager()
-    {
-        return languageFunctionManager;
-    }
-
-    public TypeOperators getTypeOperators()
-    {
-        return plannerContext.getTypeOperators();
     }
 
     @Override
@@ -774,13 +744,13 @@ public class LocalQueryRunner
 
     public CatalogHandle getCatalogHandle(String catalogName)
     {
-        return inTransaction(transactionSession -> getMetadata().getCatalogHandle(transactionSession, catalogName)).orElseThrow();
+        return inTransaction(transactionSession -> getPlannerContext().getMetadata().getCatalogHandle(transactionSession, catalogName)).orElseThrow();
     }
 
     public TableHandle getTableHandle(String catalogName, String schemaName, String tableName)
     {
         return inTransaction(transactionSession ->
-                getMetadata().getTableHandle(
+                getPlannerContext().getMetadata().getTableHandle(
                         transactionSession,
                         new QualifiedObjectName(catalogName, schemaName, tableName))
                 .orElseThrow());
@@ -794,7 +764,7 @@ public class LocalQueryRunner
             return transaction(transactionManager, plannerContext.getMetadata(), accessControl)
                     .readOnly()
                     .execute(session, transactionSession -> {
-                        return getMetadata().listTables(transactionSession, new QualifiedTablePrefix(catalog, schema));
+                        return getPlannerContext().getMetadata().listTables(transactionSession, new QualifiedTablePrefix(catalog, schema));
                     });
         }
         finally {
@@ -810,7 +780,7 @@ public class LocalQueryRunner
             return transaction(transactionManager, plannerContext.getMetadata(), accessControl)
                     .readOnly()
                     .execute(session, transactionSession -> {
-                        return MetadataUtil.tableExists(getMetadata(), transactionSession, table);
+                        return MetadataUtil.tableExists(getPlannerContext().getMetadata(), transactionSession, table);
                     });
         }
         finally {
@@ -940,7 +910,7 @@ public class LocalQueryRunner
 
     public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode)
     {
-        languageFunctionManager.tryRegisterQuery(session);
+        plannerContext.getLanguageFunctionManager().tryRegisterQuery(session);
         return planFragmenter.createSubPlans(session, plan, forceSingleNode, NOOP);
     }
 
