@@ -14,9 +14,11 @@
 package io.trino.eventlistener;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Key;
 import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorPlugin;
 import io.trino.spi.eventlistener.EventListener;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicLong;
@@ -31,10 +33,9 @@ public class TestConnectorEventListener
     @Test
     public void testConnectorWithoutEventListener()
     {
-        LocalQueryRunner queryRunner = LocalQueryRunner.builder(testSessionBuilder().build())
-                .build();
+        StandaloneQueryRunner queryRunner = new StandaloneQueryRunner(testSessionBuilder().build());
 
-        queryRunner.loadEventListeners();
+        queryRunner.getServer().getInstance(Key.get(EventListenerManager.class)).loadEventListeners();
 
         assertThatCode(() -> queryRunner.execute("SELECT 1"))
                 .doesNotThrowAnyException();
@@ -44,16 +45,13 @@ public class TestConnectorEventListener
     public void testConnectorWithEventListener()
     {
         MockEventListenerFactory listenerFactory = new MockEventListenerFactory();
-        LocalQueryRunner queryRunner = LocalQueryRunner.builder(testSessionBuilder().build())
-                .build();
-        queryRunner.createCatalog(
-                "event_listening",
-                MockConnectorFactory.builder()
-                        .withEventListener(listenerFactory)
-                        .build(),
-                ImmutableMap.of());
+        StandaloneQueryRunner queryRunner = new StandaloneQueryRunner(testSessionBuilder().build());
+        queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
+                .withEventListener(listenerFactory)
+                .build()));
+        queryRunner.createCatalog("event_listening", "mock", ImmutableMap.of());
 
-        queryRunner.loadEventListeners();
+        queryRunner.getServer().getInstance(Key.get(EventListenerManager.class)).loadEventListeners();
 
         assertThat(listenerFactory.getEventListenerInvocationCounter).hasValue(1);
     }

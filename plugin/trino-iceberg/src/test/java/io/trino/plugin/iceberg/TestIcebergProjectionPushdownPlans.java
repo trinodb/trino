@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
-import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.hive.metastore.Database;
@@ -79,15 +78,8 @@ public class TestIcebergProjectionPushdownPlans
             throw new UncheckedIOException(e);
         }
         LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
-
-        InternalFunctionBundle.InternalFunctionBundleBuilder functions = InternalFunctionBundle.builder();
-        new IcebergPlugin().getFunctions().forEach(functions::functions);
-        queryRunner.addFunctions(functions.build());
-
-        queryRunner.createCatalog(
-                CATALOG,
-                new TestingIcebergConnectorFactory(metastoreDir.toPath()),
-                ImmutableMap.of());
+        queryRunner.installPlugin(new TestingIcebergPlugin(metastoreDir.toPath()));
+        queryRunner.createCatalog(CATALOG, "iceberg", ImmutableMap.of());
 
         HiveMetastore metastore = ((IcebergConnector) queryRunner.getConnector(CATALOG)).getInjector()
                 .getInstance(HiveMetastoreFactory.class)

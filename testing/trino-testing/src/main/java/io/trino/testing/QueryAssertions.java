@@ -41,6 +41,7 @@ import java.util.function.Supplier;
 
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.testing.assertions.Assert.assertEventually;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertThatTrinoException;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -473,9 +474,8 @@ public final class QueryAssertions
         }
         catch (RuntimeException exception) {
             exception.addSuppressed(new Exception("Query: " + sql));
-            assertThat(exception)
-                    .hasMessageMatching(expectedMessageRegExp)
-                    .satisfies(e -> assertThat(getTrinoExceptionCause(e)).hasMessageMatching(expectedMessageRegExp));
+            assertThatTrinoException(exception)
+                    .hasCauseMessageMatching(expectedMessageRegExp);
         }
     }
 

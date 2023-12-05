@@ -16,9 +16,10 @@ package io.trino.sql.query;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
-import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.sql.planner.plan.JoinNode;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -27,6 +28,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.util.List;
 import java.util.Optional;
 
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.field;
@@ -70,10 +72,9 @@ public class TestSubqueries
                 .setSchema(TINY_SCHEMA_NAME)
                 .build();
 
-        LocalQueryRunner runner = LocalQueryRunner.builder(session)
-                .build();
-
-        runner.createCatalog(TEST_CATALOG_NAME, new TpchConnectorFactory(1), ImmutableMap.of());
+        QueryRunner runner = new StandaloneQueryRunner(session);
+        runner.installPlugin(new TpchPlugin());
+        runner.createCatalog(TEST_CATALOG_NAME, "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
 
         assertions = new QueryAssertions(runner);
     }

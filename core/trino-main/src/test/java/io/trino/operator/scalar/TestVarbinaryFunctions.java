@@ -91,7 +91,7 @@ public class TestVarbinaryFunctions
     public void testConcat()
     {
         assertTrinoExceptionThrownBy(assertions.function("CONCAT", "X''")::evaluate)
-                .hasMessage("There must be two or more concatenation arguments");
+                .hasCauseMessageContaining("There must be two or more concatenation arguments");
 
         assertThat(assertions.expression("CAST('foo' AS VARBINARY) || CAST ('bar' AS VARBINARY)"))
                 .isEqualTo(sqlVarbinary("foo" + "bar"));
