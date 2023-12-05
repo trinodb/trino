@@ -28,6 +28,7 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.split.EmptySplit;
 import io.trino.split.PageSourceProvider;
+import io.trino.split.PageSourceProviderFactory;
 import io.trino.sql.planner.plan.PlanNodeId;
 import jakarta.annotation.Nullable;
 
@@ -61,7 +62,7 @@ public class TableScanOperator
                 int operatorId,
                 PlanNodeId planNodeId,
                 PlanNodeId sourceId,
-                PageSourceProvider pageSourceProvider,
+                PageSourceProviderFactory pageSourceProvider,
                 TableHandle table,
                 Iterable<ColumnHandle> columns,
                 DynamicFilter dynamicFilter)
@@ -69,10 +70,10 @@ public class TableScanOperator
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
-            this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
             this.table = requireNonNull(table, "table is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
             this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
+            this.pageSourceProvider = pageSourceProvider.createPageSourceProvider(table.catalogHandle());
         }
 
         @Override

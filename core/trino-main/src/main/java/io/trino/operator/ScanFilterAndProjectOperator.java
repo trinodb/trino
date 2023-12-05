@@ -43,6 +43,7 @@ import io.trino.spi.metrics.Metrics;
 import io.trino.spi.type.Type;
 import io.trino.split.EmptySplit;
 import io.trino.split.PageSourceProvider;
+import io.trino.split.PageSourceProviderFactory;
 import io.trino.sql.planner.plan.PlanNodeId;
 import jakarta.annotation.Nullable;
 
@@ -425,7 +426,7 @@ public class ScanFilterAndProjectOperator
                 int operatorId,
                 PlanNodeId planNodeId,
                 PlanNodeId sourceId,
-                PageSourceProvider pageSourceProvider,
+                PageSourceProviderFactory pageSourceProvider,
                 Supplier<CursorProcessor> cursorProcessor,
                 Supplier<PageProcessor> pageProcessor,
                 TableHandle table,
@@ -440,13 +441,13 @@ public class ScanFilterAndProjectOperator
             this.cursorProcessor = requireNonNull(cursorProcessor, "cursorProcessor is null");
             this.pageProcessor = requireNonNull(pageProcessor, "pageProcessor is null");
             this.sourceId = requireNonNull(sourceId, "sourceId is null");
-            this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
             this.table = requireNonNull(table, "table is null");
             this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
             this.dynamicFilter = dynamicFilter;
             this.types = requireNonNull(types, "types is null");
             this.minOutputPageSize = requireNonNull(minOutputPageSize, "minOutputPageSize is null");
             this.minOutputPageRowCount = minOutputPageRowCount;
+            this.pageSourceProvider = pageSourceProvider.createPageSourceProvider(table.catalogHandle());
         }
 
         @Override
