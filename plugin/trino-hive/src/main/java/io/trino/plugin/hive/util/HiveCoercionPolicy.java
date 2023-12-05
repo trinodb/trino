@@ -87,16 +87,16 @@ public final class HiveCoercionPolicy
             return fromHiveType.equals(HIVE_TIMESTAMP);
         }
         if (fromHiveType.equals(HIVE_BYTE)) {
-            return toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG) || toHiveType.equals(HIVE_DOUBLE);
+            return toHiveType.equals(HIVE_SHORT) || toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG) || toHiveType.equals(HIVE_DOUBLE) || toType instanceof DecimalType;
         }
         if (fromHiveType.equals(HIVE_SHORT)) {
-            return toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG) || toHiveType.equals(HIVE_DOUBLE);
+            return toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG) || toHiveType.equals(HIVE_DOUBLE) || toType instanceof DecimalType;
         }
         if (fromHiveType.equals(HIVE_INT)) {
-            return toHiveType.equals(HIVE_LONG) || toHiveType.equals(HIVE_DOUBLE);
+            return toHiveType.equals(HIVE_LONG) || toHiveType.equals(HIVE_DOUBLE) || toType instanceof DecimalType;
         }
         if (fromHiveType.equals(HIVE_LONG)) {
-            return toHiveType.equals(HIVE_DOUBLE);
+            return toHiveType.equals(HIVE_DOUBLE) || toType instanceof DecimalType;
         }
         if (fromHiveType.equals(HIVE_FLOAT)) {
             return toHiveType.equals(HIVE_DOUBLE) || toType instanceof DecimalType;
