@@ -611,11 +611,6 @@ public class LocalQueryRunner
         return transactionManager;
     }
 
-    public SqlParser getSqlParser()
-    {
-        return sqlParser;
-    }
-
     @Override
     public PlannerContext getPlannerContext()
     {
