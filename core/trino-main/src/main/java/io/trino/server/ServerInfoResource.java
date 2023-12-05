@@ -49,16 +49,18 @@ public class ServerInfoResource
     private final boolean coordinator;
     private final GracefulShutdownHandler shutdownHandler;
     private final StartupStatus startupStatus;
+    private final ShutdownStatus shutdownStatus;
     private final long startTime = System.nanoTime();
 
     @Inject
-    public ServerInfoResource(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig, GracefulShutdownHandler shutdownHandler, StartupStatus startupStatus)
+    public ServerInfoResource(NodeVersion nodeVersion, NodeInfo nodeInfo, ServerConfig serverConfig, GracefulShutdownHandler shutdownHandler, StartupStatus startupStatus, ShutdownStatus shutdownStatus)
     {
         this.version = requireNonNull(nodeVersion, "nodeVersion is null");
         this.environment = nodeInfo.getEnvironment();
         this.coordinator = serverConfig.isCoordinator();
         this.shutdownHandler = requireNonNull(shutdownHandler, "shutdownHandler is null");
         this.startupStatus = requireNonNull(startupStatus, "startupStatus is null");
+        this.shutdownStatus = requireNonNull(shutdownStatus, "shutdownStatus is null");
     }
 
     @ResourceSecurity(PUBLIC)
@@ -67,7 +69,8 @@ public class ServerInfoResource
     public ServerInfo getInfo()
     {
         boolean starting = !startupStatus.isStartupComplete();
-        return new ServerInfo(version, environment, coordinator, starting, Optional.of(nanosSince(startTime)));
+        boolean shuttingDown = shutdownStatus.isShutdownStarted();
+        return new ServerInfo(version, environment, coordinator, starting, shuttingDown, Optional.of(nanosSince(startTime)));
     }
 
     @ResourceSecurity(MANAGEMENT_WRITE)

@@ -31,6 +31,7 @@ public class ServerInfo
     private final String environment;
     private final boolean coordinator;
     private final boolean starting;
+    private final boolean shuttingDown;
 
     // optional to maintain compatibility with older servers
     private final Optional<Duration> uptime;
@@ -41,12 +42,14 @@ public class ServerInfo
             @JsonProperty("environment") String environment,
             @JsonProperty("coordinator") boolean coordinator,
             @JsonProperty("starting") boolean starting,
+            @JsonProperty("shutting_down") boolean shuttingDown,
             @JsonProperty("uptime") Optional<Duration> uptime)
     {
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
         this.environment = requireNonNull(environment, "environment is null");
         this.coordinator = coordinator;
         this.starting = starting;
+        this.shuttingDown = shuttingDown;
         this.uptime = requireNonNull(uptime, "uptime is null");
     }
 
@@ -72,6 +75,12 @@ public class ServerInfo
     public boolean isStarting()
     {
         return starting;
+    }
+
+    @JsonProperty
+    public boolean isShuttingDown()
+    {
+        return shuttingDown;
     }
 
     @JsonProperty

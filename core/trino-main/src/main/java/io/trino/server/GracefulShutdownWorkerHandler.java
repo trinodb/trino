@@ -48,6 +48,7 @@ public final class GracefulShutdownWorkerHandler
     private final ScheduledExecutorService shutdownHandler = newSingleThreadScheduledExecutor(threadsNamed("shutdown-handler-%s"));
     private final ExecutorService lifeCycleStopper = newSingleThreadExecutor(threadsNamed("lifecycle-stopper-%s"));
     private final LifeCycleManager lifeCycleManager;
+    private final ShutdownStatus status;
     private final SqlTaskManager sqlTaskManager;
     private final ShutdownAction shutdownAction;
     private final Duration gracePeriod;
@@ -57,11 +58,13 @@ public final class GracefulShutdownWorkerHandler
 
     @Inject
     public GracefulShutdownWorkerHandler(
+            ShutdownStatus status,
             SqlTaskManager sqlTaskManager,
             ServerConfig serverConfig,
             ShutdownAction shutdownAction,
             LifeCycleManager lifeCycleManager)
     {
+        this.status = requireNonNull(status, "status is null");
         this.sqlTaskManager = requireNonNull(sqlTaskManager, "sqlTaskManager is null");
         this.shutdownAction = requireNonNull(shutdownAction, "shutdownAction is null");
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
@@ -76,6 +79,9 @@ public final class GracefulShutdownWorkerHandler
             return;
         }
         shutdownRequested = true;
+
+        // mark worker as shutting down
+        status.shutdownStarted();
 
         // wait for a grace period (so that shutting down state is observed by the coordinator) to start the shutdown sequence
         shutdownHandler.schedule(this::shutdown, gracePeriod.toMillis(), MILLISECONDS);
