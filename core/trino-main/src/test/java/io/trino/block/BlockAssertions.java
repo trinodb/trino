@@ -139,7 +139,7 @@ public final class BlockAssertions
 
     public static RunLengthEncodedBlock createRandomRleBlock(Block block, int positionCount)
     {
-        checkArgument(block.getPositionCount() >= 2, format("block positions %d is less 2", block.getPositionCount()));
+        checkArgument(block.getPositionCount() >= 2, "block positions %s is less than 2", block.getPositionCount());
         return (RunLengthEncodedBlock) RunLengthEncodedBlock.create(block.getSingleValueBlock(random().nextInt(block.getPositionCount())), positionCount);
     }
 

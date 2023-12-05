@@ -103,7 +103,7 @@ public class TransformCorrelatedScalarSubquery
     public Result apply(CorrelatedJoinNode correlatedJoinNode, Captures captures, Context context)
     {
         // lateral references are only allowed for INNER or LEFT correlated join
-        checkArgument(correlatedJoinNode.getType() == INNER || correlatedJoinNode.getType() == LEFT, "unexpected correlated join type: " + correlatedJoinNode.getType());
+        checkArgument(correlatedJoinNode.getType() == INNER || correlatedJoinNode.getType() == LEFT, "unexpected correlated join type: %s", correlatedJoinNode.getType());
         PlanNode subquery = context.getLookup().resolve(correlatedJoinNode.getSubquery());
 
         if (!searchFrom(subquery, context.getLookup())

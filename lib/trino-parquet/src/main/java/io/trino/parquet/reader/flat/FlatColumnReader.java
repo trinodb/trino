@@ -280,7 +280,7 @@ public class FlatColumnReader<BufferType>
         Slice buffer = page.getSlice();
         ParquetEncoding definitionEncoding = page.getDefinitionLevelEncoding();
 
-        checkArgument(isNonNull() || definitionEncoding == RLE, "Invalid definition level encoding: " + definitionEncoding);
+        checkArgument(isNonNull() || definitionEncoding == RLE, "Invalid definition level encoding: %s", definitionEncoding);
         int alreadyRead = 0;
         if (definitionEncoding == RLE) {
             // Definition levels are skipped from file when the max definition level is 0 as the bit-width required to store them is 0.
