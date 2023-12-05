@@ -35,8 +35,8 @@ import io.trino.spi.security.AccessDeniedException;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.Call;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import io.trino.testing.TestingAccessControlManager;
 import io.trino.transaction.TransactionManager;
 import org.junit.jupiter.api.AfterAll;
@@ -77,7 +77,7 @@ public class TestCallTask
     @BeforeAll
     public void init()
     {
-        queryRunner = LocalQueryRunner.builder(TEST_SESSION).build();
+        queryRunner = new StandaloneQueryRunner(TEST_SESSION);
         queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.create()));
         queryRunner.createCatalog(TEST_CATALOG_NAME, "mock", ImmutableMap.of());
         executor = newCachedThreadPool(daemonThreadsNamed("call-task-test-%s"));

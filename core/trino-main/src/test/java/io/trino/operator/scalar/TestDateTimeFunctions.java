@@ -35,6 +35,7 @@ import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 import static io.trino.operator.scalar.DateTimeFunctions.currentDate;
+import static io.trino.server.testing.TestingTrinoServer.SESSION_START_TIME_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -79,7 +80,7 @@ public class TestDateTimeFunctions
     public void testCurrentDate()
     {
         Session session = Session.builder(assertions.getDefaultSession())
-                .setStart(ZonedDateTime.of(2017, 4, 1, 12, 34, 56, 789, ZoneId.of("UTC")).toInstant())
+                .setSystemProperty(SESSION_START_TIME_PROPERTY, ZonedDateTime.of(2017, 4, 1, 12, 34, 56, 789, ZoneId.of("UTC")).toInstant().toString())
                 .build();
 
         // current date is the time at midnight in the session time zone

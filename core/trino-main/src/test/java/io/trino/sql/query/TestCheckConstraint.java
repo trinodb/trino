@@ -17,10 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
-import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.connector.MockConnectorPlugin;
+import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.Identity;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -28,6 +30,7 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_DATA;
 import static io.trino.connector.MockConnectorEntities.TPCH_NATION_SCHEMA;
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -53,11 +56,12 @@ public class TestCheckConstraint
 
     public TestCheckConstraint()
     {
-        LocalQueryRunner runner = LocalQueryRunner.builder(SESSION).build();
+        QueryRunner runner = new StandaloneQueryRunner(SESSION);
 
-        runner.createCatalog(LOCAL_CATALOG, new TpchConnectorFactory(1), ImmutableMap.of());
+        runner.installPlugin(new TpchPlugin());
+        runner.createCatalog(LOCAL_CATALOG, "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
 
-        MockConnectorFactory mock = MockConnectorFactory.builder()
+        runner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                 .withGetColumns(schemaTableName -> {
                     if (schemaTableName.equals(new SchemaTableName("tiny", "nation"))) {
                         return TPCH_NATION_SCHEMA;
@@ -139,9 +143,8 @@ public class TestCheckConstraint
                     }
                     throw new UnsupportedOperationException();
                 })
-                .build();
-
-        runner.createCatalog(MOCK_CATALOG, mock, ImmutableMap.of());
+                .build()));
+        runner.createCatalog(MOCK_CATALOG, "mock", ImmutableMap.of());
 
         assertions = new QueryAssertions(runner);
     }

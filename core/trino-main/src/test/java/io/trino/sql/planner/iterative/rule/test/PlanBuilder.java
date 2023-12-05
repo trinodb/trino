@@ -165,6 +165,11 @@ public class PlanBuilder
         functionResolver = plannerContext.getFunctionResolver();
     }
 
+    public Session getSession()
+    {
+        return session;
+    }
+
     public OutputNode output(List<String> columnNames, List<Symbol> outputs, PlanNode source)
     {
         return new OutputNode(

@@ -13,10 +13,14 @@
  */
 package io.trino.plugin.atop;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
+import io.trino.spi.Plugin;
+import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.type.TimeZoneKey;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 
 import java.util.Map;
 import java.util.TimeZone;
@@ -24,16 +28,16 @@ import java.util.TimeZone;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
-public final class LocalAtopQueryRunner
+public final class AtopQueryRunner
 {
-    private LocalAtopQueryRunner() {}
+    private AtopQueryRunner() {}
 
-    public static LocalQueryRunner createQueryRunner()
+    public static QueryRunner createQueryRunner()
     {
         return createQueryRunner(ImmutableMap.of("atop.executable-path", "/dev/null"), TestingAtopFactory.class);
     }
 
-    public static LocalQueryRunner createQueryRunner(Map<String, String> catalogProperties, Class<? extends AtopFactory> factoryClass)
+    public static QueryRunner createQueryRunner(Map<String, String> catalogProperties, Class<? extends AtopFactory> factoryClass)
     {
         Session session = testSessionBuilder()
                 .setCatalog("atop")
@@ -41,21 +45,28 @@ public final class LocalAtopQueryRunner
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(TimeZone.getDefault().getID()))
                 .build();
 
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
+        QueryRunner queryRunner = new StandaloneQueryRunner(session);
 
         try {
-            AtopConnectorFactory connectorFactory = new AtopConnectorFactory(factoryClass, LocalAtopQueryRunner.class.getClassLoader());
-            ImmutableMap.Builder<String, String> properties = ImmutableMap.<String, String>builder()
+            queryRunner.installPlugin(new TestingAtopPlugin(factoryClass));
+            queryRunner.createCatalog("atop", "atop", ImmutableMap.<String, String>builder()
                     .putAll(catalogProperties)
-                    .put("atop.max-history-days", "1");
-
-            queryRunner.createCatalog("atop", connectorFactory, properties.buildOrThrow());
-
+                    .put("atop.max-history-days", "1").buildOrThrow());
             return queryRunner;
         }
         catch (Exception e) {
             closeAllSuppress(e, queryRunner);
             throw e;
+        }
+    }
+
+    private record TestingAtopPlugin(Class<? extends AtopFactory> atopFactoryClass)
+            implements Plugin
+    {
+        @Override
+        public Iterable<ConnectorFactory> getConnectorFactories()
+        {
+            return ImmutableList.of(new AtopConnectorFactory(atopFactoryClass, AtopQueryRunner.class.getClassLoader()));
         }
     }
 }
