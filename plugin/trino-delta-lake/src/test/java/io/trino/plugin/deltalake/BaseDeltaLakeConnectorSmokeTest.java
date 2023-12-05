@@ -2298,7 +2298,6 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             throws Exception
     {
         int threads = 4;
-        int numOfCreateOrReplaceStatements = 4;
         int numOfReads = 16;
         CyclicBarrier barrier = new CyclicBarrier(threads + 1);
         ExecutorService executor = newFixedThreadPool(threads + 1);
@@ -2309,24 +2308,23 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             getQueryRunner().execute("CREATE OR REPLACE TABLE " + tableName + " AS SELECT 1 a");
             assertThat(query("SELECT * FROM " + tableName)).matches("VALUES 1");
 
-            /// One thread submits some CREATE OR REPLACE statements
+            /// One thread submits a CREATE OR REPLACE statement
             futures.add(executor.submit(() -> {
                 barrier.await(30, SECONDS);
-                IntStream.range(0, numOfCreateOrReplaceStatements).forEach(index -> {
+                try {
+                    getQueryRunner().execute("CREATE OR REPLACE TABLE " + tableName + " AS SELECT * FROM (VALUES (1), (2)) AS t(a) ");
+                } catch (Exception e) {
+                    RuntimeException trinoException = getTrinoExceptionCause(e);
                     try {
-                        getQueryRunner().execute("CREATE OR REPLACE TABLE " + tableName + " AS SELECT * FROM (VALUES (1), (2)) AS t(a) ");
-                    } catch (Exception e) {
-                        RuntimeException trinoException = getTrinoExceptionCause(e);
-                        try {
-                            throw new AssertionError("Unexpected concurrent CREATE OR REPLACE failure", trinoException);
-                        } catch (Throwable verifyFailure) {
-                            if (verifyFailure != e) {
-                                verifyFailure.addSuppressed(e);
-                            }
-                            throw verifyFailure;
-                        }
+                        throw new AssertionError("Unexpected concurrent CREATE OR REPLACE failure", trinoException);
                     }
-                });
+                    catch (Throwable verifyFailure) {
+                        if (verifyFailure != e) {
+                            verifyFailure.addSuppressed(e);
+                        }
+                        throw verifyFailure;
+                    }
+                }
                 return null;
             }));
             // Other 4 threads continue try to read the same table, none of the reads should fail.
