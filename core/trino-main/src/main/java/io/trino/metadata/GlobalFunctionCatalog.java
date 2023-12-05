@@ -272,14 +272,14 @@ public class GlobalFunctionCatalog
         public FunctionMetadata get(FunctionId functionId)
         {
             FunctionMetadata functionMetadata = functionsById.get(functionId);
-            checkArgument(functionMetadata != null, "Unknown function implementation: " + functionId);
+            checkArgument(functionMetadata != null, "Unknown function implementation: %s", functionId);
             return functionMetadata;
         }
 
         public FunctionBundle getFunctionBundle(FunctionId functionId)
         {
             FunctionBundle functionBundle = functionBundlesById.get(functionId);
-            checkArgument(functionBundle != null, "Unknown function implementation: " + functionId);
+            checkArgument(functionBundle != null, "Unknown function implementation: %s", functionId);
             return functionBundle;
         }
     }

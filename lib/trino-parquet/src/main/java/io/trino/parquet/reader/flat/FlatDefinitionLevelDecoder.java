@@ -39,7 +39,7 @@ public interface FlatDefinitionLevelDecoder
 
     static FlatDefinitionLevelDecoder getFlatDefinitionLevelDecoder(int maxDefinitionLevel)
     {
-        checkArgument(maxDefinitionLevel >= 0 && maxDefinitionLevel <= 1, "Invalid max definition level: " + maxDefinitionLevel);
+        checkArgument(maxDefinitionLevel >= 0 && maxDefinitionLevel <= 1, "Invalid max definition level: %s", maxDefinitionLevel);
         if (maxDefinitionLevel == 0) {
             return new ZeroDefinitionLevelDecoder();
         }

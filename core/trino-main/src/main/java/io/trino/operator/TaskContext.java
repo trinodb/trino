@@ -379,7 +379,7 @@ public class TaskContext
         checkArgument(maxWriterCount > 0, "maxWriterCount must be > 0");
 
         int oldMaxWriterCount = this.maxWriterCount.getAndSet(maxWriterCount);
-        checkArgument(oldMaxWriterCount == -1 || oldMaxWriterCount == maxWriterCount, "maxWriterCount already set to " + oldMaxWriterCount);
+        checkArgument(oldMaxWriterCount == -1 || oldMaxWriterCount == maxWriterCount, "maxWriterCount already set to %s", oldMaxWriterCount);
     }
 
     public Optional<Integer> getMaxWriterCount()

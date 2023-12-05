@@ -364,7 +364,7 @@ public class ExpressionInterpreter
         @Override
         protected Object visitDereferenceExpression(DereferenceExpression node, Object context)
         {
-            checkArgument(!isQualifiedAllFieldsReference(node), "unexpected expression: all fields labeled reference " + node);
+            checkArgument(!isQualifiedAllFieldsReference(node), "unexpected expression: all fields labeled reference %s", node);
             Identifier fieldIdentifier = node.getField().orElseThrow();
 
             Type type = type(node.getBase());

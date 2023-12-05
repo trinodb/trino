@@ -107,8 +107,8 @@ public class SkipTo
         super(location);
         requireNonNull(position, "position is null");
         requireNonNull(identifier, "identifier is null");
-        checkArgument(identifier.isPresent() || (position == PAST_LAST || position == NEXT), "missing identifier in SKIP TO " + position.name());
-        checkArgument(!identifier.isPresent() || (position == FIRST || position == LAST), "unexpected identifier in SKIP TO " + position.name());
+        checkArgument(identifier.isPresent() || (position == PAST_LAST || position == NEXT), "missing identifier in SKIP TO %s", position.name());
+        checkArgument(!identifier.isPresent() || (position == FIRST || position == LAST), "unexpected identifier in SKIP TO %s", position.name());
         this.position = position;
         this.identifier = identifier;
     }
