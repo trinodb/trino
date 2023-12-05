@@ -69,6 +69,7 @@ import static io.trino.plugin.hive.coercions.DecimalCoercers.createDecimalToInte
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createDecimalToRealCoercer;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createDecimalToVarcharCoercer;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createDoubleToDecimalCoercer;
+import static io.trino.plugin.hive.coercions.DecimalCoercers.createIntegerNumberToDecimalCoercer;
 import static io.trino.plugin.hive.coercions.DecimalCoercers.createRealToDecimalCoercer;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.block.ColumnarArray.toColumnarArray;
@@ -139,6 +140,9 @@ public final class CoercionUtils
             if (toHiveType.equals(HIVE_DOUBLE)) {
                 return Optional.of(new IntegerNumberToDoubleCoercer<>(fromType));
             }
+            if (toType instanceof DecimalType toDecimalType) {
+                return Optional.of(createIntegerNumberToDecimalCoercer(fromType, toDecimalType));
+            }
         }
         if (fromHiveType.equals(HIVE_SHORT)) {
             if (toHiveType.equals(HIVE_INT) || toHiveType.equals(HIVE_LONG)) {
@@ -146,6 +150,9 @@ public final class CoercionUtils
             }
             if (toHiveType.equals(HIVE_DOUBLE)) {
                 return Optional.of(new IntegerNumberToDoubleCoercer<>(fromType));
+            }
+            if (toType instanceof DecimalType toDecimalType) {
+                return Optional.of(createIntegerNumberToDecimalCoercer(fromType, toDecimalType));
             }
         }
         if (fromHiveType.equals(HIVE_INT)) {
@@ -155,9 +162,17 @@ public final class CoercionUtils
             if (toHiveType.equals(HIVE_DOUBLE)) {
                 return Optional.of(new IntegerNumberToDoubleCoercer<>(fromType));
             }
+            if (toType instanceof DecimalType toDecimalType) {
+                return Optional.of(createIntegerNumberToDecimalCoercer(fromType, toDecimalType));
+            }
         }
-        if (fromHiveType.equals(HIVE_LONG) && toHiveType.equals(HIVE_DOUBLE)) {
-            return Optional.of(new IntegerNumberToDoubleCoercer<>(fromType));
+        if (fromHiveType.equals(HIVE_LONG)) {
+            if (toHiveType.equals(HIVE_DOUBLE)) {
+                return Optional.of(new IntegerNumberToDoubleCoercer<>(fromType));
+            }
+            if (toType instanceof DecimalType toDecimalType) {
+                return Optional.of(createIntegerNumberToDecimalCoercer(fromType, toDecimalType));
+            }
         }
         if (fromHiveType.equals(HIVE_FLOAT) && toHiveType.equals(HIVE_DOUBLE)) {
             return Optional.of(new FloatToDoubleCoercer());
