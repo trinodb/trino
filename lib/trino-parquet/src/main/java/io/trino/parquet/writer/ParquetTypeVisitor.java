@@ -44,15 +44,15 @@ public class ParquetTypeVisitor<T>
         LogicalTypeAnnotation annotation = group.getLogicalTypeAnnotation();
         if (LogicalTypeAnnotation.listType().equals(annotation)) {
             checkArgument(!group.isRepetition(REPEATED),
-                    "Invalid list: top-level group is repeated: " + group);
+                    "Invalid list: top-level group is repeated: %s", group);
             checkArgument(group.getFieldCount() == 1,
-                    "Invalid list: does not contain single repeated field: " + group);
+                    "Invalid list: does not contain single repeated field: %s", group);
 
             GroupType repeatedElement = group.getFields().get(0).asGroupType();
             checkArgument(repeatedElement.isRepetition(REPEATED),
                     "Invalid list: inner group is not repeated");
             checkArgument(repeatedElement.getFieldCount() <= 1,
-                    "Invalid list: repeated group is not a single field: " + group);
+                    "Invalid list: repeated group is not a single field: %s", group);
 
             visitor.fieldNames.push(repeatedElement.getName());
             try {
@@ -69,9 +69,9 @@ public class ParquetTypeVisitor<T>
         }
         if (LogicalTypeAnnotation.mapType().equals(annotation)) {
             checkArgument(!group.isRepetition(REPEATED),
-                    "Invalid map: top-level group is repeated: " + group);
+                    "Invalid map: top-level group is repeated: %s", group);
             checkArgument(group.getFieldCount() == 1,
-                    "Invalid map: does not contain single repeated field: " + group);
+                    "Invalid map: does not contain single repeated field: %s", group);
 
             GroupType repeatedKeyValue = group.getType(0).asGroupType();
             checkArgument(repeatedKeyValue.isRepetition(REPEATED),
