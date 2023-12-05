@@ -147,7 +147,7 @@ public class TestDataframeMetadataProvider
         DataTypeMapper dataTypeMapper = new DataTypeMapper();
         TransactionId transactionId = transactionManager.beginTransaction(true);
         Session session = createSession(transactionId);
-        queryRunner.getLanguageFunctionManager().registerQuery(session);
+        queryRunner.getPlannerContext().getLanguageFunctionManager().registerQuery(session);
         dataframeMetadataProvider = new DataframeMetadataProvider(session, analyzerFactory, SQL_PARSER, dataTypeMapper);
     }
 

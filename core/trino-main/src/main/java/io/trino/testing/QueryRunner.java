@@ -19,16 +19,13 @@ import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionBundle;
-import io.trino.metadata.FunctionManager;
-import io.trino.metadata.LanguageFunctionManager;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
-import io.trino.spi.type.TypeManager;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.QueryExplainer;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.Plan;
@@ -53,19 +50,13 @@ public interface QueryRunner
 
     TransactionManager getTransactionManager();
 
-    Metadata getMetadata();
-
     CacheMetadata getCacheMetadata();
 
-    TypeManager getTypeManager();
+    PlannerContext getPlannerContext();
 
     QueryExplainer getQueryExplainer();
 
     SessionPropertyManager getSessionPropertyManager();
-
-    FunctionManager getFunctionManager();
-
-    LanguageFunctionManager getLanguageFunctionManager();
 
     SplitManager getSplitManager();
 

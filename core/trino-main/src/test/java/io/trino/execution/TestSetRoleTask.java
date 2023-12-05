@@ -87,7 +87,7 @@ public class TestSetRoleTask
 
         transactionManager = queryRunner.getTransactionManager();
         accessControl = queryRunner.getAccessControl();
-        metadata = queryRunner.getMetadata();
+        metadata = queryRunner.getPlannerContext().getMetadata();
         parser = queryRunner.getSqlParser();
         executor = newCachedThreadPool(daemonThreadsNamed("test-set-role-task-executor-%s"));
     }

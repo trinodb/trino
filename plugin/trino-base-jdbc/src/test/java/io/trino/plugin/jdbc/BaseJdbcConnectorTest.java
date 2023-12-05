@@ -1943,7 +1943,7 @@ public abstract class BaseJdbcConnectorTest
                     .where(node -> node instanceof TableWriterNode)
                     .findOnlyElement()).getTarget();
 
-            assertThat(target.getMaxWriterTasks(queryRunner.getMetadata(), getSession()))
+            assertThat(target.getMaxWriterTasks(queryRunner.getPlannerContext().getMetadata(), getSession()))
                     .hasValue(parallelism);
         }
     }

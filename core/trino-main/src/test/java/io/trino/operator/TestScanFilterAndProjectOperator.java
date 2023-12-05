@@ -100,9 +100,9 @@ public class TestScanFilterAndProjectOperator
     {
         runner = LocalQueryRunner.builder(session).build();
         expressionCompiler = new ExpressionCompiler(
-                runner.getFunctionManager(),
-                new PageFunctionCompiler(runner.getFunctionManager(), 0),
-                new ColumnarFilterCompiler(runner.getFunctionManager(), 0));
+                runner.getPlannerContext().getFunctionManager(),
+                new PageFunctionCompiler(runner.getPlannerContext().getFunctionManager(), 0),
+                new ColumnarFilterCompiler(runner.getPlannerContext().getFunctionManager(), 0));
     }
 
     @AfterAll
@@ -296,12 +296,12 @@ public class TestScanFilterAndProjectOperator
 
         // match each column with a projection
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(
-                runner.getFunctionManager(),
-                new PageFunctionCompiler(runner.getFunctionManager(), 0),
-                new ColumnarFilterCompiler(runner.getFunctionManager(), 0));
+                runner.getPlannerContext().getFunctionManager(),
+                new PageFunctionCompiler(runner.getPlannerContext().getFunctionManager(), 0),
+                new ColumnarFilterCompiler(runner.getPlannerContext().getFunctionManager(), 0));
         ImmutableList.Builder<RowExpression> projections = ImmutableList.builder();
         for (int i = 0; i < totalColumns; i++) {
-            projections.add(call(runner.getMetadata().resolveBuiltinFunction("generic_long_page_col" + i, fromTypes(BIGINT)), field(0, BIGINT)));
+            projections.add(call(runner.getPlannerContext().getMetadata().resolveBuiltinFunction("generic_long_page_col" + i, fromTypes(BIGINT)), field(0, BIGINT)));
         }
         Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.empty(), projections.build(), "key");
         Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections.build(), MAX_BATCH_SIZE);
@@ -363,14 +363,14 @@ public class TestScanFilterAndProjectOperator
             driverContext.getYieldSignal().forceYieldForTesting();
             return value;
         })));
-        FunctionManager functionManager = runner.getFunctionManager();
+        FunctionManager functionManager = runner.getPlannerContext().getFunctionManager();
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(
                 functionManager,
                 new PageFunctionCompiler(functionManager, 0),
                 new ColumnarFilterCompiler(functionManager, 0));
 
         List<RowExpression> projections = ImmutableList.of(call(
-                runner.getMetadata().resolveBuiltinFunction("generic_long_record_cursor", fromTypes(BIGINT)),
+                runner.getPlannerContext().getMetadata().resolveBuiltinFunction("generic_long_record_cursor", fromTypes(BIGINT)),
                 field(0, BIGINT)));
         Supplier<CursorProcessor> cursorProcessor = expressionCompiler.compileCursorProcessor(Optional.empty(), projections, "key");
         Supplier<PageProcessor> pageProcessor = expressionCompiler.compilePageProcessor(Optional.empty(), projections);

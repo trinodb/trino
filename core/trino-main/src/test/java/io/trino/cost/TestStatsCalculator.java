@@ -93,8 +93,8 @@ public class TestStatsCalculator
                     createPlanOptimizersStatsCollector());
             PlanAssert.assertPlan(
                     transactionSession,
-                    queryRunner.getMetadata(),
-                    queryRunner.getFunctionManager(),
+                    queryRunner.getPlannerContext().getMetadata(),
+                    queryRunner.getPlannerContext().getFunctionManager(),
                     queryRunner.getStatsCalculator(),
                     actualPlan,
                     pattern);

@@ -19,6 +19,7 @@ import com.google.common.collect.Lists;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionBundle;
+import io.trino.metadata.Metadata;
 import io.trino.spi.Plugin;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.SqlTime;
@@ -27,7 +28,6 @@ import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.Plan;
-import io.trino.sql.planner.assertions.PlanAssert;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.JoinNode;
@@ -172,7 +172,7 @@ public class QueryAssertions
         assertQuery(runner.getDefaultSession(), actual, expected, false);
 
         Plan plan = runner.executeWithPlan(runner.getDefaultSession(), actual, WarningCollector.NOOP).getQueryPlan();
-        PlanAssert.assertPlan(runner.getDefaultSession(), runner.getMetadata(), runner.getFunctionManager(), runner.getStatsCalculator(), plan, pattern);
+        assertPlan(runner.getDefaultSession(), runner.getPlannerContext().getMetadata(), runner.getPlannerContext().getFunctionManager(), runner.getStatsCalculator(), plan, pattern);
     }
 
     private void assertQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected, boolean ensureOrdering)
@@ -406,13 +406,14 @@ public class QueryAssertions
         @CanIgnoreReturnValue
         public QueryAssert matches(PlanMatchPattern expectedPlan)
         {
-            transaction(runner.getTransactionManager(), runner.getMetadata(), runner.getAccessControl())
+            Metadata metadata = runner.getPlannerContext().getMetadata();
+            transaction(runner.getTransactionManager(), metadata, runner.getAccessControl())
                     .execute(session, session -> {
                         Plan plan = runner.createPlan(session, query);
                         assertPlan(
                                 session,
-                                runner.getMetadata(),
-                                runner.getFunctionManager(),
+                                metadata,
+                                runner.getPlannerContext().getFunctionManager(),
                                 noopStatsCalculator(),
                                 plan,
                                 expectedPlan);
@@ -483,13 +484,14 @@ public class QueryAssertions
         {
             checkState(!(runner instanceof LocalQueryRunner), "isFullyPushedDown() currently does not work with LocalQueryRunner");
 
-            transaction(runner.getTransactionManager(), runner.getMetadata(), runner.getAccessControl())
+            Metadata metadata = runner.getPlannerContext().getMetadata();
+            transaction(runner.getTransactionManager(), metadata, runner.getAccessControl())
                     .execute(session, session -> {
                         Plan plan = runner.createPlan(session, query);
                         assertPlan(
                                 session,
-                                runner.getMetadata(),
-                                runner.getFunctionManager(),
+                                metadata,
+                                runner.getPlannerContext().getFunctionManager(),
                                 noopStatsCalculator(),
                                 plan,
                                 PlanMatchPattern.output(PlanMatchPattern.node(TableScanNode.class)));
@@ -511,13 +513,14 @@ public class QueryAssertions
         {
             checkState(!(runner instanceof LocalQueryRunner), "isReplacedWithEmptyValues() currently does not work with LocalQueryRunner");
 
-            transaction(runner.getTransactionManager(), runner.getMetadata(), runner.getAccessControl())
+            Metadata metadata = runner.getPlannerContext().getMetadata();
+            transaction(runner.getTransactionManager(), metadata, runner.getAccessControl())
                     .execute(session, session -> {
                         Plan plan = runner.createPlan(session, query);
                         assertPlan(
                                 session,
-                                runner.getMetadata(),
-                                runner.getFunctionManager(),
+                                metadata,
+                                runner.getPlannerContext().getFunctionManager(),
                                 noopStatsCalculator(),
                                 plan,
                                 PlanMatchPattern.output(PlanMatchPattern.node(ValuesNode.class).with(ValuesNode.class, valuesNode -> valuesNode.getRowCount() == 0)));
@@ -600,13 +603,14 @@ public class QueryAssertions
 
         private QueryAssert hasPlan(PlanMatchPattern expectedPlan, Consumer<Plan> additionalPlanVerification)
         {
-            transaction(runner.getTransactionManager(), runner.getMetadata(), runner.getAccessControl())
+            Metadata metadata = runner.getPlannerContext().getMetadata();
+            transaction(runner.getTransactionManager(), metadata, runner.getAccessControl())
                     .execute(session, session -> {
                         Plan plan = runner.createPlan(session, query);
                         assertPlan(
                                 session,
-                                runner.getMetadata(),
-                                runner.getFunctionManager(),
+                                metadata,
+                                runner.getPlannerContext().getFunctionManager(),
                                 noopStatsCalculator(),
                                 plan,
                                 expectedPlan);
@@ -622,7 +626,7 @@ public class QueryAssertions
 
         private QueryAssert verifyPlan(Consumer<Plan> planVerification)
         {
-            transaction(runner.getTransactionManager(), runner.getMetadata(), runner.getAccessControl())
+            transaction(runner.getTransactionManager(), runner.getPlannerContext().getMetadata(), runner.getAccessControl())
                     .execute(session, session -> {
                         Plan plan = runner.createPlan(session, query);
                         planVerification.accept(plan);

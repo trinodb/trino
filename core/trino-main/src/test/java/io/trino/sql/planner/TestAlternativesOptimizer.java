@@ -307,18 +307,18 @@ public class TestAlternativesOptimizer
                 new PlanNodeIdAllocator(),
                 WarningCollector.NOOP,
                 createPlanOptimizersStatsCollector(),
-                new CachingTableStatsProvider(getQueryRunner().getMetadata(), session));
+                new CachingTableStatsProvider(getQueryRunner().getPlannerContext().getMetadata(), session));
     }
 
     private void assertPlan(PlanNode actual, PlanMatchPattern pattern, TypeProvider types)
     {
         getQueryRunner().inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
-            session.getCatalog().ifPresent(catalog -> getQueryRunner().getMetadata().getCatalogHandle(session, catalog));
+            session.getCatalog().ifPresent(catalog -> getQueryRunner().getPlannerContext().getMetadata().getCatalogHandle(session, catalog));
             PlanAssert.assertPlan(
                     session,
-                    getQueryRunner().getMetadata(),
-                    getQueryRunner().getFunctionManager(),
+                    getQueryRunner().getPlannerContext().getMetadata(),
+                    getQueryRunner().getPlannerContext().getFunctionManager(),
                     getQueryRunner().getStatsCalculator(),
                     new Plan(actual, types, StatsAndCosts.empty()),
                     pattern);

@@ -103,7 +103,7 @@ public class TestJoinEnumerator
                 ImmutableList.of(a1, b1),
                 false);
         JoinEnumerator joinEnumerator = new JoinEnumerator(
-                queryRunner.getMetadata(),
+                queryRunner.getPlannerContext().getMetadata(),
                 new CostComparator(1, 1, 1),
                 multiJoinNode.getFilter(),
                 createContext());
@@ -122,7 +122,7 @@ public class TestJoinEnumerator
                 noLookup(),
                 queryRunner.getDefaultSession(),
                 symbolAllocator.getTypes(),
-                new CachingTableStatsProvider(queryRunner.getMetadata(), queryRunner.getDefaultSession()));
+                new CachingTableStatsProvider(queryRunner.getPlannerContext().getMetadata(), queryRunner.getDefaultSession()));
         CachingCostProvider costProvider = new CachingCostProvider(
                 queryRunner.getCostCalculator(),
                 statsProvider,

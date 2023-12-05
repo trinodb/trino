@@ -84,11 +84,11 @@ public class RuleAssert
                 fail(format(
                         "Expected %s to not fire for:\n%s",
                         rule,
-                        textLogicalPlan(plan, ruleApplication.types(), queryRunner.getMetadata(), queryRunner.getFunctionManager(), StatsAndCosts.empty(), session, 2, false)));
+                        textLogicalPlan(plan, ruleApplication.types(), queryRunner.getPlannerContext().getMetadata(), queryRunner.getPlannerContext().getFunctionManager(), StatsAndCosts.empty(), session, 2, false)));
             }
         }
         finally {
-            queryRunner.getMetadata().cleanupQuery(session);
+            queryRunner.getPlannerContext().getMetadata().cleanupQuery(session);
             queryRunner.getTransactionManager().asyncAbort(session.getRequiredTransactionId());
         }
     }
@@ -130,11 +130,11 @@ public class RuleAssert
                             actual.getOutputSymbols()));
                 }
 
-                assertPlan(session, queryRunner.getMetadata(), queryRunner.getFunctionManager(), ruleApplication.statsProvider(), new Plan(actual, ruleApplication.types(), StatsAndCosts.empty()), ruleApplication.lookup(), pattern);
+                assertPlan(session, queryRunner.getPlannerContext().getMetadata(), queryRunner.getPlannerContext().getFunctionManager(), ruleApplication.statsProvider(), new Plan(actual, ruleApplication.types(), StatsAndCosts.empty()), ruleApplication.lookup(), pattern);
             }
         }
         finally {
-            queryRunner.getMetadata().cleanupQuery(session);
+            queryRunner.getPlannerContext().getMetadata().cleanupQuery(session);
             queryRunner.getTransactionManager().asyncAbort(session.getRequiredTransactionId());
         }
     }
@@ -170,14 +170,14 @@ public class RuleAssert
 
     private String formatPlan(PlanNode plan, TypeProvider types)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types, new CachingTableStatsProvider(queryRunner.getMetadata(), session));
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types, new CachingTableStatsProvider(queryRunner.getPlannerContext().getMetadata(), session));
         CostProvider costProvider = new CachingCostProvider(queryRunner.getCostCalculator(), statsProvider, session, types);
-        return textLogicalPlan(plan, types, queryRunner.getMetadata(), queryRunner.getFunctionManager(), StatsAndCosts.create(plan, statsProvider, costProvider), session, 2, false);
+        return textLogicalPlan(plan, types, queryRunner.getPlannerContext().getMetadata(), queryRunner.getPlannerContext().getFunctionManager(), StatsAndCosts.create(plan, statsProvider, costProvider), session, 2, false);
     }
 
     private Rule.Context ruleContext(StatsCalculator statsCalculator, CostCalculator costCalculator, SymbolAllocator symbolAllocator, Memo memo, Lookup lookup, Session session)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(memo), lookup, session, symbolAllocator.getTypes(), new CachingTableStatsProvider(queryRunner.getMetadata(), session));
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(memo), lookup, session, symbolAllocator.getTypes(), new CachingTableStatsProvider(queryRunner.getPlannerContext().getMetadata(), session));
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(memo), session, symbolAllocator.getTypes());
 
         return new Rule.Context()

@@ -338,7 +338,7 @@ public abstract class BaseCacheSubqueriesTest
         Plan allPartitionsQueryPlan = getDistributedQueryRunner().getQueryPlan(allPartitionsQuery.getQueryId());
 
         String catalogId = withTransaction(session -> getDistributedQueryRunner().getCoordinator()
-                .getMetadata()
+                .getPlannerContext().getMetadata()
                 .getCatalogHandle(session, session.getCatalog().get())
                 .orElseThrow()
                 .getId());
@@ -405,14 +405,14 @@ public abstract class BaseCacheSubqueriesTest
                         .setQueryId(new QueryId("prune_predicate_" + isDynamicRowFilteringEnabled))
                         .build(),
                 isDynamicRowFilteringEnabled);
-        transaction(runner.getTransactionManager(), runner.getMetadata(), runner.getAccessControl())
+        transaction(runner.getTransactionManager(), runner.getPlannerContext().getMetadata(), runner.getAccessControl())
                 .singleStatement()
                 .execute(session, transactionSession -> {
                     TestingTrinoServer coordinator = runner.getCoordinator();
                     TestingTrinoServer worker = runner.getServers().get(0);
                     checkState(!worker.isCoordinator());
                     String catalog = transactionSession.getCatalog().orElseThrow();
-                    Optional<TableHandle> handle = coordinator.getMetadata().getTableHandle(
+                    Optional<TableHandle> handle = coordinator.getPlannerContext().getMetadata().getTableHandle(
                             transactionSession,
                             new QualifiedObjectName(catalog, transactionSession.getSchema().orElseThrow(), tableName));
                     assertThat(handle).isPresent();
@@ -420,9 +420,9 @@ public abstract class BaseCacheSubqueriesTest
                     SplitSource splitSource = coordinator.getSplitManager().getSplits(transactionSession, Span.current(), handle.get(), DynamicFilter.EMPTY, alwaysTrue());
                     Split split = getFutureValue(splitSource.getNextBatch(1000)).getSplits().get(0);
 
-                    ColumnHandle partitionColumn = coordinator.getMetadata().getColumnHandles(transactionSession, handle.get()).get("orderpriority");
+                    ColumnHandle partitionColumn = coordinator.getPlannerContext().getMetadata().getColumnHandles(transactionSession, handle.get()).get("orderpriority");
                     assertThat(partitionColumn).isNotNull();
-                    ColumnHandle dataColumn = coordinator.getMetadata().getColumnHandles(transactionSession, handle.get()).get("orderkey");
+                    ColumnHandle dataColumn = coordinator.getPlannerContext().getMetadata().getColumnHandles(transactionSession, handle.get()).get("orderkey");
                     assertThat(dataColumn).isNotNull();
 
                     ConnectorPageSourceProvider pageSourceProvider = getPageSourceProvider(worker.getConnector(coordinator.getCatalogHandle(catalog)));
@@ -430,7 +430,7 @@ public abstract class BaseCacheSubqueriesTest
                     VarcharType type = VarcharType.createVarcharType(4);
 
                     // simplifyPredicate and prunePredicate should return none if predicate is exclusive on partition column
-                    ConnectorSession connectorSession = transactionSession.toConnectorSession(coordinator.getMetadata().getCatalogHandle(transactionSession, catalog).orElseThrow());
+                    ConnectorSession connectorSession = transactionSession.toConnectorSession(coordinator.getPlannerContext().getMetadata().getCatalogHandle(transactionSession, catalog).orElseThrow());
                     Domain nonPartitionDomain = Domain.multipleValues(type, Streams.concat(LongStream.range(0, 9_000), LongStream.of(9_999))
                             .boxed()
                             .map(value -> Slices.utf8Slice(value.toString()))
@@ -543,10 +543,10 @@ public abstract class BaseCacheSubqueriesTest
     {
         QueryRunner runner = getQueryRunner();
         QualifiedObjectName table = new QualifiedObjectName(session.getCatalog().orElseThrow(), session.getSchema().orElseThrow(), tableName);
-        return transaction(runner.getTransactionManager(), runner.getMetadata(), runner.getAccessControl())
+        return transaction(runner.getTransactionManager(), runner.getPlannerContext().getMetadata(), runner.getAccessControl())
                 .singleStatement()
                 .execute(session, transactionSession -> {
-                    Metadata metadata = runner.getMetadata();
+                    Metadata metadata = runner.getPlannerContext().getMetadata();
                     CacheMetadata cacheMetadata = runner.getCacheMetadata();
                     TableHandle tableHandle = metadata.getTableHandle(transactionSession, table).get();
                     return new CacheColumnId("[" + cacheMetadata.getCacheColumnId(transactionSession, tableHandle, metadata.getColumnHandles(transactionSession, tableHandle).get(columnName)).get() + "]");
@@ -562,10 +562,10 @@ public abstract class BaseCacheSubqueriesTest
     {
         QueryRunner runner = getQueryRunner();
         QualifiedObjectName table = new QualifiedObjectName(session.getCatalog().orElseThrow(), session.getSchema().orElseThrow(), tableName);
-        return transaction(runner.getTransactionManager(), runner.getMetadata(), runner.getAccessControl())
+        return transaction(runner.getTransactionManager(), runner.getPlannerContext().getMetadata(), runner.getAccessControl())
                 .singleStatement()
                 .execute(session, transactionSession -> {
-                    Metadata metadata = runner.getMetadata();
+                    Metadata metadata = runner.getPlannerContext().getMetadata();
                     CacheMetadata cacheMetadata = runner.getCacheMetadata();
                     TableHandle tableHandle = metadata.getTableHandle(transactionSession, table).get();
                     return cacheMetadata.getCacheTableId(transactionSession, tableHandle).get();
@@ -575,11 +575,11 @@ public abstract class BaseCacheSubqueriesTest
     protected void assertPlan(Session session, Plan plan, PlanMatchPattern pattern)
     {
         QueryRunner runner = getQueryRunner();
-        transaction(runner.getTransactionManager(), runner.getMetadata(), runner.getAccessControl())
+        transaction(runner.getTransactionManager(), runner.getPlannerContext().getMetadata(), runner.getAccessControl())
                 .singleStatement()
                 .execute(session, transactionSession -> {
                     runner.getTransactionManager().getCatalogHandle(transactionSession.getTransactionId().get(), transactionSession.getCatalog().orElseThrow());
-                    PlanAssert.assertPlan(transactionSession, getQueryRunner().getMetadata(), createTestingFunctionManager(), noopStatsCalculator(), plan, pattern);
+                    PlanAssert.assertPlan(transactionSession, getQueryRunner().getPlannerContext().getMetadata(), createTestingFunctionManager(), noopStatsCalculator(), plan, pattern);
                 });
     }
 

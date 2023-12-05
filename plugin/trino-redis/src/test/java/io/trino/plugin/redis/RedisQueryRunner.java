@@ -63,7 +63,7 @@ public final class RedisQueryRunner
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
 
-            Map<SchemaTableName, RedisTableDescription> tableDescriptions = createTpchTableDescriptions(queryRunner.getCoordinator().getTypeManager(), tables, dataFormat);
+            Map<SchemaTableName, RedisTableDescription> tableDescriptions = createTpchTableDescriptions(queryRunner.getPlannerContext().getTypeManager(), tables, dataFormat);
 
             installRedisPlugin(redisServer, queryRunner, tableDescriptions, connectorProperties);
 

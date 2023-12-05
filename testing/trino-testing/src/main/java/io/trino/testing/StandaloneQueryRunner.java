@@ -19,17 +19,14 @@ import io.trino.cache.CacheMetadata;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.metadata.FunctionBundle;
-import io.trino.metadata.FunctionManager;
-import io.trino.metadata.LanguageFunctionManager;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
-import io.trino.spi.type.TypeManager;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.QueryExplainer;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.transaction.TransactionManager;
@@ -119,21 +116,15 @@ public final class StandaloneQueryRunner
     }
 
     @Override
-    public Metadata getMetadata()
+    public PlannerContext getPlannerContext()
     {
-        return server.getMetadata();
+        return server.getPlannerContext();
     }
 
     @Override
     public CacheMetadata getCacheMetadata()
     {
         return server.getCacheMetadata();
-    }
-
-    @Override
-    public TypeManager getTypeManager()
-    {
-        return server.getTypeManager();
     }
 
     @Override
@@ -146,18 +137,6 @@ public final class StandaloneQueryRunner
     public SessionPropertyManager getSessionPropertyManager()
     {
         return server.getSessionPropertyManager();
-    }
-
-    @Override
-    public FunctionManager getFunctionManager()
-    {
-        return server.getFunctionManager();
-    }
-
-    @Override
-    public LanguageFunctionManager getLanguageFunctionManager()
-    {
-        return server.getLanguageFunctionManager();
     }
 
     @Override

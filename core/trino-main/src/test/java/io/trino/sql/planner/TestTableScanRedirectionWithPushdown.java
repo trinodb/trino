@@ -496,7 +496,7 @@ public class TestTableScanRedirectionWithPushdown
 
         queryRunner.inTransaction(transactionSession -> {
             Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers, alternativeOptimizers, OPTIMIZED_AND_VALIDATED, NOOP, createPlanOptimizersStatsCollector());
-            PlanAssert.assertPlan(transactionSession, queryRunner.getMetadata(), queryRunner.getFunctionManager(), queryRunner.getStatsCalculator(), actualPlan, pattern);
+            PlanAssert.assertPlan(transactionSession, queryRunner.getPlannerContext().getMetadata(), queryRunner.getPlannerContext().getFunctionManager(), queryRunner.getStatsCalculator(), actualPlan, pattern);
             return null;
         });
     }

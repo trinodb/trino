@@ -642,8 +642,8 @@ public class TestCanonicalSubplanExtractor
         LocalQueryRunner queryRunner = getQueryRunner();
         return queryRunner.inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
-            session.getCatalog().ifPresent(catalog -> queryRunner.getMetadata().getCatalogHandle(session, catalog));
-            return extractCanonicalSubplans(queryRunner.getMetadata(), queryRunner.getCacheMetadata(), session, plan.getRoot());
+            session.getCatalog().ifPresent(catalog -> queryRunner.getPlannerContext().getMetadata().getCatalogHandle(session, catalog));
+            return extractCanonicalSubplans(queryRunner.getPlannerContext().getMetadata(), queryRunner.getCacheMetadata(), session, plan.getRoot());
         });
     }
 
@@ -660,7 +660,7 @@ public class TestCanonicalSubplanExtractor
     private BuiltinFunctionCallBuilder getFunctionCallBuilder(String name, ExpressionWithType... arguments)
     {
         LocalQueryRunner queryRunner = getQueryRunner();
-        BuiltinFunctionCallBuilder builder = BuiltinFunctionCallBuilder.resolve(queryRunner.getMetadata())
+        BuiltinFunctionCallBuilder builder = BuiltinFunctionCallBuilder.resolve(queryRunner.getPlannerContext().getMetadata())
                 .setName(name);
         for (ExpressionWithType argument : arguments) {
             builder.addArgument(argument.type, argument.expression);

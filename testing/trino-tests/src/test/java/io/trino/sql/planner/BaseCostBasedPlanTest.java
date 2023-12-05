@@ -381,7 +381,7 @@ public abstract class BaseCostBasedPlanTest
         @Override
         public Void visitTableScan(TableScanNode node, Integer indent)
         {
-            CatalogSchemaTableName tableName = getQueryRunner().getMetadata().getTableName(session, node.getTable());
+            CatalogSchemaTableName tableName = getQueryRunner().getPlannerContext().getMetadata().getTableName(session, node.getTable());
             output(indent, "scan %s", tableName.getSchemaTableName().getTableName());
 
             return null;

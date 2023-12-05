@@ -87,7 +87,7 @@ public class TestIcebergCacheSubqueriesTest
                 "(year INT, name VARCHAR) with (partitioning = ARRAY['year'])",
                 ImmutableList.of("2000, 'value1'", "2001, 'value2'"))) {
             Optional<TableHandle> tableHandler = withTransaction(session -> getDistributedQueryRunner().getCoordinator()
-                            .getMetadata()
+                    .getPlannerContext().getMetadata()
                     .getTableHandle(session, new QualifiedObjectName(ICEBERG_CATALOG, session.getSchema().get(), testTable.getName())));
             IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandler.get().getConnectorHandle();
 

@@ -506,7 +506,7 @@ public class TestRemoveUnsupportedDynamicFilters
             PlanAssert.assertPlan(
                     session,
                     metadata,
-                    getQueryRunner().getFunctionManager(),
+                    getQueryRunner().getPlannerContext().getFunctionManager(),
                     getQueryRunner().getStatsCalculator(),
                     new Plan(actual, builder.getTypes(), StatsAndCosts.empty()),
                     pattern);

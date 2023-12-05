@@ -66,12 +66,8 @@ import io.trino.memory.LocalMemoryManager;
 import io.trino.metadata.AllNodes;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.FunctionBundle;
-import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.InternalNodeManager;
-import io.trino.metadata.LanguageFunctionManager;
-import io.trino.metadata.Metadata;
-import io.trino.metadata.ProcedureRegistry;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AccessControl;
@@ -95,12 +91,11 @@ import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.eventlistener.EventListener;
-import io.trino.spi.exchange.ExchangeManager;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.SystemAccessControl;
-import io.trino.spi.type.TypeManager;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.AnalyzerFactory;
 import io.trino.sql.analyzer.QueryExplainer;
 import io.trino.sql.analyzer.QueryExplainerFactory;
@@ -173,16 +168,12 @@ public class TestingTrinoServer
     private final TestingHttpServer server;
     private final TransactionManager transactionManager;
     private final TablePropertyManager tablePropertyManager;
-    private final Metadata metadata;
     private final CacheMetadata cacheMetadata;
-    private final TypeManager typeManager;
+    private final PlannerContext plannerContext;
     private final QueryExplainer queryExplainer;
     private final SessionPropertyManager sessionPropertyManager;
-    private final FunctionManager functionManager;
-    private final LanguageFunctionManager languageFunctionManager;
     private final GlobalFunctionCatalog globalFunctionCatalog;
     private final StatsCalculator statsCalculator;
-    private final ProcedureRegistry procedureRegistry;
     private final TestingAccessControlManager accessControl;
     private final TestingGroupProviderManager groupProvider;
     private final ProcedureTester procedureTester;
@@ -361,10 +352,8 @@ public class TestingTrinoServer
         transactionManager = injector.getInstance(TransactionManager.class);
         tablePropertyManager = injector.getInstance(TablePropertyManager.class);
         globalFunctionCatalog = injector.getInstance(GlobalFunctionCatalog.class);
-        metadata = injector.getInstance(Metadata.class);
         cacheMetadata = injector.getInstance(CacheMetadata.class);
-        typeManager = injector.getInstance(TypeManager.class);
-        functionManager = injector.getInstance(FunctionManager.class);
+        plannerContext = injector.getInstance(PlannerContext.class);
         accessControl = injector.getInstance(TestingAccessControlManager.class);
         groupProvider = injector.getInstance(TestingGroupProviderManager.class);
         procedureTester = injector.getInstance(ProcedureTester.class);
@@ -380,9 +369,7 @@ public class TestingTrinoServer
             sessionPropertyDefaults = injector.getInstance(SessionPropertyDefaults.class);
             nodePartitioningManager = injector.getInstance(NodePartitioningManager.class);
             clusterMemoryManager = injector.getInstance(ClusterMemoryManager.class);
-            languageFunctionManager = injector.getInstance(LanguageFunctionManager.class);
             statsCalculator = injector.getInstance(StatsCalculator.class);
-            procedureRegistry = injector.getInstance(ProcedureRegistry.class);
             injector.getInstance(CertificateAuthenticatorManager.class).useDefaultAuthenticator();
         }
         else {
@@ -393,9 +380,7 @@ public class TestingTrinoServer
             sessionPropertyDefaults = null;
             nodePartitioningManager = null;
             clusterMemoryManager = null;
-            languageFunctionManager = null;
             statsCalculator = null;
-            procedureRegistry = null;
         }
         localMemoryManager = injector.getInstance(LocalMemoryManager.class);
         nodeManager = injector.getInstance(InternalNodeManager.class);
@@ -555,19 +540,14 @@ public class TestingTrinoServer
         return tablePropertyManager;
     }
 
-    public Metadata getMetadata()
-    {
-        return metadata;
-    }
-
     public CacheMetadata getCacheMetadata()
     {
         return cacheMetadata;
     }
 
-    public TypeManager getTypeManager()
+    public PlannerContext getPlannerContext()
     {
-        return typeManager;
+        return plannerContext;
     }
 
     public QueryExplainer getQueryExplainer()
@@ -580,17 +560,6 @@ public class TestingTrinoServer
         return sessionPropertyManager;
     }
 
-    public FunctionManager getFunctionManager()
-    {
-        return functionManager;
-    }
-
-    public LanguageFunctionManager getLanguageFunctionManager()
-    {
-        checkState(coordinator, "not a coordinator");
-        return languageFunctionManager;
-    }
-
     public void addFunctions(FunctionBundle functionBundle)
     {
         globalFunctionCatalog.addFunctions(functionBundle);
@@ -600,11 +569,6 @@ public class TestingTrinoServer
     {
         checkState(coordinator, "not a coordinator");
         return statsCalculator;
-    }
-
-    public ProcedureRegistry getProcedureRegistry()
-    {
-        return procedureRegistry;
     }
 
     public TestingAccessControlManager getAccessControl()
@@ -625,11 +589,6 @@ public class TestingTrinoServer
     public SplitManager getSplitManager()
     {
         return splitManager;
-    }
-
-    public ExchangeManager getExchangeManager()
-    {
-        return exchangeManagerRegistry.getExchangeManager();
     }
 
     public PageSourceManager getPageSourceManager()

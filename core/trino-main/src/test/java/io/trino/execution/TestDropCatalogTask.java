@@ -68,12 +68,12 @@ public class TestDropCatalogTask
     public void testDuplicatedCreateCatalog()
     {
         queryRunner.createCatalog(TEST_CATALOG, "tpch", ImmutableMap.of());
-        assertThat(queryRunner.getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isTrue();
+        assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isTrue();
 
         DropCatalogTask task = getCreateCatalogTask();
         DropCatalog statement = new DropCatalog(new Identifier(TEST_CATALOG), false, false);
         getFutureValue(task.execute(statement, createNewQuery(), emptyList(), WarningCollector.NOOP));
-        assertThat(queryRunner.getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isFalse();
+        assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isFalse();
         assertThatExceptionOfType(TrinoException.class)
                 .isThrownBy(() -> getFutureValue(task.execute(statement, createNewQuery(), emptyList(), WarningCollector.NOOP)))
                 .withMessage("Catalog '%s' does not exist", TEST_CATALOG);
@@ -83,14 +83,14 @@ public class TestDropCatalogTask
     public void testDuplicatedCreateCatalogIfNotExists()
     {
         queryRunner.createCatalog(TEST_CATALOG, "tpch", ImmutableMap.of());
-        assertThat(queryRunner.getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isTrue();
+        assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isTrue();
 
         DropCatalogTask task = getCreateCatalogTask();
         DropCatalog statement = new DropCatalog(new Identifier(TEST_CATALOG), true, false);
         getFutureValue(task.execute(statement, createNewQuery(), emptyList(), WarningCollector.NOOP));
-        assertThat(queryRunner.getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isFalse();
+        assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isFalse();
         getFutureValue(task.execute(statement, createNewQuery(), emptyList(), WarningCollector.NOOP));
-        assertThat(queryRunner.getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isFalse();
+        assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isFalse();
     }
 
     private DropCatalogTask getCreateCatalogTask()
@@ -111,7 +111,7 @@ public class TestDropCatalogTask
                 queryRunner.getTransactionManager(),
                 queryRunner.getAccessControl(),
                 directExecutor(),
-                queryRunner.getMetadata(),
+                queryRunner.getPlannerContext().getMetadata(),
                 WarningCollector.NOOP,
                 createPlanOptimizersStatsCollector(),
                 Optional.empty(),

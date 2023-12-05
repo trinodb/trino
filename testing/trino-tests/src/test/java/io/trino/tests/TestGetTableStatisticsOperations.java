@@ -86,7 +86,7 @@ public class TestGetTableStatisticsOperations
 
     private void planDistributedQuery(@Language("SQL") String sql)
     {
-        transaction(localQueryRunner.getTransactionManager(), localQueryRunner.getMetadata(), localQueryRunner.getAccessControl())
+        transaction(localQueryRunner.getTransactionManager(), localQueryRunner.getPlannerContext().getMetadata(), localQueryRunner.getAccessControl())
                 .execute(localQueryRunner.getDefaultSession(), transactionSession -> {
                     localQueryRunner.createPlan(
                             transactionSession,

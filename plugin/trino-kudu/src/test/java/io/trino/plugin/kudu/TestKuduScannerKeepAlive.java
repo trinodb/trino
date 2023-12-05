@@ -222,7 +222,7 @@ public class TestKuduScannerKeepAlive
                 .beginTransactionId(transactionId, transactionManager, new AllowAllAccessControl());
 
         QualifiedObjectName qualifiedTableName = new QualifiedObjectName(session.getCatalog().orElseThrow(), session.getSchema().orElseThrow(), "test_scanner_keep_alive");
-        Optional<TableHandle> tableHandle = queryRunner.getMetadata().getTableHandle(session, qualifiedTableName);
+        Optional<TableHandle> tableHandle = queryRunner.getPlannerContext().getMetadata().getTableHandle(session, qualifiedTableName);
         assertThat(tableHandle).isPresent();
         SplitSource splitSource = queryRunner.getSplitManager()
                 .getSplits(session, Span.getInvalid(), tableHandle.get(), DynamicFilter.EMPTY, alwaysTrue());

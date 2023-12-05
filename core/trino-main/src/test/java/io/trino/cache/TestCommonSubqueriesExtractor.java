@@ -837,7 +837,7 @@ public class TestCommonSubqueriesExtractor
                 and(
                         expression("subquery_b_column1 % 4 = BIGINT '0'"),
                         createDynamicFilterExpression(
-                                getQueryRunner().getMetadata(),
+                                getQueryRunner().getPlannerContext().getMetadata(),
                                 new DynamicFilterId("subquery_b_dynamic_id"),
                                 BIGINT,
                                 expression("subquery_b_column1"))));
@@ -980,7 +980,7 @@ public class TestCommonSubqueriesExtractor
                 and(
                         expression("subquery_b_column1 < BIGINT '50'"),
                         createDynamicFilterExpression(
-                                getQueryRunner().getMetadata(),
+                                getQueryRunner().getPlannerContext().getMetadata(),
                                 new DynamicFilterId("subquery_b_dynamic_id"),
                                 BIGINT,
                                 expression("subquery_b_column2"))),
@@ -1007,7 +1007,7 @@ public class TestCommonSubqueriesExtractor
 
         // There is a FilterNode because of dynamic filters
         PlanMatchPattern commonSubplanB = filter(TRUE_LITERAL, createDynamicFilterExpression(
-                        getQueryRunner().getMetadata(),
+                        getQueryRunner().getPlannerContext().getMetadata(),
                         new DynamicFilterId("subquery_b_dynamic_id"),
                         BIGINT,
                         expression("column2")),
@@ -1515,7 +1515,7 @@ public class TestCommonSubqueriesExtractor
     private BuiltinFunctionCallBuilder getFunctionCallBuilder(String name, ExpressionWithType... arguments)
     {
         LocalQueryRunner queryRunner = getQueryRunner();
-        BuiltinFunctionCallBuilder builder = BuiltinFunctionCallBuilder.resolve(queryRunner.getMetadata())
+        BuiltinFunctionCallBuilder builder = BuiltinFunctionCallBuilder.resolve(queryRunner.getPlannerContext().getMetadata())
                 .setName(name);
         for (ExpressionWithType argument : arguments) {
             builder.addArgument(argument.type, argument.expression);
@@ -1554,7 +1554,7 @@ public class TestCommonSubqueriesExtractor
         return queryRunner.inTransaction(tpchSession, session -> {
             Plan plan = queryRunner.createPlan(session, query, queryRunner.getPlanOptimizers(true), queryRunner.getAlternativeOptimizers(), OPTIMIZED_AND_VALIDATED, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
             // metadata.getCatalogHandle() registers the catalog for the transaction
-            session.getCatalog().ifPresent(catalog -> getQueryRunner().getMetadata().getCatalogHandle(session, catalog));
+            session.getCatalog().ifPresent(catalog -> getQueryRunner().getPlannerContext().getMetadata().getCatalogHandle(session, catalog));
             SymbolAllocator symbolAllocator = new SymbolAllocator(plan.getTypes().allTypes());
             PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
             return new CommonSubqueries(
@@ -1581,7 +1581,7 @@ public class TestCommonSubqueriesExtractor
     {
         return getQueryRunner().inTransaction(TEST_SESSION, session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
-            session.getCatalog().ifPresent(catalog -> getQueryRunner().getMetadata().getCatalogHandle(session, catalog));
+            session.getCatalog().ifPresent(catalog -> getQueryRunner().getPlannerContext().getMetadata().getCatalogHandle(session, catalog));
             return CommonSubqueriesExtractor.extractCommonSubqueries(
                     new CacheController(),
                     getQueryRunner().getPlannerContext(),
@@ -1624,9 +1624,9 @@ public class TestCommonSubqueriesExtractor
     {
         getQueryRunner().inTransaction(customSession, session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
-            session.getCatalog().ifPresent(catalog -> getQueryRunner().getMetadata().getCatalogHandle(session, catalog));
+            session.getCatalog().ifPresent(catalog -> getQueryRunner().getPlannerContext().getMetadata().getCatalogHandle(session, catalog));
             Plan plan = new Plan(root, symbolAllocator.getTypes(), StatsAndCosts.empty());
-            PlanAssert.assertPlan(session, getQueryRunner().getMetadata(), createTestingFunctionManager(), noopStatsCalculator(), plan, expected);
+            PlanAssert.assertPlan(session, getQueryRunner().getPlannerContext().getMetadata(), createTestingFunctionManager(), noopStatsCalculator(), plan, expected);
             return null;
         });
     }
