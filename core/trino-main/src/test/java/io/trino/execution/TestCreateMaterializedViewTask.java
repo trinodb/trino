@@ -144,7 +144,7 @@ public class TestCreateMaterializedViewTask
 
         metadata = new MockMetadata();
         plannerContext = plannerContextBuilder().withMetadata(metadata).build();
-        parser = queryRunner.getSqlParser();
+        parser = new SqlParser();
         analyzerFactory = new AnalyzerFactory(createTestingStatementAnalyzerFactory(plannerContext,
                 new AllowAllAccessControl(),
                 queryRunner.getTablePropertyManager(),
