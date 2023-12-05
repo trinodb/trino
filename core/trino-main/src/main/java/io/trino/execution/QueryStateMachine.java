@@ -1523,6 +1523,7 @@ public class QueryStateMachine
             }
             queryCompleted = true;
             inputsQueue.clear();
+            outputTaskFailureListeners.clear();
             noMoreInputs = true;
         }
 
@@ -1530,7 +1531,9 @@ public class QueryStateMachine
         {
             Map<TaskId, Throwable> failures;
             synchronized (this) {
-                outputTaskFailureListeners.add(listener);
+                if (!queryCompleted) {
+                    outputTaskFailureListeners.add(listener);
+                }
                 failures = ImmutableMap.copyOf(outputTaskFailures);
             }
             if (!failures.isEmpty()) {
@@ -1542,6 +1545,10 @@ public class QueryStateMachine
         {
             List<TaskFailureListener> listeners;
             synchronized (this) {
+                if (queryCompleted) {
+                    // ignore late task failed events after query is completed
+                    return;
+                }
                 outputTaskFailures.putIfAbsent(taskId, failure);
                 listeners = ImmutableList.copyOf(outputTaskFailureListeners);
             }
