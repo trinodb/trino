@@ -170,7 +170,7 @@ public class FunctionManager
             checkArgument(provider != null, "No function provider for catalog: '%s'", catalogHandle);
         }
 
-        return provider.getTableFunctionProcessorProvider(tableFunctionHandle.functionHandle());
+        return provider.getTableFunctionProcessorProviderFactory(tableFunctionHandle.functionHandle()).createTableFunctionProcessorProvider();
     }
 
     private FunctionDependencies getFunctionDependencies(ResolvedFunction resolvedFunction)

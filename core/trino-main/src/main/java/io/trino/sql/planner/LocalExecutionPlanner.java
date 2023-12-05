@@ -179,7 +179,7 @@ import io.trino.spiller.PartitioningSpillerFactory;
 import io.trino.spiller.SingleStreamSpillerFactory;
 import io.trino.spiller.SpillerFactory;
 import io.trino.split.PageSinkManager;
-import io.trino.split.PageSourceProvider;
+import io.trino.split.PageSourceManager;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.gen.ExpressionCompiler;
@@ -397,7 +397,7 @@ public class LocalExecutionPlanner
     private final PlannerContext plannerContext;
     private final Metadata metadata;
     private final Optional<ExplainAnalyzeContext> explainAnalyzeContext;
-    private final PageSourceProvider pageSourceProvider;
+    private final PageSourceManager pageSourceProvider;
     private final IndexManager indexManager;
     private final NodePartitioningManager nodePartitioningManager;
     private final PageSinkManager pageSinkManager;
@@ -452,7 +452,7 @@ public class LocalExecutionPlanner
     public LocalExecutionPlanner(
             PlannerContext plannerContext,
             Optional<ExplainAnalyzeContext> explainAnalyzeContext,
-            PageSourceProvider pageSourceProvider,
+            PageSourceManager pageSourceProvider,
             IndexManager indexManager,
             NodePartitioningManager nodePartitioningManager,
             PageSinkManager pageSinkManager,
