@@ -13,23 +13,17 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
-import io.trino.Session;
-import io.trino.plugin.hive.TestingHivePlugin;
-import io.trino.plugin.hive.metastore.CountingAccessHiveMetastore;
-import io.trino.plugin.hive.metastore.CountingAccessHiveMetastoreUtil;
+import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.plugin.hive.metastore.MetastoreMethod;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 
-import java.io.File;
-
+import static io.trino.plugin.hive.metastore.MetastoreInvocations.assertMetastoreInvocationsForQuery;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.CREATE_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_DATABASE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_PARTITIONS_BY_NAMES;
@@ -37,37 +31,20 @@ import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_PARTITION_NAMES
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_PARTITION_STATISTICS;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLE_STATISTICS;
+import static io.trino.plugin.hive.metastore.MetastoreMethod.UPDATE_PARTITIONS_STATISTICS;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.UPDATE_PARTITION_STATISTICS;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.UPDATE_TABLE_STATISTICS;
-import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
-import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 @Execution(SAME_THREAD)// metastore invocation counters shares mutable state so can't be run from many threads simultaneously
 public class TestHiveMetastoreAccessOperations
         extends AbstractTestQueryFramework
 {
-    private static final Session TEST_SESSION = testSessionBuilder()
-            .setCatalog("hive")
-            .setSchema("test_schema")
-            .build();
-
-    private CountingAccessHiveMetastore metastore;
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(TEST_SESSION).build();
-
-        File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive").toFile();
-        metastore = new CountingAccessHiveMetastore(createTestingFileHiveMetastore(baseDir));
-
-        queryRunner.installPlugin(new TestingHivePlugin(baseDir.toPath(), metastore));
-        queryRunner.createCatalog("hive", "hive", ImmutableMap.of());
-
-        queryRunner.execute("CREATE SCHEMA test_schema");
-        return queryRunner;
+        return HiveQueryRunner.create();
     }
 
     @Test
@@ -294,7 +271,7 @@ public class TestHiveMetastoreAccessOperations
     {
         assertUpdate("CREATE TABLE drop_stats AS SELECT 2 AS age", 1);
 
-        assertMetastoreInvocations("CALL system.drop_stats('test_schema', 'drop_stats')",
+        assertMetastoreInvocations("CALL system.drop_stats(CURRENT_SCHEMA, 'drop_stats')",
                 ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_TABLE)
                         .add(UPDATE_TABLE_STATISTICS)
@@ -306,25 +283,25 @@ public class TestHiveMetastoreAccessOperations
     {
         assertUpdate("CREATE TABLE drop_stats_partition WITH (partitioned_by = ARRAY['part']) AS SELECT 1 AS data, 10 AS part", 1);
 
-        assertMetastoreInvocations("CALL system.drop_stats('test_schema', 'drop_stats_partition')",
+        assertMetastoreInvocations("CALL system.drop_stats(CURRENT_SCHEMA, 'drop_stats_partition')",
                 ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_TABLE)
                         .add(GET_PARTITION_NAMES_BY_FILTER)
-                        .add(UPDATE_PARTITION_STATISTICS)
+                        .add(UPDATE_PARTITIONS_STATISTICS)
                         .build());
 
         assertUpdate("INSERT INTO drop_stats_partition SELECT 2 AS data, 20 AS part", 1);
 
-        assertMetastoreInvocations("CALL system.drop_stats('test_schema', 'drop_stats_partition')",
+        assertMetastoreInvocations("CALL system.drop_stats(CURRENT_SCHEMA, 'drop_stats_partition')",
                 ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_TABLE)
                         .add(GET_PARTITION_NAMES_BY_FILTER)
-                        .addCopies(UPDATE_PARTITION_STATISTICS, 2)
+                        .addCopies(UPDATE_PARTITIONS_STATISTICS, 2)
                         .build());
     }
 
     private void assertMetastoreInvocations(@Language("SQL") String query, Multiset<MetastoreMethod> expectedInvocations)
     {
-        CountingAccessHiveMetastoreUtil.assertMetastoreInvocations(metastore, getQueryRunner(), getQueryRunner().getDefaultSession(), query, expectedInvocations);
+        assertMetastoreInvocationsForQuery(getDistributedQueryRunner(), getSession(), query, expectedInvocations);
     }
 }

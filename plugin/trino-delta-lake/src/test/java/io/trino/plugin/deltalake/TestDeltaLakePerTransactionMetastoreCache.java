@@ -16,65 +16,34 @@ package io.trino.plugin.deltalake;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
-import com.google.inject.Binder;
-import com.google.inject.Key;
-import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.trino.Session;
 import io.trino.plugin.base.util.Closables;
-import io.trino.plugin.hive.metastore.CountingAccessHiveMetastore;
-import io.trino.plugin.hive.metastore.CountingAccessHiveMetastoreUtil;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.MetastoreMethod;
-import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
-import io.trino.plugin.hive.metastore.file.FileHiveMetastore;
-import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import java.nio.file.Path;
-import java.util.Optional;
+import java.util.HashMap;
+import java.util.Map;
 
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
+import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
+import static io.trino.plugin.hive.metastore.MetastoreInvocations.assertMetastoreInvocationsForQuery;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLE;
-import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
-import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.util.Objects.requireNonNull;
 
 public class TestDeltaLakePerTransactionMetastoreCache
 {
-    private CountingAccessHiveMetastore metastore;
-
-    private DistributedQueryRunner createQueryRunner(boolean enablePerTransactionHiveMetastoreCaching)
+    private static DistributedQueryRunner createQueryRunner(boolean enablePerTransactionHiveMetastoreCaching)
             throws Exception
     {
-        Session session = testSessionBuilder()
-                .setCatalog(DELTA_CATALOG)
-                .setSchema("default")
-                .build();
+        Map<String, String> deltaLakeProperties = new HashMap<>();
+        deltaLakeProperties.put("delta.register-table-procedure.enabled", "true");
+        if (!enablePerTransactionHiveMetastoreCaching) {
+            // almost disable the cache; 0 is not allowed as config property value
+            deltaLakeProperties.put("delta.per-transaction-metastore-cache-maximum-size", "1");
+        }
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
+        DistributedQueryRunner queryRunner = createDeltaLakeQueryRunner(DELTA_CATALOG, ImmutableMap.of(), deltaLakeProperties);
         try {
-            Path dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("file-metastore");
-            FileHiveMetastore fileMetastore = createTestingFileHiveMetastore(dataDirectory.toFile());
-            metastore = new CountingAccessHiveMetastore(fileMetastore);
-            queryRunner.installPlugin(new TestingDeltaLakePlugin(dataDirectory, Optional.empty(), Optional.empty(), new CountingAccessMetastoreModule(metastore)));
-
-            ImmutableMap.Builder<String, String> deltaLakeProperties = ImmutableMap.builder();
-            deltaLakeProperties.put("hive.metastore", "test"); // use test value so we do not get clash with default bindings)
-            deltaLakeProperties.put("delta.register-table-procedure.enabled", "true");
-            if (!enablePerTransactionHiveMetastoreCaching) {
-                // almost disable the cache; 0 is not allowed as config property value
-                deltaLakeProperties.put("delta.per-transaction-metastore-cache-maximum-size", "1");
-            }
-
-            queryRunner.createCatalog(DELTA_CATALOG, "delta_lake", deltaLakeProperties.buildOrThrow());
-            queryRunner.execute("CREATE SCHEMA " + session.getSchema().orElseThrow());
-
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch");
-
             queryRunner.execute("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
             queryRunner.execute("CREATE TABLE region AS SELECT * FROM tpch.tiny.region");
         }
@@ -84,24 +53,6 @@ public class TestDeltaLakePerTransactionMetastoreCache
         }
 
         return queryRunner;
-    }
-
-    private static class CountingAccessMetastoreModule
-            extends AbstractConfigurationAwareModule
-    {
-        private final CountingAccessHiveMetastore metastore;
-
-        public CountingAccessMetastoreModule(CountingAccessHiveMetastore metastore)
-        {
-            this.metastore = requireNonNull(metastore, "metastore is null");
-        }
-
-        @Override
-        protected void setup(Binder binder)
-        {
-            binder.bind(HiveMetastoreFactory.class).annotatedWith(RawHiveMetastoreFactory.class).toInstance(HiveMetastoreFactory.ofInstance(metastore));
-            binder.bind(Key.get(boolean.class, AllowDeltaLakeManagedTableRename.class)).toInstance(false);
-        }
     }
 
     @Test
@@ -129,8 +80,8 @@ public class TestDeltaLakePerTransactionMetastoreCache
         }
     }
 
-    private void assertMetastoreInvocations(QueryRunner queryRunner, @Language("SQL") String query, Multiset<MetastoreMethod> expectedInvocations)
+    private static void assertMetastoreInvocations(DistributedQueryRunner queryRunner, @Language("SQL") String query, Multiset<MetastoreMethod> expectedInvocations)
     {
-        CountingAccessHiveMetastoreUtil.assertMetastoreInvocations(metastore, queryRunner, queryRunner.getDefaultSession(), query, expectedInvocations);
+        assertMetastoreInvocationsForQuery(queryRunner, queryRunner.getDefaultSession(), query, expectedInvocations);
     }
 }
