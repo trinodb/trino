@@ -119,7 +119,7 @@ public class TestOptimizeMixedDistinctAggregations
     private void assertUnitPlan(String sql, PlanMatchPattern pattern)
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
-                new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
+                new UnaliasSymbolReferences(getQueryRunner().getPlannerContext().getMetadata()),
                 new IterativeOptimizer(
                         getQueryRunner().getPlannerContext(),
                         new RuleStatsRecorder(),
@@ -129,7 +129,7 @@ public class TestOptimizeMixedDistinctAggregations
                                 new RemoveRedundantIdentityProjections(),
                                 new SingleDistinctAggregationToGroupBy(),
                                 new MultipleDistinctAggregationToMarkDistinct(new TaskCountEstimator(() -> 4)))),
-                new OptimizeMixedDistinctAggregations(getQueryRunner().getMetadata()),
+                new OptimizeMixedDistinctAggregations(getQueryRunner().getPlannerContext().getMetadata()),
                 new IterativeOptimizer(
                         getQueryRunner().getPlannerContext(),
                         new RuleStatsRecorder(),
@@ -137,7 +137,7 @@ public class TestOptimizeMixedDistinctAggregations
                         getQueryRunner().getEstimatedExchangesCostCalculator(),
                         ImmutableSet.<Rule<?>>builder()
                                 .add(new RemoveRedundantIdentityProjections())
-                                .addAll(columnPruningRules(getQueryRunner().getMetadata()))
+                                .addAll(columnPruningRules(getQueryRunner().getPlannerContext().getMetadata()))
                                 .build()));
         assertPlan(sql, pattern, optimizers);
     }

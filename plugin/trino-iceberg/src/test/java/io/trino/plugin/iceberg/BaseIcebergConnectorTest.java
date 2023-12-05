@@ -3892,7 +3892,7 @@ public abstract class BaseIcebergConnectorTest
             Map<String, Domain> expectedEnforcedPredicate,
             Map<String, Domain> expectedUnenforcedPredicate)
     {
-        Metadata metadata = getQueryRunner().getMetadata();
+        Metadata metadata = getQueryRunner().getPlannerContext().getMetadata();
 
         newTransaction().execute(getSession(), session -> {
             TableHandle table = metadata.getTableHandle(session, tableName)
@@ -4079,7 +4079,7 @@ public abstract class BaseIcebergConnectorTest
 
     private void withTransaction(Consumer<Session> consumer)
     {
-        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getMetadata(), getQueryRunner().getAccessControl())
+        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getPlannerContext().getMetadata(), getQueryRunner().getAccessControl())
                 .readCommitted()
                 .execute(getSession(), consumer);
     }

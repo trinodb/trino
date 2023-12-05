@@ -17,6 +17,7 @@ import com.amazonaws.services.kinesis.model.PutRecordsRequest;
 import com.amazonaws.services.kinesis.model.PutRecordsRequestEntry;
 import io.airlift.log.Logger;
 import io.trino.Session;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.kinesis.util.MockKinesisClient;
@@ -154,10 +155,11 @@ public class TestRecordAccess
     {
         QualifiedObjectName name = new QualifiedObjectName("kinesis", "default", dummyStreamName);
 
-        transaction(queryRunner.getTransactionManager(), queryRunner.getMetadata(), new AllowAllAccessControl())
+        Metadata metadata = queryRunner.getPlannerContext().getMetadata();
+        transaction(queryRunner.getTransactionManager(), metadata, new AllowAllAccessControl())
                 .singleStatement()
                 .execute(SESSION, session -> {
-                    Optional<TableHandle> handle = queryRunner.getServer().getMetadata().getTableHandle(session, name);
+                    Optional<TableHandle> handle = metadata.getTableHandle(session, name);
                     assertThat(handle.isPresent()).isTrue();
                 });
         log.info("Completed first test (access table handle)");

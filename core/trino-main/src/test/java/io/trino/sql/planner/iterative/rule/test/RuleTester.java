@@ -61,8 +61,8 @@ public class RuleTester
     {
         this.queryRunner = requireNonNull(queryRunner, "queryRunner is null");
         this.session = queryRunner.getDefaultSession();
-        this.metadata = queryRunner.getMetadata();
-        this.functionManager = queryRunner.getFunctionManager();
+        this.metadata = queryRunner.getPlannerContext().getMetadata();
+        this.functionManager = queryRunner.getPlannerContext().getFunctionManager();
         this.splitManager = queryRunner.getSplitManager();
         this.pageSourceManager = queryRunner.getPageSourceManager();
         this.typeAnalyzer = createTestingTypeAnalyzer(queryRunner.getPlannerContext());

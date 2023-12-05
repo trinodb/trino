@@ -70,7 +70,7 @@ public class StatsCalculatorTester
         // start a transaction to allow catalog access
         TransactionId transactionId = queryRunner.getTransactionManager().beginTransaction(READ_UNCOMMITTED, false, false);
         Session transactionSession = session.beginTransactionId(transactionId, queryRunner.getTransactionManager(), queryRunner.getAccessControl());
-        queryRunner.getMetadata().beginQuery(transactionSession);
+        queryRunner.getPlannerContext().getMetadata().beginQuery(transactionSession);
         try {
             PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), queryRunner.getPlannerContext(), transactionSession);
             PlanNode planNode = planProvider.apply(planBuilder);

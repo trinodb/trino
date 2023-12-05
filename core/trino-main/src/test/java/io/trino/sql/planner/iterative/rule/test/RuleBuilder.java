@@ -78,10 +78,10 @@ public class RuleBuilder
         // start a transaction to allow catalog access
         TransactionId transactionId = queryRunner.getTransactionManager().beginTransaction(READ_UNCOMMITTED, false, false);
         Session transactionSession = session.beginTransactionId(transactionId, queryRunner.getTransactionManager(), queryRunner.getAccessControl());
-        queryRunner.getMetadata().beginQuery(transactionSession);
+        queryRunner.getPlannerContext().getMetadata().beginQuery(transactionSession);
         try {
             // metadata.getCatalogHandle() registers the catalog for the transaction
-            transactionSession.getCatalog().ifPresent(catalog -> queryRunner.getMetadata().getCatalogHandle(transactionSession, catalog));
+            transactionSession.getCatalog().ifPresent(catalog -> queryRunner.getPlannerContext().getMetadata().getCatalogHandle(transactionSession, catalog));
 
             PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
             PlanBuilder builder = new PlanBuilder(idAllocator, queryRunner.getPlannerContext(), transactionSession);
@@ -90,7 +90,7 @@ public class RuleBuilder
             return new RuleAssert(rule, queryRunner, statsCalculator, transactionSession, idAllocator, plan, types);
         }
         catch (Throwable t) {
-            queryRunner.getMetadata().cleanupQuery(session);
+            queryRunner.getPlannerContext().getMetadata().cleanupQuery(session);
             queryRunner.getTransactionManager().asyncAbort(transactionId);
             throw t;
         }

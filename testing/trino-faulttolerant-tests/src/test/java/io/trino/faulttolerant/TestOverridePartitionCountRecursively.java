@@ -21,6 +21,7 @@ import io.trino.connector.InMemoryCatalogStore;
 import io.trino.connector.LazyCatalogFactory;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.Metadata;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.security.AllowAllAccessControl;
@@ -273,18 +274,19 @@ public class TestOverridePartitionCountRecursively
     private SubPlan getSubPlan(Session session, @Language("SQL") String sql)
     {
         QueryRunner queryRunner = getDistributedQueryRunner();
-        return transaction(queryRunner.getTransactionManager(), queryRunner.getMetadata(), new AllowAllAccessControl())
+        Metadata metadata = queryRunner.getPlannerContext().getMetadata();
+        return transaction(queryRunner.getTransactionManager(), metadata, new AllowAllAccessControl())
                 .singleStatement()
                 .execute(session, transactionSession -> {
                     Plan plan = queryRunner.createPlan(transactionSession, sql);
                     // metadata.getCatalogHandle() registers the catalog for the transaction
-                    transactionSession.getCatalog().ifPresent(catalog -> queryRunner.getMetadata().getCatalogHandle(transactionSession, catalog));
+                    transactionSession.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(transactionSession, catalog));
                     return new PlanFragmenter(
-                            queryRunner.getMetadata(),
-                            queryRunner.getFunctionManager(),
+                            metadata,
+                            queryRunner.getPlannerContext().getFunctionManager(),
                             queryRunner.getTransactionManager(),
                             new CoordinatorDynamicCatalogManager(new InMemoryCatalogStore(), new LazyCatalogFactory(), directExecutor()),
-                            queryRunner.getLanguageFunctionManager(),
+                            queryRunner.getPlannerContext().getLanguageFunctionManager(),
                             new QueryManagerConfig()).createSubPlans(transactionSession, plan, false, WarningCollector.NOOP);
                 });
     }

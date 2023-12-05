@@ -30,7 +30,6 @@ import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.StandardTypes;
 import io.trino.sql.query.QueryAssertions;
-import io.trino.testing.LocalQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -120,7 +119,7 @@ public class TestArrayOperators
         ArrayType arrayType = new ArrayType(BIGINT);
         Block actualBlock = arrayBlockOf(arrayType, arrayBlockOf(BIGINT, 1L, 2L), arrayBlockOf(BIGINT, 3L));
         DynamicSliceOutput actualSliceOutput = new DynamicSliceOutput(100);
-        writeBlock(((LocalQueryRunner) assertions.getQueryRunner()).getPlannerContext().getBlockEncodingSerde(), actualSliceOutput, actualBlock);
+        writeBlock(assertions.getQueryRunner().getPlannerContext().getBlockEncodingSerde(), actualSliceOutput, actualBlock);
 
         ArrayBlockBuilder expectedBlockBuilder = arrayType.createBlockBuilder(null, 3);
         expectedBlockBuilder.buildEntry(elementBuilder -> {
@@ -130,7 +129,7 @@ public class TestArrayOperators
         expectedBlockBuilder.buildEntry(elementBuilder -> BIGINT.writeLong(elementBuilder, 3));
         Block expectedBlock = expectedBlockBuilder.build();
         DynamicSliceOutput expectedSliceOutput = new DynamicSliceOutput(100);
-        writeBlock(((LocalQueryRunner) assertions.getQueryRunner()).getPlannerContext().getBlockEncodingSerde(), expectedSliceOutput, expectedBlock);
+        writeBlock(assertions.getQueryRunner().getPlannerContext().getBlockEncodingSerde(), expectedSliceOutput, expectedBlock);
 
         assertThat(actualSliceOutput.slice()).isEqualTo(expectedSliceOutput.slice());
     }

@@ -101,7 +101,7 @@ public final class KafkaQueryRunner
         {
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
-            Map<SchemaTableName, KafkaTopicDescription> tpchTopicDescriptions = createTpchTopicDescriptions(queryRunner.getCoordinator().getTypeManager(), tables);
+            Map<SchemaTableName, KafkaTopicDescription> tpchTopicDescriptions = createTpchTopicDescriptions(queryRunner.getPlannerContext().getTypeManager(), tables);
 
             List<SchemaTableName> tableNames = new ArrayList<>();
             tableNames.add(new SchemaTableName("read_test", "all_datatypes_json"));
@@ -110,7 +110,7 @@ public final class KafkaQueryRunner
             tableNames.add(new SchemaTableName("write_test", "all_datatypes_raw"));
             tableNames.add(new SchemaTableName("write_test", "all_datatypes_json"));
 
-            JsonCodec<KafkaTopicDescription> topicDescriptionJsonCodec = new CodecSupplier<>(KafkaTopicDescription.class, queryRunner.getCoordinator().getTypeManager()).get();
+            JsonCodec<KafkaTopicDescription> topicDescriptionJsonCodec = new CodecSupplier<>(KafkaTopicDescription.class, queryRunner.getPlannerContext().getTypeManager()).get();
 
             ImmutableMap.Builder<SchemaTableName, KafkaTopicDescription> testTopicDescriptions = ImmutableMap.builder();
             for (SchemaTableName tableName : tableNames) {
