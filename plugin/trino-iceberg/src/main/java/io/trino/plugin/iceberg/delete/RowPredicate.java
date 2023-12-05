@@ -15,17 +15,9 @@ package io.trino.plugin.iceberg.delete;
 
 import io.trino.spi.Page;
 
-import static java.util.Objects.requireNonNull;
-
 public interface RowPredicate
 {
     boolean test(Page page, int position);
-
-    default RowPredicate and(RowPredicate other)
-    {
-        requireNonNull(other, "other is null");
-        return (page, position) -> test(page, position) && other.test(page, position);
-    }
 
     default Page filterPage(Page page)
     {

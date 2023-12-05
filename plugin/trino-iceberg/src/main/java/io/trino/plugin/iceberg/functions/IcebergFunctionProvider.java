@@ -14,12 +14,12 @@
 package io.trino.plugin.iceberg.functions;
 
 import com.google.inject.Inject;
-import io.trino.plugin.base.classloader.ClassLoaderSafeTableFunctionProcessorProvider;
+import io.trino.plugin.base.classloader.ClassLoaderSafeTableFunctionProcessorProviderFactory;
 import io.trino.plugin.iceberg.functions.tablechanges.TableChangesFunctionHandle;
 import io.trino.plugin.iceberg.functions.tablechanges.TableChangesFunctionProcessorProvider;
 import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
-import io.trino.spi.function.table.TableFunctionProcessorProvider;
+import io.trino.spi.function.table.TableFunctionProcessorProviderFactory;
 
 import static java.util.Objects.requireNonNull;
 
@@ -35,10 +35,10 @@ public class IcebergFunctionProvider
     }
 
     @Override
-    public TableFunctionProcessorProvider getTableFunctionProcessorProvider(ConnectorTableFunctionHandle functionHandle)
+    public TableFunctionProcessorProviderFactory getTableFunctionProcessorProviderFactory(ConnectorTableFunctionHandle functionHandle)
     {
         if (functionHandle instanceof TableChangesFunctionHandle) {
-            return new ClassLoaderSafeTableFunctionProcessorProvider(tableChangesFunctionProcessorProvider, getClass().getClassLoader());
+            return new ClassLoaderSafeTableFunctionProcessorProviderFactory(tableChangesFunctionProcessorProvider, getClass().getClassLoader());
         }
 
         throw new UnsupportedOperationException("Unsupported function: " + functionHandle);

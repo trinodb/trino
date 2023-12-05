@@ -39,7 +39,7 @@ public final class PositionDeleteFilter
     }
 
     @Override
-    public RowPredicate createPredicate(List<IcebergColumnHandle> columns)
+    public RowPredicate createPredicate(List<IcebergColumnHandle> columns, long dataSequenceNumber)
     {
         int filePosChannel = rowPositionChannel(columns);
         return (page, position) -> {
