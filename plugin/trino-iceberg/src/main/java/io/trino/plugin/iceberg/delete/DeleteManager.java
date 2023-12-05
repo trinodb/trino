@@ -16,10 +16,13 @@ package io.trino.plugin.iceberg.delete;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
 import io.trino.plugin.iceberg.IcebergPageSourceProvider.ReaderPageSourceWithRowPositions;
 import io.trino.plugin.iceberg.delete.EqualityDeleteFilter.EqualityDeleteFilterBuilder;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
@@ -36,25 +39,31 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromHandles;
 import static io.trino.plugin.iceberg.delete.PositionDeleteFilter.readPositionDeletes;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.Future.State.SUCCESS;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_PATH;
 import static org.apache.iceberg.MetadataColumns.DELETE_FILE_POS;
 
 public class DeleteManager
 {
     private final TypeManager typeManager;
+    private final Map<List<Integer>, EqualityDeleteFilterBuilder> equalityDeleteFiltersBySchema = new ConcurrentHashMap<>();
 
     public DeleteManager(TypeManager typeManager)
     {
@@ -173,7 +182,10 @@ public class DeleteManager
             return List.of();
         }
 
-        Map<List<Integer>, EqualityDeleteFilterBuilder> equalityDeleteFiltersBySchema = new HashMap<>();
+        // The equality delete files can be loaded in parallel. There may be multiple split threads attempting to load the
+        // same files. The current thread will only load a file if it is not already being loaded by another thread.
+        List<ListenableFuture<?>> pendingLoads = new ArrayList<>();
+        Set<EqualityDeleteFilterBuilder> deleteFilters = new HashSet<>();
         for (DeleteFile deleteFile : equalityDeleteFiles) {
             List<Integer> fieldIds = deleteFile.equalityFieldIds();
             verify(!fieldIds.isEmpty(), "equality field IDs are missing");
@@ -181,16 +193,30 @@ public class DeleteManager
                     .map(id -> getColumnHandle(schema.findField(id), typeManager))
                     .collect(toImmutableList());
 
+            // each file can have a different set of columns for the equality delete, so we need to create a new builder for each set of columns
             EqualityDeleteFilterBuilder builder = equalityDeleteFiltersBySchema.computeIfAbsent(fieldIds, _ -> EqualityDeleteFilter.builder(schemaFromHandles(deleteColumns)));
-            try (ConnectorPageSource pageSource = deletePageSourceProvider.openDeletes(deleteFile, deleteColumns, TupleDomain.all())) {
-                builder.readEqualityDeletes(pageSource, deleteColumns, deleteFile.getDataSequenceNumber());
-            }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
+            deleteFilters.add(builder);
+
+            ListenableFuture<?> loadFuture = builder.readEqualityDeletes(deleteFile, deleteColumns, deletePageSourceProvider);
+            if (loadFuture.state() != SUCCESS) {
+                pendingLoads.add(loadFuture);
             }
         }
 
-        return equalityDeleteFiltersBySchema.values().stream()
+        // Wait loads happening in other threads
+        try {
+            Futures.allAsList(pendingLoads).get();
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(e);
+        }
+        catch (ExecutionException e) {
+            // Since execution can happen on another thread, it is not safe to unwrap the exception
+            throw new TrinoException(ICEBERG_BAD_DATA, "Failed to load equality deletes", e);
+        }
+
+        return deleteFilters.stream()
                 .map(EqualityDeleteFilterBuilder::build)
                 .toList();
     }

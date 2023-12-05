@@ -93,6 +93,8 @@ import org.apache.iceberg.mapping.MappedFields;
 import org.apache.iceberg.mapping.NameMapping;
 import org.apache.iceberg.mapping.NameMappingParser;
 import org.apache.iceberg.parquet.ParquetSchemaUtil;
+import org.apache.iceberg.types.Types;
+import org.apache.iceberg.util.StructLikeWrapper;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.io.ColumnIO;
 import org.apache.parquet.io.MessageColumnIO;
@@ -110,6 +112,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -204,7 +208,9 @@ public class IcebergPageSourceProvider
     private final OrcReaderOptions orcReaderOptions;
     private final ParquetReaderOptions parquetReaderOptions;
     private final TypeManager typeManager;
-    private final DeleteManager deleteManager;
+    private final DeleteManager unpartitionedTableDeleteManager;
+    private final Map<Integer, Function<PartitionData, PartitionKey>> partitionKeyFactories = new ConcurrentHashMap<>();
+    private final Map<PartitionKey, DeleteManager> partitionedDeleteManagers = new ConcurrentHashMap<>();
 
     public IcebergPageSourceProvider(
             IcebergFileSystemFactory fileSystemFactory,
@@ -218,7 +224,7 @@ public class IcebergPageSourceProvider
         this.orcReaderOptions = requireNonNull(orcReaderOptions, "orcReaderOptions is null");
         this.parquetReaderOptions = requireNonNull(parquetReaderOptions, "parquetReaderOptions is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.deleteManager = new DeleteManager(typeManager);
+        this.unpartitionedTableDeleteManager = new DeleteManager(typeManager);
     }
 
     @Override
@@ -378,14 +384,15 @@ public class IcebergPageSourceProvider
                 .map(readerColumns -> readerColumns.get().stream().map(IcebergColumnHandle.class::cast).collect(toList()))
                 .orElse(requiredColumns);
 
-        Supplier<Optional<RowPredicate>> deletePredicate = memoize(() -> deleteManager.getDeletePredicate(
-                path,
-                dataSequenceNumber,
-                deletes,
-                readColumns,
-                tableSchema,
-                readerPageSourceWithRowPositions,
-                (deleteFile, deleteColumns, tupleDomain) -> openDeletes(session, fileSystem, deleteFile, deleteColumns, tupleDomain)));
+        Supplier<Optional<RowPredicate>> deletePredicate = memoize(() -> getDeleteManager(partitionSpec, partitionData)
+                .getDeletePredicate(
+                        path,
+                        dataSequenceNumber,
+                        deletes,
+                        readColumns,
+                        tableSchema,
+                        readerPageSourceWithRowPositions,
+                        (deleteFile, deleteColumns, tupleDomain) -> openDeletes(session, fileSystem, deleteFile, deleteColumns, tupleDomain)));
 
         return new IcebergPageSource(
                 icebergColumns,
@@ -394,6 +401,28 @@ public class IcebergPageSourceProvider
                 projectionsAdapter,
                 deletePredicate);
     }
+
+    private DeleteManager getDeleteManager(PartitionSpec partitionSpec, PartitionData partitionData)
+    {
+        if (partitionSpec.isUnpartitioned()) {
+            return unpartitionedTableDeleteManager;
+        }
+
+        Types.StructType structType = partitionSpec.partitionType();
+        PartitionKey partitionKey = partitionKeyFactories.computeIfAbsent(
+                partitionSpec.specId(),
+                key -> {
+                    // creating the template wrapper is expensive, reuse it for all partitions of the same spec
+                    // reuse is only safe because we only use the copyFor method which is thread safe
+                    StructLikeWrapper templateWrapper = StructLikeWrapper.forType(structType);
+                    return data -> new PartitionKey(key, templateWrapper.copyFor(data));
+                })
+                .apply(partitionData);
+
+        return partitionedDeleteManagers.computeIfAbsent(partitionKey, ignored -> new DeleteManager(typeManager));
+    }
+
+    private record PartitionKey(int specId, StructLikeWrapper partitionData) {}
 
     private TupleDomain<IcebergColumnHandle> getUnenforcedPredicate(
             Schema tableSchema,

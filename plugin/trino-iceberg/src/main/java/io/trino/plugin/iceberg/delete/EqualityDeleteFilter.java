@@ -14,19 +14,27 @@
 package io.trino.plugin.iceberg.delete;
 
 import com.amazonaws.annotation.ThreadSafe;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListenableFutureTask;
 import io.trino.plugin.iceberg.IcebergColumnHandle;
+import io.trino.plugin.iceberg.delete.DeleteManager.DeletePageSourceProvider;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorPageSource;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.util.StructLikeWrapper;
 import org.apache.iceberg.util.StructProjection;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromHandles;
 import static java.util.Objects.requireNonNull;
@@ -76,6 +84,7 @@ public final class EqualityDeleteFilter
     {
         private final Schema deleteSchema;
         private final Map<StructLikeWrapper, DataSequenceNumber> deletedRows;
+        private final Map<String, ListenableFutureTask<?>> loadingFiles = new ConcurrentHashMap<>();
 
         private EqualityDeleteFilterBuilder(Schema deleteSchema)
         {
@@ -83,29 +92,46 @@ public final class EqualityDeleteFilter
             this.deletedRows = new ConcurrentHashMap<>();
         }
 
-        public void readEqualityDeletes(ConnectorPageSource pageSource, List<IcebergColumnHandle> columns, long dataSequenceNumber)
+        public ListenableFuture<?> readEqualityDeletes(DeleteFile deleteFile, List<IcebergColumnHandle> deleteColumns, DeletePageSourceProvider deletePageSourceProvider)
         {
-            Type[] types = columns.stream()
-                    .map(IcebergColumnHandle::getType)
-                    .toArray(Type[]::new);
+            verify(deleteColumns.size() == deleteSchema.columns().size(), "delete columns size doesn't match delete schema size");
 
-            DataSequenceNumber sequenceNumber = new DataSequenceNumber(dataSequenceNumber);
-            StructLikeWrapper wrapper = StructLikeWrapper.forType(deleteSchema.asStruct());
-            while (!pageSource.isFinished()) {
-                Page page = pageSource.getNextPage();
-                if (page == null) {
-                    continue;
-                }
+            // ensure only one thread loads the file
+            ListenableFutureTask<?> futureTask = loadingFiles.computeIfAbsent(
+                    deleteFile.path(),
+                    key -> ListenableFutureTask.create(() -> readEqualityDeletesInternal(deleteFile, deleteColumns, deletePageSourceProvider), null));
+            futureTask.run();
+            return Futures.nonCancellationPropagating(futureTask);
+        }
 
-                for (int position = 0; position < page.getPositionCount(); position++) {
-                    TrinoRow row = new TrinoRow(types, page, position);
-                    deletedRows.merge(wrapper.copyFor(row), sequenceNumber, (existing, newValue) -> {
-                        if (existing.dataSequenceNumber() > newValue.dataSequenceNumber()) {
-                            return existing;
-                        }
-                        return newValue;
-                    });
+        private void readEqualityDeletesInternal(DeleteFile deleteFile, List<IcebergColumnHandle> deleteColumns, DeletePageSourceProvider deletePageSourceProvider)
+        {
+            DataSequenceNumber sequenceNumber = new DataSequenceNumber(deleteFile.getDataSequenceNumber());
+            try (ConnectorPageSource pageSource = deletePageSourceProvider.openDeletes(deleteFile, deleteColumns, TupleDomain.all())) {
+                Type[] types = deleteColumns.stream()
+                        .map(IcebergColumnHandle::getType)
+                        .toArray(Type[]::new);
+
+                StructLikeWrapper wrapper = StructLikeWrapper.forType(deleteSchema.asStruct());
+                while (!pageSource.isFinished()) {
+                    Page page = pageSource.getNextPage();
+                    if (page == null) {
+                        continue;
+                    }
+
+                    for (int position = 0; position < page.getPositionCount(); position++) {
+                        TrinoRow row = new TrinoRow(types, page, position);
+                        deletedRows.merge(wrapper.copyFor(row), sequenceNumber, (existing, newValue) -> {
+                            if (existing.dataSequenceNumber() > newValue.dataSequenceNumber()) {
+                                return existing;
+                            }
+                            return newValue;
+                        });
+                    }
                 }
+            }
+            catch (IOException e) {
+                throw new UncheckedIOException(e);
             }
         }
 
