@@ -35,11 +35,12 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 @DefunctConfig("kudu.client.default-socket-read-timeout")
 public class KuduClientConfig
 {
+    private static final Duration DEFAULT_OPERATION_TIMEOUT = new Duration(30, TimeUnit.SECONDS);
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
     private List<String> masterAddresses = ImmutableList.of();
-    private Duration defaultAdminOperationTimeout = new Duration(30, TimeUnit.SECONDS);
-    private Duration defaultOperationTimeout = new Duration(30, TimeUnit.SECONDS);
+    private Duration defaultAdminOperationTimeout = DEFAULT_OPERATION_TIMEOUT;
+    private Duration defaultOperationTimeout = DEFAULT_OPERATION_TIMEOUT;
     private boolean disableStatistics;
     private boolean schemaEmulationEnabled;
     private String schemaEmulationPrefix = "presto::";
