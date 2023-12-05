@@ -106,20 +106,26 @@ public class BenchmarkSortedRangeSet
     @Benchmark
     public List<Boolean> overlapsSmall(Data data)
     {
-        return benchmarkOverlaps(data.smallRanges);
+        return benchmarkOverlaps(data.smallRanges, data.smallRanges);
     }
 
     @Benchmark
     public List<Boolean> overlapsLarge(Data data)
     {
-        return benchmarkOverlaps(data.largeRanges);
+        return benchmarkOverlaps(data.largeRanges, data.largeRanges);
     }
 
-    private List<Boolean> benchmarkOverlaps(List<SortedRangeSet> dataRanges)
+    @Benchmark
+    public List<Boolean> overlapsSmallOnVeryLarge(Data data)
+    {
+        return benchmarkOverlaps(data.veryLargeRanges, data.smallRanges);
+    }
+
+    private List<Boolean> benchmarkOverlaps(List<SortedRangeSet> dataRanges, List<SortedRangeSet> otherDataRanges)
     {
         List<Boolean> result = new ArrayList<>(dataRanges.size() - 1);
         for (int index = 0; index < dataRanges.size() - 1; index++) {
-            result.add(dataRanges.get(index).overlaps(dataRanges.get(index + 1)));
+            result.add(dataRanges.get(index).overlaps(otherDataRanges.get(index + 1 % otherDataRanges.size())));
         }
         return result;
     }
@@ -233,6 +239,7 @@ public class BenchmarkSortedRangeSet
         public List<Range> ranges;
         public List<SortedRangeSet> smallRanges;
         public List<SortedRangeSet> largeRanges;
+        private List<SortedRangeSet> veryLargeRanges;
 
         @Setup(Level.Iteration)
         public void init()
@@ -240,7 +247,7 @@ public class BenchmarkSortedRangeSet
             ranges = new ArrayList<>();
 
             long factor = 0;
-            for (int i = 0; i < 10_000; i++) {
+            for (int i = 0; i < 50_000; i++) {
                 long from = ThreadLocalRandom.current().nextLong(100) + factor * 100;
                 long to = ThreadLocalRandom.current().nextLong(100) + (factor + 1) * 100;
                 factor++;
@@ -250,6 +257,7 @@ public class BenchmarkSortedRangeSet
 
             smallRanges = generateRangeSets(500_000, 2);
             largeRanges = generateRangeSets(5_000, 300);
+            veryLargeRanges = generateRangeSets(5_000, 30_000);
         }
 
         private List<SortedRangeSet> generateRangeSets(int count, int size)
@@ -289,6 +297,7 @@ public class BenchmarkSortedRangeSet
 
         overlapsSmall(data);
         overlapsLarge(data);
+        overlapsSmallOnVeryLarge(data);
 
         intersectSmall(data);
         intersectLarge(data);
