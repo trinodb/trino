@@ -16,82 +16,37 @@ package io.trino.plugin.deltalake.metastore;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
-import com.google.inject.Binder;
-import com.google.inject.Key;
-import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.trino.Session;
-import io.trino.plugin.deltalake.AllowDeltaLakeManagedTableRename;
-import io.trino.plugin.deltalake.TestingDeltaLakePlugin;
-import io.trino.plugin.hive.metastore.CountingAccessHiveMetastore;
-import io.trino.plugin.hive.metastore.CountingAccessHiveMetastoreUtil;
-import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.MetastoreMethod;
-import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 
-import java.nio.file.Path;
-import java.util.Optional;
+import java.util.Map;
 
+import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
+import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createDeltaLakeQueryRunner;
+import static io.trino.plugin.hive.metastore.MetastoreInvocations.assertMetastoreInvocationsForQuery;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.CREATE_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.DROP_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_ALL_DATABASES;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_DATABASE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLES;
-import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
-import static io.trino.testing.TestingSession.testSessionBuilder;
-import static java.util.Objects.requireNonNull;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 @Execution(SAME_THREAD) // metastore invocation counters shares mutable state so can't be run from many threads simultaneously
 public class TestDeltaLakeMetastoreAccessOperations
         extends AbstractTestQueryFramework
 {
-    private static final Session TEST_SESSION = testSessionBuilder()
-            .setCatalog("delta")
-            .setSchema("test_schema")
-            .build();
-
-    private CountingAccessHiveMetastore metastore;
-
     @Override
     protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(TEST_SESSION).build();
-
-        Path baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake");
-        metastore = new CountingAccessHiveMetastore(createTestingFileHiveMetastore(baseDir.toFile()));
-
-        queryRunner.installPlugin(new TestingDeltaLakePlugin(baseDir, Optional.empty(), Optional.empty(), new CountingAccessMetastoreModule(metastore)));
-        ImmutableMap.Builder<String, String> deltaLakeProperties = ImmutableMap.builder();
-        deltaLakeProperties.put("hive.metastore", "test"); // use test value so we do not get clash with default bindings)
-        queryRunner.createCatalog("delta", "delta_lake", deltaLakeProperties.buildOrThrow());
-
+        DistributedQueryRunner queryRunner = createDeltaLakeQueryRunner(DELTA_CATALOG, ImmutableMap.of(), Map.of());
         queryRunner.execute("CREATE SCHEMA test_schema");
         return queryRunner;
-    }
-
-    private static class CountingAccessMetastoreModule
-            extends AbstractConfigurationAwareModule
-    {
-        private final CountingAccessHiveMetastore metastore;
-
-        public CountingAccessMetastoreModule(CountingAccessHiveMetastore metastore)
-        {
-            this.metastore = requireNonNull(metastore, "metastore is null");
-        }
-
-        @Override
-        protected void setup(Binder binder)
-        {
-            binder.bind(HiveMetastoreFactory.class).annotatedWith(RawHiveMetastoreFactory.class).toInstance(HiveMetastoreFactory.ofInstance(metastore));
-            binder.bind(Key.get(boolean.class, AllowDeltaLakeManagedTableRename.class)).toInstance(false);
-        }
     }
 
     @Test
@@ -271,6 +226,6 @@ public class TestDeltaLakeMetastoreAccessOperations
     {
         assertUpdate("CALL system.flush_metadata_cache()");
 
-        CountingAccessHiveMetastoreUtil.assertMetastoreInvocations(metastore, getQueryRunner(), getSession(), query, expectedInvocations);
+        assertMetastoreInvocationsForQuery(getDistributedQueryRunner(), getSession(), query, expectedInvocations);
     }
 }
