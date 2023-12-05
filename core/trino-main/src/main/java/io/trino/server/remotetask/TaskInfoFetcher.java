@@ -298,6 +298,9 @@ public class TaskInfoFetcher
                 errorTracker.requestSucceeded();
                 updateTaskInfo(newValue);
             }
+            finally {
+                cleanupRequest();
+            }
         }
 
         @Override
@@ -320,6 +323,9 @@ public class TaskInfoFetcher
                     onFail.accept(e);
                 }
             }
+            finally {
+                cleanupRequest();
+            }
         }
 
         @Override
@@ -328,6 +334,17 @@ public class TaskInfoFetcher
             try (SetThreadName ignored = new SetThreadName("TaskInfoFetcher-%s", taskId)) {
                 onFail.accept(cause);
             }
+            finally {
+                cleanupRequest();
+            }
+        }
+    }
+
+    private synchronized void cleanupRequest()
+    {
+        if (future != null && future.isDone()) {
+            // remove outstanding reference to JSON response
+            future = null;
         }
     }
 
