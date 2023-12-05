@@ -92,7 +92,7 @@ public class TestInformationSchemaMetadata
                 .build();
         queryRunner.createCatalog("test_catalog", mockConnectorFactory, ImmutableMap.of());
         transactionManager = queryRunner.getTransactionManager();
-        metadata = queryRunner.getMetadata();
+        metadata = queryRunner.getPlannerContext().getMetadata();
     }
 
     @AfterAll

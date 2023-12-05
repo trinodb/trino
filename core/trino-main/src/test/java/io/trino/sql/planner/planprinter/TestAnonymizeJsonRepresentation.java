@@ -237,7 +237,7 @@ public class TestAnonymizeJsonRepresentation
     {
         queryRunner.inTransaction(session -> {
             PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), queryRunner.getPlannerContext(), session);
-            ValuePrinter valuePrinter = new ValuePrinter(queryRunner.getMetadata(), queryRunner.getFunctionManager(), session);
+            ValuePrinter valuePrinter = new ValuePrinter(queryRunner.getPlannerContext().getMetadata(), queryRunner.getPlannerContext().getFunctionManager(), session);
             String jsonRenderedNode = new PlanPrinter(
                     sourceNodeSupplier.apply(planBuilder),
                     planBuilder.getTypes(),

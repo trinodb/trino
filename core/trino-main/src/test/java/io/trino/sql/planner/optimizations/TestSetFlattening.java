@@ -133,7 +133,7 @@ public class TestSetFlattening
     protected void assertPlan(String sql, PlanMatchPattern pattern)
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
-                new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
+                new UnaliasSymbolReferences(getQueryRunner().getPlannerContext().getMetadata()),
                 new IterativeOptimizer(
                         getQueryRunner().getPlannerContext(),
                         new RuleStatsRecorder(),
@@ -145,7 +145,7 @@ public class TestSetFlattening
                                 .add(new MergeIntersect())
                                 .add(new MergeExcept())
                                 .add(new PruneDistinctAggregation())
-                                .addAll(columnPruningRules(getQueryRunner().getMetadata()))
+                                .addAll(columnPruningRules(getQueryRunner().getPlannerContext().getMetadata()))
                                 .build()));
         assertPlan(sql, pattern, optimizers);
     }

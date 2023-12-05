@@ -35,9 +35,6 @@ import io.trino.execution.QueryManager;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AllNodes;
 import io.trino.metadata.FunctionBundle;
-import io.trino.metadata.FunctionManager;
-import io.trino.metadata.LanguageFunctionManager;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.server.BasicQueryInfo;
@@ -51,9 +48,9 @@ import io.trino.spi.QueryId;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.eventlistener.QueryCompletedEvent;
 import io.trino.spi.security.SystemAccessControl;
-import io.trino.spi.type.TypeManager;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.QueryExplainer;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.NodePartitioningManager;
@@ -361,15 +358,9 @@ public class DistributedQueryRunner
     }
 
     @Override
-    public Metadata getMetadata()
+    public PlannerContext getPlannerContext()
     {
-        return coordinator.getMetadata();
-    }
-
-    @Override
-    public TypeManager getTypeManager()
-    {
-        return coordinator.getTypeManager();
+        return coordinator.getPlannerContext();
     }
 
     @Override
@@ -382,18 +373,6 @@ public class DistributedQueryRunner
     public SessionPropertyManager getSessionPropertyManager()
     {
         return coordinator.getSessionPropertyManager();
-    }
-
-    @Override
-    public FunctionManager getFunctionManager()
-    {
-        return coordinator.getFunctionManager();
-    }
-
-    @Override
-    public LanguageFunctionManager getLanguageFunctionManager()
-    {
-        return coordinator.getLanguageFunctionManager();
     }
 
     @Override

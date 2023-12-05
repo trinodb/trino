@@ -63,11 +63,11 @@ public class TestPlanFragmentPartitionCount
         localQueryRunner.createCatalog(TEST_CATALOG_NAME, new TpchConnectorFactory(), ImmutableMap.of());
 
         planFragmenter = new PlanFragmenter(
-                localQueryRunner.getMetadata(),
-                localQueryRunner.getFunctionManager(),
+                localQueryRunner.getPlannerContext().getMetadata(),
+                localQueryRunner.getPlannerContext().getFunctionManager(),
                 localQueryRunner.getTransactionManager(),
                 localQueryRunner.getCatalogManager(),
-                localQueryRunner.getLanguageFunctionManager(),
+                localQueryRunner.getPlannerContext().getLanguageFunctionManager(),
                 new QueryManagerConfig());
     }
 
@@ -147,17 +147,17 @@ public class TestPlanFragmentPartitionCount
 
     private SubPlan fragment(Plan plan)
     {
-        localQueryRunner.getLanguageFunctionManager().registerQuery(session);
+        localQueryRunner.getPlannerContext().getLanguageFunctionManager().registerQuery(session);
         return inTransaction(session -> planFragmenter.createSubPlans(session, plan, false, WarningCollector.NOOP));
     }
 
     private <T> T inTransaction(Function<Session, T> transactionSessionConsumer)
     {
-        return transaction(localQueryRunner.getTransactionManager(), localQueryRunner.getMetadata(), new AllowAllAccessControl())
+        return transaction(localQueryRunner.getTransactionManager(), localQueryRunner.getPlannerContext().getMetadata(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(session, session -> {
                     // metadata.getCatalogHandle() registers the catalog for the transaction
-                    session.getCatalog().ifPresent(catalog -> localQueryRunner.getMetadata().getCatalogHandle(session, catalog));
+                    session.getCatalog().ifPresent(catalog -> localQueryRunner.getPlannerContext().getMetadata().getCatalogHandle(session, catalog));
                     return transactionSessionConsumer.apply(session);
                 });
     }

@@ -124,7 +124,7 @@ public class TestSetSessionTask
 
         transactionManager = queryRunner.getTransactionManager();
         accessControl = queryRunner.getAccessControl();
-        metadata = queryRunner.getMetadata();
+        metadata = queryRunner.getPlannerContext().getMetadata();
         plannerContext = queryRunner.getPlannerContext();
         sessionPropertyManager = queryRunner.getSessionPropertyManager();
     }

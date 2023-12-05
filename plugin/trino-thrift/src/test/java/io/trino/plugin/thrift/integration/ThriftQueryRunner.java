@@ -30,9 +30,6 @@ import io.trino.Session;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.metadata.FunctionBundle;
-import io.trino.metadata.FunctionManager;
-import io.trino.metadata.LanguageFunctionManager;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.plugin.thrift.ThriftPlugin;
@@ -42,9 +39,9 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
-import io.trino.spi.type.TypeManager;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.QueryExplainer;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.testing.DistributedQueryRunner;
@@ -217,15 +214,9 @@ public final class ThriftQueryRunner
         }
 
         @Override
-        public Metadata getMetadata()
+        public PlannerContext getPlannerContext()
         {
-            return source.getMetadata();
-        }
-
-        @Override
-        public TypeManager getTypeManager()
-        {
-            return source.getTypeManager();
+            return source.getPlannerContext();
         }
 
         @Override
@@ -238,18 +229,6 @@ public final class ThriftQueryRunner
         public SessionPropertyManager getSessionPropertyManager()
         {
             return source.getSessionPropertyManager();
-        }
-
-        @Override
-        public FunctionManager getFunctionManager()
-        {
-            return source.getFunctionManager();
-        }
-
-        @Override
-        public LanguageFunctionManager getLanguageFunctionManager()
-        {
-            return source.getLanguageFunctionManager();
         }
 
         @Override

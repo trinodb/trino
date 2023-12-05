@@ -108,7 +108,7 @@ public class BenchmarkSpatialJoin
         public void dropPointsTable()
         {
             queryRunner.inTransaction(queryRunner.getDefaultSession(), transactionSession -> {
-                Metadata metadata = queryRunner.getMetadata();
+                Metadata metadata = queryRunner.getPlannerContext().getMetadata();
                 QualifiedObjectName tableName = QualifiedObjectName.valueOf("memory.default.points");
                 Optional<TableHandle> tableHandle = metadata.getTableHandle(transactionSession, tableName);
                 assertThat(tableHandle.isPresent())

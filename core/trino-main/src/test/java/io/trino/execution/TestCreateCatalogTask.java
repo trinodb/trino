@@ -71,7 +71,7 @@ public class TestCreateCatalogTask
                 queryRunner.getTransactionManager(),
                 queryRunner.getAccessControl(),
                 directExecutor(),
-                queryRunner.getMetadata(),
+                queryRunner.getPlannerContext().getMetadata(),
                 WarningCollector.NOOP,
                 createPlanOptimizersStatsCollector(),
                 Optional.empty(),
@@ -94,7 +94,7 @@ public class TestCreateCatalogTask
         CreateCatalogTask task = getCreateCatalogTask();
         CreateCatalog statement = new CreateCatalog(new Identifier(TEST_CATALOG), false, new Identifier("tpch"), TPCH_PROPERTIES, Optional.empty(), Optional.empty());
         getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP));
-        assertThat(queryRunner.getMetadata().catalogExists(queryStateMachine.getSession(), TEST_CATALOG)).isTrue();
+        assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(queryStateMachine.getSession(), TEST_CATALOG)).isTrue();
         assertThatExceptionOfType(TrinoException.class)
                 .isThrownBy(() -> getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP)))
                 .withMessage("Catalog '%s' already exists", TEST_CATALOG);
@@ -106,9 +106,9 @@ public class TestCreateCatalogTask
         CreateCatalogTask task = getCreateCatalogTask();
         CreateCatalog statement = new CreateCatalog(new Identifier(TEST_CATALOG), true, new Identifier("tpch"), TPCH_PROPERTIES, Optional.empty(), Optional.empty());
         getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP));
-        assertThat(queryRunner.getMetadata().catalogExists(queryStateMachine.getSession(), TEST_CATALOG)).isTrue();
+        assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(queryStateMachine.getSession(), TEST_CATALOG)).isTrue();
         getFutureValue(task.execute(statement, queryStateMachine, emptyList(), WarningCollector.NOOP));
-        assertThat(queryRunner.getMetadata().catalogExists(queryStateMachine.getSession(), TEST_CATALOG)).isTrue();
+        assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(queryStateMachine.getSession(), TEST_CATALOG)).isTrue();
     }
 
     @Test

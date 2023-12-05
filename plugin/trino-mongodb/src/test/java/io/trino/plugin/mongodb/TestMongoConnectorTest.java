@@ -1345,7 +1345,7 @@ public class TestMongoConnectorTest
 
     private void testFiltersOnDereferenceColumnReadsLessData(String expectedValue, String expectedType)
     {
-        if (!isPushdownSupportedType(getQueryRunner().getTypeManager().fromSqlType(expectedType))) {
+        if (!isPushdownSupportedType(getQueryRunner().getPlannerContext().getTypeManager().fromSqlType(expectedType))) {
             abort("Type doesn't support filter pushdown");
         }
 
