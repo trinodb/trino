@@ -22,7 +22,8 @@ cd "${SCRIPT_DIR}" || exit 2
 
 SOURCE_DIR="${SCRIPT_DIR}/../.."
 
-ARCHITECTURES=(amd64 arm64 ppc64le)
+# TODO https://github.com/starburstdata/stargate/issues/14177 Reenable ppc64le
+ARCHITECTURES=(amd64 arm64)
 TRINO_VERSION=
 JDK_VERSION=$(cat "${SOURCE_DIR}/.java-version")
 
