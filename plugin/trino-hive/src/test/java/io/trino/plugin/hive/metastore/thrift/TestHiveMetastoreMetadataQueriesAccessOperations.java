@@ -14,18 +14,17 @@
 package io.trino.plugin.hive.metastore.thrift;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
-import io.trino.plugin.hive.HiveConfig;
+import io.airlift.log.Logger;
+import io.trino.Session;
+import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.plugin.hive.HiveType;
-import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.hive.containers.HiveHadoop;
 import io.trino.plugin.hive.metastore.Column;
-import io.trino.plugin.hive.metastore.CountingAccessHiveMetastore;
-import io.trino.plugin.hive.metastore.CountingAccessHiveMetastoreUtil;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.MetastoreMethod;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -39,9 +38,11 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.hive.HiveStorageFormat.PARQUET;
 import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
-import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
+import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
+import static io.trino.plugin.hive.metastore.MetastoreInvocations.assertMetastoreInvocationsForQuery;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_ALL_DATABASES;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_ALL_RELATION_TYPES;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_ALL_TABLES;
@@ -59,13 +60,19 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 public class TestHiveMetastoreMetadataQueriesAccessOperations
         extends AbstractTestQueryFramework
 {
+    private static final Logger log = Logger.get(TestHiveMetastoreMetadataQueriesAccessOperations.class);
+
     private static final int MAX_PREFIXES_COUNT = 20;
     private static final int TEST_SCHEMAS_COUNT = MAX_PREFIXES_COUNT + 1;
     private static final int TEST_TABLES_IN_SCHEMA_COUNT = MAX_PREFIXES_COUNT + 3;
     private static final int TEST_ALL_TABLES_COUNT = TEST_SCHEMAS_COUNT * TEST_TABLES_IN_SCHEMA_COUNT;
 
+    private static final Session SESSION = testSessionBuilder()
+            .setCatalog("hive")
+            .setSchema(Optional.empty())
+            .build();
+
     private HiveHadoop hiveHadoop;
-    private CountingAccessHiveMetastore metastore;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -74,16 +81,38 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
         hiveHadoop = HiveHadoop.builder().build();
         hiveHadoop.start();
 
-        HiveMetastore thriftMetastore = new BridgingHiveMetastore(testingThriftHiveMetastoreBuilder()
-                .metastoreClient(hiveHadoop.getHiveMetastoreEndpoint())
-                .thriftMetastoreConfig(new ThriftMetastoreConfig()
-                        .setBatchMetadataFetchEnabled(true)
-                        .setDeleteFilesOnDrop(true))
-                .hiveConfig(new HiveConfig().setTranslateHiveViews(true))
-                .build());
+        DistributedQueryRunner queryRunner = HiveQueryRunner.builder(SESSION)
+                // metadata queries do not use workers
+                .setNodeCount(1)
+                .addCoordinatorProperty("optimizer.experimental-max-prefetched-information-schema-prefixes", Integer.toString(MAX_PREFIXES_COUNT))
+                .addHiveProperty("hive.metastore", "thrift")
+                .addHiveProperty("hive.metastore.uri", "thrift://" + hiveHadoop.getHiveMetastoreEndpoint())
+                .addHiveProperty("hive.metastore.thrift.batch-fetch.enabled", "true")
+                .addHiveProperty("hive.hive-views.enabled", "true")
+                .setCreateTpchSchemas(false)
+                .build();
+
+        try {
+            long start = System.nanoTime();
+            createTestingTables(queryRunner);
+            log.info("Created testing tables in %s", nanosSince(start));
+        }
+        catch (RuntimeException e) {
+            queryRunner.close();
+            throw e;
+        }
+
+        return queryRunner;
+    }
+
+    private static void createTestingTables(QueryRunner queryRunner)
+    {
+        HiveMetastore metastore = getConnectorService(queryRunner, HiveMetastoreFactory.class)
+                .createMetastore(Optional.empty());
+
         for (int databaseId = 0; databaseId < TEST_SCHEMAS_COUNT; databaseId++) {
             String databaseName = "test_schema_" + databaseId;
-            thriftMetastore.createDatabase(Database.builder()
+            metastore.createDatabase(Database.builder()
                     .setDatabaseName(databaseName)
                     .setOwnerName(Optional.empty())
                     .setOwnerType(Optional.empty())
@@ -100,25 +129,9 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
                         .setOwner(Optional.empty());
                 table.getStorageBuilder()
                         .setStorageFormat(fromHiveStorageFormat(PARQUET));
-                thriftMetastore.createTable(table.build(), NO_PRIVILEGES);
+                metastore.createTable(table.build(), NO_PRIVILEGES);
             }
         }
-
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(
-                        testSessionBuilder()
-                                .setCatalog("hive")
-                                .setSchema(Optional.empty())
-                                .build())
-                // metadata queries do not use workers
-                .setNodeCount(1)
-                .addCoordinatorProperty("optimizer.experimental-max-prefetched-information-schema-prefixes", Integer.toString(MAX_PREFIXES_COUNT))
-                .build();
-
-        metastore = new CountingAccessHiveMetastore(thriftMetastore);
-
-        queryRunner.installPlugin(new TestingHivePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data"), metastore));
-        queryRunner.createCatalog("hive", "hive", ImmutableMap.of());
-        return queryRunner;
     }
 
     @AfterAll
@@ -485,6 +498,6 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
 
     private void assertMetastoreInvocations(@Language("SQL") String query, Multiset<MetastoreMethod> expectedInvocations)
     {
-        CountingAccessHiveMetastoreUtil.assertMetastoreInvocations(metastore, getQueryRunner(), getQueryRunner().getDefaultSession(), query, expectedInvocations);
+        assertMetastoreInvocationsForQuery(getDistributedQueryRunner(), getQueryRunner().getDefaultSession(), query, expectedInvocations);
     }
 }

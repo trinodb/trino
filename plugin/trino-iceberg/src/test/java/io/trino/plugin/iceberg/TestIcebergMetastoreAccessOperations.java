@@ -16,10 +16,7 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import io.trino.Session;
-import io.trino.plugin.hive.metastore.CountingAccessHiveMetastore;
-import io.trino.plugin.hive.metastore.CountingAccessHiveMetastoreUtil;
 import io.trino.plugin.hive.metastore.MetastoreMethod;
-import io.trino.plugin.iceberg.catalog.file.TestingIcebergFileMetastoreCatalogModule;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
@@ -29,10 +26,9 @@ import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import java.io.File;
 import java.util.Optional;
 
-import static com.google.inject.util.Modules.EMPTY_MODULE;
+import static io.trino.plugin.hive.metastore.MetastoreInvocations.assertMetastoreInvocationsForQuery;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.CREATE_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.DROP_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_DATABASE;
@@ -40,7 +36,6 @@ import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLES;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLES_WITH_PARAMETER;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.REPLACE_TABLE;
-import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.COLLECT_EXTENDED_STATISTICS_ON_WRITE;
 import static io.trino.plugin.iceberg.TableType.DATA;
 import static io.trino.plugin.iceberg.TableType.FILES;
@@ -52,7 +47,6 @@ import static io.trino.plugin.iceberg.TableType.PROPERTIES;
 import static io.trino.plugin.iceberg.TableType.REFS;
 import static io.trino.plugin.iceberg.TableType.SNAPSHOTS;
 import static io.trino.testing.TestingNames.randomNameSuffix;
-import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Execution(ExecutionMode.SAME_THREAD) // metastore invocation counters shares mutable state so can't be run from many threads simultaneously
@@ -60,32 +54,14 @@ public class TestIcebergMetastoreAccessOperations
         extends AbstractTestQueryFramework
 {
     private static final int MAX_PREFIXES_COUNT = 10;
-    private static final Session TEST_SESSION = testSessionBuilder()
-            .setCatalog("iceberg")
-            .setSchema("test_schema")
-            .build();
-
-    private CountingAccessHiveMetastore metastore;
 
     @Override
     protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(TEST_SESSION)
+        return IcebergQueryRunner.builder()
                 .addCoordinatorProperty("optimizer.experimental-max-prefetched-information-schema-prefixes", Integer.toString(MAX_PREFIXES_COUNT))
                 .build();
-
-        File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toFile();
-        metastore = new CountingAccessHiveMetastore(createTestingFileHiveMetastore(baseDir));
-        queryRunner.installPlugin(new TestingIcebergPlugin(
-                baseDir.toPath(),
-                Optional.of(new TestingIcebergFileMetastoreCatalogModule(metastore)),
-                Optional.empty(),
-                EMPTY_MODULE));
-        queryRunner.createCatalog("iceberg", "iceberg");
-
-        queryRunner.execute("CREATE SCHEMA test_schema");
-        return queryRunner;
     }
 
     @Test
@@ -356,7 +332,7 @@ public class TestIcebergMetastoreAccessOperations
                         .build());
 
         assertQueryFails("SELECT * FROM \"test_select_snapshots$materialized_view_storage\"",
-                "Table 'test_schema.test_select_snapshots\\$materialized_view_storage' not found");
+                "Table 'tpch.test_select_snapshots\\$materialized_view_storage' not found");
 
         // This test should get updated if a new system table is added.
         assertThat(TableType.values())
@@ -549,7 +525,7 @@ public class TestIcebergMetastoreAccessOperations
 
     private void assertMetastoreInvocations(Session session, @Language("SQL") String query, Multiset<MetastoreMethod> expectedInvocations)
     {
-        CountingAccessHiveMetastoreUtil.assertMetastoreInvocations(metastore, getQueryRunner(), session, query, expectedInvocations);
+        assertMetastoreInvocationsForQuery(getDistributedQueryRunner(), session, query, expectedInvocations);
     }
 
     private static Session withStatsOnWrite(Session session, boolean enabled)
