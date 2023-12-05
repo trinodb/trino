@@ -59,6 +59,7 @@ import io.trino.spi.type.Type;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -473,7 +474,9 @@ public final class CachingHiveMetastore
                     Table tableWithOnlyMissingColumns = table.withSelectedDataColumnsOnly(missingColumns);
                     return delegate.getTableStatistics(tableWithOnlyMissingColumns);
                 },
-                CachingHiveMetastore::mergePartitionColumnStatistics);
+                (currentStats, newStats) -> mergePartitionColumnStatistics(currentStats, newStats, dataColumns))
+                // HiveColumnStatistics.empty() are removed to make output consistent with non-cached metastore which simplifies testing
+                .withEmptyColumnStatisticsRemoved();
     }
 
     /**
@@ -494,23 +497,31 @@ public final class CachingHiveMetastore
                 partitionsByName.keySet(),
                 missingPartitions -> loadPartitionsColumnStatistics(table, partitionsByName, missingPartitions),
                 currentStats -> currentStats.getColumnStatistics().keySet().containsAll(dataColumns),
-                CachingHiveMetastore::mergePartitionColumnStatistics);
+                (currentStats, newStats) -> mergePartitionColumnStatistics(currentStats, newStats, dataColumns));
         return statistics.entrySet().stream()
-                .collect(toImmutableMap(entry -> entry.getKey().getPartitionName().orElseThrow(), Entry::getValue));
+                .collect(toImmutableMap(
+                        entry -> entry.getKey().getPartitionName().orElseThrow(),
+                        // HiveColumnStatistics.empty() are removed to make output consistent with non-cached metastore which simplifies testing
+                        entry -> entry.getValue().withEmptyColumnStatisticsRemoved()));
     }
 
-    private static PartitionStatistics mergePartitionColumnStatistics(PartitionStatistics currentStats, PartitionStatistics newStats)
+    private PartitionStatistics mergePartitionColumnStatistics(PartitionStatistics currentStats, PartitionStatistics newStats, Set<String> dataColumns)
     {
         requireNonNull(newStats, "newStats is null");
-        if (currentStats == null) {
-            return newStats;
+        ImmutableMap.Builder<String, HiveColumnStatistics> columnStatisticsBuilder = ImmutableMap.builder();
+        // Populate empty statistics for all requested columns to cache absence of column statistics for future requests.
+        if (cacheMissing) {
+            columnStatisticsBuilder.putAll(Iterables.transform(
+                    dataColumns,
+                    column -> new AbstractMap.SimpleEntry<>(column, HiveColumnStatistics.empty())));
         }
+        if (currentStats != null) {
+            columnStatisticsBuilder.putAll(currentStats.getColumnStatistics());
+        }
+        columnStatisticsBuilder.putAll(newStats.getColumnStatistics());
         return new PartitionStatistics(
                 newStats.getBasicStatistics(),
-                ImmutableMap.<String, HiveColumnStatistics>builder()
-                        .putAll(currentStats.getColumnStatistics())
-                        .putAll(newStats.getColumnStatistics())
-                        .buildKeepingLast());
+                columnStatisticsBuilder.buildKeepingLast());
     }
 
     private Map<HivePartitionName, PartitionStatistics> loadPartitionsColumnStatistics(Table table, Map<HivePartitionName, Partition> partitionsByName, Collection<HivePartitionName> partitionNamesToLoad)
