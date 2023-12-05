@@ -53,7 +53,7 @@ public class LogicalIndexPointer
         this.labels = requireNonNull(labels, "labels is null");
         this.last = last;
         this.running = running;
-        checkArgument(logicalOffset >= 0, "logical offset must be >= 0, actual: " + logicalOffset);
+        checkArgument(logicalOffset >= 0, "logical offset must be >= 0, actual: %s", logicalOffset);
         this.logicalOffset = logicalOffset;
         this.physicalOffset = physicalOffset;
     }

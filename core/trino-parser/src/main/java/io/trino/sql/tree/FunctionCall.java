@@ -58,7 +58,7 @@ public class FunctionCall
         super(location);
         requireNonNull(name, "name is null");
         requireNonNull(window, "window is null");
-        window.ifPresent(node -> checkArgument(node instanceof WindowReference || node instanceof WindowSpecification, "unexpected window: " + node.getClass().getSimpleName()));
+        window.ifPresent(node -> checkArgument(node instanceof WindowReference || node instanceof WindowSpecification, "unexpected window: %s", node.getClass().getSimpleName()));
         requireNonNull(filter, "filter is null");
         requireNonNull(orderBy, "orderBy is null");
         requireNonNull(nullTreatment, "nullTreatment is null");
