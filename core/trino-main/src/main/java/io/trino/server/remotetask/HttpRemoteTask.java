@@ -1057,6 +1057,14 @@ public final class HttpRemoteTask
                     taskStatusFetcher.updateTaskStatus(taskStatus);
                 }
             }
+            else {
+                // Even though state in taskStatus is Done already it could not be the case for task info.
+                // We could have received valid response from taskStatusFetcher just before the worker went
+                // down, but taskInfoFetcher still holds old state.
+                // Update taskInfo so task is not stuck in FTE execution mode which depends on final task info
+                // being delivered.
+                updateTaskInfo(getTaskInfo().withTaskStatus(taskStatus));
+            }
         }
     }
 
