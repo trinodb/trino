@@ -373,6 +373,7 @@ jobs:
             !:trino-server,
             !:trino-server-rpm,
             !:trino-singlestore,
+            !:trino-snowflake,
             !:trino-sqlserver,
             !:trino-test-jdbc-compatibility-old-server,
             !:trino-tests,
@@ -475,6 +476,8 @@ jobs:
             - { modules: plugin/trino-redshift, profile: fte-tests }
             - { modules: plugin/trino-resource-group-managers }
             - { modules: plugin/trino-singlestore }
+            - { modules: plugin/trino-snowflake }
+            - { modules: plugin/trino-snowflake, profile: cloud-tests }
             - { modules: plugin/trino-sqlserver }
             - { modules: testing/trino-faulttolerant-tests, profile: default }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-delta }
@@ -651,6 +654,24 @@ jobs:
         if: matrix.modules == 'plugin/trino-bigquery' && !contains(matrix.profile, 'cloud-tests-2') && (env.CI_SKIP_SECRETS_PRESENCE_CHECKS != '' || env.BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY != '')
         run: |
           $MAVEN test ${MAVEN_TEST} -pl :trino-bigquery -Pcloud-tests-case-insensitive-mapping -Dbigquery.credentials-key="${BIGQUERY_CASE_INSENSITIVE_CREDENTIALS_KEY}"
+      - name: Cloud Snowflake Tests
+        env:
+          SNOWFLAKE_URL: ${{ secrets.SNOWFLAKE_URL }}
+          SNOWFLAKE_USER: ${{ secrets.SNOWFLAKE_USER }}
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+          SNOWFLAKE_DATABASE: ${{ secrets.SNOWFLAKE_DATABASE }}
+          SNOWFLAKE_ROLE: ${{ secrets.SNOWFLAKE_ROLE }}
+          SNOWFLAKE_WAREHOUSE: ${{ secrets.SNOWFLAKE_WAREHOUSE }}
+        if: matrix.modules == 'plugin/trino-snowflake' && !contains(matrix.profile, 'cloud-tests') && (env.SNOWFLAKE_URL != '' && env.SNOWFLAKE_USER != '' && env.SNOWFLAKE_PASSWORD != '')
+        run: |
+          $MAVEN test ${MAVEN_TEST} -pl :trino-snowflake -Pcloud-tests \
+            -Dconnector.name="snowflake" \
+            -Dsnowflake.test.server.url="${SNOWFLAKE_URL}" \
+            -Dsnowflake.test.server.user="${SNOWFLAKE_USER}" \
+            -Dsnowflake.test.server.password="${SNOWFLAKE_PASSWORD}" \
+            -Dsnowflake.test.server.database="${SNOWFLAKE_DATABASE}" \
+            -Dsnowflake.test.server.role="${SNOWFLAKE_ROLE}" \
+            -Dsnowflake.test.server.warehouse="${SNOWFLAKE_WAREHOUSE}"
       - name: Iceberg Cloud Tests
         id: tests-iceberg
         env:
@@ -842,6 +863,7 @@ jobs:
             - suite-clickhouse
             - suite-mysql
             - suite-iceberg
+            - suite-snowflake
             - suite-hudi
             - suite-ignite
           exclude:
