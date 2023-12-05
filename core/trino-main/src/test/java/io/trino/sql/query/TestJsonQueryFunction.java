@@ -13,10 +13,6 @@
  */
 package io.trino.sql.query;
 
-import io.trino.json.PathEvaluationException;
-import io.trino.operator.scalar.json.JsonInputConversionException;
-import io.trino.operator.scalar.json.JsonOutputConversionException;
-import io.trino.sql.parser.ParsingException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -25,6 +21,11 @@ import org.junit.jupiter.api.parallel.Execution;
 import java.nio.charset.Charset;
 
 import static com.google.common.io.BaseEncoding.base16;
+import static io.trino.spi.StandardErrorCode.JSON_INPUT_CONVERSION_ERROR;
+import static io.trino.spi.StandardErrorCode.JSON_OUTPUT_CONVERSION_ERROR;
+import static io.trino.spi.StandardErrorCode.PATH_EVALUATION_ERROR;
+import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -77,9 +78,9 @@ public class TestJsonQueryFunction
                 "SELECT json_query('" + INPUT + "', 'strict $[100]' EMPTY OBJECT ON ERROR)"))
                 .matches("VALUES VARCHAR '{}'");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertTrinoExceptionThrownBy(() -> assertions.query(
                 "SELECT json_query('" + INPUT + "', 'strict $[100]' ERROR ON ERROR)"))
-                .isInstanceOf(PathEvaluationException.class)
+                .hasErrorCode(PATH_EVALUATION_ERROR)
                 .hasMessage("path evaluation failed: structural error: invalid array subscript: [100, 100] for array of size 3");
 
         // structural error suppressed by the path engine in lax mode. empty sequence is returned, so ON EMPTY behavior is applied
@@ -101,9 +102,9 @@ public class TestJsonQueryFunction
                 "SELECT json_query('" + INPUT + "', 'lax $[100]' EMPTY OBJECT ON EMPTY)"))
                 .matches("VALUES VARCHAR '{}'");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertTrinoExceptionThrownBy(() -> assertions.query(
                 "SELECT json_query('" + INPUT + "', 'lax $[100]' ERROR ON EMPTY)"))
-                .isInstanceOf(JsonOutputConversionException.class)
+                .hasErrorCode(JSON_OUTPUT_CONVERSION_ERROR)
                 .hasMessage("conversion from JSON failed: JSON path found no items");
 
         // path returns multiple items (no array wrapper specified). this case is handled accordingly to the ON ERROR clause
@@ -125,9 +126,9 @@ public class TestJsonQueryFunction
                 "SELECT json_query('" + INPUT + "', 'lax $[0 to 2]' EMPTY OBJECT ON ERROR)"))
                 .matches("VALUES VARCHAR '{}'");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertTrinoExceptionThrownBy(() -> assertions.query(
                 "SELECT json_query('" + INPUT + "', 'lax $[0 to 2]' ERROR ON ERROR)"))
-                .isInstanceOf(JsonOutputConversionException.class)
+                .hasErrorCode(JSON_OUTPUT_CONVERSION_ERROR)
                 .hasMessage("conversion from JSON failed: JSON path found multiple items");
     }
 
@@ -208,9 +209,9 @@ public class TestJsonQueryFunction
                 "SELECT json_query('" + INCORRECT_INPUT + "', 'lax $[1]' EMPTY OBJECT ON ERROR)"))
                 .matches("VALUES VARCHAR '{}'");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertTrinoExceptionThrownBy(() -> assertions.query(
                 "SELECT json_query('" + INCORRECT_INPUT + "', 'lax $[1]' ERROR ON ERROR)"))
-                .isInstanceOf(JsonInputConversionException.class)
+                .hasErrorCode(JSON_INPUT_CONVERSION_ERROR)
                 .hasMessage("conversion to JSON failed: ");
     }
 
@@ -236,9 +237,9 @@ public class TestJsonQueryFunction
                 "SELECT json_query('" + INPUT + "', 'lax $array[0]' PASSING '[...' FORMAT JSON AS \"array\")"))
                 .matches("VALUES cast(null AS varchar)");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertTrinoExceptionThrownBy(() -> assertions.query(
                 "SELECT json_query('" + INPUT + "', 'lax $array[0]' PASSING '[...' FORMAT JSON AS \"array\" ERROR ON ERROR)"))
-                .isInstanceOf(JsonInputConversionException.class)
+                .hasErrorCode(JSON_INPUT_CONVERSION_ERROR)
                 .hasMessage("conversion to JSON failed: ");
 
         // array index out of bounds
@@ -394,9 +395,9 @@ public class TestJsonQueryFunction
     @Test
     public void testIncorrectPath()
     {
-        assertThatThrownBy(() -> assertions.query(
+        assertTrinoExceptionThrownBy(() -> assertions.query(
                 "SELECT json_query('" + INPUT + "', 'certainly not a valid path')"))
-                .isInstanceOf(ParsingException.class)
+                .hasErrorCode(SYNTAX_ERROR)
                 .hasMessage("line 1:39: mismatched input 'certainly' expecting {'lax', 'strict'}");
     }
 

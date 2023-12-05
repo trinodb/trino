@@ -31,7 +31,8 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.RunLengthEncodedBlock;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -62,8 +63,7 @@ public class TestSpatialPartitioningInternalAggregation
 
     public void test(int partitionCount)
     {
-        LocalQueryRunner runner = LocalQueryRunner.builder(testSessionBuilder().build())
-                .build();
+        QueryRunner runner = new StandaloneQueryRunner(testSessionBuilder().build());
         runner.installPlugin(new GeoPlugin());
 
         TestingAggregationFunction function = new TestingFunctionResolution(runner)

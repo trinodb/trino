@@ -15,8 +15,9 @@ package io.trino.sql.planner;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.tpch.TpchConnectorFactory;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.plugin.tpch.TpchPlugin;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -36,13 +37,14 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestLocalExecutionPlanner
 {
-    private LocalQueryRunner runner;
+    private QueryRunner runner;
 
     @BeforeAll
     public void setUp()
     {
-        runner = LocalQueryRunner.create(TEST_SESSION);
-        runner.createCatalog("tpch", new TpchConnectorFactory(), ImmutableMap.of());
+        runner = new StandaloneQueryRunner(TEST_SESSION);
+        runner.installPlugin(new TpchPlugin());
+        runner.createCatalog("tpch", "tpch", ImmutableMap.of());
     }
 
     @AfterAll
@@ -60,7 +62,7 @@ public class TestLocalExecutionPlanner
 
         assertTrinoExceptionThrownBy(() -> runner.execute("SELECT " + outer + " FROM (VALUES rand()) t(x)"))
                 .hasErrorCode(COMPILER_ERROR)
-                .hasMessageStartingWith("Query exceeded maximum columns");
+                .hasCauseMessageContaining("Query exceeded maximum columns");
     }
 
     @Test
@@ -74,7 +76,7 @@ public class TestLocalExecutionPlanner
 
         assertTrinoExceptionThrownBy(() -> runner.execute("SELECT * " + filterQueryInner + filterQueryWhere))
                 .hasErrorCode(COMPILER_ERROR)
-                .hasMessageStartingWith("Query exceeded maximum filters");
+                .hasCauseMessageContaining("Query exceeded maximum filters");
     }
 
     @Test

@@ -14,14 +14,15 @@
 package io.trino.tests;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.SystemSessionProperties.DICTIONARY_AGGREGATION;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.NONE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
@@ -31,12 +32,13 @@ public class TestDictionaryAggregation
     @Override
     protected QueryRunner createQueryRunner()
     {
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(testSessionBuilder()
+        QueryRunner queryRunner = new StandaloneQueryRunner(testSessionBuilder()
                 .setSystemProperty(DICTIONARY_AGGREGATION, "true")
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.toString())
                 .build());
 
-        queryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
+        queryRunner.installPlugin(new TpchPlugin());
+        queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
 
         return queryRunner;
     }

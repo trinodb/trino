@@ -71,8 +71,7 @@ public class TestPreAggregateCaseAggregations
                 .setSystemProperty(PREFER_PARTIAL_AGGREGATION, "false") // remove partial aggregations for simplicity
                 .setSystemProperty(TASK_CONCURRENCY, "1"); // these tests don't handle exchanges from local parallel
 
-        LocalQueryRunner queryRunner = LocalQueryRunner.builder(sessionBuilder.build())
-                .build();
+        LocalQueryRunner queryRunner = LocalQueryRunner.create(sessionBuilder.build());
 
         // create table with different column types
         MockConnectorFactory.Builder builder = MockConnectorFactory.builder()

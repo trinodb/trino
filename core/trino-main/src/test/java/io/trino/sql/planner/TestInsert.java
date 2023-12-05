@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorPlugin;
 import io.trino.connector.MockConnectorTableHandle;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
@@ -62,9 +63,8 @@ public class TestInsert
                 .setSchema("schema");
 
         LocalQueryRunner queryRunner = LocalQueryRunner.create(sessionBuilder.build());
-        queryRunner.createCatalog(
-                "mock",
-                MockConnectorFactory.builder()
+        queryRunner.installPlugin(
+                new MockConnectorPlugin(MockConnectorFactory.builder()
                         .withGetTableHandle((session, schemaTableName) -> {
                             if (schemaTableName.getTableName().equals("test_table_preferred_partitioning")) {
                                 return new MockConnectorTableHandle(schemaTableName);
@@ -105,8 +105,8 @@ public class TestInsert
 
                             return Optional.empty();
                         })
-                        .build(),
-                ImmutableMap.of());
+                        .build()));
+        queryRunner.createCatalog("mock", "mock", ImmutableMap.of());
         return queryRunner;
     }
 

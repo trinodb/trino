@@ -15,9 +15,10 @@ package io.trino.tests;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.testing.Closeables;
-import io.trino.plugin.tpch.TpchConnectorFactory;
+import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.sql.query.QueryAssertions;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -25,6 +26,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
@@ -36,15 +38,16 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestTablesample
 {
-    private LocalQueryRunner queryRunner;
+    private QueryRunner queryRunner;
     private QueryAssertions assertions;
 
     @BeforeAll
     public void setUp()
             throws Exception
     {
-        queryRunner = LocalQueryRunner.create(TEST_SESSION);
-        queryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
+        queryRunner = new StandaloneQueryRunner(TEST_SESSION);
+        queryRunner.installPlugin(new TpchPlugin());
+        queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
         assertions = new QueryAssertions(queryRunner);
     }
 
