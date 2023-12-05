@@ -14,25 +14,37 @@
 package io.trino.plugin.hive.metastore;
 
 import com.google.common.collect.Multiset;
+import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.Session;
-import io.trino.testing.QueryRunner;
+import io.trino.testing.DistributedQueryRunner;
 import org.intellij.lang.annotations.Language;
 
+import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 
-public final class CountingAccessHiveMetastoreUtil
+public final class MetastoreInvocations
 {
-    private CountingAccessHiveMetastoreUtil() {}
+    private static final String TRACE_PREFIX = "HiveMetastore.";
 
-    public static void assertMetastoreInvocations(
-            CountingAccessHiveMetastore metastore,
-            QueryRunner queryRunner,
+    private MetastoreInvocations() {}
+
+    public static void assertMetastoreInvocationsForQuery(
+            DistributedQueryRunner queryRunner,
             Session session,
             @Language("SQL") String query,
             Multiset<MetastoreMethod> expectedInvocations)
     {
-        metastore.resetCounters();
         queryRunner.execute(session, query);
-        assertMultisetsEqual(metastore.getMethodInvocations(), expectedInvocations);
+
+        Multiset<MetastoreMethod> invocations = queryRunner.getSpans().stream()
+                .map(SpanData::getName)
+                .filter(name -> name.startsWith(TRACE_PREFIX))
+                .map(name -> name.substring(TRACE_PREFIX.length()))
+                .filter(name -> !name.equals("listRoleGrants"))
+                .filter(name -> !name.equals("listTablePrivileges"))
+                .map(MetastoreMethod::fromMethodName)
+                .collect(toImmutableMultiset());
+
+        assertMultisetsEqual(invocations, expectedInvocations);
     }
 }
