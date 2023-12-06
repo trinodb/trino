@@ -373,6 +373,7 @@ jobs:
             !:trino-server,
             !:trino-server-rpm,
             !:trino-singlestore,
+            !:trino-snowflake,
             !:trino-sqlserver,
             !:trino-test-jdbc-compatibility-old-server,
             !:trino-tests,
@@ -475,6 +476,7 @@ jobs:
             - { modules: plugin/trino-redshift, profile: fte-tests }
             - { modules: plugin/trino-resource-group-managers }
             - { modules: plugin/trino-singlestore }
+            - { modules: plugin/trino-snowflake }
             - { modules: plugin/trino-sqlserver }
             - { modules: testing/trino-faulttolerant-tests, profile: default }
             - { modules: testing/trino-faulttolerant-tests, profile: test-fault-tolerant-delta }
