@@ -41,6 +41,7 @@ import java.util.UUID;
 
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.parquet.reader.ParquetReader.COLUMN_INDEX_ROWS_FILTERED;
+import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
@@ -62,7 +63,7 @@ public class TestParquetPageSkipping
                                 "parquet.max-buffer-size", "1MB"))
                 .build();
 
-        fileSystem = TestingHiveUtils.getConnectorService(queryRunner, TrinoFileSystemFactory.class)
+        fileSystem = getConnectorService(queryRunner, TrinoFileSystemFactory.class)
                 .create(ConnectorIdentity.ofUser("test"));
 
         return queryRunner;

@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.Key;
 import io.trino.Session;
 import io.trino.plugin.hive.HiveQueryRunner;
-import io.trino.plugin.hive.TestingHiveUtils;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
@@ -36,6 +35,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
+import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Collections.nCopies;
@@ -74,7 +74,7 @@ public class TestCachingHiveMetastoreWithQueryRunner
                         "hive.metastore-refresh-interval", "10m"))
                 .build();
 
-        rawMetastore = TestingHiveUtils.getConnectorService(queryRunner, Key.get(HiveMetastoreFactory.class, RawHiveMetastoreFactory.class))
+        rawMetastore = getConnectorService(queryRunner, Key.get(HiveMetastoreFactory.class, RawHiveMetastoreFactory.class))
                 .createMetastore(Optional.empty());
 
         queryRunner.execute(ADMIN, "CREATE SCHEMA " + SCHEMA);
