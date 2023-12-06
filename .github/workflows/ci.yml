@@ -306,22 +306,6 @@ jobs:
         run: |
           source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
             plugin/trino-hive-hadoop2/bin/run_hive_tests.sh
-      - name: Run Hive S3 Tests
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
-          S3_BUCKET: ${{ vars.TRINO_S3_BUCKET }}
-          S3_BUCKET_ENDPOINT: "https://s3.${{ vars.TRINO_AWS_REGION }}.amazonaws.com"
-        run: |
-          if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
-            source plugin/trino-hive-hadoop2/conf/hive-tests-${{ matrix.config }}.sh &&
-              plugin/trino-hive-hadoop2/bin/run_hive_s3_tests.sh
-            if [ matrix.config == 'config-hdp3' ]; then
-              # JsonSerde class needed for the S3 Select JSON tests is only available on hdp3.
-              plugin/trino-hive-hadoop2/bin/run_hive_s3_select_json_tests.sh
-            fi
-          fi
       - name: Run Hive AWS Tests
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
