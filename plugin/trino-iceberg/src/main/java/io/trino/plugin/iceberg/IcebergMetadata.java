@@ -2543,11 +2543,11 @@ public class IcebergMetadata
             remainingConstraint = TupleDomain.withColumnDomains(newUnenforced).intersect(TupleDomain.withColumnDomains(unsupported));
         }
 
-        Set<IcebergColumnHandle> newConstraintColumns = constraint.getPredicateColumns()
-                .map(columnHandles -> columnHandles.stream()
-                        .map(columnHandle -> (IcebergColumnHandle) columnHandle)
-                        .collect(toImmutableSet()))
-                .orElse(ImmutableSet.of());
+        Set<IcebergColumnHandle> newConstraintColumns = Streams.concat(
+                        table.getConstraintColumns().stream(),
+                        constraint.getPredicateColumns().orElseGet(ImmutableSet::of).stream()
+                                .map(columnHandle -> (IcebergColumnHandle) columnHandle))
+                .collect(toImmutableSet());
 
         if (newEnforcedConstraint.equals(table.getEnforcedPredicate())
                 && newUnenforcedConstraint.equals(table.getUnenforcedPredicate())
@@ -2574,7 +2574,7 @@ public class IcebergMetadata
                         table.getStorageProperties(),
                         table.isRecordScannedFiles(),
                         table.getMaxScannedFileSize(),
-                        Sets.union(table.getConstraintColumns(), newConstraintColumns),
+                        newConstraintColumns,
                         table.getForAnalyze()),
                 remainingConstraint.transformKeys(ColumnHandle.class::cast),
                 extractionResult.remainingExpression(),
