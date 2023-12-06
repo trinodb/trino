@@ -237,7 +237,6 @@
                                 <exclude>**/TestHiveFileSystemAbfsAccessKey.java</exclude>
                                 <exclude>**/TestHiveFileSystemAbfsOAuth.java</exclude>
                                 <exclude>**/TestHiveFileSystemAdl.java</exclude>
-                                <exclude>**/TestHiveAzure.java</exclude>
                             </excludes>
                         </configuration>
                     </plugin>
