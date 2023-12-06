@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.Location;
 import io.trino.plugin.hive.HiveQueryRunner;
-import io.trino.plugin.hive.TestingHiveUtils;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
@@ -34,6 +33,7 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 
 import static io.trino.plugin.hive.HiveQueryRunner.TPCH_SCHEMA;
+import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -59,7 +59,7 @@ public abstract class BaseCachingDirectoryListerTest<C extends DirectoryLister>
                 .setDirectoryLister(directoryLister)
                 .build();
 
-        metastore = TestingHiveUtils.getConnectorService(queryRunner, HiveMetastoreFactory.class)
+        metastore = getConnectorService(queryRunner, HiveMetastoreFactory.class)
                 .createMetastore(Optional.empty());
 
         return queryRunner;
