@@ -73,7 +73,7 @@ public class TestQuerySpillLimits
             }
         })
                 .isInstanceOf(RuntimeException.class)
-                .hasMessage(".*Query exceeded local spill limit of 10B");
+                .hasMessage("Query exceeded local spill limit of 10B");
     }
 
     @Test
