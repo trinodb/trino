@@ -105,7 +105,6 @@ public final class HiveQueryRunner
         private ImmutableMap.Builder<String, String> hiveProperties = ImmutableMap.builder();
         private List<TpchTable<?>> initialTables = ImmutableList.of();
         private Optional<String> initialSchemasLocationBase = Optional.empty();
-        private Function<Session, Session> initialTablesSessionMutator = Function.identity();
         private Optional<Function<DistributedQueryRunner, HiveMetastore>> metastore = Optional.empty();
         private Optional<OpenTelemetry> openTelemetry = Optional.empty();
         private Module module = EMPTY_MODULE;
@@ -163,13 +162,6 @@ public final class HiveQueryRunner
         }
 
         @CanIgnoreReturnValue
-        public SELF setInitialTablesSessionMutator(Function<Session, Session> initialTablesSessionMutator)
-        {
-            this.initialTablesSessionMutator = requireNonNull(initialTablesSessionMutator, "initialTablesSessionMutator is null");
-            return self();
-        }
-
-        @CanIgnoreReturnValue
         public SELF setMetastore(Function<DistributedQueryRunner, HiveMetastore> metastore)
         {
             this.metastore = Optional.of(metastore);
@@ -218,6 +210,7 @@ public final class HiveQueryRunner
             return self();
         }
 
+        @SuppressWarnings("unused")
         @CanIgnoreReturnValue
         public SELF setTpchColumnNaming(ColumnNaming tpchColumnNaming)
         {
@@ -225,6 +218,7 @@ public final class HiveQueryRunner
             return self();
         }
 
+        @SuppressWarnings("unused")
         @CanIgnoreReturnValue
         public SELF setTpchDecimalTypeMapping(DecimalTypeMapping tpchDecimalTypeMapping)
         {
@@ -294,19 +288,19 @@ public final class HiveQueryRunner
             }
         }
 
-        private void populateData(DistributedQueryRunner queryRunner)
+        private void populateData(QueryRunner queryRunner)
         {
             HiveMetastore metastore = getConnectorService(queryRunner, HiveMetastoreFactory.class)
                     .createMetastore(Optional.empty());
             if (metastore.getDatabase(TPCH_SCHEMA).isEmpty()) {
                 metastore.createDatabase(createDatabaseMetastoreObject(TPCH_SCHEMA, initialSchemasLocationBase));
-                Session session = initialTablesSessionMutator.apply(queryRunner.getDefaultSession());
+                Session session = queryRunner.getDefaultSession();
                 copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, session, initialTables);
             }
 
             if (tpchBucketedCatalogEnabled && metastore.getDatabase(TPCH_BUCKETED_SCHEMA).isEmpty()) {
                 metastore.createDatabase(createDatabaseMetastoreObject(TPCH_BUCKETED_SCHEMA, initialSchemasLocationBase));
-                Session session = initialTablesSessionMutator.apply(createBucketedSession(Optional.empty()));
+                Session session = createBucketedSession(Optional.empty());
                 copyTpchTablesBucketed(queryRunner, "tpch", TINY_SCHEMA_NAME, session, initialTables, tpchColumnNaming);
             }
         }
@@ -410,7 +404,7 @@ public final class HiveQueryRunner
             baseDataDir = Optional.of(path);
         }
 
-        DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
+        DistributedQueryRunner queryRunner = builder()
                 .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
                 .setHiveProperties(ImmutableMap.of("hive.security", ALLOW_ALL))
                 .setSkipTimezoneSetup(true)
