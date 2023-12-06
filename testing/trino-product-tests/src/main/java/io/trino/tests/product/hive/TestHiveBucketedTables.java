@@ -302,14 +302,12 @@ public class TestHiveBucketedTables
         List<String> bucketV1NameOptions = ImmutableList.of(bucketV1);
         List<String> bucketV2NameOptions = ImmutableList.of(bucketV2Standard, bucketV2DirectInsert);
 
-        testBucketingVersion(BUCKETED_DEFAULT, value, false, (getHiveVersionMajor() < 3) ? bucketV1NameOptions : bucketV2NameOptions);
-        testBucketingVersion(BUCKETED_DEFAULT, value, true, (getHiveVersionMajor() < 3) ? bucketV1NameOptions : bucketV2NameOptions);
+        testBucketingVersion(BUCKETED_DEFAULT, value, false, bucketV2NameOptions);
+        testBucketingVersion(BUCKETED_DEFAULT, value, true, bucketV2NameOptions);
         testBucketingVersion(BUCKETED_V1, value, false, bucketV1NameOptions);
         testBucketingVersion(BUCKETED_V1, value, true, bucketV1NameOptions);
-        if (getHiveVersionMajor() >= 3) {
-            testBucketingVersion(BUCKETED_V2, value, false, bucketV2NameOptions);
-            testBucketingVersion(BUCKETED_V2, value, true, bucketV2NameOptions);
-        }
+        testBucketingVersion(BUCKETED_V2, value, false, bucketV2NameOptions);
+        testBucketingVersion(BUCKETED_V2, value, true, bucketV2NameOptions);
     }
 
     @Test(dataProvider = "testBucketingWithUnsupportedDataTypesDataProvider")
@@ -459,7 +457,7 @@ public class TestHiveBucketedTables
     {
         switch (bucketingType) {
             case BUCKETED_DEFAULT:
-                return getHiveVersionMajor() < 3 ? "1" : "2";
+                return "2";
             case BUCKETED_V1:
                 return "1";
             case BUCKETED_V2:
