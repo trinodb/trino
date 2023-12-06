@@ -73,7 +73,7 @@ public class TestQuerySpillLimits
             }
         })
                 .isInstanceOf(RuntimeException.class)
-                .hasMessage(".*Query exceeded local spill limit of 10B");
+                .hasMessage("Query exceeded local spill limit of 10B");
     }
 
     @Test
@@ -86,7 +86,7 @@ public class TestQuerySpillLimits
             }
         })
                 .isInstanceOf(RuntimeException.class)
-                .hasMessageMatching(".*Query exceeded per-query local spill limit of 10B");
+                .hasMessageMatching("Query exceeded per-query local spill limit of 10B");
     }
 
     private LocalQueryRunner createLocalQueryRunner(NodeSpillConfig nodeSpillConfig)
