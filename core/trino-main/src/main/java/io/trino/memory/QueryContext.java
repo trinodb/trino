@@ -220,7 +220,7 @@ public class QueryContext
         spillSpaceTracker.free(bytes);
     }
 
-    public synchronized MemoryPool getMemoryPool()
+    public MemoryPool getMemoryPool()
     {
         return memoryPool;
     }
