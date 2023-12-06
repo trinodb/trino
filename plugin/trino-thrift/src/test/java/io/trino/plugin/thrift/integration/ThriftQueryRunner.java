@@ -30,6 +30,7 @@ import io.trino.Session;
 import io.trino.cache.CacheMetadata;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
+import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
@@ -45,6 +46,7 @@ import io.trino.split.SplitManager;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.QueryExplainer;
 import io.trino.sql.planner.NodePartitioningManager;
+import io.trino.sql.planner.Plan;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
@@ -284,6 +286,18 @@ public final class ThriftQueryRunner
         public MaterializedResult execute(Session session, String sql)
         {
             return source.execute(session, sql);
+        }
+
+        @Override
+        public MaterializedResultWithPlan executeWithPlan(Session session, String sql, WarningCollector warningCollector)
+        {
+            return source.executeWithPlan(session, sql, warningCollector);
+        }
+
+        @Override
+        public Plan createPlan(Session session, String sql)
+        {
+            return source.createPlan(session, sql);
         }
 
         @Override

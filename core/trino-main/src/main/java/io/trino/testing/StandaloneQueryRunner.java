@@ -13,19 +13,20 @@
  */
 package io.trino.testing;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Key;
 import io.trino.Session;
 import io.trino.cache.CacheMetadata;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
+import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.MetadataUtil;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.QualifiedTablePrefix;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.operator.DirectExchangeClientSupplier;
-import io.trino.server.SessionContext;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
@@ -34,7 +35,10 @@ import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.QueryExplainer;
+import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.NodePartitioningManager;
+import io.trino.sql.planner.Plan;
+import io.trino.sql.tree.Statement;
 import io.trino.transaction.TransactionManager;
 import org.intellij.lang.annotations.Language;
 
@@ -46,6 +50,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static java.util.Objects.requireNonNull;
 
 public final class StandaloneQueryRunner
@@ -78,13 +83,40 @@ public final class StandaloneQueryRunner
     @Override
     public MaterializedResult execute(Session session, @Language("SQL") String sql)
     {
+        return executeWithQueryId(session, sql).getResult();
+    }
+
+    public MaterializedResultWithQueryId executeWithQueryId(Session session, @Language("SQL") String sql)
+    {
         lock.readLock().lock();
         try {
-            return trinoClient.execute(sql, SessionContext.fromSession(session));
+            DirectTrinoClient.MaterializedResultWithQueryId result = trinoClient.execute(session, sql);
+            return new MaterializedResultWithQueryId(result.queryId(), result.result());
+        }
+        catch (Throwable e) {
+            e.addSuppressed(new Exception("SQL: " + sql));
+            throw e;
         }
         finally {
             lock.readLock().unlock();
         }
+    }
+
+    @Override
+    public MaterializedResultWithPlan executeWithPlan(Session session, String sql, WarningCollector warningCollector)
+    {
+        MaterializedResultWithQueryId resultWithQueryId = executeWithQueryId(session, sql);
+        return new MaterializedResultWithPlan(resultWithQueryId.getResult().toTestTypes(), server.getQueryPlan(resultWithQueryId.getQueryId()));
+    }
+
+    @Override
+    public Plan createPlan(Session session, String sql)
+    {
+        // session must be in a transaction registered with the transaction manager in this query runner
+        getTransactionManager().getTransactionInfo(session.getRequiredTransactionId());
+
+        Statement statement = server.getInstance(Key.get(SqlParser.class)).createStatement(sql);
+        return server.getQueryExplainer().getLogicalPlan(session, statement, ImmutableList.of(), WarningCollector.NOOP, createPlanOptimizersStatsCollector());
     }
 
     @Override

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.opentelemetry.api.trace.Span;
+import io.trino.Session;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.dispatcher.DispatchQuery;
 import io.trino.exchange.DirectExchangeInput;
@@ -78,7 +79,12 @@ class DirectTrinoClient
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
     }
 
-    public MaterializedResult execute(@Language("SQL") String sql, SessionContext sessionContext)
+    public MaterializedResultWithQueryId execute(Session session, @Language("SQL") String sql)
+    {
+        return execute(SessionContext.fromSession(session), sql);
+    }
+
+    public MaterializedResultWithQueryId execute(SessionContext sessionContext, @Language("SQL") String sql)
     {
         // create the query and wait for it to be dispatched
         QueryId queryId = dispatchManager.createQueryId();
@@ -86,7 +92,7 @@ class DirectTrinoClient
         getQueryFuture(dispatchManager.waitForDispatched(queryId));
         DispatchQuery dispatchQuery = dispatchManager.getQuery(queryId);
         if (dispatchQuery.getState().isDone()) {
-            return toMaterializedRows(dispatchQuery, ImmutableList.of(), ImmutableList.of(), ImmutableList.of());
+            return new MaterializedResultWithQueryId(queryId, toMaterializedRows(dispatchQuery, ImmutableList.of(), ImmutableList.of(), ImmutableList.of()));
         }
 
         // read all output data
@@ -126,7 +132,7 @@ class DirectTrinoClient
             getQueryFuture(queryManager.getStateChange(queryId, queryState));
         }
 
-        return toMaterializedRows(dispatchQuery, columnTypes.get(), columnNames.get(), pages);
+        return new MaterializedResultWithQueryId(queryId, toMaterializedRows(dispatchQuery, columnTypes.get(), columnNames.get(), pages));
     }
 
     private DirectExchangeClient createExchangeClient(DispatchQuery dispatchQuery)
@@ -206,6 +212,15 @@ class DirectTrinoClient
         }
         catch (ExecutionException e) {
             throw new TrinoException(GENERIC_INTERNAL_ERROR, "Error processing query", e.getCause());
+        }
+    }
+
+    record MaterializedResultWithQueryId(QueryId queryId, MaterializedResult result)
+    {
+        MaterializedResultWithQueryId
+        {
+            requireNonNull(queryId, "queryId is null");
+            requireNonNull(result, "result is null");
         }
     }
 }
