@@ -390,6 +390,12 @@
 
         <dependency>
             <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-params</artifactId>
             <scope>test</scope>
         </dependency>
@@ -430,11 +436,11 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <dependencies>
                     <!-- allow both JUnit and TestNG -->
-                    <!--                    <dependency>-->
-                    <!--                        <groupId>org.apache.maven.surefire</groupId>-->
-                    <!--                        <artifactId>surefire-junit-platform</artifactId>-->
-                    <!--                        <version>${dep.plugin.surefire.version}</version>-->
-                    <!--                    </dependency>-->
+                    <dependency>
+                        <groupId>org.apache.maven.surefire</groupId>
+                        <artifactId>surefire-junit-platform</artifactId>
+                        <version>${dep.plugin.surefire.version}</version>
+                    </dependency>
                     <dependency>
                         <groupId>org.apache.maven.surefire</groupId>
                         <artifactId>surefire-testng</artifactId>
