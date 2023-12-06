@@ -74,10 +74,7 @@ public interface QueryRunner
 
     MaterializedResult execute(Session session, @Language("SQL") String sql);
 
-    default MaterializedResultWithPlan executeWithPlan(Session session, @Language("SQL") String sql, WarningCollector warningCollector)
-    {
-        throw new UnsupportedOperationException();
-    }
+    MaterializedResultWithPlan executeWithPlan(Session session, @Language("SQL") String sql, WarningCollector warningCollector);
 
     default <T> T inTransaction(Function<Session, T> transactionSessionConsumer)
     {
@@ -91,10 +88,7 @@ public interface QueryRunner
                 .execute(session, transactionSessionConsumer);
     }
 
-    default Plan createPlan(Session session, @Language("SQL") String sql)
-    {
-        throw new UnsupportedOperationException();
-    }
+    Plan createPlan(Session session, @Language("SQL") String sql);
 
     List<QualifiedObjectName> listTables(Session session, String catalog, String schema);
 
