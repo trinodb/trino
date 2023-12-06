@@ -18,7 +18,6 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.hive.HiveQueryRunner;
-import io.trino.plugin.hive.TestingHiveUtils;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.DistributedQueryRunner;
@@ -28,6 +27,7 @@ import java.io.OutputStream;
 import java.net.URL;
 import java.util.UUID;
 
+import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -42,7 +42,7 @@ public class TestReadingTimeLogicalAnnotation
                 QueryAssertions assertions = new QueryAssertions(queryRunner)) {
             URL resourceLocation = Resources.getResource("parquet_file_with_time_logical_annotation/time-micros.parquet");
 
-            TrinoFileSystem fileSystem = TestingHiveUtils.getConnectorService(queryRunner, TrinoFileSystemFactory.class)
+            TrinoFileSystem fileSystem = getConnectorService(queryRunner, TrinoFileSystemFactory.class)
                     .create(ConnectorIdentity.ofUser("test"));
 
             Location tempDir = Location.of("local:///temp_" + UUID.randomUUID());

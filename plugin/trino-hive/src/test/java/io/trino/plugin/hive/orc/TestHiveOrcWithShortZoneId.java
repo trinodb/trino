@@ -19,7 +19,6 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.hive.HiveQueryRunner;
-import io.trino.plugin.hive.TestingHiveUtils;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
@@ -30,6 +29,8 @@ import org.junit.jupiter.api.Test;
 import java.io.OutputStream;
 import java.net.URL;
 import java.util.UUID;
+
+import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 
 public class TestHiveOrcWithShortZoneId
         extends AbstractTestQueryFramework
@@ -46,7 +47,7 @@ public class TestHiveOrcWithShortZoneId
 
         URL resourceLocation = Resources.getResource("with_short_zone_id/data/data.orc");
 
-        TrinoFileSystem fileSystem = TestingHiveUtils.getConnectorService(queryRunner, TrinoFileSystemFactory.class)
+        TrinoFileSystem fileSystem = getConnectorService(queryRunner, TrinoFileSystemFactory.class)
                 .create(ConnectorIdentity.ofUser("test"));
 
         Location tempDir = Location.of("local:///temp_" + UUID.randomUUID());

@@ -150,6 +150,7 @@ import static io.trino.plugin.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static io.trino.plugin.hive.HiveType.toHiveType;
+import static io.trino.plugin.hive.TestingHiveUtils.getConnectorService;
 import static io.trino.plugin.hive.util.HiveUtil.columnExtraInfo;
 import static io.trino.spi.security.Identity.ofUser;
 import static io.trino.spi.security.SelectedRole.Type.ROLE;
@@ -8673,7 +8674,7 @@ public abstract class BaseHiveConnectorTest
         String tableLocation = getTableLocation("test_timestamptz_base");
 
         // TIMESTAMP WITH LOCAL TIME ZONE is not mapped to any Trino type, so we need to create the metastore entry manually
-        HiveMetastore metastore = TestingHiveUtils.getConnectorService(getDistributedQueryRunner(), HiveMetastoreFactory.class)
+        HiveMetastore metastore = getConnectorService(getDistributedQueryRunner(), HiveMetastoreFactory.class)
                 .createMetastore(Optional.of(getSession().getIdentity().toConnectorIdentity(catalog)));
         metastore.createTable(
                 new Table(
@@ -9248,7 +9249,7 @@ public abstract class BaseHiveConnectorTest
 
     private TrinoFileSystem getTrinoFileSystem()
     {
-        return TestingHiveUtils.getConnectorService(getQueryRunner(), TrinoFileSystemFactory.class).create(ConnectorIdentity.ofUser("test"));
+        return getConnectorService(getQueryRunner(), TrinoFileSystemFactory.class).create(ConnectorIdentity.ofUser("test"));
     }
 
     @Override
