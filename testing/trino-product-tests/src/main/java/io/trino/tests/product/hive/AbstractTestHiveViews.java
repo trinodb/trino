@@ -23,7 +23,6 @@ import io.trino.tempto.query.QueryResult;
 import io.trino.testng.services.Flaky;
 import io.trino.tests.product.utils.QueryExecutors;
 import org.intellij.lang.annotations.Language;
-import org.testng.SkipException;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -233,10 +232,6 @@ public abstract class AbstractTestHiveViews
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testOuterParentheses()
     {
-        if (getHiveVersionMajor() <= 1) {
-            throw new SkipException("The old Hive doesn't allow outer parentheses in a view definition");
-        }
-
         onHive().executeQuery("CREATE OR REPLACE VIEW view_outer_parentheses AS (SELECT 'parentheses' AS col FROM nation LIMIT 1)");
 
         assertViewQuery("SELECT * FROM view_outer_parentheses",
@@ -391,12 +386,10 @@ public abstract class AbstractTestHiveViews
         onTrino().executeQuery("CREATE TABLE test_schema.trino_table(a int)");
         onTrino().executeQuery("CREATE VIEW test_schema.trino_test_view AS SELECT * FROM nation");
 
-        boolean hiveWithTableNamesByType = getHiveVersionMajor() >= 3 ||
-                (getHiveVersionMajor() == 2 && getHiveVersionMinor() >= 3);
         assertThat(onTrino().executeQuery("SELECT * FROM information_schema.tables WHERE table_schema = 'test_schema'")).containsOnly(
                 row("hive", "test_schema", "trino_table", "BASE TABLE"),
                 row("hive", "test_schema", "hive_table", "BASE TABLE"),
-                row("hive", "test_schema", "hive_test_view", hiveWithTableNamesByType ? "VIEW" : "BASE TABLE"),
+                row("hive", "test_schema", "hive_test_view", "VIEW"),
                 row("hive", "test_schema", "trino_test_view", "VIEW"));
 
         assertThat(onTrino().executeQuery("SELECT view_definition FROM information_schema.views WHERE table_schema = 'test_schema' and table_name = 'hive_test_view'")).containsOnly(
@@ -588,10 +581,6 @@ public abstract class AbstractTestHiveViews
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testUnionDistinctViews()
     {
-        if (getHiveVersionMajor() < 1 || (getHiveVersionMajor() == 1 && getHiveVersionMinor() < 2)) {
-            throw new SkipException("UNION DISTINCT and plain UNION are not supported before Hive 1.2.0");
-        }
-
         onHive().executeQuery("DROP TABLE IF EXISTS union_helper");
         onHive().executeQuery("CREATE TABLE union_helper (\n"
                 + "r_regionkey BIGINT,\n"
