@@ -77,7 +77,6 @@
         <module>plugin/trino-geospatial</module>
         <module>plugin/trino-google-sheets</module>
         <module>plugin/trino-hive</module>
-        <module>plugin/trino-hive-hadoop2</module>
         <module>plugin/trino-http-event-listener</module>
         <module>plugin/trino-hudi</module>
         <module>plugin/trino-iceberg</module>
@@ -1136,12 +1135,6 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-hive-formats</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.trino</groupId>
-                <artifactId>trino-hive-hadoop2</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

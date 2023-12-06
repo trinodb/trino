@@ -193,7 +193,7 @@
 
         <dependency>
             <groupId>io.trino</groupId>
-            <artifactId>trino-hive-hadoop2</artifactId>
+            <artifactId>trino-hive</artifactId>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
