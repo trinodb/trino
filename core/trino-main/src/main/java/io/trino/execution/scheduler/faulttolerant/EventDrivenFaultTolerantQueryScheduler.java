@@ -660,7 +660,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         // If scheduler is stalled for SCHEDULER_STALLED_DURATION_THRESHOLD debug log will be emitted.
         // This value must be larger than EVENT_PROCESSING_ENFORCED_FREQUENCY as prerequiste for processing is
         // that there are no events in the event queue.
-        private static final long SCHEDULER_STALLED_DURATION_THRESHOLD_MILLIS = MINUTES.toMillis(5);
+        private static final long SCHEDULER_STALLED_DURATION_THRESHOLD_MILLIS = MINUTES.toMillis(10);
         private static final long SCHEDULER_STALLED_DURATION_ON_TIME_EXCEEDED_THRESHOLD_MILLIS = SECONDS.toMillis(30);
         private static final int EVENTS_DEBUG_INFOS_PER_BUCKET = 10;
 
