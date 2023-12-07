@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.DynamicSliceOutput;
 import io.trino.Session;
 import io.trino.block.BlockSerdeUtil;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.geospatial.KdbTree;
 import io.trino.geospatial.KdbTreeUtils;
 import io.trino.geospatial.Rectangle;
@@ -47,7 +46,6 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.nullToEmpty;
 import static io.trino.SystemSessionProperties.SPATIAL_PARTITIONING_TABLE_NAME;
-import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.geospatial.KdbTree.Node.newLeaf;
 import static io.trino.metadata.LiteralFunction.LITERAL_FUNCTION_NAME;
 import static io.trino.plugin.geospatial.GeoFunctions.stPoint;
@@ -56,7 +54,6 @@ import static io.trino.spi.StandardErrorCode.INVALID_SPATIAL_PARTITIONING;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
-import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.any;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
@@ -261,17 +258,7 @@ public class TestSpatialJoinPlanning
     {
         LocalQueryRunner queryRunner = getQueryRunner();
         try {
-            queryRunner.inTransaction(session, transactionSession -> {
-                queryRunner.createPlan(
-                        transactionSession,
-                        sql,
-                        queryRunner.getPlanOptimizers(false),
-                        queryRunner.getAlternativeOptimizers(),
-                        OPTIMIZED_AND_VALIDATED,
-                        WarningCollector.NOOP,
-                        createPlanOptimizersStatsCollector());
-                return null;
-            });
+            queryRunner.inTransaction(session, transactionSession -> queryRunner.createPlan(transactionSession, sql));
             throw new AssertionError(format("Expected query to fail: %s", sql));
         }
         catch (TrinoException ex) {

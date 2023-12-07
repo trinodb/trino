@@ -852,7 +852,7 @@ public class LocalQueryRunner
                     .setQueryMaxSpillSize(queryMaxSpillPerNode)
                     .build();
 
-            Plan plan = createPlan(session, sql, getPlanOptimizers(true), getAlternativeOptimizers(), OPTIMIZED_AND_VALIDATED, NOOP, createPlanOptimizersStatsCollector());
+            Plan plan = createPlan(session, sql);
             List<Driver> drivers = createDrivers(session, plan, outputFactory, taskContext);
             drivers.forEach(closer::register);
 
@@ -920,7 +920,7 @@ public class LocalQueryRunner
     private List<Driver> createDrivers(Session session, @Language("SQL") String sql, OutputFactory outputFactory, TaskContext taskContext)
     {
         return inTransaction(session, transactionSession -> {
-            Plan plan = createPlan(transactionSession, sql, getPlanOptimizers(true), getAlternativeOptimizers(), OPTIMIZED_AND_VALIDATED, NOOP, createPlanOptimizersStatsCollector());
+            Plan plan = createPlan(transactionSession, sql);
             return createDrivers(transactionSession, plan, outputFactory, taskContext);
         });
     }

@@ -19,7 +19,6 @@ import io.trino.Session;
 import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorTableHandle;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -41,11 +40,9 @@ import java.util.Optional;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.connector.MockConnectorFactory.ApplyTableScanRedirect;
-import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -176,14 +173,7 @@ public class TestApplyTableScanRedirection
             LocalQueryRunner runner = ruleTester.getQueryRunner();
             runner.inTransaction(MOCK_SESSION, transactionSession -> {
                 assertThatThrownBy(() ->
-                        runner.createPlan(
-                                transactionSession,
-                                "SELECT source_col_a FROM test_table",
-                                runner.getPlanOptimizers(true),
-                                runner.getAlternativeOptimizers(),
-                                OPTIMIZED_AND_VALIDATED,
-                                WarningCollector.NOOP,
-                                createPlanOptimizersStatsCollector()))
+                        runner.createPlan(transactionSession, "SELECT source_col_a FROM test_table"))
                         .isInstanceOf(TrinoException.class)
                         .hasMessageMatching("Cast not possible from redirected column test_catalog.target_schema.target_table.destination_col_d with type Bogus to source column .*test_catalog.test_schema.test_table.*source_col_a.* with type: varchar");
                 return null;

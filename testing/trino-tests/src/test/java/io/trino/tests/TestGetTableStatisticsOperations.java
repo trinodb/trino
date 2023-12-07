@@ -16,7 +16,6 @@ package io.trino.tests;
 import com.google.common.collect.ImmutableMap;
 import io.opentelemetry.sdk.testing.junit5.OpenTelemetryExtension;
 import io.opentelemetry.sdk.trace.data.SpanData;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.LocalQueryRunner;
@@ -29,8 +28,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.parallel.Execution;
 
-import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
-import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -88,14 +85,7 @@ public class TestGetTableStatisticsOperations
     {
         transaction(localQueryRunner.getTransactionManager(), localQueryRunner.getPlannerContext().getMetadata(), localQueryRunner.getAccessControl())
                 .execute(localQueryRunner.getDefaultSession(), transactionSession -> {
-                    localQueryRunner.createPlan(
-                            transactionSession,
-                            sql,
-                            localQueryRunner.getPlanOptimizers(false),
-                            localQueryRunner.getAlternativeOptimizers(),
-                            OPTIMIZED_AND_VALIDATED,
-                            WarningCollector.NOOP,
-                            createPlanOptimizersStatsCollector());
+                    localQueryRunner.createPlan(transactionSession, sql);
                 });
     }
 

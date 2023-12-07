@@ -40,10 +40,7 @@ import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
-import static io.trino.execution.warnings.WarningCollector.NOOP;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
-import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -128,14 +125,7 @@ public class TestIcebergGetTableStatisticsOperations
 
     private void planDistributedQuery(@Language("SQL") String sql)
     {
-        localQueryRunner.inTransaction(transactionSession -> localQueryRunner.createPlan(
-                transactionSession,
-                sql,
-                localQueryRunner.getPlanOptimizers(false),
-                localQueryRunner.getAlternativeOptimizers(),
-                OPTIMIZED_AND_VALIDATED,
-                NOOP,
-                createPlanOptimizersStatsCollector()));
+        localQueryRunner.inTransaction(transactionSession -> localQueryRunner.createPlan(transactionSession, sql));
     }
 
     private static long getTableStatisticsMethodInvocations()

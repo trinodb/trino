@@ -40,7 +40,6 @@ import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.assertions.PlanAssert;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
-import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.testing.LocalQueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -53,15 +52,12 @@ import java.util.Set;
 import static io.trino.connector.MockConnectorFactory.ApplyFilter;
 import static io.trino.connector.MockConnectorFactory.ApplyProjection;
 import static io.trino.connector.MockConnectorFactory.ApplyTableScanRedirect;
-import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
-import static io.trino.execution.warnings.WarningCollector.NOOP;
 import static io.trino.spi.expression.StandardFunctions.CAST_FUNCTION_NAME;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
@@ -285,14 +281,7 @@ public class TestTableScanRedirectionWithPushdown
             // but dest_col_d has mismatched type compared to source domain
             queryRunner.inTransaction(MOCK_SESSION, transactionSession -> {
                 assertThatThrownBy(() ->
-                        queryRunner.createPlan(
-                                transactionSession,
-                                "SELECT source_col_b FROM test_table WHERE source_col_c = 'foo'",
-                                queryRunner.getPlanOptimizers(true),
-                                queryRunner.getAlternativeOptimizers(),
-                                OPTIMIZED_AND_VALIDATED,
-                                NOOP,
-                                createPlanOptimizersStatsCollector()))
+                        queryRunner.createPlan(transactionSession, "SELECT source_col_b FROM test_table WHERE source_col_c = 'foo'"))
                         .isInstanceOf(TrinoException.class)
                         .hasMessageMatching("Cast not possible from redirected column mock_catalog.target_schema.target_table.destination_col_d with type Bogus to source column .*mock_catalog.test_schema.test_table.*source_col_c.* with type: varchar");
                 return null;
@@ -491,11 +480,8 @@ public class TestTableScanRedirectionWithPushdown
 
     void assertPlan(LocalQueryRunner queryRunner, @Language("SQL") String sql, PlanMatchPattern pattern)
     {
-        List<PlanOptimizer> optimizers = queryRunner.getPlanOptimizers(true);
-        List<PlanOptimizer> alternativeOptimizers = queryRunner.getAlternativeOptimizers();
-
         queryRunner.inTransaction(transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, optimizers, alternativeOptimizers, OPTIMIZED_AND_VALIDATED, NOOP, createPlanOptimizersStatsCollector());
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql);
             PlanAssert.assertPlan(transactionSession, queryRunner.getPlannerContext().getMetadata(), queryRunner.getPlannerContext().getFunctionManager(), queryRunner.getStatsCalculator(), actualPlan, pattern);
             return null;
         });

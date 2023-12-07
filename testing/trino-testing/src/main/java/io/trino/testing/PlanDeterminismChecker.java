@@ -19,9 +19,6 @@ import io.trino.sql.planner.planprinter.PlanPrinter;
 
 import java.util.function.Function;
 
-import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
-import static io.trino.execution.warnings.WarningCollector.NOOP;
-import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class PlanDeterminismChecker
@@ -59,14 +56,7 @@ public class PlanDeterminismChecker
     private String getPlanText(Session session, String sql)
     {
         return localQueryRunner.inTransaction(session, transactionSession -> {
-            Plan plan = localQueryRunner.createPlan(
-                    transactionSession,
-                    sql,
-                    localQueryRunner.getPlanOptimizers(true),
-                    localQueryRunner.getAlternativeOptimizers(),
-                    OPTIMIZED_AND_VALIDATED,
-                    NOOP,
-                    createPlanOptimizersStatsCollector());
+            Plan plan = localQueryRunner.createPlan(transactionSession, sql);
             return PlanPrinter.textLogicalPlan(
                     plan.getRoot(),
                     plan.getTypes(),
