@@ -25,7 +25,6 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingTaskContext;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -62,17 +61,6 @@ public class TestOrderByOperator
     private DummySpillerFactory spillerFactory;
     private final TypeOperators typeOperators = new TypeOperators();
 
-    @DataProvider
-    public static Object[][] spillEnabled()
-    {
-        return new Object[][] {
-                {false, false, 0},
-                {true, false, 8},
-                {true, true, 8},
-                {true, false, 0},
-                {true, true, 0}};
-    }
-
     @BeforeMethod
     public void setUp()
     {
@@ -89,8 +77,17 @@ public class TestOrderByOperator
         spillerFactory = null;
     }
 
-    @Test(dataProvider = "spillEnabled")
-    public void testMultipleOutputPages(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
+    @Test
+    public void testMultipleOutputPages()
+    {
+        testMultipleOutputPages(false, false, 0);
+        testMultipleOutputPages(true, false, 8);
+        testMultipleOutputPages(true, true, 8);
+        testMultipleOutputPages(true, false, 0);
+        testMultipleOutputPages(true, true, 0);
+    }
+
+    private void testMultipleOutputPages(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
     {
         // make operator produce multiple pages during finish phase
         int numberOfRows = 80_000;
@@ -129,8 +126,17 @@ public class TestOrderByOperator
                 .isTrue();
     }
 
-    @Test(dataProvider = "spillEnabled")
-    public void testSingleFieldKey(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
+    @Test
+    public void testSingleFieldKey()
+    {
+        testSingleFieldKey(false, false, 0);
+        testSingleFieldKey(true, false, 8);
+        testSingleFieldKey(true, true, 8);
+        testSingleFieldKey(true, false, 0);
+        testSingleFieldKey(true, true, 0);
+    }
+
+    private void testSingleFieldKey(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
     {
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(1L, 0.1)
@@ -164,8 +170,17 @@ public class TestOrderByOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected, revokeMemoryWhenAddingPages);
     }
 
-    @Test(dataProvider = "spillEnabled")
-    public void testMultiFieldKey(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
+    @Test
+    public void testMultiFieldKey()
+    {
+        testMultiFieldKey(false, false, 0);
+        testMultiFieldKey(true, false, 8);
+        testMultiFieldKey(true, true, 8);
+        testMultiFieldKey(true, false, 0);
+        testMultiFieldKey(true, true, 0);
+    }
+
+    private void testMultiFieldKey(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
     {
         List<Page> input = rowPagesBuilder(VARCHAR, BIGINT)
                 .row("a", 1L)
@@ -199,8 +214,17 @@ public class TestOrderByOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected, revokeMemoryWhenAddingPages);
     }
 
-    @Test(dataProvider = "spillEnabled")
-    public void testReverseOrder(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
+    @Test
+    public void testReverseOrder()
+    {
+        testReverseOrder(false, false, 0);
+        testReverseOrder(true, false, 8);
+        testReverseOrder(true, true, 8);
+        testReverseOrder(true, false, 0);
+        testReverseOrder(true, true, 0);
+    }
+
+    private void testReverseOrder(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
     {
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
                 .row(1L, 0.1)

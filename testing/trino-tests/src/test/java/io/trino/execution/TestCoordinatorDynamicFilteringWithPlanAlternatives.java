@@ -32,6 +32,8 @@ import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_PARTITIONING_ENABLE
 import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.spi.predicate.Domain.singleValue;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
+import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
 import static org.assertj.core.api.Assertions.assertThat;
 
 // Make sure plan alternatives work with dynamic filters as they interact with each other
@@ -62,8 +64,15 @@ public class TestCoordinatorDynamicFilteringWithPlanAlternatives
         computeActual("CREATE TABLE store_sales AS SELECT * FROM tpcds.tiny.store_sales");
     }
 
-    @Test(timeOut = 30_000, dataProvider = "testJoinDistributionType")
-    public void testJoinWithAlternativesOnBothSides(JoinDistributionType joinDistributionType, boolean coordinatorDynamicFiltersDistribution)
+    @Test(timeOut = 30_000)
+    public void testJoinWithAlternativesOnBothSides()
+    {
+        testJoinWithAlternativesOnBothSides(BROADCAST, true);
+        testJoinWithAlternativesOnBothSides(PARTITIONED, false);
+        testJoinWithAlternativesOnBothSides(PARTITIONED, true);
+    }
+
+    private void testJoinWithAlternativesOnBothSides(JoinDistributionType joinDistributionType, boolean coordinatorDynamicFiltersDistribution)
     {
         assertQueryDynamicFilters(
                 noJoinReordering(joinDistributionType, coordinatorDynamicFiltersDistribution),

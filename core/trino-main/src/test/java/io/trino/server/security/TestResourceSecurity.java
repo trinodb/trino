@@ -59,7 +59,6 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import javax.crypto.SecretKey;
@@ -784,8 +783,16 @@ public class TestResourceSecurity
         }
     }
 
-    @Test(dataProvider = "groups")
-    public void testOAuth2Groups(Optional<Set<String>> groups)
+    @Test
+    public void testOAuth2Groups()
+            throws Exception
+    {
+        testOAuth2Groups(Optional.empty());
+        testOAuth2Groups(Optional.of(ImmutableSet.of()));
+        testOAuth2Groups(Optional.of(ImmutableSet.of("admin", "public")));
+    }
+
+    private void testOAuth2Groups(Optional<Set<String>> groups)
             throws Exception
     {
         try (TokenServer tokenServer = new TokenServer(Optional.empty());
@@ -855,18 +862,15 @@ public class TestResourceSecurity
         }
     }
 
-    @DataProvider(name = "groups")
-    public static Object[][] groups()
+    @Test
+    public void testJwtAndOAuth2AuthenticatorsSeparation()
+            throws Exception
     {
-        return new Object[][] {
-                {Optional.empty()},
-                {Optional.of(ImmutableSet.of())},
-                {Optional.of(ImmutableSet.of("admin", "public"))}
-        };
+        testJwtAndOAuth2AuthenticatorsSeparation("jwt,oauth2");
+        testJwtAndOAuth2AuthenticatorsSeparation("oauth2,jwt");
     }
 
-    @Test(dataProvider = "authenticators")
-    public void testJwtAndOAuth2AuthenticatorsSeparation(String authenticators)
+    private void testJwtAndOAuth2AuthenticatorsSeparation(String authenticators)
             throws Exception
     {
         TestingHttpServer jwkServer = createTestingJwkServer();
@@ -912,15 +916,6 @@ public class TestResourceSecurity
                     .build();
             assertAuthenticationAutomatic(httpServerInfo.getHttpsUri(), clientWithJwt);
         }
-    }
-
-    @DataProvider(name = "authenticators")
-    public static Object[][] authenticators()
-    {
-        return new Object[][] {
-                {"jwt,oauth2"},
-                {"oauth2,jwt"}
-        };
     }
 
     @Test

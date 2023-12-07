@@ -16,7 +16,6 @@ package io.trino.operator.aggregation.state;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlockBuilder;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -25,8 +24,28 @@ public class TestLongDecimalWithOverflowAndLongStateSerializer
 {
     private static final LongDecimalWithOverflowAndLongStateFactory STATE_FACTORY = new LongDecimalWithOverflowAndLongStateFactory();
 
-    @Test(dataProvider = "input")
-    public void testSerde(long low, long high, long overflow, long count, int expectedLength)
+    @Test
+    public void testSerde()
+    {
+        testSerde(3, 0, 0, 1, 1);
+        testSerde(3, 5, 0, 1, 2);
+        testSerde(3, 5, 7, 1, 4);
+        testSerde(3, 0, 0, 2, 3);
+        testSerde(3, 5, 0, 2, 4);
+        testSerde(3, 5, 7, 2, 4);
+        testSerde(3, 0, 7, 1, 3);
+        testSerde(3, 0, 7, 2, 3);
+        testSerde(0, 0, 0, 1, 1);
+        testSerde(0, 5, 0, 1, 2);
+        testSerde(0, 5, 7, 1, 4);
+        testSerde(0, 0, 0, 2, 3);
+        testSerde(0, 5, 0, 2, 4);
+        testSerde(0, 5, 7, 2, 4);
+        testSerde(0, 0, 7, 1, 3);
+        testSerde(0, 0, 7, 2, 3);
+    }
+
+    private void testSerde(long low, long high, long overflow, long count, int expectedLength)
     {
         LongDecimalWithOverflowAndLongState state = STATE_FACTORY.createSingleState();
         state.getDecimalArray()[0] = high;
@@ -65,28 +84,5 @@ public class TestLongDecimalWithOverflowAndLongStateSerializer
         LongDecimalWithOverflowAndLongState outState = STATE_FACTORY.createSingleState();
         serializer.deserialize(serialized, 0, outState);
         return outState;
-    }
-
-    @DataProvider
-    public Object[][] input()
-    {
-        return new Object[][] {
-                {3, 0, 0, 1, 1},
-                {3, 5, 0, 1, 2},
-                {3, 5, 7, 1, 4},
-                {3, 0, 0, 2, 3},
-                {3, 5, 0, 2, 4},
-                {3, 5, 7, 2, 4},
-                {3, 0, 7, 1, 3},
-                {3, 0, 7, 2, 3},
-                {0, 0, 0, 1, 1},
-                {0, 5, 0, 1, 2},
-                {0, 5, 7, 1, 4},
-                {0, 0, 0, 2, 3},
-                {0, 5, 0, 2, 4},
-                {0, 5, 7, 2, 4},
-                {0, 0, 7, 1, 3},
-                {0, 0, 7, 2, 3}
-        };
     }
 }

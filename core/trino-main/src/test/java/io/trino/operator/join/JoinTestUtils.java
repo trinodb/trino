@@ -318,14 +318,16 @@ public final class JoinTestUtils
         private volatile boolean failSpill;
         private volatile boolean failUnspill;
 
-        public void failSpill()
+        public DummySpillerFactory failSpill()
         {
             failSpill = true;
+            return this;
         }
 
-        public void failUnspill()
+        public DummySpillerFactory failUnspill()
         {
             failUnspill = true;
+            return this;
         }
 
         @Override
