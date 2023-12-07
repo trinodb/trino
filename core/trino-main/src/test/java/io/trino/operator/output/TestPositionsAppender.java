@@ -41,7 +41,7 @@ import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import io.trino.type.BlockTypeOperators;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
@@ -349,10 +349,7 @@ public class TestPositionsAppender
         }
     }
 
-    // testcase for jit bug described https://github.com/trinodb/trino/issues/12821.
-    // this test needs to be run first (hence the lowest priority) as the test order
-    // influences jit compilation, making this problem to not occur if other tests are run first.
-    @Test(priority = Integer.MIN_VALUE)
+    @Test
     public void testSliceRle()
     {
         UnnestingPositionsAppender positionsAppender = POSITIONS_APPENDER_FACTORY.create(VARCHAR, 10, DEFAULT_MAX_PAGE_SIZE_IN_BYTES);

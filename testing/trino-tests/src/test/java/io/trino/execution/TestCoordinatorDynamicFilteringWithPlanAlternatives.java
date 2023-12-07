@@ -23,8 +23,10 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Set;
 
@@ -35,13 +37,14 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 // Make sure plan alternatives work with dynamic filters as they interact with each other
-@Test(singleThreaded = true)
+@Execution(SAME_THREAD)
 public class TestCoordinatorDynamicFilteringWithPlanAlternatives
         extends TestCoordinatorDynamicFiltering
 {
-    @BeforeClass
+    @BeforeAll
     @Override
     public void setup()
     {
@@ -64,7 +67,8 @@ public class TestCoordinatorDynamicFilteringWithPlanAlternatives
         computeActual("CREATE TABLE store_sales AS SELECT * FROM tpcds.tiny.store_sales");
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testJoinWithAlternativesOnBothSides()
     {
         testJoinWithAlternativesOnBothSides(BROADCAST, true);

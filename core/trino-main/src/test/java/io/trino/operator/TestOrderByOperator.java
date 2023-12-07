@@ -23,9 +23,10 @@ import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingTaskContext;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Optional;
@@ -52,29 +53,22 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestOrderByOperator
 {
-    private ExecutorService executor;
-    private ScheduledExecutorService scheduledExecutor;
-    private DummySpillerFactory spillerFactory;
+    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
+    private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
     private final TypeOperators typeOperators = new TypeOperators();
 
-    @BeforeMethod
-    public void setUp()
-    {
-        executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
-        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
-        spillerFactory = new DummySpillerFactory();
-    }
-
-    @AfterMethod(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         executor.shutdownNow();
         scheduledExecutor.shutdownNow();
-        spillerFactory = null;
     }
 
     @Test
@@ -89,6 +83,8 @@ public class TestOrderByOperator
 
     private void testMultipleOutputPages(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
     {
+        DummySpillerFactory spillerFactory = new DummySpillerFactory();
+
         // make operator produce multiple pages during finish phase
         int numberOfRows = 80_000;
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
@@ -156,7 +152,7 @@ public class TestOrderByOperator
                 ImmutableList.of(ASC_NULLS_LAST),
                 new PagesIndex.TestingFactory(false),
                 spillEnabled,
-                Optional.of(spillerFactory),
+                Optional.of(new DummySpillerFactory()),
                 new OrderingCompiler(typeOperators));
 
         DriverContext driverContext = createDriverContext(memoryLimit);
@@ -200,7 +196,7 @@ public class TestOrderByOperator
                 ImmutableList.of(ASC_NULLS_LAST, DESC_NULLS_LAST),
                 new PagesIndex.TestingFactory(false),
                 spillEnabled,
-                Optional.of(spillerFactory),
+                Optional.of(new DummySpillerFactory()),
                 new OrderingCompiler(typeOperators));
 
         DriverContext driverContext = createDriverContext(memoryLimit);
@@ -244,7 +240,7 @@ public class TestOrderByOperator
                 ImmutableList.of(DESC_NULLS_LAST),
                 new PagesIndex.TestingFactory(false),
                 spillEnabled,
-                Optional.of(spillerFactory),
+                Optional.of(new DummySpillerFactory()),
                 new OrderingCompiler(typeOperators));
 
         DriverContext driverContext = createDriverContext(memoryLimit);
@@ -283,7 +279,7 @@ public class TestOrderByOperator
                 ImmutableList.of(ASC_NULLS_LAST),
                 new PagesIndex.TestingFactory(false),
                 false,
-                Optional.of(spillerFactory),
+                Optional.of(new DummySpillerFactory()),
                 new OrderingCompiler(typeOperators));
 
         assertThatThrownBy(() -> toPages(operatorFactory, driverContext, input))

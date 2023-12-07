@@ -48,8 +48,11 @@ import io.trino.testing.TestingMetadata;
 import io.trino.testing.TestingPageSinkProvider;
 import io.trino.testing.TestingTransactionHandle;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Map;
@@ -83,7 +86,11 @@ import static io.trino.testing.TestingSplit.createRemoteSplit;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public abstract class AbstractTestCoordinatorDynamicFiltering
         extends AbstractTestQueryFramework
 {
@@ -96,7 +103,7 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
     private volatile Consumer<TupleDomain<ColumnHandle>> expectedCoordinatorDynamicFilterAssertion;
     private volatile Consumer<TupleDomain<ColumnHandle>> expectedTableScanDynamicFilterAssertion;
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
     {
         // create lineitem table in test connector
@@ -118,7 +125,8 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
 
     protected abstract RetryPolicy getRetryPolicy();
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testJoinWithEmptyBuildSide()
     {
         testJoinWithEmptyBuildSide(BROADCAST, true);
@@ -135,7 +143,8 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                 TupleDomain.none());
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testJoinWithLargeBuildSide()
     {
         testJoinWithLargeBuildSide(BROADCAST, true);
@@ -152,7 +161,8 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                 TupleDomain.all());
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testMultiColumnJoinWithDifferentCardinalitiesInBuildSide()
     {
         testMultiColumnJoinWithDifferentCardinalitiesInBuildSide(BROADCAST, true);
@@ -174,7 +184,8 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                         multipleValues(BIGINT, LongStream.rangeClosed(1L, 10L).boxed().collect(toImmutableList())))));
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testJoinWithSelectiveBuildSide()
     {
         testJoinWithSelectiveBuildSide(BROADCAST, true);
@@ -193,7 +204,8 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                         singleValue(BIGINT, 1L))));
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testInequalityJoinWithSelectiveBuildSide()
     {
         assertQueryDynamicFilters(
@@ -222,7 +234,8 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                         Domain.create(ValueSet.ofRanges(Range.greaterThan(BIGINT, 1L)), false))));
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testIsNotDistinctFromJoinWithSelectiveBuildSide()
     {
         assertQueryDynamicFilters(
@@ -245,7 +258,8 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                         Domain.onlyNull(BIGINT))));
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testJoinWithImplicitCoercion()
     {
         // setup fact table with integer suppkey
@@ -273,7 +287,8 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                         multipleValues(createVarcharType(40), values))));
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testJoinWithNonSelectiveBuildSide()
     {
         testJoinWithNonSelectiveBuildSide(BROADCAST, true);
@@ -292,7 +307,8 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                         Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 100L, true)), false))));
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testJoinWithMultipleDynamicFiltersOnProbe()
     {
         testJoinWithMultipleDynamicFiltersOnProbe(BROADCAST, true);
@@ -315,7 +331,8 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                         singleValue(BIGINT, 2L))));
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testRightJoinWithEmptyBuildSide()
     {
         assertQueryDynamicFilters(
@@ -324,7 +341,8 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                 TupleDomain.none());
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testRightJoinWithNonSelectiveBuildSide()
     {
         assertQueryDynamicFilters(
@@ -335,7 +353,8 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                         Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 100L, true)), false))));
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testRightJoinWithSelectiveBuildSide()
     {
         assertQueryDynamicFilters(
@@ -346,7 +365,8 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                         singleValue(BIGINT, 1L))));
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testSemiJoinWithEmptyBuildSide()
     {
         testSemiJoinWithEmptyBuildSide(BROADCAST, true);
@@ -363,7 +383,8 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                 TupleDomain.none());
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testSemiJoinWithLargeBuildSide()
     {
         testSemiJoinWithLargeBuildSide(BROADCAST, true);
@@ -380,7 +401,8 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                 TupleDomain.all());
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testSemiJoinWithSelectiveBuildSide()
     {
         testSemiJoinWithSelectiveBuildSide(BROADCAST, true);
@@ -399,7 +421,8 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                         singleValue(BIGINT, 1L))));
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testSemiJoinWithNonSelectiveBuildSide()
     {
         testSemiJoinWithNonSelectiveBuildSide(BROADCAST, true);
@@ -418,7 +441,8 @@ public abstract class AbstractTestCoordinatorDynamicFiltering
                         Domain.create(ValueSet.ofRanges(range(BIGINT, 1L, true, 100L, true)), false))));
     }
 
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testSemiJoinWithMultipleDynamicFiltersOnProbe()
     {
         testSemiJoinWithMultipleDynamicFiltersOnProbe(BROADCAST, true);

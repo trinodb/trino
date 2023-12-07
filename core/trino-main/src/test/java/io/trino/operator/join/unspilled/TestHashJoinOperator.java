@@ -54,16 +54,15 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingTaskContext;
 import io.trino.util.FinalizerService;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.SynchronousQueue;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -90,50 +89,31 @@ import static io.trino.operator.join.unspilled.JoinTestUtils.setupBuildSide;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestHashJoinOperator
 {
     private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
 
-    private ExecutorService executor;
-    private ScheduledExecutorService scheduledExecutor;
-    private NodePartitioningManager nodePartitioningManager;
+    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
+    private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
+    private final NodePartitioningManager nodePartitioningManager = new NodePartitioningManager(
+            new NodeScheduler(new UniformNodeSelectorFactory(
+                    new InMemoryNodeManager(),
+                    new NodeSchedulerConfig().setIncludeCoordinator(true),
+                    new NodeTaskMap(new FinalizerService()))),
+            TYPE_OPERATORS,
+            CatalogServiceProvider.fail());
 
-    @BeforeMethod
-    public void setUp()
-    {
-        // Before/AfterMethod is chosen here because the executor needs to be shutdown
-        // after every single test case to terminate outstanding threads, if any.
-
-        // The line below is the same as newCachedThreadPool(daemonThreadsNamed(...)) except RejectionExecutionHandler.
-        // RejectionExecutionHandler is set to DiscardPolicy (instead of the default AbortPolicy) here.
-        // Otherwise, a large number of RejectedExecutionException will flood logging, resulting in Travis failure.
-        executor = new ThreadPoolExecutor(
-                0,
-                Integer.MAX_VALUE,
-                60L,
-                SECONDS,
-                new SynchronousQueue<>(),
-                daemonThreadsNamed("test-executor-%s"),
-                new ThreadPoolExecutor.DiscardPolicy());
-        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
-
-        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(
-                new InMemoryNodeManager(),
-                new NodeSchedulerConfig().setIncludeCoordinator(true),
-                new NodeTaskMap(new FinalizerService())));
-        nodePartitioningManager = new NodePartitioningManager(
-                nodeScheduler,
-                TYPE_OPERATORS,
-                CatalogServiceProvider.fail());
-    }
-
-    @AfterMethod(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         executor.shutdownNow();

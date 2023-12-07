@@ -40,9 +40,10 @@ import io.trino.sql.gen.JoinCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingTaskContext;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -93,8 +94,11 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestHashAggregationOperator
 {
     private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
@@ -106,24 +110,14 @@ public class TestHashAggregationOperator
 
     private static final int MAX_BLOCK_SIZE_IN_BYTES = 64 * 1024;
 
-    private ExecutorService executor;
-    private ScheduledExecutorService scheduledExecutor;
+    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
+    private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
     private final TypeOperators typeOperators = new TypeOperators();
     private final JoinCompiler joinCompiler = new JoinCompiler(typeOperators);
-    private DummySpillerFactory spillerFactory;
 
-    @BeforeMethod
-    public void setUp()
-    {
-        executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
-        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
-        spillerFactory = new DummySpillerFactory();
-    }
-
-    @AfterMethod(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
-        spillerFactory = null;
         executor.shutdownNow();
         scheduledExecutor.shutdownNow();
     }
@@ -218,6 +212,8 @@ public class TestHashAggregationOperator
 
     private void testHashAggregationWithGlobals(boolean hashEnabled, boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
     {
+        DummySpillerFactory spillerFactory = new DummySpillerFactory();
+
         TestingAggregationFunction countVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunction("count", fromTypes(VARCHAR));
         TestingAggregationFunction countBooleanColumn = FUNCTION_RESOLUTION.getAggregateFunction("count", fromTypes(BOOLEAN));
         TestingAggregationFunction maxVarcharColumn = FUNCTION_RESOLUTION.getAggregateFunction("max", fromTypes(VARCHAR));
@@ -279,6 +275,8 @@ public class TestHashAggregationOperator
 
     private void testHashAggregationMemoryReservation(boolean hashEnabled, boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
     {
+        DummySpillerFactory spillerFactory = new DummySpillerFactory();
+
         TestingAggregationFunction arrayAggColumn = FUNCTION_RESOLUTION.getAggregateFunction("array_agg", fromTypes(BIGINT));
 
         List<Integer> hashChannels = Ints.asList(1);
@@ -321,11 +319,16 @@ public class TestHashAggregationOperator
         assertThat(getOnlyElement(operator.getOperatorContext().getNestedOperatorStats()).getRevocableMemoryReservation().toBytes()).isEqualTo(0);
     }
 
-    @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node memory limit of 10B.*")
+    @Test
     public void testMemoryLimit()
     {
-        testMemoryLimit(true);
-        testMemoryLimit(false);
+        assertThatThrownBy(() -> testMemoryLimit(true))
+                .isInstanceOf(ExceededMemoryLimitException.class)
+                .hasMessageMatching("Query exceeded per-node memory limit of 10B.*");
+
+        assertThatThrownBy(() -> testMemoryLimit(false))
+                .isInstanceOf(ExceededMemoryLimitException.class)
+                .hasMessageMatching("Query exceeded per-node memory limit of 10B.*");
     }
 
     private void testMemoryLimit(boolean hashEnabled)
@@ -382,6 +385,8 @@ public class TestHashAggregationOperator
 
     private void testHashBuilderResize(boolean hashEnabled, boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimitForMerge, long memoryLimitForMergeWithMemory)
     {
+        DummySpillerFactory spillerFactory = new DummySpillerFactory();
+
         BlockBuilder builder = VARCHAR.createBlockBuilder(null, 1, MAX_BLOCK_SIZE_IN_BYTES);
         VARCHAR.writeSlice(builder, Slices.allocate(200_000)); // this must be larger than MAX_BLOCK_SIZE_IN_BYTES, 64K
         builder.build();
@@ -464,11 +469,16 @@ public class TestHashAggregationOperator
         assertThat(count).isEqualTo(6_000 * 600);
     }
 
-    @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node memory limit of 3MB.*")
+    @Test
     public void testHashBuilderResizeLimit()
     {
-        testHashBuilderResizeLimit(true);
-        testHashBuilderResizeLimit(false);
+        assertThatThrownBy(() -> testHashBuilderResizeLimit(true))
+                .isInstanceOf(ExceededMemoryLimitException.class)
+                .hasMessageMatching("Query exceeded per-node memory limit of 3MB.*");
+
+        assertThatThrownBy(() -> testHashBuilderResizeLimit(false))
+                .isInstanceOf(ExceededMemoryLimitException.class)
+                .hasMessageMatching("Query exceeded per-node memory limit of 3MB.*");
     }
 
     private void testHashBuilderResizeLimit(boolean hashEnabled)
@@ -641,6 +651,8 @@ public class TestHashAggregationOperator
     @Test
     public void testMergeWithMemorySpill()
     {
+        DummySpillerFactory spillerFactory = new DummySpillerFactory();
+
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(BIGINT);
 
         int smallPagesSpillThresholdSize = 150000;
