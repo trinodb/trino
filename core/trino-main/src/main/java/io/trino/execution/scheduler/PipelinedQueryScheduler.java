@@ -28,6 +28,7 @@ import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Context;
 import io.trino.Session;
 import io.trino.exchange.DirectExchangeInput;
 import io.trino.execution.BasicStageStats;
@@ -71,6 +72,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.RemoteSourceNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.tracing.TrinoAttributes;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -178,6 +180,7 @@ public class PipelinedQueryScheduler
     private final Duration retryInitialDelay;
     private final Duration retryMaxDelay;
     private final double retryDelayScaleFactor;
+    private final Span schedulerSpan;
 
     @GuardedBy("this")
     private boolean started;
@@ -220,6 +223,10 @@ public class PipelinedQueryScheduler
         this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
         this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
         this.splitSourceFactory = requireNonNull(splitSourceFactory, "splitSourceFactory is null");
+        this.schedulerSpan = tracer.spanBuilder("scheduler")
+                .setParent(Context.current().with(queryStateMachine.getSession().getQuerySpan()))
+                .setAttribute(TrinoAttributes.QUERY_ID, queryStateMachine.getQueryId().toString())
+                .startSpan();
 
         stageManager = StageManager.create(
                 queryStateMachine,
@@ -227,6 +234,7 @@ public class PipelinedQueryScheduler
                 remoteTaskFactory,
                 nodeTaskMap,
                 tracer,
+                schedulerSpan,
                 schedulerStats,
                 plan,
                 summarizeTaskInfo);
@@ -286,6 +294,7 @@ public class PipelinedQueryScheduler
                 }
                 stageManager.abort();
             }
+            schedulerSpan.end();
 
             queryStateMachine.updateQueryInfo(Optional.ofNullable(getStageInfo()));
         });

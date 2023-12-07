@@ -22,5 +22,5 @@ public interface ExchangeManagerFactory
 {
     String getName();
 
-    ExchangeManager create(Map<String, String> config);
+    ExchangeManager create(Map<String, String> config, ExchangeManagerContext context);
 }

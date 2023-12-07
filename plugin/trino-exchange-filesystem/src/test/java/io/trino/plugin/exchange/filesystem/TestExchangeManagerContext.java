@@ -11,21 +11,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator;
+package io.trino.plugin.exchange.filesystem;
 
-import io.opentelemetry.api.trace.Span;
-import io.trino.execution.TaskFailureListener;
-import io.trino.memory.context.LocalMemoryContext;
-import io.trino.spi.QueryId;
-import io.trino.spi.exchange.ExchangeId;
+import io.airlift.tracing.Tracing;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Tracer;
+import io.trino.spi.exchange.ExchangeManagerContext;
 
-public interface DirectExchangeClientSupplier
+public class TestExchangeManagerContext
+        implements ExchangeManagerContext
 {
-    DirectExchangeClient get(
-            QueryId queryId,
-            ExchangeId exchangeId,
-            Span parentSpan,
-            LocalMemoryContext memoryContext,
-            TaskFailureListener taskFailureListener,
-            RetryPolicy retryPolicy);
+    @Override
+    public OpenTelemetry getOpenTelemetry()
+    {
+        return OpenTelemetry.noop();
+    }
+
+    @Override
+    public Tracer getTracer()
+    {
+        return Tracing.noopTracer();
+    }
 }

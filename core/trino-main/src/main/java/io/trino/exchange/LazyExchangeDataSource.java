@@ -16,6 +16,7 @@ package io.trino.exchange;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.slice.Slice;
+import io.opentelemetry.api.trace.Span;
 import io.trino.execution.TaskFailureListener;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.DirectExchangeClient;
@@ -37,6 +38,7 @@ public class LazyExchangeDataSource
         implements ExchangeDataSource
 {
     private final QueryId queryId;
+    private final Span querySpan;
     private final ExchangeId exchangeId;
     private final DirectExchangeClientSupplier directExchangeClientSupplier;
     private final LocalMemoryContext systemMemoryContext;
@@ -51,6 +53,7 @@ public class LazyExchangeDataSource
     public LazyExchangeDataSource(
             QueryId queryId,
             ExchangeId exchangeId,
+            Span querySpan,
             DirectExchangeClientSupplier directExchangeClientSupplier,
             LocalMemoryContext systemMemoryContext,
             TaskFailureListener taskFailureListener,
@@ -59,6 +62,7 @@ public class LazyExchangeDataSource
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.exchangeId = requireNonNull(exchangeId, "exchangeId is null");
+        this.querySpan = requireNonNull(querySpan, "querySpan is null");
         this.directExchangeClientSupplier = requireNonNull(directExchangeClientSupplier, "directExchangeClientSupplier is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
         this.taskFailureListener = requireNonNull(taskFailureListener, "taskFailureListener is null");
@@ -116,7 +120,7 @@ public class LazyExchangeDataSource
             ExchangeDataSource dataSource = delegate.get();
             if (dataSource == null) {
                 if (input instanceof DirectExchangeInput) {
-                    DirectExchangeClient client = directExchangeClientSupplier.get(queryId, exchangeId, systemMemoryContext, taskFailureListener, retryPolicy);
+                    DirectExchangeClient client = directExchangeClientSupplier.get(queryId, exchangeId, querySpan, systemMemoryContext, taskFailureListener, retryPolicy);
                     dataSource = new DirectExchangeDataSource(client);
                 }
                 else if (input instanceof SpoolingExchangeInput) {
