@@ -213,7 +213,7 @@ of omitted non-null values in case that the length of the output of the
 function exceeds `1048576` bytes:
 
 ```
-SELECT LISTAGG(value, ',' ON OVERFLOW TRUNCATE '.....' WITH COUNT) WITHIN GROUP (ORDER BY value)
+SELECT listagg(value, ',' ON OVERFLOW TRUNCATE '.....' WITH COUNT) WITHIN GROUP (ORDER BY value)
 FROM (VALUES 'a', 'b', 'c') t(value);
 ```
 
@@ -222,7 +222,7 @@ If not specified, the truncation filler string is by default `'...'`.
 This aggregation function can be also used in a scenario involving grouping:
 
 ```
-SELECT id, LISTAGG(value, ',') WITHIN GROUP (ORDER BY o) csv_value
+SELECT id, listagg(value, ',') WITHIN GROUP (ORDER BY o) csv_value
 FROM (VALUES
     (100, 1, 'a'),
     (200, 3, 'c'),
@@ -241,7 +241,31 @@ results in:
  200 | b,c
 ```
 
-The current implementation of `LISTAGG` function does not support window frames.
+This aggregation function can be also used with the `FILTER` keyword to specify
+which rows are processed during the `listagg` aggregation:
+
+```sql
+SELECT listagg(value, ',')
+    WITHIN GROUP (ORDER BY id)
+    FILTER (WHERE id % 2 = 0) csv_value
+FROM (VALUES
+    (1, 'a'),
+    (2, 'b'),
+    (3, 'c'),
+    (4, 'd')
+) t(id, value)
+```
+
+The example aggregates rows that have even-numbered `id`, and concatenates
+`value` to a comma-separated string:
+
+```
+ csv_value
+-----------
+ b,d
+```
+
+The current implementation of `listagg` function does not support window frames.
 :::
 
 :::{function} max(x) -> [same as input]
