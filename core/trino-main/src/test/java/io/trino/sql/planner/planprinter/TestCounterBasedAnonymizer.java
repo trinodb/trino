@@ -29,7 +29,7 @@ import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.TimeLiteral;
 import io.trino.sql.tree.TimestampLiteral;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -71,42 +71,42 @@ public class TestCounterBasedAnonymizer
                 .isEqualTo("'binary_literal_1'");
 
         assertThat(anonymizer.anonymize(new StringLiteral("abc")))
-                .isEqualTo("'string_literal_1'");
+                .isEqualTo("'string_literal_2'");
 
         assertThat(anonymizer.anonymize(new GenericLiteral("bigint", "1")))
-                .isEqualTo("'bigint_literal_1'");
+                .isEqualTo("'bigint_literal_3'");
 
         assertThat(anonymizer.anonymize(new CharLiteral("a")))
-                .isEqualTo("'char_literal_1'");
+                .isEqualTo("'char_literal_4'");
 
         assertThat(anonymizer.anonymize(new DecimalLiteral("123")))
-                .isEqualTo("'decimal_literal_1'");
+                .isEqualTo("'decimal_literal_5'");
 
         assertThat(anonymizer.anonymize(new DoubleLiteral(String.valueOf(6554))))
-                .isEqualTo("'double_literal_1'");
+                .isEqualTo("'double_literal_6'");
 
         assertThat(anonymizer.anonymize(new DoubleLiteral(String.valueOf(Double.MAX_VALUE))))
-                .isEqualTo("'double_literal_1'");
+                .isEqualTo("'double_literal_7'");
 
         assertThat(anonymizer.anonymize(new LongLiteral(String.valueOf(6554))))
-                .isEqualTo("'long_literal_1'");
+                .isEqualTo("'long_literal_8'");
 
         assertThat(anonymizer.anonymize(new LongLiteral(String.valueOf(Long.MAX_VALUE))))
-                .isEqualTo("'long_literal_1'");
+                .isEqualTo("'long_literal_9'");
 
         assertThat(anonymizer.anonymize(new BooleanLiteral("true")))
                 .isEqualTo("true");
 
         assertThat(anonymizer.anonymize(new TimeLiteral("03:04:05")))
-                .isEqualTo("'time_literal_1'");
+                .isEqualTo("'time_literal_10'");
 
         assertThat(anonymizer.anonymize(new TimestampLiteral("2012-10-31 01:00 UTC")))
-                .isEqualTo("'timestamp_literal_1'");
+                .isEqualTo("'timestamp_literal_11'");
 
         assertThat(anonymizer.anonymize(new NullLiteral()))
                 .isEqualTo("null");
 
         assertThat(anonymizer.anonymize(new IntervalLiteral("33", IntervalLiteral.Sign.POSITIVE, IntervalLiteral.IntervalField.DAY, Optional.empty())))
-                .isEqualTo("'interval_literal_1'");
+                .isEqualTo("'interval_literal_12'");
     }
 }

@@ -76,8 +76,10 @@ import io.trino.testing.TestingMetadata.TestingColumnHandle;
 import io.trino.testing.TestingSession;
 import io.trino.testing.TestingTransactionHandle;
 import io.trino.transaction.TestingTransactionManager;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -115,8 +117,11 @@ import static io.trino.tests.BogusType.BOGUS;
 import static io.trino.transaction.TransactionBuilder.transaction;
 import static io.trino.type.UnknownType.UNKNOWN;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestEffectivePredicateExtractor
 {
     private static final Symbol A = new Symbol("a");
@@ -176,7 +181,7 @@ public class TestEffectivePredicateExtractor
     private TableScanNode baseTableScan;
     private ExpressionIdentityNormalizer expressionNormalizer;
 
-    @BeforeMethod
+    @BeforeEach
     public void setUp()
     {
         scanAssignments = ImmutableMap.<Symbol, ColumnHandle>builder()

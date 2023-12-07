@@ -13,7 +13,7 @@
  */
 package io.trino.operator;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 
