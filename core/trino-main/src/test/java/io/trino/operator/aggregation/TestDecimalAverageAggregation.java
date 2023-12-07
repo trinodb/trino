@@ -217,12 +217,7 @@ public class TestDecimalAverageAggregation
 
     private void assertAverageEquals(LongDecimalWithOverflowAndLongState state, BigInteger expectedAverage)
     {
-        assertAverageEquals(state, expectedAverage, TYPE);
-    }
-
-    private void assertAverageEquals(LongDecimalWithOverflowAndLongState state, BigInteger expectedAverage, DecimalType type)
-    {
-        assertThat(average(state, type).toBigInteger()).isEqualTo(expectedAverage);
+        assertThat(average(state, TYPE).toBigInteger()).isEqualTo(expectedAverage);
     }
 
     private static void addToState(LongDecimalWithOverflowAndLongState state, BigInteger value)
