@@ -186,6 +186,7 @@ class Query
         ExchangeDataSource exchangeDataSource = new LazyExchangeDataSource(
                 session.getQueryId(),
                 new ExchangeId("query-results-exchange-" + session.getQueryId()),
+                session.getQuerySpan(),
                 directExchangeClientSupplier,
                 new SimpleLocalMemoryContext(newSimpleAggregatedMemoryContext(), Query.class.getSimpleName()),
                 queryManager::outputTaskFailed,

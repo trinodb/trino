@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Span;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
 import io.trino.cost.StatsAndCosts;
@@ -624,6 +625,7 @@ public class TestMultiSourcePartitionedScheduler
                 nodeTaskMap,
                 queryExecutor,
                 noopTracer(),
+                Span.getInvalid(),
                 new SplitSchedulerStats());
         ImmutableMap.Builder<PlanFragmentId, PipelinedOutputBufferManager> outputBuffers = ImmutableMap.builder();
         outputBuffers.put(fragment.getId(), new PartitionedPipelinedOutputBufferManager(FIXED_HASH_DISTRIBUTION, 1));

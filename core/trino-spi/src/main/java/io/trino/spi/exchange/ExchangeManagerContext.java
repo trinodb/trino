@@ -11,21 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator;
+package io.trino.spi.exchange;
 
-import io.opentelemetry.api.trace.Span;
-import io.trino.execution.TaskFailureListener;
-import io.trino.memory.context.LocalMemoryContext;
-import io.trino.spi.QueryId;
-import io.trino.spi.exchange.ExchangeId;
+import io.opentelemetry.api.OpenTelemetry;
+import io.opentelemetry.api.trace.Tracer;
 
-public interface DirectExchangeClientSupplier
+public interface ExchangeManagerContext
 {
-    DirectExchangeClient get(
-            QueryId queryId,
-            ExchangeId exchangeId,
-            Span parentSpan,
-            LocalMemoryContext memoryContext,
-            TaskFailureListener taskFailureListener,
-            RetryPolicy retryPolicy);
+    default OpenTelemetry getOpenTelemetry()
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default Tracer getTracer()
+    {
+        throw new UnsupportedOperationException();
+    }
 }

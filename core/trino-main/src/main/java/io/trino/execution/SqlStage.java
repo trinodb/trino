@@ -85,6 +85,7 @@ public final class SqlStage
             NodeTaskMap nodeTaskMap,
             Executor stateMachineExecutor,
             Tracer tracer,
+            Span schedulerSpan,
             SplitSchedulerStats schedulerStats)
     {
         requireNonNull(stageId, "stageId is null");
@@ -104,7 +105,7 @@ public final class SqlStage
                 tables,
                 stateMachineExecutor,
                 tracer,
-                session.getQuerySpan(),
+                schedulerSpan,
                 schedulerStats);
 
         SqlStage sqlStage = new SqlStage(
