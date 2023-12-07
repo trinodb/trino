@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.SettableFuture;
+import io.opentelemetry.api.trace.Span;
 import io.trino.client.NodeVersion;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.buffer.PipelinedOutputBuffers;
@@ -124,6 +125,7 @@ public class TestSqlStage
                 nodeTaskMap,
                 executor,
                 noopTracer(),
+                Span.getInvalid(),
                 new SplitSchedulerStats());
 
         // add listener that fetches stage info when the final status is available
