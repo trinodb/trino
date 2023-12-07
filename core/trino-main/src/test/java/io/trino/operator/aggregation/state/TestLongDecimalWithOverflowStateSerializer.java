@@ -16,7 +16,6 @@ package io.trino.operator.aggregation.state;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.VariableWidthBlockBuilder;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -25,8 +24,20 @@ public class TestLongDecimalWithOverflowStateSerializer
 {
     private static final LongDecimalWithOverflowStateFactory STATE_FACTORY = new LongDecimalWithOverflowStateFactory();
 
-    @Test(dataProvider = "input")
-    public void testSerde(long low, long high, long overflow, int expectedLength)
+    @Test
+    public void testSerde()
+    {
+        testSerde(3, 0, 0, 1);
+        testSerde(3, 5, 0, 2);
+        testSerde(3, 5, 7, 3);
+        testSerde(3, 0, 7, 3);
+        testSerde(0, 0, 0, 1);
+        testSerde(0, 5, 0, 2);
+        testSerde(0, 5, 7, 3);
+        testSerde(0, 0, 7, 3);
+    }
+
+    private void testSerde(long low, long high, long overflow, int expectedLength)
     {
         LongDecimalWithOverflowState state = STATE_FACTORY.createSingleState();
         state.getDecimalArray()[0] = high;
@@ -65,20 +76,5 @@ public class TestLongDecimalWithOverflowStateSerializer
         LongDecimalWithOverflowState outState = STATE_FACTORY.createSingleState();
         serializer.deserialize(serialized, 0, outState);
         return outState;
-    }
-
-    @DataProvider
-    public Object[][] input()
-    {
-        return new Object[][] {
-                {3, 0, 0, 1},
-                {3, 5, 0, 2},
-                {3, 5, 7, 3},
-                {3, 0, 7, 3},
-                {0, 0, 0, 1},
-                {0, 5, 0, 2},
-                {0, 5, 7, 3},
-                {0, 0, 7, 3}
-        };
     }
 }

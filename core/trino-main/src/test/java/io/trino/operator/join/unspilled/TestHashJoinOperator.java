@@ -51,13 +51,11 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.planner.NodePartitioningManager;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.testing.DataProviders;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingTaskContext;
 import io.trino.util.FinalizerService;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -92,8 +90,6 @@ import static io.trino.operator.join.unspilled.JoinTestUtils.setupBuildSide;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.testing.DataProviders.cartesianProduct;
-import static io.trino.testing.DataProviders.trueFalse;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -144,8 +140,20 @@ public class TestHashJoinOperator
         scheduledExecutor.shutdownNow();
     }
 
-    @Test(dataProvider = "hashJoinTestValues")
-    public void testInnerJoin(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    @Test
+    public void testInnerJoin()
+    {
+        testInnerJoin(false, false, false);
+        testInnerJoin(false, false, true);
+        testInnerJoin(false, true, false);
+        testInnerJoin(false, true, true);
+        testInnerJoin(true, false, false);
+        testInnerJoin(true, false, true);
+        testInnerJoin(true, true, false);
+        testInnerJoin(true, true, true);
+    }
+
+    private void testInnerJoin(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
     {
         TaskContext taskContext = createTaskContext();
 
@@ -183,8 +191,20 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
-    @Test(dataProvider = "hashJoinRleProbeTestValues")
-    public void testInnerJoinWithRunLengthEncodedProbe(boolean withFilter, boolean probeHashEnabled, boolean singleBigintLookupSource)
+    @Test
+    public void testInnerJoinWithRunLengthEncodedProbe()
+    {
+        testInnerJoinWithRunLengthEncodedProbe(false, false, false);
+        testInnerJoinWithRunLengthEncodedProbe(false, false, true);
+        testInnerJoinWithRunLengthEncodedProbe(false, true, false);
+        testInnerJoinWithRunLengthEncodedProbe(false, true, true);
+        testInnerJoinWithRunLengthEncodedProbe(true, false, false);
+        testInnerJoinWithRunLengthEncodedProbe(true, false, true);
+        testInnerJoinWithRunLengthEncodedProbe(true, true, false);
+        testInnerJoinWithRunLengthEncodedProbe(true, true, true);
+    }
+
+    private void testInnerJoinWithRunLengthEncodedProbe(boolean withFilter, boolean probeHashEnabled, boolean singleBigintLookupSource)
     {
         TaskContext taskContext = createTaskContext();
 
@@ -252,14 +272,14 @@ public class TestHashJoinOperator
         return (JoinOperatorInfo) getOnlyElement(driverContext.getOperatorStats()).getInfo();
     }
 
-    @DataProvider(name = "hashJoinRleProbeTestValues")
-    public static Object[][] hashJoinRleProbeTestValuesProvider()
+    @Test
+    public void testUnwrapsLazyBlocks()
     {
-        return cartesianProduct(trueFalse(), trueFalse(), trueFalse());
+        testUnwrapsLazyBlocks(false);
+        testUnwrapsLazyBlocks(true);
     }
 
-    @Test(dataProvider = "singleBigintLookupSourceProvider")
-    public void testUnwrapsLazyBlocks(boolean singleBigintLookupSource)
+    private void testUnwrapsLazyBlocks(boolean singleBigintLookupSource)
     {
         TaskContext taskContext = createTaskContext();
         DriverContext driverContext = taskContext.addPipelineContext(0, true, true, false).addDriverContext();
@@ -304,8 +324,14 @@ public class TestHashJoinOperator
         assertThat(output.getBlock(1) instanceof LazyBlock).isFalse();
     }
 
-    @Test(dataProvider = "singleBigintLookupSourceProvider")
-    public void testYield(boolean singleBigintLookupSource)
+    @Test
+    public void testYield()
+    {
+        testYield(false);
+        testYield(true);
+    }
+
+    private void testYield(boolean singleBigintLookupSource)
     {
         // create a filter function that yields for every probe match
         // verify we will yield #match times totally
@@ -375,8 +401,28 @@ public class TestHashJoinOperator
         assertThat(output.getPositionCount()).isEqualTo(entries);
     }
 
-    @Test(dataProvider = "hashJoinTestValuesAndsingleBigintLookupSourceProvider")
-    public void testInnerJoinWithNullProbe(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
+    @Test
+    public void testInnerJoinWithNullProbe()
+    {
+        testInnerJoinWithNullProbe(false, false, false, false);
+        testInnerJoinWithNullProbe(false, false, false, true);
+        testInnerJoinWithNullProbe(false, false, true, false);
+        testInnerJoinWithNullProbe(false, false, true, true);
+        testInnerJoinWithNullProbe(false, true, false, false);
+        testInnerJoinWithNullProbe(false, true, false, true);
+        testInnerJoinWithNullProbe(false, true, true, false);
+        testInnerJoinWithNullProbe(false, true, true, true);
+        testInnerJoinWithNullProbe(true, false, false, false);
+        testInnerJoinWithNullProbe(true, false, false, true);
+        testInnerJoinWithNullProbe(true, false, true, false);
+        testInnerJoinWithNullProbe(true, false, true, true);
+        testInnerJoinWithNullProbe(true, true, false, false);
+        testInnerJoinWithNullProbe(true, true, false, true);
+        testInnerJoinWithNullProbe(true, true, true, false);
+        testInnerJoinWithNullProbe(true, true, true, true);
+    }
+
+    private void testInnerJoinWithNullProbe(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
     {
         TaskContext taskContext = createTaskContext();
 
@@ -415,8 +461,28 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
-    @Test(dataProvider = "hashJoinTestValuesAndsingleBigintLookupSourceProvider")
-    public void testInnerJoinWithOutputSingleMatch(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
+    @Test
+    public void testInnerJoinWithOutputSingleMatch()
+    {
+        testInnerJoinWithOutputSingleMatch(false, false, false, false);
+        testInnerJoinWithOutputSingleMatch(false, false, false, true);
+        testInnerJoinWithOutputSingleMatch(false, false, true, false);
+        testInnerJoinWithOutputSingleMatch(false, false, true, true);
+        testInnerJoinWithOutputSingleMatch(false, true, false, false);
+        testInnerJoinWithOutputSingleMatch(false, true, false, true);
+        testInnerJoinWithOutputSingleMatch(false, true, true, false);
+        testInnerJoinWithOutputSingleMatch(false, true, true, true);
+        testInnerJoinWithOutputSingleMatch(true, false, false, false);
+        testInnerJoinWithOutputSingleMatch(true, false, false, true);
+        testInnerJoinWithOutputSingleMatch(true, false, true, false);
+        testInnerJoinWithOutputSingleMatch(true, false, true, true);
+        testInnerJoinWithOutputSingleMatch(true, true, false, false);
+        testInnerJoinWithOutputSingleMatch(true, true, false, true);
+        testInnerJoinWithOutputSingleMatch(true, true, true, false);
+        testInnerJoinWithOutputSingleMatch(true, true, true, true);
+    }
+
+    private void testInnerJoinWithOutputSingleMatch(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
     {
         TaskContext taskContext = createTaskContext();
         // build factory
@@ -451,8 +517,20 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
-    @Test(dataProvider = "hashJoinTestValuesAndsingleBigintLookupSourceProvider")
-    public void testInnerJoinWithNullBuild(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
+    @Test
+    public void testInnerJoinWithNullBuild()
+    {
+        testInnerJoinWithNullBuild(false, false, false);
+        testInnerJoinWithNullBuild(false, false, true);
+        testInnerJoinWithNullBuild(false, true, false);
+        testInnerJoinWithNullBuild(false, true, true);
+        testInnerJoinWithNullBuild(true, false, false);
+        testInnerJoinWithNullBuild(true, false, true);
+        testInnerJoinWithNullBuild(true, true, false);
+        testInnerJoinWithNullBuild(true, true, true);
+    }
+
+    private void testInnerJoinWithNullBuild(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
     {
         TaskContext taskContext = createTaskContext();
 
@@ -491,8 +569,20 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
-    @Test(dataProvider = "hashJoinTestValuesAndsingleBigintLookupSourceProvider")
-    public void testInnerJoinWithNullOnBothSides(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
+    @Test
+    public void testInnerJoinWithNullOnBothSides()
+    {
+        testInnerJoinWithNullOnBothSides(false, false, false);
+        testInnerJoinWithNullOnBothSides(false, false, true);
+        testInnerJoinWithNullOnBothSides(false, true, false);
+        testInnerJoinWithNullOnBothSides(false, true, true);
+        testInnerJoinWithNullOnBothSides(true, false, false);
+        testInnerJoinWithNullOnBothSides(true, false, true);
+        testInnerJoinWithNullOnBothSides(true, true, false);
+        testInnerJoinWithNullOnBothSides(true, true, true);
+    }
+
+    private void testInnerJoinWithNullOnBothSides(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
     {
         TaskContext taskContext = createTaskContext();
 
@@ -532,8 +622,20 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
-    @Test(dataProvider = "hashJoinTestValues")
-    public void testProbeOuterJoin(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    @Test
+    public void testProbeOuterJoin()
+    {
+        testProbeOuterJoin(false, false, false);
+        testProbeOuterJoin(false, false, true);
+        testProbeOuterJoin(false, true, false);
+        testProbeOuterJoin(false, true, true);
+        testProbeOuterJoin(true, false, false);
+        testProbeOuterJoin(true, false, true);
+        testProbeOuterJoin(true, true, false);
+        testProbeOuterJoin(true, true, true);
+    }
+
+    private void testProbeOuterJoin(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
     {
         TaskContext taskContext = createTaskContext();
 
@@ -578,8 +680,20 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
-    @Test(dataProvider = "hashJoinTestValues")
-    public void testProbeOuterJoinWithFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    @Test
+    public void testProbeOuterJoinWithFilterFunction()
+    {
+        testProbeOuterJoinWithFilterFunction(false, false, false);
+        testProbeOuterJoinWithFilterFunction(false, false, true);
+        testProbeOuterJoinWithFilterFunction(false, true, false);
+        testProbeOuterJoinWithFilterFunction(false, true, true);
+        testProbeOuterJoinWithFilterFunction(true, false, false);
+        testProbeOuterJoinWithFilterFunction(true, false, true);
+        testProbeOuterJoinWithFilterFunction(true, true, false);
+        testProbeOuterJoinWithFilterFunction(true, true, true);
+    }
+
+    private void testProbeOuterJoinWithFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
     {
         TaskContext taskContext = createTaskContext();
 
@@ -627,8 +741,28 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
-    @Test(dataProvider = "hashJoinTestValuesAndsingleBigintLookupSourceProvider")
-    public void testOuterJoinWithNullProbe(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
+    @Test
+    public void testOuterJoinWithNullProbe()
+    {
+        testOuterJoinWithNullProbe(false, false, false, false);
+        testOuterJoinWithNullProbe(false, false, false, true);
+        testOuterJoinWithNullProbe(false, false, true, false);
+        testOuterJoinWithNullProbe(false, false, true, true);
+        testOuterJoinWithNullProbe(false, true, false, false);
+        testOuterJoinWithNullProbe(false, true, false, true);
+        testOuterJoinWithNullProbe(false, true, true, false);
+        testOuterJoinWithNullProbe(false, true, true, true);
+        testOuterJoinWithNullProbe(true, false, false, false);
+        testOuterJoinWithNullProbe(true, false, false, true);
+        testOuterJoinWithNullProbe(true, false, true, false);
+        testOuterJoinWithNullProbe(true, false, true, true);
+        testOuterJoinWithNullProbe(true, true, false, false);
+        testOuterJoinWithNullProbe(true, true, false, true);
+        testOuterJoinWithNullProbe(true, true, true, false);
+        testOuterJoinWithNullProbe(true, true, true, true);
+    }
+
+    private void testOuterJoinWithNullProbe(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
     {
         TaskContext taskContext = createTaskContext();
 
@@ -669,8 +803,28 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
-    @Test(dataProvider = "hashJoinTestValuesAndsingleBigintLookupSourceProvider")
-    public void testOuterJoinWithNullProbeAndFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
+    @Test
+    public void testOuterJoinWithNullProbeAndFilterFunction()
+    {
+        testOuterJoinWithNullProbeAndFilterFunction(false, false, false, false);
+        testOuterJoinWithNullProbeAndFilterFunction(false, false, false, true);
+        testOuterJoinWithNullProbeAndFilterFunction(false, false, true, false);
+        testOuterJoinWithNullProbeAndFilterFunction(false, false, true, true);
+        testOuterJoinWithNullProbeAndFilterFunction(false, true, false, false);
+        testOuterJoinWithNullProbeAndFilterFunction(false, true, false, true);
+        testOuterJoinWithNullProbeAndFilterFunction(false, true, true, false);
+        testOuterJoinWithNullProbeAndFilterFunction(false, true, true, true);
+        testOuterJoinWithNullProbeAndFilterFunction(true, false, false, false);
+        testOuterJoinWithNullProbeAndFilterFunction(true, false, false, true);
+        testOuterJoinWithNullProbeAndFilterFunction(true, false, true, false);
+        testOuterJoinWithNullProbeAndFilterFunction(true, false, true, true);
+        testOuterJoinWithNullProbeAndFilterFunction(true, true, false, false);
+        testOuterJoinWithNullProbeAndFilterFunction(true, true, false, true);
+        testOuterJoinWithNullProbeAndFilterFunction(true, true, true, false);
+        testOuterJoinWithNullProbeAndFilterFunction(true, true, true, true);
+    }
+
+    private void testOuterJoinWithNullProbeAndFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
     {
         TaskContext taskContext = createTaskContext();
 
@@ -714,8 +868,28 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
-    @Test(dataProvider = "hashJoinTestValuesAndsingleBigintLookupSourceProvider")
-    public void testOuterJoinWithNullBuild(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
+    @Test
+    public void testOuterJoinWithNullBuild()
+    {
+        testOuterJoinWithNullBuild(false, false, false, false);
+        testOuterJoinWithNullBuild(false, false, false, true);
+        testOuterJoinWithNullBuild(false, false, true, false);
+        testOuterJoinWithNullBuild(false, false, true, true);
+        testOuterJoinWithNullBuild(false, true, false, false);
+        testOuterJoinWithNullBuild(false, true, false, true);
+        testOuterJoinWithNullBuild(false, true, true, false);
+        testOuterJoinWithNullBuild(false, true, true, true);
+        testOuterJoinWithNullBuild(true, false, false, false);
+        testOuterJoinWithNullBuild(true, false, false, true);
+        testOuterJoinWithNullBuild(true, false, true, false);
+        testOuterJoinWithNullBuild(true, false, true, true);
+        testOuterJoinWithNullBuild(true, true, false, false);
+        testOuterJoinWithNullBuild(true, true, false, true);
+        testOuterJoinWithNullBuild(true, true, true, false);
+        testOuterJoinWithNullBuild(true, true, true, true);
+    }
+
+    private void testOuterJoinWithNullBuild(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
     {
         TaskContext taskContext = createTaskContext();
 
@@ -755,8 +929,28 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
-    @Test(dataProvider = "hashJoinTestValuesAndsingleBigintLookupSourceProvider")
-    public void testOuterJoinWithNullBuildAndFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
+    @Test
+    public void testOuterJoinWithNullBuildAndFilterFunction()
+    {
+        testOuterJoinWithNullBuildAndFilterFunction(false, false, false, false);
+        testOuterJoinWithNullBuildAndFilterFunction(false, false, false, true);
+        testOuterJoinWithNullBuildAndFilterFunction(false, false, true, false);
+        testOuterJoinWithNullBuildAndFilterFunction(false, false, true, true);
+        testOuterJoinWithNullBuildAndFilterFunction(false, true, false, false);
+        testOuterJoinWithNullBuildAndFilterFunction(false, true, false, true);
+        testOuterJoinWithNullBuildAndFilterFunction(false, true, true, false);
+        testOuterJoinWithNullBuildAndFilterFunction(false, true, true, true);
+        testOuterJoinWithNullBuildAndFilterFunction(true, false, false, false);
+        testOuterJoinWithNullBuildAndFilterFunction(true, false, false, true);
+        testOuterJoinWithNullBuildAndFilterFunction(true, false, true, false);
+        testOuterJoinWithNullBuildAndFilterFunction(true, false, true, true);
+        testOuterJoinWithNullBuildAndFilterFunction(true, true, false, false);
+        testOuterJoinWithNullBuildAndFilterFunction(true, true, false, true);
+        testOuterJoinWithNullBuildAndFilterFunction(true, true, true, false);
+        testOuterJoinWithNullBuildAndFilterFunction(true, true, true, true);
+    }
+
+    private void testOuterJoinWithNullBuildAndFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
     {
         TaskContext taskContext = createTaskContext();
 
@@ -800,8 +994,28 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
-    @Test(dataProvider = "hashJoinTestValuesAndsingleBigintLookupSourceProvider")
-    public void testOuterJoinWithNullOnBothSides(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
+    @Test
+    public void testOuterJoinWithNullOnBothSides()
+    {
+        testOuterJoinWithNullOnBothSides(false, false, false, false);
+        testOuterJoinWithNullOnBothSides(false, false, false, true);
+        testOuterJoinWithNullOnBothSides(false, false, true, false);
+        testOuterJoinWithNullOnBothSides(false, false, true, true);
+        testOuterJoinWithNullOnBothSides(false, true, false, false);
+        testOuterJoinWithNullOnBothSides(false, true, false, true);
+        testOuterJoinWithNullOnBothSides(false, true, true, false);
+        testOuterJoinWithNullOnBothSides(false, true, true, true);
+        testOuterJoinWithNullOnBothSides(true, false, false, false);
+        testOuterJoinWithNullOnBothSides(true, false, false, true);
+        testOuterJoinWithNullOnBothSides(true, false, true, false);
+        testOuterJoinWithNullOnBothSides(true, false, true, true);
+        testOuterJoinWithNullOnBothSides(true, true, false, false);
+        testOuterJoinWithNullOnBothSides(true, true, false, true);
+        testOuterJoinWithNullOnBothSides(true, true, true, false);
+        testOuterJoinWithNullOnBothSides(true, true, true, true);
+    }
+
+    private void testOuterJoinWithNullOnBothSides(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
     {
         TaskContext taskContext = createTaskContext();
 
@@ -842,8 +1056,28 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
-    @Test(dataProvider = "hashJoinTestValuesAndsingleBigintLookupSourceProvider")
-    public void testOuterJoinWithNullOnBothSidesAndFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
+    @Test
+    public void testOuterJoinWithNullOnBothSidesAndFilterFunction()
+    {
+        testOuterJoinWithNullOnBothSidesAndFilterFunction(false, false, false, false);
+        testOuterJoinWithNullOnBothSidesAndFilterFunction(false, false, false, true);
+        testOuterJoinWithNullOnBothSidesAndFilterFunction(false, false, true, false);
+        testOuterJoinWithNullOnBothSidesAndFilterFunction(false, false, true, true);
+        testOuterJoinWithNullOnBothSidesAndFilterFunction(false, true, false, false);
+        testOuterJoinWithNullOnBothSidesAndFilterFunction(false, true, false, true);
+        testOuterJoinWithNullOnBothSidesAndFilterFunction(false, true, true, false);
+        testOuterJoinWithNullOnBothSidesAndFilterFunction(false, true, true, true);
+        testOuterJoinWithNullOnBothSidesAndFilterFunction(true, false, false, false);
+        testOuterJoinWithNullOnBothSidesAndFilterFunction(true, false, false, true);
+        testOuterJoinWithNullOnBothSidesAndFilterFunction(true, false, true, false);
+        testOuterJoinWithNullOnBothSidesAndFilterFunction(true, false, true, true);
+        testOuterJoinWithNullOnBothSidesAndFilterFunction(true, true, false, false);
+        testOuterJoinWithNullOnBothSidesAndFilterFunction(true, true, false, true);
+        testOuterJoinWithNullOnBothSidesAndFilterFunction(true, true, true, false);
+        testOuterJoinWithNullOnBothSidesAndFilterFunction(true, true, true, true);
+    }
+
+    private void testOuterJoinWithNullOnBothSidesAndFilterFunction(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
     {
         TaskContext taskContext = createTaskContext();
 
@@ -888,8 +1122,16 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
-    @Test(dataProvider = "testMemoryLimitProvider")
-    public void testMemoryLimit(boolean parallelBuild, boolean buildHashEnabled)
+    @Test
+    public void testMemoryLimit()
+    {
+        testMemoryLimit(false, false);
+        testMemoryLimit(false, true);
+        testMemoryLimit(true, false);
+        testMemoryLimit(true, true);
+    }
+
+    private void testMemoryLimit(boolean parallelBuild, boolean buildHashEnabled)
     {
         TaskContext taskContext = TestingTaskContext.createTaskContext(executor, scheduledExecutor, TEST_SESSION, DataSize.ofBytes(100));
 
@@ -903,8 +1145,28 @@ public class TestHashJoinOperator
                 .hasMessageMatching("Query exceeded per-node memory limit of.*");
     }
 
-    @Test(dataProvider = "hashJoinTestValuesAndsingleBigintLookupSourceProvider")
-    public void testInnerJoinWithEmptyLookupSource(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
+    @Test
+    public void testInnerJoinWithEmptyLookupSource()
+    {
+        testInnerJoinWithEmptyLookupSource(false, false, false, false);
+        testInnerJoinWithEmptyLookupSource(false, false, false, true);
+        testInnerJoinWithEmptyLookupSource(false, false, true, false);
+        testInnerJoinWithEmptyLookupSource(false, false, true, true);
+        testInnerJoinWithEmptyLookupSource(false, true, false, false);
+        testInnerJoinWithEmptyLookupSource(false, true, false, true);
+        testInnerJoinWithEmptyLookupSource(false, true, true, false);
+        testInnerJoinWithEmptyLookupSource(false, true, true, true);
+        testInnerJoinWithEmptyLookupSource(true, false, false, false);
+        testInnerJoinWithEmptyLookupSource(true, false, false, true);
+        testInnerJoinWithEmptyLookupSource(true, false, true, false);
+        testInnerJoinWithEmptyLookupSource(true, false, true, true);
+        testInnerJoinWithEmptyLookupSource(true, true, false, false);
+        testInnerJoinWithEmptyLookupSource(true, true, false, true);
+        testInnerJoinWithEmptyLookupSource(true, true, true, false);
+        testInnerJoinWithEmptyLookupSource(true, true, true, true);
+    }
+
+    private void testInnerJoinWithEmptyLookupSource(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
     {
         TaskContext taskContext = createTaskContext();
 
@@ -940,8 +1202,28 @@ public class TestHashJoinOperator
         assertThat(outputPage).isNull();
     }
 
-    @Test(dataProvider = "hashJoinTestValuesAndsingleBigintLookupSourceProvider")
-    public void testLookupOuterJoinWithEmptyLookupSource(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
+    @Test
+    public void testLookupOuterJoinWithEmptyLookupSource()
+    {
+        testLookupOuterJoinWithEmptyLookupSource(false, false, false, false);
+        testLookupOuterJoinWithEmptyLookupSource(false, false, false, true);
+        testLookupOuterJoinWithEmptyLookupSource(false, false, true, false);
+        testLookupOuterJoinWithEmptyLookupSource(false, false, true, true);
+        testLookupOuterJoinWithEmptyLookupSource(false, true, false, false);
+        testLookupOuterJoinWithEmptyLookupSource(false, true, false, true);
+        testLookupOuterJoinWithEmptyLookupSource(false, true, true, false);
+        testLookupOuterJoinWithEmptyLookupSource(false, true, true, true);
+        testLookupOuterJoinWithEmptyLookupSource(true, false, false, false);
+        testLookupOuterJoinWithEmptyLookupSource(true, false, false, true);
+        testLookupOuterJoinWithEmptyLookupSource(true, false, true, false);
+        testLookupOuterJoinWithEmptyLookupSource(true, false, true, true);
+        testLookupOuterJoinWithEmptyLookupSource(true, true, false, false);
+        testLookupOuterJoinWithEmptyLookupSource(true, true, false, true);
+        testLookupOuterJoinWithEmptyLookupSource(true, true, true, false);
+        testLookupOuterJoinWithEmptyLookupSource(true, true, true, true);
+    }
+
+    private void testLookupOuterJoinWithEmptyLookupSource(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
     {
         TaskContext taskContext = createTaskContext();
 
@@ -977,8 +1259,28 @@ public class TestHashJoinOperator
         assertThat(outputPage).isNull();
     }
 
-    @Test(dataProvider = "hashJoinTestValuesAndsingleBigintLookupSourceProvider")
-    public void testProbeOuterJoinWithEmptyLookupSource(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
+    @Test
+    public void testProbeOuterJoinWithEmptyLookupSource()
+    {
+        testProbeOuterJoinWithEmptyLookupSource(false, false, false, false);
+        testProbeOuterJoinWithEmptyLookupSource(false, false, false, true);
+        testProbeOuterJoinWithEmptyLookupSource(false, false, true, false);
+        testProbeOuterJoinWithEmptyLookupSource(false, false, true, true);
+        testProbeOuterJoinWithEmptyLookupSource(false, true, false, false);
+        testProbeOuterJoinWithEmptyLookupSource(false, true, false, true);
+        testProbeOuterJoinWithEmptyLookupSource(false, true, true, false);
+        testProbeOuterJoinWithEmptyLookupSource(false, true, true, true);
+        testProbeOuterJoinWithEmptyLookupSource(true, false, false, false);
+        testProbeOuterJoinWithEmptyLookupSource(true, false, false, true);
+        testProbeOuterJoinWithEmptyLookupSource(true, false, true, false);
+        testProbeOuterJoinWithEmptyLookupSource(true, false, true, true);
+        testProbeOuterJoinWithEmptyLookupSource(true, true, false, false);
+        testProbeOuterJoinWithEmptyLookupSource(true, true, false, true);
+        testProbeOuterJoinWithEmptyLookupSource(true, true, true, false);
+        testProbeOuterJoinWithEmptyLookupSource(true, true, true, true);
+    }
+
+    private void testProbeOuterJoinWithEmptyLookupSource(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
     {
         TaskContext taskContext = createTaskContext();
 
@@ -1023,8 +1325,28 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
-    @Test(dataProvider = "hashJoinTestValuesAndsingleBigintLookupSourceProvider")
-    public void testFullOuterJoinWithEmptyLookupSource(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
+    @Test
+    public void testFullOuterJoinWithEmptyLookupSource()
+    {
+        testFullOuterJoinWithEmptyLookupSource(false, false, false, false);
+        testFullOuterJoinWithEmptyLookupSource(false, false, false, true);
+        testFullOuterJoinWithEmptyLookupSource(false, false, true, false);
+        testFullOuterJoinWithEmptyLookupSource(false, false, true, true);
+        testFullOuterJoinWithEmptyLookupSource(false, true, false, false);
+        testFullOuterJoinWithEmptyLookupSource(false, true, false, true);
+        testFullOuterJoinWithEmptyLookupSource(false, true, true, false);
+        testFullOuterJoinWithEmptyLookupSource(false, true, true, true);
+        testFullOuterJoinWithEmptyLookupSource(true, false, false, false);
+        testFullOuterJoinWithEmptyLookupSource(true, false, false, true);
+        testFullOuterJoinWithEmptyLookupSource(true, false, true, false);
+        testFullOuterJoinWithEmptyLookupSource(true, false, true, true);
+        testFullOuterJoinWithEmptyLookupSource(true, true, false, false);
+        testFullOuterJoinWithEmptyLookupSource(true, true, false, true);
+        testFullOuterJoinWithEmptyLookupSource(true, true, true, false);
+        testFullOuterJoinWithEmptyLookupSource(true, true, true, true);
+    }
+
+    private void testFullOuterJoinWithEmptyLookupSource(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
     {
         TaskContext taskContext = createTaskContext();
 
@@ -1069,8 +1391,28 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
-    @Test(dataProvider = "hashJoinTestValuesAndsingleBigintLookupSourceProvider")
-    public void testInnerJoinWithNonEmptyLookupSourceAndEmptyProbe(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
+    @Test
+    public void testInnerJoinWithNonEmptyLookupSourceAndEmptyProbe()
+    {
+        testInnerJoinWithNonEmptyLookupSourceAndEmptyProbe(false, false, false, false);
+        testInnerJoinWithNonEmptyLookupSourceAndEmptyProbe(false, false, false, true);
+        testInnerJoinWithNonEmptyLookupSourceAndEmptyProbe(false, false, true, false);
+        testInnerJoinWithNonEmptyLookupSourceAndEmptyProbe(false, false, true, true);
+        testInnerJoinWithNonEmptyLookupSourceAndEmptyProbe(false, true, false, false);
+        testInnerJoinWithNonEmptyLookupSourceAndEmptyProbe(false, true, false, true);
+        testInnerJoinWithNonEmptyLookupSourceAndEmptyProbe(false, true, true, false);
+        testInnerJoinWithNonEmptyLookupSourceAndEmptyProbe(false, true, true, true);
+        testInnerJoinWithNonEmptyLookupSourceAndEmptyProbe(true, false, false, false);
+        testInnerJoinWithNonEmptyLookupSourceAndEmptyProbe(true, false, false, true);
+        testInnerJoinWithNonEmptyLookupSourceAndEmptyProbe(true, false, true, false);
+        testInnerJoinWithNonEmptyLookupSourceAndEmptyProbe(true, false, true, true);
+        testInnerJoinWithNonEmptyLookupSourceAndEmptyProbe(true, true, false, false);
+        testInnerJoinWithNonEmptyLookupSourceAndEmptyProbe(true, true, false, true);
+        testInnerJoinWithNonEmptyLookupSourceAndEmptyProbe(true, true, true, false);
+        testInnerJoinWithNonEmptyLookupSourceAndEmptyProbe(true, true, true, true);
+    }
+
+    private void testInnerJoinWithNonEmptyLookupSourceAndEmptyProbe(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled, boolean singleBigintLookupSource)
     {
         TaskContext taskContext = createTaskContext();
 
@@ -1109,8 +1451,21 @@ public class TestHashJoinOperator
         assertOperatorEquals(joinOperatorFactory, taskContext.addPipelineContext(0, true, true, false).addDriverContext(), probeInput, expected, true, getHashChannels(probePages, buildPages));
     }
 
-    @Test(dataProvider = "hashJoinTestValues")
-    public void testInnerJoinWithBlockingLookupSourceAndEmptyProbe(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    @Test
+    public void testInnerJoinWithBlockingLookupSourceAndEmptyProbe()
+            throws Exception
+    {
+        testInnerJoinWithBlockingLookupSourceAndEmptyProbe(false, false, false);
+        testInnerJoinWithBlockingLookupSourceAndEmptyProbe(false, false, true);
+        testInnerJoinWithBlockingLookupSourceAndEmptyProbe(false, true, false);
+        testInnerJoinWithBlockingLookupSourceAndEmptyProbe(false, true, true);
+        testInnerJoinWithBlockingLookupSourceAndEmptyProbe(true, false, false);
+        testInnerJoinWithBlockingLookupSourceAndEmptyProbe(true, false, true);
+        testInnerJoinWithBlockingLookupSourceAndEmptyProbe(true, true, false);
+        testInnerJoinWithBlockingLookupSourceAndEmptyProbe(true, true, true);
+    }
+
+    private void testInnerJoinWithBlockingLookupSourceAndEmptyProbe(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
             throws Exception
     {
         // join that waits for build side to be collected
@@ -1145,8 +1500,21 @@ public class TestHashJoinOperator
         }
     }
 
-    @Test(dataProvider = "hashJoinTestValues")
-    public void testInnerJoinWithBlockingLookupSource(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
+    @Test
+    public void testInnerJoinWithBlockingLookupSource()
+            throws Exception
+    {
+        testInnerJoinWithBlockingLookupSource(false, false, false);
+        testInnerJoinWithBlockingLookupSource(false, false, true);
+        testInnerJoinWithBlockingLookupSource(false, true, false);
+        testInnerJoinWithBlockingLookupSource(false, true, true);
+        testInnerJoinWithBlockingLookupSource(true, false, false);
+        testInnerJoinWithBlockingLookupSource(true, false, true);
+        testInnerJoinWithBlockingLookupSource(true, true, false);
+        testInnerJoinWithBlockingLookupSource(true, true, true);
+    }
+
+    private void testInnerJoinWithBlockingLookupSource(boolean parallelBuild, boolean probeHashEnabled, boolean buildHashEnabled)
             throws Exception
     {
         RowPagesBuilder probePages = rowPagesBuilder(probeHashEnabled, Ints.asList(0), ImmutableList.of(VARCHAR));
@@ -1294,39 +1662,6 @@ public class TestHashJoinOperator
         instantiateBuildDrivers(buildSideSetup, taskContext);
 
         return joinOperatorFactory;
-    }
-
-    @DataProvider(name = "hashJoinTestValues")
-    public static Object[][] hashJoinTestValuesProvider()
-    {
-        return DataProviders.cartesianProduct(
-                new Object[][] {{true}, {false}},
-                new Object[][] {{true}, {false}},
-                new Object[][] {{true}, {false}});
-    }
-
-    @DataProvider
-    public static Object[][] testMemoryLimitProvider()
-    {
-        return DataProviders.cartesianProduct(
-                new Object[][] {{true}, {false}},
-                new Object[][] {{true}, {false}});
-    }
-
-    @DataProvider(name = "singleBigintLookupSourceProvider")
-    public static Object[][] singleBigintLookupSourceProvider()
-    {
-        return new Object[][] {{true}, {false}};
-    }
-
-    @DataProvider(name = "hashJoinTestValuesAndsingleBigintLookupSourceProvider")
-    public static Object[][] hashJoinTestValuesAndsingleBigintLookupSourceProvider()
-    {
-        return DataProviders.cartesianProduct(
-                new Object[][] {{true}, {false}},
-                new Object[][] {{true}, {false}},
-                new Object[][] {{true}, {false}},
-                new Object[][] {{true}, {false}});
     }
 
     private TaskContext createTaskContext()

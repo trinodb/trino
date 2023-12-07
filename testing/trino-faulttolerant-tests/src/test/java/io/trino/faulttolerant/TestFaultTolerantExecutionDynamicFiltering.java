@@ -71,8 +71,7 @@ public class TestFaultTolerantExecutionDynamicFiltering
     // results in each instance of DynamicFilterSourceOperator receiving fewer input rows. Therefore, testing max-distinct-values-per-driver
     // requires larger build side and the assertions on the collected domain are adjusted for multiple ranges instead of single range.
     @Override
-    @Test(timeOut = 30_000, dataProvider = "testJoinDistributionType")
-    public void testSemiJoinWithNonSelectiveBuildSide(JoinDistributionType joinDistributionType, boolean coordinatorDynamicFiltersDistribution)
+    protected void testSemiJoinWithNonSelectiveBuildSide(JoinDistributionType joinDistributionType, boolean coordinatorDynamicFiltersDistribution)
     {
         assertQueryDynamicFilters(
                 noJoinReordering(joinDistributionType, coordinatorDynamicFiltersDistribution),
@@ -90,8 +89,7 @@ public class TestFaultTolerantExecutionDynamicFiltering
     }
 
     @Override
-    @Test(timeOut = 30_000, dataProvider = "testJoinDistributionType")
-    public void testJoinWithNonSelectiveBuildSide(JoinDistributionType joinDistributionType, boolean coordinatorDynamicFiltersDistribution)
+    protected void testJoinWithNonSelectiveBuildSide(JoinDistributionType joinDistributionType, boolean coordinatorDynamicFiltersDistribution)
     {
         assertQueryDynamicFilters(
                 noJoinReordering(joinDistributionType, coordinatorDynamicFiltersDistribution),
