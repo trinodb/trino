@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
 import io.airlift.node.NodeInfo;
+import io.airlift.tracing.Tracing;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
@@ -499,7 +500,7 @@ public class LocalQueryRunner
                 ImmutableSet.of(new ExcludeColumnsFunction()),
                 nodeManager);
 
-        exchangeManagerRegistry = new ExchangeManagerRegistry();
+        exchangeManagerRegistry = new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer());
         cacheManagerRegistry = new CacheManagerRegistry(cacheConfig, new LocalMemoryManager(new NodeMemoryConfig()), plannerContext.getBlockEncodingSerde(), new CacheStats());
         this.pluginManager = new PluginManager(
                 (loader, createClassLoader) -> {},

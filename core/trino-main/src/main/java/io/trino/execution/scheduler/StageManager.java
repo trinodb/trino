@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.graph.Traverser;
 import io.airlift.units.Duration;
+import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.Session;
 import io.trino.execution.BasicStageStats;
@@ -67,6 +68,7 @@ class StageManager
             RemoteTaskFactory taskFactory,
             NodeTaskMap nodeTaskMap,
             Tracer tracer,
+            Span schedulerSpan,
             SplitSchedulerStats schedulerStats,
             SubPlan planTree,
             boolean summarizeTaskInfo)
@@ -91,6 +93,7 @@ class StageManager
                     nodeTaskMap,
                     queryStateMachine.getStateMachineExecutor(),
                     tracer,
+                    schedulerSpan,
                     schedulerStats);
             StageId stageId = stage.getStageId();
             stages.put(stageId, stage);

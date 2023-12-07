@@ -60,4 +60,6 @@ public final class TrinoAttributes
     public static final AttributeKey<Boolean> SPLIT_BLOCKED = booleanKey("trino.split.blocked");
 
     public static final AttributeKey<String> EVENT_STATE = stringKey("state");
+
+    public static final AttributeKey<String> FAILURE_MESSAGE = stringKey("failure");
 }

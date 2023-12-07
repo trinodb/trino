@@ -16,6 +16,8 @@ package io.trino.execution;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.json.ObjectMapperProvider;
+import io.airlift.tracing.Tracing;
+import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.trino.cache.CacheConfig;
 import io.trino.cache.CacheManagerRegistry;
@@ -199,7 +201,7 @@ public final class TaskTestUtils
                 blockTypeOperators,
                 PLANNER_CONTEXT.getTypeOperators(),
                 new TableExecuteContextManager(),
-                new ExchangeManagerRegistry(),
+                new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer()),
                 new CacheManagerRegistry(new CacheConfig(), new LocalMemoryManager(new NodeMemoryConfig()), new TestingBlockEncodingSerde(), cacheStats),
                 new NodeVersion("test"),
                 new CompilerConfig());
