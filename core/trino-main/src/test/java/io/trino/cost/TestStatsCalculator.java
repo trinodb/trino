@@ -15,7 +15,6 @@ package io.trino.cost;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.tpch.TpchConnectorFactory;
-import io.trino.sql.planner.LogicalPlanner;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.assertions.PlanAssert;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
@@ -27,9 +26,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
-import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
-import static io.trino.execution.warnings.WarningCollector.NOOP;
-import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
@@ -77,13 +73,8 @@ public class TestStatsCalculator
 
     private void assertPlan(String sql, PlanMatchPattern pattern)
     {
-        assertPlan(sql, OPTIMIZED_AND_VALIDATED, pattern);
-    }
-
-    private void assertPlan(String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern)
-    {
         queryRunner.inTransaction(transactionSession -> {
-            Plan actualPlan = queryRunner.createPlan(transactionSession, sql, queryRunner.getPlanOptimizers(true), stage, NOOP, createPlanOptimizersStatsCollector());
+            Plan actualPlan = queryRunner.createPlan(transactionSession, sql);
             PlanAssert.assertPlan(
                     transactionSession,
                     queryRunner.getPlannerContext().getMetadata(),
