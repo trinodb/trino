@@ -25,7 +25,9 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.FaultTolerantExecutionConnectorTestHelper;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingMetadata;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Set;
 
@@ -34,8 +36,9 @@ import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@Execution(SAME_THREAD)
 public class TestFaultTolerantExecutionDynamicFiltering
         extends AbstractTestCoordinatorDynamicFiltering
 {
@@ -107,7 +110,8 @@ public class TestFaultTolerantExecutionDynamicFiltering
     }
 
     @Override
-    @Test(timeOut = 30_000)
+    @Test
+    @Timeout(30)
     public void testRightJoinWithNonSelectiveBuildSide()
     {
         assertQueryDynamicFilters(

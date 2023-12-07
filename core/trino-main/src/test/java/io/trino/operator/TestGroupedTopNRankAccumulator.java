@@ -15,7 +15,7 @@ package io.trino.operator;
 
 import io.trino.array.LongBigArray;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
