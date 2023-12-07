@@ -22,7 +22,6 @@ import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -139,6 +138,8 @@ public class TestDecimalAverageAggregation
     @Test
     public void testCombineUnderflow()
     {
+        LongDecimalWithOverflowAndLongState state = new LongDecimalWithOverflowAndLongStateFactory().createSingleState();
+
         addToState(state, TWO.pow(125).negate());
         addToState(state, TWO.pow(126).negate());
 
@@ -163,11 +164,36 @@ public class TestDecimalAverageAggregation
         assertAverageEquals(expectedAverage);
     }
 
-    @Test(dataProvider = "testNoOverflowDataProvider")
-    public void testNoOverflow(List<BigInteger> numbers)
+    @Test
+    public void testNoOverflow()
     {
-        testNoOverflow(createDecimalType(38, 0), numbers);
-        testNoOverflow(createDecimalType(38, 2), numbers);
+        testNoOverflow(createDecimalType(38, 0), ImmutableList.of(TEN.pow(37), ZERO));
+        testNoOverflow(createDecimalType(38, 0), ImmutableList.of(TEN.pow(37).negate(), ZERO));
+        testNoOverflow(createDecimalType(38, 0), ImmutableList.of(TWO, ONE));
+        testNoOverflow(createDecimalType(38, 0), ImmutableList.of(ZERO, ONE));
+        testNoOverflow(createDecimalType(38, 0), ImmutableList.of(TWO.negate(), ONE.negate()));
+        testNoOverflow(createDecimalType(38, 0), ImmutableList.of(ONE.negate(), ZERO));
+        testNoOverflow(createDecimalType(38, 0), ImmutableList.of(ONE.negate(), ZERO, ZERO));
+        testNoOverflow(createDecimalType(38, 0), ImmutableList.of(TWO.negate(), ZERO, ZERO));
+        testNoOverflow(createDecimalType(38, 0), ImmutableList.of(TWO.negate(), ZERO));
+        testNoOverflow(createDecimalType(38, 0), ImmutableList.of(TWO_HUNDRED, ONE_HUNDRED));
+        testNoOverflow(createDecimalType(38, 0), ImmutableList.of(ZERO, ONE_HUNDRED));
+        testNoOverflow(createDecimalType(38, 0), ImmutableList.of(TWO_HUNDRED.negate(), ONE_HUNDRED.negate()));
+        testNoOverflow(createDecimalType(38, 0), ImmutableList.of(ONE_HUNDRED.negate(), ZERO));
+
+        testNoOverflow(createDecimalType(38, 2), ImmutableList.of(TEN.pow(37), ZERO));
+        testNoOverflow(createDecimalType(38, 2), ImmutableList.of(TEN.pow(37).negate(), ZERO));
+        testNoOverflow(createDecimalType(38, 2), ImmutableList.of(TWO, ONE));
+        testNoOverflow(createDecimalType(38, 2), ImmutableList.of(ZERO, ONE));
+        testNoOverflow(createDecimalType(38, 2), ImmutableList.of(TWO.negate(), ONE.negate()));
+        testNoOverflow(createDecimalType(38, 2), ImmutableList.of(ONE.negate(), ZERO));
+        testNoOverflow(createDecimalType(38, 2), ImmutableList.of(ONE.negate(), ZERO, ZERO));
+        testNoOverflow(createDecimalType(38, 2), ImmutableList.of(TWO.negate(), ZERO, ZERO));
+        testNoOverflow(createDecimalType(38, 2), ImmutableList.of(TWO.negate(), ZERO));
+        testNoOverflow(createDecimalType(38, 2), ImmutableList.of(TWO_HUNDRED, ONE_HUNDRED));
+        testNoOverflow(createDecimalType(38, 2), ImmutableList.of(ZERO, ONE_HUNDRED));
+        testNoOverflow(createDecimalType(38, 2), ImmutableList.of(TWO_HUNDRED.negate(), ONE_HUNDRED.negate()));
+        testNoOverflow(createDecimalType(38, 2), ImmutableList.of(ONE_HUNDRED.negate(), ZERO));
     }
 
     private void testNoOverflow(DecimalType type, List<BigInteger> numbers)
@@ -183,26 +209,6 @@ public class TestDecimalAverageAggregation
 
         BigDecimal expectedAverage = new BigDecimal(sum, type.getScale()).divide(BigDecimal.valueOf(numbers.size()), type.getScale(), HALF_UP);
         assertThat(decodeBigDecimal(type, average(state, type))).isEqualTo(expectedAverage);
-    }
-
-    @DataProvider
-    public static Object[][] testNoOverflowDataProvider()
-    {
-        return new Object[][] {
-                {ImmutableList.of(TEN.pow(37), ZERO)},
-                {ImmutableList.of(TEN.pow(37).negate(), ZERO)},
-                {ImmutableList.of(TWO, ONE)},
-                {ImmutableList.of(ZERO, ONE)},
-                {ImmutableList.of(TWO.negate(), ONE.negate())},
-                {ImmutableList.of(ONE.negate(), ZERO)},
-                {ImmutableList.of(ONE.negate(), ZERO, ZERO)},
-                {ImmutableList.of(TWO.negate(), ZERO, ZERO)},
-                {ImmutableList.of(TWO.negate(), ZERO)},
-                {ImmutableList.of(TWO_HUNDRED, ONE_HUNDRED)},
-                {ImmutableList.of(ZERO, ONE_HUNDRED)},
-                {ImmutableList.of(TWO_HUNDRED.negate(), ONE_HUNDRED.negate())},
-                {ImmutableList.of(ONE_HUNDRED.negate(), ZERO)}
-        };
     }
 
     private static BigDecimal decodeBigDecimal(DecimalType type, Int128 average)

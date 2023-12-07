@@ -27,7 +27,6 @@ import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -57,7 +56,6 @@ public class TestMarkDistinctOperator
 {
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
-    private DriverContext driverContext;
     private final TypeOperators typeOperators = new TypeOperators();
     private final JoinCompiler joinCompiler = new JoinCompiler(typeOperators);
 
@@ -66,9 +64,6 @@ public class TestMarkDistinctOperator
     {
         executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
         scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
-        driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
-                .addPipelineContext(0, true, true, false)
-                .addDriverContext();
     }
 
     @AfterMethod(alwaysRun = true)
@@ -78,20 +73,14 @@ public class TestMarkDistinctOperator
         scheduledExecutor.shutdownNow();
     }
 
-    @DataProvider
-    public Object[][] dataType()
+    @Test
+    public void testMarkDistinct()
     {
-        return new Object[][] {{VARCHAR}, {BIGINT}};
+        testMarkDistinct(true, newDriverContext());
+        testMarkDistinct(false, newDriverContext());
     }
 
-    @DataProvider(name = "hashEnabledValues")
-    public static Object[][] hashEnabledValuesProvider()
-    {
-        return new Object[][] {{true}, {false}};
-    }
-
-    @Test(dataProvider = "hashEnabledValues")
-    public void testMarkDistinct(boolean hashEnabled)
+    private void testMarkDistinct(boolean hashEnabled, DriverContext driverContext)
     {
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT);
         List<Page> input = rowPagesBuilder
@@ -116,8 +105,14 @@ public class TestMarkDistinctOperator
         OperatorAssertion.assertOperatorEqualsIgnoreOrder(operatorFactory, driverContext, input, expected.build(), hashEnabled, Optional.of(1));
     }
 
-    @Test(dataProvider = "hashEnabledValues")
-    public void testRleDistinctMask(boolean hashEnabled)
+    @Test
+    public void testRleDistinctMask()
+    {
+        testRleDistinctMask(true, newDriverContext());
+        testRleDistinctMask(false, newDriverContext());
+    }
+
+    private void testRleDistinctMask(boolean hashEnabled, DriverContext driverContext)
     {
         RowPagesBuilder rowPagesBuilder = rowPagesBuilder(hashEnabled, Ints.asList(0), BIGINT);
         List<Page> inputs = rowPagesBuilder
@@ -180,8 +175,14 @@ public class TestMarkDistinctOperator
         }
     }
 
-    @Test(dataProvider = "dataType")
-    public void testMemoryReservationYield(Type type)
+    @Test
+    public void testMemoryReservationYield()
+    {
+        testMemoryReservationYield(BIGINT);
+        testMemoryReservationYield(VARCHAR);
+    }
+
+    private void testMemoryReservationYield(Type type)
     {
         List<Page> input = createPagesWithDistinctHashKeys(type, 6_000, 600);
 
@@ -201,5 +202,12 @@ public class TestMarkDistinctOperator
             }
         }
         assertThat(count).isEqualTo(6_000 * 600);
+    }
+
+    private DriverContext newDriverContext()
+    {
+        return createTaskContext(executor, scheduledExecutor, TEST_SESSION)
+                .addPipelineContext(0, true, true, false)
+                .addDriverContext();
     }
 }
