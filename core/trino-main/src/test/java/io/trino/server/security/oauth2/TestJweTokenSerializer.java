@@ -18,7 +18,7 @@ import io.airlift.units.Duration;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.trino.server.security.oauth2.TokenPairSerializer.TokenPair;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.security.GeneralSecurityException;

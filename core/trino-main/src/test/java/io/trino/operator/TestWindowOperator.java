@@ -38,9 +38,10 @@ import io.trino.sql.gen.OrderingCompiler;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.TestingTaskContext;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Optional;
@@ -71,8 +72,12 @@ import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestWindowOperator
 {
     private static final TypeOperators TYPE_OPERATORS_CACHE = new TypeOperators();
@@ -99,24 +104,14 @@ public class TestWindowOperator
     private static final List<WindowFunctionDefinition> LEAD = ImmutableList.of(
             window(new ReflectionWindowFunctionSupplier(3, LeadFunction.class), VARCHAR, UNBOUNDED_FRAME, false, ImmutableList.of(), 1, 3, 4));
 
-    private ExecutorService executor;
-    private ScheduledExecutorService scheduledExecutor;
-    private DummySpillerFactory spillerFactory;
+    private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
+    private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
 
-    @BeforeMethod
-    public void setUp()
-    {
-        executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
-        scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed(getClass().getSimpleName() + "-scheduledExecutor-%s"));
-        spillerFactory = new DummySpillerFactory();
-    }
-
-    @AfterMethod(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         executor.shutdownNow();
         scheduledExecutor.shutdownNow();
-        spillerFactory = null;
     }
 
     @Test
@@ -131,6 +126,8 @@ public class TestWindowOperator
 
     private void testMultipleOutputPages(boolean spillEnabled, boolean revokeMemoryWhenAddingPages, long memoryLimit)
     {
+        DummySpillerFactory spillerFactory = new DummySpillerFactory();
+
         // make operator produce multiple pages during finish phase
         int numberOfRows = 80_000;
         List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
@@ -144,6 +141,7 @@ public class TestWindowOperator
                 Ints.asList(),
                 Ints.asList(0),
                 ImmutableList.copyOf(new SortOrder[] {SortOrder.DESC_NULLS_FIRST}),
+                spillerFactory,
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
@@ -192,6 +190,7 @@ public class TestWindowOperator
                 Ints.asList(),
                 Ints.asList(0),
                 ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                new DummySpillerFactory(),
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
@@ -234,6 +233,7 @@ public class TestWindowOperator
                 Ints.asList(0),
                 Ints.asList(1),
                 ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                new DummySpillerFactory(),
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
@@ -270,6 +270,7 @@ public class TestWindowOperator
                 Ints.asList(),
                 Ints.asList(),
                 ImmutableList.copyOf(new SortOrder[] {}),
+                new DummySpillerFactory(),
                 false);
 
         DriverContext driverContext = createDriverContext();
@@ -309,6 +310,7 @@ public class TestWindowOperator
                 Ints.asList(),
                 Ints.asList(),
                 ImmutableList.copyOf(new SortOrder[] {}),
+                new DummySpillerFactory(),
                 true);
 
         DriverContext driverContext = createDriverContext();
@@ -368,6 +370,7 @@ public class TestWindowOperator
                 Ints.asList(0),
                 Ints.asList(1),
                 ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                new DummySpillerFactory(),
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
@@ -396,31 +399,36 @@ public class TestWindowOperator
         assertOperatorEquals(operatorFactory, driverContext, input, expected, revokeMemoryWhenAddingPages);
     }
 
-    @Test(expectedExceptions = ExceededMemoryLimitException.class, expectedExceptionsMessageRegExp = "Query exceeded per-node memory limit of 10B.*")
+    @Test
     public void testMemoryLimit()
     {
-        List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
-                .row(1L, 0.1)
-                .row(2L, 0.2)
-                .pageBreak()
-                .row(-1L, -0.1)
-                .row(4L, 0.4)
-                .build();
+        assertThatThrownBy(() -> {
+            List<Page> input = rowPagesBuilder(BIGINT, DOUBLE)
+                    .row(1L, 0.1)
+                    .row(2L, 0.2)
+                    .pageBreak()
+                    .row(-1L, -0.1)
+                    .row(4L, 0.4)
+                    .build();
 
-        DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, DataSize.ofBytes(10))
-                .addPipelineContext(0, true, true, false)
-                .addDriverContext();
+            DriverContext driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION, DataSize.ofBytes(10))
+                    .addPipelineContext(0, true, true, false)
+                    .addDriverContext();
 
-        WindowOperatorFactory operatorFactory = createFactoryUnbounded(
-                ImmutableList.of(BIGINT, DOUBLE),
-                Ints.asList(1),
-                ROW_NUMBER,
-                Ints.asList(),
-                Ints.asList(0),
-                ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
-                false);
+            WindowOperatorFactory operatorFactory = createFactoryUnbounded(
+                    ImmutableList.of(BIGINT, DOUBLE),
+                    Ints.asList(1),
+                    ROW_NUMBER,
+                    Ints.asList(),
+                    Ints.asList(0),
+                    ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                    new DummySpillerFactory(),
+                    false);
 
-        toPages(operatorFactory, driverContext, input);
+            toPages(operatorFactory, driverContext, input);
+        })
+                .isInstanceOf(ExceededMemoryLimitException.class)
+                .hasMessageMatching("Query exceeded per-node memory limit of 10B.*");
     }
 
     @Test
@@ -452,6 +460,7 @@ public class TestWindowOperator
                 Ints.asList(0),
                 Ints.asList(2),
                 ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                new DummySpillerFactory(),
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
@@ -487,6 +496,7 @@ public class TestWindowOperator
                 Ints.asList(0),
                 Ints.asList(1),
                 ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                new DummySpillerFactory(),
                 false);
 
         DriverContext driverContext = createDriverContext(1000);
@@ -532,6 +542,7 @@ public class TestWindowOperator
                 Ints.asList(0),
                 Ints.asList(2),
                 ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                new DummySpillerFactory(),
                 spillEnabled);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), VARCHAR, VARCHAR, BIGINT, BOOLEAN, VARCHAR)
@@ -574,6 +585,7 @@ public class TestWindowOperator
                 Ints.asList(0),
                 Ints.asList(2),
                 ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                new DummySpillerFactory(),
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
@@ -618,6 +630,7 @@ public class TestWindowOperator
                 Ints.asList(0),
                 Ints.asList(2),
                 ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                new DummySpillerFactory(),
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
@@ -662,6 +675,7 @@ public class TestWindowOperator
                 Ints.asList(0),
                 Ints.asList(2),
                 ImmutableList.copyOf(new SortOrder[] {SortOrder.ASC_NULLS_LAST}),
+                new DummySpillerFactory(),
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
@@ -703,6 +717,7 @@ public class TestWindowOperator
                 Ints.asList(3),
                 ImmutableList.of(SortOrder.ASC_NULLS_LAST),
                 0,
+                new DummySpillerFactory(),
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
@@ -746,6 +761,7 @@ public class TestWindowOperator
                 Ints.asList(3),
                 ImmutableList.of(SortOrder.ASC_NULLS_LAST),
                 0,
+                new DummySpillerFactory(),
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
@@ -796,6 +812,7 @@ public class TestWindowOperator
                 Ints.asList(3),
                 ImmutableList.of(SortOrder.ASC_NULLS_LAST),
                 0,
+                new DummySpillerFactory(),
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
@@ -848,6 +865,7 @@ public class TestWindowOperator
                 Ints.asList(3, 2),
                 ImmutableList.of(SortOrder.ASC_NULLS_LAST, SortOrder.ASC_NULLS_LAST),
                 1,
+                new DummySpillerFactory(),
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
@@ -901,6 +919,7 @@ public class TestWindowOperator
                 Ints.asList(3),
                 ImmutableList.of(SortOrder.ASC_NULLS_LAST),
                 1,
+                new DummySpillerFactory(),
                 spillEnabled);
 
         DriverContext driverContext = createDriverContext(memoryLimit);
@@ -958,6 +977,7 @@ public class TestWindowOperator
             List<Integer> partitionChannels,
             List<Integer> sortChannels,
             List<SortOrder> sortOrder,
+            SpillerFactory spillerFactory,
             boolean spillEnabled)
     {
         return createFactoryUnbounded(
@@ -969,6 +989,7 @@ public class TestWindowOperator
                 sortChannels,
                 sortOrder,
                 0,
+                spillerFactory,
                 spillEnabled);
     }
 
@@ -981,6 +1002,7 @@ public class TestWindowOperator
             List<Integer> sortChannels,
             List<SortOrder> sortOrder,
             int preSortedChannelPrefix,
+            DummySpillerFactory spillerFactory,
             boolean spillEnabled)
     {
         return new WindowOperatorFactory(
