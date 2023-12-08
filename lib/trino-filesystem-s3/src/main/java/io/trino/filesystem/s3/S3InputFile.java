@@ -36,6 +36,7 @@ final class S3InputFile
 {
     private final S3Client client;
     private final S3Location location;
+    private final S3Context context;
     private final RequestPayer requestPayer;
     private Long length;
     private Instant lastModified;
@@ -44,6 +45,7 @@ final class S3InputFile
     {
         this.client = requireNonNull(client, "client is null");
         this.location = requireNonNull(location, "location is null");
+        this.context = requireNonNull(context, "context is null");
         this.requestPayer = context.requestPayer();
         this.length = length;
         location.location().verifyValidFileLocation();
@@ -96,7 +98,7 @@ final class S3InputFile
 
     private GetObjectRequest newGetObjectRequest()
     {
-        return GetObjectRequest.builder()
+        return context.applyCredentialProviderOverride(GetObjectRequest.builder())
                 .requestPayer(requestPayer)
                 .bucket(location.bucket())
                 .key(location.key())
@@ -106,7 +108,7 @@ final class S3InputFile
     private boolean headObject()
             throws IOException
     {
-        HeadObjectRequest request = HeadObjectRequest.builder()
+        HeadObjectRequest request = context.applyCredentialProviderOverride(HeadObjectRequest.builder())
                 .requestPayer(requestPayer)
                 .bucket(location.bucket())
                 .key(location.key())

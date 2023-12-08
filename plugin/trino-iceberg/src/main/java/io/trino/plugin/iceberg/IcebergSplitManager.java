@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
-import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorSplitSource;
 import io.trino.plugin.iceberg.functions.tablechanges.TableChangesFunctionHandle;
 import io.trino.plugin.iceberg.functions.tablechanges.TableChangesSplitSource;
@@ -52,7 +51,7 @@ public class IcebergSplitManager
 
     private final IcebergTransactionManager transactionManager;
     private final TypeManager typeManager;
-    private final TrinoFileSystemFactory fileSystemFactory;
+    private final IcebergFileSystemFactory fileSystemFactory;
     private final boolean asyncIcebergSplitProducer;
     private final JsonCodec<IcebergCacheSplitId> splitIdCodec;
 
@@ -60,7 +59,7 @@ public class IcebergSplitManager
     public IcebergSplitManager(
             IcebergTransactionManager transactionManager,
             TypeManager typeManager,
-            TrinoFileSystemFactory fileSystemFactory,
+            IcebergFileSystemFactory fileSystemFactory,
             @AsyncIcebergSplitProducer boolean asyncIcebergSplitProducer,
             JsonCodec<IcebergCacheSplitId> splitIdCodec)
     {
@@ -100,6 +99,7 @@ public class IcebergSplitManager
                 fileSystemFactory,
                 session,
                 table,
+                icebergTable.io().properties(),
                 tableScan,
                 table.getMaxScannedFileSize(),
                 dynamicFilter,
@@ -150,7 +150,8 @@ public class IcebergSplitManager
                 icebergSplit.getPartitionDataJson(),
                 icebergSplit.getDeletes(),
                 // weight does not impact split rows
-                SplitWeight.standard());
+                SplitWeight.standard(),
+                icebergSplit.getFileIoProperties());
 
         return Optional.of(new CacheSplitId(splitIdCodec.toJson(new IcebergCacheSplitId(
                 icebergSplit.getPath(),

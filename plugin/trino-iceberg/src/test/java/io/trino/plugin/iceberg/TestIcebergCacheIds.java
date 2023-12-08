@@ -29,6 +29,7 @@ import io.trino.plugin.hive.metastore.file.FileHiveMetastoreFactory;
 import io.trino.plugin.hive.util.HiveBlockEncodingSerde;
 import io.trino.plugin.iceberg.catalog.file.FileMetastoreTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalogFactory;
+import io.trino.plugin.iceberg.catalog.rest.DefaultIcebergFileSystemFactory;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.spi.SplitWeight;
 import io.trino.spi.block.Block;
@@ -119,7 +120,7 @@ public class TestIcebergCacheIds
                         tableOperationsProvider,
                         new NodeVersion("test_version"),
                         new IcebergSecurityConfig()),
-                HDFS_FILE_SYSTEM_FACTORY,
+                new DefaultIcebergFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY),
                 new TableStatisticsWriter(new NodeVersion("test-version")));
         icebergMetadata = new IcebergCacheMetadata(
                 createJsonCodec(IcebergCacheTableId.class),
@@ -127,7 +128,7 @@ public class TestIcebergCacheIds
         splitManager = new IcebergSplitManager(
                 new IcebergTransactionManager(icebergMetadataFactory),
                 TESTING_TYPE_MANAGER,
-                HDFS_FILE_SYSTEM_FACTORY,
+                new DefaultIcebergFileSystemFactory(HDFS_FILE_SYSTEM_FACTORY),
                 false,
                 createJsonCodec(IcebergCacheSplitId.class));
     }
@@ -324,7 +325,8 @@ public class TestIcebergCacheIds
                 partitionSpecJson,
                 partitionDataJson,
                 deletes,
-                SplitWeight.standard());
+                SplitWeight.standard(),
+                ImmutableMap.of());
     }
 
     private static IcebergTableHandle createIcebergTableHandle(

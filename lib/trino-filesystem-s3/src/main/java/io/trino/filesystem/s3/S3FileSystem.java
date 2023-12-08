@@ -87,7 +87,7 @@ public final class S3FileSystem
     {
         location.verifyValidFileLocation();
         S3Location s3Location = new S3Location(location);
-        DeleteObjectRequest request = DeleteObjectRequest.builder()
+        DeleteObjectRequest request = context.applyCredentialProviderOverride(DeleteObjectRequest.builder())
                 .requestPayer(requestPayer)
                 .key(s3Location.key())
                 .bucket(s3Location.bucket())
@@ -136,7 +136,7 @@ public final class S3FileSystem
                         .map(key -> ObjectIdentifier.builder().key(key).build())
                         .toList();
 
-                DeleteObjectsRequest request = DeleteObjectsRequest.builder()
+                DeleteObjectsRequest request = context.applyCredentialProviderOverride(DeleteObjectsRequest.builder())
                         .requestPayer(requestPayer)
                         .bucket(bucket)
                         .delete(builder -> builder.objects(objects).quiet(true))
@@ -177,7 +177,7 @@ public final class S3FileSystem
             key += "/";
         }
 
-        ListObjectsV2Request request = ListObjectsV2Request.builder()
+        ListObjectsV2Request request = context.applyCredentialProviderOverride(ListObjectsV2Request.builder())
                 .bucket(s3Location.bucket())
                 .prefix(key)
                 .build();
@@ -230,7 +230,7 @@ public final class S3FileSystem
             key += "/";
         }
 
-        ListObjectsV2Request request = ListObjectsV2Request.builder()
+        ListObjectsV2Request request = context.applyCredentialProviderOverride(ListObjectsV2Request.builder())
                 .bucket(s3Location.bucket())
                 .prefix(key)
                 .delimiter("/")

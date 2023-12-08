@@ -16,11 +16,17 @@ package io.trino.plugin.iceberg.catalog.rest;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.iceberg.IcebergConfig;
+import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.Security;
+import io.trino.spi.TrinoException;
+import jakarta.validation.constraints.AssertTrue;
 
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 
 public class IcebergRestCatalogModule
         extends AbstractConfigurationAwareModule
@@ -36,5 +42,20 @@ public class IcebergRestCatalogModule
                 new NoneSecurityModule()));
 
         binder.bind(TrinoCatalogFactory.class).to(TrinoIcebergRestCatalogFactory.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, IcebergFileSystemFactory.class).setBinding().to(IcebergRestCatalogFileSystemFactory.class).in(Scopes.SINGLETON);
+
+        IcebergConfig icebergConfig = buildConfigObject(IcebergConfig.class);
+        IcebergRestCatalogConfig restCatalogConfig = buildConfigObject(IcebergRestCatalogConfig.class);
+        if (restCatalogConfig.isVendedCredentialsEnabled() && icebergConfig.isRegisterTableProcedureEnabled()) {
+            throw new TrinoException(NOT_SUPPORTED, "Using the `register_table` procedure with vended credentials is currently not supported");
+        }
+    }
+
+    @AssertTrue(message = "Using the `register_table` procedure with vended credentials is currently not supported")
+    public boolean isRegisterTableEnabledWithVendedCredentials()
+    {
+        IcebergConfig icebergConfig = buildConfigObject(IcebergConfig.class);
+        IcebergRestCatalogConfig restCatalogConfig = buildConfigObject(IcebergRestCatalogConfig.class);
+        return restCatalogConfig.isVendedCredentialsEnabled() != icebergConfig.isRegisterTableProcedureEnabled();
     }
 }
