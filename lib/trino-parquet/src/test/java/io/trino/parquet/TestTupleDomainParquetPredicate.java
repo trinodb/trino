@@ -46,7 +46,6 @@ import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.LogicalTypeAnnotation.TimeUnit;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Types;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -402,20 +401,19 @@ public class TestTupleDomainParquetPredicate
                 .withMessage("Malformed Parquet file. Corrupted statistics for column \"[] required int32 DateColumn\": [min: 200, max: 100, num_nulls: 0] [testFile]");
     }
 
-    @DataProvider
-    public Object[][] timestampPrecision()
+    @Test
+    public void testTimestampInt96()
+            throws ParquetCorruptionException
     {
         LocalDateTime baseTime = LocalDateTime.of(1970, 1, 19, 10, 28, 52, 123456789);
-        return new Object[][] {
-                {3, baseTime, baseTime.atZone(ZoneOffset.UTC).toInstant().toEpochMilli() * MICROSECONDS_PER_MILLISECOND},
-                // note the rounding of micros
-                {6, baseTime, baseTime.atZone(ZoneOffset.UTC).toInstant().getEpochSecond() * MICROSECONDS_PER_SECOND + 123457},
-                {9, baseTime, longTimestamp(9, baseTime)}
-        };
+
+        testTimestampInt96(3, baseTime, baseTime.atZone(ZoneOffset.UTC).toInstant().toEpochMilli() * MICROSECONDS_PER_MILLISECOND);
+        // note the rounding of micros
+        testTimestampInt96(6, baseTime, baseTime.atZone(ZoneOffset.UTC).toInstant().getEpochSecond() * MICROSECONDS_PER_SECOND + 123457);
+        testTimestampInt96(9, baseTime, longTimestamp(9, baseTime));
     }
 
-    @Test(dataProvider = "timestampPrecision")
-    public void testTimestampInt96(int precision, LocalDateTime baseTime, Object baseDomainValue)
+    private void testTimestampInt96(int precision, LocalDateTime baseTime, Object baseDomainValue)
             throws ParquetCorruptionException
     {
         ColumnDescriptor columnDescriptor = createColumnDescriptor(INT96, "TimestampColumn");
@@ -426,8 +424,35 @@ public class TestTupleDomainParquetPredicate
         assertThat(getDomain(columnDescriptor, timestampType, 10, timestampColumnStats(baseTime.minusSeconds(10), baseTime), ID, UTC)).isEqualTo(create(ValueSet.all(timestampType), false));
     }
 
-    @Test(dataProvider = "testTimestampInt64DataProvider")
-    public void testTimestampInt64(TimeUnit timeUnit, int precision, LocalDateTime baseTime, Object baseDomainValue)
+    @Test
+    public void testTimestampInt64()
+            throws ParquetCorruptionException
+    {
+        LocalDateTime baseTime = LocalDateTime.of(1970, 1, 19, 10, 28, 52, 123456789);
+        Object millisExpectedValue = baseTime.atZone(ZoneOffset.UTC).toInstant().toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
+        // note the rounding of micros
+        Object microsExpectedValue = baseTime.atZone(ZoneOffset.UTC).toInstant().getEpochSecond() * MICROSECONDS_PER_SECOND + 123457;
+        Object nanosExpectedValue = longTimestamp(9, baseTime);
+
+        Object nanosTruncatedToMillisExpectedValue = longTimestamp(
+                9,
+                LocalDateTime.of(1970, 1, 19, 10, 28, 52, 123000000));
+        Object nanosTruncatedToMicrosExpectedValue = longTimestamp(
+                9,
+                LocalDateTime.of(1970, 1, 19, 10, 28, 52, 123457000));
+
+        testTimestampInt64(TimeUnit.MILLIS, 3, baseTime, millisExpectedValue);
+        testTimestampInt64(TimeUnit.MICROS, 3, baseTime, millisExpectedValue);
+        testTimestampInt64(TimeUnit.NANOS, 3, baseTime, millisExpectedValue);
+        testTimestampInt64(TimeUnit.MILLIS, 6, baseTime, millisExpectedValue);
+        testTimestampInt64(TimeUnit.MICROS, 6, baseTime, microsExpectedValue);
+        testTimestampInt64(TimeUnit.NANOS, 6, baseTime, microsExpectedValue);
+        testTimestampInt64(TimeUnit.MILLIS, 9, baseTime, nanosTruncatedToMillisExpectedValue);
+        testTimestampInt64(TimeUnit.MICROS, 9, baseTime, nanosTruncatedToMicrosExpectedValue);
+        testTimestampInt64(TimeUnit.NANOS, 9, baseTime, nanosExpectedValue);
+    }
+
+    private void testTimestampInt64(TimeUnit timeUnit, int precision, LocalDateTime baseTime, Object baseDomainValue)
             throws ParquetCorruptionException
     {
         int parquetPrecision;
@@ -469,34 +494,6 @@ public class TestTupleDomainParquetPredicate
         long maxValue = toEpochWithPrecision(maxTime, parquetPrecision);
         assertThat(getDomain(columnDescriptor, timestampType, 10, longColumnStats(minValue, minValue), ID, UTC)).isEqualTo(singleValue(timestampType, baseDomainValue));
         assertThat(getDomain(columnDescriptor, timestampType, 10, longColumnStats(minValue, maxValue), ID, UTC)).isEqualTo(create(ValueSet.ofRanges(range(timestampType, baseDomainValue, true, maxDomainValue, true)), false));
-    }
-
-    @DataProvider
-    public Object[][] testTimestampInt64DataProvider()
-    {
-        LocalDateTime baseTime = LocalDateTime.of(1970, 1, 19, 10, 28, 52, 123456789);
-        Object millisExpectedValue = baseTime.atZone(ZoneOffset.UTC).toInstant().toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
-        // note the rounding of micros
-        Object microsExpectedValue = baseTime.atZone(ZoneOffset.UTC).toInstant().getEpochSecond() * MICROSECONDS_PER_SECOND + 123457;
-        Object nanosExpectedValue = longTimestamp(9, baseTime);
-
-        Object nanosTruncatedToMillisExpectedValue = longTimestamp(
-                9,
-                LocalDateTime.of(1970, 1, 19, 10, 28, 52, 123000000));
-        Object nanosTruncatedToMicrosExpectedValue = longTimestamp(
-                9,
-                LocalDateTime.of(1970, 1, 19, 10, 28, 52, 123457000));
-        return new Object[][] {
-                {TimeUnit.MILLIS, 3, baseTime, millisExpectedValue},
-                {TimeUnit.MICROS, 3, baseTime, millisExpectedValue},
-                {TimeUnit.NANOS, 3, baseTime, millisExpectedValue},
-                {TimeUnit.MILLIS, 6, baseTime, millisExpectedValue},
-                {TimeUnit.MICROS, 6, baseTime, microsExpectedValue},
-                {TimeUnit.NANOS, 6, baseTime, microsExpectedValue},
-                {TimeUnit.MILLIS, 9, baseTime, nanosTruncatedToMillisExpectedValue},
-                {TimeUnit.MICROS, 9, baseTime, nanosTruncatedToMicrosExpectedValue},
-                {TimeUnit.NANOS, 9, baseTime, nanosExpectedValue},
-        };
     }
 
     private static long toEpochWithPrecision(LocalDateTime time, int precision)
@@ -549,8 +546,16 @@ public class TestTupleDomainParquetPredicate
                 .isEqualTo(Optional.of(ImmutableList.of(column)));
     }
 
-    @Test(dataProvider = "typeForParquetInt32")
-    public void testIntegerMatchesWithStatistics(Type typeForParquetInt32)
+    @Test
+    public void testIntegerMatchesWithStatistics()
+            throws ParquetCorruptionException
+    {
+        testIntegerMatchesWithStatistics(INTEGER);
+        testIntegerMatchesWithStatistics(SMALLINT);
+        testIntegerMatchesWithStatistics(TINYINT);
+    }
+
+    private void testIntegerMatchesWithStatistics(Type typeForParquetInt32)
             throws ParquetCorruptionException
     {
         ColumnDescriptor column = createColumnDescriptor(INT32, "Test column");
@@ -564,16 +569,6 @@ public class TestTupleDomainParquetPredicate
         assertThat(parquetPredicate.getIndexLookupCandidates(ImmutableMap.of(column, 2L), ImmutableMap.of(column, intColumnStats(30, 40)), ID)).isEmpty();
         assertThat(parquetPredicate.getIndexLookupCandidates(ImmutableMap.of(column, 2L), ImmutableMap.of(column, intColumnStats(1024, 0x10000 + 42)), ID).isPresent())
                 .isEqualTo(typeForParquetInt32 != INTEGER); // stats invalid for smallint/tinyint
-    }
-
-    @DataProvider
-    public Object[][] typeForParquetInt32()
-    {
-        return new Object[][] {
-                {INTEGER},
-                {SMALLINT},
-                {TINYINT},
-        };
     }
 
     @Test
