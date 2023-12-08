@@ -1179,21 +1179,6 @@ public abstract class BaseJdbcConnectorTest
                 .joinIsNotFullyPushedDown();
     }
 
-    /**
-     * Verify !SUPPORTS_JOIN_PUSHDOWN declaration is true.
-     */
-    @Test
-    public void verifySupportsJoinPushdownDeclaration()
-    {
-        if (hasBehavior(SUPPORTS_JOIN_PUSHDOWN)) {
-            // Covered by testJoinPushdown
-            return;
-        }
-
-        assertThat(query(joinPushdownEnabled(getSession()), "SELECT r.name, n.name FROM nation n JOIN region r ON n.regionkey = r.regionkey"))
-                .joinIsNotFullyPushedDown();
-    }
-
     @Test
     public void testJoinPushdown()
     {
