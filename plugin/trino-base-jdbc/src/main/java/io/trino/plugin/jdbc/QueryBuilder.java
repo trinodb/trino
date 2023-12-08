@@ -52,6 +52,17 @@ public interface QueryBuilder
             Map<JdbcColumnHandle, String> rightProjections,
             List<ParameterizedExpression> joinConditions);
 
+    PreparedQuery legacyPrepareJoinQuery(
+            JdbcClient client,
+            ConnectorSession session,
+            Connection connection,
+            JoinType joinType,
+            PreparedQuery leftSource,
+            PreparedQuery rightSource,
+            List<JdbcJoinCondition> joinConditions,
+            Map<JdbcColumnHandle, String> leftAssignments,
+            Map<JdbcColumnHandle, String> rightAssignments);
+
     PreparedQuery prepareDeleteQuery(
             JdbcClient client,
             ConnectorSession session,
