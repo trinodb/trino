@@ -1204,7 +1204,6 @@ public class LocalQueryRunner
         private final Session defaultSession;
         private FeaturesConfig featuresConfig = new FeaturesConfig();
         private NodeSpillConfig nodeSpillConfig = new NodeSpillConfig();
-        private boolean initialTransaction;
         private boolean alwaysRevokeMemory;
         private Map<String, List<PropertyMetadata<?>>> defaultSessionProperties = ImmutableMap.of();
         private Set<SystemSessionPropertiesProvider> extraSessionProperties = ImmutableSet.of();
