@@ -41,9 +41,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveDecimalOb
 import org.apache.hadoop.hive.serde2.typeinfo.DecimalTypeInfo;
 import org.apache.parquet.schema.MessageType;
 import org.joda.time.DateTimeZone;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -96,7 +94,6 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.testing.StructuralTestUtil.mapType;
 import static java.lang.Math.floorDiv;
@@ -131,24 +128,15 @@ public abstract class AbstractTestParquetReader
     private static final int MAX_PRECISION_INT32 = toIntExact(maxPrecision(4));
     private static final int MAX_PRECISION_INT64 = toIntExact(maxPrecision(8));
 
-    @SuppressWarnings("FieldCanBeLocal")
-    private Logger parquetLogger;
-
     private final ParquetTester tester;
 
     protected AbstractTestParquetReader(ParquetTester tester)
     {
         this.tester = tester;
-    }
-
-    @BeforeClass
-    public void setUp()
-    {
         assertThat(DateTimeZone.getDefault()).isEqualTo(DateTimeZone.forID("America/Bahia_Banderas"));
 
         // Parquet has excessive logging at INFO level
-        parquetLogger = Logger.getLogger("org.apache.parquet.hadoop");
-        parquetLogger.setLevel(Level.WARNING);
+        Logger.getLogger("org.apache.parquet.hadoop").setLevel(Level.WARNING);
     }
 
     @Test
@@ -885,50 +873,45 @@ public abstract class AbstractTestParquetReader
         tester.testRoundTrip(javaLongObjectInspector, ImmutableList.of(10L), ImmutableList.of(SqlDecimal.of(100L, 10, 2)), createDecimalType(10, 2), Optional.of(parquetSchema));
     }
 
-    @Test(dataProvider = "testDecimalInputProvider")
-    public void testDecimals(DecimalInput decimalInput)
+    @Test
+    public void testDecimals()
             throws Exception
     {
-        for (int precision = 1; precision <= decimalInput.getMaxSupportedPrecision(); precision++) {
-            int scale = ThreadLocalRandom.current().nextInt(precision);
-            MessageType parquetSchema = parseMessageType(format(
-                    "message hive_decimal { optional %s test (DECIMAL(%d, %d)); }",
-                    decimalInput.getPrimitiveTypeName(precision),
-                    precision,
-                    scale));
-            ImmutableList.Builder<SqlDecimal> expectedValues = ImmutableList.builder();
-            ImmutableList.Builder<SqlDecimal> expectedValuesMaxPrecision = ImmutableList.builder();
-            ImmutableList.Builder<Object> writeValuesBuilder = ImmutableList.builder();
+        for (DecimalInput decimalInput : DecimalInput.values()) {
+            for (int precision = 1; precision <= decimalInput.getMaxSupportedPrecision(); precision++) {
+                int scale = ThreadLocalRandom.current().nextInt(precision);
+                MessageType parquetSchema = parseMessageType(format(
+                        "message hive_decimal { optional %s test (DECIMAL(%d, %d)); }",
+                        decimalInput.getPrimitiveTypeName(precision),
+                        precision,
+                        scale));
+                ImmutableList.Builder<SqlDecimal> expectedValues = ImmutableList.builder();
+                ImmutableList.Builder<SqlDecimal> expectedValuesMaxPrecision = ImmutableList.builder();
+                ImmutableList.Builder<Object> writeValuesBuilder = ImmutableList.builder();
 
-            BigInteger start = BigInteger.valueOf(10).pow(precision).subtract(ONE).negate();
-            BigInteger end = BigInteger.valueOf(10).pow(precision);
-            BigInteger step = BigInteger.valueOf(1).max(end.subtract(start).divide(BigInteger.valueOf(1_500)));
-            for (BigInteger value = start; value.compareTo(end) < 0; value = value.add(step)) {
-                writeValuesBuilder.add(decimalInput.convertToWriteValue(value, scale));
-                expectedValues.add(new SqlDecimal(value, precision, scale));
-                expectedValuesMaxPrecision.add(new SqlDecimal(value, MAX_PRECISION, scale));
+                BigInteger start = BigInteger.valueOf(10).pow(precision).subtract(ONE).negate();
+                BigInteger end = BigInteger.valueOf(10).pow(precision);
+                BigInteger step = BigInteger.valueOf(1).max(end.subtract(start).divide(BigInteger.valueOf(1_500)));
+                for (BigInteger value = start; value.compareTo(end) < 0; value = value.add(step)) {
+                    writeValuesBuilder.add(decimalInput.convertToWriteValue(value, scale));
+                    expectedValues.add(new SqlDecimal(value, precision, scale));
+                    expectedValuesMaxPrecision.add(new SqlDecimal(value, MAX_PRECISION, scale));
+                }
+                List<Object> writeValues = writeValuesBuilder.build();
+                tester.testRoundTrip(
+                        decimalInput.getParquetObjectInspector(precision, scale),
+                        writeValues,
+                        expectedValues.build(),
+                        createDecimalType(precision, scale),
+                        Optional.of(parquetSchema));
+                tester.testRoundTrip(
+                        decimalInput.getParquetObjectInspector(precision, scale),
+                        writeValues,
+                        expectedValuesMaxPrecision.build(),
+                        createDecimalType(MAX_PRECISION, scale),
+                        Optional.of(parquetSchema));
             }
-            List<Object> writeValues = writeValuesBuilder.build();
-            tester.testRoundTrip(
-                    decimalInput.getParquetObjectInspector(precision, scale),
-                    writeValues,
-                    expectedValues.build(),
-                    createDecimalType(precision, scale),
-                    Optional.of(parquetSchema));
-            tester.testRoundTrip(
-                    decimalInput.getParquetObjectInspector(precision, scale),
-                    writeValues,
-                    expectedValuesMaxPrecision.build(),
-                    createDecimalType(MAX_PRECISION, scale),
-                    Optional.of(parquetSchema));
         }
-    }
-
-    @DataProvider
-    public Object[][] testDecimalInputProvider()
-    {
-        return Arrays.stream(DecimalInput.values())
-                .collect(toDataProvider());
     }
 
     private enum DecimalInput
@@ -1235,41 +1218,36 @@ public abstract class AbstractTestParquetReader
                 .isInstanceOf(TrinoException.class);
     }
 
-    @Test(dataProvider = "timestampPrecision")
-    public void testTimestamp(HiveTimestampPrecision precision)
+    @Test
+    public void testTimestamp()
             throws Exception
     {
-        List<Long> epochMillisValues = ContiguousSet.create(Range.closedOpen((long) -1_000, (long) 1_000), DiscreteDomain.longs()).stream()
-                .map(millis -> System.currentTimeMillis() + millis)
-                .collect(toImmutableList());
-        List<Timestamp> writeValues = epochMillisValues.stream()
-                .map(AbstractTestParquetReader::longToTimestamp)
-                .collect(toImmutableList());
-        List<SqlTimestamp> readValues = epochMillisValues.stream()
-                .map(epochMillis -> SqlTimestamp.newInstance(precision.getPrecision(), epochMillis * 1_000, 0))
-                .collect(toImmutableList());
-        // INT96 backed timestamps are written by the default ParquetSchemaOptions
-        tester.testRoundTrip(
-                javaTimestampObjectInspector,
-                writeValues,
-                readValues,
-                createTimestampType(precision.getPrecision()),
-                Optional.empty());
-        tester.testRoundTrip(
-                javaTimestampObjectInspector,
-                writeValues,
-                readValues,
-                getOnlyElement(TEST_COLUMN),
-                createTimestampType(precision.getPrecision()),
-                Optional.empty(),
-                ParquetSchemaOptions.withInt64BackedTimestamps());
-    }
-
-    @DataProvider
-    public Object[][] timestampPrecision()
-    {
-        return Stream.of(HiveTimestampPrecision.values())
-                .collect(toDataProvider());
+        for (HiveTimestampPrecision precision : HiveTimestampPrecision.values()) {
+            List<Long> epochMillisValues = ContiguousSet.create(Range.closedOpen((long) -1_000, (long) 1_000), DiscreteDomain.longs()).stream()
+                    .map(millis -> System.currentTimeMillis() + millis)
+                    .collect(toImmutableList());
+            List<Timestamp> writeValues = epochMillisValues.stream()
+                    .map(AbstractTestParquetReader::longToTimestamp)
+                    .collect(toImmutableList());
+            List<SqlTimestamp> readValues = epochMillisValues.stream()
+                    .map(epochMillis -> SqlTimestamp.newInstance(precision.getPrecision(), epochMillis * 1_000, 0))
+                    .collect(toImmutableList());
+            // INT96 backed timestamps are written by the default ParquetSchemaOptions
+            tester.testRoundTrip(
+                    javaTimestampObjectInspector,
+                    writeValues,
+                    readValues,
+                    createTimestampType(precision.getPrecision()),
+                    Optional.empty());
+            tester.testRoundTrip(
+                    javaTimestampObjectInspector,
+                    writeValues,
+                    readValues,
+                    getOnlyElement(TEST_COLUMN),
+                    createTimestampType(precision.getPrecision()),
+                    Optional.empty(),
+                    ParquetSchemaOptions.withInt64BackedTimestamps());
+        }
     }
 
     @Test

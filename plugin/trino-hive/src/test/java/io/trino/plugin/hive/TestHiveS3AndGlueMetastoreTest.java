@@ -121,8 +121,7 @@ public class TestHiveS3AndGlueMetastoreTest
     }
 
     @Override // Row-level modifications are not supported for Hive tables
-    @Test(dataProvider = "locationPatternsDataProvider")
-    public void testBasicOperationsWithProvidedTableLocation(boolean partitioned, LocationPattern locationPattern)
+    protected void testBasicOperationsWithProvidedTableLocation(boolean partitioned, LocationPattern locationPattern)
     {
         String tableName = "test_basic_operations_" + randomNameSuffix();
         String location = locationPattern.locationForTable(bucketName, schemaName, tableName);
@@ -150,8 +149,16 @@ public class TestHiveS3AndGlueMetastoreTest
         }
     }
 
-    @Test(dataProvider = "locationPatternsDataProvider")
-    public void testBasicOperationsWithProvidedTableLocationNonCTAS(boolean partitioned, LocationPattern locationPattern)
+    @Test
+    public void testBasicOperationsWithProvidedTableLocationNonCTAS()
+    {
+        for (LocationPattern locationPattern : LocationPattern.values()) {
+            testBasicOperationsWithProvidedTableLocationNonCTAS(false, locationPattern);
+            testBasicOperationsWithProvidedTableLocationNonCTAS(true, locationPattern);
+        }
+    }
+
+    private void testBasicOperationsWithProvidedTableLocationNonCTAS(boolean partitioned, LocationPattern locationPattern)
     {
         // this test needed, because execution path for CTAS and simple create is different
         String tableName = "test_basic_operations_" + randomNameSuffix();
@@ -177,8 +184,7 @@ public class TestHiveS3AndGlueMetastoreTest
     }
 
     @Override // Row-level modifications are not supported for Hive tables
-    @Test(dataProvider = "locationPatternsDataProvider")
-    public void testBasicOperationsWithProvidedSchemaLocation(boolean partitioned, LocationPattern locationPattern)
+    protected void testBasicOperationsWithProvidedSchemaLocation(boolean partitioned, LocationPattern locationPattern)
     {
         String schemaName = "test_basic_operations_schema_" + randomNameSuffix();
         String schemaLocation = locationPattern.locationForSchema(bucketName, schemaName);
@@ -210,14 +216,13 @@ public class TestHiveS3AndGlueMetastoreTest
     }
 
     @Override
-    @Test(dataProvider = "locationPatternsDataProvider")
     public void testMergeWithProvidedTableLocation(boolean partitioned, LocationPattern locationPattern)
     {
         // Row-level modifications are not supported for Hive tables
     }
 
     @Override
-    public void testOptimizeWithProvidedTableLocation(boolean partitioned, LocationPattern locationPattern)
+    protected void testOptimizeWithProvidedTableLocation(boolean partitioned, LocationPattern locationPattern)
     {
         if (locationPattern == DOUBLE_SLASH || locationPattern == TRIPLE_SLASH || locationPattern == TWO_TRAILING_SLASHES) {
             assertThatThrownBy(() -> super.testOptimizeWithProvidedTableLocation(partitioned, locationPattern))
@@ -228,8 +233,16 @@ public class TestHiveS3AndGlueMetastoreTest
         super.testOptimizeWithProvidedTableLocation(partitioned, locationPattern);
     }
 
-    @Test(dataProvider = "locationPatternsDataProvider")
-    public void testAnalyzeWithProvidedTableLocation(boolean partitioned, LocationPattern locationPattern)
+    @Test
+    public void testAnalyzeWithProvidedTableLocation()
+    {
+        for (LocationPattern locationPattern : LocationPattern.values()) {
+            testAnalyzeWithProvidedTableLocation(false, locationPattern);
+            testAnalyzeWithProvidedTableLocation(true, locationPattern);
+        }
+    }
+
+    private void testAnalyzeWithProvidedTableLocation(boolean partitioned, LocationPattern locationPattern)
     {
         String tableName = "test_analyze_" + randomNameSuffix();
         String location = locationPattern.locationForTable(bucketName, schemaName, tableName);
