@@ -69,6 +69,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -95,6 +96,7 @@ public class DistributedQueryRunner
 {
     private static final Logger log = Logger.get(DistributedQueryRunner.class);
     private static final String ENVIRONMENT = "testing";
+    private static final AtomicInteger unclosedInstances = new AtomicInteger();
 
     private TestingDiscoveryServer discoveryServer;
     private TestingTrinoServer coordinator;
@@ -197,7 +199,7 @@ public class DistributedQueryRunner
         this.trinoClient = closer.register(testingTrinoClientFactory.create(coordinator, defaultSession));
 
         ensureNodesGloballyVisible();
-        log.info("Created DistributedQueryRunner in %s", nanosSince(start));
+        log.info("Created DistributedQueryRunner in %s (unclosed instances = %s)", nanosSince(start), unclosedInstances.incrementAndGet());
     }
 
     private TestingTrinoServer createServer(
@@ -593,6 +595,7 @@ public class DistributedQueryRunner
         servers.clear();
         functionBundles.clear();
         plugins.clear();
+        unclosedInstances.decrementAndGet();
         trinoClient = null;
         closed = true;
     }
