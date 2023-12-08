@@ -30,6 +30,7 @@ public class JdbcMetadataConfig
      * in terms of performance and money due to an increased network traffic.
      */
     private boolean joinPushdownEnabled;
+    private boolean complexJoinPushdownEnabled = true;
     private boolean aggregationPushdownEnabled = true;
 
     private boolean topNPushdownEnabled = true;
@@ -64,6 +65,19 @@ public class JdbcMetadataConfig
     public JdbcMetadataConfig setJoinPushdownEnabled(boolean joinPushdownEnabled)
     {
         this.joinPushdownEnabled = joinPushdownEnabled;
+        return this;
+    }
+
+    public boolean isComplexJoinPushdownEnabled()
+    {
+        return complexJoinPushdownEnabled;
+    }
+
+    @Config("join-pushdown.with-expressions")
+    @ConfigDescription("Enable join pushdown with complex expressions")
+    public JdbcMetadataConfig setComplexJoinPushdownEnabled(boolean complexJoinPushdownEnabled)
+    {
+        this.complexJoinPushdownEnabled = complexJoinPushdownEnabled;
         return this;
     }
 

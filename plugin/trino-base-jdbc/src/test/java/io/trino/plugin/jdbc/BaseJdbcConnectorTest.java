@@ -64,6 +64,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SystemSessionProperties.MARK_DISTINCT_STRATEGY;
 import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.DYNAMIC_FILTERING_ENABLED;
 import static io.trino.plugin.jdbc.JdbcDynamicFilteringSessionProperties.DYNAMIC_FILTERING_WAIT_TIMEOUT;
+import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.COMPLEX_JOIN_PUSHDOWN_ENABLED;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.DOMAIN_COMPACTION_THRESHOLD;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.JOIN_PUSHDOWN_ENABLED;
 import static io.trino.plugin.jdbc.JoinOperator.FULL_JOIN;
@@ -1331,6 +1332,14 @@ public abstract class BaseJdbcConnectorTest
         String catalog = getSession().getCatalog().orElseThrow();
         Session session = joinPushdownEnabled(getSession());
         String query = "SELECT n.name, o.orderstatus FROM nation n JOIN orders o ON n.regionkey = o.orderkey AND n.nationkey + o.custkey - 3 = 0";
+
+        // The join cannot be pushed down without "complex join pushdown"
+        assertThat(query(
+                Session.builder(session)
+                        .setCatalogSessionProperty(catalog, COMPLEX_JOIN_PUSHDOWN_ENABLED, "false")
+                        .build(),
+                query))
+                .joinIsNotFullyPushedDown();
 
         // The join can be pushed down
         assertJoinConditionallyPushedDown(
