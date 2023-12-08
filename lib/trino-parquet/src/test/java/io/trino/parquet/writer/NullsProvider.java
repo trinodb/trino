@@ -13,14 +13,9 @@
  */
 package io.trino.parquet.writer;
 
-import org.testng.annotations.DataProvider;
-
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.Random;
-import java.util.stream.Stream;
-
-import static io.trino.testing.DataProviders.toDataProvider;
 
 enum NullsProvider
 {
@@ -97,12 +92,5 @@ enum NullsProvider
             }
         }
         return Optional.of(nullPositions);
-    }
-
-    @DataProvider
-    public static Object[][] nullsProviders()
-    {
-        return Stream.of(NullsProvider.values())
-                .collect(toDataProvider());
     }
 }
