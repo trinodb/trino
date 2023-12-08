@@ -208,7 +208,7 @@ public class DeltaLakePageSourceProvider
                 .withSmallFileThreshold(getParquetSmallFileThreshold(session))
                 .withUseColumnIndex(isParquetUseColumnIndex(session));
 
-        Map<Integer, String> parquetFieldIdToName = columnMappingMode == ColumnMappingMode.ID ? loadParquetIdAndNameMapping(inputFile, options) : ImmutableMap.of();
+        Map<Integer, String> parquetFieldIdToName = columnMappingMode == ColumnMappingMode.ID ? loadParquetIdAndNameMapping(inputFile, options, fileSystem) : ImmutableMap.of();
 
         ImmutableSet.Builder<String> missingColumnNames = ImmutableSet.builder();
         ImmutableList.Builder<HiveColumnHandle> hiveColumnHandles = ImmutableList.builder();
@@ -239,7 +239,7 @@ public class DeltaLakePageSourceProvider
                 options,
                 Optional.empty(),
                 domainCompactionThreshold,
-                OptionalLong.of(split.getFileSize()));
+                OptionalLong.of(split.getFileSize()), fileSystem);
 
         Optional<ReaderProjectionsAdapter> projectionsAdapter = pageSource.getReaderColumns().map(readerColumns ->
                 new ReaderProjectionsAdapter(
@@ -288,10 +288,10 @@ public class DeltaLakePageSourceProvider
         }
     }
 
-    public Map<Integer, String> loadParquetIdAndNameMapping(TrinoInputFile inputFile, ParquetReaderOptions options)
+    public Map<Integer, String> loadParquetIdAndNameMapping(TrinoInputFile inputFile, ParquetReaderOptions options, TrinoFileSystem trinoFileSystem)
     {
         try (ParquetDataSource dataSource = new TrinoParquetDataSource(inputFile, options, fileFormatDataSourceStats)) {
-            final Optional<InternalFileDecryptor> fileDecryptor = EncryptionUtils.createDecryptor(options, inputFile.location().path());
+            final Optional<InternalFileDecryptor> fileDecryptor = EncryptionUtils.createDecryptor(options, inputFile.location(), trinoFileSystem);
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty(), fileDecryptor);
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();

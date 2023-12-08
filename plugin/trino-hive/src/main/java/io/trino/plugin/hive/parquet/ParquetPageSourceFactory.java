@@ -191,7 +191,7 @@ public class ParquetPageSourceFactory
                         .withBloomFilter(useParquetBloomFilter(session)),
                 Optional.empty(),
                 domainCompactionThreshold,
-                OptionalLong.of(estimatedFileSize)));
+                OptionalLong.of(estimatedFileSize), fileSystem));
     }
 
     /**
@@ -209,7 +209,7 @@ public class ParquetPageSourceFactory
             ParquetReaderOptions options,
             Optional<ParquetWriteValidation> parquetWriteValidation,
             int domainCompactionThreshold,
-            OptionalLong estimatedFileSize)
+            OptionalLong estimatedFileSize, TrinoFileSystem trinoFileSystem)
     {
         MessageType fileSchema;
         MessageType requestedSchema;
@@ -218,7 +218,7 @@ public class ParquetPageSourceFactory
         try {
             AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
             dataSource = createDataSource(inputFile, estimatedFileSize, options, memoryContext, stats);
-            final Optional<InternalFileDecryptor> fileDecryptor = EncryptionUtils.createDecryptor(options, inputFile.location().path());
+            final Optional<InternalFileDecryptor> fileDecryptor = EncryptionUtils.createDecryptor(options, inputFile.location(), trinoFileSystem);
 
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, parquetWriteValidation, fileDecryptor);
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();

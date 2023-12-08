@@ -374,7 +374,7 @@ public class IcebergPageSourceProvider
                 requiredColumns,
                 effectivePredicate,
                 nameMapping,
-                partitionKeys);
+                partitionKeys, fileSystem);
         ReaderPageSource dataPageSource = readerPageSourceWithRowPositions.getReaderPageSource();
 
         Optional<ReaderProjectionsAdapter> projectionsAdapter = dataPageSource.getReaderColumns().map(readerColumns ->
@@ -530,7 +530,7 @@ public class IcebergPageSourceProvider
                 columns,
                 tupleDomain,
                 Optional.empty(),
-                ImmutableMap.of())
+                ImmutableMap.of(), fileSystem)
                 .getReaderPageSource()
                 .get();
     }
@@ -548,7 +548,8 @@ public class IcebergPageSourceProvider
             List<IcebergColumnHandle> dataColumns,
             TupleDomain<IcebergColumnHandle> predicate,
             Optional<NameMapping> nameMapping,
-            Map<Integer, Optional<String>> partitionKeys)
+            Map<Integer, Optional<String>> partitionKeys,
+            TrinoFileSystem fileSystem)
     {
         switch (fileFormat) {
             case ORC:
@@ -592,7 +593,7 @@ public class IcebergPageSourceProvider
                         predicate,
                         fileFormatDataSourceStats,
                         nameMapping,
-                        partitionKeys);
+                        partitionKeys, fileSystem);
             case AVRO:
                 return createAvroPageSource(
                         inputFile,
@@ -930,14 +931,14 @@ public class IcebergPageSourceProvider
             TupleDomain<IcebergColumnHandle> effectivePredicate,
             FileFormatDataSourceStats fileFormatDataSourceStats,
             Optional<NameMapping> nameMapping,
-            Map<Integer, Optional<String>> partitionKeys)
+            Map<Integer, Optional<String>> partitionKeys, TrinoFileSystem trinoFileSystem)
     {
         AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
 
         ParquetDataSource dataSource = null;
         try {
             dataSource = createDataSource(inputFile, OptionalLong.of(fileSize), options, memoryContext, fileFormatDataSourceStats);
-            Optional<InternalFileDecryptor> fileDecryptor = EncryptionUtils.createDecryptor(options, inputFile.location().path());
+            Optional<InternalFileDecryptor> fileDecryptor = EncryptionUtils.createDecryptor(options, inputFile.location(), trinoFileSystem);
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty(), fileDecryptor);
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();

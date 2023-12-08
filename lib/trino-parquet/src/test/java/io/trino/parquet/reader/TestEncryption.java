@@ -62,7 +62,6 @@ import static io.trino.parquet.ParquetTypeUtils.getArrayElementColumn;
 import static io.trino.parquet.ParquetTypeUtils.getColumnIO;
 import static io.trino.parquet.ParquetTypeUtils.getMapKeyValueColumn;
 import static io.trino.parquet.ParquetTypeUtils.lookupColumnByName;
-import static io.trino.parquet.writer.ParquetWriter.getBlockStarts;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
@@ -260,11 +259,12 @@ public class TestEncryption
         ImmutableList.Builder<Long> blockStarts = ImmutableList.builder();
 
         long nextStart = 0;
+        ImmutableList.Builder<RowGroupInfo> rowGroupInfoBuilder = ImmutableList.builder();
         for (BlockMetaData block : parquetMetadata.getBlocks()) {
-            blocks.add(block);
-            blockStarts.add(nextStart);
+            rowGroupInfoBuilder.add(new RowGroupInfo(block, nextStart, Optional.empty()));
             nextStart += block.getRowCount();
         }
+
 
         List<Column> columns =
                 ImmutableList.of(
@@ -277,15 +277,13 @@ public class TestEncryption
             return new ParquetReader(
                     Optional.ofNullable(parquetMetadata.getFileMetaData().getCreatedBy()),
                     columns,
-                    blocks.build(),
-                    getBlockStarts(parquetMetadata),
+                    rowGroupInfoBuilder.build(),
                     dataSource,
                     UTC,
                     newSimpleAggregatedMemoryContext(),
                     new ParquetReaderOptions(),
                     exception -> handleException(dataSource.getId(), exception),
                     Optional.empty(),
-                    Lists.emptyList(),
                     Optional.empty(),
                     fileDecryptor);
         }

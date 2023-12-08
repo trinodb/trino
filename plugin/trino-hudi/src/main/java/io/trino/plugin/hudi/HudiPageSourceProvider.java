@@ -169,7 +169,7 @@ public class HudiPageSourceProvider
                 inputFile,
                 dataSourceStats,
                 options.withSmallFileThreshold(getParquetSmallFileThreshold(session)),
-                timeZone);
+                timeZone, fileSystem);
 
         return new HudiPageSource(
                 toPartitionName(split.getPartitionKeys()),
@@ -188,7 +188,7 @@ public class HudiPageSourceProvider
             TrinoInputFile inputFile,
             FileFormatDataSourceStats dataSourceStats,
             ParquetReaderOptions options,
-            DateTimeZone timeZone)
+            DateTimeZone timeZone, TrinoFileSystem trinoFileSystem)
     {
         ParquetDataSource dataSource = null;
         boolean useColumnNames = shouldUseParquetColumnNames(session);
@@ -198,7 +198,7 @@ public class HudiPageSourceProvider
         try {
             AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
             dataSource = createDataSource(inputFile, OptionalLong.of(hudiSplit.getFileSize()), options, memoryContext, dataSourceStats);
-            final Optional<InternalFileDecryptor> fileDecryptor = EncryptionUtils.createDecryptor(options, inputFile.location().path());
+            final Optional<InternalFileDecryptor> fileDecryptor = EncryptionUtils.createDecryptor(options, inputFile.location(), trinoFileSystem);
 
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty(), fileDecryptor);
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
