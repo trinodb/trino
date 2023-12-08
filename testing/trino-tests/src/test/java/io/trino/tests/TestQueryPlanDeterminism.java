@@ -34,7 +34,6 @@ import java.util.List;
 
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -274,14 +273,5 @@ public class TestQueryPlanDeterminism
     {
         // testLargeIn is expensive
         Assumptions.abort("Skipping testLargeIn");
-    }
-
-    @Test
-    @Override
-    public void testUnionAllAboveBroadcastJoin()
-    {
-        // TODO: https://github.com/trinodb/trino/issues/20043
-        assertThatThrownBy(super::testUnionAllAboveBroadcastJoin)
-                .hasMessageContaining("bytes is negative");
     }
 }

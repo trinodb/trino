@@ -218,8 +218,14 @@ public class TestIcebergProjectionPushdownPlans
                                         "expr_0", expression("expr_0"),
                                         "expr_0_y", expression("expr_0[2]")),
                                 join(INNER, builder -> builder
-                                        .equiCriteria("t_expr_1", "s_expr_1")
+                                        .equiCriteria("s_expr_1", "t_expr_1")
                                         .left(
+                                                anyTree(
+                                                        tableScan(
+                                                                equalTo(((IcebergTableHandle) tableHandle.get().getConnectorHandle()).withProjectedColumns(Set.of(column1Handle))),
+                                                                TupleDomain.all(),
+                                                                ImmutableMap.of("s_expr_1", equalTo(column1Handle)))))
+                                        .right(
                                                 anyTree(
                                                         filter(
                                                                 "x = BIGINT '2'",
@@ -234,12 +240,6 @@ public class TestIcebergProjectionPushdownPlans
                                                                                     unenforcedConstraint.equals(expectedUnenforcedConstraint);
                                                                         },
                                                                         TupleDomain.all(),
-                                                                        ImmutableMap.of("x", equalTo(columnX), "expr_0", equalTo(column0Handle), "t_expr_1", equalTo(column1Handle))))))
-                                        .right(
-                                                anyTree(
-                                                        tableScan(
-                                                                equalTo(((IcebergTableHandle) tableHandle.get().getConnectorHandle()).withProjectedColumns(Set.of(column1Handle))),
-                                                                TupleDomain.all(),
-                                                                ImmutableMap.of("s_expr_1", equalTo(column1Handle)))))))));
+                                                                        ImmutableMap.of("x", equalTo(columnX), "expr_0", equalTo(column0Handle), "t_expr_1", equalTo(column1Handle))))))))));
     }
 }
