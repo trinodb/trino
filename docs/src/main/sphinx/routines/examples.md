@@ -377,11 +377,11 @@ TIME ZONE`. Date strings are commonly represented by ISO 8601 standard, such as
 `2023-12-01`, `2023-12-01T23`. Date strings are also often represented in the
 `YYYYmmdd` and `YYYYmmddHH` format, such as `20230101` and `2023010123`. Hive
 tables can use this format to represent day and hourly partitions, for example
-`/day=20230101`, `/hour=2023010123`. 
+`/day=20230101`, `/hour=2023010123`.
 
 This routine parses date strings in a best-effort fashion and can be used as a
 replacement for date string manipulation functions such as `date`, `date_parse`,
-`from_iso8601_date`,  and `from_iso8601_timestamp`. 
+`from_iso8601_date`,  and `from_iso8601_timestamp`.
 
 Note that the routine defaults the time value to `00:00:00.000` and the time
 zone to the session time zone.
@@ -413,3 +413,92 @@ SELECT from_date_string('2023010123'); -- 2023-01-01 23:00:00.000 UTC (using the
 SELECT from_date_string(NULL); -- NULL (handles NULL string)
 SELECT from_date_string('abc'); -- NULL (not matched to any format)
 ```
+
+## Truncating long strings
+
+This example routine `strtrunc` truncates strings longer than 60 characters,
+leaving the first 30 and the last 25 characters, and cutting out extra
+characters in the middle.
+
+```sql
+FUNCTION strtrunc(input VARCHAR)
+RETURNS VARCHAR
+RETURN
+    CASE WHEN length(input) > 60
+    THEN substr(input, 1, 30) || ' ... ' || substr(input, length(input) - 25)
+    ELSE input
+    END;
+```
+
+The preceding declaration is very compact and consists of only one complex
+statement with a [`CASE` expression](case-expression) and multiple function
+calls. It can therefore define the complete logic in the `RETURN` clause.
+
+The following statement shows the same capability within the routine itself.
+Note the duplicate `RETURN` inside and outside the `CASE` statement and the
+required `END CASE;`. The second `RETURN` statement is required, because a
+routine must end with a `RETURN` statement. As a result the `ELSE` clause can be
+omitted.
+
+```sql
+FUNCTION strtrunc(input VARCHAR)
+RETURNS VARCHAR
+BEGIN
+    CASE WHEN length(input) > 60
+    THEN
+        RETURN substr(input, 1, 30) || ' ... ' || substr(input, length(input) - 25);
+    ELSE
+        RETURN input;
+    END CASE;
+    RETURN input;
+END;
+```
+
+The next example changes over from a `CASE` to an `IF` statement, and avoids the
+duplicate `RETURN`:
+
+```sql
+FUNCTION strtrunc(input VARCHAR)
+RETURNS VARCHAR
+BEGIN
+    IF length(input) > 60 THEN
+        RETURN substr(input, 1, 30) || ' ... ' || substr(input, length(input) - 25);
+    END IF;
+    RETURN input;
+END;
+```
+
+All the preceding examples create the same output. Following is an example query
+which generates long strings to truncate:
+
+```sql
+WITH
+data AS (
+    SELECT substring('strtrunc truncates strings longer than 60 characters, leaving the prefix and suffix visible', 1, s.num) AS value
+    FROM table(sequence(start=>40, stop=>80, step=>5)) AS s(num)
+)
+SELECT
+    data.value
+  , strtrunc(data.value) AS truncated
+FROM data
+ORDER BY data.value;
+```
+
+The preceding query produces the following output with all variants of the
+routine:
+
+```
+                                      value                                       |                           truncated
+----------------------------------------------------------------------------------+---------------------------------------------------------------
+ strtrunc truncates strings longer than 6                                         | strtrunc truncates strings longer than 6
+ strtrunc truncates strings longer than 60 cha                                    | strtrunc truncates strings longer than 60 cha
+ strtrunc truncates strings longer than 60 characte                               | strtrunc truncates strings longer than 60 characte
+ strtrunc truncates strings longer than 60 characters, l                          | strtrunc truncates strings longer than 60 characters, l
+ strtrunc truncates strings longer than 60 characters, leavin                     | strtrunc truncates strings longer than 60 characters, leavin
+ strtrunc truncates strings longer than 60 characters, leaving the                | strtrunc truncates strings lon ... 60 characters, leaving the
+ strtrunc truncates strings longer than 60 characters, leaving the pref           | strtrunc truncates strings lon ... aracters, leaving the pref
+ strtrunc truncates strings longer than 60 characters, leaving the prefix an      | strtrunc truncates strings lon ... ers, leaving the prefix an
+ strtrunc truncates strings longer than 60 characters, leaving the prefix and suf | strtrunc truncates strings lon ... leaving the prefix and suf
+```
+
+A possible improvement is to introduce parameters for the total length.
