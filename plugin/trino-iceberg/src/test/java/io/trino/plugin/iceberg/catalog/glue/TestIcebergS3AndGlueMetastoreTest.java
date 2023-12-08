@@ -19,7 +19,7 @@ import io.trino.plugin.hive.BaseS3AndGlueMetastoreTest;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
 import java.util.Set;
