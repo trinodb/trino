@@ -715,6 +715,7 @@ public final class SystemSessionProperties
                         COST_ESTIMATION_WORKER_COUNT,
                         "Set the estimate count of workers while planning",
                         null,
+                        value -> validateIntegerValue(value, COST_ESTIMATION_WORKER_COUNT, 1, true),
                         true),
                 booleanProperty(
                         OMIT_DATETIME_TYPE_PRECISION,
