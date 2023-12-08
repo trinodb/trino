@@ -33,6 +33,7 @@ import org.junit.jupiter.api.TestInstance;
 import java.util.List;
 
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
+import static io.trino.testing.CustomFunctionBundle.CUSTOM_FUNCTIONS;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
