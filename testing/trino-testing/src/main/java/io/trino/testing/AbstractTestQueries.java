@@ -15,8 +15,6 @@ package io.trino.testing;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.trino.metadata.FunctionBundle;
-import io.trino.metadata.InternalFunctionBundle;
 import io.trino.tpch.TpchTable;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.junit.jupiter.api.Test;
@@ -27,13 +25,10 @@ import java.util.Set;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.connector.informationschema.InformationSchemaTable.INFORMATION_SCHEMA;
-import static io.trino.operator.scalar.ApplyFunction.APPLY_FUNCTION;
-import static io.trino.operator.scalar.InvokeFunction.INVOKE_FUNCTION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
-import static io.trino.testing.StatefulSleepingSum.STATEFUL_SLEEPING_SUM;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.tpch.TpchTable.NATION;
 import static io.trino.tpch.TpchTable.ORDERS;
@@ -47,15 +42,6 @@ public abstract class AbstractTestQueries
         extends AbstractTestQueryFramework
 {
     protected static final List<TpchTable<?>> REQUIRED_TPCH_TABLES = ImmutableList.of(NATION, ORDERS, REGION);
-
-    // We can just use the default type registry, since we don't use any parametric types
-    protected static final FunctionBundle CUSTOM_FUNCTIONS = InternalFunctionBundle.builder()
-            .aggregates(CustomSum.class)
-            .window(CustomRank.class)
-            .scalars(CustomAdd.class)
-            .scalars(CreateHll.class)
-            .functions(APPLY_FUNCTION, INVOKE_FUNCTION, STATEFUL_SLEEPING_SUM)
-            .build();
 
     @Test
     public void testAggregationOverUnknown()

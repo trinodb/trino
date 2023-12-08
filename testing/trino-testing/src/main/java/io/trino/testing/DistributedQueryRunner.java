@@ -105,7 +105,7 @@ public class DistributedQueryRunner
     private Runnable registerNewWorker;
     private final InMemorySpanExporter spanExporter = InMemorySpanExporter.create();
     private final List<TestingTrinoServer> servers = new CopyOnWriteArrayList<>();
-    private final List<FunctionBundle> functionBundles = new CopyOnWriteArrayList<>(ImmutableList.of(AbstractTestQueries.CUSTOM_FUNCTIONS));
+    private final List<FunctionBundle> functionBundles = new CopyOnWriteArrayList<>(ImmutableList.of(CustomFunctionBundle.CUSTOM_FUNCTIONS));
     private final List<Plugin> plugins = new CopyOnWriteArrayList<>();
 
     private final Closer closer = Closer.create();
