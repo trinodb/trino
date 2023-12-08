@@ -25,6 +25,7 @@ import static io.trino.SystemSessionProperties.PUSH_PARTIAL_AGGREGATION_THROUGH_
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
+import static io.trino.testing.CustomFunctionBundle.CUSTOM_FUNCTIONS;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
