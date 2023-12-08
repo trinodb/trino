@@ -331,7 +331,7 @@ public class TestHiveSplitSource
                     bucketNumber,
                     true,
                     false,
-                    TableToPartitionMapping.empty(),
+                    ImmutableMap.of(),
                     Optional.empty(),
                     Optional.empty(),
                     Optional.empty(),

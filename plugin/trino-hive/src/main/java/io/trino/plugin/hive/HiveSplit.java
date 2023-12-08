@@ -40,6 +40,7 @@ public class HiveSplit
         implements ConnectorSplit
 {
     private static final int INSTANCE_SIZE = instanceSize(HiveSplit.class);
+    private static final int INTEGER_INSTANCE_SIZE = instanceSize(Integer.class);
 
     private final String path;
     private final long start;
@@ -53,7 +54,7 @@ public class HiveSplit
     private final OptionalInt readBucketNumber;
     private final OptionalInt tableBucketNumber;
     private final boolean forceLocalScheduling;
-    private final TableToPartitionMapping tableToPartitionMapping;
+    private final Map<Integer, HiveTypeName> hiveColumnCoercions;
     private final Optional<BucketConversion> bucketConversion;
     private final Optional<BucketValidation> bucketValidation;
     private final Optional<AcidInfo> acidInfo;
@@ -72,7 +73,7 @@ public class HiveSplit
             @JsonProperty("readBucketNumber") OptionalInt readBucketNumber,
             @JsonProperty("tableBucketNumber") OptionalInt tableBucketNumber,
             @JsonProperty("forceLocalScheduling") boolean forceLocalScheduling,
-            @JsonProperty("tableToPartitionMapping") TableToPartitionMapping tableToPartitionMapping,
+            @JsonProperty("hiveColumnCoercions") Map<Integer, HiveTypeName> hiveColumnCoercions,
             @JsonProperty("bucketConversion") Optional<BucketConversion> bucketConversion,
             @JsonProperty("bucketValidation") Optional<BucketValidation> bucketValidation,
             @JsonProperty("acidInfo") Optional<AcidInfo> acidInfo,
@@ -91,7 +92,7 @@ public class HiveSplit
                 readBucketNumber,
                 tableBucketNumber,
                 forceLocalScheduling,
-                tableToPartitionMapping,
+                hiveColumnCoercions,
                 bucketConversion,
                 bucketValidation,
                 acidInfo,
@@ -111,7 +112,7 @@ public class HiveSplit
             OptionalInt readBucketNumber,
             OptionalInt tableBucketNumber,
             boolean forceLocalScheduling,
-            TableToPartitionMapping tableToPartitionMapping,
+            Map<Integer, HiveTypeName> hiveColumnCoercions,
             Optional<BucketConversion> bucketConversion,
             Optional<BucketValidation> bucketValidation,
             Optional<AcidInfo> acidInfo,
@@ -127,7 +128,7 @@ public class HiveSplit
         requireNonNull(addresses, "addresses is null");
         requireNonNull(readBucketNumber, "readBucketNumber is null");
         requireNonNull(tableBucketNumber, "tableBucketNumber is null");
-        requireNonNull(tableToPartitionMapping, "tableToPartitionMapping is null");
+        requireNonNull(hiveColumnCoercions, "hiveColumnCoercions is null");
         requireNonNull(bucketConversion, "bucketConversion is null");
         requireNonNull(bucketValidation, "bucketValidation is null");
         requireNonNull(acidInfo, "acidInfo is null");
@@ -144,7 +145,7 @@ public class HiveSplit
         this.readBucketNumber = readBucketNumber;
         this.tableBucketNumber = tableBucketNumber;
         this.forceLocalScheduling = forceLocalScheduling;
-        this.tableToPartitionMapping = tableToPartitionMapping;
+        this.hiveColumnCoercions = ImmutableMap.copyOf(hiveColumnCoercions);
         this.bucketConversion = bucketConversion;
         this.bucketValidation = bucketValidation;
         this.acidInfo = acidInfo;
@@ -226,9 +227,9 @@ public class HiveSplit
     }
 
     @JsonProperty
-    public TableToPartitionMapping getTableToPartitionMapping()
+    public Map<Integer, HiveTypeName> getHiveColumnCoercions()
     {
-        return tableToPartitionMapping;
+        return hiveColumnCoercions;
     }
 
     @JsonProperty
@@ -273,7 +274,7 @@ public class HiveSplit
                 + estimatedSizeOf(partitionName)
                 + sizeOf(readBucketNumber)
                 + sizeOf(tableBucketNumber)
-                + tableToPartitionMapping.getEstimatedSizeInBytes()
+                + estimatedSizeOf(hiveColumnCoercions, (Integer key) -> INTEGER_INSTANCE_SIZE, HiveTypeName::getEstimatedSizeInBytes)
                 + sizeOf(bucketConversion, BucketConversion::getRetainedSizeInBytes)
                 + sizeOf(bucketValidation, BucketValidation::getRetainedSizeInBytes)
                 + sizeOf(acidInfo, AcidInfo::getRetainedSizeInBytes)

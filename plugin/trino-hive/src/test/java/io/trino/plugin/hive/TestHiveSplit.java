@@ -73,7 +73,7 @@ public class TestHiveSplit
                 OptionalInt.empty(),
                 OptionalInt.empty(),
                 true,
-                TableToPartitionMapping.mapColumnsByIndex(ImmutableMap.of(1, new HiveTypeName("string"))),
+                ImmutableMap.of(1, new HiveTypeName("string")),
                 Optional.of(new HiveSplit.BucketConversion(
                         BUCKETING_V1,
                         32,
@@ -93,8 +93,7 @@ public class TestHiveSplit
         assertThat(actual.getEstimatedFileSize()).isEqualTo(expected.getEstimatedFileSize());
         assertThat(actual.getSchema()).isEqualTo(expected.getSchema());
         assertThat(actual.getPartitionKeys()).isEqualTo(expected.getPartitionKeys());
-        assertThat(actual.getTableToPartitionMapping().getPartitionColumnCoercions()).isEqualTo(expected.getTableToPartitionMapping().getPartitionColumnCoercions());
-        assertThat(actual.getTableToPartitionMapping().getTableToPartitionColumns()).isEqualTo(expected.getTableToPartitionMapping().getTableToPartitionColumns());
+        assertThat(actual.getHiveColumnCoercions()).isEqualTo(expected.getHiveColumnCoercions());
         assertThat(actual.getBucketConversion()).isEqualTo(expected.getBucketConversion());
         assertThat(actual.isForceLocalScheduling()).isEqualTo(expected.isForceLocalScheduling());
         assertThat(actual.getAcidInfo().get()).isEqualTo(expected.getAcidInfo().get());
