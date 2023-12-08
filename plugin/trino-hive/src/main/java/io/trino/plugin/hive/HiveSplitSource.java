@@ -309,7 +309,7 @@ class HiveSplitSource
                         internalSplit.getReadBucketNumber(),
                         internalSplit.getTableBucketNumber(),
                         internalSplit.isForceLocalScheduling(),
-                        internalSplit.getTableToPartitionMapping(),
+                        internalSplit.getHiveColumnCoercions(),
                         internalSplit.getBucketConversion(),
                         internalSplit.getBucketValidation(),
                         internalSplit.getAcidInfo(),
