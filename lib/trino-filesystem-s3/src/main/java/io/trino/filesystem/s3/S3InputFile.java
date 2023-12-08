@@ -98,7 +98,8 @@ final class S3InputFile
 
     private GetObjectRequest newGetObjectRequest()
     {
-        return context.applyCredentialProviderOverride(GetObjectRequest.builder())
+        return GetObjectRequest.builder()
+                .overrideConfiguration(context::applyCredentialProviderOverride)
                 .requestPayer(requestPayer)
                 .bucket(location.bucket())
                 .key(location.key())
@@ -108,7 +109,8 @@ final class S3InputFile
     private boolean headObject()
             throws IOException
     {
-        HeadObjectRequest request = context.applyCredentialProviderOverride(HeadObjectRequest.builder())
+        HeadObjectRequest request = HeadObjectRequest.builder()
+                .overrideConfiguration(context::applyCredentialProviderOverride)
                 .requestPayer(requestPayer)
                 .bucket(location.bucket())
                 .key(location.key())

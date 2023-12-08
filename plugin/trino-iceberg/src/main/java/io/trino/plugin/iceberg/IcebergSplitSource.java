@@ -103,7 +103,7 @@ public class IcebergSplitSource
     private final IcebergFileSystemFactory fileSystemFactory;
     private final ConnectorSession session;
     private final IcebergTableHandle tableHandle;
-    private final Map<String, String> fileIOProperties;
+    private final Map<String, String> fileIoProperties;
     private final TableScan tableScan;
     private final Optional<Long> maxScannedFileSizeInBytes;
     private final Map<Integer, Type.PrimitiveType> fieldIdToType;
@@ -135,7 +135,7 @@ public class IcebergSplitSource
             IcebergFileSystemFactory fileSystemFactory,
             ConnectorSession session,
             IcebergTableHandle tableHandle,
-            Map<String, String> fileIOProperties,
+            Map<String, String> fileIoProperties,
             TableScan tableScan,
             Optional<DataSize> maxScannedFileSize,
             DynamicFilter dynamicFilter,
@@ -148,7 +148,7 @@ public class IcebergSplitSource
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.session = requireNonNull(session, "session is null");
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
-        this.fileIOProperties = requireNonNull(fileIOProperties, "fileIOProperties is null");
+        this.fileIoProperties = requireNonNull(fileIoProperties, "fileIoProperties is null");
         this.tableScan = requireNonNull(tableScan, "tableScan is null");
         this.maxScannedFileSizeInBytes = maxScannedFileSize.map(DataSize::toBytes);
         this.fieldIdToType = primitiveFieldTypes(tableScan.schema());
@@ -324,7 +324,7 @@ public class IcebergSplitSource
     private long getModificationTime(String path)
     {
         try {
-            TrinoInputFile inputFile = fileSystemFactory.create(session.getIdentity(), fileIOProperties).newInputFile(Location.of(path));
+            TrinoInputFile inputFile = fileSystemFactory.create(session.getIdentity(), fileIoProperties).newInputFile(Location.of(path));
             return inputFile.lastModified().toEpochMilli();
         }
         catch (IOException e) {
@@ -488,7 +488,7 @@ public class IcebergSplitSource
                         .map(DeleteFile::fromIceberg)
                         .collect(toImmutableList()),
                 SplitWeight.fromProportion(Math.min(max((double) task.length() / tableScan.targetSplitSize(), minimumAssignedSplitWeight), 1.0)),
-                fileIOProperties);
+                fileIoProperties);
     }
 
     private static Domain getPathDomain(TupleDomain<IcebergColumnHandle> effectivePredicate)

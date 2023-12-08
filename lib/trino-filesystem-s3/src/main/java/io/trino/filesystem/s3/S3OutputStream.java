@@ -193,7 +193,8 @@ final class S3OutputStream
     {
         // skip multipart upload if there would only be one part
         if (finished && !multipartUploadStarted) {
-            PutObjectRequest request = context.applyCredentialProviderOverride(PutObjectRequest.builder())
+            PutObjectRequest request = PutObjectRequest.builder()
+                    .overrideConfiguration(context::applyCredentialProviderOverride)
                     .requestPayer(requestPayer)
                     .bucket(location.bucket())
                     .key(location.key())
@@ -269,7 +270,8 @@ final class S3OutputStream
     private CompletedPart uploadPage(byte[] data, int length)
     {
         if (uploadId.isEmpty()) {
-            CreateMultipartUploadRequest request = context.applyCredentialProviderOverride(CreateMultipartUploadRequest.builder())
+            CreateMultipartUploadRequest request = CreateMultipartUploadRequest.builder()
+                    .overrideConfiguration(context::applyCredentialProviderOverride)
                     .requestPayer(requestPayer)
                     .bucket(location.bucket())
                     .key(location.key())
@@ -286,7 +288,8 @@ final class S3OutputStream
         }
 
         currentPartNumber++;
-        UploadPartRequest request = context.applyCredentialProviderOverride(UploadPartRequest.builder())
+        UploadPartRequest request = UploadPartRequest.builder()
+                .overrideConfiguration(context::applyCredentialProviderOverride)
                 .requestPayer(requestPayer)
                 .bucket(location.bucket())
                 .key(location.key())
@@ -310,7 +313,8 @@ final class S3OutputStream
 
     private void finishUpload(String uploadId)
     {
-        CompleteMultipartUploadRequest request = context.applyCredentialProviderOverride(CompleteMultipartUploadRequest.builder())
+        CompleteMultipartUploadRequest request = CompleteMultipartUploadRequest.builder()
+                .overrideConfiguration(context::applyCredentialProviderOverride)
                 .requestPayer(requestPayer)
                 .bucket(location.bucket())
                 .key(location.key())
@@ -323,7 +327,8 @@ final class S3OutputStream
 
     private void abortUpload()
     {
-        uploadId.map(id -> context.applyCredentialProviderOverride(AbortMultipartUploadRequest.builder())
+        uploadId.map(id -> AbortMultipartUploadRequest.builder()
+                        .overrideConfiguration(context::applyCredentialProviderOverride)
                         .requestPayer(requestPayer)
                         .bucket(location.bucket())
                         .key(location.key())

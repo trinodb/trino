@@ -109,7 +109,6 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
         restCatalogBackendContainer = closeAfterClass(new IcebergRestCatalogBackendContainer(
                 Optional.of(network),
                 warehouseLocation,
-                minio.getMinioAddress(),
                 assumeRoleResponse.credentials().accessKeyId(),
                 assumeRoleResponse.credentials().secretAccessKey(),
                 assumeRoleResponse.credentials().sessionToken()));
@@ -120,7 +119,7 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
                         ImmutableMap.<String, String>builder()
                                 .put("iceberg.file-format", format.name())
                                 .put("iceberg.catalog.type", "rest")
-                                .put("iceberg.rest-catalog.uri", restCatalogBackendContainer.getRestCatalogEndpoint())
+                                .put("iceberg.rest-catalog.uri", "http://" + restCatalogBackendContainer.getRestCatalogEndpoint())
                                 .put("iceberg.rest-catalog.vended-credentials-enabled", "true")
                                 .put("iceberg.writer-sort-buffer-size", "1MB")
                                 .put("fs.hadoop.enabled", "false")
@@ -142,7 +141,8 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
                 .setEndpoint(minio.getMinioAddress())
                 .setPathStyleAccess(true)
                 .setAwsAccessKey(MINIO_ACCESS_KEY)
-                .setAwsSecretKey(MINIO_SECRET_KEY)).create(SESSION);
+                .setAwsSecretKey(MINIO_SECRET_KEY)
+        ).create(SESSION);
     }
 
     @Test
@@ -179,7 +179,7 @@ public class TestIcebergVendingRestCatalogConnectorSmokeTest
     protected String getMetadataLocation(String tableName)
     {
         try (RESTSessionCatalog catalog = new RESTSessionCatalog()) {
-            catalog.initialize("rest-catalog", ImmutableMap.of(CatalogProperties.URI, restCatalogBackendContainer.getRestCatalogEndpoint()));
+            catalog.initialize("rest-catalog", ImmutableMap.of(CatalogProperties.URI, "http://" + restCatalogBackendContainer.getRestCatalogEndpoint()));
             SessionCatalog.SessionContext context = new SessionCatalog.SessionContext(
                     "user-default",
                     "user",

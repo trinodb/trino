@@ -41,7 +41,7 @@ public class IcebergWritableTableHandle
     private final IcebergFileFormat fileFormat;
     private final Map<String, String> storageProperties;
     private final RetryMode retryMode;
-    private final Map<String, String> fileIOProperties;
+    private final Map<String, String> fileIoProperties;
 
     @JsonCreator
     public IcebergWritableTableHandle(
@@ -55,7 +55,7 @@ public class IcebergWritableTableHandle
             @JsonProperty("fileFormat") IcebergFileFormat fileFormat,
             @JsonProperty("properties") Map<String, String> storageProperties,
             @JsonProperty("retryMode") RetryMode retryMode,
-            @JsonProperty("fileIOProperties") Map<String, String> fileIOProperties)
+            @JsonProperty("fileIoProperties") Map<String, String> fileIoProperties)
     {
         this.name = requireNonNull(name, "name is null");
         this.schemaAsJson = requireNonNull(schemaAsJson, "schemaAsJson is null");
@@ -68,7 +68,7 @@ public class IcebergWritableTableHandle
         this.storageProperties = ImmutableMap.copyOf(requireNonNull(storageProperties, "storageProperties is null"));
         this.retryMode = requireNonNull(retryMode, "retryMode is null");
         checkArgument(partitionsSpecsAsJson.containsKey(partitionSpecId), "partitionSpecId missing from partitionSpecs");
-        this.fileIOProperties = ImmutableMap.copyOf(requireNonNull(fileIOProperties, "fileIOProperties is null"));
+        this.fileIoProperties = ImmutableMap.copyOf(requireNonNull(fileIoProperties, "fileIoProperties is null"));
     }
 
     @JsonProperty
@@ -132,9 +132,9 @@ public class IcebergWritableTableHandle
     }
 
     @JsonProperty
-    public Map<String, String> getFileIOProperties()
+    public Map<String, String> getFileIoProperties()
     {
-        return fileIOProperties;
+        return fileIoProperties;
     }
 
     @Override

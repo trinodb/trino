@@ -21,7 +21,6 @@ import io.trino.plugin.iceberg.IcebergFileSystemFactory;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import io.trino.plugin.iceberg.catalog.rest.IcebergRestCatalogConfig.Security;
 import io.trino.spi.TrinoException;
-import jakarta.validation.constraints.AssertTrue;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
@@ -49,13 +48,5 @@ public class IcebergRestCatalogModule
         if (restCatalogConfig.isVendedCredentialsEnabled() && icebergConfig.isRegisterTableProcedureEnabled()) {
             throw new TrinoException(NOT_SUPPORTED, "Using the `register_table` procedure with vended credentials is currently not supported");
         }
-    }
-
-    @AssertTrue(message = "Using the `register_table` procedure with vended credentials is currently not supported")
-    public boolean isRegisterTableEnabledWithVendedCredentials()
-    {
-        IcebergConfig icebergConfig = buildConfigObject(IcebergConfig.class);
-        IcebergRestCatalogConfig restCatalogConfig = buildConfigObject(IcebergRestCatalogConfig.class);
-        return restCatalogConfig.isVendedCredentialsEnabled() != icebergConfig.isRegisterTableProcedureEnabled();
     }
 }

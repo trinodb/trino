@@ -39,7 +39,7 @@ public record TableChangesSplit(
         String partitionSpecJson,
         String partitionDataJson,
         SplitWeight splitWeight,
-        Map<String, String> fileIOProperties) implements ConnectorSplit
+        Map<String, String> fileIoProperties) implements ConnectorSplit
 {
     private static final int INSTANCE_SIZE = SizeOf.instanceSize(TableChangesSplit.class);
 
@@ -51,7 +51,7 @@ public record TableChangesSplit(
         requireNonNull(partitionSpecJson, "partitionSpecJson is null");
         requireNonNull(partitionDataJson, "partitionDataJson is null");
         requireNonNull(splitWeight, "splitWeight is null");
-        fileIOProperties = ImmutableMap.copyOf(requireNonNull(fileIOProperties, "fileIOProperties is null"));
+        fileIoProperties = ImmutableMap.copyOf(requireNonNull(fileIoProperties, "fileIoProperties is null"));
     }
 
     @Override
@@ -78,7 +78,7 @@ public record TableChangesSplit(
                 + estimatedSizeOf(partitionSpecJson)
                 + estimatedSizeOf(partitionDataJson)
                 + splitWeight.getRetainedSizeInBytes()
-                + estimatedSizeOf(fileIOProperties, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf);
+                + estimatedSizeOf(fileIoProperties, SizeOf::estimatedSizeOf, SizeOf::estimatedSizeOf);
     }
 
     @Override

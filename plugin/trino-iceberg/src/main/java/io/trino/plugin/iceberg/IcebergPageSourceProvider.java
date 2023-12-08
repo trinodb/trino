@@ -300,7 +300,7 @@ public class IcebergPageSourceProvider
             long fileRecordCount,
             String partitionDataJson,
             IcebergFileFormat fileFormat,
-            Map<String, String> fileIOProperties,
+            Map<String, String> fileIoProperties,
             Optional<NameMapping> nameMapping)
     {
         Set<IcebergColumnHandle> deleteFilterRequiredColumns = requiredColumnsForDeletes(tableSchema, deletes);
@@ -348,7 +348,7 @@ public class IcebergPageSourceProvider
             return new EmptyPageSource();
         }
 
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), fileIOProperties);
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity(), fileIoProperties);
         TrinoInputFile inputfile = isUseFileSizeFromMetadata(session)
                 ? fileSystem.newInputFile(Location.of(path), fileSize)
                 : fileSystem.newInputFile(Location.of(path));

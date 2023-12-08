@@ -27,7 +27,6 @@ public class IcebergRestCatalogBackendContainer
     public IcebergRestCatalogBackendContainer(
             Optional<Network> network,
             String warehouseLocation,
-            String minioEndpoint,
             String minioAccessKey,
             String minioSecretKey,
             String minioSessionToken)
@@ -53,6 +52,6 @@ public class IcebergRestCatalogBackendContainer
 
     public String getRestCatalogEndpoint()
     {
-        return "http://127.0.0.1:" + getMappedHostAndPortForExposedPort(8181).getPort();
+        return getMappedHostAndPortForExposedPort(8181).toString();
     }
 }

@@ -1622,7 +1622,7 @@ public class IcebergMetadata
         }
 
         Instant expiration = session.getStart().minusMillis(retention.toMillis());
-        removeOrphanFiles(table, session, executeHandle.getSchemaTableName(), expiration, executeHandle.getFileIOProperties());
+        removeOrphanFiles(table, session, executeHandle.getSchemaTableName(), expiration, executeHandle.getFileIoProperties());
     }
 
     private void removeOrphanFiles(Table table, ConnectorSession session, SchemaTableName schemaTableName, Instant expiration, Map<String, String> fileIoProperties)

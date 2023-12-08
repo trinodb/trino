@@ -29,7 +29,7 @@ public class IcebergTableExecuteHandle
     private final IcebergTableProcedureId procedureId;
     private final IcebergProcedureHandle procedureHandle;
     private final String tableLocation;
-    private final Map<String, String> fileIOProperties;
+    private final Map<String, String> fileIoProperties;
 
     @JsonCreator
     public IcebergTableExecuteHandle(
@@ -37,13 +37,13 @@ public class IcebergTableExecuteHandle
             IcebergTableProcedureId procedureId,
             IcebergProcedureHandle procedureHandle,
             String tableLocation,
-            Map<String, String> fileIOProperties)
+            Map<String, String> fileIoProperties)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
         this.procedureId = requireNonNull(procedureId, "procedureId is null");
         this.procedureHandle = requireNonNull(procedureHandle, "procedureHandle is null");
         this.tableLocation = requireNonNull(tableLocation, "tableLocation is null");
-        this.fileIOProperties = requireNonNull(fileIOProperties, "fileIOProperties is null");
+        this.fileIoProperties = requireNonNull(fileIoProperties, "fileIoProperties is null");
     }
 
     @JsonProperty
@@ -71,9 +71,9 @@ public class IcebergTableExecuteHandle
     }
 
     @JsonProperty
-    public Map<String, String> getFileIOProperties()
+    public Map<String, String> getFileIoProperties()
     {
-        return fileIOProperties;
+        return fileIoProperties;
     }
 
     public IcebergTableExecuteHandle withProcedureHandle(IcebergProcedureHandle procedureHandle)
@@ -83,7 +83,7 @@ public class IcebergTableExecuteHandle
                 procedureId,
                 procedureHandle,
                 tableLocation,
-                fileIOProperties);
+                fileIoProperties);
     }
 
     @Override

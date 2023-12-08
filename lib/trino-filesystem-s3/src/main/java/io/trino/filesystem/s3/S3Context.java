@@ -15,7 +15,7 @@ package io.trino.filesystem.s3;
 
 import io.trino.filesystem.s3.S3FileSystemConfig.S3SseType;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
-import software.amazon.awssdk.awscore.AwsRequest;
+import software.amazon.awssdk.awscore.AwsRequestOverrideConfiguration;
 import software.amazon.awssdk.services.s3.model.RequestPayer;
 
 import java.util.Optional;
@@ -51,10 +51,8 @@ public record S3Context(int partSize, boolean requesterPays, S3SseType sseType, 
                 Optional.of(credentialsProviderOverride));
     }
 
-    public <B extends AwsRequest.Builder> B applyCredentialProviderOverride(B baseRequestBuilder)
+    public void applyCredentialProviderOverride(AwsRequestOverrideConfiguration.Builder builder)
     {
-        credentialsProviderOverride.ifPresent(awsCredentialsProvider ->
-                baseRequestBuilder.overrideConfiguration(b -> b.credentialsProvider(awsCredentialsProvider)));
-        return baseRequestBuilder;
+        credentialsProviderOverride.ifPresent(builder::credentialsProvider);
     }
 }
