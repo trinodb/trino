@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.hive.thrift.metastore.ColumnStatisticsData;
 import io.trino.hive.thrift.metastore.ColumnStatisticsObj;
@@ -69,7 +68,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -114,8 +112,6 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 @Execution(SAME_THREAD)
 public class TestCachingHiveMetastore
 {
-    private static final Logger log = Logger.get(TestCachingHiveMetastore.class);
-
     private static final PartitionStatistics TEST_STATS = PartitionStatistics.builder()
             .setBasicStatistics(new HiveBasicStatistics(OptionalLong.empty(), OptionalLong.of(2398040535435L), OptionalLong.empty(), OptionalLong.empty()))
             .setColumnStatistics(ImmutableMap.of(TEST_COLUMN, createIntegerColumnStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty(), OptionalLong.empty())))
@@ -1015,18 +1011,6 @@ public class TestCachingHiveMetastore
     private static HiveColumnStatistics intColumnStats(int nullsCount)
     {
         return createIntegerColumnStatistics(OptionalLong.empty(), OptionalLong.empty(), OptionalLong.of(nullsCount), OptionalLong.empty());
-    }
-
-    private static void await(CountDownLatch latch, long timeout, TimeUnit unit)
-    {
-        try {
-            boolean awaited = latch.await(timeout, unit);
-            checkState(awaited, "wait timed out");
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException();
-        }
     }
 
     private PartitionCachingAssertions assertThatCachingWithDisabledPartitionCache()
