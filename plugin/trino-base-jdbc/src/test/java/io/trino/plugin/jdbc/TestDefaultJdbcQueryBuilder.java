@@ -22,6 +22,7 @@ import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.Domain;
@@ -527,6 +528,39 @@ public class TestDefaultJdbcQueryBuilder
                     INNER JOIN \
                     (SELECT "col_3" AS "name2", "col_8" AS "rcol8" FROM (SELECT * FROM "test_table") r) r \
                     ON ("lcol7" = "rcol8")""");
+            long count = 0;
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                while (resultSet.next()) {
+                    count++;
+                }
+            }
+            assertThat(count).isEqualTo(8);
+        }
+    }
+
+    @Test
+    public void testBuildJoinSqlLegacy()
+            throws SQLException
+    {
+        Connection connection = database.getConnection();
+
+        PreparedQuery preparedQuery = queryBuilder.legacyPrepareJoinQuery(
+                jdbcClient,
+                SESSION,
+                connection,
+                JoinType.INNER,
+                new PreparedQuery("SELECT * FROM \"test_table\"", List.of()),
+                new PreparedQuery("SELECT * FROM \"test_table\"", List.of()),
+                List.of(new JdbcJoinCondition(columns.get(7), JoinCondition.Operator.EQUAL, columns.get(8))),
+                Map.of(columns.get(2), "name1"),
+                Map.of(columns.get(3), "name2"));
+        try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(jdbcClient, SESSION, connection, preparedQuery, Optional.empty())) {
+            assertThat(preparedQuery.getQuery()).isEqualTo("" +
+                    "SELECT l.\"col_2\" AS \"name1\", r.\"col_3\" AS \"name2\" FROM " +
+                    "(SELECT * FROM \"test_table\") l " +
+                    "INNER JOIN " +
+                    "(SELECT * FROM \"test_table\") r " +
+                    "ON l.\"col_7\" = r.\"col_8\"");
             long count = 0;
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
                 while (resultSet.next()) {

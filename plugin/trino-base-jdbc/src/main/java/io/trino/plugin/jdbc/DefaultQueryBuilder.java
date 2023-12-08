@@ -148,6 +148,46 @@ public class DefaultQueryBuilder
     }
 
     @Override
+    public PreparedQuery legacyPrepareJoinQuery(
+            JdbcClient client,
+            ConnectorSession session,
+            Connection connection,
+            JoinType joinType,
+            PreparedQuery leftSource,
+            PreparedQuery rightSource,
+            List<JdbcJoinCondition> joinConditions,
+            Map<JdbcColumnHandle, String> leftAssignments,
+            Map<JdbcColumnHandle, String> rightAssignments)
+    {
+        // Verify assignments are present. This is safe assumption as join conditions are not pruned, and simplifies the code here.
+        verify(!leftAssignments.isEmpty(), "leftAssignments is empty");
+        verify(!rightAssignments.isEmpty(), "rightAssignments is empty");
+        // Joins wih no conditions are not pushed down, so it is a same assumption and simplifies the code here
+        verify(!joinConditions.isEmpty(), "joinConditions is empty");
+
+        String leftRelationAlias = "l";
+        String rightRelationAlias = "r";
+
+        String query = format(
+                "SELECT %s, %s FROM (%s) %s %s (%s) %s ON %s",
+                formatAssignments(client, leftRelationAlias, leftAssignments),
+                formatAssignments(client, rightRelationAlias, rightAssignments),
+                leftSource.getQuery(),
+                leftRelationAlias,
+                formatJoinType(joinType),
+                rightSource.getQuery(),
+                rightRelationAlias,
+                joinConditions.stream()
+                        .map(condition -> formatJoinCondition(client, leftRelationAlias, rightRelationAlias, condition))
+                        .collect(joining(" AND ")));
+        List<QueryParameter> parameters = ImmutableList.<QueryParameter>builder()
+                .addAll(leftSource.getParameters())
+                .addAll(rightSource.getParameters())
+                .build();
+        return new PreparedQuery(query, parameters);
+    }
+
+    @Override
     public PreparedQuery prepareDeleteQuery(
             JdbcClient client,
             ConnectorSession session,

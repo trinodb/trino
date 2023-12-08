@@ -596,6 +596,25 @@ public class IgniteClient
     }
 
     @Override
+    public Optional<PreparedQuery> legacyImplementJoin(
+            ConnectorSession session,
+            JoinType joinType,
+            PreparedQuery leftSource,
+            PreparedQuery rightSource,
+            List<JdbcJoinCondition> joinConditions,
+            Map<JdbcColumnHandle, String> rightAssignments,
+            Map<JdbcColumnHandle, String> leftAssignments,
+            JoinStatistics statistics)
+    {
+        // Ignite does not support FULL JOIN
+        if (joinType == JoinType.FULL_OUTER) {
+            return Optional.empty();
+        }
+
+        return super.legacyImplementJoin(session, joinType, leftSource, rightSource, joinConditions, rightAssignments, leftAssignments, statistics);
+    }
+
+    @Override
     protected boolean isSupportedJoinCondition(ConnectorSession session, JdbcJoinCondition joinCondition)
     {
         return true;
