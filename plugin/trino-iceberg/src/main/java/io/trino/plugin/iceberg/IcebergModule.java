@@ -26,6 +26,7 @@ import io.trino.plugin.hive.orc.OrcReaderConfig;
 import io.trino.plugin.hive.orc.OrcWriterConfig;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
 import io.trino.plugin.hive.parquet.ParquetWriterConfig;
+import io.trino.plugin.iceberg.catalog.rest.DefaultIcebergFileSystemFactory;
 import io.trino.plugin.iceberg.functions.IcebergFunctionProvider;
 import io.trino.plugin.iceberg.functions.tablechanges.TableChangesFunctionProcessorProvider;
 import io.trino.plugin.iceberg.functions.tablechanges.TableChangesFunctionProvider;
@@ -105,5 +106,7 @@ public class IcebergModule
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(TableChangesFunctionProvider.class).in(Scopes.SINGLETON);
         binder.bind(FunctionProvider.class).to(IcebergFunctionProvider.class).in(Scopes.SINGLETON);
         binder.bind(TableChangesFunctionProcessorProvider.class).in(Scopes.SINGLETON);
+
+        newOptionalBinder(binder, IcebergFileSystemFactory.class).setDefault().to(DefaultIcebergFileSystemFactory.class).in(Scopes.SINGLETON);
     }
 }
