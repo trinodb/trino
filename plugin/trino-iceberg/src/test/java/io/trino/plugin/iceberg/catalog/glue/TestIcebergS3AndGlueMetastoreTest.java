@@ -104,8 +104,16 @@ public class TestIcebergS3AndGlueMetastoreTest
                 .collect(Collectors.toUnmodifiableSet());
     }
 
-    @Test(dataProvider = "locationPatternsDataProvider")
-    public void testAnalyzeWithProvidedTableLocation(boolean partitioned, LocationPattern locationPattern)
+    @Test
+    public void testAnalyzeWithProvidedTableLocation()
+    {
+        for (LocationPattern locationPattern : LocationPattern.values()) {
+            testAnalyzeWithProvidedTableLocation(false, locationPattern);
+            testAnalyzeWithProvidedTableLocation(true, locationPattern);
+        }
+    }
+
+    private void testAnalyzeWithProvidedTableLocation(boolean partitioned, LocationPattern locationPattern)
     {
         String tableName = "test_analyze_" + randomNameSuffix();
         String location = locationPattern.locationForTable(bucketName, schemaName, tableName);
