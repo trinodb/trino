@@ -13,13 +13,13 @@
  */
 package io.trino.plugin.hudi.split;
 
-import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.trino.plugin.hive.util.AsyncQueue;
 import io.trino.plugin.hudi.HudiTableHandle;
 import io.trino.plugin.hudi.partition.HudiPartitionInfoLoader;
 import io.trino.plugin.hudi.query.HudiDirectoryLister;
+import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 
@@ -31,6 +31,8 @@ import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.concurrent.MoreFutures.addExceptionCallback;
+import static io.trino.plugin.hudi.HudiErrorCode.HUDI_CANNOT_OPEN_SPLIT;
 import static io.trino.plugin.hudi.HudiSessionProperties.getSplitGeneratorParallelism;
 import static java.util.Objects.requireNonNull;
 
@@ -76,7 +78,7 @@ public class HudiBackgroundSplitLoader
             HudiPartitionInfoLoader generator = new HudiPartitionInfoLoader(hudiDirectoryLister, hudiSplitFactory, asyncQueue, partitionQueue);
             splitGeneratorList.add(generator);
             ListenableFuture<Void> future = Futures.submit(generator, splitGeneratorExecutor);
-            hookErrorListener(future);
+            addExceptionCallback(future, throwable -> errorListener.accept(throwable));
             splitGeneratorFutures.add(future);
         }
 
@@ -85,22 +87,14 @@ public class HudiBackgroundSplitLoader
             generator.stopRunning();
         }
 
-        // Wait for all split generators to finish
-        Futures.whenAllComplete(splitGeneratorFutures).run(asyncQueue::finish, directExecutor());
-    }
-
-    private <T> void hookErrorListener(ListenableFuture<T> future)
-    {
-        Futures.addCallback(future, new FutureCallback<T>()
-        {
-            @Override
-            public void onSuccess(T result) {}
-
-            @Override
-            public void onFailure(@SuppressWarnings("NullableProblems") Throwable t)
-            {
-                errorListener.accept(t);
-            }
-        }, directExecutor());
+        try {
+            // Wait for all split generators to finish
+            Futures.whenAllComplete(splitGeneratorFutures)
+                    .run(asyncQueue::finish, directExecutor())
+                    .get();
+        }
+        catch (Exception e) {
+            throw new TrinoException(HUDI_CANNOT_OPEN_SPLIT, "Error generating Hudi split", e);
+        }
     }
 }
