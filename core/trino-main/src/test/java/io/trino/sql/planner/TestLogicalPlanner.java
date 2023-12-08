@@ -496,24 +496,24 @@ public class TestLogicalPlanner
                 anyTree(
                         anyNot(FilterNode.class,
                                 join(INNER, builder -> builder
-                                        .equiCriteria("O_SHIPPRIORITY", "L_LINENUMBER")
+                                        .equiCriteria("L_LINENUMBER", "O_SHIPPRIORITY")
                                         .filter("O_ORDERKEY < L_ORDERKEY")
                                         .dynamicFilter(
                                                 ImmutableList.of(
-                                                        new DynamicFilterPattern("O_SHIPPRIORITY", EQUAL, "L_LINENUMBER"),
-                                                        new DynamicFilterPattern("O_ORDERKEY", LESS_THAN, "L_ORDERKEY")))
+                                                        new DynamicFilterPattern("L_LINENUMBER", EQUAL, "O_SHIPPRIORITY"),
+                                                        new DynamicFilterPattern("L_ORDERKEY", GREATER_THAN, "O_ORDERKEY")))
                                         .left(
                                                 filter(TRUE_LITERAL,
-                                                        tableScan("orders",
-                                                                ImmutableMap.of(
-                                                                        "O_SHIPPRIORITY", "shippriority",
-                                                                        "O_ORDERKEY", "orderkey"))))
-                                        .right(
-                                                anyTree(
                                                         tableScan("lineitem",
                                                                 ImmutableMap.of(
                                                                         "L_LINENUMBER", "linenumber",
-                                                                        "L_ORDERKEY", "orderkey"))))))));
+                                                                        "L_ORDERKEY", "orderkey"))))
+                                        .right(
+                                                anyTree(
+                                                        tableScan("orders",
+                                                                ImmutableMap.of(
+                                                                        "O_SHIPPRIORITY", "shippriority",
+                                                                        "O_ORDERKEY", "orderkey"))))))));
     }
 
     @Test
@@ -538,13 +538,13 @@ public class TestLogicalPlanner
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey",
                 anyTree(
                         join(INNER, builder -> builder
-                                .equiCriteria("ORDERS_OK", "LINEITEM_OK")
+                                .equiCriteria("LINEITEM_OK", "ORDERS_OK")
                                 .left(
                                         anyTree(
-                                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))
+                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))
                                 .right(
                                         anyTree(
-                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))))));
+                                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))))));
     }
 
     @Test
@@ -553,13 +553,13 @@ public class TestLogicalPlanner
         assertPlan("SELECT o.orderkey FROM orders o, lineitem l WHERE l.orderkey = o.orderkey ORDER BY l.orderkey ASC, o.orderkey ASC",
                 anyTree(
                         join(INNER, builder -> builder
-                                .equiCriteria("ORDERS_OK", "LINEITEM_OK")
+                                .equiCriteria("LINEITEM_OK", "ORDERS_OK")
                                 .left(
                                         anyTree(
-                                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))))
+                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))
                                 .right(
                                         anyTree(
-                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))))));
+                                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))))));
     }
 
     @Test
@@ -1001,19 +1001,19 @@ public class TestLogicalPlanner
         assertPlan("SELECT o.orderkey, count(*) FROM orders o, lineitem l WHERE o.orderkey=l.orderkey GROUP BY 1",
                 anyTree(
                         aggregation(
-                                singleGroupingSet("o_orderkey"),
+                                singleGroupingSet("l_orderkey"),
                                 ImmutableMap.of(Optional.empty(), functionCall("count", ImmutableList.of())),
-                                ImmutableList.of("o_orderkey"), // streaming
+                                ImmutableList.of("l_orderkey"), // streaming
                                 Optional.empty(),
                                 SINGLE,
                                 join(INNER, builder -> builder
-                                        .equiCriteria("o_orderkey", "l_orderkey")
+                                        .equiCriteria("l_orderkey", "o_orderkey")
                                         .left(
                                                 anyTree(
-                                                        tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey"))))
+                                                        tableScan("lineitem", ImmutableMap.of("l_orderkey", "orderkey"))))
                                         .right(
                                                 anyTree(
-                                                        tableScan("lineitem", ImmutableMap.of("l_orderkey", "orderkey"))))))));
+                                                        tableScan("orders", ImmutableMap.of("o_orderkey", "orderkey"))))))));
 
         // left join -> streaming aggregation
         assertPlan("SELECT o.orderkey, count(*) FROM orders o LEFT JOIN lineitem l ON o.orderkey=l.orderkey GROUP BY 1",
@@ -1423,7 +1423,9 @@ public class TestLogicalPlanner
         // replicated join is preserved if probe side is single node
         assertPlanWithSession(
                 "SELECT * FROM (VALUES 1, 2, 3) t(a), region r WHERE r.regionkey = t.a",
-                broadcastJoin,
+                Session.builder(broadcastJoin)
+                        .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.NONE.name())
+                        .build(),
                 false,
                 anyTree(
                         node(JoinNode.class,
@@ -1532,18 +1534,18 @@ public class TestLogicalPlanner
                 "SELECT custkey FROM orders WHERE custkey IN (SELECT custkey FROM customer)",
                 any(
                         join(INNER, builder -> builder
-                                .equiCriteria("CUSTOMER_CUSTKEY", "ORDER_CUSTKEY")
+                                .equiCriteria("ORDER_CUSTKEY", "CUSTOMER_CUSTKEY")
                                 .left(
+                                        anyTree(
+                                                tableScan("orders", ImmutableMap.of("ORDER_CUSTKEY", "custkey"))))
+                                .right(
                                         aggregation(
                                                 singleGroupingSet("CUSTOMER_CUSTKEY"),
                                                 ImmutableMap.of(),
                                                 Optional.empty(),
                                                 FINAL,
                                                 anyTree(
-                                                        tableScan("customer", ImmutableMap.of("CUSTOMER_CUSTKEY", "custkey")))))
-                                .right(
-                                        anyTree(
-                                                tableScan("orders", ImmutableMap.of("ORDER_CUSTKEY", "custkey")))))));
+                                                        tableScan("customer", ImmutableMap.of("CUSTOMER_CUSTKEY", "custkey"))))))));
     }
 
     @Test
@@ -1962,13 +1964,19 @@ public class TestLogicalPlanner
                         "ON orders.orderstatus = t2.s",
                 any(
                         join(INNER, builder -> builder
-                                .equiCriteria("expr", "ORDER_STATUS")
-                                .left(anyTree(values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new StringLiteral("O")), ImmutableList.of(new StringLiteral("F"))))))
+                                .equiCriteria("ORDER_STATUS", "expr")
+                                .left(
+                                        filter(TRUE_LITERAL,
+                                                strictConstrainedTableScan(
+                                                        "orders",
+                                                        ImmutableMap.of("ORDER_STATUS", "orderstatus", "ORDER_KEY", "orderkey"),
+                                                        ImmutableMap.of("orderstatus", multipleValues(createVarcharType(1), ImmutableList.of(utf8Slice("F"), utf8Slice("O")))))))
                                 .right(
-                                        exchange(strictConstrainedTableScan(
-                                                "orders",
-                                                ImmutableMap.of("ORDER_STATUS", "orderstatus", "ORDER_KEY", "orderkey"),
-                                                ImmutableMap.of("orderstatus", multipleValues(createVarcharType(1), ImmutableList.of(utf8Slice("F"), utf8Slice("O"))))))))));
+                                        filter(
+                                                "expr IN ('F', 'O')",
+                                                values(
+                                                        ImmutableList.of("expr"),
+                                                        ImmutableList.of(ImmutableList.of(new StringLiteral("O")), ImmutableList.of(new StringLiteral("F")))))))));
     }
 
     @Test
@@ -2057,16 +2065,16 @@ public class TestLogicalPlanner
                         "ON orders.orderstatus = t2.s",
                 anyTree(
                         join(INNER, builder -> builder
-                                .equiCriteria("expr", "ORDER_STATUS")
+                                .equiCriteria("ORDER_STATUS", "expr")
                                 .left(
-                                        filter("expr IN ('F', 'O')",
-                                                values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new StringLiteral("O")), ImmutableList.of(new StringLiteral("F"))))))
-                                .right(
-                                        exchange(
+                                        filter(TRUE_LITERAL,
                                                 strictConstrainedTableScan(
                                                         "orders",
                                                         ImmutableMap.of("ORDER_STATUS", "orderstatus", "ORDER_KEY", "orderkey"),
-                                                        ImmutableMap.of("orderstatus", multipleValues(createVarcharType(1), ImmutableList.of(utf8Slice("F"), utf8Slice("O"))))))))));
+                                                        ImmutableMap.of("orderstatus", multipleValues(createVarcharType(1), ImmutableList.of(utf8Slice("F"), utf8Slice("O")))))))
+                                .right(
+                                        filter("expr IN ('F', 'O')",
+                                                values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new StringLiteral("O")), ImmutableList.of(new StringLiteral("F")))))))));
 
         // Constraint for the table is derived, based on constant values in the other branch of the join.
         // It is not accepted by the connector, and remains in form of a filter over TableScan.
@@ -2077,18 +2085,18 @@ public class TestLogicalPlanner
                         "ON orders.orderkey = t2.s",
                 anyTree(
                         join(INNER, builder -> builder
-                                .equiCriteria("expr", "ORDER_KEY")
+                                .equiCriteria("ORDER_KEY", "expr")
                                 .left(
                                         filter(
-                                                "expr IN (BIGINT '1', BIGINT '2')",
-                                                values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1")), ImmutableList.of(new GenericLiteral("BIGINT", "2"))))))
-                                .right(
-                                        anyTree(filter(
                                                 "ORDER_KEY IN (BIGINT '1', BIGINT '2')",
                                                 strictConstrainedTableScan(
                                                         "orders",
                                                         ImmutableMap.of("ORDER_STATUS", "orderstatus", "ORDER_KEY", "orderkey"),
-                                                        ImmutableMap.of())))))));
+                                                        ImmutableMap.of())))
+                                .right(
+                                        filter(
+                                                "expr IN (BIGINT '1', BIGINT '2')",
+                                                values(ImmutableList.of("expr"), ImmutableList.of(ImmutableList.of(new GenericLiteral("BIGINT", "1")), ImmutableList.of(new GenericLiteral("BIGINT", "2")))))))));
     }
 
     @Test

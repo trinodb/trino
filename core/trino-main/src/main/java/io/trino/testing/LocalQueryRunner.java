@@ -1268,7 +1268,7 @@ public class LocalQueryRunner
         private boolean alwaysRevokeMemory;
         private Map<String, List<PropertyMetadata<?>>> defaultSessionProperties = ImmutableMap.of();
         private Set<SystemSessionPropertiesProvider> extraSessionProperties = ImmutableSet.of();
-        private int nodeCountForStats;
+        private int nodeCountForStats = 1;
         private Function<Metadata, Metadata> metadataDecorator = Function.identity();
 
         private Builder(Session defaultSession)

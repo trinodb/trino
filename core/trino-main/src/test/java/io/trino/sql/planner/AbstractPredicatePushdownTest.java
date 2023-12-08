@@ -44,6 +44,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
+import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 public abstract class AbstractPredicatePushdownTest
         extends BasePlanTest
@@ -428,33 +429,31 @@ public abstract class AbstractPredicatePushdownTest
     @Test
     public void testTablePredicateIsExtracted()
     {
+        PlanMatchPattern ordersTableScan = tableScan("orders", ImmutableMap.of("ORDERSTATUS", "orderstatus"));
+        if (enableDynamicFiltering) {
+            ordersTableScan = filter(TRUE_LITERAL, ordersTableScan);
+        }
         assertPlan(
                 "SELECT * FROM orders, nation WHERE orderstatus = CAST(nation.name AS varchar(1)) AND orderstatus BETWEEN 'A' AND 'O'",
                 anyTree(
                         node(JoinNode.class,
+                                ordersTableScan,
                                 anyTree(
                                         filter("CAST(NAME AS varchar(1)) IN ('F', 'O')",
                                                 tableScan(
                                                         "nation",
-                                                        ImmutableMap.of("NAME", "name")))),
-                                anyTree(
-                                        tableScan(
-                                                "orders",
-                                                ImmutableMap.of("ORDERSTATUS", "orderstatus"))))));
+                                                        ImmutableMap.of("NAME", "name")))))));
 
         assertPlan(
                 "SELECT * FROM orders JOIN nation ON orderstatus = CAST(nation.name AS varchar(1))",
                 anyTree(
                         node(JoinNode.class,
+                                ordersTableScan,
                                 anyTree(
                                         filter("CAST(NAME AS varchar(1)) IN ('F', 'O', 'P')",
                                                 tableScan(
                                                         "nation",
-                                                        ImmutableMap.of("NAME", "name")))),
-                                anyTree(
-                                        tableScan(
-                                                "orders",
-                                                ImmutableMap.of("ORDERSTATUS", "orderstatus"))))));
+                                                        ImmutableMap.of("NAME", "name")))))));
     }
 
     @Test

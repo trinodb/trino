@@ -225,24 +225,24 @@ public class TestAddDynamicFilterSource
                         filter("O_ORDERKEY BETWEEN L_ORDERKEY AND L_PARTKEY",
                                 join(INNER, builder -> builder
                                         .dynamicFilter(ImmutableList.of(
-                                                new DynamicFilterPattern("O_ORDERKEY", GREATER_THAN_OR_EQUAL, "L_ORDERKEY"),
-                                                new DynamicFilterPattern("O_ORDERKEY", LESS_THAN_OR_EQUAL, "L_PARTKEY")))
+                                                new DynamicFilterPattern("L_ORDERKEY", LESS_THAN_OR_EQUAL, "O_ORDERKEY"),
+                                                new DynamicFilterPattern("L_PARTKEY", GREATER_THAN_OR_EQUAL, "O_ORDERKEY")))
                                         .left(
                                                 filter(
                                                         TRUE_LITERAL,
-                                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))))
+                                                        tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey", "L_PARTKEY", "partkey"))))
                                         .right(
                                                 exchange(
                                                         LOCAL,
                                                         exchange(
                                                                 REMOTE,
-                                                                node(
-                                                                        DynamicFilterSourceNode.class,
-                                                                        tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey", "L_PARTKEY", "partkey"))))))))));
+                                                                node(DynamicFilterSourceNode.class,
+                                                                        tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey"))))))))));
 
         // TODO: Add support for dynamic filters in the below case
         assertDistributedPlan(
                 "SELECT o.orderkey FROM orders o, lineitem l WHERE o.orderkey >= l.orderkey AND o.orderkey <= l.partkey - 1",
+                withJoinDistributionType(PARTITIONED),
                 anyTree(
                         filter("O_ORDERKEY >= L_ORDERKEY AND O_ORDERKEY <= expr",
                                 join(INNER, builder -> builder
