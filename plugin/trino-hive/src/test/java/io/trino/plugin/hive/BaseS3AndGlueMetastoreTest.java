@@ -23,9 +23,11 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.testing.AbstractTestQueryFramework;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Set;
@@ -40,7 +42,11 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public abstract class BaseS3AndGlueMetastoreTest
         extends AbstractTestQueryFramework
 {
@@ -60,13 +66,13 @@ public abstract class BaseS3AndGlueMetastoreTest
         this.bucketName = requireNonNull(bucketName, "bucketName is null");
     }
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         s3 = AmazonS3ClientBuilder.standard().build();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         if (metastore != null) {
