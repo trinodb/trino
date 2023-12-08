@@ -771,3 +771,62 @@ The preceding query produces the following output:
  A         | 2023-01-01 | 2023-01-11 |          8 |      1.00 |     15.00 |      8.38 | ▃ ▄█▇  ▅▁▄▄
  B         | 2023-01-01 | 2023-01-11 |          7 |      1.00 |      4.00 |      2.39 |   ▄▆▅ ▆ █▃▂
 ```
+
+## Top-N
+
+Trino already has a built-in [aggregate function](/functions/aggregate) called
+`approx_most_frequent()`, that can calculate most frequently occurring values.
+It returns a map with values as keys and number of occurrences as values. Maps
+are not ordered, so when displayed, the entries can change places on subsequent
+runs of the same query, and readers must still compare all frequencies to find
+the one most frequent value. The following is a routine returns ordered results
+as a string.
+
+```sql
+FUNCTION format_topn(input map<varchar, bigint>)
+RETURNS VARCHAR
+NOT DETERMINISTIC
+BEGIN
+  DECLARE freq_separator VARCHAR DEFAULT '=';
+  DECLARE entry_separator VARCHAR DEFAULT ', ';
+  RETURN array_join(transform(
+    reverse(array_sort(transform(
+      transform(
+        map_entries(input),
+          r -> cast(r AS row(key varchar, value bigint))
+      ),
+      r -> cast(row(r.value, r.key) AS row(value bigint, key varchar)))
+    )),
+    r -> r.key || freq_separator || cast(r.value as varchar)),
+    entry_separator);
+END;
+```
+
+Following is an example query to count generated strings:
+
+```sql
+WITH
+data AS (
+    SELECT lpad('', 3, chr(65+(s.num / 3))) AS value
+    FROM table(sequence(start=>1, stop=>10)) AS s(num)
+),
+aggregated AS (
+    SELECT
+        array_agg(data.value ORDER BY data.value) AS all_values,
+        approx_most_frequent(3, data.value, 1000) AS top3
+    FROM data
+)
+SELECT
+    a.all_values,
+    a.top3,
+    format_topn(a.top3) AS top3_formatted
+FROM aggregated a;
+```
+
+The preceding query produces the following result:
+
+```text
+                     all_values                     |         top3          |    top3_formatted
+----------------------------------------------------+-----------------------+---------------------
+ [AAA, AAA, BBB, BBB, BBB, CCC, CCC, CCC, DDD, DDD] | {AAA=2, CCC=3, BBB=3} | CCC=3, BBB=3, AAA=2
+```
