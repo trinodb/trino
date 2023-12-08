@@ -420,6 +420,9 @@ public final class DictionaryBlock
     public Block copyRegion(int position, int length)
     {
         checkValidRegion(positionCount, position, length);
+        if (length == 0) {
+            return dictionary.copyRegion(0, 0);
+        }
         // Avoid repeated volatile reads to the uniqueIds field
         int uniqueIds = this.uniqueIds;
         if (length <= 1 || (uniqueIds == dictionary.getPositionCount() && isSequentialIds)) {
