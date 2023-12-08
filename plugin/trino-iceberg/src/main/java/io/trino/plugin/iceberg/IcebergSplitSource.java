@@ -25,7 +25,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.cache.NonEvictableCache;
 import io.trino.filesystem.Location;
-import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.plugin.iceberg.delete.DeleteFile;
 import io.trino.plugin.iceberg.util.DataFileWithDeleteFiles;
@@ -108,9 +107,10 @@ public class IcebergSplitSource
     private static final ConnectorSplitBatch EMPTY_BATCH = new ConnectorSplitBatch(ImmutableList.of(), false);
     private static final ConnectorSplitBatch NO_MORE_SPLITS_BATCH = new ConnectorSplitBatch(ImmutableList.of(), true);
 
-    private final TrinoFileSystemFactory fileSystemFactory;
+    private final IcebergFileSystemFactory fileSystemFactory;
     private final ConnectorSession session;
     private final IcebergTableHandle tableHandle;
+    private final Map<String, String> fileIoProperties;
     private final TableScan tableScan;
     private final Optional<Long> maxScannedFileSizeInBytes;
     private final Map<Integer, Type.PrimitiveType> fieldIdToType;
@@ -138,9 +138,10 @@ public class IcebergSplitSource
     private long outputRowsLowerBound;
 
     public IcebergSplitSource(
-            TrinoFileSystemFactory fileSystemFactory,
+            IcebergFileSystemFactory fileSystemFactory,
             ConnectorSession session,
             IcebergTableHandle tableHandle,
+            Map<String, String> fileIoProperties,
             TableScan tableScan,
             Optional<DataSize> maxScannedFileSize,
             DynamicFilter dynamicFilter,
@@ -153,6 +154,7 @@ public class IcebergSplitSource
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.session = requireNonNull(session, "session is null");
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
+        this.fileIoProperties = requireNonNull(fileIoProperties, "fileIoProperties is null");
         this.tableScan = requireNonNull(tableScan, "tableScan is null");
         this.maxScannedFileSizeInBytes = maxScannedFileSize.map(DataSize::toBytes);
         this.fieldIdToType = primitiveFieldTypes(tableScan.schema());
@@ -332,7 +334,7 @@ public class IcebergSplitSource
     private long getModificationTime(String path)
     {
         try {
-            TrinoInputFile inputFile = fileSystemFactory.create(session).newInputFile(Location.of(path));
+            TrinoInputFile inputFile = fileSystemFactory.create(session.getIdentity(), fileIoProperties).newInputFile(Location.of(path));
             return inputFile.lastModified().toEpochMilli();
         }
         catch (IOException e) {
@@ -514,7 +516,8 @@ public class IcebergSplitSource
                 task.deletes().stream()
                         .map(DeleteFile::fromIceberg)
                         .collect(toImmutableList()),
-                SplitWeight.fromProportion(clamp((double) task.length() / tableScan.targetSplitSize(), minimumAssignedSplitWeight, 1.0)));
+                SplitWeight.fromProportion(clamp((double) task.length() / tableScan.targetSplitSize(), minimumAssignedSplitWeight, 1.0)),
+                fileIoProperties);
     }
 
     private static Domain getPathDomain(TupleDomain<IcebergColumnHandle> effectivePredicate)

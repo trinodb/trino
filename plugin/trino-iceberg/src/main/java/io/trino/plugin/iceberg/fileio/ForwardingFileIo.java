@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.iceberg.fileio;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
@@ -24,6 +25,7 @@ import org.apache.iceberg.io.SupportsBulkOperations;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
@@ -36,10 +38,17 @@ public class ForwardingFileIo
     private static final int BATCH_DELETE_PATHS_MESSAGE_LIMIT = 5;
 
     private final TrinoFileSystem fileSystem;
+    private final Map<String, String> properties;
 
     public ForwardingFileIo(TrinoFileSystem fileSystem)
     {
+        this(fileSystem, ImmutableMap.of());
+    }
+
+    public ForwardingFileIo(TrinoFileSystem fileSystem, Map<String, String> properties)
+    {
         this.fileSystem = requireNonNull(fileSystem, "fileSystem is null");
+        this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
     }
 
     @Override
@@ -94,5 +103,17 @@ public class ForwardingFileIo
                                     .collect(joining(", ", "[", "]")),
                     e);
         }
+    }
+
+    @Override
+    public Map<String, String> properties()
+    {
+        return properties;
+    }
+
+    @Override
+    public void initialize(Map<String, String> properties)
+    {
+        throw new UnsupportedOperationException("ForwardingFileIO does not support initialization by properties");
     }
 }
