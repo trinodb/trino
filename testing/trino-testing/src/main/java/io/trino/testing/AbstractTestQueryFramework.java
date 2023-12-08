@@ -61,8 +61,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 
 import java.util.List;
 import java.util.Map;
@@ -104,7 +102,6 @@ public abstract class AbstractTestQueryFramework
     private H2QueryRunner h2QueryRunner;
     private io.trino.sql.query.QueryAssertions queryAssertions;
 
-    @BeforeClass
     @BeforeAll
     public void init()
             throws Exception
@@ -122,7 +119,6 @@ public abstract class AbstractTestQueryFramework
             throws Exception;
 
     @AfterAll
-    @AfterClass(alwaysRun = true)
     public final void close()
             throws Exception
     {
