@@ -81,6 +81,7 @@ import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
@@ -656,6 +657,7 @@ public class DistributedQueryRunner
     public static class Builder<SELF extends Builder<?>>
     {
         private Session defaultSession;
+        private boolean withTracing;
         private int nodeCount = 3;
         private Map<String, String> extraProperties = ImmutableMap.of();
         private Map<String, String> coordinatorProperties = ImmutableMap.of();
@@ -673,6 +675,8 @@ public class DistributedQueryRunner
         protected Builder(Session defaultSession)
         {
             this.defaultSession = requireNonNull(defaultSession, "defaultSession is null");
+            String tracingEnabled = firstNonNull(getenv("TESTS_TRACING_ENABLED"), "false");
+            this.withTracing = parseBoolean(tracingEnabled) || tracingEnabled.equals("1");
         }
 
         @CanIgnoreReturnValue
@@ -828,19 +832,7 @@ public class DistributedQueryRunner
 
         public SELF withTracing()
         {
-            OpenTracingCollector collector = new OpenTracingCollector();
-            collector.start();
-            extraCloseables = ImmutableList.of(collector);
-            this.addExtraProperties(Map.of("tracing.enabled", "true", "tracing.exporter.endpoint", collector.getExporterEndpoint().toString()));
-            this.setEventListener(new EventListener()
-            {
-                @Override
-                public void queryCompleted(QueryCompletedEvent queryCompletedEvent)
-                {
-                    String queryId = queryCompletedEvent.getMetadata().getQueryId();
-                    log.info("TRACING: %s :: %s", queryId, collector.searchForQueryId(queryId));
-                }
-            });
+            this.withTracing = true;
             return self();
         }
 
@@ -853,9 +845,22 @@ public class DistributedQueryRunner
         public DistributedQueryRunner build()
                 throws Exception
         {
-            String tracingEnabled = firstNonNull(getenv("TESTS_TRACING_ENABLED"), "false");
-            if (parseBoolean(tracingEnabled) || tracingEnabled.equals("1")) {
-                withTracing();
+            if (withTracing) {
+                checkState(extraCloseables.isEmpty(), "extraCloseables already set");
+                OpenTracingCollector collector = new OpenTracingCollector();
+                collector.start();
+                extraCloseables = ImmutableList.of(collector);
+                addExtraProperties(Map.of("tracing.enabled", "true", "tracing.exporter.endpoint", collector.getExporterEndpoint().toString()));
+                checkState(eventListeners.isEmpty(), "eventListeners already set");
+                setEventListener(new EventListener()
+                {
+                    @Override
+                    public void queryCompleted(QueryCompletedEvent queryCompletedEvent)
+                    {
+                        String queryId = queryCompletedEvent.getMetadata().getQueryId();
+                        log.info("TRACING: %s :: %s", queryId, collector.searchForQueryId(queryId));
+                    }
+                });
             }
 
             Optional<FactoryConfiguration> systemAccessControlConfiguration = this.systemAccessControlConfiguration;
