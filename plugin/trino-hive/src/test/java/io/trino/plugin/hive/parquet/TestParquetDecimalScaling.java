@@ -36,7 +36,7 @@ import org.apache.hadoop.mapred.JobConf;
 import org.apache.parquet.schema.MessageType;
 import org.intellij.lang.annotations.Language;
 import org.joda.time.DateTimeZone;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
