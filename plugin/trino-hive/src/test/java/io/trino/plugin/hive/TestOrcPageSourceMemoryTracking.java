@@ -570,7 +570,7 @@ public class TestOrcPageSourceMemoryTracking
                     partitionKeys,
                     columns,
                     ImmutableList.of(),
-                    TableToPartitionMapping.empty(),
+                    ImmutableMap.of(),
                     fileSplit.getPath().toString(),
                     OptionalInt.empty(),
                     fileSplit.getLength(),

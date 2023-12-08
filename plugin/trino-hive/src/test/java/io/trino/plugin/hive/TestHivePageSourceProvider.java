@@ -88,7 +88,7 @@ public class TestHivePageSourceProvider
             OptionalInt.empty(),
             OptionalInt.of(1),
             false,
-            new TableToPartitionMapping(Optional.empty(), ImmutableMap.of()),
+            ImmutableMap.of(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),

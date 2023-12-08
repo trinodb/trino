@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.HiveSplit.BucketConversion;
 import io.trino.plugin.hive.HiveSplit.BucketValidation;
 
@@ -35,7 +36,7 @@ public class HiveCacheSplitId
     private final String partitionName;
     private final OptionalInt readBucketNumber;
     private final OptionalInt tableBucketNumber;
-    private final TableToPartitionMapping tableToPartitionMapping;
+    private final Map<Integer, HiveTypeName> hiveColumnCoercions;
     private final Optional<BucketConversion> bucketConversion;
     private final Optional<BucketValidation> bucketValidation;
     private final Map<String, String> schema;
@@ -50,7 +51,7 @@ public class HiveCacheSplitId
             String partitionName,
             OptionalInt readBucketNumber,
             OptionalInt tableBucketNumber,
-            TableToPartitionMapping tableToPartitionMapping,
+            Map<Integer, HiveTypeName> hiveColumnCoercions,
             Optional<BucketConversion> bucketConversion,
             Optional<BucketValidation> bucketValidation,
             Map<String, String> schema)
@@ -64,7 +65,7 @@ public class HiveCacheSplitId
         this.partitionName = requireNonNull(partitionName, "partitionName is null");
         this.readBucketNumber = requireNonNull(readBucketNumber, "readBucketNumber is null");
         this.tableBucketNumber = requireNonNull(tableBucketNumber, "tableBucketNumber is null");
-        this.tableToPartitionMapping = requireNonNull(tableToPartitionMapping, "tableToPartitionMapping is null");
+        this.hiveColumnCoercions = ImmutableMap.copyOf(requireNonNull(hiveColumnCoercions, "hiveColumnCoercions is null"));
         this.bucketConversion = requireNonNull(bucketConversion, "bucketConversion is null");
         this.bucketValidation = requireNonNull(bucketValidation, "bucketValidation is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -125,9 +126,9 @@ public class HiveCacheSplitId
     }
 
     @JsonProperty
-    public TableToPartitionMapping getTableToPartitionMapping()
+    public Map<Integer, HiveTypeName> getHiveColumnCoercions()
     {
-        return tableToPartitionMapping;
+        return hiveColumnCoercions;
     }
 
     @JsonProperty

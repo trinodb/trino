@@ -27,7 +27,6 @@ import io.trino.plugin.hive.HiveColumnHandle;
 import io.trino.plugin.hive.HiveConfig;
 import io.trino.plugin.hive.HivePageSourceProvider;
 import io.trino.plugin.hive.HiveType;
-import io.trino.plugin.hive.TableToPartitionMapping;
 import io.trino.plugin.hive.util.SerdeConstants;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorSession;
@@ -149,7 +148,7 @@ public class TestOrcFilteredRowRanges
                 ImmutableList.of(),
                 columns,
                 ImmutableList.of(),
-                TableToPartitionMapping.empty(),
+                ImmutableMap.of(),
                 location.toString(),
                 OptionalInt.empty(),
                 length,

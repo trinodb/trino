@@ -14,6 +14,7 @@
 package io.trino.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.annotation.NotThreadSafe;
 import io.trino.plugin.hive.HiveSplit.BucketConversion;
 import io.trino.plugin.hive.HiveSplit.BucketValidation;
@@ -38,6 +39,7 @@ import static java.util.Objects.requireNonNull;
 public class InternalHiveSplit
 {
     private static final int INSTANCE_SIZE = instanceSize(InternalHiveSplit.class) + instanceSize(OptionalInt.class);
+    private static final int INTEGER_INSTANCE_SIZE = instanceSize(Integer.class);
 
     private final String path;
     private final long end;
@@ -51,7 +53,7 @@ public class InternalHiveSplit
     private final OptionalInt tableBucketNumber;
     private final boolean splittable;
     private final boolean forceLocalScheduling;
-    private final TableToPartitionMapping tableToPartitionMapping;
+    private final Map<Integer, HiveTypeName> hiveColumnCoercions;
     private final Optional<BucketConversion> bucketConversion;
     private final Optional<BucketValidation> bucketValidation;
     private final Optional<AcidInfo> acidInfo;
@@ -74,7 +76,7 @@ public class InternalHiveSplit
             OptionalInt tableBucketNumber,
             boolean splittable,
             boolean forceLocalScheduling,
-            TableToPartitionMapping tableToPartitionMapping,
+            Map<Integer, HiveTypeName> hiveColumnCoercions,
             Optional<BucketConversion> bucketConversion,
             Optional<BucketValidation> bucketValidation,
             Optional<AcidInfo> acidInfo,
@@ -90,7 +92,7 @@ public class InternalHiveSplit
         requireNonNull(blocks, "blocks is null");
         requireNonNull(readBucketNumber, "readBucketNumber is null");
         requireNonNull(tableBucketNumber, "tableBucketNumber is null");
-        requireNonNull(tableToPartitionMapping, "tableToPartitionMapping is null");
+        requireNonNull(hiveColumnCoercions, "hiveColumnCoercions is null");
         requireNonNull(bucketConversion, "bucketConversion is null");
         requireNonNull(bucketValidation, "bucketValidation is null");
         requireNonNull(acidInfo, "acidInfo is null");
@@ -109,7 +111,7 @@ public class InternalHiveSplit
         this.tableBucketNumber = tableBucketNumber;
         this.splittable = splittable;
         this.forceLocalScheduling = forceLocalScheduling;
-        this.tableToPartitionMapping = tableToPartitionMapping;
+        this.hiveColumnCoercions = ImmutableMap.copyOf(hiveColumnCoercions);
         this.bucketConversion = bucketConversion;
         this.bucketValidation = bucketValidation;
         this.acidInfo = acidInfo;
@@ -176,9 +178,9 @@ public class InternalHiveSplit
         return forceLocalScheduling;
     }
 
-    public TableToPartitionMapping getTableToPartitionMapping()
+    public Map<Integer, HiveTypeName> getHiveColumnCoercions()
     {
-        return tableToPartitionMapping;
+        return hiveColumnCoercions;
     }
 
     public Optional<BucketConversion> getBucketConversion()
@@ -221,7 +223,7 @@ public class InternalHiveSplit
                 estimatedSizeOf(partitionKeys, HivePartitionKey::getEstimatedSizeInBytes) +
                 estimatedSizeOf(blocks, InternalHiveBlock::getEstimatedSizeInBytes) +
                 estimatedSizeOf(partitionName) +
-                tableToPartitionMapping.getEstimatedSizeInBytes();
+                estimatedSizeOf(hiveColumnCoercions, (Integer key) -> INTEGER_INSTANCE_SIZE, HiveTypeName::getEstimatedSizeInBytes);
         return toIntExact(result);
     }
 

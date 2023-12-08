@@ -85,7 +85,6 @@ import static io.trino.plugin.hive.HiveSessionProperties.isPropagateTableScanSor
 import static io.trino.plugin.hive.HiveSessionProperties.isUseOrcColumnNames;
 import static io.trino.plugin.hive.HiveSessionProperties.isUseParquetColumnNames;
 import static io.trino.plugin.hive.HiveStorageFormat.getHiveStorageFormat;
-import static io.trino.plugin.hive.TableToPartitionMapping.mapColumnsByIndex;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.getProtectMode;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.verifyOnline;
@@ -335,7 +334,7 @@ public class HiveSplitManager
                 hiveSplit.getTableBucketNumber(),
                 // force local scheduling can be skipped
                 false,
-                hiveSplit.getTableToPartitionMapping(),
+                hiveSplit.getHiveColumnCoercions(),
                 hiveSplit.getBucketConversion(),
                 hiveSplit.getBucketValidation(),
                 Optional.empty(),
@@ -352,7 +351,7 @@ public class HiveSplitManager
                 hiveSplit.getPartitionName(),
                 hiveSplit.getReadBucketNumber(),
                 hiveSplit.getTableBucketNumber(),
-                hiveSplit.getTableToPartitionMapping(),
+                hiveSplit.getHiveColumnCoercions(),
                 hiveSplit.getBucketConversion(),
                 hiveSplit.getBucketValidation(),
                 // order schema keys to canonicalize schema map
@@ -384,7 +383,7 @@ public class HiveSplitManager
         if (firstPartition.getPartitionId().equals(UNPARTITIONED_ID)) {
             hivePartitions.next();
             checkArgument(!hivePartitions.hasNext(), "single partition is expected for unpartitioned table");
-            return singletonIterator(new HivePartitionMetadata(firstPartition, Optional.empty(), TableToPartitionMapping.empty()));
+            return singletonIterator(new HivePartitionMetadata(firstPartition, Optional.empty(), ImmutableMap.of()));
         }
 
         HiveTimestampPrecision hiveTimestampPrecision = getTimestampPrecision(session);
@@ -464,7 +463,7 @@ public class HiveSplitManager
             throw new TrinoException(HIVE_INVALID_METADATA, format("Table '%s' or partition '%s' has null columns", tableName, partName));
         }
 
-        TableToPartitionMapping tableToPartitionMapping = getTableToPartitionMapping(usePartitionColumnNames, typeManager, hiveTimestampPrecision, tableName, partName, tableColumns, partitionColumns, neededColumnNames);
+        Map<Integer, HiveTypeName> hiveColumnCoercions = getHiveColumnCoercions(usePartitionColumnNames, typeManager, hiveTimestampPrecision, tableName, partName, tableColumns, partitionColumns, neededColumnNames);
 
         if (bucketProperty.isPresent()) {
             HiveBucketProperty partitionBucketProperty = partition.getStorage().getBucketProperty()
@@ -499,10 +498,10 @@ public class HiveSplitManager
                 }
             }
         }
-        return new HivePartitionMetadata(hivePartition, Optional.of(partition), tableToPartitionMapping);
+        return new HivePartitionMetadata(hivePartition, Optional.of(partition), hiveColumnCoercions);
     }
 
-    private static TableToPartitionMapping getTableToPartitionMapping(
+    private static Map<Integer, HiveTypeName> getHiveColumnCoercions(
             boolean usePartitionColumnNames,
             TypeManager typeManager,
             HiveTimestampPrecision hiveTimestampPrecision,
@@ -513,7 +512,7 @@ public class HiveSplitManager
             Set<String> neededColumnNames)
     {
         if (usePartitionColumnNames) {
-            return getTableToPartitionMappingByColumnNames(typeManager, tableName, partName, tableColumns, partitionColumns, neededColumnNames, hiveTimestampPrecision);
+            return getHiveColumnCoercionsByColumnNames(typeManager, tableName, partName, tableColumns, partitionColumns, neededColumnNames, hiveTimestampPrecision);
         }
         ImmutableMap.Builder<Integer, HiveTypeName> columnCoercions = ImmutableMap.builder();
         for (int i = 0; i < min(partitionColumns.size(), tableColumns.size()); i++) {
@@ -530,7 +529,7 @@ public class HiveSplitManager
                 columnCoercions.put(i, partitionType.getHiveTypeName());
             }
         }
-        return mapColumnsByIndex(columnCoercions.buildOrThrow());
+        return columnCoercions.buildOrThrow();
     }
 
     private static boolean isPartitionUsesColumnNames(ConnectorSession session, Optional<HiveStorageFormat> storageFormat)
@@ -546,7 +545,7 @@ public class HiveSplitManager
         };
     }
 
-    private static TableToPartitionMapping getTableToPartitionMappingByColumnNames(
+    private static Map<Integer, HiveTypeName> getHiveColumnCoercionsByColumnNames(
             TypeManager typeManager,
             SchemaTableName tableName,
             String partName,
@@ -567,7 +566,6 @@ public class HiveSplitManager
         Map<String, Integer> partitionColumnsByIndex = partitionColumnIndexesBuilder.buildOrThrow();
 
         ImmutableMap.Builder<Integer, HiveTypeName> columnCoercions = ImmutableMap.builder();
-        ImmutableMap.Builder<Integer, Integer> tableToPartitionColumns = ImmutableMap.builder();
         for (int tableColumnIndex = 0; tableColumnIndex < tableColumns.size(); tableColumnIndex++) {
             Column tableColumn = tableColumns.get(tableColumnIndex);
             HiveType tableType = tableColumn.getType();
@@ -575,18 +573,17 @@ public class HiveSplitManager
             if (partitionColumnIndex == null) {
                 continue;
             }
-            tableToPartitionColumns.put(tableColumnIndex, partitionColumnIndex);
             Column partitionColumn = partitionColumns.get(partitionColumnIndex);
             HiveType partitionType = partitionColumn.getType();
             if (!tableType.equals(partitionType)) {
                 if (!canCoerce(typeManager, partitionType, tableType, hiveTimestampPrecision)) {
                     throw tablePartitionColumnMismatchException(tableName, partName, tableColumn.getName(), tableType, partitionColumn.getName(), partitionType);
                 }
-                columnCoercions.put(partitionColumnIndex, partitionType.getHiveTypeName());
+                columnCoercions.put(tableColumnIndex, partitionType.getHiveTypeName());
             }
         }
 
-        return new TableToPartitionMapping(Optional.of(tableToPartitionColumns.buildOrThrow()), columnCoercions.buildOrThrow());
+        return columnCoercions.buildOrThrow();
     }
 
     private static TrinoException tablePartitionColumnMismatchException(SchemaTableName tableName, String partName, String tableColumnName, HiveType tableType, String partitionColumnName, HiveType partitionType)

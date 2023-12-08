@@ -799,7 +799,7 @@ public class TestBackgroundHiveSplitLoader
                 List.of(),
                 TupleDomain.all(),
                 () -> true,
-                TableToPartitionMapping.empty(),
+                ImmutableMap.of(),
                 Optional.empty(),
                 Optional.empty(),
                 DataSize.of(512, MEGABYTE),
@@ -840,7 +840,7 @@ public class TestBackgroundHiveSplitLoader
                 List.of(),
                 TupleDomain.all(),
                 () -> true,
-                TableToPartitionMapping.empty(),
+                ImmutableMap.of(),
                 Optional.empty(),
                 Optional.empty(),
                 DataSize.of(512, MEGABYTE),
@@ -946,7 +946,7 @@ public class TestBackgroundHiveSplitLoader
         return new HivePartitionMetadata(
                 new HivePartition(SIMPLE_TABLE.getSchemaTableName()),
                 Optional.empty(),
-                TableToPartitionMapping.empty());
+                ImmutableMap.of());
     }
 
     private static void createOrcAcidFile(TrinoFileSystem fileSystem, Location location)
@@ -1108,7 +1108,7 @@ public class TestBackgroundHiveSplitLoader
                         new HivePartitionMetadata(
                                 new HivePartition(new SchemaTableName("testSchema", "table_name")),
                                 Optional.empty(),
-                                TableToPartitionMapping.empty()));
+                                ImmutableMap.of()));
 
         return new BackgroundHiveSplitLoader(
                 table,
@@ -1139,7 +1139,7 @@ public class TestBackgroundHiveSplitLoader
                 new HivePartitionMetadata(
                         new HivePartition(new SchemaTableName("testSchema", "table_name")),
                         Optional.empty(),
-                        TableToPartitionMapping.empty()));
+                        ImmutableMap.of()));
         return backgroundHiveSplitLoader(partitions, locations, directoryLister, 100);
     }
 
@@ -1215,7 +1215,7 @@ public class TestBackgroundHiveSplitLoader
             {
                 position++;
                 return switch (position) {
-                    case 0 -> new HivePartitionMetadata(new HivePartition(new SchemaTableName("testSchema", "table_name")), Optional.empty(), TableToPartitionMapping.empty());
+                    case 0 -> new HivePartitionMetadata(new HivePartition(new SchemaTableName("testSchema", "table_name")), Optional.empty(), ImmutableMap.of());
                     case 1 -> throw new RuntimeException("OFFLINE");
                     default -> endOfData();
                 };

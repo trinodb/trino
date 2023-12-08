@@ -974,7 +974,7 @@ public final class TestHiveFileFormats
                 partitionKeys,
                 getColumnHandles(testReadColumns),
                 ImmutableList.of(),
-                TableToPartitionMapping.empty(),
+                ImmutableMap.of(),
                 location.toString(),
                 OptionalInt.empty(),
                 paddedFileSize,
