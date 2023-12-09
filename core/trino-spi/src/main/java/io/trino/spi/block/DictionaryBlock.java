@@ -421,6 +421,8 @@ public final class DictionaryBlock
     {
         checkValidRegion(positionCount, position, length);
         if (length == 0) {
+            // explicit support for case when length == 0 which might otherwise fail
+            // on getId(position) if position == positionCount
             return dictionary.copyRegion(0, 0);
         }
         // Avoid repeated volatile reads to the uniqueIds field
