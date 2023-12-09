@@ -16,7 +16,7 @@ package io.trino.parquet.reader.flat;
 import io.airlift.slice.Slices;
 import org.apache.parquet.bytes.HeapByteBufferAllocator;
 import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridEncoder;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.Arrays;
