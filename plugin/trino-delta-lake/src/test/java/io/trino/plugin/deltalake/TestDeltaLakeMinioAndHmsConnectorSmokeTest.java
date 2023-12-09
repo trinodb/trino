@@ -50,11 +50,14 @@ public class TestDeltaLakeMinioAndHmsConnectorSmokeTest
     protected Map<String, String> hiveStorageConfiguration()
     {
         return ImmutableMap.<String, String>builder()
-                .put("hive.s3.aws-access-key", MINIO_ACCESS_KEY)
-                .put("hive.s3.aws-secret-key", MINIO_SECRET_KEY)
-                .put("hive.s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
-                .put("hive.s3.path-style-access", "true")
-                .put("hive.s3.max-connections", "2")
+                .put("fs.hadoop.enabled", "false")
+                .put("fs.native-s3.enabled", "true")
+                .put("s3.aws-access-key", MINIO_ACCESS_KEY)
+                .put("s3.aws-secret-key", MINIO_SECRET_KEY)
+                .put("s3.region", MINIO_REGION)
+                .put("s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
+                .put("s3.path-style-access", "true")
+                .put("s3.max-connections", "2")
                 .buildOrThrow();
     }
 
