@@ -22,7 +22,7 @@ import io.trino.spi.block.ColumnarMap;
 import io.trino.spi.block.RowBlock;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.TypeOperators;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Iterator;
 import java.util.List;
