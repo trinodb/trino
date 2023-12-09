@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import io.trino.sql.parser.SqlParser;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Collection;
 import java.util.List;

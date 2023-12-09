@@ -20,7 +20,7 @@ import io.trino.spi.block.ColumnarArray;
 import io.trino.spi.block.ColumnarMap;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RowBlock;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
