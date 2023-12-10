@@ -80,20 +80,20 @@ public class TestGcsFileSystemConfig
                         .setUseGcsAccessToken(true)
                         .setJsonKey("{}}")::validate)
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessage("Cannot specify 'hive.gcs.json-key' when 'hive.gcs.use-access-token' is set");
+                .hasMessage("Cannot specify 'gcs.json-key' when 'gcs.use-access-token' is set");
 
         assertThatThrownBy(
                 new GcsFileSystemConfig()
                         .setUseGcsAccessToken(true)
                         .setJsonKeyFilePath("/dev/null")::validate)
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessage("Cannot specify 'hive.gcs.json-key-file-path' when 'hive.gcs.use-access-token' is set");
+                .hasMessage("Cannot specify 'gcs.json-key-file-path' when 'gcs.use-access-token' is set");
 
         assertThatThrownBy(
                 new GcsFileSystemConfig()
                         .setJsonKey("{}")
                         .setJsonKeyFilePath("/dev/null")::validate)
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessage("'hive.gcs.json-key' and 'hive.gcs.json-key-file-path' cannot be both set");
+                .hasMessage("'gcs.json-key' and 'gcs.json-key-file-path' cannot be both set");
     }
 }
