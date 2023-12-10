@@ -13,10 +13,16 @@
  */
 package io.trino.filesystem.gcs;
 
+import io.trino.filesystem.TrinoOutputFile;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
+import java.io.OutputStream;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class TestGcsFileSystemGcs
@@ -27,5 +33,17 @@ public class TestGcsFileSystemGcs
             throws IOException
     {
         initialize(getRequiredEnvironmentVariable("GCP_CREDENTIALS_KEY"));
+    }
+
+    @Test
+    void testCreateFileRetry()
+    {
+        assertThatNoException().isThrownBy(() -> {
+            for (int i = 1; i <= 100; i++) {
+                TrinoOutputFile outputFile = getFileSystem().newOutputFile(getRootLocation().appendPath("testFile"));
+                try (OutputStream out = outputFile.createOrOverwrite()) {
+                    out.write("test".getBytes(UTF_8));
+                }
+            }});
     }
 }
