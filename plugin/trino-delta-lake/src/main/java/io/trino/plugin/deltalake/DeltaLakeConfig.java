@@ -271,13 +271,13 @@ public class DeltaLakeConfig
         return defaultCheckpointWritingInterval;
     }
 
-    public boolean isCheckpointPartitionFilterEnabled()
+    public boolean isCheckpointFilteringEnabled()
     {
         return checkpointFilteringEnabled;
     }
 
     @Config("delta.checkpoint-filtering.enabled")
-    public DeltaLakeConfig setCheckpointPartitionFilterEnabled(boolean checkpointFilteringEnabled)
+    public DeltaLakeConfig setCheckpointFilteringEnabled(boolean checkpointFilteringEnabled)
     {
         this.checkpointFilteringEnabled = checkpointFilteringEnabled;
         return this;

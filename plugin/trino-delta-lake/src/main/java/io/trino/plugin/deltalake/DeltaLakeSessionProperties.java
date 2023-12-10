@@ -213,7 +213,7 @@ public final class DeltaLakeSessionProperties
                 booleanProperty(
                         CHECKPOINT_FILTERING_ENABLED,
                         "Use filter in checkpoint reader",
-                        deltaLakeConfig.isCheckpointPartitionFilterEnabled(),
+                        deltaLakeConfig.isCheckpointFilteringEnabled(),
                         false));
     }
 
