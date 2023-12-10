@@ -13,6 +13,7 @@
  */
 package io.trino.filesystem.gcs;
 
+import com.google.api.gax.retrying.RetrySettings;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageOptions;
@@ -20,6 +21,7 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.trino.spi.security.ConnectorIdentity;
+import org.threeten.bp.Duration;
 
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
@@ -29,6 +31,7 @@ import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.cloud.storage.StorageRetryStrategy.getUniformStorageRetryStrategy;
 import static com.google.common.base.Strings.nullToEmpty;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -39,6 +42,11 @@ public class GcsStorageFactory
     private final String projectId;
     private final boolean useGcsAccessToken;
     private final Optional<GoogleCredentials> jsonGoogleCredential;
+    private final int maxRetries;
+    private final double backoffScaleFactor;
+    private final Duration maxRetryTime;
+    private final Duration minBackoffDelay;
+    private final Duration maxBackoffDelay;
 
     @Inject
     public GcsStorageFactory(GcsFileSystemConfig config)
@@ -62,6 +70,12 @@ public class GcsStorageFactory
         else {
             jsonGoogleCredential = Optional.empty();
         }
+        this.maxRetries = config.getMaxRetries();
+        this.backoffScaleFactor = config.getBackoffScaleFactor();
+        // To avoid name collision by importing io.airlift.Duration
+        this.maxRetryTime = Duration.ofMillis(config.getMaxRetryTime().toMillis());
+        this.minBackoffDelay = Duration.ofMillis(config.getMinBackoffDelay().toMillis());
+        this.maxBackoffDelay = Duration.ofMillis(config.getMaxBackoffDelay().toMillis());
     }
 
     public Storage create(ConnectorIdentity identity)
@@ -81,7 +95,20 @@ public class GcsStorageFactory
             if (projectId != null) {
                 storageOptionsBuilder.setProjectId(projectId);
             }
-            return storageOptionsBuilder.setCredentials(credentials).build().getService();
+            // Note: without uniform strategy we cannot retry idempotent operations.
+            // The trino-filesystem api does not violate the conditions for idempotency, see https://cloud.google.com/storage/docs/retry-strategy#java for details.
+            return storageOptionsBuilder
+                    .setCredentials(credentials)
+                    .setStorageRetryStrategy(getUniformStorageRetryStrategy())
+                    .setRetrySettings(RetrySettings.newBuilder()
+                            .setMaxAttempts(maxRetries + 1)
+                            .setRetryDelayMultiplier(backoffScaleFactor)
+                            .setTotalTimeout(maxRetryTime)
+                            .setInitialRetryDelay(minBackoffDelay)
+                            .setMaxRetryDelay(maxBackoffDelay)
+                            .build())
+                    .build()
+                    .getService();
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
