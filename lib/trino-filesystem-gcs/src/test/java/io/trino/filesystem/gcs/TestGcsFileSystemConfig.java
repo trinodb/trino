@@ -15,6 +15,8 @@ package io.trino.filesystem.gcs;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
+import jakarta.validation.constraints.AssertTrue;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -25,6 +27,10 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
+import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestGcsFileSystemConfig
@@ -33,14 +39,19 @@ public class TestGcsFileSystemConfig
     void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(GcsFileSystemConfig.class)
-                .setReadBlockSize(DataSize.of(2, DataSize.Unit.MEGABYTE))
-                .setWriteBlockSize(DataSize.of(16, DataSize.Unit.MEGABYTE))
+                .setReadBlockSize(DataSize.of(2, MEGABYTE))
+                .setWriteBlockSize(DataSize.of(16, MEGABYTE))
                 .setPageSize(100)
                 .setBatchSize(100)
                 .setProjectId(null)
                 .setUseGcsAccessToken(false)
                 .setJsonKey(null)
-                .setJsonKeyFilePath(null));
+                .setJsonKeyFilePath(null)
+                .setMaxRetries(20)
+                .setBackoffScaleFactor(2.0)
+                .setMaxRetryTime(new Duration(20, SECONDS))
+                .setMinBackoffDelay(new Duration(10, MILLISECONDS))
+                .setMaxBackoffDelay(new Duration(1100, MILLISECONDS)));
     }
 
     @Test
@@ -58,17 +69,27 @@ public class TestGcsFileSystemConfig
                 .put("gcs.use-access-token", "true")
                 .put("gcs.json-key", "{}")
                 .put("gcs.json-key-file-path", jsonKeyFile.toString())
+                .put("gcs.client.max-retries", "10")
+                .put("gcs.client.backoff-scale-factor", "3.0")
+                .put("gcs.client.max-retry-time", "10s")
+                .put("gcs.client.min-backoff-delay", "20ms")
+                .put("gcs.client.max-backoff-delay", "20ms")
                 .buildOrThrow();
 
         GcsFileSystemConfig expected = new GcsFileSystemConfig()
-                .setReadBlockSize(DataSize.of(51, DataSize.Unit.MEGABYTE))
-                .setWriteBlockSize(DataSize.of(52, DataSize.Unit.MEGABYTE))
+                .setReadBlockSize(DataSize.of(51, MEGABYTE))
+                .setWriteBlockSize(DataSize.of(52, MEGABYTE))
                 .setPageSize(10)
                 .setBatchSize(11)
                 .setProjectId("project")
                 .setUseGcsAccessToken(true)
                 .setJsonKey("{}")
-                .setJsonKeyFilePath(jsonKeyFile.toString());
+                .setJsonKeyFilePath(jsonKeyFile.toString())
+                .setMaxRetries(10)
+                .setBackoffScaleFactor(3.0)
+                .setMaxRetryTime(new Duration(10, SECONDS))
+                .setMinBackoffDelay(new Duration(20, MILLISECONDS))
+                .setMaxBackoffDelay(new Duration(20, MILLISECONDS));
         assertFullMapping(properties, expected);
     }
 
@@ -95,5 +116,14 @@ public class TestGcsFileSystemConfig
                         .setJsonKeyFilePath("/dev/null")::validate)
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("'gcs.json-key' and 'gcs.json-key-file-path' cannot be both set");
+
+        assertFailsValidation(
+                new GcsFileSystemConfig()
+                        .setJsonKey("{}")
+                        .setMinBackoffDelay(new Duration(20, MILLISECONDS))
+                        .setMaxBackoffDelay(new Duration(19, MILLISECONDS)),
+                "retryDelayValid",
+                "gcs.client.min-backoff-delay must be less than or equal to gcs.client.max-backoff-delay",
+                AssertTrue.class);
     }
 }
