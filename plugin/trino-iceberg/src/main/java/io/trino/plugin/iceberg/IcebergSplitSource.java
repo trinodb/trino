@@ -200,39 +200,10 @@ public class IcebergSplitSource
         }
 
         if (fileScanIterable == null) {
-            this.pushedDownDynamicFilterPredicate = dynamicFilter.getCurrentPredicate()
-                    .transformKeys(IcebergColumnHandle.class::cast)
-                    .filter((columnHandle, domain) -> isConvertableToIcebergExpression(domain));
-            TupleDomain<IcebergColumnHandle> fullPredicate = tableHandle.getUnenforcedPredicate()
-                    .intersect(pushedDownDynamicFilterPredicate);
-            // TODO: (https://github.com/trinodb/trino/issues/9743): Consider removing TupleDomain#simplify
-            TupleDomain<IcebergColumnHandle> simplifiedPredicate = fullPredicate.simplify(ICEBERG_DOMAIN_COMPACTION_THRESHOLD);
-            if (!simplifiedPredicate.equals(fullPredicate)) {
-                // Pushed down predicate was simplified, always evaluate it against individual splits
-                this.pushedDownDynamicFilterPredicate = TupleDomain.all();
-            }
-
-            TupleDomain<IcebergColumnHandle> effectivePredicate = dataColumnPredicate
-                    .intersect(simplifiedPredicate);
-
-            if (effectivePredicate.isNone()) {
-                finish();
+            Optional<CloseableIterator<FileScanTask>> scanTaskIterator = initializeIterator();
+            if (scanTaskIterator.isEmpty()) {
                 return completedFuture(NO_MORE_SPLITS_BATCH);
             }
-
-            Expression filterExpression = toIcebergExpression(effectivePredicate);
-            // Use stats to populate fileStatisticsDomain if there are predicated columns. Otherwise, skip them.
-            boolean requiresColumnStats = !predicatedColumnIds.isEmpty();
-            TableScan scan = tableScan.filter(filterExpression);
-            if (requiresColumnStats) {
-                scan = scan.includeColumnStats();
-            }
-            this.fileScanIterable = closer.register(scan.planFiles());
-            this.targetSplitSize = getSplitSize(session)
-                    .map(DataSize::toBytes)
-                    .orElseGet(tableScan::targetSplitSize);
-            this.fileScanIterator = closer.register(fileScanIterable.iterator());
-            this.fileTasksIterator = emptyIterator();
         }
 
         TupleDomain<IcebergColumnHandle> dynamicFilterPredicate = dynamicFilter.getCurrentPredicate()
@@ -323,6 +294,46 @@ public class IcebergSplitSource
         }
 
         return !partitionConstraintMatcher.matches(identityPartitionColumns, partitionValues);
+    }
+
+    private Optional<CloseableIterator<FileScanTask>> initializeIterator()
+    {
+        // Used to avoid duplicating work if the Dynamic Filter was already pushed down to the Iceberg API
+        boolean dynamicFilterIsComplete = dynamicFilter.isComplete();
+        this.pushedDownDynamicFilterPredicate = dynamicFilter.getCurrentPredicate()
+                .transformKeys(IcebergColumnHandle.class::cast)
+                .filter((columnHandle, domain) -> isConvertableToIcebergExpression(domain));
+        TupleDomain<IcebergColumnHandle> fullPredicate = tableHandle.getUnenforcedPredicate()
+                .intersect(pushedDownDynamicFilterPredicate);
+        // TODO: (https://github.com/trinodb/trino/issues/9743): Consider removing TupleDomain#simplify
+        TupleDomain<IcebergColumnHandle> simplifiedPredicate = fullPredicate.simplify(ICEBERG_DOMAIN_COMPACTION_THRESHOLD);
+        if (!simplifiedPredicate.equals(fullPredicate)) {
+            // Pushed down predicate was simplified, always evaluate it against individual splits
+            this.pushedDownDynamicFilterPredicate = TupleDomain.all();
+        }
+
+        TupleDomain<IcebergColumnHandle> effectivePredicate = dataColumnPredicate
+                .intersect(simplifiedPredicate);
+
+        if (effectivePredicate.isNone()) {
+            finish();
+            return Optional.empty();
+        }
+
+        Expression filterExpression = toIcebergExpression(effectivePredicate);
+        // Use stats to populate fileStatisticsDomain if there are predicated columns. Otherwise, skip them.
+        boolean requiresColumnStats = !predicatedColumnIds.isEmpty();
+        TableScan scan = tableScan.filter(filterExpression);
+        if (requiresColumnStats) {
+            scan = scan.includeColumnStats();
+        }
+        this.fileScanIterable = closer.register(scan.planFiles());
+        this.targetSplitSize = getSplitSize(session)
+                .map(DataSize::toBytes)
+                .orElseGet(tableScan::targetSplitSize);
+        this.fileScanIterator = closer.register(fileScanIterable.iterator());
+        this.fileTasksIterator = emptyIterator();
+        return Optional.of(fileScanIterator);
     }
 
     private boolean noDataColumnsProjected(FileScanTask fileScanTask)
