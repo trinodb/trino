@@ -14,7 +14,6 @@
 package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
@@ -46,6 +45,8 @@ import io.trino.spi.type.TypeManager;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -70,8 +71,6 @@ import static io.trino.spi.connector.FixedSplitSource.emptySplitSource;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.counting;
-import static java.util.stream.Collectors.groupingBy;
 
 public class DeltaLakeSplitManager
         implements ConnectorSplitManager
@@ -177,7 +176,10 @@ public class DeltaLakeSplitManager
 
         MetadataEntry metadataEntry = tableHandle.getMetadataEntry();
         boolean isOptimize = tableHandle.isOptimize();
-        Set<Map<String, Optional<String>>> partitionsWithAtMostOneFile = isOptimize ? findPartitionsWithAtMostOneFile(validDataFiles) : ImmutableSet.of();
+        if (isOptimize && maxScannedFileSizeInBytes.isPresent()) {
+            validDataFiles = filterValidDataFilesForOptimize(validDataFiles, maxScannedFileSizeInBytes.get())
+                    .collect(toImmutableList());
+        }
 
         Set<String> predicatedColumnNames = Stream.concat(
                         nonPartitionConstraint.getDomains().orElseThrow().keySet().stream(),
@@ -207,11 +209,6 @@ public class DeltaLakeSplitManager
                     }
 
                     if (addAction.getDeletionVector().isEmpty() && maxScannedFileSizeInBytes.isPresent() && addAction.getSize() > maxScannedFileSizeInBytes.get()) {
-                        return Stream.empty();
-                    }
-
-                    // no need to rewrite small file that is the only one in its partition
-                    if (isOptimize && partitionsWithAtMostOneFile.contains(addAction.getCanonicalPartitionValues()) && maxScannedFileSizeInBytes.isPresent() && addAction.getSize() < maxScannedFileSizeInBytes.get()) {
                         return Stream.empty();
                     }
 
@@ -253,12 +250,34 @@ public class DeltaLakeSplitManager
                 });
     }
 
-    private Set<Map<String, Optional<String>>> findPartitionsWithAtMostOneFile(List<AddFileEntry> addFileEntries)
+    private static Stream<AddFileEntry> filterValidDataFilesForOptimize(List<AddFileEntry> validDataFiles, long maxScannedFileSizeInBytes)
     {
-        return addFileEntries.stream().collect(groupingBy(AddFileEntry::getCanonicalPartitionValues, counting())).entrySet().stream()
-                .filter(entry -> entry.getValue() <= 1)
-                .map(Map.Entry::getKey)
-                .collect(toImmutableSet());
+        Map<Map<String, Optional<String>>, List<AddFileEntry>> queuedAddFileEntriesMap = new HashMap<>();
+        return validDataFiles.stream()
+                .flatMap(addFileEntry -> {
+                    Map<String, Optional<String>> canonicalPartitionValues = addFileEntry.getCanonicalPartitionValues();
+                    if (queuedAddFileEntriesMap.containsKey(canonicalPartitionValues)) {
+                        List<AddFileEntry> alreadyQueuedAddFileEntries = queuedAddFileEntriesMap.get(canonicalPartitionValues);
+                        if (alreadyQueuedAddFileEntries.isEmpty()) {
+                            return Stream.of(addFileEntry);
+                        }
+                        List<AddFileEntry> concatenatedAddFileEntries = ImmutableList.<AddFileEntry>builder()
+                                .add(addFileEntry)
+                                .addAll(alreadyQueuedAddFileEntries)
+                                .build();
+                        alreadyQueuedAddFileEntries.clear();
+                        return concatenatedAddFileEntries.stream();
+                    }
+
+                    List<AddFileEntry> queuedAddFileEntries = new ArrayList<>();
+                    queuedAddFileEntriesMap.put(canonicalPartitionValues, queuedAddFileEntries);
+                    if (addFileEntry.getSize() < maxScannedFileSizeInBytes) {
+                        // no need to rewrite small file that is potentially the only one in its partition
+                        queuedAddFileEntries.add(addFileEntry);
+                        return Stream.empty();
+                    }
+                    return Stream.of(addFileEntry);
+                });
     }
 
     private static boolean mayAnyDataColumnProjected(DeltaLakeTableHandle tableHandle)
