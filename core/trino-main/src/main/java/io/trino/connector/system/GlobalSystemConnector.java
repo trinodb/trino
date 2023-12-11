@@ -15,7 +15,9 @@ package io.trino.connector.system;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.trino.metadata.InternalNodeManager;
 import io.trino.operator.table.SequenceFunction.SequenceFunctionHandle;
+import io.trino.server.dataframe.AnalyzeLogicalPlan;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -34,6 +36,7 @@ import io.trino.transaction.TransactionId;
 import java.util.Set;
 
 import static io.trino.operator.table.SequenceFunction.getSequenceFunctionSplitSource;
+import static io.trino.server.dataframe.AnalyzeLogicalPlan.getAnalyzeLogicalPlanFunctionSplitSource;
 import static io.trino.spi.connector.CatalogHandle.createRootCatalogHandle;
 import static java.util.Objects.requireNonNull;
 
@@ -46,13 +49,15 @@ public class GlobalSystemConnector
     private final Set<SystemTable> systemTables;
     private final Set<Procedure> procedures;
     private final Set<ConnectorTableFunction> tableFunctions;
+    private final InternalNodeManager internalNodeManager;
 
     @Inject
-    public GlobalSystemConnector(Set<SystemTable> systemTables, Set<Procedure> procedures, Set<ConnectorTableFunction> tableFunctions)
+    public GlobalSystemConnector(Set<SystemTable> systemTables, Set<Procedure> procedures, Set<ConnectorTableFunction> tableFunctions, InternalNodeManager internalNodeManager)
     {
         this.systemTables = ImmutableSet.copyOf(requireNonNull(systemTables, "systemTables is null"));
         this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
         this.tableFunctions = ImmutableSet.copyOf(requireNonNull(tableFunctions, "tableFunctions is null"));
+        this.internalNodeManager = requireNonNull(internalNodeManager, "internalNodeManager is null");
     }
 
     @Override
@@ -93,6 +98,10 @@ public class GlobalSystemConnector
             @Override
             public ConnectorSplitSource getSplits(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorTableFunctionHandle functionHandle)
             {
+                if (functionHandle instanceof AnalyzeLogicalPlan.AnalyzeLogicalPlanFunctionHandle) {
+                    return getAnalyzeLogicalPlanFunctionSplitSource(internalNodeManager);
+                }
+
                 if (functionHandle instanceof SequenceFunctionHandle sequenceFunctionHandle) {
                     return getSequenceFunctionSplitSource(sequenceFunctionHandle);
                 }

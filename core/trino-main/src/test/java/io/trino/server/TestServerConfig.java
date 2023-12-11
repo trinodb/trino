@@ -33,6 +33,7 @@ public class TestServerConfig
                 .setCoordinator(true)
                 .setConcurrentStartup(false)
                 .setIncludeExceptionInResponse(true)
+                .setDataframeApiEnabled(false)
                 .setGracePeriod(new Duration(2, MINUTES))
                 .setQueryResultsCompressionEnabled(true)
                 .setQueryInfoUrlTemplate(null));
@@ -45,6 +46,7 @@ public class TestServerConfig
                 .put("coordinator", "false")
                 .put("experimental.concurrent-startup", "true")
                 .put("http.include-exception-in-response", "false")
+                .put("dataframe-api-enabled", "true")
                 .put("shutdown.grace-period", "5m")
                 .put("query-results.compression-enabled", "false")
                 .put("query.info-url-template", "https://example.com/query/${QUERY_ID}")
@@ -54,6 +56,7 @@ public class TestServerConfig
                 .setCoordinator(false)
                 .setConcurrentStartup(true)
                 .setIncludeExceptionInResponse(false)
+                .setDataframeApiEnabled(true)
                 .setGracePeriod(new Duration(5, MINUTES))
                 .setQueryResultsCompressionEnabled(false)
                 .setQueryInfoUrlTemplate("https://example.com/query/${QUERY_ID}");

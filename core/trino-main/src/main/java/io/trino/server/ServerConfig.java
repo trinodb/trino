@@ -15,6 +15,7 @@ package io.trino.server;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.Duration;
 import jakarta.validation.constraints.NotNull;
 
@@ -27,6 +28,7 @@ public class ServerConfig
     private boolean coordinator = true;
     private boolean concurrentStartup;
     private boolean includeExceptionInResponse = true;
+    private boolean dataframeApiEnabled;
     private Duration gracePeriod = new Duration(2, MINUTES);
     private boolean queryResultsCompressionEnabled = true;
     private Optional<String> queryInfoUrlTemplate = Optional.empty();
@@ -66,6 +68,19 @@ public class ServerConfig
     {
         this.includeExceptionInResponse = includeExceptionInResponse;
         return this;
+    }
+
+    @LegacyConfig("starburst.dataframe-api-enabled")
+    @Config("dataframe-api-enabled")
+    public ServerConfig setDataframeApiEnabled(boolean value)
+    {
+        this.dataframeApiEnabled = value;
+        return this;
+    }
+
+    public boolean isDataframeApiEnabled()
+    {
+        return dataframeApiEnabled;
     }
 
     public Duration getGracePeriod()

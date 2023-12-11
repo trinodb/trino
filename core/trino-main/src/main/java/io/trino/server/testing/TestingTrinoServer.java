@@ -86,6 +86,7 @@ import io.trino.server.ServerLoadableComponent;
 import io.trino.server.ServerMainModule;
 import io.trino.server.SessionPropertyDefaults;
 import io.trino.server.ShutdownAction;
+import io.trino.server.dataframe.StarburstDataframeModule;
 import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.ServerSecurityModule;
 import io.trino.spi.ErrorType;
@@ -291,6 +292,7 @@ public class TestingTrinoServer
                 .add(new TraceTokenModule())
                 .add(new TracingModule("trino", VERSION))
                 .add(new ServerSecurityModule())
+                .add(new StarburstDataframeModule())
                 .add(new CatalogManagerModule())
                 .add(new TransactionManagerModule())
                 .add(new ServerMainModule(VERSION))

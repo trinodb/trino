@@ -14,9 +14,9 @@
 package io.trino.connector.system;
 
 import com.google.inject.Binder;
-import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
+import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.connector.system.jdbc.AttributeJdbcTable;
 import io.trino.connector.system.jdbc.CatalogJdbcTable;
 import io.trino.connector.system.jdbc.ColumnJdbcTable;
@@ -32,15 +32,17 @@ import io.trino.connector.system.jdbc.TypesJdbcTable;
 import io.trino.connector.system.jdbc.UdtJdbcTable;
 import io.trino.operator.table.ExcludeColumnsFunction;
 import io.trino.operator.table.SequenceFunction;
+import io.trino.server.ServerConfig;
+import io.trino.server.dataframe.AnalyzeLogicalPlan;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.procedure.Procedure;
 
 public class SystemConnectorModule
-        implements Module
+        extends AbstractConfigurationAwareModule
 {
     @Override
-    public void configure(Binder binder)
+    public void setup(Binder binder)
     {
         Multibinder<SystemTable> globalTableBinder = Multibinder.newSetBinder(binder, SystemTable.class);
         globalTableBinder.addBinding().to(NodeSystemTable.class).in(Scopes.SINGLETON);
@@ -79,6 +81,13 @@ public class SystemConnectorModule
         binder.bind(GlobalSystemConnector.class).in(Scopes.SINGLETON);
 
         Multibinder<ConnectorTableFunction> tableFunctions = Multibinder.newSetBinder(binder, ConnectorTableFunction.class);
+
+        // Only registered on coordinator to avoid dependency issues
+        ServerConfig serverConfig = buildConfigObject(ServerConfig.class);
+        if (serverConfig.isDataframeApiEnabled() && serverConfig.isCoordinator()) {
+            tableFunctions.addBinding().toProvider(AnalyzeLogicalPlan.class).in(Scopes.SINGLETON);
+        }
+
         tableFunctions.addBinding().to(ExcludeColumnsFunction.class).in(Scopes.SINGLETON);
         tableFunctions.addBinding().to(SequenceFunction.class).in(Scopes.SINGLETON);
     }

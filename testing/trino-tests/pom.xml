@@ -13,6 +13,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <air.test.jvm.additional-arguments>${extraJavaVectorArgs}</air.test.jvm.additional-arguments>
     </properties>
 
     <dependencies>
@@ -121,6 +122,12 @@
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>okhttp</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.starburstdata.dataframe</groupId>
+            <artifactId>starburst-dataframe-api</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -303,6 +310,13 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-spi</artifactId>
             <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-teradata-functions</artifactId>
+            <version>${version}</version>
             <scope>test</scope>
         </dependency>
 

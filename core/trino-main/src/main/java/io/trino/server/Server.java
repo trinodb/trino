@@ -58,6 +58,7 @@ import io.trino.metadata.CatalogManager;
 import io.trino.security.AccessControlManager;
 import io.trino.security.AccessControlModule;
 import io.trino.security.GroupProviderManager;
+import io.trino.server.dataframe.StarburstDataframeModule;
 import io.trino.server.security.CertificateAuthenticatorManager;
 import io.trino.server.security.HeaderAuthenticatorManager;
 import io.trino.server.security.PasswordAuthenticatorManager;
@@ -126,6 +127,7 @@ public class Server
                 new CoordinatorDiscoveryModule(),
                 new CatalogManagerModule(),
                 new TransactionManagerModule(),
+                new StarburstDataframeModule(),
                 new ServerMainModule(trinoVersion),
                 new GracefulShutdownModule(),
                 new WarningCollectorModule());

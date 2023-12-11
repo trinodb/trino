@@ -218,12 +218,16 @@
         <dep.tempto.version>201</dep.tempto.version>
         <dep.wire.version>4.8.1</dep.wire.version>
 
+        <!-- released from https://github.com/starburstdata/starburst-dataframe -->
+        <dep.starburst-dataframe.version>0.5.0.20240201-b4f4176</dep.starburst-dataframe.version>
+
         <air.repository.snapshot.id>starburstdata-sep.snapshots</air.repository.snapshot.id>
         <air.repository.snapshot.name>Starburstdata Snapshots</air.repository.snapshot.name>
         <air.repository.snapshot.url>https://starburstdata-sep-cicd-843985043183.d.codeartifact.us-east-2.amazonaws.com/maven/snapshots/</air.repository.snapshot.url>
         <air.repository.release.id>starburstdata-sep.releases</air.repository.release.id>
         <air.repository.release.name>Starburstdata Releases</air.repository.release.name>
         <air.repository.release.url>https://starburstdata-sep-cicd-843985043183.d.codeartifact.us-east-2.amazonaws.com/maven/releases/</air.repository.release.url>
+        <extraJavaVectorArgs>--add-modules=jdk.incubator.vector</extraJavaVectorArgs>
     </properties>
 
     <dependencyManagement>
@@ -649,6 +653,12 @@
                 <groupId>com.squareup.wire</groupId>
                 <artifactId>wire-schema-jvm</artifactId>
                 <version>${dep.wire.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.starburstdata.dataframe</groupId>
+                <artifactId>starburst-dataframe-api</artifactId>
+                <version>${dep.starburst-dataframe.version}</version>
             </dependency>
 
             <dependency>
