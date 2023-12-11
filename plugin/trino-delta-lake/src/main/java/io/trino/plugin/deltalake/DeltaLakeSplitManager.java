@@ -190,7 +190,7 @@ public class DeltaLakeSplitManager
     {
         TableSnapshot tableSnapshot = deltaLakeTransactionManager.get(transaction, session.getIdentity())
                 .getSnapshot(session, tableHandle.getSchemaTableName(), tableHandle.getLocation(), tableHandle.getReadVersion());
-        List<AddFileEntry> validDataFiles = transactionLogAccess.getActiveFiles(
+        Stream<AddFileEntry> validDataFiles = transactionLogAccess.getActiveFiles(
                 tableSnapshot,
                 tableHandle.getMetadataEntry(),
                 tableHandle.getProtocolEntry(),
@@ -228,7 +228,7 @@ public class DeltaLakeSplitManager
         List<DeltaLakeColumnMetadata> predicatedColumns = schema.stream()
                 .filter(column -> predicatedColumnNames.contains(column.getName()))
                 .collect(toImmutableList());
-        return validDataFiles.stream()
+        return validDataFiles
                 .flatMap(addAction -> {
                     if (tableHandle.getAnalyzeHandle().isPresent() &&
                             !(tableHandle.getAnalyzeHandle().get().getAnalyzeMode() == FULL_REFRESH) && !addAction.isDataChange()) {
@@ -287,12 +287,12 @@ public class DeltaLakeSplitManager
                 });
     }
 
-    private static List<AddFileEntry> filterValidDataFilesForOptimize(List<AddFileEntry> validDataFiles, long maxScannedFileSizeInBytes)
+    private static Stream<AddFileEntry> filterValidDataFilesForOptimize(Stream<AddFileEntry> validDataFiles, long maxScannedFileSizeInBytes)
     {
         // Value being present is a pending file (potentially the only one) for a given partition.
         // Value being empty is a tombstone, indicates that there were in the stream previously at least 2 files selected for processing for a given partition.
         Map<Map<String, Optional<String>>, Optional<AddFileEntry>> pendingAddFileEntriesMap = new HashMap<>();
-        return validDataFiles.stream()
+        return validDataFiles
                 .filter(addFileEntry -> addFileEntry.getSize() < maxScannedFileSizeInBytes)
                 .flatMap(addFileEntry -> {
                     Map<String, Optional<String>> canonicalPartitionValues = addFileEntry.getCanonicalPartitionValues();
@@ -307,8 +307,7 @@ public class DeltaLakeSplitManager
 
                     pendingAddFileEntriesMap.put(canonicalPartitionValues, Optional.of(addFileEntry));
                     return Stream.empty();
-                })
-                .collect(toImmutableList());
+                });
     }
 
     private static boolean mayAnyDataColumnProjected(DeltaLakeTableHandle tableHandle)

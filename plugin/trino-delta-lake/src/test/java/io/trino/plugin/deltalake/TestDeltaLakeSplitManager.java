@@ -61,6 +61,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
@@ -191,7 +192,7 @@ public class TestDeltaLakeSplitManager
                 new ParquetReaderConfig())
         {
             @Override
-            public List<AddFileEntry> getActiveFiles(
+            public Stream<AddFileEntry> getActiveFiles(
                     TableSnapshot tableSnapshot,
                     MetadataEntry metadataEntry,
                     ProtocolEntry protocolEntry,
@@ -199,7 +200,7 @@ public class TestDeltaLakeSplitManager
                     Optional<Set<DeltaLakeColumnHandle>> projectedColumns,
                     ConnectorSession session)
             {
-                return addFileEntries;
+                return addFileEntries.stream();
             }
         };
 
