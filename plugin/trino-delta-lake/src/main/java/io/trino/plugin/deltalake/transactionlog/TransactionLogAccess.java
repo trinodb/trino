@@ -406,22 +406,23 @@ public class TransactionLogAccess
             Set<CheckpointEntryIterator.EntryType> entryTypes,
             Function<Stream<DeltaLakeTransactionLogEntry>, Stream<Object>> entryMapper)
     {
-        Stream<Object> entries = getEntries(
+        try (Stream<Object> entries = getEntries(
                 tableSnapshot,
                 entryTypes,
                 (checkpointStream, jsonStream) -> entryMapper.apply(Stream.concat(checkpointStream, jsonStream.stream().map(Transaction::transactionEntries).flatMap(Collection::stream))),
                 session,
                 fileSystemFactory.create(session),
-                fileFormatDataSourceStats);
-
-        return entries.collect(toImmutableMap(Object::getClass, Function.identity(), (first, second) -> second));
+                fileFormatDataSourceStats)) {
+            return entries.collect(toImmutableMap(Object::getClass, Function.identity(), (first, second) -> second));
+        }
     }
 
     public ProtocolEntry getProtocolEntry(ConnectorSession session, TableSnapshot tableSnapshot)
     {
-        return getProtocolEntries(tableSnapshot, session)
-                .reduce((first, second) -> second)
-                .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol entry not found in transaction log for table " + tableSnapshot.getTable()));
+        try (Stream<ProtocolEntry> protocolEntries = getProtocolEntries(tableSnapshot, session)) {
+            return protocolEntries.reduce((first, second) -> second)
+                    .orElseThrow(() -> new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Protocol entry not found in transaction log for table " + tableSnapshot.getTable()));
+        }
     }
 
     public Stream<ProtocolEntry> getProtocolEntries(TableSnapshot tableSnapshot, ConnectorSession session)
