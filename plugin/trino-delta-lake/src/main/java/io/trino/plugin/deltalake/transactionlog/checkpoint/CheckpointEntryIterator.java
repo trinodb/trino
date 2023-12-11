@@ -774,6 +774,11 @@ public class CheckpointEntryIterator
         return true;
     }
 
+    public void close()
+    {
+        pageSource.close();
+    }
+
     private void fillNextEntries()
     {
         while (nextEntries.isEmpty()) {
