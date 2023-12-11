@@ -153,7 +153,7 @@ public class DeltaLakeSplitManager
     {
         TableSnapshot tableSnapshot = deltaLakeTransactionManager.get(transaction, session.getIdentity())
                 .getSnapshot(session, tableHandle.getSchemaTableName(), tableHandle.getLocation(), tableHandle.getReadVersion());
-        List<AddFileEntry> validDataFiles = transactionLogAccess.getActiveFiles(
+        Stream<AddFileEntry> validDataFiles = transactionLogAccess.getActiveFiles(
                 tableSnapshot,
                 tableHandle.getMetadataEntry(),
                 tableHandle.getProtocolEntry(),
@@ -177,8 +177,7 @@ public class DeltaLakeSplitManager
         MetadataEntry metadataEntry = tableHandle.getMetadataEntry();
         boolean isOptimize = tableHandle.isOptimize();
         if (isOptimize && maxScannedFileSizeInBytes.isPresent()) {
-            validDataFiles = filterValidDataFilesForOptimize(validDataFiles, maxScannedFileSizeInBytes.get())
-                    .collect(toImmutableList());
+            validDataFiles = filterValidDataFilesForOptimize(validDataFiles, maxScannedFileSizeInBytes.get());
         }
 
         Set<String> predicatedColumnNames = Stream.concat(
@@ -191,7 +190,7 @@ public class DeltaLakeSplitManager
         List<DeltaLakeColumnMetadata> predicatedColumns = schema.stream()
                 .filter(column -> predicatedColumnNames.contains(column.getName()))
                 .collect(toImmutableList());
-        return validDataFiles.stream()
+        return validDataFiles
                 .flatMap(addAction -> {
                     if (tableHandle.getAnalyzeHandle().isPresent() &&
                             !(tableHandle.getAnalyzeHandle().get().getAnalyzeMode() == FULL_REFRESH) && !addAction.isDataChange()) {
@@ -250,10 +249,10 @@ public class DeltaLakeSplitManager
                 });
     }
 
-    private static Stream<AddFileEntry> filterValidDataFilesForOptimize(List<AddFileEntry> validDataFiles, long maxScannedFileSizeInBytes)
+    private static Stream<AddFileEntry> filterValidDataFilesForOptimize(Stream<AddFileEntry> validDataFiles, long maxScannedFileSizeInBytes)
     {
         Map<Map<String, Optional<String>>, List<AddFileEntry>> queuedAddFileEntriesMap = new HashMap<>();
-        return validDataFiles.stream()
+        return validDataFiles
                 .flatMap(addFileEntry -> {
                     Map<String, Optional<String>> canonicalPartitionValues = addFileEntry.getCanonicalPartitionValues();
                     if (queuedAddFileEntriesMap.containsKey(canonicalPartitionValues)) {

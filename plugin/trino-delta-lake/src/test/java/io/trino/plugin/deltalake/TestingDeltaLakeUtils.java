@@ -28,6 +28,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Stream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
@@ -57,7 +58,9 @@ public final class TestingDeltaLakeUtils
         TableSnapshot snapshot = transactionLogAccess.loadSnapshot(SESSION, dummyTable, tableLocation);
         MetadataEntry metadataEntry = transactionLogAccess.getMetadataEntry(snapshot, SESSION);
         ProtocolEntry protocolEntry = transactionLogAccess.getProtocolEntry(SESSION, snapshot);
-        return transactionLogAccess.getActiveFiles(snapshot, metadataEntry, protocolEntry, SESSION);
+        try (Stream<AddFileEntry> addFileEntries = transactionLogAccess.getActiveFiles(snapshot, metadataEntry, protocolEntry, SESSION)) {
+            return addFileEntries.collect(toImmutableList());
+        }
     }
 
     public static void copyDirectoryContents(Path source, Path destination)
