@@ -59,6 +59,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Strings.repeat;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -398,6 +399,37 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
             }
 
             assertQuery("SELECT * FROM " + tableName, "VALUES(1, 'one')");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
+    @Test
+    public void testOptimizeTableWithSmallFileAndLargeFiles()
+    {
+        String tableName = "test_optimize_rewrites_table_with_small_and_large_file" + randomNameSuffix();
+        String tableLocation = getLocationForTable(bucketName, tableName);
+        assertUpdate("CREATE TABLE " + tableName + " (key integer, value varchar) WITH (location = '" + tableLocation + "')");
+        try {
+            // Adds a small file of size < 1 kB
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'one')", 1);
+            // Adds other "large" files of size greater than 1 kB
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, '" + repeat("two", 1000) + "')", 1);
+            assertUpdate("INSERT INTO " + tableName + " VALUES (3, '" + repeat("three", 1000) + "')", 1);
+
+            Set<String> initialFiles = getActiveFiles(tableName);
+            assertThat(initialFiles).hasSize(3);
+
+            for (int i = 0; i < 3; i++) {
+                computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE (file_size_threshold => '1kB')");
+                Set<String> filesAfterOptimize = getActiveFiles(tableName);
+                assertThat(filesAfterOptimize)
+                        .containsExactlyInAnyOrderElementsOf(initialFiles);
+            }
+            assertQuery(
+                    "SELECT * FROM " + tableName,
+                    "VALUES (1, 'one'), (2, '%s'), (3, '%s')".formatted(repeat("two", 1000), repeat("three", 1000)));
         }
         finally {
             assertUpdate("DROP TABLE " + tableName);
