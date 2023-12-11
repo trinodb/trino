@@ -198,22 +198,26 @@ public class VacuumProcedure
             // Retain all active files and every file removed by a "recent" transaction (except for the oldest "recent").
             // Any remaining file are not live, and not needed to read any "recent" snapshot.
             List<Long> recentVersions = transactionLogAccess.getPastTableVersions(fileSystem, transactionLogDir, threshold, tableSnapshot.getVersion());
-            Set<String> retainedPaths = Stream.concat(
-                            transactionLogAccess.getActiveFiles(tableSnapshot, handle.getMetadataEntry(), handle.getProtocolEntry(), session).stream()
-                                    .map(AddFileEntry::getPath),
-                            transactionLogAccess.getJsonEntries(
-                                            fileSystem,
-                                            transactionLogDir,
-                                            // discard oldest "recent" snapshot, since we take RemoveFileEntry only, to identify files that are no longer
-                                            // active files, but still needed to read a "recent" snapshot
-                                            recentVersions.stream().sorted(naturalOrder())
-                                                    .skip(1)
-                                                    .collect(toImmutableList()))
-                                    .map(DeltaLakeTransactionLogEntry::getRemove)
-                                    .filter(Objects::nonNull)
-                                    .map(RemoveFileEntry::getPath))
-                    .peek(path -> checkState(!path.startsWith(tableLocation), "Unexpected absolute path in transaction log: %s", path))
-                    .collect(toImmutableSet());
+            Set<String> retainedPaths;
+            try (Stream<AddFileEntry> activeAddEntries = transactionLogAccess.getActiveFiles(
+                    tableSnapshot, handle.getMetadataEntry(), handle.getProtocolEntry(), session)) {
+                retainedPaths = Stream.concat(
+                                activeAddEntries
+                                        .map(AddFileEntry::getPath),
+                                transactionLogAccess.getJsonEntries(
+                                                fileSystem,
+                                                transactionLogDir,
+                                                // discard oldest "recent" snapshot, since we take RemoveFileEntry only, to identify files that are no longer
+                                                // active files, but still needed to read a "recent" snapshot
+                                                recentVersions.stream().sorted(naturalOrder())
+                                                        .skip(1)
+                                                        .collect(toImmutableList()))
+                                        .map(DeltaLakeTransactionLogEntry::getRemove)
+                                        .filter(Objects::nonNull)
+                                        .map(RemoveFileEntry::getPath))
+                        .peek(path -> checkState(!path.startsWith(tableLocation), "Unexpected absolute path in transaction log: %s", path))
+                        .collect(toImmutableSet());
+            }
 
             log.debug(
                     "[%s] attempting to vacuum table %s [%s] with %s retention (expiry threshold %s). %s data file paths marked for retention",

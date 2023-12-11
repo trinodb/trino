@@ -234,12 +234,12 @@ public class TransactionLogAccess
      * @see #getActiveFiles(TableSnapshot, MetadataEntry, ProtocolEntry, TupleDomain, Optional, ConnectorSession)
      */
     @Deprecated
-    public List<AddFileEntry> getActiveFiles(TableSnapshot tableSnapshot, MetadataEntry metadataEntry, ProtocolEntry protocolEntry, ConnectorSession session)
+    public Stream<AddFileEntry> getActiveFiles(TableSnapshot tableSnapshot, MetadataEntry metadataEntry, ProtocolEntry protocolEntry, ConnectorSession session)
     {
         return retrieveActiveFiles(tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue(), session);
     }
 
-    public List<AddFileEntry> getActiveFiles(
+    public Stream<AddFileEntry> getActiveFiles(
             TableSnapshot tableSnapshot,
             MetadataEntry metadataEntry,
             ProtocolEntry protocolEntry,
@@ -258,7 +258,7 @@ public class TransactionLogAccess
         return retrieveActiveFiles(tableSnapshot, metadataEntry, protocolEntry, partitionConstraint, addStatsMinMaxColumnFilter, session);
     }
 
-    private List<AddFileEntry> retrieveActiveFiles(
+    private Stream<AddFileEntry> retrieveActiveFiles(
             TableSnapshot tableSnapshot,
             MetadataEntry metadataEntry,
             ProtocolEntry protocolEntry,
@@ -268,8 +268,7 @@ public class TransactionLogAccess
     {
         try {
             if (isCheckpointFilteringEnabled(session)) {
-                return loadActiveFiles(tableSnapshot, metadataEntry, protocolEntry, partitionConstraint, addStatsMinMaxColumnFilter, session).stream()
-                        .collect(toImmutableList());
+                return loadActiveFiles(tableSnapshot, metadataEntry, protocolEntry, partitionConstraint, addStatsMinMaxColumnFilter, session);
             }
 
             TableVersion tableVersion = new TableVersion(new TableLocation(tableSnapshot.getTable(), tableSnapshot.getTableLocation()), tableSnapshot.getVersion());
@@ -299,17 +298,20 @@ public class TransactionLogAccess
                     }
                 }
 
-                List<AddFileEntry> activeFiles = loadActiveFiles(tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue(), session);
+                List<AddFileEntry> activeFiles;
+                try (Stream<AddFileEntry> addFileEntryStream = loadActiveFiles(tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue(), session)) {
+                    activeFiles = addFileEntryStream.collect(toImmutableList());
+                }
                 return new DeltaLakeDataFileCacheEntry(tableSnapshot.getVersion(), activeFiles);
             });
-            return cacheEntry.getActiveFiles();
+            return cacheEntry.getActiveFiles().stream();
         }
         catch (ExecutionException | UncheckedExecutionException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Failed accessing transaction log for table: " + tableSnapshot.getTable(), e);
         }
     }
 
-    private List<AddFileEntry> loadActiveFiles(
+    private Stream<AddFileEntry> loadActiveFiles(
             TableSnapshot tableSnapshot,
             MetadataEntry metadataEntry,
             ProtocolEntry protocolEntry,
@@ -331,8 +333,7 @@ public class TransactionLogAccess
             return activeAddEntries(checkpointEntries, transactions)
                     .filter(partitionConstraint.isAll()
                             ? addAction -> true
-                            : addAction -> partitionMatchesPredicate(addAction.getCanonicalPartitionValues(), partitionConstraint.getDomains().orElseThrow()))
-                    .collect(toImmutableList());
+                            : addAction -> partitionMatchesPredicate(addAction.getCanonicalPartitionValues(), partitionConstraint.getDomains().orElseThrow()));
         }
         catch (IOException e) {
             throw new TrinoException(DELTA_LAKE_INVALID_SCHEMA, "Error reading transaction log for " + tableSnapshot.getTable(), e);
