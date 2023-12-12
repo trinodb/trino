@@ -60,3 +60,4 @@ documentation](/routines/examples).
 ## See also
 
 * [](/routines/introduction)
+* [Conditional expressions using `CASE`](case-expression)
