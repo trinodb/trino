@@ -63,6 +63,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.kudu.util.DateUtil.epochDaysToSqlDate;
 
 public class KuduPageSink
         implements ConnectorPageSink, ConnectorMergeSink
@@ -151,6 +152,9 @@ public class KuduPageSink
         Type type = columnTypes.get(destChannel);
         if (block.isNull(position)) {
             row.setNull(destChannel);
+        }
+        else if (DATE.equals(type)) {
+            row.addDate(destChannel, epochDaysToSqlDate(INTEGER.getInt(block, position)));
         }
         else if (TIMESTAMP_MILLIS.equals(type)) {
             row.addLong(destChannel, truncateEpochMicrosToMillis(TIMESTAMP_MILLIS.getLong(block, position)));
