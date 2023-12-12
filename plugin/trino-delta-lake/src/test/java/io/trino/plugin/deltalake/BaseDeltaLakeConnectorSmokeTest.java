@@ -17,6 +17,7 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -361,6 +362,34 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                         "partitioned_by = ARRAY['nationkey', 'regionkey']) AS SELECT regionkey, nationkey, name, comment FROM nation",
                 25);
         assertQuery("SELECT regionkey, nationkey, name, comment FROM " + tableName, "SELECT regionkey, nationkey, name, comment FROM nation");
+    }
+
+    @Test
+    public void testOptimizeRewritesTableWithSmallAndLargeFile()
+    {
+        String tableName = "test_optimize_rewrites_table_with_small_and_large_file" + randomNameSuffix();
+        String tableLocation = getLocationForTable(bucketName, tableName);
+        assertUpdate("CREATE TABLE " + tableName + " (key integer, value varchar) WITH (location = '" + tableLocation + "')");
+        try {
+            // Adds a small file of size 314B
+            assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'one')", 1);
+            // Adds a "large" file of size greater than 314B
+            assertUpdate("INSERT INTO " + tableName + " VALUES (2, 'two'), (3, 'three')", 2);
+
+            for (int i = 0; i < 3; i++) {
+                Set<String> initialFiles = getActiveFiles(tableName);
+                System.out.println(initialFiles);
+                assertThat(initialFiles).hasSize(2);
+                computeActual("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE (file_size_threshold => '320B')");
+                Set<String> filesAfterOptimize = getActiveFiles(tableName);
+                assertThat(Sets.difference(filesAfterOptimize, initialFiles)).hasSize(1);
+            }
+
+            assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'one'), (2, 'two'), (3, 'three')");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
     }
 
     @Test
