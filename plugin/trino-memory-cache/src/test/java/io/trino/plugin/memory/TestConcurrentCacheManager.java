@@ -107,10 +107,8 @@ public class TestConcurrentCacheManager
         assertSplitIsNotCached(SIGNATURE_2, SPLIT1);
 
         // revoke everything
-        assertThat(cacheManager.getRevokeMemoryTime().getAllTime().getCount()).isZero();
         assertThat(cacheManager.revokeMemory(10_000_000)).isPositive();
         assertThat(allocatedRevocableMemory).isZero();
-        assertThat(cacheManager.getRevokeMemoryTime().getAllTime().getCount()).isNotZero();
 
         // nothing to revoke
         assertThat(cacheManager.revokeMemory(10_000_000)).isZero();

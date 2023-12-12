@@ -24,6 +24,7 @@ import io.trino.cache.CacheDriverContext;
 import io.trino.cache.CacheDriverFactory;
 import io.trino.cache.CacheManagerRegistry;
 import io.trino.cache.CacheMetrics;
+import io.trino.cache.CacheStats;
 import io.trino.execution.ScheduledSplit;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.NodeMemoryConfig;
@@ -92,7 +93,7 @@ public class TestCacheDataOperator
         LocalMemoryManager memoryManager = new LocalMemoryManager(config, DataSize.of(110, MEGABYTE).toBytes());
         CacheConfig cacheConfig = new CacheConfig();
         cacheConfig.setEnabled(true);
-        registry = new CacheManagerRegistry(cacheConfig, memoryManager, new TestingBlockEncodingSerde());
+        registry = new CacheManagerRegistry(cacheConfig, memoryManager, new TestingBlockEncodingSerde(), new CacheStats());
         registry.loadCacheManager();
     }
 
@@ -112,8 +113,9 @@ public class TestCacheDataOperator
                 .addDriverContext();
 
         CacheMetrics cacheMetrics = new CacheMetrics();
+        CacheStats cacheStats = new CacheStats();
 
-        driverContext.setCacheDriverContext(new CacheDriverContext(Optional.empty(), splitCache.storePages(new CacheSplitId("split1")), EMPTY, cacheMetrics));
+        driverContext.setCacheDriverContext(new CacheDriverContext(Optional.empty(), splitCache.storePages(new CacheSplitId("split1")), EMPTY, cacheMetrics, cacheStats));
         CacheDataOperator cacheDataOperator = (CacheDataOperator) operatorFactory.createOperator(driverContext);
 
         // sink was not aborted - there is a space in a cache. The page was passed through and split is going to be cached
@@ -129,7 +131,7 @@ public class TestCacheDataOperator
         driverContext = createTaskContext(Executors.newSingleThreadExecutor(), Executors.newScheduledThreadPool(1), TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
-        driverContext.setCacheDriverContext(new CacheDriverContext(Optional.empty(), splitCache.storePages(new CacheSplitId("split2")), EMPTY, cacheMetrics));
+        driverContext.setCacheDriverContext(new CacheDriverContext(Optional.empty(), splitCache.storePages(new CacheSplitId("split2")), EMPTY, cacheMetrics, cacheStats));
         cacheDataOperator = (CacheDataOperator) operatorFactory.createOperator(driverContext);
 
         cacheDataOperator.addInput(bigPage);
@@ -176,7 +178,8 @@ public class TestCacheDataOperator
                 ImmutableMap.of(),
                 () -> createStaticDynamicFilter(ImmutableList.of(EMPTY)),
                 () -> createStaticDynamicFilter(ImmutableList.of(EMPTY)),
-                driverFactories);
+                driverFactories,
+                new CacheStats());
 
         // process splits where split's page is small. All splits will be successfully cached
         createAndRunDriver(0, MIN_PROCESSED_SPLITS, cacheDriverFactory);

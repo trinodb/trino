@@ -27,6 +27,8 @@ public class CacheManagerModule
     public void configure(Binder binder)
     {
         configBinder(binder).bindConfig(CacheConfig.class);
+        binder.bind(CacheStats.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(CacheStats.class).withGeneratedName();
         binder.bind(CacheManagerRegistry.class).in(Scopes.SINGLETON);
         binder.bind(CacheController.class).in(Scopes.SINGLETON);
         newExporter(binder).export(CacheManagerRegistry.class).withGeneratedName();

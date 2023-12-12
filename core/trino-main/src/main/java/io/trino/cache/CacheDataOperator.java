@@ -54,7 +54,8 @@ public class CacheDataOperator
             checkArgument(driverContext.getCacheDriverContext().isPresent(), "cacheDriverContext is empty");
             checkState(!closed, "Factory is already closed");
             OperatorContext operatorContext = driverContext.addOperatorContext(operatorId, planNodeId, CacheDataOperator.class.getSimpleName());
-            return new CacheDataOperator(operatorContext, maxSplitSizeInBytes, driverContext.getCacheDriverContext().get().cacheMetrics());
+            CacheDriverContext cacheDriverContext = driverContext.getCacheDriverContext().get();
+            return new CacheDataOperator(operatorContext, maxSplitSizeInBytes, cacheDriverContext.cacheMetrics(), cacheDriverContext.cacheStats());
         }
 
         @Override
@@ -72,6 +73,7 @@ public class CacheDataOperator
 
     private final OperatorContext operatorContext;
     private final CacheMetrics cacheMetrics;
+    private final CacheStats cacheStats;
     private final LocalMemoryContext memoryContext;
     private final long maxCacheSizeInBytes;
 
@@ -79,9 +81,10 @@ public class CacheDataOperator
     private ConnectorPageSink pageSink;
     @Nullable
     private Page page;
+    private long cachedDataSize;
     private boolean isCachingAborted;
 
-    private CacheDataOperator(OperatorContext operatorContext, long maxCacheSizeInBytes, CacheMetrics cacheMetrics)
+    private CacheDataOperator(OperatorContext operatorContext, long maxCacheSizeInBytes, CacheMetrics cacheMetrics, CacheStats cacheStats)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.memoryContext = operatorContext.newLocalUserMemoryContext(CacheDataOperator.class.getSimpleName());
@@ -92,6 +95,7 @@ public class CacheDataOperator
         memoryContext.setBytes(pageSink.getMemoryUsage());
         this.maxCacheSizeInBytes = maxCacheSizeInBytes;
         this.cacheMetrics = requireNonNull(cacheMetrics, "cacheMetrics is null");
+        this.cacheStats = requireNonNull(cacheStats, "cacheStats is null");
     }
 
     @Override
@@ -117,6 +121,7 @@ public class CacheDataOperator
         }
 
         checkState(pageSink.appendPage(page).isDone(), "appendPage future must be done");
+        cachedDataSize += page.getRetainedSizeInBytes();
         memoryContext.setBytes(pageSink.getMemoryUsage());
 
         // If there is no space for a page in a cache, stop caching this split and abort pageSink
@@ -144,6 +149,7 @@ public class CacheDataOperator
             else {
                 checkState(pageSink.finish().isDone(), "finish future must be done");
                 cacheMetrics.incrementSplitsCached();
+                cacheStats.recordCacheData(cachedDataSize);
             }
             pageSink = null;
             memoryContext.close();

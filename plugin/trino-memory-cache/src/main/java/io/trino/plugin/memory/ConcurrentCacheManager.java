@@ -20,7 +20,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.airlift.stats.Distribution;
-import io.airlift.stats.TimeStat;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.MemoryReservationHandler;
 import io.trino.spi.NodeManager;
@@ -32,7 +31,6 @@ import io.trino.spi.cache.PlanSignature;
 import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSource;
 import org.weakref.jmx.Managed;
-import org.weakref.jmx.Nested;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -60,7 +58,6 @@ public class ConcurrentCacheManager
 
     private final MemoryAllocator revocableMemoryAllocator;
     private final MemoryCacheManager[] cacheManagers;
-    private final TimeStat revokeMemoryTime = new TimeStat();
     @GuardedBy("this")
     private long allocatedMemory;
 
@@ -90,14 +87,7 @@ public class ConcurrentCacheManager
         return distribution.getPercentiles();
     }
 
-    @Managed
-    @Nested
-    public TimeStat getRevokeMemoryTime()
-    {
-        return revokeMemoryTime;
-    }
-
-    @Managed
+    @Override
     public long getRevocableBytes()
     {
         return Arrays.stream(cacheManagers)
@@ -145,9 +135,7 @@ public class ConcurrentCacheManager
     @Override
     public long revokeMemory(long bytesToRevoke)
     {
-        try (TimeStat.BlockTimer timer = revokeMemoryTime.time()) {
-            return revokeMemory(bytesToRevoke, 10);
-        }
+        return revokeMemory(bytesToRevoke, 10);
     }
 
     @VisibleForTesting

@@ -64,6 +64,7 @@ public class CacheDriverFactory
     private final Supplier<StaticDynamicFilter> originalDynamicFilterSupplier;
     private final List<DriverFactory> alternatives;
     private final CacheMetrics cacheMetrics = new CacheMetrics();
+    private final CacheStats cacheStats;
     private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
     @GuardedBy("lock")
@@ -85,7 +86,8 @@ public class CacheDriverFactory
             Map<CacheColumnId, ColumnHandle> dynamicFilterColumnMapping,
             Supplier<StaticDynamicFilter> commonDynamicFilterSupplier,
             Supplier<StaticDynamicFilter> originalDynamicFilterSupplier,
-            List<DriverFactory> alternatives)
+            List<DriverFactory> alternatives,
+            CacheStats cacheStats)
     {
         this.session = requireNonNull(session, "session is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
@@ -96,6 +98,7 @@ public class CacheDriverFactory
         this.commonDynamicFilterSupplier = requireNonNull(commonDynamicFilterSupplier, "commonDynamicFilterSupplier is null");
         this.originalDynamicFilterSupplier = requireNonNull(originalDynamicFilterSupplier, "originalDynamicFilterSupplier is null");
         this.alternatives = requireNonNull(alternatives, "alternatives is null");
+        this.cacheStats = requireNonNull(cacheStats, "cacheStats is null");
     }
 
     public Driver createDriver(DriverContext driverContext, ScheduledSplit split, Optional<CacheSplitId> cacheSplitIdOptional)
@@ -131,8 +134,12 @@ public class CacheDriverFactory
         // load data from cache
         Optional<ConnectorPageSource> pageSource = loadPages(splitId, planSignature, planSignatureComplete);
         if (pageSource.isPresent()) {
-            driverContext.setCacheDriverContext(new CacheDriverContext(pageSource, Optional.empty(), dynamicFilter, cacheMetrics));
+            cacheStats.recordCacheHit(1);
+            driverContext.setCacheDriverContext(new CacheDriverContext(pageSource, Optional.empty(), dynamicFilter, cacheMetrics, cacheStats));
             return alternatives.get(LOAD_PAGES_ALTERNATIVE).createDriver(driverContext);
+        }
+        else {
+            cacheStats.recordCacheMiss(1);
         }
 
         int processedSplitCount = cacheMetrics.getSplitNotCachedCount() + cacheMetrics.getSplitCachedCount();
@@ -142,7 +149,7 @@ public class CacheDriverFactory
         if (cachingRatio > THRASHING_CACHE_THRESHOLD) {
             Optional<ConnectorPageSink> pageSink = storePages(splitId, planSignature, planSignatureComplete);
             if (pageSink.isPresent()) {
-                driverContext.setCacheDriverContext(new CacheDriverContext(Optional.empty(), pageSink, dynamicFilter, cacheMetrics));
+                driverContext.setCacheDriverContext(new CacheDriverContext(Optional.empty(), pageSink, dynamicFilter, cacheMetrics, cacheStats));
                 return alternatives.get(STORE_PAGES_ALTERNATIVE).createDriver(driverContext);
             }
         }

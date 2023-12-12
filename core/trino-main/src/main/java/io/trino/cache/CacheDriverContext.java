@@ -26,18 +26,21 @@ public record CacheDriverContext(
         Optional<ConnectorPageSource> pageSource,
         Optional<ConnectorPageSink> pageSink,
         DynamicFilter dynamicFilter,
-        CacheMetrics cacheMetrics)
+        CacheMetrics cacheMetrics,
+        CacheStats cacheStats)
 {
     public CacheDriverContext(
             Optional<ConnectorPageSource> pageSource,
             Optional<ConnectorPageSink> pageSink,
             DynamicFilter dynamicFilter,
-            CacheMetrics cacheMetrics)
+            CacheMetrics cacheMetrics,
+            CacheStats cacheStats)
     {
         this.pageSource = requireNonNull(pageSource, "pageSource is null");
         this.pageSink = requireNonNull(pageSink, "pageSink is null");
         this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
         this.cacheMetrics = requireNonNull(cacheMetrics, "cacheMetrics is null");
+        this.cacheStats = requireNonNull(cacheStats, "cacheStats is null");
     }
 
     public static DynamicFilter getDynamicFilter(OperatorContext context, DynamicFilter originalDynamicFilter)

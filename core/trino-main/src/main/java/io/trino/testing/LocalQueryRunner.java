@@ -30,6 +30,7 @@ import io.trino.SystemSessionPropertiesProvider;
 import io.trino.cache.CacheConfig;
 import io.trino.cache.CacheManagerRegistry;
 import io.trino.cache.CacheMetadata;
+import io.trino.cache.CacheStats;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogFactory;
 import io.trino.connector.CatalogServiceProviderModule;
@@ -497,7 +498,7 @@ public class LocalQueryRunner
                 ImmutableSet.of(new ExcludeColumnsFunction()));
 
         exchangeManagerRegistry = new ExchangeManagerRegistry();
-        cacheManagerRegistry = new CacheManagerRegistry(cacheConfig, new LocalMemoryManager(new NodeMemoryConfig()), plannerContext.getBlockEncodingSerde());
+        cacheManagerRegistry = new CacheManagerRegistry(cacheConfig, new LocalMemoryManager(new NodeMemoryConfig()), plannerContext.getBlockEncodingSerde(), new CacheStats());
         this.pluginManager = new PluginManager(
                 (loader, createClassLoader) -> {},
                 catalogFactory,
@@ -1034,6 +1035,7 @@ public class LocalQueryRunner
                 pageFunctionCompiler,
                 joinFilterFunctionCompiler,
                 new IndexJoinLookupStats(),
+                new CacheStats(),
                 this.taskManagerConfig,
                 spillerFactory,
                 singleStreamSpillerFactory,

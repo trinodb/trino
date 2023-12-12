@@ -19,6 +19,7 @@ import io.airlift.json.ObjectMapperProvider;
 import io.opentelemetry.api.trace.Span;
 import io.trino.cache.CacheConfig;
 import io.trino.cache.CacheManagerRegistry;
+import io.trino.cache.CacheStats;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.cost.StatsAndCosts;
@@ -164,6 +165,7 @@ public final class TaskTestUtils
 
         PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(PLANNER_CONTEXT.getFunctionManager(), 0);
         ColumnarFilterCompiler columnarFilterCompiler = new ColumnarFilterCompiler(PLANNER_CONTEXT.getFunctionManager(), 0);
+        CacheStats cacheStats = new CacheStats();
         return new LocalExecutionPlanner(
                 PLANNER_CONTEXT,
                 createTestingTypeAnalyzer(PLANNER_CONTEXT),
@@ -179,6 +181,7 @@ public final class TaskTestUtils
                 pageFunctionCompiler,
                 new JoinFilterFunctionCompiler(PLANNER_CONTEXT.getFunctionManager()),
                 new IndexJoinLookupStats(),
+                cacheStats,
                 new TaskManagerConfig(),
                 new GenericSpillerFactory((types, spillContext, memoryContext) -> {
                     throw new UnsupportedOperationException();
@@ -197,7 +200,7 @@ public final class TaskTestUtils
                 PLANNER_CONTEXT.getTypeOperators(),
                 new TableExecuteContextManager(),
                 new ExchangeManagerRegistry(),
-                new CacheManagerRegistry(new CacheConfig(), new LocalMemoryManager(new NodeMemoryConfig()), new TestingBlockEncodingSerde()),
+                new CacheManagerRegistry(new CacheConfig(), new LocalMemoryManager(new NodeMemoryConfig()), new TestingBlockEncodingSerde(), cacheStats),
                 new NodeVersion("test"),
                 new CompilerConfig());
     }

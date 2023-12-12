@@ -91,7 +91,7 @@ public class TestCacheDriverFactory
                 .setMaxQueryMemoryPerNode(DataSize.of(32, MEGABYTE));
         CacheConfig cacheConfig = new CacheConfig();
         cacheConfig.setEnabled(true);
-        registry = new CacheManagerRegistry(cacheConfig, new LocalMemoryManager(config, DataSize.of(1024, MEGABYTE).toBytes()), new TestingBlockEncodingSerde());
+        registry = new CacheManagerRegistry(cacheConfig, new LocalMemoryManager(config, DataSize.of(1024, MEGABYTE).toBytes()), new TestingBlockEncodingSerde(), new CacheStats());
         registry.loadCacheManager();
         scheduledExecutor = Executors.newScheduledThreadPool(1);
     }
@@ -126,7 +126,8 @@ public class TestCacheDriverFactory
                 ImmutableMap.of(),
                 () -> createStaticDynamicFilter(ImmutableList.of(EMPTY)),
                 () -> createStaticDynamicFilter(ImmutableList.of(EMPTY)),
-                ImmutableList.of(driverFactory, driverFactory));
+                ImmutableList.of(driverFactory, driverFactory),
+                new CacheStats());
 
         PlanSignature allPlanSignature = new PlanSignature(new SignatureKey("signature"), Optional.empty(), ImmutableList.of(), ImmutableList.of(), TupleDomain.all(), TupleDomain.all());
         PlanSignature nonePlanSignature = allPlanSignature.withDynamicPredicate(TupleDomain.none());
@@ -181,7 +182,8 @@ public class TestCacheDriverFactory
                 ImmutableMap.of(),
                 () -> createStaticDynamicFilter(ImmutableList.of(EMPTY)),
                 () -> createStaticDynamicFilter(ImmutableList.of(EMPTY)),
-                ImmutableList.of(driverFactory, driverFactory));
+                ImmutableList.of(driverFactory, driverFactory),
+                new CacheStats());
 
         // expect driver for original plan because cacheSplit is empty
         Driver driver = cacheDriverFactory.createDriver(createDriverContext(), new ScheduledSplit(0, planNodeIdAllocator.getNextId(), split), Optional.empty());
@@ -205,7 +207,8 @@ public class TestCacheDriverFactory
                 ImmutableMap.of(),
                 () -> createStaticDynamicFilter(ImmutableList.of(EMPTY)),
                 () -> createStaticDynamicFilter(ImmutableList.of(EMPTY)),
-                ImmutableList.of(driverFactory, driverFactory));
+                ImmutableList.of(driverFactory, driverFactory),
+                new CacheStats());
 
         // expect driver for original plan because dynamic filter filters data completely
         driver = cacheDriverFactory.createDriver(createDriverContext(), new ScheduledSplit(0, planNodeIdAllocator.getNextId(), split), Optional.of(new CacheSplitId("split")));
@@ -243,7 +246,8 @@ public class TestCacheDriverFactory
                 ImmutableMap.of(new CacheColumnId("cacheColumnId"), columnHandle),
                 () -> createStaticDynamicFilter(ImmutableList.of(commonDynamicFilter)),
                 () -> createStaticDynamicFilter(ImmutableList.of(new TestDynamicFilter(() -> originalDynamicPredicate, true))),
-                ImmutableList.of(driverFactory, driverFactory));
+                ImmutableList.of(driverFactory, driverFactory),
+                new CacheStats());
 
         // baseSignature's dynamic filters should be changed because new dynamic filter was supplied
         cacheDriverFactory.createDriver(createDriverContext(), new ScheduledSplit(0, planNodeIdAllocator.getNextId(), split), Optional.of(new CacheSplitId("id")));

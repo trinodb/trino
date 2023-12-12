@@ -19,6 +19,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.airlift.stats.Distribution;
+import io.airlift.stats.TimeStat;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.MemoryPool;
 import io.trino.memory.context.LocalMemoryContext;
@@ -80,17 +81,18 @@ public class CacheManagerRegistry
     private final AtomicBoolean revokeRequested = new AtomicBoolean();
     private final Distribution sizeOfRevokedMemoryDistribution = new Distribution();
     private final AtomicInteger nonEmptyRevokeCount = new AtomicInteger();
+    private final CacheStats cacheStats;
 
     private volatile CacheManager cacheManager;
 
     @Inject
-    public CacheManagerRegistry(CacheConfig cacheConfig, LocalMemoryManager localMemoryManager, BlockEncodingSerde blockEncodingSerde)
+    public CacheManagerRegistry(CacheConfig cacheConfig, LocalMemoryManager localMemoryManager, BlockEncodingSerde blockEncodingSerde, CacheStats cacheStats)
     {
-        this(cacheConfig, localMemoryManager, newSingleThreadExecutor(daemonThreadsNamed("cache-manager-registry")), blockEncodingSerde);
+        this(cacheConfig, localMemoryManager, newSingleThreadExecutor(daemonThreadsNamed("cache-manager-registry")), blockEncodingSerde, cacheStats);
     }
 
     @VisibleForTesting
-    CacheManagerRegistry(CacheConfig cacheConfig, LocalMemoryManager localMemoryManager, ExecutorService executor, BlockEncodingSerde blockEncodingSerde)
+    CacheManagerRegistry(CacheConfig cacheConfig, LocalMemoryManager localMemoryManager, ExecutorService executor, BlockEncodingSerde blockEncodingSerde, CacheStats cacheStats)
     {
         requireNonNull(cacheConfig, "cacheConfig is null");
         requireNonNull(localMemoryManager, "localMemoryManager is null");
@@ -102,6 +104,7 @@ public class CacheManagerRegistry
         this.memoryPool = localMemoryManager.getMemoryPool();
         this.executor = executor;
         this.blockEncodingSerde = blockEncodingSerde;
+        this.cacheStats = cacheStats;
     }
 
     public void addCacheManagerFactory(CacheManagerFactory factory)
@@ -207,6 +210,15 @@ public class CacheManagerRegistry
     }
 
     @Managed
+    public long getRevocableBytes()
+    {
+        if (cacheManager == null) {
+            return 0;
+        }
+        return cacheManager.getRevocableBytes();
+    }
+
+    @Managed
     @Nested
     public Distribution getDistributionSizeRevokedMemory()
     {
@@ -239,7 +251,10 @@ public class CacheManagerRegistry
             revokeRequested.set(false);
             long bytesToRevoke = (long) (-memoryPool.getFreeBytes() + (memoryPool.getMaxBytes() * (1.0 - revokingTarget)));
             if (bytesToRevoke > 0) {
-                long revokedBytes = cacheManager.revokeMemory(bytesToRevoke);
+                long revokedBytes;
+                try (TimeStat.BlockTimer ignore = cacheStats.recordTime()) {
+                    revokedBytes = cacheManager.revokeMemory(bytesToRevoke);
+                }
                 if (onAllocation) {
                     sizeOfRevokedMemoryDistribution.add(revokedBytes);
                 }

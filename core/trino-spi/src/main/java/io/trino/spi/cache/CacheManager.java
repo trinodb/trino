@@ -46,6 +46,11 @@ public interface CacheManager
      */
     long revokeMemory(long bytesToRevoke);
 
+    /**
+     * @return the number of allocated revocable bytes
+     */
+    long getRevocableBytes();
+
     interface SplitCache
             extends Closeable
     {

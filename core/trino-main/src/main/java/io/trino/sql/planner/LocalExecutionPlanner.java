@@ -36,6 +36,7 @@ import io.trino.SystemSessionProperties;
 import io.trino.cache.CacheDataOperator.CacheDataOperatorFactory;
 import io.trino.cache.CacheDriverFactory;
 import io.trino.cache.CacheManagerRegistry;
+import io.trino.cache.CacheStats;
 import io.trino.cache.LoadCachedDataOperator.LoadCachedDataOperatorFactory;
 import io.trino.cache.NonEvictableCache;
 import io.trino.cache.StaticDynamicFilter;
@@ -436,6 +437,7 @@ public class LocalExecutionPlanner
     private final JoinFilterFunctionCompiler joinFilterFunctionCompiler;
     private final DataSize maxIndexMemorySize;
     private final IndexJoinLookupStats indexJoinLookupStats;
+    private final CacheStats cacheStats;
     private final DataSize maxPartialAggregationMemorySize;
     private final DataSize maxPagePartitioningBufferSize;
     private final DataSize maxLocalExchangeBufferSize;
@@ -492,6 +494,7 @@ public class LocalExecutionPlanner
             PageFunctionCompiler pageFunctionCompiler,
             JoinFilterFunctionCompiler joinFilterFunctionCompiler,
             IndexJoinLookupStats indexJoinLookupStats,
+            CacheStats cacheStats,
             TaskManagerConfig taskManagerConfig,
             SpillerFactory spillerFactory,
             SingleStreamSpillerFactory singleStreamSpillerFactory,
@@ -523,6 +526,7 @@ public class LocalExecutionPlanner
         this.pageFunctionCompiler = requireNonNull(pageFunctionCompiler, "pageFunctionCompiler is null");
         this.joinFilterFunctionCompiler = requireNonNull(joinFilterFunctionCompiler, "joinFilterFunctionCompiler is null");
         this.indexJoinLookupStats = requireNonNull(indexJoinLookupStats, "indexJoinLookupStats is null");
+        this.cacheStats = requireNonNull(cacheStats, "cacheStats is null");
         this.maxIndexMemorySize = taskManagerConfig.getMaxIndexMemoryUsage();
         this.spillerFactory = requireNonNull(spillerFactory, "spillerFactory is null");
         this.singleStreamSpillerFactory = requireNonNull(singleStreamSpillerFactory, "singleStreamSpillerFactory is null");
@@ -781,7 +785,7 @@ public class LocalExecutionPlanner
                                 cacheContext.getDynamicFilterColumnMapping(),
                                 cacheContext.getCommonDynamicFilterSupplier(),
                                 cacheContext.getOriginalDynamicFilterSupplier(),
-                                ImmutableList.copyOf(alternatives.values())));
+                                ImmutableList.copyOf(alternatives.values()), cacheStats));
                 driverFactories.add(new AlternativesAwareDriverFactory(
                         alternativeChooser,
                         taskContext.getSession(),

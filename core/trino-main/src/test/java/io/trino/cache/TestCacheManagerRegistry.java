@@ -56,7 +56,7 @@ public class TestCacheManagerRegistry
                 .setMaxQueryMemoryPerNode(DataSize.of(100, MEGABYTE));
 
         memoryManager = new LocalMemoryManager(config, DataSize.of(110, MEGABYTE).toBytes());
-        registry = new CacheManagerRegistry(new CacheConfig(), memoryManager, newDirectExecutorService(), new TestingBlockEncodingSerde());
+        registry = new CacheManagerRegistry(new CacheConfig(), memoryManager, newDirectExecutorService(), new TestingBlockEncodingSerde(), new CacheStats());
         registry.addCacheManagerFactory(new TestCacheManagerFactory());
         registry.loadCacheManager(TEST_CACHE_MANAGER, ImmutableMap.of());
     }
@@ -142,6 +142,12 @@ public class TestCacheManagerRegistry
         {
             this.bytesToRevoke = OptionalLong.of(bytesToRevoke);
             return bytesToRevoke;
+        }
+
+        @Override
+        public long getRevocableBytes()
+        {
+            return 0;
         }
 
         private boolean tryAllocateMemory(long bytes)
