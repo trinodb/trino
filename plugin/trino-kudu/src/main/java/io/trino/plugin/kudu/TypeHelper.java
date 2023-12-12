@@ -84,7 +84,7 @@ public final class TypeHelper
             return org.apache.kudu.Type.DECIMAL;
         }
         if (type == DateType.DATE) {
-            return org.apache.kudu.Type.STRING;
+            return org.apache.kudu.Type.DATE;
         }
         if (type instanceof CharType) {
             return org.apache.kudu.Type.STRING;
@@ -122,9 +122,10 @@ public final class TypeHelper
                 return VarbinaryType.VARBINARY;
             case DECIMAL:
                 return DecimalType.createDecimalType(attributes.getPrecision(), attributes.getScale());
-            // TODO: add support for varchar and date types: https://github.com/trinodb/trino/issues/11009
-            case VARCHAR:
             case DATE:
+                return DateType.DATE;
+            // TODO: add support for varchar types: https://github.com/trinodb/trino/issues/11009
+            case VARCHAR:
                 break;
         }
         throw new IllegalStateException("Kudu type not implemented for " + ktype);
@@ -137,6 +138,9 @@ public final class TypeHelper
         }
         if (type.equals(TIMESTAMP_MILLIS)) {
             // Kudu's native format is in microseconds
+            return nativeValue;
+        }
+        if (type.equals(DateType.DATE)) {
             return nativeValue;
         }
         if (type == BigintType.BIGINT) {
@@ -208,6 +212,9 @@ public final class TypeHelper
         if (type instanceof VarbinaryType) {
             return Slices.wrappedHeapBuffer(row.getBinary(field));
         }
+        if (type.equals(DateType.DATE)) {
+            return row.getInt(field);
+        }
         if (type instanceof DecimalType) {
             return Decimals.encodeScaledValue(row.getDecimal(field), ((DecimalType) type).getScale());
         }
@@ -218,6 +225,9 @@ public final class TypeHelper
     {
         if (type.equals(TIMESTAMP_MILLIS)) {
             return truncateEpochMicrosToMillis(row.getLong(field));
+        }
+        if (type.equals(DateType.DATE)) {
+            return row.getInt(field);
         }
         if (type == BigintType.BIGINT) {
             return row.getLong(field);

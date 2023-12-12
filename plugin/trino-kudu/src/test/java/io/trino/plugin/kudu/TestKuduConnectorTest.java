@@ -182,7 +182,7 @@ public class TestKuduConnectorTest
                 .row("custkey", "bigint", extra, "")
                 .row("orderstatus", "varchar", extra, "")
                 .row("totalprice", "double", extra, "")
-                .row("orderdate", "varchar", extra, "")
+                .row("orderdate", "date", extra, "")
                 .row("orderpriority", "varchar", extra, "")
                 .row("clerk", "varchar", extra, "")
                 .row("shippriority", "integer", extra, "")
@@ -207,7 +207,7 @@ public class TestKuduConnectorTest
                         "   custkey bigint COMMENT '' WITH ( nullable = true ),\n" +
                         "   orderstatus varchar COMMENT '' WITH ( nullable = true ),\n" +
                         "   totalprice double COMMENT '' WITH ( nullable = true ),\n" +
-                        "   orderdate varchar COMMENT '' WITH ( nullable = true ),\n" +
+                        "   orderdate date COMMENT '' WITH ( nullable = true ),\n" +
                         "   orderpriority varchar COMMENT '' WITH ( nullable = true ),\n" +
                         "   clerk varchar COMMENT '' WITH ( nullable = true ),\n" +
                         "   shippriority integer COMMENT '' WITH ( nullable = true ),\n" +
@@ -763,6 +763,9 @@ public class TestKuduConnectorTest
             assertUpdate(format("CREATE TABLE %s AS SELECT DATE '-0001-01-01' AS dt", tableName), 1);
             assertQuery("SELECT * FROM " + tableName, "VALUES '-0001-01-01'");
             assertQuery(format("SELECT * FROM %s WHERE dt = '-0001-01-01'", tableName), "VALUES '-0001-01-01'");
+        }
+        catch (Exception error) {
+            assertThat(error).hasMessageContaining("is out of range");
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);

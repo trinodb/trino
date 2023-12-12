@@ -16,6 +16,7 @@ package io.trino.plugin.kudu;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.spi.Page;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorMergeSink;
 import io.trino.spi.connector.ConnectorPageSink;
@@ -36,6 +37,7 @@ import org.apache.kudu.client.PartialRow;
 import org.apache.kudu.client.Upsert;
 
 import java.nio.charset.StandardCharsets;
+import java.sql.Date;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -47,6 +49,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
@@ -61,6 +64,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.kudu.util.DateUtil.epochDaysToSqlDate;
 
 public class KuduPageSink
         implements ConnectorPageSink, ConnectorMergeSink
@@ -153,6 +157,9 @@ public class KuduPageSink
         else if (TIMESTAMP_MILLIS.equals(type)) {
             row.addLong(destChannel, truncateEpochMicrosToMillis(TIMESTAMP_MILLIS.getLong(block, position)));
         }
+        else if (DATE.equals(type)) {
+            row.addDate(destChannel, epochSqlDate(INTEGER.getInt(block, position)));
+        }
         else if (REAL.equals(type)) {
             row.addFloat(destChannel, REAL.getFloat(block, position));
         }
@@ -195,6 +202,16 @@ public class KuduPageSink
         }
         else {
             throw new UnsupportedOperationException("Type is not supported: " + type);
+        }
+    }
+
+    private Date epochSqlDate(int days)
+    {
+        try {
+            return epochDaysToSqlDate(days);
+        }
+        catch (RuntimeException runtimeException) {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, runtimeException);
         }
     }
 
