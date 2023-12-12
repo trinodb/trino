@@ -217,6 +217,8 @@ this table:
   - `VARCHAR`
 * - `BINARY`
   - `VARBINARY`
+* - `DATE`
+  - `DATE`
 * - `UNIXTIME_MICROS`
   - `TIMESTAMP(3)`
 :::
@@ -266,7 +268,7 @@ this table:
   - `BINARY`
   -
 * - `DATE`
-  - `STRING`
+  - `DATE`
   -
 * - `TIMESTAMP(3)`
   - `UNIXTIME_MICROS`
