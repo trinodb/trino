@@ -1161,13 +1161,13 @@
             <dependency>
                 <groupId>cccs.ap.iceberg</groupId>
                 <artifactId>trino-iceberg</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.iceberg.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>cccs.ap.iceberg</groupId>
                 <artifactId>trino-iceberg</artifactId>
-                <version>${project.version}</version>
+                <version>${dep.iceberg.version}</version>
                 <type>test-jar</type>
             </dependency>
 
