@@ -2619,6 +2619,8 @@
                                     -Xep:GuardedBy:OFF \
                                     -Xep:HidingField:ERROR \
                                     -Xep:JavaTimeDefaultTimeZone:OFF \
+                                    <!-- covered by Modernizer -->
+                                    -Xep:JdkObsolete:OFF \
                                     <!-- This check requires list fields to be declared as ImmutableList, which is not in line with project's code style -->
                                     -Xep:Immutable:OFF \
                                     <!-- flags enums with List fields even if initialized with ImmutableList, and other false positives -->
