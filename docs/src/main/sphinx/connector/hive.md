@@ -14,7 +14,6 @@ Amazon S3 <hive-s3>
 Azure Storage <hive-azure>
 Google Cloud Storage <hive-gcs-tutorial>
 IBM Cloud Object Storage <hive-cos>
-Storage Caching <hive-caching>
 Alluxio <hive-alluxio>
 Object storage file formats <object-storage-file-formats>
 ```
@@ -350,8 +349,6 @@ The Hive connector supports the following storage options:
 - {doc}`Azure Storage <hive-azure>`
 - {doc}`Google Cloud Storage <hive-gcs-tutorial>`
 - {doc}`IBM Cloud Object Storage <hive-cos>`
-
-The Hive connector also supports {doc}`storage caching <hive-caching>`.
 
 ## Security
 

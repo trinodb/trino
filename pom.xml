@@ -643,12 +643,6 @@
             </dependency>
 
             <dependency>
-                <groupId>com.qubole.rubix</groupId>
-                <artifactId>rubix-presto-shaded</artifactId>
-                <version>0.3.18</version>
-            </dependency>
-
-            <dependency>
                 <groupId>com.sap.cloud.db.jdbc</groupId>
                 <artifactId>ngdbc</artifactId>
                 <version>${dep.sap-hana-jdbc.version}</version>
