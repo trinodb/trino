@@ -79,6 +79,7 @@ abstract class SplitSpecification
             this.wakeupExecutor = wakeupExecutor;
         }
 
+        @SuppressWarnings("ArgumentSelectionDefectChecker")
         @Override
         public IntermediateSplit instantiate(SimulationTask task)
         {

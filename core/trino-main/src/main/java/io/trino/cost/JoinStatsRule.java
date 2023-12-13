@@ -97,6 +97,7 @@ public class JoinStatsRule
         throw new IllegalStateException("Unknown join type: " + node.getType());
     }
 
+    @SuppressWarnings("ArgumentSelectionDefectChecker")
     private PlanNodeStatsEstimate computeFullJoinStats(
             JoinNode node,
             PlanNodeStatsEstimate leftStats,
@@ -128,6 +129,7 @@ public class JoinStatsRule
                 leftJoinComplementStats);
     }
 
+    @SuppressWarnings("ArgumentSelectionDefectChecker")
     private PlanNodeStatsEstimate computeRightJoinStats(
             JoinNode node,
             PlanNodeStatsEstimate leftStats,

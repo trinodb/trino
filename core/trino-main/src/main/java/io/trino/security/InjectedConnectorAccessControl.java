@@ -328,7 +328,7 @@ public class InjectedConnectorAccessControl
     public void checkCanSetCatalogSessionProperty(ConnectorSecurityContext context, String propertyName)
     {
         checkArgument(context == null, "context must be null");
-        accessControl.checkCanSetCatalogSessionProperty(securityContext, propertyName, catalogName);
+        accessControl.checkCanSetCatalogSessionProperty(securityContext, catalogName, propertyName);
     }
 
     @Override
