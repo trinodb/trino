@@ -239,7 +239,8 @@ public class DeltaLakePageSourceProvider
                 options,
                 Optional.empty(),
                 domainCompactionThreshold,
-                OptionalLong.of(split.getFileSize()), fileSystem);
+                OptionalLong.of(split.getFileSize()),
+                fileSystem);
 
         Optional<ReaderProjectionsAdapter> projectionsAdapter = pageSource.getReaderColumns().map(readerColumns ->
                 new ReaderProjectionsAdapter(

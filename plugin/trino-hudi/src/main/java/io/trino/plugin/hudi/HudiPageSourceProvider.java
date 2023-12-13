@@ -169,7 +169,8 @@ public class HudiPageSourceProvider
                 inputFile,
                 dataSourceStats,
                 options.withSmallFileThreshold(getParquetSmallFileThreshold(session)),
-                timeZone, fileSystem);
+                timeZone,
+                fileSystem);
 
         return new HudiPageSource(
                 toPartitionName(split.getPartitionKeys()),
@@ -188,7 +189,8 @@ public class HudiPageSourceProvider
             TrinoInputFile inputFile,
             FileFormatDataSourceStats dataSourceStats,
             ParquetReaderOptions options,
-            DateTimeZone timeZone, TrinoFileSystem trinoFileSystem)
+            DateTimeZone timeZone,
+            TrinoFileSystem trinoFileSystem)
     {
         ParquetDataSource dataSource = null;
         boolean useColumnNames = shouldUseParquetColumnNames(session);

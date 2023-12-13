@@ -374,7 +374,8 @@ public class IcebergPageSourceProvider
                 requiredColumns,
                 effectivePredicate,
                 nameMapping,
-                partitionKeys, fileSystem);
+                partitionKeys,
+                fileSystem);
         ReaderPageSource dataPageSource = readerPageSourceWithRowPositions.getReaderPageSource();
 
         Optional<ReaderProjectionsAdapter> projectionsAdapter = dataPageSource.getReaderColumns().map(readerColumns ->
@@ -530,7 +531,8 @@ public class IcebergPageSourceProvider
                 columns,
                 tupleDomain,
                 Optional.empty(),
-                ImmutableMap.of(), fileSystem)
+                ImmutableMap.of(),
+                fileSystem)
                 .getReaderPageSource()
                 .get();
     }
@@ -593,7 +595,8 @@ public class IcebergPageSourceProvider
                         predicate,
                         fileFormatDataSourceStats,
                         nameMapping,
-                        partitionKeys, fileSystem);
+                        partitionKeys,
+                        fileSystem);
             case AVRO:
                 return createAvroPageSource(
                         inputFile,
@@ -931,7 +934,8 @@ public class IcebergPageSourceProvider
             TupleDomain<IcebergColumnHandle> effectivePredicate,
             FileFormatDataSourceStats fileFormatDataSourceStats,
             Optional<NameMapping> nameMapping,
-            Map<Integer, Optional<String>> partitionKeys, TrinoFileSystem trinoFileSystem)
+            Map<Integer, Optional<String>> partitionKeys,
+            TrinoFileSystem trinoFileSystem)
     {
         AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext();
 

@@ -191,7 +191,8 @@ public class ParquetPageSourceFactory
                         .withBloomFilter(useParquetBloomFilter(session)),
                 Optional.empty(),
                 domainCompactionThreshold,
-                OptionalLong.of(estimatedFileSize), fileSystem));
+                OptionalLong.of(estimatedFileSize),
+                fileSystem));
     }
 
     /**
@@ -209,7 +210,8 @@ public class ParquetPageSourceFactory
             ParquetReaderOptions options,
             Optional<ParquetWriteValidation> parquetWriteValidation,
             int domainCompactionThreshold,
-            OptionalLong estimatedFileSize, TrinoFileSystem trinoFileSystem)
+            OptionalLong estimatedFileSize,
+            TrinoFileSystem trinoFileSystem)
     {
         MessageType fileSchema;
         MessageType requestedSchema;

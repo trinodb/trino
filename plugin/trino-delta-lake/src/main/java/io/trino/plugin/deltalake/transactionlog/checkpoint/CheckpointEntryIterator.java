@@ -215,7 +215,6 @@ public class CheckpointEntryIterator
                 Optional.empty(),
                 domainCompactionThreshold,
                 OptionalLong.empty(),
-
                 //TODO(wyu)
                 null);
 
