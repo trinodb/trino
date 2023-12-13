@@ -95,7 +95,7 @@ public class HudiSplitSource
                 partitions,
                 throwable -> {
                     trinoException.compareAndSet(null, new TrinoException(HUDI_CANNOT_OPEN_SPLIT,
-                            "Failed to generate splits for " + table.getTableName(), throwable));
+                            "Failed to generate splits for " + table.getSchemaTableName(), throwable));
                     queue.finish();
                 });
         this.splitLoaderFuture = splitLoaderExecutorService.schedule(splitLoader, 0, TimeUnit.MILLISECONDS);

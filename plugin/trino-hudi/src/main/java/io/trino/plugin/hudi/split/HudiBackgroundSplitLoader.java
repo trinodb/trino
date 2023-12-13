@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 
@@ -78,7 +79,7 @@ public class HudiBackgroundSplitLoader
             HudiPartitionInfoLoader generator = new HudiPartitionInfoLoader(hudiDirectoryLister, hudiSplitFactory, asyncQueue, partitionQueue);
             splitGeneratorList.add(generator);
             ListenableFuture<Void> future = Futures.submit(generator, splitGeneratorExecutor);
-            addExceptionCallback(future, throwable -> errorListener.accept(throwable));
+            addExceptionCallback(future, errorListener::accept);
             splitGeneratorFutures.add(future);
         }
 
@@ -93,7 +94,10 @@ public class HudiBackgroundSplitLoader
                     .run(asyncQueue::finish, directExecutor())
                     .get();
         }
-        catch (Exception e) {
+        catch (InterruptedException | ExecutionException e) {
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
             throw new TrinoException(HUDI_CANNOT_OPEN_SPLIT, "Error generating Hudi split", e);
         }
     }
