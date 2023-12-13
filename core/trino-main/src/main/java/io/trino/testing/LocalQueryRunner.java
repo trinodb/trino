@@ -588,11 +588,6 @@ public class LocalQueryRunner
         return tablePropertyManager;
     }
 
-    public MaterializedViewPropertyManager getMaterializedViewPropertyManager()
-    {
-        return materializedViewPropertyManager;
-    }
-
     public AnalyzePropertyManager getAnalyzePropertyManager()
     {
         return analyzePropertyManager;
