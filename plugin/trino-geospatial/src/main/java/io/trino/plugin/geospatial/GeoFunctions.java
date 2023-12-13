@@ -1366,6 +1366,7 @@ public final class GeoFunctions
         return leftGeometry.touches(rightGeometry);
     }
 
+    @SuppressWarnings("ArgumentSelectionDefectChecker")
     @SqlNullable
     @Description("Returns TRUE if the geometry A is completely inside geometry B")
     @ScalarFunction("ST_Within")
