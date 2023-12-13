@@ -21,7 +21,6 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HiveMetadata;
-import io.trino.plugin.hive.LocationAccessControl;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.IcebergMaterializedViewDefinition;
 import io.trino.plugin.iceberg.IcebergUtil;
@@ -347,7 +346,9 @@ public abstract class AbstractTrinoCatalog
         List<ColumnMetadata> columns = columnsForMaterializedView(definition, materializedViewProperties);
 
         ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(storageTable, columns, materializedViewProperties, Optional.empty());
-        Transaction transaction = IcebergUtil.newCreateTableTransaction(this, tableMetadata, session, false, LocationAccessControl.ALLOW_ALL);
+        String tableLocation = getTableLocation(tableMetadata.getProperties())
+                .orElseGet(() -> defaultTableLocation(session, tableMetadata.getTable()));
+        Transaction transaction = IcebergUtil.newCreateTableTransaction(this, tableMetadata, session, false, tableLocation);
         AppendFiles appendFiles = transaction.newAppend();
         commit(appendFiles, session);
         transaction.commitTransaction();
