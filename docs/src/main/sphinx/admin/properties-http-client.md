@@ -28,13 +28,6 @@ The following prefixes are supported:
 
 Timeout value for establishing the connection to the external service.
 
-### `http-client.max-connections`
-
-- **Type:** {ref}`prop-type-integer`
-- **Default value:** `200`
-
-Maximum connections allowed to the service.
-
 ### `http-client.request-timeout`
 
 - **Type:** {ref}`prop-type-duration`
