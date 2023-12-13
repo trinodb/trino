@@ -141,7 +141,7 @@ public final class DateTimeFunctions
     {
         TimeZoneKey timeZoneKey;
         try {
-            timeZoneKey = getTimeZoneKeyForOffset(toIntExact(hoursOffset * 60 + minutesOffset));
+            timeZoneKey = getTimeZoneKeyForOffset((hoursOffset * 60) + minutesOffset);
             return packDateTimeWithZone(Math.round(unixTime * 1000), timeZoneKey);
         }
         catch (IllegalArgumentException e) {

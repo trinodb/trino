@@ -99,7 +99,6 @@ import static io.trino.spi.type.UuidType.javaUuidToTrinoUuid;
 import static io.trino.spi.type.UuidType.trinoUuidToJavaUuid;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.lang.System.arraycopy;
 import static java.util.Objects.requireNonNull;
@@ -356,7 +355,7 @@ public class CassandraTypeManager
     {
         CassandraType.Kind kind = type.getKind();
         if (kind == DATE) {
-            LocalDate date = LocalDate.ofEpochDay(toIntExact((long) trinoNativeValue));
+            LocalDate date = LocalDate.ofEpochDay((long) trinoNativeValue);
             return quoteStringLiteral(date.toString());
         }
         if (kind == TIME) {
@@ -469,7 +468,7 @@ public class CassandraTypeManager
             case TIMESTAMP:
                 return Instant.ofEpochMilli(unpackMillisUtc((Long) trinoNativeValue));
             case DATE:
-                return LocalDate.ofEpochDay(((Long) trinoNativeValue).intValue());
+                return LocalDate.ofEpochDay((Long) trinoNativeValue);
             case UUID:
             case TIMEUUID:
                 return trinoUuidToJavaUuid((Slice) trinoNativeValue);

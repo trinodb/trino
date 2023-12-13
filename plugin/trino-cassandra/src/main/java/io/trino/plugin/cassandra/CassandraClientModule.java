@@ -56,7 +56,6 @@ import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.trino.plugin.base.ssl.SslUtils.createSSLContext;
 import static io.trino.plugin.cassandra.CassandraErrorCode.CASSANDRA_SSL_INITIALIZATION_FAILURE;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public class CassandraClientModule
@@ -150,8 +149,8 @@ public class CassandraClientModule
             }
         }
 
-        driverConfigLoaderBuilder.withDuration(DefaultDriverOption.REQUEST_TIMEOUT, Duration.ofMillis(toIntExact(config.getClientReadTimeout().toMillis())));
-        driverConfigLoaderBuilder.withDuration(DefaultDriverOption.CONNECTION_CONNECT_TIMEOUT, Duration.ofMillis(toIntExact(config.getClientConnectTimeout().toMillis())));
+        driverConfigLoaderBuilder.withDuration(DefaultDriverOption.REQUEST_TIMEOUT, config.getClientReadTimeout().toJavaTime());
+        driverConfigLoaderBuilder.withDuration(DefaultDriverOption.CONNECTION_CONNECT_TIMEOUT, config.getClientConnectTimeout().toJavaTime());
         if (config.getClientSoLinger() != null) {
             driverConfigLoaderBuilder.withInt(DefaultDriverOption.SOCKET_LINGER_INTERVAL, config.getClientSoLinger());
         }
