@@ -77,7 +77,7 @@ class DereferencePushdown
     }
 
     /**
-     * Extract the sub-expressions of type {@link SubscriptExpression} or {@link SymbolReference} from the {@param expression}
+     * Extract the sub-expressions of type {@link SubscriptExpression} or {@link SymbolReference} from the expression
      * in a top-down manner. The expressions within the base of a valid {@link SubscriptExpression} sequence are not extracted.
      */
     private static List<Expression> getSymbolReferencesAndRowSubscripts(Expression expression, Session session, TypeAnalyzer typeAnalyzer, TypeProvider types)
