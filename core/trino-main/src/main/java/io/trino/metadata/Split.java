@@ -69,6 +69,11 @@ public final class Split
         return connectorSplit.isRemotelyAccessible();
     }
 
+    public boolean isRemotelyAccessibleIfNodeMissing()
+    {
+        return connectorSplit.isRemotelyAccessibleIfNodeMissing();
+    }
+
     public SplitWeight getSplitWeight()
     {
         return connectorSplit.getSplitWeight();

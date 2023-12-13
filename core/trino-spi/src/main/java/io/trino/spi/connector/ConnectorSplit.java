@@ -40,6 +40,27 @@ public interface ConnectorSplit
         return List.of();
     }
 
+    /**
+     * Lets the scheduler run this split on any node when the designated node is unavailable.
+     * <p>
+     * Ordinarily, when {@link #isRemotelyAccessible()} is false, the split must run on a node from the {@link #getAddresses()} list.  If that
+     * node is down, the split will fail to run, and the query will be aborted.  Sometimes, however, it's desirable not to fail but to run the
+     * split somewhere else.  This technically violates the meaning of {@link #isRemotelyAccessible()} in order to be fault-tolerant.
+     * <p>
+     * The behavior is controlled by this method.  When it returns false, the split will fail if its designated host dies.
+     * But when this returns true, the split will still be run on some arbitrary node.
+     *
+     * @return True if the scheduler may schedule this split outside {@link #getAddresses()} (even if {@link #isRemotelyAccessible()} is false).
+     *
+     * @apiNote This method should not return false when {@link #isRemotelyAccessible()} returns true.  In that case, schedulers are free to run this split
+     * anywhere, so it would be confusing if this suggested something different.  But when {@link #isRemotelyAccessible()} returns false,
+     * this method can return either value, depending on whether failover is allowed or not.
+     */
+    default boolean isRemotelyAccessibleIfNodeMissing()
+    {
+        return isRemotelyAccessible();
+    }
+
     Object getInfo();
 
     default SplitWeight getSplitWeight()
