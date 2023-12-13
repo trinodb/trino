@@ -28,6 +28,12 @@ public abstract class AbstractRangeStatisticsTest<R extends RangeStatistics<T>, 
         assertMinMaxStatistics(min, null);
         assertMinMaxStatistics(null, max);
 
+        assertMinMaxInverted(min, max);
+    }
+
+    @SuppressWarnings("ArgumentSelectionDefectChecker")
+    private void assertMinMaxInverted(T min, T max)
+    {
         if (!min.equals(max)) {
             assertThatThrownBy(() -> getCreateStatistics(max, min))
                     .isInstanceOf(IllegalArgumentException.class)

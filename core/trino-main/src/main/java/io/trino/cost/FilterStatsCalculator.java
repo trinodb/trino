@@ -382,6 +382,7 @@ public class FilterStatsCalculator
             return result.build();
         }
 
+        @SuppressWarnings("ArgumentSelectionDefectChecker")
         @Override
         protected PlanNodeStatsEstimate visitComparisonExpression(ComparisonExpression node, Void context)
         {

@@ -87,6 +87,7 @@ public final class CanonicalizeExpressionRewriter
             this.expressionTypes = expressionTypes;
         }
 
+        @SuppressWarnings("ArgumentSelectionDefectChecker")
         @Override
         public Expression rewriteComparisonExpression(ComparisonExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
@@ -99,6 +100,7 @@ public final class CanonicalizeExpressionRewriter
             return treeRewriter.defaultRewrite(node, context);
         }
 
+        @SuppressWarnings("ArgumentSelectionDefectChecker")
         @Override
         public Expression rewriteArithmeticBinary(ArithmeticBinaryExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
