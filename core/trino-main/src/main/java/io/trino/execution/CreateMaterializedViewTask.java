@@ -13,10 +13,12 @@
  */
 package io.trino.execution;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.trino.Session;
 import io.trino.connector.system.GlobalSystemConnector;
+import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.MaterializedViewPropertyManager;
@@ -91,19 +93,28 @@ public class CreateMaterializedViewTask
     }
 
     @Override
-    public ListenableFuture<Void> execute(
-            CreateMaterializedView statement,
-            QueryStateMachine stateMachine,
-            List<Expression> parameters,
-            WarningCollector warningCollector)
+    public ListenableFuture<Void> execute(CreateMaterializedView statement, QueryStateMachine stateMachine, List<Expression> parameters, WarningCollector warningCollector)
     {
-        Session session = stateMachine.getSession();
+        Analysis analysis = executeInternal(statement, stateMachine.getSession(), parameters, warningCollector, stateMachine.getPlanOptimizersStatsCollector());
+        stateMachine.setOutput(analysis.getTarget());
+        stateMachine.setReferencedTables(analysis.getReferencedTables());
+        return immediateVoidFuture();
+    }
+
+    @VisibleForTesting
+    Analysis executeInternal(
+            CreateMaterializedView statement,
+            Session session,
+            List<Expression> parameters,
+            WarningCollector warningCollector,
+            PlanOptimizersStatsCollector planOptimizersStatsCollector)
+    {
         QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
         Map<NodeRef<Parameter>, Expression> parameterLookup = bindParameters(statement, parameters);
 
         String sql = getFormattedSql(statement.getQuery(), sqlParser);
 
-        Analysis analysis = analyzerFactory.createAnalyzer(session, parameters, parameterLookup, stateMachine.getWarningCollector(), stateMachine.getPlanOptimizersStatsCollector())
+        Analysis analysis = analyzerFactory.createAnalyzer(session, parameters, parameterLookup, warningCollector, planOptimizersStatsCollector)
                 .analyze(statement);
 
         List<ViewColumn> columns = analysis.getOutputDescriptor(statement.getQuery())
@@ -172,10 +183,6 @@ public class CreateMaterializedViewTask
                 .collect(toImmutableMap(Function.identity(), properties::get));
         accessControl.checkCanCreateMaterializedView(session.toSecurityContext(), name, explicitlySetProperties);
         plannerContext.getMetadata().createMaterializedView(session, name, definition, properties, statement.isReplace(), statement.isNotExists());
-
-        stateMachine.setOutput(analysis.getTarget());
-        stateMachine.setReferencedTables(analysis.getReferencedTables());
-
-        return immediateVoidFuture();
+        return analysis;
     }
 }
