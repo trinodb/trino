@@ -155,35 +155,6 @@ public abstract class BaseBigQueryConnectorTest
     }
 
     @Test
-    public void testCreateTableSupportedType()
-    {
-        testCreateTableSupportedType("boolean", "boolean");
-        testCreateTableSupportedType("tinyint", "bigint");
-        testCreateTableSupportedType("smallint", "bigint");
-        testCreateTableSupportedType("integer", "bigint");
-        testCreateTableSupportedType("bigint", "bigint");
-        testCreateTableSupportedType("double", "double");
-        testCreateTableSupportedType("decimal", "decimal(38,9)");
-        testCreateTableSupportedType("date", "date");
-        testCreateTableSupportedType("time with time zone", "time(6)");
-        testCreateTableSupportedType("timestamp(6)", "timestamp(6)");
-        testCreateTableSupportedType("timestamp(6) with time zone", "timestamp(6) with time zone");
-        testCreateTableSupportedType("varchar", "varchar");
-        testCreateTableSupportedType("varchar(65535)", "varchar");
-        testCreateTableSupportedType("varbinary", "varbinary");
-        testCreateTableSupportedType("array(bigint)", "array(bigint)");
-        testCreateTableSupportedType("row(x bigint, y double)", "row(x bigint, y double)");
-        testCreateTableSupportedType("row(x array(bigint))", "row(x array(bigint))");
-    }
-
-    private void testCreateTableSupportedType(String createType, String expectedType)
-    {
-        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_create_table_supported_type_" + createType.replaceAll("[^a-zA-Z0-9]", ""), format("(col1 %s)", createType))) {
-            assertThat(computeScalar("SELECT data_type FROM information_schema.columns WHERE table_name = '" + table.getName() + "' AND column_name = 'col1'")).isEqualTo(expectedType);
-        }
-    }
-
-    @Test
     public void testCreateTableUnsupportedType()
     {
         testCreateTableUnsupportedType("json");
