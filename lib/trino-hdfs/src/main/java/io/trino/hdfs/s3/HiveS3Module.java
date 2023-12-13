@@ -19,12 +19,10 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.units.Duration;
 import io.trino.hdfs.ConfigurationInitializer;
 import io.trino.hdfs.DynamicConfigurationProvider;
-import io.trino.hdfs.rubix.RubixEnabledConfig;
 import org.apache.hadoop.conf.Configuration;
 
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
@@ -82,8 +80,6 @@ public class HiveS3Module
 
         newSetBinder(binder, DynamicConfigurationProvider.class).addBinding()
                 .to(S3SecurityMappingConfigurationProvider.class).in(Scopes.SINGLETON);
-
-        checkArgument(!buildConfigObject(RubixEnabledConfig.class).isCacheEnabled(), "S3 security mapping is not compatible with Hive caching");
     }
 
     private static void validateEmrFsClass()
