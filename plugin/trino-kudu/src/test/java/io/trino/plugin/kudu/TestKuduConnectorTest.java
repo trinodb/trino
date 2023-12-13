@@ -779,7 +779,7 @@ public class TestKuduConnectorTest
     @Override
     public void testDateYearOfEraPredicate()
     {
-        try{
+        try {
             super.testDateYearOfEraPredicate();
         }
         catch (Exception error) {
