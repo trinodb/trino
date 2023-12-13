@@ -194,12 +194,14 @@ public abstract class AbstractIntType
         return left == right;
     }
 
+    @SuppressWarnings("UnnecessaryLongToIntConversion")
     @ScalarOperator(HASH_CODE)
     private static long hashCodeOperator(long value)
     {
         return AbstractLongType.hash((int) value);
     }
 
+    @SuppressWarnings("UnnecessaryLongToIntConversion")
     @ScalarOperator(XX_HASH_64)
     private static long xxHash64Operator(long value)
     {
