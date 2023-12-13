@@ -15,7 +15,6 @@ package io.trino.spi.exchange;
 
 import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.slice.Slice;
-import io.trino.spi.Experimental;
 
 /**
  * Service provider interface for an external exchange
@@ -37,7 +36,6 @@ import io.trino.spi.Experimental;
  * data written by other instances must be safely discarded
  */
 @ThreadSafe
-@Experimental(eta = "2023-09-01")
 public interface ExchangeManager
 {
     /**

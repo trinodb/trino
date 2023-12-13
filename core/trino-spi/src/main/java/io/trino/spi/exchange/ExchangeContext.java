@@ -14,10 +14,8 @@
 package io.trino.spi.exchange;
 
 import io.opentelemetry.api.trace.Span;
-import io.trino.spi.Experimental;
 import io.trino.spi.QueryId;
 
-@Experimental(eta = "2023-09-01")
 public interface ExchangeContext
 {
     QueryId getQueryId();
