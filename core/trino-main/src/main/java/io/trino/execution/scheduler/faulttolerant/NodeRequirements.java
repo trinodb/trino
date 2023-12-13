@@ -34,10 +34,26 @@ public class NodeRequirements
     private final Optional<CatalogHandle> catalogHandle;
     private final Set<HostAddress> addresses;
 
+    /**
+     * When true, the scheduler is allowed to use a random node if all {@link #addresses} hosts go down.
+     */
+    private final boolean allowsNodeFailover;
+
     public NodeRequirements(Optional<CatalogHandle> catalogHandle, Set<HostAddress> addresses)
+    {
+        this(catalogHandle, addresses, false);
+    }
+
+    public NodeRequirements(Optional<CatalogHandle> catalogHandle, Set<HostAddress> addresses, boolean allowNodeFailover)
     {
         this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
         this.addresses = ImmutableSet.copyOf(requireNonNull(addresses, "addresses is null"));
+        this.allowsNodeFailover = allowNodeFailover;
+    }
+
+    public boolean allowsNodeFailover()
+    {
+        return allowsNodeFailover;
     }
 
     /*

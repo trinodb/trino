@@ -831,6 +831,40 @@ public class TestBinPackingNodeAllocator
         }
     }
 
+    @Test
+    @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
+    public void testFailover()
+    {
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
+        setupNodeAllocatorService(nodeManager);
+        NodeRequirements node2Flexible = new NodeRequirements(Optional.empty(), Set.of(NODE_2_ADDRESS), true);
+        NodeRequirements node2Rigid = new NodeRequirements(Optional.empty(), Set.of(NODE_2_ADDRESS));
+
+        try (NodeAllocator nodeAllocator = nodeAllocatorService.getNodeAllocator(SESSION)) {
+            final DataSize oneGig = DataSize.of(1, GIGABYTE);
+
+            // When both nodes are alive, acquire works normally and yields node 2.
+            NodeAllocator.NodeLease acquireMyNode = nodeAllocator.acquire(node2Flexible, oneGig, STANDARD);
+            assertAcquired(acquireMyNode, NODE_2);
+            acquireMyNode.release();
+
+            // When node 2 is dead, the flexible acquire should succeed on node 1, but the rigid acquire should fail.
+            nodeManager.removeNode(NODE_2);
+            NodeAllocator.NodeLease acquireAnyNode = nodeAllocator.acquire(node2Flexible, oneGig, STANDARD);
+            assertAcquired(acquireAnyNode, NODE_1);
+            acquireAnyNode.release();
+            acquireAnyNode = nodeAllocator.acquire(node2Rigid, oneGig, STANDARD);
+            nodeAllocatorService.processPendingAcquires();
+            assertNotAcquired(acquireAnyNode);
+
+            nodeManager.removeNode(NODE_1);
+            // Only the coordinator node remains, but allocator was created with scheduleOnCoordinator==false.
+            NodeAllocator.NodeLease acquireNoNodes = nodeAllocator.acquire(node2Flexible, oneGig, STANDARD);
+            nodeAllocatorService.processPendingAcquires();
+            assertNotAcquired(acquireNoNodes);
+        }
+    }
+
     private TaskId taskId(int partition)
     {
         return new TaskId(new StageId("test_query", 0), partition, 0);
