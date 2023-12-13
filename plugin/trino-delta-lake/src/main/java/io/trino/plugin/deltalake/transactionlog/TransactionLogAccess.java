@@ -236,7 +236,7 @@ public class TransactionLogAccess
     @Deprecated
     public Stream<AddFileEntry> getActiveFiles(TableSnapshot tableSnapshot, MetadataEntry metadataEntry, ProtocolEntry protocolEntry, ConnectorSession session)
     {
-        return retrieveActiveFiles(tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), Optional.empty(), session);
+        return retrieveActiveFiles(tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue(), session);
     }
 
     public Stream<AddFileEntry> getActiveFiles(
@@ -247,13 +247,13 @@ public class TransactionLogAccess
             Optional<Set<DeltaLakeColumnHandle>> projectedColumns,
             ConnectorSession session)
     {
-        Optional<Predicate<String>> addStatsMinMaxColumnFilter = Optional.of(alwaysFalse());
+        Predicate<String> addStatsMinMaxColumnFilter = alwaysFalse();
         if (projectedColumns.isPresent()) {
             Set<String> baseColumnNames = projectedColumns.get().stream()
                     .filter(DeltaLakeColumnHandle::isBaseColumn) // Only base column stats are supported
                     .map(DeltaLakeColumnHandle::getColumnName)
                     .collect(toImmutableSet());
-            addStatsMinMaxColumnFilter = Optional.of(baseColumnNames::contains);
+            addStatsMinMaxColumnFilter = baseColumnNames::contains;
         }
         return retrieveActiveFiles(tableSnapshot, metadataEntry, protocolEntry, partitionConstraint, addStatsMinMaxColumnFilter, session);
     }
@@ -263,7 +263,7 @@ public class TransactionLogAccess
             MetadataEntry metadataEntry,
             ProtocolEntry protocolEntry,
             TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
-            Optional<Predicate<String>> addStatsMinMaxColumnFilter,
+            Predicate<String> addStatsMinMaxColumnFilter,
             ConnectorSession session)
     {
         try {
@@ -299,7 +299,7 @@ public class TransactionLogAccess
                 }
 
                 List<AddFileEntry> activeFiles;
-                try (Stream<AddFileEntry> addFileEntryStream = loadActiveFiles(tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), Optional.of(alwaysTrue()), session)) {
+                try (Stream<AddFileEntry> addFileEntryStream = loadActiveFiles(tableSnapshot, metadataEntry, protocolEntry, TupleDomain.all(), alwaysTrue(), session)) {
                     activeFiles = addFileEntryStream.collect(toImmutableList());
                 }
                 return new DeltaLakeDataFileCacheEntry(tableSnapshot.getVersion(), activeFiles);
@@ -316,7 +316,7 @@ public class TransactionLogAccess
             MetadataEntry metadataEntry,
             ProtocolEntry protocolEntry,
             TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
-            Optional<Predicate<String>> addStatsMinMaxColumnFilter,
+            Predicate<String> addStatsMinMaxColumnFilter,
             ConnectorSession session)
     {
         List<Transaction> transactions = tableSnapshot.getTransactions();
@@ -329,7 +329,7 @@ public class TransactionLogAccess
                 fileFormatDataSourceStats,
                 Optional.of(new MetadataAndProtocolEntry(metadataEntry, protocolEntry)),
                 partitionConstraint,
-                addStatsMinMaxColumnFilter)) {
+                Optional.of(addStatsMinMaxColumnFilter))) {
             return activeAddEntries(checkpointEntries, transactions)
                     .filter(partitionConstraint.isAll()
                             ? addAction -> true
