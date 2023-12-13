@@ -1463,7 +1463,7 @@ public class IcebergPageSourceProvider
 
     /**
      * Creates a set of sufficient columns for the input projected columns and prepares a mapping between the two.
-     * For example, if input {@param columns} include columns "a.b" and "a.b.c", then they will be projected
+     * For example, if input columns include columns "a.b" and "a.b.c", then they will be projected
      * from a single column "a.b".
      */
     private static Optional<ReaderColumns> projectSufficientColumns(List<IcebergColumnHandle> columns)

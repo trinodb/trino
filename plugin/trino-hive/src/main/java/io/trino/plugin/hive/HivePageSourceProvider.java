@@ -697,7 +697,7 @@ public class HivePageSourceProvider
     }
 
     /**
-     * Creates a mapping between the input {@param columns} and base columns based on baseHiveColumnIndex if required.
+     * Creates a mapping between the input {@code columns} and base columns based on baseHiveColumnIndex if required.
      */
     public static Optional<ReaderColumns> projectBaseColumns(List<HiveColumnHandle> columns)
     {
@@ -705,7 +705,7 @@ public class HivePageSourceProvider
     }
 
     /**
-     * Creates a mapping between the input {@param columns} and base columns based on baseHiveColumnIndex or baseColumnName if required.
+     * Creates a mapping between the input {@code columns} and base columns based on baseHiveColumnIndex or baseColumnName if required.
      */
     public static Optional<ReaderColumns> projectBaseColumns(List<HiveColumnHandle> columns, boolean useColumnNames)
     {
@@ -741,7 +741,7 @@ public class HivePageSourceProvider
 
     /**
      * Creates a set of sufficient columns for the input projected columns and prepares a mapping between the two. For example,
-     * if input {@param columns} include columns "a.b" and "a.b.c", then they will be projected from a single column "a.b".
+     * if input columns include columns "a.b" and "a.b.c", then they will be projected from a single column "a.b".
      */
     public static Optional<ReaderColumns> projectSufficientColumns(List<HiveColumnHandle> columns)
     {

@@ -222,7 +222,7 @@ public interface Metadata
     /**
      * Creates a table using the specified table metadata.
      *
-     * @throws TrinoException with {@code ALREADY_EXISTS} if the table already exists and {@param saveMode} is set to FAIL.
+     * @throws TrinoException with {@code ALREADY_EXISTS} if the table already exists and {@code saveMode} is set to FAIL.
      */
     void createTable(Session session, String catalogName, ConnectorTableMetadata tableMetadata, SaveMode saveMode);
 
