@@ -575,6 +575,11 @@ public class BinPackingNodeAllocatorService
             }
         }
 
+        private List<InternalNode> dropCoordinatorsIfNecessary(List<InternalNode> candidates)
+        {
+            return scheduleOnCoordinator ? candidates : candidates.stream().filter(node -> !node.isCoordinator()).collect(toImmutableList());
+        }
+
         public ReserveResult tryReserve(PendingAcquire acquire)
         {
             NodeRequirements requirements = acquire.getNodeRequirements();
@@ -586,8 +591,8 @@ public class BinPackingNodeAllocatorService
             if (!addresses.isEmpty()) {
                 candidates = candidates.stream().filter(node -> addresses.contains(node.getHostAndPort())).collect(toImmutableList());
             }
-            else if (!scheduleOnCoordinator) {
-                candidates = candidates.stream().filter(node -> !node.isCoordinator()).collect(toImmutableList());
+            else {
+                candidates = dropCoordinatorsIfNecessary(candidates);
             }
 
             if (candidates.isEmpty()) {
