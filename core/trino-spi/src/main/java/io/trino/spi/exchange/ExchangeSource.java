@@ -15,7 +15,6 @@ package io.trino.spi.exchange;
 
 import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.slice.Slice;
-import io.trino.spi.Experimental;
 import jakarta.annotation.Nullable;
 
 import java.io.Closeable;
@@ -23,7 +22,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 @ThreadSafe
-@Experimental(eta = "2023-09-01")
 public interface ExchangeSource
         extends Closeable
 {

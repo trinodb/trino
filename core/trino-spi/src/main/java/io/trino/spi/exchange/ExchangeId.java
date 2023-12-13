@@ -15,7 +15,6 @@ package io.trino.spi.exchange;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
-import io.trino.spi.Experimental;
 
 import java.util.Objects;
 import java.util.regex.Pattern;
@@ -25,7 +24,6 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 
-@Experimental(eta = "2023-09-01")
 public class ExchangeId
 {
     private static final long INSTANCE_SIZE = instanceSize(ExchangeId.class);
