@@ -33,7 +33,9 @@ import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManag
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeFileStatistics;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
+import io.trino.plugin.hive.parquet.ParquetWriterConfig;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.DateTimeEncoding;
@@ -41,6 +43,7 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.IntegerType;
 import io.trino.spi.type.TypeManager;
 import io.trino.testing.TestingConnectorContext;
+import io.trino.testing.TestingConnectorSession;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 
@@ -205,6 +208,16 @@ public class TestTransactionLogAccess
                 .map(AddFileEntry::getPath)
                 .collect(Collectors.toSet());
         assertThat(paths).isEqualTo(EXPECTED_ADD_FILE_PATHS);
+
+        ConnectorSession checkpointFilteringSession = TestingConnectorSession.builder()
+                .setPropertyMetadata(new DeltaLakeSessionProperties(
+                        new DeltaLakeConfig().setCheckpointFilteringEnabled(true),
+                        new ParquetReaderConfig(),
+                        new ParquetWriterConfig())
+                        .getSessionProperties())
+                .build();
+        List<AddFileEntry> checkpointFilteredAddFileEntries = transactionLogAccess.getActiveFiles(tableSnapshot, metadataEntry, protocolEntry, checkpointFilteringSession);
+        assertThat(checkpointFilteredAddFileEntries).isEqualTo(addFileEntries);
 
         AddFileEntry addFileEntry = addFileEntries
                 .stream()
