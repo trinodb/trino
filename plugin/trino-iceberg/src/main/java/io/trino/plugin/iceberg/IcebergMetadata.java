@@ -234,6 +234,7 @@ import static io.trino.plugin.iceberg.IcebergTableProperties.FORMAT_VERSION_PROP
 import static io.trino.plugin.iceberg.IcebergTableProperties.PARTITIONING_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
+import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
 import static io.trino.plugin.iceberg.IcebergUtil.canEnforceColumnConstraintInSpecs;
 import static io.trino.plugin.iceberg.IcebergUtil.commit;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
@@ -266,6 +267,7 @@ import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.REMOVE_O
 import static io.trino.spi.StandardErrorCode.COLUMN_ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_ARGUMENTS;
+import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.QUERY_REJECTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
@@ -297,6 +299,7 @@ import static org.apache.iceberg.TableProperties.DELETE_ISOLATION_LEVEL_DEFAULT;
 import static org.apache.iceberg.TableProperties.FORMAT_VERSION;
 import static org.apache.iceberg.TableProperties.WRITE_LOCATION_PROVIDER_IMPL;
 import static org.apache.iceberg.types.TypeUtil.indexParents;
+import static org.apache.iceberg.util.LocationUtil.stripTrailingSlash;
 import static org.apache.iceberg.util.SnapshotUtil.schemaFor;
 
 public class IcebergMetadata
@@ -934,15 +937,27 @@ public class IcebergMetadata
         if (!schemaExists(session, schemaName)) {
             throw new SchemaNotFoundException(schemaName);
         }
+
+        String tableLocation = null;
         if (replace) {
             IcebergTableHandle table = (IcebergTableHandle) getTableHandle(session, tableMetadata.getTableSchema().getTable(), Optional.empty(), Optional.empty());
             if (table != null) {
                 verifyTableVersionForUpdate(table);
                 Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
+                Optional<String> providedTableLocation = getTableLocation(tableMetadata.getProperties());
+                if (providedTableLocation.isPresent() && !stripTrailingSlash(providedTableLocation.get()).equals(icebergTable.location())) {
+                    throw new TrinoException(INVALID_TABLE_PROPERTY, format("The provided location '%s' does not match the existing table location '%s'", providedTableLocation.get(), icebergTable.location()));
+                }
                 validateNotModifyingOldSnapshot(table, icebergTable);
+                tableLocation = icebergTable.location();
             }
         }
-        transaction = newCreateTableTransaction(catalog, tableMetadata, session, replace);
+
+        if (tableLocation == null) {
+            tableLocation = getTableLocation(tableMetadata.getProperties())
+                    .orElseGet(() -> catalog.defaultTableLocation(session, tableMetadata.getTable()));
+        }
+        transaction = newCreateTableTransaction(catalog, tableMetadata, session, replace, tableLocation);
         Location location = Location.of(transaction.table().location());
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         try {
