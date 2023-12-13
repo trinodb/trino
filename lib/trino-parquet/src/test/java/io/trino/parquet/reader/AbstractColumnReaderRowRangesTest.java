@@ -599,7 +599,7 @@ public abstract class AbstractColumnReaderRowRangesTest
                 getParquetEncoding(encoder.getEncoding()),
                 Slices.wrappedBuffer(encodedBytes),
                 valueCount * 4,
-                OptionalLong.of(toIntExact(testingPage.pageRowRange().start())),
+                OptionalLong.of(testingPage.pageRowRange().start()),
                 null,
                 false);
         encoder.reset();
