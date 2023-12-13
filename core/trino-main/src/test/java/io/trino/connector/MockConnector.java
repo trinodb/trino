@@ -38,6 +38,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
+import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMaterializedViewDefinition;
 import io.trino.spi.connector.ConnectorMergeSink;
@@ -194,6 +195,7 @@ public class MockConnector
     private final Function<ConnectorTableHandle, ConnectorTableHandle> getCanonicalTableHandle;
     private final BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute;
     private final WriterScalingOptions writerScalingOptions;
+    private final Supplier<Set<ConnectorCapabilities>> capabilities;
 
     MockConnector(
             Function<ConnectorMetadata, ConnectorMetadata> metadataWrapper,
@@ -247,7 +249,8 @@ public class MockConnector
             Function<ColumnHandle, Optional<CacheColumnId>> getCacheColumnId,
             Function<ConnectorTableHandle, ConnectorTableHandle> getCanonicalTableHandle,
             BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute,
-            WriterScalingOptions writerScalingOptions)
+            WriterScalingOptions writerScalingOptions,
+            Supplier<Set<ConnectorCapabilities>> capabilities)
     {
         this.metadataWrapper = requireNonNull(metadataWrapper, "metadataWrapper is null");
         this.sessionProperties = ImmutableList.copyOf(requireNonNull(sessionProperties, "sessionProperties is null"));
@@ -301,6 +304,7 @@ public class MockConnector
         this.getLayoutForTableExecute = requireNonNull(getLayoutForTableExecute, "getLayoutForTableExecute is null");
         this.getCanonicalTableHandle = requireNonNull(getCanonicalTableHandle, "getCanonicalTableHandle is null");
         this.writerScalingOptions = requireNonNull(writerScalingOptions, "writerScalingOptions is null");
+        this.capabilities = requireNonNull(capabilities, "capabilities is null");
     }
 
     @Override
@@ -434,6 +438,12 @@ public class MockConnector
     public List<PropertyMetadata<?>> getColumnProperties()
     {
         return columnProperties.get();
+    }
+
+    @Override
+    public Set<ConnectorCapabilities> getCapabilities()
+    {
+        return capabilities.get();
     }
 
     private class MockConnectorMetadata
