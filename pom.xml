@@ -2601,6 +2601,7 @@
                                 <arg>
                                     -Xplugin:ErrorProne \
                                     -Xep:AnnotateFormatMethod:ERROR \
+                                    -Xep:ArgumentSelectionDefectChecker:ERROR \
                                     -Xep:BadComparable:ERROR \
                                     -Xep:BadInstanceof:ERROR \
                                     -Xep:BoxedPrimitiveConstructor:ERROR \

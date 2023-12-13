@@ -323,6 +323,7 @@ public class NumericHistogram
             this(id, value, weight, null, right);
         }
 
+        @SuppressWarnings("ArgumentSelectionDefectChecker")
         private Entry(int id, double value, double weight, Entry left, Entry right)
         {
             this.id = id;
