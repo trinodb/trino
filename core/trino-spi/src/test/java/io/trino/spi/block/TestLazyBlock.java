@@ -64,20 +64,20 @@ public class TestLazyBlock
     public void testNestedGetLoadedBlock()
     {
         List<Block> actualNotifications = new ArrayList<>();
-        Block arrayBlock = new IntArrayBlock(1, Optional.empty(), new int[] {0});
-        LazyBlock lazyArrayBlock = new LazyBlock(1, () -> arrayBlock);
-        Block rowBlock = RowBlock.fromFieldBlocks(2, Optional.empty(), new Block[]{lazyArrayBlock});
+        Block arrayBlock = new IntArrayBlock(2, Optional.empty(), new int[] {0, 1});
+        LazyBlock lazyArrayBlock = new LazyBlock(2, () -> arrayBlock);
+        Block rowBlock = RowBlock.fromFieldBlocks(2, new Block[]{lazyArrayBlock});
         LazyBlock lazyBlock = new LazyBlock(2, () -> rowBlock);
         LazyBlock.listenForLoads(lazyBlock, actualNotifications::add);
 
         Block loadedBlock = lazyBlock.getBlock();
         assertThat(loadedBlock).isInstanceOf(RowBlock.class);
-        assertThat(((RowBlock) loadedBlock).getRawFieldBlocks().get(0)).isInstanceOf(LazyBlock.class);
+        assertThat(((RowBlock) loadedBlock).getFieldBlock(0)).isInstanceOf(LazyBlock.class);
         assertThat(actualNotifications).isEqualTo(ImmutableList.of(loadedBlock));
 
         Block fullyLoadedBlock = lazyBlock.getLoadedBlock();
         assertThat(fullyLoadedBlock).isInstanceOf(RowBlock.class);
-        assertThat(((RowBlock) fullyLoadedBlock).getRawFieldBlocks().get(0)).isInstanceOf(IntArrayBlock.class);
+        assertThat(((RowBlock) fullyLoadedBlock).getFieldBlock(0)).isInstanceOf(IntArrayBlock.class);
         assertThat(actualNotifications).isEqualTo(ImmutableList.of(loadedBlock, arrayBlock));
         assertThat(lazyBlock.isLoaded()).isTrue();
         assertThat(rowBlock.isLoaded()).isTrue();
@@ -104,7 +104,7 @@ public class TestLazyBlock
             return;
         }
         if (loadedBlock instanceof RowBlock) {
-            long expectedSize = (long) (Integer.BYTES + Byte.BYTES) * loadedBlock.getPositionCount();
+            long expectedSize = (long) Byte.BYTES * loadedBlock.getPositionCount();
             assertThat(loadedBlock.getSizeInBytes()).isEqualTo(expectedSize);
 
             for (Block fieldBlock : loadedBlock.getChildren()) {
@@ -128,7 +128,7 @@ public class TestLazyBlock
 
     private static Block createInfiniteRecursiveRowBlock()
     {
-        return RowBlock.fromFieldBlocks(1, Optional.empty(), new Block[] {
+        return RowBlock.fromFieldBlocks(1, new Block[] {
                 new LazyBlock(1, TestLazyBlock::createInfiniteRecursiveArrayBlock),
                 new LazyBlock(1, TestLazyBlock::createInfiniteRecursiveArrayBlock),
                 new LazyBlock(1, TestLazyBlock::createInfiniteRecursiveArrayBlock)

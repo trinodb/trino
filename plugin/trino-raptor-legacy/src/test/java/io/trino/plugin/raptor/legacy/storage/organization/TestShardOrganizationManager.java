@@ -21,9 +21,11 @@ import io.trino.plugin.raptor.legacy.metadata.Table;
 import io.trino.spi.type.Type;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Optional;
@@ -33,13 +35,13 @@ import java.util.Set;
 import java.util.UUID;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.airlift.units.Duration.nanosSince;
 import static io.trino.plugin.raptor.legacy.DatabaseTesting.createTestingJdbi;
 import static io.trino.plugin.raptor.legacy.metadata.SchemaDaoUtil.createTablesWithRetry;
 import static io.trino.plugin.raptor.legacy.metadata.TestDatabaseShardManager.createShardManager;
 import static io.trino.plugin.raptor.legacy.storage.organization.ShardOrganizationManager.createOrganizationSets;
 import static io.trino.plugin.raptor.legacy.storage.organization.TestCompactionSetCreator.extractIndexes;
-import static io.trino.plugin.raptor.legacy.storage.organization.TestShardOrganizer.createShardOrganizer;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
@@ -47,9 +49,12 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toSet;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestShardOrganizationManager
 {
     private Jdbi dbi;
@@ -62,7 +67,7 @@ public class TestShardOrganizationManager
 
     private static final List<Type> types = ImmutableList.of(BIGINT, VARCHAR, DATE, TIMESTAMP_MILLIS);
 
-    @BeforeMethod
+    @BeforeEach
     public void setup()
     {
         dbi = createTestingJdbi();
@@ -73,7 +78,7 @@ public class TestShardOrganizationManager
         createTablesWithRetry(dbi);
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void teardown()
     {
         dummyHandle.close();
@@ -88,7 +93,7 @@ public class TestShardOrganizationManager
 
         metadataDao.insertTable("schema", "table2", false, true, null, 0);
         metadataDao.insertTable("schema", "table3", false, false, null, 0);
-        assertEquals(metadataDao.getOrganizationEligibleTables(), ImmutableSet.of(table1));
+        assertThat(metadataDao.getOrganizationEligibleTables()).isEqualTo(ImmutableSet.of(table1));
     }
 
     @Test
@@ -108,7 +113,7 @@ public class TestShardOrganizationManager
 
         // initializes tables
         Set<Long> actual = organizationManager.discoverAndInitializeTablesToOrganize();
-        assertEquals(actual, ImmutableSet.of(table1, table2));
+        assertThat(actual).isEqualTo(ImmutableSet.of(table1, table2));
 
         // update the start times and test that the tables are discovered after interval seconds
         long updateTime = System.currentTimeMillis();
@@ -121,7 +126,7 @@ public class TestShardOrganizationManager
                 nanosSince(start).toMillis() < intervalMillis + 1000) {
             MILLISECONDS.sleep(10);
         }
-        assertEquals(organizationManager.discoverAndInitializeTablesToOrganize(), ImmutableSet.of(table1, table2));
+        assertThat(organizationManager.discoverAndInitializeTablesToOrganize()).isEqualTo(ImmutableSet.of(table1, table2));
     }
 
     @Test
@@ -137,9 +142,9 @@ public class TestShardOrganizationManager
                 shardWithSortRange(1, ShardRange.of(new Tuple(types, 1L, "hello", day, timestamp), new Tuple(types, 5L, "hello", day, timestamp))));
         Set<OrganizationSet> actual = createOrganizationSets(tableInfo, shards);
 
-        assertEquals(actual.size(), 1);
+        assertThat(actual.size()).isEqualTo(1);
         // Shards 0, 1 and 2 are overlapping, so we should get an organization set with these shards
-        assertEquals(getOnlyElement(actual).getShards(), extractIndexes(shards, 0, 1, 2));
+        assertThat(getOnlyElement(actual).getShards()).isEqualTo(extractIndexes(shards, 0, 1, 2));
     }
 
     @Test
@@ -165,8 +170,8 @@ public class TestShardOrganizationManager
                 .collect(toSet());
 
         // expect 2 organization sets, of overlapping shards (0, 2) and (1, 3)
-        assertEquals(organizationSets.size(), 2);
-        assertEquals(actual, ImmutableSet.of(extractIndexes(shards, 0, 2), extractIndexes(shards, 1, 3)));
+        assertThat(organizationSets.size()).isEqualTo(2);
+        assertThat(actual).isEqualTo(ImmutableSet.of(extractIndexes(shards, 0, 2), extractIndexes(shards, 1, 3)));
     }
 
     private static ShardIndexInfo shardWithSortRange(int bucketNumber, ShardRange sortRange)
@@ -202,5 +207,20 @@ public class TestShardOrganizationManager
                 true,
                 new Duration(intervalMillis, MILLISECONDS),
                 new Duration(5, MINUTES));
+    }
+
+    private static class MockJobFactory
+            implements JobFactory
+    {
+        @Override
+        public Runnable create(OrganizationSet organizationSet)
+        {
+            return () -> sleepUninterruptibly(10, MILLISECONDS);
+        }
+    }
+
+    private static ShardOrganizer createShardOrganizer()
+    {
+        return new ShardOrganizer(new MockJobFactory(), 1);
     }
 }

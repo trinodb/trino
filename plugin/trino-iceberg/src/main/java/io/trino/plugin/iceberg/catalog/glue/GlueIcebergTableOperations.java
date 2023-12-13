@@ -38,8 +38,10 @@ import org.apache.iceberg.exceptions.CommitFailedException;
 import org.apache.iceberg.exceptions.CommitStateUnknownException;
 import org.apache.iceberg.io.FileIO;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.BiFunction;
 
 import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.hive.ViewReaderUtil.isTrinoMaterializedView;
@@ -48,6 +50,9 @@ import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter
 import static io.trino.plugin.hive.metastore.glue.converter.GlueToTrinoConverter.getTableType;
 import static io.trino.plugin.hive.util.HiveUtil.isIcebergTable;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
+import static io.trino.plugin.iceberg.IcebergTableName.isMaterializedViewStorage;
+import static io.trino.plugin.iceberg.IcebergTableName.tableNameFrom;
+import static io.trino.plugin.iceberg.catalog.glue.GlueIcebergUtil.getMaterializedViewTableInput;
 import static io.trino.plugin.iceberg.catalog.glue.GlueIcebergUtil.getTableInput;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -90,17 +95,25 @@ public class GlueIcebergTableOperations
     @Override
     protected String getRefreshedLocation(boolean invalidateCaches)
     {
-        Table table = getTable(invalidateCaches);
+        boolean isMaterializedViewStorageTable = isMaterializedViewStorage(tableName);
+
+        Table table;
+        if (isMaterializedViewStorageTable) {
+            table = getTable(database, tableNameFrom(tableName), invalidateCaches);
+        }
+        else {
+            table = getTable(database, tableName, invalidateCaches);
+        }
         glueVersionId = table.getVersionId();
 
         String tableType = getTableType(table);
         Map<String, String> parameters = getTableParameters(table);
-        if (isTrinoView(tableType, parameters) || isTrinoMaterializedView(tableType, parameters)) {
+        if (!isMaterializedViewStorageTable && (isTrinoView(tableType, parameters) || isTrinoMaterializedView(tableType, parameters))) {
             // this is a Hive view or Trino/Presto view, or Trino materialized view, hence not a table
             // TODO table operations should not be constructed for views (remove exception-driven code path)
             throw new TableNotFoundException(getSchemaTableName());
         }
-        if (!isIcebergTable(parameters)) {
+        if (!isMaterializedViewStorageTable && !isIcebergTable(parameters)) {
             throw new UnknownTableTypeException(getSchemaTableName());
         }
 
@@ -138,15 +151,43 @@ public class GlueIcebergTableOperations
     @Override
     protected void commitToExistingTable(TableMetadata base, TableMetadata metadata)
     {
-        String newMetadataLocation = writeNewMetadata(metadata, version.orElseThrow() + 1);
-        TableInput tableInput = getTableInput(
-                typeManager,
-                tableName,
-                owner,
+        commitTableUpdate(
+                getTable(database, tableName, false),
                 metadata,
-                newMetadataLocation,
-                ImmutableMap.of(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation),
-                cacheTableMetadata);
+                (table, newMetadataLocation) ->
+                        getTableInput(
+                                typeManager,
+                                tableName,
+                                owner,
+                                metadata,
+                                newMetadataLocation,
+                                ImmutableMap.of(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation),
+                                cacheTableMetadata));
+    }
+
+    @Override
+    protected void commitMaterializedViewRefresh(TableMetadata base, TableMetadata metadata)
+    {
+        commitTableUpdate(
+                getTable(database, tableNameFrom(tableName), false),
+                metadata,
+                (table, newMetadataLocation) -> {
+                    Map<String, String> parameters = new HashMap<>(getTableParameters(table));
+                    parameters.put(METADATA_LOCATION_PROP, newMetadataLocation);
+                    parameters.put(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation);
+
+                    return getMaterializedViewTableInput(
+                            table.getName(),
+                            table.getViewOriginalText(),
+                            table.getOwner(),
+                            parameters);
+                });
+    }
+
+    private void commitTableUpdate(Table table, TableMetadata metadata, BiFunction<Table, String, TableInput> tableUpdateFunction)
+    {
+        String newMetadataLocation = writeNewMetadata(metadata, version.orElseThrow() + 1);
+        TableInput tableInput = tableUpdateFunction.apply(table, newMetadataLocation);
 
         UpdateTableRequest updateTableRequest = new UpdateTableRequest()
                 .withDatabaseName(database)
@@ -171,7 +212,7 @@ public class GlueIcebergTableOperations
         shouldRefresh = true;
     }
 
-    private Table getTable(boolean invalidateCaches)
+    private Table getTable(String database, String tableName, boolean invalidateCaches)
     {
         return getGlueTable.get(new SchemaTableName(database, tableName), invalidateCaches);
     }

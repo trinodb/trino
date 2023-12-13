@@ -83,7 +83,7 @@ public final class SystemSessionProperties
     public static final String USE_PREFERRED_WRITE_PARTITIONING = "use_preferred_write_partitioning";
     public static final String SCALE_WRITERS = "scale_writers";
     public static final String TASK_SCALE_WRITERS_ENABLED = "task_scale_writers_enabled";
-    public static final String MAX_WRITER_TASKS_COUNT = "max_writer_tasks_count";
+    public static final String MAX_WRITER_TASK_COUNT = "max_writer_task_count";
     public static final String WRITER_SCALING_MIN_DATA_PROCESSED = "writer_scaling_min_data_processed";
     public static final String SKEWED_PARTITION_MIN_DATA_PROCESSED_REBALANCE_THRESHOLD = "skewed_partition_min_data_processed_rebalance_threshold";
     public static final String MAX_MEMORY_PER_PARTITION_WRITER = "max_memory_per_partition_writer";
@@ -135,7 +135,6 @@ public final class SystemSessionProperties
     public static final String ALLOW_PUSHDOWN_INTO_CONNECTORS = "allow_pushdown_into_connectors";
     public static final String COMPLEX_EXPRESSION_PUSHDOWN = "complex_expression_pushdown";
     public static final String PREDICATE_PUSHDOWN_USE_TABLE_PROPERTIES = "predicate_pushdown_use_table_properties";
-    public static final String LATE_MATERIALIZATION = "late_materialization";
     public static final String ENABLE_DYNAMIC_FILTERING = "enable_dynamic_filtering";
     public static final String ENABLE_COORDINATOR_DYNAMIC_FILTERS_DISTRIBUTION = "enable_coordinator_dynamic_filters_distribution";
     public static final String ENABLE_LARGE_DYNAMIC_FILTERS = "enable_large_dynamic_filters";
@@ -321,10 +320,10 @@ public final class SystemSessionProperties
                         featuresConfig.isScaleWriters(),
                         false),
                 integerProperty(
-                        MAX_WRITER_TASKS_COUNT,
+                        MAX_WRITER_TASK_COUNT,
                         "Maximum number of tasks that will participate in writing data",
-                        queryManagerConfig.getMaxWriterTasksCount(),
-                        value -> validateIntegerValue(value, MAX_WRITER_TASKS_COUNT, 1, false),
+                        queryManagerConfig.getMaxWriterTaskCount(),
+                        value -> validateIntegerValue(value, MAX_WRITER_TASK_COUNT, 1, false),
                         false),
                 booleanProperty(
                         TASK_SCALE_WRITERS_ENABLED,
@@ -663,11 +662,6 @@ public final class SystemSessionProperties
                         PREDICATE_PUSHDOWN_USE_TABLE_PROPERTIES,
                         "Use table properties in predicate pushdown",
                         optimizerConfig.isPredicatePushdownUseTableProperties(),
-                        false),
-                booleanProperty(
-                        LATE_MATERIALIZATION,
-                        "Experimental: Use late materialization (including WorkProcessor pipelines)",
-                        featuresConfig.isLateMaterializationEnabled(),
                         false),
                 booleanProperty(
                         ENABLE_DYNAMIC_FILTERING,
@@ -1155,7 +1149,7 @@ public final class SystemSessionProperties
 
     public static int getMaxWriterTaskCount(Session session)
     {
-        return session.getSystemProperty(MAX_WRITER_TASKS_COUNT, Integer.class);
+        return session.getSystemProperty(MAX_WRITER_TASK_COUNT, Integer.class);
     }
 
     public static DataSize getWriterScalingMinDataProcessed(Session session)
@@ -1540,11 +1534,6 @@ public final class SystemSessionProperties
     public static boolean isPredicatePushdownUseTableProperties(Session session)
     {
         return session.getSystemProperty(PREDICATE_PUSHDOWN_USE_TABLE_PROPERTIES, Boolean.class);
-    }
-
-    public static boolean isLateMaterializationEnabled(Session session)
-    {
-        return session.getSystemProperty(LATE_MATERIALIZATION, Boolean.class);
     }
 
     public static boolean isEnableDynamicFiltering(Session session)

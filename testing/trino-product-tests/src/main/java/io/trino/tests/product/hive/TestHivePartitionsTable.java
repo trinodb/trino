@@ -129,7 +129,7 @@ public class TestHivePartitionsTable
     public void testShowPartitionsFromUnpartitionedTable()
     {
         assertQueryFailure(() -> onTrino().executeQuery("SELECT * FROM \"nation$partitions\""))
-                .hasMessageMatching(".*Table 'hive.default.nation\\$partitions' does not exist");
+                .hasMessageMatching(".*Table 'hive.default.\"nation\\$partitions\"' does not exist");
     }
 
     @Test(groups = HIVE_PARTITIONING)

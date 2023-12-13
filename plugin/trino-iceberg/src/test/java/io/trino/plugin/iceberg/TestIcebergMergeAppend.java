@@ -16,7 +16,6 @@ package io.trino.plugin.iceberg;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
-import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.cache.CachingHiveMetastore;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
@@ -34,10 +33,10 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 
-import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
+import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIcebergMergeAppend
         extends AbstractTestQueryFramework
@@ -51,10 +50,9 @@ public class TestIcebergMergeAppend
     {
         DistributedQueryRunner queryRunner = IcebergQueryRunner.createIcebergQueryRunner();
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toFile();
-        HiveMetastore metastore = createTestingFileHiveMetastore(baseDir);
+        CachingHiveMetastore cachingHiveMetastore = createPerTransactionCache(createTestingFileHiveMetastore(baseDir), 1000);
         TrinoFileSystemFactory fileSystemFactory = getFileSystemFactory(queryRunner);
         tableOperationsProvider = new FileMetastoreTableOperationsProvider(fileSystemFactory);
-        CachingHiveMetastore cachingHiveMetastore = memoizeMetastore(metastore, 1000);
         trinoCatalog = new TrinoHiveCatalog(
                 new CatalogName("catalog"),
                 cachingHiveMetastore,
@@ -64,7 +62,8 @@ public class TestIcebergMergeAppend
                 tableOperationsProvider,
                 false,
                 false,
-                false);
+                false,
+                new IcebergConfig().isHideMaterializedViewStorageTable());
 
         return queryRunner;
     }
@@ -80,9 +79,9 @@ public class TestIcebergMergeAppend
                 .commit();
         assertUpdate("INSERT INTO table_to_insert VALUES (1, 'a'), (2, 'b'), (3, 'c')", 3);
         MaterializedResult result = computeActual("select * from \"table_to_insert$manifests\"");
-        assertEquals(result.getRowCount(), 1);
+        assertThat(result.getRowCount()).isEqualTo(1);
         assertUpdate("INSERT INTO table_to_insert VALUES (4, 'd')", 1);
         result = computeActual("select * from \"table_to_insert$manifests\"");
-        assertEquals(result.getRowCount(), 1);
+        assertThat(result.getRowCount()).isEqualTo(1);
     }
 }

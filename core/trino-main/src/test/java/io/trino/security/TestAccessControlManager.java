@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.opentelemetry.api.OpenTelemetry;
+import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.eventlistener.EventListenerManager;
@@ -75,7 +76,6 @@ import static java.nio.file.StandardOpenOption.WRITE;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestAccessControlManager
 {
@@ -123,11 +123,11 @@ public class TestAccessControlManager
                     accessControlManager.checkCanSelectFromColumns(context, tableName, ImmutableSet.of("column"));
                     accessControlManager.checkCanCreateViewWithSelectFromColumns(context, tableName, ImmutableSet.of("column"));
                     Set<String> catalogs = ImmutableSet.of(TEST_CATALOG_NAME);
-                    assertEquals(accessControlManager.filterCatalogs(context, catalogs), catalogs);
+                    assertThat(accessControlManager.filterCatalogs(context, catalogs)).isEqualTo(catalogs);
                     Set<String> schemas = ImmutableSet.of("schema");
-                    assertEquals(accessControlManager.filterSchemas(context, TEST_CATALOG_NAME, schemas), schemas);
+                    assertThat(accessControlManager.filterSchemas(context, TEST_CATALOG_NAME, schemas)).isEqualTo(schemas);
                     Set<SchemaTableName> tableNames = ImmutableSet.of(new SchemaTableName("schema", "table"));
-                    assertEquals(accessControlManager.filterTables(context, TEST_CATALOG_NAME, tableNames), tableNames);
+                    assertThat(accessControlManager.filterTables(context, TEST_CATALOG_NAME, tableNames)).isEqualTo(tableNames);
                 });
 
         assertThatThrownBy(() -> transaction(transactionManager, metadata, accessControlManager)
@@ -135,7 +135,7 @@ public class TestAccessControlManager
                     accessControlManager.checkCanInsertIntoTable(new SecurityContext(transactionId, identity, queryId, queryStart), tableName);
                 }))
                 .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("Access Denied: Cannot insert into table test-catalog.schema.table");
+                .hasMessage("Access Denied: Cannot insert into table test_catalog.schema.table");
     }
 
     @Test
@@ -148,8 +148,8 @@ public class TestAccessControlManager
         accessControlManager.loadSystemAccessControl("test", ImmutableMap.of());
 
         accessControlManager.checkCanSetUser(Optional.of(PRINCIPAL), USER_NAME);
-        assertEquals(accessControlFactory.getCheckedUserName(), USER_NAME);
-        assertEquals(accessControlFactory.getCheckedPrincipal(), Optional.of(PRINCIPAL));
+        assertThat(accessControlFactory.getCheckedUserName()).isEqualTo(USER_NAME);
+        assertThat(accessControlFactory.getCheckedPrincipal()).isEqualTo(Optional.of(PRINCIPAL));
     }
 
     @Test
@@ -310,7 +310,7 @@ public class TestAccessControlManager
         accessControlManager.addSystemAccessControlFactory(accessControlFactory);
         accessControlManager.loadSystemAccessControl("deny-all", ImmutableMap.of());
 
-        assertDenyExecuteProcedure(transactionManager, metadata, accessControlManager, "Access Denied: Cannot execute procedure test-catalog.schema.procedure");
+        assertDenyExecuteProcedure(transactionManager, metadata, accessControlManager, "Access Denied: Cannot execute procedure test_catalog.schema.procedure");
     }
 
     @Test
@@ -558,17 +558,17 @@ public class TestAccessControlManager
 
     private AccessControlManager createAccessControlManager(TransactionManager testTransactionManager)
     {
-        return new AccessControlManager(testTransactionManager, emptyEventListenerManager(), new AccessControlConfig(), OpenTelemetry.noop(), DefaultSystemAccessControl.NAME);
+        return new AccessControlManager(NodeVersion.UNKNOWN, testTransactionManager, emptyEventListenerManager(), new AccessControlConfig(), OpenTelemetry.noop(), DefaultSystemAccessControl.NAME);
     }
 
     private AccessControlManager createAccessControlManager(EventListenerManager eventListenerManager, AccessControlConfig config)
     {
-        return new AccessControlManager(createTestTransactionManager(), eventListenerManager, config, OpenTelemetry.noop(), DefaultSystemAccessControl.NAME);
+        return new AccessControlManager(NodeVersion.UNKNOWN, createTestTransactionManager(), eventListenerManager, config, OpenTelemetry.noop(), DefaultSystemAccessControl.NAME);
     }
 
     private AccessControlManager createAccessControlManager(EventListenerManager eventListenerManager, String defaultAccessControlName)
     {
-        return new AccessControlManager(createTestTransactionManager(), eventListenerManager, new AccessControlConfig(), OpenTelemetry.noop(), defaultAccessControlName);
+        return new AccessControlManager(NodeVersion.UNKNOWN, createTestTransactionManager(), eventListenerManager, new AccessControlConfig(), OpenTelemetry.noop(), defaultAccessControlName);
     }
 
     private SystemAccessControlFactory eventListeningSystemAccessControlFactory(String name, EventListener... eventListeners)

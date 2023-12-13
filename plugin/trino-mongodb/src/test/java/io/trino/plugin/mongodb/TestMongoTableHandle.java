@@ -24,8 +24,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.type.TypeDeserializer;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -34,14 +33,13 @@ import java.util.Set;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMongoTableHandle
 {
-    private JsonCodec<MongoTableHandle> codec;
+    private final JsonCodec<MongoTableHandle> codec;
 
-    @BeforeClass
-    public void init()
+    public TestMongoTableHandle()
     {
         ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
         objectMapperProvider.setJsonDeserializers(ImmutableMap.of(Type.class, new TypeDeserializer(TESTING_TYPE_MANAGER)));
@@ -58,7 +56,8 @@ public class TestMongoTableHandle
         String json = codec.toJson(expected);
         MongoTableHandle actual = codec.fromJson(json);
 
-        assertEquals(actual.getSchemaTableName(), expected.getSchemaTableName());
+        assertThat(actual.getSchemaTableName())
+                .isEqualTo(expected.getSchemaTableName());
     }
 
     @Test
@@ -71,7 +70,8 @@ public class TestMongoTableHandle
         String json = codec.toJson(expected);
         MongoTableHandle actual = codec.fromJson(json);
 
-        assertEquals(actual.getSchemaTableName(), expected.getSchemaTableName());
+        assertThat(actual.getSchemaTableName())
+                .isEqualTo(expected.getSchemaTableName());
     }
 
     @Test
@@ -84,7 +84,8 @@ public class TestMongoTableHandle
         String json = codec.toJson(expected);
         MongoTableHandle actual = codec.fromJson(json);
 
-        assertEquals(actual.getSchemaTableName(), expected.getSchemaTableName());
+        assertThat(actual.getSchemaTableName())
+                .isEqualTo(expected.getSchemaTableName());
     }
 
     @Test
@@ -97,7 +98,8 @@ public class TestMongoTableHandle
         String json = codec.toJson(expected);
         MongoTableHandle actual = codec.fromJson(json);
 
-        assertEquals(actual.getSchemaTableName(), expected.getSchemaTableName());
+        assertThat(actual.getSchemaTableName())
+                .isEqualTo(expected.getSchemaTableName());
     }
 
     @Test
@@ -128,6 +130,7 @@ public class TestMongoTableHandle
         String json = codec.toJson(expected);
         MongoTableHandle actual = codec.fromJson(json);
 
-        assertEquals(actual, expected);
+        assertThat(actual)
+                .isEqualTo(expected);
     }
 }

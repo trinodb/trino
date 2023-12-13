@@ -24,7 +24,9 @@ import java.util.Set;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.StandardTypes.JSON;
 import static io.trino.spi.type.TimeType.TIME_MILLIS;
@@ -40,6 +42,8 @@ public final class TypeUtils
             SMALLINT,
             INTEGER,
             BIGINT,
+            REAL,
+            DOUBLE,
             DATE,
             TIME_MILLIS,
             TIMESTAMP_MILLIS,

@@ -25,6 +25,7 @@ import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.CommitTaskData;
+import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergMetadata;
 import io.trino.plugin.iceberg.TableStatisticsWriter;
 import io.trino.plugin.iceberg.catalog.BaseTrinoCatalogTest;
@@ -51,7 +52,6 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestTrinoGlueCatalog
         extends BaseTrinoCatalogTest
@@ -78,8 +78,10 @@ public class TestTrinoGlueCatalog
                 "test",
                 glueClient,
                 new GlueMetastoreStats(),
+                false,
                 Optional.empty(),
-                useUniqueTableLocations);
+                useUniqueTableLocations,
+                new IcebergConfig().isHideMaterializedViewStorageTable());
     }
 
     /**
@@ -156,8 +158,10 @@ public class TestTrinoGlueCatalog
                 "test",
                 glueClient,
                 new GlueMetastoreStats(),
+                false,
                 Optional.of(tmpDirectory.toAbsolutePath().toString()),
-                false);
+                false,
+                new IcebergConfig().isHideMaterializedViewStorageTable());
 
         String namespace = "test_default_location_" + randomNameSuffix();
         String table = "tableName";
@@ -166,7 +170,7 @@ public class TestTrinoGlueCatalog
         try {
             File expectedSchemaDirectory = new File(tmpDirectory.toFile(), namespace + ".db");
             File expectedTableDirectory = new File(expectedSchemaDirectory, schemaTableName.getTableName());
-            assertEquals(catalogWithDefaultLocation.defaultTableLocation(SESSION, schemaTableName), expectedTableDirectory.toPath().toAbsolutePath().toString());
+            assertThat(catalogWithDefaultLocation.defaultTableLocation(SESSION, schemaTableName)).isEqualTo(expectedTableDirectory.toPath().toAbsolutePath().toString());
         }
         finally {
             try {

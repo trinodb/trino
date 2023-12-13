@@ -22,6 +22,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.json.JsonModule;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.hdfs.HdfsEnvironment;
@@ -67,6 +68,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.io.IOException;
@@ -97,8 +99,10 @@ import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestDeltaLakeMetadata
 {
     private static final String DATABASE_NAME = "mock_database";
@@ -113,10 +117,6 @@ public class TestDeltaLakeMetadata
     private static final RowType NESTED_ROW_FIELD = RowType.from(ImmutableList.of(
             new RowType.Field(Optional.of("child1"), INTEGER),
             new RowType.Field(Optional.of("child2"), INTEGER)));
-    private static final RowType HIGHLY_NESTED_ROW_FIELD = RowType.from(ImmutableList.of(
-            new RowType.Field(Optional.of("grandparent"), RowType.from(ImmutableList.of(
-                    new RowType.Field(Optional.of("parent"), RowType.from(ImmutableList.of(
-                            new RowType.Field(Optional.of("child"), INTEGER)))))))));
 
     private static final DeltaLakeColumnHandle BOOLEAN_COLUMN_HANDLE =
             new DeltaLakeColumnHandle("boolean_column_name", BooleanType.BOOLEAN, OptionalInt.empty(), "boolean_column_name", BooleanType.BOOLEAN, REGULAR, Optional.empty());
@@ -139,32 +139,12 @@ public class TestDeltaLakeMetadata
                     NESTED_ROW_FIELD,
                     REGULAR,
                     Optional.of(new DeltaLakeColumnProjectionInfo(INTEGER, ImmutableList.of(1), ImmutableList.of("child2"))));
-    private static final DeltaLakeColumnHandle NESTED_COLUMN_HANDLE_WITH_PROJECTION =
-            new DeltaLakeColumnHandle(
-                    "highly_nested_column_name",
-                    HIGHLY_NESTED_ROW_FIELD,
-                    OptionalInt.empty(),
-                    "highly_nested_column_name",
-                    HIGHLY_NESTED_ROW_FIELD,
-                    REGULAR,
-                    Optional.of(new DeltaLakeColumnProjectionInfo(INTEGER, ImmutableList.of(0, 0), ImmutableList.of("grandparent", "parent"))));
-    private static final DeltaLakeColumnHandle EXPECTED_NESTED_COLUMN_HANDLE_WITH_PROJECTION =
-            new DeltaLakeColumnHandle(
-                    "highly_nested_column_name",
-                    HIGHLY_NESTED_ROW_FIELD,
-                    OptionalInt.empty(),
-                    "highly_nested_column_name",
-                    HIGHLY_NESTED_ROW_FIELD,
-                    REGULAR,
-                    Optional.of(new DeltaLakeColumnProjectionInfo(INTEGER, ImmutableList.of(0, 0, 0), ImmutableList.of("grandparent", "parent", "child"))));
 
     private static final Map<String, ColumnHandle> SYNTHETIC_COLUMN_ASSIGNMENTS = ImmutableMap.of(
             "test_synthetic_column_name_1", BOGUS_COLUMN_HANDLE,
             "test_synthetic_column_name_2", VARCHAR_COLUMN_HANDLE);
     private static final Map<String, ColumnHandle> NESTED_COLUMN_ASSIGNMENTS = ImmutableMap.of("nested_column_name", NESTED_COLUMN_HANDLE);
     private static final Map<String, ColumnHandle> EXPECTED_NESTED_COLUMN_ASSIGNMENTS = ImmutableMap.of("nested_column_name#child2", EXPECTED_NESTED_COLUMN_HANDLE);
-    private static final Map<String, ColumnHandle> HIGHLY_NESTED_COLUMN_ASSIGNMENTS = ImmutableMap.of("highly_nested_column_name#grandparent#parent", NESTED_COLUMN_HANDLE_WITH_PROJECTION);
-    private static final Map<String, ColumnHandle> EXPECTED_HIGHLY_NESTED_COLUMN_ASSIGNMENTS = ImmutableMap.of("highly_nested_column_name#grandparent#parent#child", EXPECTED_NESTED_COLUMN_HANDLE_WITH_PROJECTION);
 
     private static final ConnectorExpression DOUBLE_PROJECTION = new Variable("double_projection", DoubleType.DOUBLE);
     private static final ConnectorExpression BOOLEAN_PROJECTION = new Variable("boolean_projection", BooleanType.BOOLEAN);
@@ -179,13 +159,6 @@ public class TestDeltaLakeMetadata
     private static final ConnectorExpression EXPECTED_NESTED_DEREFERENCE_PROJECTION = new Variable(
             "nested_column_name#child2",
             INTEGER);
-    private static final ConnectorExpression HIGHLY_NESTED_DEREFERENCE_PROJECTION = new FieldDereference(
-            INTEGER,
-            new Variable("highly_nested_column_name#grandparent#parent", HIGHLY_NESTED_ROW_FIELD),
-            0);
-    private static final ConnectorExpression EXPECTED_HIGHLY_NESTED_DEREFERENCE_PROJECTION = new Variable(
-            "highly_nested_column_name#grandparent#parent#child",
-            INTEGER);
 
     private static final List<ConnectorExpression> SIMPLE_COLUMN_PROJECTIONS =
             ImmutableList.of(DOUBLE_PROJECTION, BOOLEAN_PROJECTION);
@@ -195,10 +168,6 @@ public class TestDeltaLakeMetadata
             ImmutableList.of(NESTED_DEREFERENCE_PROJECTION);
     private static final List<ConnectorExpression> EXPECTED_NESTED_DEREFERENCE_COLUMN_PROJECTIONS =
             ImmutableList.of(EXPECTED_NESTED_DEREFERENCE_PROJECTION);
-    private static final List<ConnectorExpression> HIGHLY_NESTED_DEREFERENCE_COLUMN_PROJECTIONS =
-            ImmutableList.of(HIGHLY_NESTED_DEREFERENCE_PROJECTION);
-    private static final List<ConnectorExpression> EXPECTED_HIGHLY_NESTED_DEREFERENCE_COLUMN_PROJECTIONS =
-            ImmutableList.of(EXPECTED_HIGHLY_NESTED_DEREFERENCE_PROJECTION);
 
     private static final Set<DeltaLakeColumnHandle> PREDICATE_COLUMNS =
             ImmutableSet.of(BOOLEAN_COLUMN_HANDLE, DOUBLE_COLUMN_HANDLE);
@@ -226,6 +195,7 @@ public class TestDeltaLakeMetadata
                     binder.bind(TypeManager.class).toInstance(context.getTypeManager());
                     binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                     binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
+                    binder.bind(Tracer.class).toInstance(context.getTracer());
                 },
                 // connector modules
                 new DeltaLakeMetastoreModule(),
@@ -272,12 +242,12 @@ public class TestDeltaLakeMetadata
     @Test
     public void testGetNewTableLayout()
     {
-        Optional<ConnectorTableLayout> newTableLayout = deltaLakeMetadataFactory.create(SESSION.getIdentity())
-                .getNewTableLayout(
-                        SESSION,
-                        newTableMetadata(
-                                ImmutableList.of(BIGINT_COLUMN_1, BIGINT_COLUMN_2),
-                                ImmutableList.of(BIGINT_COLUMN_2)));
+        DeltaLakeMetadata deltaLakeMetadata = deltaLakeMetadataFactory.create(SESSION.getIdentity());
+        Optional<ConnectorTableLayout> newTableLayout = deltaLakeMetadata.getNewTableLayout(
+                SESSION,
+                newTableMetadata(
+                        ImmutableList.of(BIGINT_COLUMN_1, BIGINT_COLUMN_2),
+                        ImmutableList.of(BIGINT_COLUMN_2)));
 
         assertThat(newTableLayout).isPresent();
 
@@ -286,40 +256,45 @@ public class TestDeltaLakeMetadata
 
         assertThat(newTableLayout.get().getPartitionColumns())
                 .isEqualTo(ImmutableList.of(BIGINT_COLUMN_2.getName()));
+
+        deltaLakeMetadata.cleanupQuery(SESSION);
     }
 
     @Test
     public void testGetNewTableLayoutNoPartitionColumns()
     {
-        assertThat(deltaLakeMetadataFactory.create(SESSION.getIdentity())
-                .getNewTableLayout(
-                        SESSION,
-                        newTableMetadata(
-                                ImmutableList.of(BIGINT_COLUMN_1, BIGINT_COLUMN_2),
-                                ImmutableList.of())))
+        DeltaLakeMetadata deltaLakeMetadata = deltaLakeMetadataFactory.create(SESSION.getIdentity());
+        assertThat(deltaLakeMetadata.getNewTableLayout(
+                SESSION,
+                newTableMetadata(
+                        ImmutableList.of(BIGINT_COLUMN_1, BIGINT_COLUMN_2),
+                        ImmutableList.of())))
                 .isNotPresent();
+
+        deltaLakeMetadata.cleanupQuery(SESSION);
     }
 
     @Test
     public void testGetNewTableLayoutInvalidPartitionColumns()
     {
-        assertThatThrownBy(() -> deltaLakeMetadataFactory.create(SESSION.getIdentity())
-                .getNewTableLayout(
-                        SESSION,
-                        newTableMetadata(
-                                ImmutableList.of(BIGINT_COLUMN_1, BIGINT_COLUMN_2),
-                                ImmutableList.of(BIGINT_COLUMN_2, MISSING_COLUMN))))
+        DeltaLakeMetadata deltaLakeMetadata = deltaLakeMetadataFactory.create(SESSION.getIdentity());
+        assertThatThrownBy(() -> deltaLakeMetadata.getNewTableLayout(
+                SESSION,
+                newTableMetadata(
+                        ImmutableList.of(BIGINT_COLUMN_1, BIGINT_COLUMN_2),
+                        ImmutableList.of(BIGINT_COLUMN_2, MISSING_COLUMN))))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("Table property 'partition_by' contained column names which do not exist: [missing_column]");
 
-        assertThatThrownBy(() -> deltaLakeMetadataFactory.create(SESSION.getIdentity())
-                .getNewTableLayout(
-                        SESSION,
-                        newTableMetadata(
-                                ImmutableList.of(TIMESTAMP_COLUMN, BIGINT_COLUMN_2),
-                                ImmutableList.of(BIGINT_COLUMN_2))))
+        assertThatThrownBy(() -> deltaLakeMetadata.getNewTableLayout(
+                SESSION,
+                newTableMetadata(
+                        ImmutableList.of(TIMESTAMP_COLUMN, BIGINT_COLUMN_2),
+                        ImmutableList.of(BIGINT_COLUMN_2))))
                 .isInstanceOf(TrinoException.class)
                 .hasMessage("Unsupported type: timestamp(3)");
+
+        deltaLakeMetadata.cleanupQuery(SESSION);
     }
 
     @Test
@@ -344,6 +319,8 @@ public class TestDeltaLakeMetadata
 
         assertThat(insertLayout.get().getPartitionColumns())
                 .isEqualTo(getPartitionColumnNames(ImmutableList.of(BIGINT_COLUMN_1)));
+
+        deltaLakeMetadata.cleanupQuery(SESSION);
     }
 
     private ConnectorTableMetadata newTableMetadata(List<ColumnMetadata> tableColumns, List<ColumnMetadata> partitionTableColumns)
@@ -374,6 +351,8 @@ public class TestDeltaLakeMetadata
                 SESSION,
                 deltaLakeMetadata.getTableHandle(SESSION, tableMetadata.getTable())))
                 .isNotPresent();
+
+        deltaLakeMetadata.cleanupQuery(SESSION);
     }
 
     @Test
@@ -457,6 +436,8 @@ public class TestDeltaLakeMetadata
 
         assertThat(projection.isPrecalculateStatistics())
                 .isFalse();
+
+        deltaLakeMetadata.cleanupQuery(SESSION);
     }
 
     @Test
@@ -481,6 +462,8 @@ public class TestDeltaLakeMetadata
                         ImmutableList.of(),
                         ImmutableMap.of()))
                 .isEmpty();
+
+        deltaLakeMetadata.cleanupQuery(SESSION);
     }
 
     @Test
@@ -493,6 +476,7 @@ public class TestDeltaLakeMetadata
         deltaLakeMetadata.createTable(SESSION, tableMetadata, false);
         DeltaLakeTableHandle tableHandle = (DeltaLakeTableHandle) deltaLakeMetadata.getTableHandle(SESSION, tableMetadata.getTable());
         assertThat(deltaLakeMetadata.getInfo(tableHandle)).isEqualTo(Optional.of(new DeltaLakeInputInfo(true)));
+        deltaLakeMetadata.cleanupQuery(SESSION);
     }
 
     @Test
@@ -505,6 +489,7 @@ public class TestDeltaLakeMetadata
         deltaLakeMetadata.createTable(SESSION, tableMetadata, false);
         DeltaLakeTableHandle tableHandle = (DeltaLakeTableHandle) deltaLakeMetadata.getTableHandle(SESSION, tableMetadata.getTable());
         assertThat(deltaLakeMetadata.getInfo(tableHandle)).isEqualTo(Optional.of(new DeltaLakeInputInfo(false)));
+        deltaLakeMetadata.cleanupQuery(SESSION);
     }
 
     private static DeltaLakeTableHandle createDeltaLakeTableHandle(Set<DeltaLakeColumnHandle> projectedColumns, Set<DeltaLakeColumnHandle> constrainedColumns)

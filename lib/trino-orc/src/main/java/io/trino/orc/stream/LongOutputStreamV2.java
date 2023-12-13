@@ -1096,7 +1096,7 @@ public class LongOutputStreamV2
                         | ((input[i + 4] & 1) << 3)
                         | ((input[i + 5] & 1) << 2)
                         | ((input[i + 6] & 1) << 1)
-                        | (input[i + 7]) & 1);
+                        | (input[i + 7] & 1));
                 output.write(val);
                 val = 0;
             }
@@ -1122,7 +1122,7 @@ public class LongOutputStreamV2
                 val = (int) (val | ((input[i] & 3) << 6)
                         | ((input[i + 1] & 3) << 4)
                         | ((input[i + 2] & 3) << 2)
-                        | (input[i + 3]) & 3);
+                        | (input[i + 3] & 3));
                 output.write(val);
                 val = 0;
             }
@@ -1145,7 +1145,7 @@ public class LongOutputStreamV2
             final int endUnroll = endOffset - remainder;
             int val = 0;
             for (int i = offset; i < endUnroll; i = i + numHops) {
-                val = (int) (val | ((input[i] & 15) << 4) | (input[i + 1]) & 15);
+                val = (int) (val | ((input[i] & 15) << 4) | input[i + 1] & 15);
                 output.write(val);
                 val = 0;
             }

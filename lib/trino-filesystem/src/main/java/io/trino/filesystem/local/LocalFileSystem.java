@@ -219,6 +219,13 @@ public class LocalFileSystem
         }
     }
 
+    @Override
+    public Optional<Location> createTemporaryDirectory(Location targetPath, String temporaryPrefix, String relativePrefix)
+            throws IOException
+    {
+        throw new IOException("Local file system does not support creating temporary directories");
+    }
+
     private Path toFilePath(Location location)
     {
         validateLocalLocation(location);

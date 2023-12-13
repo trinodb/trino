@@ -14,7 +14,6 @@
 package io.trino.security;
 
 import io.trino.metadata.QualifiedObjectName;
-import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.ViewExpression;
@@ -52,12 +51,6 @@ public class ViewAccessControl
         // This means that the owner of the view is effectively granting permissions to the user running the query,
         // and thus must have the equivalent of the SQL standard "GRANT ... WITH GRANT OPTION".
         wrapAccessDeniedException(() -> delegate.checkCanCreateViewWithSelectFromColumns(context, tableName, columnNames));
-    }
-
-    @Override
-    public Set<String> filterColumns(SecurityContext context, CatalogSchemaTableName tableName, Set<String> columns)
-    {
-        return delegate.filterColumns(context, tableName, columns);
     }
 
     @Override

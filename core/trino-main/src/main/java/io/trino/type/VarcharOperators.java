@@ -62,7 +62,7 @@ public final class VarcharOperators
 
     private static byte toUpperCase(byte b)
     {
-        return isLowerCase(b) ? ((byte) (b - 32)) : b;
+        return isLowerCase(b) ? (byte) (b - 32) : b;
     }
 
     private static boolean isLowerCase(byte b)

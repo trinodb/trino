@@ -172,12 +172,6 @@ public class ConnectorMaterializedViewDefinition
         private final TypeId type;
         private final Optional<String> comment;
 
-        @Deprecated
-        public Column(String name, TypeId type)
-        {
-            this(name, type, Optional.empty());
-        }
-
         public Column(String name, TypeId type, Optional<String> comment)
         {
             this.name = requireNonNull(name, "name is null");

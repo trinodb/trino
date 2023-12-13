@@ -228,7 +228,7 @@ DROP TABLE tmp_trino_test;
 ALTER TABLE trino_test_partition_schema_change ADD PARTITION (ds='2012-12-29');
 INSERT OVERWRITE TABLE trino_test_partition_schema_change PARTITION (ds='2012-12-29')
 SELECT '123', '456' FROM trino_test_sequence;
-ALTER TABLE trino_test_partition_schema_change REPLACE COLUMNS (t_data DOUBLE);
+ALTER TABLE trino_test_partition_schema_change REPLACE COLUMNS (t_data FLOAT);
 
 INSERT OVERWRITE TABLE trino_test_partition_schema_change_non_canonical PARTITION (t_boolean='0')
 SELECT 'test' FROM trino_test_sequence LIMIT 100;

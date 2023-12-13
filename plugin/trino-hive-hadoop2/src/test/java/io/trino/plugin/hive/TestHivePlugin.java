@@ -19,11 +19,13 @@ import io.trino.spi.Plugin;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.io.IOException;
@@ -41,28 +43,31 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createTempDirectory;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true) // see @BeforeMethod
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD) // see @BeforeEach
 public class TestHivePlugin
 {
     private Path tempDirectory;
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
             throws IOException
     {
         tempDirectory = createTempDirectory(getClass().getSimpleName());
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
             throws IOException
     {
         deleteRecursively(tempDirectory, ALLOW_INSECURE);
     }
 
-    @AfterMethod(alwaysRun = true)
-    @BeforeMethod
+    @AfterEach
+    @BeforeEach
     public void deinitializeRubix()
     {
         // revert static rubix initialization done by other tests
@@ -75,7 +80,12 @@ public class TestHivePlugin
         ConnectorFactory factory = getHiveConnectorFactory();
 
         // simplest possible configuration
-        factory.create("test", ImmutableMap.of("hive.metastore.uri", "thrift://foo:1234"), new TestingConnectorContext()).shutdown();
+        factory.create(
+                "test",
+                ImmutableMap.of(
+                        "hive.metastore.uri", "thrift://foo:1234",
+                        "bootstrap.quiet", "true"),
+                new TestingConnectorContext()).shutdown();
     }
 
     @Test
@@ -86,7 +96,8 @@ public class TestHivePlugin
                         "test",
                         ImmutableMap.of(
                                 "hive.metastore", "file",
-                                "hive.metastore.catalog.dir", "/tmp"),
+                                "hive.metastore.catalog.dir", "/tmp",
+                                "bootstrap.quiet", "true"),
                         new TestingConnectorContext())
                 .shutdown();
     }
@@ -100,7 +111,8 @@ public class TestHivePlugin
                 "test",
                 ImmutableMap.of(
                         "hive.metastore", "thrift",
-                        "hive.metastore.uri", "thrift://foo:1234"),
+                        "hive.metastore.uri", "thrift://foo:1234",
+                        "bootstrap.quiet", "true"),
                 new TestingConnectorContext())
                 .shutdown();
     }
@@ -114,7 +126,8 @@ public class TestHivePlugin
                 "test",
                 ImmutableMap.of(
                         "hive.metastore", "glue",
-                        "hive.metastore.glue.region", "us-east-2"),
+                        "hive.metastore.glue.region", "us-east-2",
+                        "bootstrap.quiet", "true"),
                 new TestingConnectorContext())
                 .shutdown();
 
@@ -122,33 +135,10 @@ public class TestHivePlugin
                 "test",
                 ImmutableMap.of(
                         "hive.metastore", "glue",
-                        "hive.metastore.uri", "thrift://foo:1234"),
+                        "hive.metastore.uri", "thrift://foo:1234",
+                        "bootstrap.quiet", "true"),
                 new TestingConnectorContext()))
                 .hasMessageContaining("Error: Configuration property 'hive.metastore.uri' was not used");
-    }
-
-    @Test
-    public void testRecordingMetastore()
-    {
-        ConnectorFactory factory = getHiveConnectorFactory();
-
-        factory.create(
-                "test",
-                ImmutableMap.of(
-                        "hive.metastore", "thrift",
-                        "hive.metastore.uri", "thrift://foo:1234",
-                        "hive.metastore-recording-path", "/tmp"),
-                new TestingConnectorContext())
-                .shutdown();
-
-        factory.create(
-                "test",
-                ImmutableMap.of(
-                        "hive.metastore", "glue",
-                        "hive.metastore.glue.region", "us-east-2",
-                        "hive.metastore-recording-path", "/tmp"),
-                new TestingConnectorContext())
-                .shutdown();
     }
 
     @Test
@@ -165,6 +155,7 @@ public class TestHivePlugin
                         .put("hive.cache.enabled", "true")
                         .put("hive.metastore.uri", "thrift://foo:1234")
                         .put("hive.cache.location", tempDirectory.toString())
+                        .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
                 new TestingConnectorContext()))
                 .hasMessageContaining("S3 security mapping is not compatible with Hive caching");
@@ -182,6 +173,7 @@ public class TestHivePlugin
                         .put("hive.cache.enabled", "true")
                         .put("hive.metastore.uri", "thrift://foo:1234")
                         .put("hive.cache.location", tempDirectory.toString())
+                        .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
                 new TestingConnectorContext()))
                 .hasMessageContaining("Use of GCS access token is not compatible with Hive caching");
@@ -198,6 +190,7 @@ public class TestHivePlugin
                         .put("hive.insert-existing-partitions-behavior", "APPEND")
                         .put("hive.immutable-partitions", "true")
                         .put("hive.metastore.uri", "thrift://foo:1234")
+                        .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
                 new TestingConnectorContext()))
                 .hasMessageContaining("insert-existing-partitions-behavior cannot be APPEND when immutable-partitions is true");
@@ -213,6 +206,7 @@ public class TestHivePlugin
                 ImmutableMap.<String, String>builder()
                         .put("hive.immutable-partitions", "true")
                         .put("hive.metastore.uri", "thrift://foo:1234")
+                        .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
                 new TestingConnectorContext());
         assertThat(getDefaultValueInsertExistingPartitionsBehavior(connector)).isEqualTo(ERROR);
@@ -226,7 +220,9 @@ public class TestHivePlugin
 
         Connector connector = connectorFactory.create(
                 "test",
-                ImmutableMap.of("hive.metastore.uri", "thrift://foo:1234"),
+                ImmutableMap.of(
+                        "hive.metastore.uri", "thrift://foo:1234",
+                        "bootstrap.quiet", "true"),
                 new TestingConnectorContext());
         assertThat(getDefaultValueInsertExistingPartitionsBehavior(connector)).isEqualTo(APPEND);
         connector.shutdown();
@@ -252,6 +248,7 @@ public class TestHivePlugin
                         .put("hive.cache.enabled", "true")
                         .put("hive.metastore.uri", "thrift://foo:1234")
                         .put("hive.cache.location", tempDirectory.toString())
+                        .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
                 new TestingConnectorContext()))
                 .hasMessageContaining("HDFS impersonation is not compatible with Hive caching");
@@ -268,6 +265,7 @@ public class TestHivePlugin
                         .put("hive.cache.enabled", "true")
                         .put("hive.metastore.uri", "thrift://foo:1234")
                         .put("hive.cache.location", tempDirectory.toString())
+                        .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
                 new TestingConnectorContext())
                 .shutdown();
@@ -285,9 +283,10 @@ public class TestHivePlugin
                         .put("hive.cache.start-server-on-coordinator", "true")
                         .put("hive.metastore.uri", "thrift://foo:1234")
                         .put("hive.cache.location", "/tmp/non/existing/directory")
+                        .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
                 new TestingConnectorContext()))
-                .hasRootCauseMessage("None of the cache parent directories exists");
+                .hasMessageContaining("None of the cache parent directories exists");
 
         assertThatThrownBy(() -> connectorFactory.create(
                 "test",
@@ -295,9 +294,10 @@ public class TestHivePlugin
                         .put("hive.cache.enabled", "true")
                         .put("hive.cache.start-server-on-coordinator", "true")
                         .put("hive.metastore.uri", "thrift://foo:1234")
+                        .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
                 new TestingConnectorContext()))
-                .hasRootCauseMessage("caching directories were not provided");
+                .hasMessageContaining("caching directories were not provided");
 
         // cache directories should not be required when cache is not explicitly started on coordinator
         connectorFactory.create(
@@ -305,6 +305,7 @@ public class TestHivePlugin
                 ImmutableMap.<String, String>builder()
                         .put("hive.cache.enabled", "true")
                         .put("hive.metastore.uri", "thrift://foo:1234")
+                        .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
                 new TestingConnectorContext())
                 .shutdown();
@@ -320,6 +321,7 @@ public class TestHivePlugin
                 ImmutableMap.<String, String>builder()
                         .put("hive.metastore.uri", "thrift://foo:1234")
                         .put("hive.security", "allow-all")
+                        .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
                 new TestingConnectorContext())
                 .shutdown();
@@ -335,6 +337,7 @@ public class TestHivePlugin
                 ImmutableMap.<String, String>builder()
                         .put("hive.metastore.uri", "thrift://foo:1234")
                         .put("hive.security", "read-only")
+                        .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
                 new TestingConnectorContext())
                 .shutdown();
@@ -355,6 +358,7 @@ public class TestHivePlugin
                         .put("hive.metastore.uri", "thrift://foo:1234")
                         .put("hive.security", "file")
                         .put("security.config-file", tempFile.getAbsolutePath())
+                        .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
                 new TestingConnectorContext())
                 .shutdown();
@@ -370,6 +374,7 @@ public class TestHivePlugin
                 ImmutableMap.<String, String>builder()
                         .put("hive.metastore.uri", "thrift://foo:1234")
                         .put("hive.security", "system")
+                        .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
                 new TestingConnectorContext());
         assertThatThrownBy(connector::getAccessControl).isInstanceOf(UnsupportedOperationException.class);

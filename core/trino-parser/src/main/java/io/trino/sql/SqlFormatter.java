@@ -218,7 +218,7 @@ public final class SqlFormatter
         return ExpressionFormatter.formatExpression(identifier);
     }
 
-    static String formatName(QualifiedName name)
+    public static String formatName(QualifiedName name)
     {
         return name.getOriginalParts().stream()
                 .map(SqlFormatter::formatName)
@@ -372,14 +372,14 @@ public final class SqlFormatter
                     .append(" ")
                     .append(formatExpression(node.getType()))
                     .append(" FORMAT ")
-                    .append(node.getFormat().name());
+                    .append(node.getFormat().toString());
             node.getJsonPath().ifPresent(path ->
                     builder.append(" PATH ")
                             .append(formatExpression(path)));
             builder.append(switch (node.getWrapperBehavior()) {
                 case WITHOUT -> " WITHOUT ARRAY WRAPPER";
                 case CONDITIONAL -> " WITH CONDITIONAL ARRAY WRAPPER";
-                case UNCONDITIONAL -> (" WITH UNCONDITIONAL ARRAY WRAPPER");
+                case UNCONDITIONAL -> " WITH UNCONDITIONAL ARRAY WRAPPER";
             });
 
             if (node.getQuotesBehavior().isPresent()) {
@@ -2608,7 +2608,7 @@ public final class SqlFormatter
 
     private static void appendAliasColumns(Formatter.SqlBuilder builder, List<Identifier> columns)
     {
-        if ((columns != null) && (!columns.isEmpty())) {
+        if ((columns != null) && !columns.isEmpty()) {
             String formattedColumns = columns.stream()
                     .map(SqlFormatter::formatName)
                     .collect(joining(", "));

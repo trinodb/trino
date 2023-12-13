@@ -43,13 +43,6 @@ public abstract sealed class TimeWithTimeZoneType
     public static final TimeWithTimeZoneType TIME_TZ_NANOS = createTimeWithTimeZoneType(9);
     public static final TimeWithTimeZoneType TIME_TZ_PICOS = createTimeWithTimeZoneType(12);
 
-    /**
-     * @deprecated Use {@link #createTimeWithTimeZoneType} instead.
-     */
-    @Deprecated
-    // Use singleton for backwards compatibility with code checking `type == TIME_WITH_TIME_ZONE`
-    public static final TimeWithTimeZoneType TIME_WITH_TIME_ZONE = TIME_TZ_MILLIS;
-
     private final int precision;
 
     public static TimeWithTimeZoneType createTimeWithTimeZoneType(int precision)

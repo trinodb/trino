@@ -18,7 +18,7 @@ import org.junit.jupiter.api.Test;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSplitConcurrencyController
 {
@@ -28,7 +28,7 @@ public class TestSplitConcurrencyController
         SplitConcurrencyController controller = new SplitConcurrencyController(1, new Duration(1, SECONDS));
         for (int i = 0; i < 10; i++) {
             controller.update(SECONDS.toNanos(2), 0, i + 1);
-            assertEquals(controller.getTargetConcurrency(), i + 2);
+            assertThat(controller.getTargetConcurrency()).isEqualTo(i + 2);
         }
     }
 
@@ -39,7 +39,7 @@ public class TestSplitConcurrencyController
         for (int i = 0; i < 9; i++) {
             controller.update(SECONDS.toNanos(2), 1, 10 - i);
             controller.splitFinished(SECONDS.toNanos(30), 1, 10 - i);
-            assertEquals(controller.getTargetConcurrency(), 10 - i - 1);
+            assertThat(controller.getTargetConcurrency()).isEqualTo(10 - i - 1);
         }
     }
 
@@ -50,13 +50,13 @@ public class TestSplitConcurrencyController
         for (int i = 0; i < 9; i++) {
             controller.update(MILLISECONDS.toNanos(200), 1, 10 - i);
             controller.splitFinished(MILLISECONDS.toNanos(100), 1, 10 - i);
-            assertEquals(controller.getTargetConcurrency(), 10 - i - 1);
+            assertThat(controller.getTargetConcurrency()).isEqualTo(10 - i - 1);
         }
         controller.update(SECONDS.toNanos(30), 0, 1);
         for (int i = 0; i < 10; i++) {
             controller.update(SECONDS.toNanos(200), 0, i + 1);
             controller.splitFinished(MILLISECONDS.toNanos(100), 0, i + 1);
-            assertEquals(controller.getTargetConcurrency(), i + 2);
+            assertThat(controller.getTargetConcurrency()).isEqualTo(i + 2);
         }
     }
 }

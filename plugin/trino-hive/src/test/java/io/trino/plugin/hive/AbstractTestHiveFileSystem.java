@@ -29,13 +29,11 @@ import io.trino.hdfs.HdfsConfig;
 import io.trino.hdfs.HdfsConfiguration;
 import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
-import io.trino.hdfs.HdfsNamenodeStats;
 import io.trino.hdfs.TrinoHdfsFileSystemStats;
 import io.trino.hdfs.authentication.NoHdfsAuthentication;
 import io.trino.operator.GroupByHashPageIndexerFactory;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.AbstractTestHive.Transaction;
-import io.trino.plugin.hive.aws.athena.PartitionProjectionService;
 import io.trino.plugin.hive.fs.FileSystemDirectoryLister;
 import io.trino.plugin.hive.fs.HiveFileIterator;
 import io.trino.plugin.hive.fs.TransactionScopeCachingDirectoryListerFactory;
@@ -71,7 +69,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.ConnectorIdentity;
-import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.gen.JoinCompiler;
 import io.trino.testing.MaterializedResult;
@@ -79,9 +76,11 @@ import io.trino.testing.TestingNodeManager;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.azurebfs.AzureBlobFileSystem;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -133,10 +132,11 @@ import static java.util.UUID.randomUUID;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public abstract class AbstractTestHiveFileSystem
 {
     protected static final HdfsContext TESTING_CONTEXT = new HdfsContext(ConnectorIdentity.ofUser("test"));
@@ -161,14 +161,14 @@ public abstract class AbstractTestHiveFileSystem
     private HiveConfig config;
     private ScheduledExecutorService heartbeatService;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
         heartbeatService = newScheduledThreadPool(1);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         if (executor != null) {
@@ -211,7 +211,8 @@ public abstract class AbstractTestHiveFileSystem
                                 .build()),
                 getBasePath(),
                 hdfsEnvironment);
-        locationService = new HiveLocationService(hdfsEnvironment, config);
+        HdfsFileSystemFactory fileSystemFactory = new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS);
+        locationService = new HiveLocationService(fileSystemFactory, config);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         metadataFactory = new HiveMetadataFactory(
                 new CatalogName("hive"),
@@ -219,8 +220,7 @@ public abstract class AbstractTestHiveFileSystem
                 new HiveMetastoreConfig(),
                 HiveMetastoreFactory.ofInstance(metastoreClient),
                 getDefaultHiveFileWriterFactories(config, hdfsEnvironment),
-                new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
-                hdfsEnvironment,
+                fileSystemFactory,
                 hivePartitionManager,
                 newDirectExecutorService(),
                 heartbeatService,
@@ -237,14 +237,12 @@ public abstract class AbstractTestHiveFileSystem
                 SqlStandardAccessControlMetadata::new,
                 new FileSystemDirectoryLister(),
                 new TransactionScopeCachingDirectoryListerFactory(config),
-                new PartitionProjectionService(config, ImmutableMap.of(), new TestingTypeManager()),
                 true);
         transactionManager = new HiveTransactionManager(metadataFactory);
         splitManager = new HiveSplitManager(
                 transactionManager,
                 hivePartitionManager,
-                new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
-                new HdfsNamenodeStats(),
+                fileSystemFactory,
                 new BoundedExecutor(executor, config.getMaxSplitIteratorThreads()),
                 new CounterStat(),
                 config.getMaxOutstandingSplits(),
@@ -259,7 +257,7 @@ public abstract class AbstractTestHiveFileSystem
                 config.getMaxPartitionsPerScan());
         pageSinkProvider = new HivePageSinkProvider(
                 getDefaultHiveFileWriterFactories(config, hdfsEnvironment),
-                new HdfsFileSystemFactory(hdfsEnvironment, HDFS_FILE_SYSTEM_STATS),
+                fileSystemFactory,
                 PAGE_SORTER,
                 HiveMetastoreFactory.ofInstance(metastoreClient),
                 new GroupByHashPageIndexerFactory(new JoinCompiler(new TypeOperators())),
@@ -347,12 +345,24 @@ public abstract class AbstractTestHiveFileSystem
         Path filePath = new Path(tablePath, "test_table.csv");
         FileSystem fs = hdfsEnvironment.getFileSystem(TESTING_CONTEXT, basePath);
 
-        assertTrue(fs.getFileStatus(basePath).isDirectory(), "basePath should be considered a directory");
-        assertTrue(fs.getFileStatus(tablePath).isDirectory(), "tablePath should be considered a directory");
-        assertTrue(fs.getFileStatus(filePath).isFile(), "filePath should be considered a file");
-        assertFalse(fs.getFileStatus(filePath).isDirectory(), "filePath should not be considered a directory");
-        assertFalse(fs.exists(new Path(basePath, "foo-" + randomUUID())), "foo-random path should be found not to exist");
-        assertFalse(fs.exists(new Path(basePath, "foo")), "foo path should be found not to exist");
+        assertThat(fs.getFileStatus(basePath).isDirectory())
+                .describedAs("basePath should be considered a directory")
+                .isTrue();
+        assertThat(fs.getFileStatus(tablePath).isDirectory())
+                .describedAs("tablePath should be considered a directory")
+                .isTrue();
+        assertThat(fs.getFileStatus(filePath).isFile())
+                .describedAs("filePath should be considered a file")
+                .isTrue();
+        assertThat(fs.getFileStatus(filePath).isDirectory())
+                .describedAs("filePath should not be considered a directory")
+                .isFalse();
+        assertThat(fs.exists(new Path(basePath, "foo-" + randomUUID())))
+                .describedAs("foo-random path should be found not to exist")
+                .isFalse();
+        assertThat(fs.exists(new Path(basePath, "foo")))
+                .describedAs("foo path should be found not to exist")
+                .isFalse();
     }
 
     @Test
@@ -361,60 +371,60 @@ public abstract class AbstractTestHiveFileSystem
     {
         Path basePath = new Path(getBasePath(), randomUUID().toString());
         FileSystem fs = hdfsEnvironment.getFileSystem(TESTING_CONTEXT, basePath);
-        assertFalse(fs.exists(basePath));
+        assertThat(fs.exists(basePath)).isFalse();
 
         // create file foo.txt
         Path path = new Path(basePath, "foo.txt");
-        assertTrue(fs.createNewFile(path));
-        assertTrue(fs.exists(path));
+        assertThat(fs.createNewFile(path)).isTrue();
+        assertThat(fs.exists(path)).isTrue();
 
         // rename foo.txt to bar.txt when bar does not exist
         Path newPath = new Path(basePath, "bar.txt");
-        assertFalse(fs.exists(newPath));
-        assertTrue(fs.rename(path, newPath));
-        assertFalse(fs.exists(path));
-        assertTrue(fs.exists(newPath));
+        assertThat(fs.exists(newPath)).isFalse();
+        assertThat(fs.rename(path, newPath)).isTrue();
+        assertThat(fs.exists(path)).isFalse();
+        assertThat(fs.exists(newPath)).isTrue();
 
         // rename foo.txt to foo.txt when foo.txt does not exist
-        assertFalse(fs.rename(path, path));
+        assertThat(fs.rename(path, path)).isFalse();
 
         // create file foo.txt and rename to existing bar.txt
-        assertTrue(fs.createNewFile(path));
-        assertFalse(fs.rename(path, newPath));
+        assertThat(fs.createNewFile(path)).isTrue();
+        assertThat(fs.rename(path, newPath)).isFalse();
 
         // rename foo.txt to foo.txt when foo.txt exists
-        assertEquals(fs.rename(path, path), getRawFileSystem(fs) instanceof AzureBlobFileSystem);
+        assertThat(fs.rename(path, path)).isEqualTo(getRawFileSystem(fs) instanceof AzureBlobFileSystem);
 
         // delete foo.txt
-        assertTrue(fs.delete(path, false));
-        assertFalse(fs.exists(path));
+        assertThat(fs.delete(path, false)).isTrue();
+        assertThat(fs.exists(path)).isFalse();
 
         // create directory source with file
         Path source = new Path(basePath, "source");
-        assertTrue(fs.createNewFile(new Path(source, "test.txt")));
+        assertThat(fs.createNewFile(new Path(source, "test.txt"))).isTrue();
 
         // rename source to non-existing target
         Path target = new Path(basePath, "target");
-        assertFalse(fs.exists(target));
-        assertTrue(fs.rename(source, target));
-        assertFalse(fs.exists(source));
-        assertTrue(fs.exists(target));
+        assertThat(fs.exists(target)).isFalse();
+        assertThat(fs.rename(source, target)).isTrue();
+        assertThat(fs.exists(source)).isFalse();
+        assertThat(fs.exists(target)).isTrue();
 
         // create directory source with file
-        assertTrue(fs.createNewFile(new Path(source, "test.txt")));
+        assertThat(fs.createNewFile(new Path(source, "test.txt"))).isTrue();
 
         // rename source to existing target
-        assertTrue(fs.rename(source, target));
-        assertFalse(fs.exists(source));
+        assertThat(fs.rename(source, target)).isTrue();
+        assertThat(fs.exists(source)).isFalse();
         target = new Path(target, "source");
-        assertTrue(fs.exists(target));
-        assertTrue(fs.exists(new Path(target, "test.txt")));
+        assertThat(fs.exists(target)).isTrue();
+        assertThat(fs.exists(new Path(target, "test.txt"))).isTrue();
 
         // delete target
         target = new Path(basePath, "target");
-        assertTrue(fs.exists(target));
-        assertTrue(fs.delete(target, true));
-        assertFalse(fs.exists(target));
+        assertThat(fs.exists(target)).isTrue();
+        assertThat(fs.delete(target, true)).isTrue();
+        assertThat(fs.exists(target)).isFalse();
 
         // cleanup
         fs.delete(basePath, true);
@@ -427,7 +437,7 @@ public abstract class AbstractTestHiveFileSystem
         Table.Builder tableBuilder = Table.builder()
                 .setDatabaseName(table.getSchemaName())
                 .setTableName(table.getTableName())
-                .setDataColumns(ImmutableList.of(new Column("one", HIVE_LONG, Optional.empty())))
+                .setDataColumns(ImmutableList.of(new Column("one", HIVE_LONG, Optional.empty(), Map.of())))
                 .setPartitionColumns(ImmutableList.of())
                 .setOwner(Optional.empty())
                 .setTableType("fake");
@@ -475,7 +485,6 @@ public abstract class AbstractTestHiveFileSystem
                 Location.of(basePath.toString()),
                 trinoFileSystem,
                 new FileSystemDirectoryLister(),
-                new HdfsNamenodeStats(),
                 HiveFileIterator.NestedDirectoryPolicy.RECURSE);
 
         List<Path> recursiveListing = Streams.stream(recursiveIterator)
@@ -490,7 +499,6 @@ public abstract class AbstractTestHiveFileSystem
                 Location.of(basePath.toString()),
                 trinoFileSystem,
                 new FileSystemDirectoryLister(),
-                new HdfsNamenodeStats(),
                 HiveFileIterator.NestedDirectoryPolicy.IGNORED);
         List<Path> shallowListing = Streams.stream(shallowIterator)
                 .map(TrinoFileStatus::getPath)
@@ -507,8 +515,8 @@ public abstract class AbstractTestHiveFileSystem
         Table.Builder tableBuilder = Table.builder()
                 .setDatabaseName(table.getSchemaName())
                 .setTableName(table.getTableName())
-                .setDataColumns(ImmutableList.of(new Column("data", HIVE_LONG, Optional.empty())))
-                .setPartitionColumns(ImmutableList.of(new Column("part", HIVE_STRING, Optional.empty())))
+                .setDataColumns(ImmutableList.of(new Column("data", HIVE_LONG, Optional.empty(), Map.of())))
+                .setPartitionColumns(ImmutableList.of(new Column("part", HIVE_STRING, Optional.empty(), Map.of())))
                 .setOwner(Optional.empty())
                 .setTableType("fake");
         tableBuilder.getStorageBuilder()
@@ -591,7 +599,6 @@ public abstract class AbstractTestHiveFileSystem
                 Location.of(basePath.toString()),
                 trinoFileSystem,
                 new FileSystemDirectoryLister(),
-                new HdfsNamenodeStats(),
                 HiveFileIterator.NestedDirectoryPolicy.RECURSE);
 
         List<Path> recursiveListing = Streams.stream(recursiveIterator)
@@ -614,7 +621,6 @@ public abstract class AbstractTestHiveFileSystem
                 Location.of(basePath.toString()),
                 trinoFileSystem,
                 new FileSystemDirectoryLister(),
-                new HdfsNamenodeStats(),
                 HiveFileIterator.NestedDirectoryPolicy.IGNORED);
         List<Path> shallowListing = Streams.stream(shallowIterator)
                 .map(TrinoFileStatus::getPath)
@@ -630,17 +636,17 @@ public abstract class AbstractTestHiveFileSystem
     {
         Path basePath = new Path(getBasePath(), randomUUID().toString());
         FileSystem fs = hdfsEnvironment.getFileSystem(TESTING_CONTEXT, basePath);
-        assertFalse(fs.exists(basePath));
+        assertThat(fs.exists(basePath)).isFalse();
 
         Path path = new Path(new Path(basePath, "dir_with_space "), "foo.txt");
         try (OutputStream outputStream = fs.create(path)) {
             outputStream.write("test".getBytes(UTF_8));
         }
-        assertTrue(fs.exists(path));
+        assertThat(fs.exists(path)).isTrue();
 
         try (InputStream inputStream = fs.open(path)) {
             String content = new BufferedReader(new InputStreamReader(inputStream, UTF_8)).readLine();
-            assertEquals(content, "test");
+            assertThat(content).isEqualTo("test");
         }
 
         fs.delete(basePath, true);
@@ -730,7 +736,7 @@ public abstract class AbstractTestHiveFileSystem
 
             // verify the metadata
             ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session, getTableHandle(metadata, tableName));
-            assertEquals(filterNonHiddenColumnMetadata(tableMetadata.getColumns()), columns);
+            assertThat(filterNonHiddenColumnMetadata(tableMetadata.getColumns())).isEqualTo(columns);
 
             // verify the data
             metadata.beginQuery(session);
@@ -807,8 +813,8 @@ public abstract class AbstractTestHiveFileSystem
 
             // verify the metadata
             ConnectorTableMetadata tableMetadata = metadata.getTableMetadata(session, getTableHandle(metadata, tableName));
-            assertEquals(filterNonHiddenColumnMetadata(tableMetadata.getColumns()), columns);
-            assertEquals(tableMetadata.getProperties().get("external_location"), externalLocation);
+            assertThat(filterNonHiddenColumnMetadata(tableMetadata.getColumns())).isEqualTo(columns);
+            assertThat(tableMetadata.getProperties()).containsEntry("external_location", externalLocation);
 
             // verify the data
             metadata.beginQuery(session);

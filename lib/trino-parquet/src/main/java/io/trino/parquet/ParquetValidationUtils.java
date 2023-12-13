@@ -13,20 +13,13 @@
  */
 package io.trino.parquet;
 
-import static java.lang.String.format;
+import com.google.errorprone.annotations.FormatMethod;
 
 public final class ParquetValidationUtils
 {
     private ParquetValidationUtils() {}
 
-    public static void validateParquet(boolean condition, String formatString, Object... args)
-            throws ParquetCorruptionException
-    {
-        if (!condition) {
-            throw new ParquetCorruptionException(format(formatString, args));
-        }
-    }
-
+    @FormatMethod
     public static void validateParquet(boolean condition, ParquetDataSourceId dataSourceId, String formatString, Object... args)
             throws ParquetCorruptionException
     {

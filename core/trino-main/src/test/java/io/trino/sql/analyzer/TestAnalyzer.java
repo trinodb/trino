@@ -22,6 +22,7 @@ import io.opentelemetry.api.OpenTelemetry;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
+import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.StaticConnectorFactory;
@@ -101,6 +102,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.time.Duration;
 import java.util.List;
@@ -208,8 +210,10 @@ import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestAnalyzer
 {
     private static final String TPCH_CATALOG = "tpch";
@@ -940,6 +944,14 @@ public class TestAnalyzer
         assertFails("SELECT * FROM foo FOR VERSION AS OF 'version1'")
                 .hasErrorCode(TABLE_NOT_FOUND)
                 .hasMessage("line 1:15: Table 'tpch.s1.foo' does not exist");
+        // table name containing dots
+        assertFails("SELECT * FROM \"table.not.existing\"")
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:15: Table 'tpch.s1.\"table.not.existing\"' does not exist");
+        // table name containing whitespace
+        assertFails("SELECT * FROM \"table' does not exist, or maybe 'view\"")
+                .hasErrorCode(TABLE_NOT_FOUND)
+                .hasMessage("line 1:15: Table 'tpch.s1.\"table' does not exist, or maybe 'view\"' does not exist");
     }
 
     @Test
@@ -951,6 +963,10 @@ public class TestAnalyzer
         assertFails("SHOW TABLES IN NONEXISTENT_SCHEMA LIKE '%'")
                 .hasErrorCode(SCHEMA_NOT_FOUND)
                 .hasMessage("line 1:1: Schema 'nonexistent_schema' does not exist");
+        assertFails("SELECT * FROM \"a.b.c.d.e.\".\"f.g.h\" ")
+                .hasErrorCode(SCHEMA_NOT_FOUND)
+                // TODO like in TABLE_NOT_FOUND, the error message should include current catalog
+                .hasMessage("line 1:15: Schema 'a.b.c.d.e.' does not exist");
     }
 
     @Test
@@ -4112,11 +4128,11 @@ public class TestAnalyzer
                 .hasMessage("line 1:29: Value expression and result of subquery must be of the same type: row(bigint) vs row(varchar(3))");
 
         // map is not orderable
-        assertFails(("SELECT map(ARRAY[1], ARRAY['hello']) < ALL (VALUES map(ARRAY[1], ARRAY['hello']))"))
+        assertFails("SELECT map(ARRAY[1], ARRAY['hello']) < ALL (VALUES map(ARRAY[1], ARRAY['hello']))")
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessage("line 1:38: Type [row(map(integer, varchar(5)))] must be orderable in order to be used in quantified comparison");
         // but map is comparable
-        analyze(("SELECT map(ARRAY[1], ARRAY['hello']) = ALL (VALUES map(ARRAY[1], ARRAY['hello']))"));
+        analyze("SELECT map(ARRAY[1], ARRAY['hello']) = ALL (VALUES map(ARRAY[1], ARRAY['hello']))");
 
         // HLL is neither orderable nor comparable
         assertFails("SELECT cast(NULL AS HyperLogLog) < ALL (VALUES cast(NULL AS HyperLogLog))")
@@ -6746,6 +6762,7 @@ public class TestAnalyzer
         transactionManager = queryRunner.getTransactionManager();
 
         AccessControlManager accessControlManager = new AccessControlManager(
+                NodeVersion.UNKNOWN,
                 transactionManager,
                 emptyEventListenerManager(),
                 new AccessControlConfig(),

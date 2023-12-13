@@ -32,8 +32,10 @@ import java.util.Queue;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.plugin.hive.util.HiveUtil.isStructuralType;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergTypes.convertTrinoValueToIceberg;
+import static io.trino.spi.type.UuidType.UUID;
 import static java.lang.String.format;
 import static org.apache.iceberg.expressions.Expressions.alwaysFalse;
 import static org.apache.iceberg.expressions.Expressions.alwaysTrue;
@@ -50,6 +52,21 @@ public final class ExpressionConverter
 {
     private ExpressionConverter() {}
 
+    public static boolean isConvertableToIcebergExpression(Domain domain)
+    {
+        if (isStructuralType(domain.getType())) {
+            // structural types cannot be used to filter a table scan in Iceberg library.
+            return false;
+        }
+
+        if (domain.getType() == UUID) {
+            // Iceberg orders UUID values differently than Trino (perhaps due to https://bugs.openjdk.org/browse/JDK-7025832), so allow only IS NULL / IS NOT NULL checks
+            return domain.isOnlyNull() || domain.getValues().isAll();
+        }
+
+        return true;
+    }
+
     public static Expression toIcebergExpression(TupleDomain<IcebergColumnHandle> tupleDomain)
     {
         if (tupleDomain.isAll()) {
@@ -64,6 +81,7 @@ public final class ExpressionConverter
             IcebergColumnHandle columnHandle = entry.getKey();
             checkArgument(!isMetadataColumnId(columnHandle.getId()), "Constraint on an unexpected column %s", columnHandle);
             Domain domain = entry.getValue();
+            checkArgument(isConvertableToIcebergExpression(domain), "Unexpected not convertable domain on column %s: %s", columnHandle, domain);
             conjuncts.add(toIcebergExpression(columnHandle.getQualifiedName(), columnHandle.getType(), domain));
         }
         return and(conjuncts);

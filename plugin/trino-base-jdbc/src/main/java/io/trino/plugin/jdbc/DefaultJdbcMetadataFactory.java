@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.jdbc;
 
+import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.units.Duration;
@@ -41,12 +42,16 @@ public class DefaultJdbcMetadataFactory
         // Session stays the same per transaction, therefore session properties don't need to
         // be a part of cache keys in CachingJdbcClient.
         return create(new CachingJdbcClient(
-                        jdbcClient,
-                        Set.of(),
-                        new SingletonIdentityCacheMapping(),
-                        new Duration(1, DAYS),
-                        true,
-                        Integer.MAX_VALUE));
+                Ticker.systemTicker(),
+                jdbcClient,
+                Set.of(),
+                new SingletonIdentityCacheMapping(),
+                new Duration(1, DAYS),
+                new Duration(1, DAYS),
+                new Duration(1, DAYS),
+                new Duration(1, DAYS),
+                true,
+                Integer.MAX_VALUE));
     }
 
     protected JdbcMetadata create(JdbcClient transactionCachingJdbcClient)

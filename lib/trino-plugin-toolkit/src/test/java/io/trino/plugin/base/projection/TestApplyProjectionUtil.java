@@ -19,16 +19,14 @@ import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.type.RowType;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.isPushdownSupported;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.RowType.rowType;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestApplyProjectionUtil
 {
@@ -72,40 +70,40 @@ public class TestApplyProjectionUtil
     @Test
     public void testIsProjectionSupported()
     {
-        assertTrue(isPushdownSupported(ONE_LEVEL_DEREFERENCE, connectorExpression -> true));
-        assertTrue(isPushdownSupported(TWO_LEVEL_DEREFERENCE, connectorExpression -> true));
-        assertTrue(isPushdownSupported(INT_VARIABLE, connectorExpression -> true));
-        assertFalse(isPushdownSupported(CONSTANT, connectorExpression -> true));
+        assertThat(isPushdownSupported(ONE_LEVEL_DEREFERENCE, connectorExpression -> true)).isTrue();
+        assertThat(isPushdownSupported(TWO_LEVEL_DEREFERENCE, connectorExpression -> true)).isTrue();
+        assertThat(isPushdownSupported(INT_VARIABLE, connectorExpression -> true)).isTrue();
+        assertThat(isPushdownSupported(CONSTANT, connectorExpression -> true)).isFalse();
 
-        assertFalse(isPushdownSupported(ONE_LEVEL_DEREFERENCE, connectorExpression -> false));
-        assertFalse(isPushdownSupported(TWO_LEVEL_DEREFERENCE, connectorExpression -> false));
-        assertFalse(isPushdownSupported(INT_VARIABLE, connectorExpression -> false));
-        assertFalse(isPushdownSupported(CONSTANT, connectorExpression -> false));
+        assertThat(isPushdownSupported(ONE_LEVEL_DEREFERENCE, connectorExpression -> false)).isFalse();
+        assertThat(isPushdownSupported(TWO_LEVEL_DEREFERENCE, connectorExpression -> false)).isFalse();
+        assertThat(isPushdownSupported(INT_VARIABLE, connectorExpression -> false)).isFalse();
+        assertThat(isPushdownSupported(CONSTANT, connectorExpression -> false)).isFalse();
 
-        assertTrue(isPushdownSupported(LEAF_DOTTED_ONE_LEVEL_DEREFERENCE, this::isSupportedForPushDown));
-        assertFalse(isPushdownSupported(LEAF_DOTTED_TWO_LEVEL_DEREFERENCE, this::isSupportedForPushDown));
-        assertFalse(isPushdownSupported(MID_DOTTED_ONE_LEVEL_DEREFERENCE, this::isSupportedForPushDown));
-        assertFalse(isPushdownSupported(MID_DOTTED_TWO_LEVEL_DEREFERENCE, this::isSupportedForPushDown));
+        assertThat(isPushdownSupported(LEAF_DOTTED_ONE_LEVEL_DEREFERENCE, this::isSupportedForPushDown)).isTrue();
+        assertThat(isPushdownSupported(LEAF_DOTTED_TWO_LEVEL_DEREFERENCE, this::isSupportedForPushDown)).isFalse();
+        assertThat(isPushdownSupported(MID_DOTTED_ONE_LEVEL_DEREFERENCE, this::isSupportedForPushDown)).isFalse();
+        assertThat(isPushdownSupported(MID_DOTTED_TWO_LEVEL_DEREFERENCE, this::isSupportedForPushDown)).isFalse();
     }
 
     @Test
     public void testExtractSupportedProjectionColumns()
     {
-        assertEquals(extractSupportedProjectedColumns(ONE_LEVEL_DEREFERENCE), ImmutableList.of(ONE_LEVEL_DEREFERENCE));
-        assertEquals(extractSupportedProjectedColumns(TWO_LEVEL_DEREFERENCE), ImmutableList.of(TWO_LEVEL_DEREFERENCE));
-        assertEquals(extractSupportedProjectedColumns(INT_VARIABLE), ImmutableList.of(INT_VARIABLE));
-        assertEquals(extractSupportedProjectedColumns(CONSTANT), ImmutableList.of());
+        assertThat(extractSupportedProjectedColumns(ONE_LEVEL_DEREFERENCE)).isEqualTo(ImmutableList.of(ONE_LEVEL_DEREFERENCE));
+        assertThat(extractSupportedProjectedColumns(TWO_LEVEL_DEREFERENCE)).isEqualTo(ImmutableList.of(TWO_LEVEL_DEREFERENCE));
+        assertThat(extractSupportedProjectedColumns(INT_VARIABLE)).isEqualTo(ImmutableList.of(INT_VARIABLE));
+        assertThat(extractSupportedProjectedColumns(CONSTANT)).isEqualTo(ImmutableList.of());
 
-        assertEquals(extractSupportedProjectedColumns(ONE_LEVEL_DEREFERENCE, connectorExpression -> false), ImmutableList.of());
-        assertEquals(extractSupportedProjectedColumns(TWO_LEVEL_DEREFERENCE, connectorExpression -> false), ImmutableList.of());
-        assertEquals(extractSupportedProjectedColumns(INT_VARIABLE, connectorExpression -> false), ImmutableList.of());
-        assertEquals(extractSupportedProjectedColumns(CONSTANT, connectorExpression -> false), ImmutableList.of());
+        assertThat(extractSupportedProjectedColumns(ONE_LEVEL_DEREFERENCE, connectorExpression -> false)).isEqualTo(ImmutableList.of());
+        assertThat(extractSupportedProjectedColumns(TWO_LEVEL_DEREFERENCE, connectorExpression -> false)).isEqualTo(ImmutableList.of());
+        assertThat(extractSupportedProjectedColumns(INT_VARIABLE, connectorExpression -> false)).isEqualTo(ImmutableList.of());
+        assertThat(extractSupportedProjectedColumns(CONSTANT, connectorExpression -> false)).isEqualTo(ImmutableList.of());
 
         // Partial supported projection
-        assertEquals(extractSupportedProjectedColumns(LEAF_DOTTED_ONE_LEVEL_DEREFERENCE, this::isSupportedForPushDown), ImmutableList.of(LEAF_DOTTED_ONE_LEVEL_DEREFERENCE));
-        assertEquals(extractSupportedProjectedColumns(LEAF_DOTTED_TWO_LEVEL_DEREFERENCE, this::isSupportedForPushDown), ImmutableList.of(LEAF_DOTTED_ONE_LEVEL_DEREFERENCE));
-        assertEquals(extractSupportedProjectedColumns(MID_DOTTED_ONE_LEVEL_DEREFERENCE, this::isSupportedForPushDown), ImmutableList.of(MID_DOTTED_ROW_OF_ROW_VARIABLE));
-        assertEquals(extractSupportedProjectedColumns(MID_DOTTED_TWO_LEVEL_DEREFERENCE, this::isSupportedForPushDown), ImmutableList.of(MID_DOTTED_ROW_OF_ROW_VARIABLE));
+        assertThat(extractSupportedProjectedColumns(LEAF_DOTTED_ONE_LEVEL_DEREFERENCE, this::isSupportedForPushDown)).isEqualTo(ImmutableList.of(LEAF_DOTTED_ONE_LEVEL_DEREFERENCE));
+        assertThat(extractSupportedProjectedColumns(LEAF_DOTTED_TWO_LEVEL_DEREFERENCE, this::isSupportedForPushDown)).isEqualTo(ImmutableList.of(LEAF_DOTTED_ONE_LEVEL_DEREFERENCE));
+        assertThat(extractSupportedProjectedColumns(MID_DOTTED_ONE_LEVEL_DEREFERENCE, this::isSupportedForPushDown)).isEqualTo(ImmutableList.of(MID_DOTTED_ROW_OF_ROW_VARIABLE));
+        assertThat(extractSupportedProjectedColumns(MID_DOTTED_TWO_LEVEL_DEREFERENCE, this::isSupportedForPushDown)).isEqualTo(ImmutableList.of(MID_DOTTED_ROW_OF_ROW_VARIABLE));
     }
 
     /**

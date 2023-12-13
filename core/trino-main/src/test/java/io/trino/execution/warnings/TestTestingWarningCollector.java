@@ -20,7 +20,7 @@ import io.trino.testing.TestingWarningCollectorConfig;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.testing.TestingWarningCollector.createTestWarning;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTestingWarningCollector
 {
@@ -30,6 +30,6 @@ public class TestTestingWarningCollector
         TestingWarningCollector collector = new TestingWarningCollector(new WarningCollectorConfig(), new TestingWarningCollectorConfig().setAddWarnings(true));
         ImmutableList.Builder<TrinoWarning> expectedWarningsBuilder = ImmutableList.builder();
         expectedWarningsBuilder.add(createTestWarning(1));
-        assertEquals(collector.getWarnings(), expectedWarningsBuilder.build());
+        assertThat(collector.getWarnings()).isEqualTo(expectedWarningsBuilder.build());
     }
 }

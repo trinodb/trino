@@ -30,10 +30,11 @@ import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.DistributedQueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.EnumSet;
 import java.util.Set;
@@ -46,8 +47,11 @@ import static java.lang.String.format;
 import static java.util.Locale.ROOT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public class TestDenyOnTable
 {
     private final SchemaTableName table = new SchemaTableName("default", "table_one");
@@ -61,7 +65,7 @@ public class TestDenyOnTable
     private TrinoPrincipal expectedGrantee;
     private boolean denyCalled;
 
-    @BeforeClass
+    @BeforeAll
     public void initClass()
             throws Exception
     {
@@ -94,7 +98,7 @@ public class TestDenyOnTable
         tableGrants.grant(new TrinoPrincipal(USER, "admin"), table, EnumSet.allOf(Privilege.class), true);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void teardown()
     {
         assertions.close();
@@ -102,8 +106,18 @@ public class TestDenyOnTable
         queryRunner = null; // closed by assertions.close
     }
 
-    @Test(dataProvider = "privileges")
-    public void testValidDenyTable(String privilege)
+    @Test
+    public void testValidDenyTable()
+    {
+        testValidDenyTable("CREATE");
+        testValidDenyTable("SELECT");
+        testValidDenyTable("INSERT");
+        testValidDenyTable("UPDATE");
+        testValidDenyTable("DELETE");
+        testValidDenyTable("ALL PRIVILEGES");
+    }
+
+    private void testValidDenyTable(String privilege)
     {
         String username = randomUsername();
 
@@ -121,38 +135,55 @@ public class TestDenyOnTable
         assertThat(denyCalled).isTrue();
     }
 
-    @Test(dataProvider = "privileges")
-    public void testDenyOnNonExistingCatalog(String privilege)
+    @Test
+    public void testDenyOnNonExistingCatalog()
     {
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY %s ON TABLE missing_catalog.missing_schema.missing_table TO %s", privilege, randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY CREATE ON TABLE missing_catalog.missing_schema.missing_table TO %s", randomUsername())))
+                .hasMessageContaining("Table 'missing_catalog.missing_schema.missing_table' does not exist");
+        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY SELECT ON TABLE missing_catalog.missing_schema.missing_table TO %s", randomUsername())))
+                .hasMessageContaining("Table 'missing_catalog.missing_schema.missing_table' does not exist");
+        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY INSERT ON TABLE missing_catalog.missing_schema.missing_table TO %s", randomUsername())))
+                .hasMessageContaining("Table 'missing_catalog.missing_schema.missing_table' does not exist");
+        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY UPDATE ON TABLE missing_catalog.missing_schema.missing_table TO %s", randomUsername())))
+                .hasMessageContaining("Table 'missing_catalog.missing_schema.missing_table' does not exist");
+        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY DELETE ON TABLE missing_catalog.missing_schema.missing_table TO %s", randomUsername())))
+                .hasMessageContaining("Table 'missing_catalog.missing_schema.missing_table' does not exist");
+        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY ALL PRIVILEGES ON TABLE missing_catalog.missing_schema.missing_table TO %s", randomUsername())))
                 .hasMessageContaining("Table 'missing_catalog.missing_schema.missing_table' does not exist");
     }
 
-    @Test(dataProvider = "privileges")
-    public void testDenyOnNonExistingSchema(String privilege)
+    @Test
+    public void testDenyOnNonExistingSchema()
     {
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY %s ON TABLE missing_schema.missing_table TO %s", privilege, randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY CREATE ON TABLE missing_schema.missing_table TO %s", randomUsername())))
+                .hasMessageContaining("Table 'local.missing_schema.missing_table' does not exist");
+        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY SELECT ON TABLE missing_schema.missing_table TO %s", randomUsername())))
+                .hasMessageContaining("Table 'local.missing_schema.missing_table' does not exist");
+        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY INSERT ON TABLE missing_schema.missing_table TO %s", randomUsername())))
+                .hasMessageContaining("Table 'local.missing_schema.missing_table' does not exist");
+        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY UPDATE ON TABLE missing_schema.missing_table TO %s", randomUsername())))
+                .hasMessageContaining("Table 'local.missing_schema.missing_table' does not exist");
+        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY DELETE ON TABLE missing_schema.missing_table TO %s", randomUsername())))
+                .hasMessageContaining("Table 'local.missing_schema.missing_table' does not exist");
+        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY ALL PRIVILEGES ON TABLE missing_schema.missing_table TO %s", randomUsername())))
                 .hasMessageContaining("Table 'local.missing_schema.missing_table' does not exist");
     }
 
-    @Test(dataProvider = "privileges")
-    public void testDenyOnNonExistingTable(String privilege)
+    @Test
+    public void testDenyOnNonExistingTable()
     {
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY %s ON TABLE default.missing_table TO %s", privilege, randomUsername())))
+        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY CREATE ON TABLE default.missing_table TO %s", randomUsername())))
                 .hasMessageContaining("Table 'local.default.missing_table' does not exist");
-    }
-
-    @DataProvider(name = "privileges")
-    public static Object[][] privileges()
-    {
-        return new Object[][] {
-                {"CREATE"},
-                {"SELECT"},
-                {"INSERT"},
-                {"UPDATE"},
-                {"DELETE"},
-                {"ALL PRIVILEGES"}
-        };
+        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY SELECT ON TABLE default.missing_table TO %s", randomUsername())))
+                .hasMessageContaining("Table 'local.default.missing_table' does not exist");
+        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY INSERT ON TABLE default.missing_table TO %s", randomUsername())))
+                .hasMessageContaining("Table 'local.default.missing_table' does not exist");
+        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY UPDATE ON TABLE default.missing_table TO %s", randomUsername())))
+                .hasMessageContaining("Table 'local.default.missing_table' does not exist");
+        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY DELETE ON TABLE default.missing_table TO %s", randomUsername())))
+                .hasMessageContaining("Table 'local.default.missing_table' does not exist");
+        assertThatThrownBy(() -> queryRunner.execute(admin, format("DENY ALL PRIVILEGES ON TABLE default.missing_table TO %s", randomUsername())))
+                .hasMessageContaining("Table 'local.default.missing_table' does not exist");
     }
 
     private static Session sessionOf(String username)

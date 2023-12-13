@@ -132,16 +132,9 @@ public class DeterminePartitionCount
             return plan;
         }
 
-        try {
-            return determinePartitionCount(plan, session, types, tableStatsProvider, isWriteQuery)
-                    .map(partitionCount -> rewriteWith(new Rewriter(partitionCount), plan))
-                    .orElse(plan);
-        }
-        catch (RuntimeException e) {
-            log.warn(e, "Error occurred when determining hash partition count for query %s", session.getQueryId());
-        }
-
-        return plan;
+        return determinePartitionCount(plan, session, types, tableStatsProvider, isWriteQuery)
+                .map(partitionCount -> rewriteWith(new Rewriter(partitionCount), plan))
+                .orElse(plan);
     }
 
     private Optional<Integer> determinePartitionCount(

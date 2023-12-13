@@ -26,6 +26,7 @@ import io.trino.plugin.exchange.filesystem.ExchangeStorageReader;
 import io.trino.plugin.exchange.filesystem.ExchangeStorageWriter;
 import io.trino.plugin.exchange.filesystem.FileStatus;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangeStorage;
+import io.trino.spi.classloader.ThreadContextClassLoader;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
@@ -46,7 +47,6 @@ import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.slice.SizeOf.instanceSize;
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -141,6 +141,13 @@ public class HadoopFileSystemExchangeStorage
     @Override
     public void close()
     {
+    }
+
+    private static Configuration newEmptyConfiguration()
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(HadoopFileSystemExchangeStorage.class.getClassLoader())) {
+            return new Configuration(false);
+        }
     }
 
     @ThreadSafe

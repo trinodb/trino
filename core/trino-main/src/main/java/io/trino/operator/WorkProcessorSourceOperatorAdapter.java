@@ -51,26 +51,13 @@ public class WorkProcessorSourceOperatorAdapter
     private long previousReadTimeNanos;
     private long previousDynamicFilterSplitsProcessed;
 
-    public interface AdapterWorkProcessorSourceOperatorFactory
-            extends WorkProcessorSourceOperatorFactory
-    {
-        default WorkProcessorSourceOperator createAdapterOperator(
-                OperatorContext operatorContext,
-                MemoryTrackingContext memoryTrackingContext,
-                DriverYieldSignal yieldSignal,
-                WorkProcessor<Split> splits)
-        {
-            return create(operatorContext, memoryTrackingContext, yieldSignal, splits);
-        }
-    }
-
-    public WorkProcessorSourceOperatorAdapter(OperatorContext operatorContext, AdapterWorkProcessorSourceOperatorFactory sourceOperatorFactory)
+    public WorkProcessorSourceOperatorAdapter(OperatorContext operatorContext, WorkProcessorSourceOperatorFactory sourceOperatorFactory)
     {
         this.operatorContext = requireNonNull(operatorContext, "operatorContext is null");
         this.sourceId = sourceOperatorFactory.getSourceId();
         this.splitBuffer = new SplitBuffer();
         this.sourceOperator = sourceOperatorFactory
-                .createAdapterOperator(
+                .create(
                         operatorContext,
                         new MemoryTrackingContext(
                                 operatorContext.aggregateUserMemoryContext(),

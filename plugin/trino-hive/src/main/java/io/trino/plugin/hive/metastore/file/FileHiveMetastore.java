@@ -56,6 +56,7 @@ import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig.VersionCompat
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnNotFoundException;
+import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -519,6 +520,21 @@ public class FileHiveMetastore
 
     @Override
     public Optional<List<SchemaTableName>> getAllTables()
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public synchronized Map<String, RelationType> getRelationTypes(String databaseName)
+    {
+        ImmutableMap.Builder<String, RelationType> relationTypes = ImmutableMap.builder();
+        getAllTables(databaseName).forEach(name -> relationTypes.put(name, RelationType.TABLE));
+        getAllViews(databaseName).forEach(name -> relationTypes.put(name, RelationType.VIEW));
+        return relationTypes.buildKeepingLast();
+    }
+
+    @Override
+    public Optional<Map<SchemaTableName, RelationType>> getRelationTypes()
     {
         return Optional.empty();
     }
@@ -1015,14 +1031,6 @@ public class FileHiveMetastore
         if (!existingGrants.equals(modifiedGrants)) {
             writeRoleGrantsFile(modifiedGrants);
         }
-    }
-
-    @Override
-    public synchronized Set<RoleGrant> listGrantedPrincipals(String role)
-    {
-        return listRoleGrantsSanitized().stream()
-                .filter(grant -> grant.getRoleName().equals(role))
-                .collect(toImmutableSet());
     }
 
     @Override

@@ -641,7 +641,7 @@ public final class DomainTranslator
                 return Optional.empty();
             }
 
-            LocalDate date = LocalDate.ofEpochDay(((long) value.getValue()));
+            LocalDate date = LocalDate.ofEpochDay((long) value.getValue());
             if (date.getYear() < 1001 || date.getYear() > 9998) {
                 // Edge cases. 1-year margin so that we can go to next/prev year for < or > comparisons
                 return Optional.empty();
@@ -662,7 +662,7 @@ public final class DomainTranslator
                         return Optional.empty();
                     }
                     valueSet = ValueSet.all(sourceType).subtract(dateStringRanges(date, sourceType));
-                    nullAllowed = (operator == IS_DISTINCT_FROM);
+                    nullAllowed = operator == IS_DISTINCT_FROM;
                     break;
                 case LESS_THAN:
                 case LESS_THAN_OR_EQUAL:
@@ -1016,7 +1016,7 @@ public final class DomainTranslator
                         return Optional.of(new ExtractionResult(TupleDomain.all(), node));
                     }
                     // in case of NOT IN, expression on the right side still allows determining values that are *not* part of the final domain
-                    excludedExpressions.add(((Expression) value));
+                    excludedExpressions.add((Expression) value);
                     continue;
                 }
                 if (isFloatingPointNaN(type, value)) {

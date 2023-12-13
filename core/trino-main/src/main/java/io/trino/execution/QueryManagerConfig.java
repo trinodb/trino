@@ -65,7 +65,7 @@ public class QueryManagerConfig
     private int maxHashPartitionCount = 100;
     private int minHashPartitionCount = 4;
     private int minHashPartitionCountForWrite = 50;
-    private int maxWriterTasksCount = 100;
+    private int maxWriterTaskCount = 100;
     private Duration minQueryExpireAge = new Duration(15, TimeUnit.MINUTES);
     private int maxQueryHistory = 100;
     private int maxQueryLength = 1_000_000;
@@ -77,6 +77,7 @@ public class QueryManagerConfig
     private int queryManagerExecutorPoolSize = 5;
     private int queryExecutorPoolSize = 1000;
     private int maxStateMachineCallbackThreads = 5;
+    private int maxSplitManagerCallbackThreads = 100;
 
     /**
      * default value is overwritten for fault tolerant execution in {@link #applyFaultTolerantExecutionDefaults()}
@@ -259,16 +260,16 @@ public class QueryManagerConfig
     }
 
     @Min(1)
-    public int getMaxWriterTasksCount()
+    public int getMaxWriterTaskCount()
     {
-        return maxWriterTasksCount;
+        return maxWriterTaskCount;
     }
 
     @Config("query.max-writer-task-count")
     @ConfigDescription("Maximum number of tasks that will participate in writing data")
-    public QueryManagerConfig setMaxWriterTasksCount(int maxWritersNodesCount)
+    public QueryManagerConfig setMaxWriterTaskCount(int maxWritersNodesCount)
     {
-        this.maxWriterTasksCount = maxWritersNodesCount;
+        this.maxWriterTaskCount = maxWritersNodesCount;
         return this;
     }
 
@@ -391,6 +392,20 @@ public class QueryManagerConfig
     public QueryManagerConfig setMaxStateMachineCallbackThreads(int maxStateMachineCallbackThreads)
     {
         this.maxStateMachineCallbackThreads = maxStateMachineCallbackThreads;
+        return this;
+    }
+
+    @Min(1)
+    public int getMaxSplitManagerCallbackThreads()
+    {
+        return maxSplitManagerCallbackThreads;
+    }
+
+    @Config("query.max-split-manager-callback-threads")
+    @ConfigDescription("The maximum number of threads allowed to run splits generation callbacks concurrently")
+    public QueryManagerConfig setMaxSplitManagerCallbackThreads(int maxSplitManagerCallbackThreads)
+    {
+        this.maxSplitManagerCallbackThreads = maxSplitManagerCallbackThreads;
         return this;
     }
 

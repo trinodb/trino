@@ -26,8 +26,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static java.lang.String.format;
-
 public class HiveHadoop
         extends BaseTestContainer
 {
@@ -73,7 +71,7 @@ public class HiveHadoop
                 ImmutableList.of(
                         "/bin/bash",
                         runCmd));
-        withLogConsumer(new PrintingLogConsumer(format("%-20s| ", "hadoop")));
+        withLogConsumer(new PrintingLogConsumer("Hadoop"));
     }
 
     @Override

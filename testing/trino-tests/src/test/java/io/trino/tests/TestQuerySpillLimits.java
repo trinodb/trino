@@ -21,9 +21,12 @@ import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.spiller.NodeSpillConfig;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -31,8 +34,12 @@ import java.nio.file.Files;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestQuerySpillLimits
 {
     private static final Session SESSION = testSessionBuilder()
@@ -42,34 +49,44 @@ public class TestQuerySpillLimits
 
     private File spillPath;
 
-    @BeforeMethod
+    @BeforeEach
     public void setUp()
             throws Exception
     {
         this.spillPath = Files.createTempDirectory(null).toFile();
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
             throws Exception
     {
         deleteRecursively(spillPath.toPath(), ALLOW_INSECURE);
     }
 
-    @Test(timeOut = 240_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded local spill limit of 10B")
+    @Test
+    @Timeout(240)
     public void testMaxSpillPerNodeLimit()
     {
-        try (QueryRunner queryRunner = createLocalQueryRunner(new NodeSpillConfig().setMaxSpillPerNode(DataSize.succinctBytes(10)))) {
-            queryRunner.execute(queryRunner.getDefaultSession(), "SELECT COUNT(DISTINCT clerk) as count, orderdate FROM orders GROUP BY orderdate ORDER BY count, orderdate");
-        }
+        assertThatThrownBy(() -> {
+            try (QueryRunner queryRunner = createLocalQueryRunner(new NodeSpillConfig().setMaxSpillPerNode(DataSize.succinctBytes(10)))) {
+                queryRunner.execute(queryRunner.getDefaultSession(), "SELECT COUNT(DISTINCT clerk) as count, orderdate FROM orders GROUP BY orderdate ORDER BY count, orderdate");
+            }
+        })
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage(".*Query exceeded local spill limit of 10B");
     }
 
-    @Test(timeOut = 240_000, expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = ".*Query exceeded per-query local spill limit of 10B")
+    @Test
+    @Timeout(240)
     public void testQueryMaxSpillPerNodeLimit()
     {
-        try (QueryRunner queryRunner = createLocalQueryRunner(new NodeSpillConfig().setQueryMaxSpillPerNode(DataSize.succinctBytes(10)))) {
-            queryRunner.execute(queryRunner.getDefaultSession(), "SELECT COUNT(DISTINCT clerk) as count, orderdate FROM orders GROUP BY orderdate ORDER BY count, orderdate");
-        }
+        assertThatThrownBy(() -> {
+            try (QueryRunner queryRunner = createLocalQueryRunner(new NodeSpillConfig().setQueryMaxSpillPerNode(DataSize.succinctBytes(10)))) {
+                queryRunner.execute(queryRunner.getDefaultSession(), "SELECT COUNT(DISTINCT clerk) as count, orderdate FROM orders GROUP BY orderdate ORDER BY count, orderdate");
+            }
+        })
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageMatching(".*Query exceeded per-query local spill limit of 10B");
     }
 
     private LocalQueryRunner createLocalQueryRunner(NodeSpillConfig nodeSpillConfig)

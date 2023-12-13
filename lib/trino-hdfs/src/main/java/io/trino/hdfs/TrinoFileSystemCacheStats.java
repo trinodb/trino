@@ -87,4 +87,9 @@ public class TrinoFileSystemCacheStats
     {
         removeCalls.update(1);
     }
+
+    public static TrinoFileSystemCacheStats instance()
+    {
+        return TrinoFileSystemCache.INSTANCE.getStats();
+    }
 }

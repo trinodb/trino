@@ -33,7 +33,7 @@ import io.trino.spi.Page;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.Type;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -52,7 +52,7 @@ import static io.trino.orc.metadata.CompressionKind.NONE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.testng.Assert.assertFalse;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOrcWriter
 {
@@ -122,7 +122,7 @@ public class TestOrcWriter
                     boolean dataStreamStarted = false;
                     for (Stream stream : stripeFooter.getStreams()) {
                         if (isIndexStream(stream)) {
-                            assertFalse(dataStreamStarted);
+                            assertThat(dataStreamStarted).isFalse();
                             continue;
                         }
                         dataStreamStarted = true;

@@ -194,8 +194,8 @@ public interface TrinoFileSystem
 
     /**
      * Lists all directories that are direct descendants of the specified directory.
-     * The location can be empty, which lists all directories at the root of the file system,
-     * otherwise the location otherwise the location must end with a slash.
+     * If the path is empty, all directories at the root of the file system are returned.
+     * Otherwise, the path must end with a slash.
      * If the location does not exist, an empty set is returned.
      * <p>
      * For hierarchical file systems, if the path is not a directory, an exception is raised.
@@ -206,5 +206,19 @@ public interface TrinoFileSystem
      * @throws IllegalArgumentException if location is not valid for this file system
      */
     Set<Location> listDirectories(Location location)
+            throws IOException;
+
+    /**
+     * Creates a temporary directory for the target path. The directory will be created
+     * using the (possibly absolute) prefix such that the directory can be renamed to
+     * the target path. The relative prefix will be used if the target path does not
+     * support the temporary prefix (which is typically absolute).
+     * <p>
+     * The temporary directory is not created for non-hierarchical file systems or for
+     * target paths that do not support renaming, and an empty optional is returned.
+     *
+     * @throws IllegalArgumentException If the target path is not valid for this file system.
+     */
+    Optional<Location> createTemporaryDirectory(Location targetPath, String temporaryPrefix, String relativePrefix)
             throws IOException;
 }

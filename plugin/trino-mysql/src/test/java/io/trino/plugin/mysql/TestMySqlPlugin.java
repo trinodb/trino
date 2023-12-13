@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -30,12 +30,26 @@ public class TestMySqlPlugin
         Plugin plugin = new MySqlPlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
 
-        factory.create("test", ImmutableMap.of("connection-url", "jdbc:mysql://test"), new TestingConnectorContext()).shutdown();
+        factory.create(
+                "test", ImmutableMap.of(
+                        "connection-url", "jdbc:mysql://test",
+                        "bootstrap.quiet", "true"),
+                new TestingConnectorContext()).shutdown();
 
-        assertThatThrownBy(() -> factory.create("test", ImmutableMap.of("connection-url", "test"), new TestingConnectorContext()))
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                ImmutableMap.of(
+                        "connection-url", "test",
+                        "bootstrap.quiet", "true"),
+                new TestingConnectorContext()))
                 .hasMessageContaining("Invalid JDBC URL for MySQL connector");
 
-        assertThatThrownBy(() -> factory.create("test", ImmutableMap.of("connection-url", "jdbc:mysql://test/abc"), new TestingConnectorContext()))
+        assertThatThrownBy(() -> factory.create(
+                "test",
+                ImmutableMap.of(
+                        "connection-url", "jdbc:mysql://test/abc",
+                        "bootstrap.quiet", "true"),
+                new TestingConnectorContext()))
                 .hasMessageContaining("Database (catalog) must not be specified in JDBC URL for MySQL connector");
     }
 }

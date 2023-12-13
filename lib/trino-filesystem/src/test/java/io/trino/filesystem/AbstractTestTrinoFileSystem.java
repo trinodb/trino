@@ -22,6 +22,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestInstance.Lifecycle;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.Closeable;
 import java.io.EOFException;
@@ -33,6 +34,7 @@ import java.io.UncheckedIOException;
 import java.nio.file.FileAlreadyExistsException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -44,8 +46,10 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 @TestInstance(Lifecycle.PER_CLASS)
+@Execution(SAME_THREAD)
 public abstract class AbstractTestTrinoFileSystem
 {
     protected static final String TEST_BLOB_CONTENT_PREFIX = "test blob content for ";
@@ -551,6 +555,31 @@ public abstract class AbstractTestTrinoFileSystem
                     int value = inputStream.read();
                     assertThat(value).isGreaterThanOrEqualTo(0);
                     assertThat((byte) value).isEqualTo((byte) i);
+                }
+            }
+        }
+    }
+
+    @Test
+    void testOutputStreamLargeWrites()
+            throws IOException
+    {
+        try (TempBlob tempBlob = randomBlobLocation("inputStream")) {
+            try (OutputStream outputStream = tempBlob.outputFile().create()) {
+                for (int i = 0; i < 8; i++) {
+                    byte[] bytes = new byte[MEGABYTE / 2];
+                    Arrays.fill(bytes, (byte) i);
+                    outputStream.write(bytes);
+                }
+            }
+
+            try (TrinoInputStream inputStream = tempBlob.inputFile().newStream()) {
+                for (int i = 0; i < 8; i++) {
+                    byte[] expected = new byte[MEGABYTE / 2];
+                    Arrays.fill(expected, (byte) i);
+                    byte[] actual = inputStream.readNBytes(expected.length);
+                    assertThat(actual.length).isEqualTo(expected.length);
+                    assertThat(actual).isEqualTo(expected);
                 }
             }
         }

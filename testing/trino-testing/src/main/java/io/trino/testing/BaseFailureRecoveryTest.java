@@ -27,8 +27,7 @@ import io.trino.spi.ErrorType;
 import io.trino.spi.QueryId;
 import io.trino.tpch.TpchTable;
 import org.assertj.core.api.AbstractThrowableAssert;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -39,7 +38,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -73,27 +71,18 @@ import static java.util.stream.Collectors.toMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.data.Percentage.withPercentage;
-import static org.testng.Assert.assertEquals;
 
 public abstract class BaseFailureRecoveryTest
         extends AbstractTestQueryFramework
 {
     private static final Duration MAX_ERROR_DURATION = new Duration(5, SECONDS);
     private static final Duration REQUEST_TIMEOUT = new Duration(5, SECONDS);
-    private static final int DEFAULT_MAX_PARALLEL_TEST_CONCURRENCY = 4;
 
     private final RetryPolicy retryPolicy;
-    private final Semaphore parallelTestsSemaphore;
 
     protected BaseFailureRecoveryTest(RetryPolicy retryPolicy)
     {
-        this(retryPolicy, DEFAULT_MAX_PARALLEL_TEST_CONCURRENCY);
-    }
-
-    protected BaseFailureRecoveryTest(RetryPolicy retryPolicy, int maxParallelTestConcurrency)
-    {
         this.retryPolicy = requireNonNull(retryPolicy, "retryPolicy is null");
-        this.parallelTestsSemaphore = new Semaphore(maxParallelTestConcurrency);
     }
 
     protected RetryPolicy getRetryPolicy()
@@ -190,47 +179,7 @@ public abstract class BaseFailureRecoveryTest
         }
     }
 
-    @DataProvider(name = "parallelTests", parallel = true)
-    public Object[][] parallelTests()
-    {
-        return new Object[][] {
-                parallelTest("testCreateTable", this::testCreateTable),
-                parallelTest("testInsert", this::testInsert),
-                parallelTest("testDelete", this::testDelete),
-                parallelTest("testDeleteWithSubquery", this::testDeleteWithSubquery),
-                parallelTest("testUpdate", this::testUpdate),
-                parallelTest("testUpdateWithSubquery", this::testUpdateWithSubquery),
-                parallelTest("testMerge", this::testMerge),
-                parallelTest("testRefreshMaterializedView", this::testRefreshMaterializedView),
-                parallelTest("testAnalyzeTable", this::testAnalyzeTable),
-                parallelTest("testExplainAnalyze", this::testExplainAnalyze),
-                parallelTest("testRequestTimeouts", this::testRequestTimeouts)
-        };
-    }
-
-    @Test(dataProvider = "parallelTests")
-    public void testParallel(Runnable runnable)
-    {
-        try {
-            // By default, a test method using a @DataProvider with parallel attribute is run in 10 threads (org.testng.xml.XmlSuite#DEFAULT_DATA_PROVIDER_THREAD_COUNT).
-            // We limit number of concurrent test executions to prevent excessive resource usage.
-            //
-            // Note: the downside of this approach is that individual test runtimes will not be representative anymore
-            //       as those will include time spent waiting for semaphore.
-            parallelTestsSemaphore.acquire();
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new RuntimeException(e);
-        }
-        try {
-            runnable.run();
-        }
-        finally {
-            parallelTestsSemaphore.release();
-        }
-    }
-
+    @Test
     protected void testCreateTable()
     {
         testTableModification(
@@ -239,6 +188,7 @@ public abstract class BaseFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
+    @Test
     protected void testInsert()
     {
         testTableModification(
@@ -247,6 +197,7 @@ public abstract class BaseFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
+    @Test
     protected void testDelete()
     {
         testTableModification(
@@ -255,6 +206,7 @@ public abstract class BaseFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
+    @Test
     protected void testDeleteWithSubquery()
     {
         testTableModification(
@@ -263,6 +215,7 @@ public abstract class BaseFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
+    @Test
     protected void testUpdate()
     {
         testTableModification(
@@ -271,6 +224,7 @@ public abstract class BaseFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
+    @Test
     protected void testUpdateWithSubquery()
     {
         testTableModification(
@@ -279,6 +233,7 @@ public abstract class BaseFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
+    @Test
     protected void testAnalyzeTable()
     {
         testNonSelect(
@@ -289,6 +244,7 @@ public abstract class BaseFailureRecoveryTest
                 false);
     }
 
+    @Test
     protected void testMerge()
     {
         testTableModification(
@@ -305,6 +261,7 @@ public abstract class BaseFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
+    @Test
     protected void testRefreshMaterializedView()
     {
         testTableModification(
@@ -313,6 +270,7 @@ public abstract class BaseFailureRecoveryTest
                 Optional.of("DROP MATERIALIZED VIEW <table>"));
     }
 
+    @Test
     protected void testExplainAnalyze()
     {
         testSelect("EXPLAIN ANALYZE SELECT orderStatus, count(*) FROM orders GROUP BY orderStatus");
@@ -323,6 +281,7 @@ public abstract class BaseFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
+    @Test
     protected void testRequestTimeouts()
     {
         if (areWriteRetriesSupported()) {
@@ -660,22 +619,30 @@ public abstract class BaseFailureRecoveryTest
             boolean isUpdate = expectedQueryResult.getUpdateCount().isPresent();
             boolean isExplain = query.trim().toUpperCase(ENGLISH).startsWith("EXPLAIN");
             if (isAnalyze) {
-                assertEquals(actualQueryResult.getUpdateCount(), expectedQueryResult.getUpdateCount());
+                assertThat(actualQueryResult.getUpdateCount()).isEqualTo(expectedQueryResult.getUpdateCount());
                 assertThat(expected.getUpdatedTableStatistics()).isPresent();
                 assertThat(actual.getUpdatedTableStatistics()).isPresent();
 
                 MaterializedResult expectedUpdatedTableStatisticsResult = expected.getUpdatedTableStatistics().get();
                 MaterializedResult actualUpdatedTableStatisticsResult = actual.getUpdatedTableStatistics().get();
-                assertEquals(actualUpdatedTableStatisticsResult.getTypes(), expectedUpdatedTableStatisticsResult.getTypes(), "Column types");
-                assertEquals(actualUpdatedTableStatisticsResult.getColumnNames(), expectedUpdatedTableStatisticsResult.getColumnNames(), "Column names");
+                assertThat(actualUpdatedTableStatisticsResult.getTypes())
+                        .describedAs("Column types")
+                        .isEqualTo(expectedUpdatedTableStatisticsResult.getTypes());
+                assertThat(actualUpdatedTableStatisticsResult.getColumnNames())
+                        .describedAs("Column names")
+                        .isEqualTo(expectedUpdatedTableStatisticsResult.getColumnNames());
                 Map<String, MaterializedRow> expectedUpdatedTableStatistics = expectedUpdatedTableStatisticsResult.getMaterializedRows().stream()
                         .collect(toMap(row -> (String) row.getField(0), identity()));
                 Map<String, MaterializedRow> actualUpdatedTableStatistics = actualUpdatedTableStatisticsResult.getMaterializedRows().stream()
                         .collect(toMap(row -> (String) row.getField(0), identity()));
-                assertEquals(actualUpdatedTableStatistics.keySet(), expectedUpdatedTableStatistics.keySet(), "Table columns");
+                assertThat(actualUpdatedTableStatistics.keySet())
+                        .describedAs("Table columns")
+                        .isEqualTo(expectedUpdatedTableStatistics.keySet());
                 expectedUpdatedTableStatistics.forEach((key, expectedRow) -> {
                     MaterializedRow actualRow = actualUpdatedTableStatistics.get(key);
-                    assertEquals(actualRow.getFieldCount(), expectedRow.getFieldCount(), "Unexpected layout of stats");
+                    assertThat(actualRow.getFieldCount())
+                            .describedAs("Unexpected layout of stats")
+                            .isEqualTo(expectedRow.getFieldCount());
                     for (int statsColumnIndex = 0; statsColumnIndex < expectedRow.getFieldCount(); statsColumnIndex++) {
                         String statsColumnName = actualUpdatedTableStatisticsResult.getColumnNames().get(statsColumnIndex);
                         String testedFieldDescription = "Field %d '%s' in %s".formatted(statsColumnIndex, statsColumnName, actualRow);
@@ -701,7 +668,7 @@ public abstract class BaseFailureRecoveryTest
                 });
             }
             else if (isUpdate) {
-                assertEquals(actualQueryResult.getUpdateCount(), expectedQueryResult.getUpdateCount());
+                assertThat(actualQueryResult.getUpdateCount()).isEqualTo(expectedQueryResult.getUpdateCount());
                 assertThat(expected.getUpdatedTableContent()).isPresent();
                 assertThat(actual.getUpdatedTableContent()).isPresent();
                 MaterializedResult expectedUpdatedTableContent = expected.getUpdatedTableContent().get();
@@ -709,7 +676,7 @@ public abstract class BaseFailureRecoveryTest
                 assertEqualsIgnoreOrder(actualUpdatedTableContent, expectedUpdatedTableContent, "For query: \n " + query);
             }
             else if (isExplain) {
-                assertEquals(actualQueryResult.getRowCount(), expectedQueryResult.getRowCount());
+                assertThat(actualQueryResult.getRowCount()).isEqualTo(expectedQueryResult.getRowCount());
             }
             else {
                 assertEqualsIgnoreOrder(actualQueryResult, expectedQueryResult, "For query: \n " + query);

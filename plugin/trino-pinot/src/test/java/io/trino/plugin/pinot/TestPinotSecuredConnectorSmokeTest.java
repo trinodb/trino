@@ -14,11 +14,13 @@
 package io.trino.plugin.pinot;
 
 import com.google.common.collect.ImmutableMap;
+import org.junit.jupiter.api.parallel.Isolated;
 
 import java.util.Map;
 
 import static io.trino.plugin.pinot.auth.PinotAuthenticationType.PASSWORD;
 
+@Isolated
 public class TestPinotSecuredConnectorSmokeTest
         extends BasePinotConnectorSmokeTest
 {

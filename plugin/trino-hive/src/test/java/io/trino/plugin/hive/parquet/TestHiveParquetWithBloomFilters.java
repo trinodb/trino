@@ -30,7 +30,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
@@ -74,7 +73,7 @@ public class TestHiveParquetWithBloomFilters
         List<ObjectInspector> objectInspectors = singletonList(javaIntObjectInspector);
         List<String> columnNames = ImmutableList.of(columnName);
 
-        JobConf jobConf = new JobConf(newEmptyConfiguration());
+        JobConf jobConf = new JobConf(false);
         jobConf.setEnum(WRITER_VERSION, PARQUET_1_0);
         jobConf.setBoolean(BLOOM_FILTER_ENABLED, true);
 

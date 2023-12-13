@@ -70,7 +70,7 @@ public final class ElasticsearchQueryBuilder
             }
         }
 
-        regexes.forEach((name, value) -> queryBuilder.filter(new BoolQueryBuilder().must(((new RegexpQueryBuilder(name, value))))));
+        regexes.forEach((name, value) -> queryBuilder.filter(new BoolQueryBuilder().must(new RegexpQueryBuilder(name, value))));
 
         query.map(QueryStringQueryBuilder::new)
                 .ifPresent(queryBuilder::must);

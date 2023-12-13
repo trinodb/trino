@@ -72,12 +72,12 @@ public class TestColocatedJoin
     protected LocalQueryRunner createLocalQueryRunner()
     {
         MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
-                .withGetTableHandle(((session, tableName) -> {
+                .withGetTableHandle((session, tableName) -> {
                     if (tableName.getTableName().equals(TABLE_NAME)) {
                         return new MockConnectorTableHandle(tableName);
                     }
                     return null;
-                }))
+                })
                 .withPartitionProvider(new TestPartitioningProvider())
                 .withGetColumns(schemaTableName -> ImmutableList.of(
                         new ColumnMetadata(COLUMN_A, BIGINT),

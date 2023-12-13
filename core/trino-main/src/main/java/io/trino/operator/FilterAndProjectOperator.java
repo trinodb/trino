@@ -64,8 +64,7 @@ public class FilterAndProjectOperator
                         yieldSignal,
                         outputMemoryContext,
                         metrics,
-                        page,
-                        avoidPageMaterialization))
+                        page))
                 .transformProcessor(processor -> mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, processor, localAggregatedMemoryContext))
                 .blocking(() -> memoryTrackingContext.localUserMemoryContext().setBytes(localAggregatedMemoryContext.getBytes()));
     }

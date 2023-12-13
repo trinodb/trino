@@ -16,8 +16,7 @@ package io.trino.orc.metadata.statistics;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,15 +27,8 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.orc.metadata.statistics.AbstractStatisticsBuilderTest.StatisticsType.STRING;
 import static io.trino.orc.metadata.statistics.ColumnStatistics.mergeColumnStatistics;
 import static io.trino.orc.metadata.statistics.StringStatistics.STRING_VALUE_BYTES_OVERHEAD;
-import static io.trino.orc.metadata.statistics.StringStatisticsBuilder.StringCompactor.truncateMax;
-import static io.trino.orc.metadata.statistics.StringStatisticsBuilder.StringCompactor.truncateMin;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
 
 public class TestStringStatisticsBuilder
         extends AbstractStatisticsBuilderTest<StringStatisticsBuilder, Slice>
@@ -250,8 +242,8 @@ public class TestStringStatisticsBuilder
         Slice stats = statisticsBuilder.buildColumnStatistics().getStringStatistics().getMax();
 
         // assert we only spend 1 byte for stats
-        assertNotNull(stats);
-        assertEquals(stats.getRetainedSize(), Slices.wrappedBuffer(new byte[1]).getRetainedSize());
+        assertThat(stats).isNotNull();
+        assertThat(stats.getRetainedSize()).isEqualTo(Slices.wrappedBuffer(new byte[1]).getRetainedSize());
     }
 
     @Test
@@ -285,13 +277,13 @@ public class TestStringStatisticsBuilder
     private static void assertMinMax(StringStatistics actualStringStatistics, Slice expectedMin, Slice expectedMax)
     {
         if (expectedMax == null && expectedMin == null) {
-            assertNull(actualStringStatistics);
+            assertThat(actualStringStatistics).isNull();
             return;
         }
 
-        assertNotNull(actualStringStatistics);
-        assertEquals(actualStringStatistics.getMin(), expectedMin);
-        assertEquals(actualStringStatistics.getMax(), expectedMax);
+        assertThat(actualStringStatistics).isNotNull();
+        assertThat(actualStringStatistics.getMin()).isEqualTo(expectedMin);
+        assertThat(actualStringStatistics.getMax()).isEqualTo(expectedMax);
     }
 
     private static ColumnStatistics stringColumnStatistics(Slice minimum, Slice maximum)
@@ -314,12 +306,12 @@ public class TestStringStatisticsBuilder
     private void assertStringStatistics(ColumnStatistics columnStatistics, int expectedNumberOfValues, long expectedSum)
     {
         if (expectedNumberOfValues > 0) {
-            assertEquals(columnStatistics.getNumberOfValues(), expectedNumberOfValues);
-            assertEquals(columnStatistics.getStringStatistics().getSum(), expectedSum);
+            assertThat(columnStatistics.getNumberOfValues()).isEqualTo(expectedNumberOfValues);
+            assertThat(columnStatistics.getStringStatistics().getSum()).isEqualTo(expectedSum);
         }
         else {
-            assertNull(columnStatistics.getStringStatistics());
-            assertEquals(columnStatistics.getNumberOfValues(), 0);
+            assertThat(columnStatistics.getStringStatistics()).isNull();
+            assertThat(columnStatistics.getNumberOfValues()).isEqualTo(0);
         }
     }
 
@@ -331,72 +323,66 @@ public class TestStringStatisticsBuilder
         statisticsBuilder.addValue(MEDIUM_BOTTOM_VALUE);
         statisticsBuilder.addValue(MEDIUM_BOTTOM_VALUE);
         BloomFilter bloomFilter = statisticsBuilder.buildColumnStatistics().getBloomFilter();
-        assertNotNull(bloomFilter);
-        assertTrue(bloomFilter.testSlice(LOW_BOTTOM_VALUE));
-        assertTrue(bloomFilter.testSlice(MEDIUM_BOTTOM_VALUE));
-        assertTrue(bloomFilter.testSlice(MEDIUM_BOTTOM_VALUE));
-        assertFalse(bloomFilter.testSlice(LOW_TOP_VALUE));
+        assertThat(bloomFilter).isNotNull();
+        assertThat(bloomFilter.testSlice(LOW_BOTTOM_VALUE)).isTrue();
+        assertThat(bloomFilter.testSlice(MEDIUM_BOTTOM_VALUE)).isTrue();
+        assertThat(bloomFilter.testSlice(MEDIUM_BOTTOM_VALUE)).isTrue();
+        assertThat(bloomFilter.testSlice(LOW_TOP_VALUE)).isFalse();
     }
 
-    @DataProvider(name = "computeMin")
-    public static Object[][] computeMinProvider()
+    @Test
+    public void testComputeMin()
     {
-        return new Object[][] {
-                {"simple/case", "simple", 6},
-                {"simple/ƒ", "simple/", 8},
-                {"simple/語", "simple/", 9},
-                {"simple/語", "simple/", 8},
-                {"simple/\uD80C\uDE02", "simple/", 10},
-                {"simple/\uD80C\uDE02", "simple/", 9},
-                {"simple/\uD80C\uDE02", "simple/", 8},
-                {"\uDBFF\uDFFF", "", 3},
-        };
+        assertThat(truncateMin("simple/case", 6)).containsExactly("simple".getBytes(UTF_8));
+        assertThat(truncateMin("simple/ƒ", 8)).containsExactly("simple/".getBytes(UTF_8));
+        assertThat(truncateMin("simple/語", 9)).containsExactly("simple/".getBytes(UTF_8));
+        assertThat(truncateMin("simple/語", 8)).containsExactly("simple/".getBytes(UTF_8));
+        assertThat(truncateMin("simple/\uD80C\uDE02", 10)).containsExactly("simple/".getBytes(UTF_8));
+        assertThat(truncateMin("simple/\uD80C\uDE02", 9)).containsExactly("simple/".getBytes(UTF_8));
+        assertThat(truncateMin("simple/\uD80C\uDE02", 8)).containsExactly("simple/".getBytes(UTF_8));
+        assertThat(truncateMin("\uDBFF\uDFFF", 3)).containsExactly("".getBytes(UTF_8));
     }
 
-    @Test(dataProvider = "computeMin")
-    public void testComputeMin(String input, String expected, int maxLength)
+    @Test
+    public void testComputeMax()
     {
-        assertThat(truncateMin(Slices.wrappedBuffer(input.getBytes(UTF_8)), maxLength).getBytes()).containsExactly(expected.getBytes(UTF_8));
-    }
-
-    @DataProvider(name = "computeMax")
-    public static Object[][] computeMaxProvider()
-    {
-        return new Object[][] {
-                {"simple/case", "simplf", 6},
-                {"simple/ƒ", "simple0", 8},
-                {"simple/語", "simple0", 9},
-                {"simple/語", "simple0", 8},
-                {"simple/\uD80C\uDE02", "simple0", 10},
-                {"simple/\uD80C\uDE02", "simple0", 9},
-                {"simple/\uD80C\uDE02", "simple0", 8},
-                {"simple/ƒƒ", "simple/Ɠ", 10},
-                {"\uDBFF\uDFFF", "", 3},
-        };
-    }
-
-    @Test(dataProvider = "computeMax")
-    public void testComputeMax(String input, String expected, int maxLength)
-    {
-        assertThat(truncateMax(Slices.wrappedBuffer(input.getBytes(UTF_8)), maxLength).getBytes()).containsExactly(expected.getBytes(UTF_8));
+        assertThat(truncateMax("simple/case", 6)).containsExactly("simplf".getBytes(UTF_8));
+        assertThat(truncateMax("simple/ƒ", 8)).containsExactly("simple0".getBytes(UTF_8));
+        assertThat(truncateMax("simple/語", 9)).containsExactly("simple0".getBytes(UTF_8));
+        assertThat(truncateMax("simple/語", 8)).containsExactly("simple0".getBytes(UTF_8));
+        assertThat(truncateMax("simple/\uD80C\uDE02", 10)).containsExactly("simple0".getBytes(UTF_8));
+        assertThat(truncateMax("simple/\uD80C\uDE02", 9)).containsExactly("simple0".getBytes(UTF_8));
+        assertThat(truncateMax("simple/\uD80C\uDE02", 8)).containsExactly("simple0".getBytes(UTF_8));
+        assertThat(truncateMax("simple/ƒƒ", 10)).containsExactly("simple/Ɠ".getBytes(UTF_8));
+        assertThat(truncateMax("\uDBFF\uDFFF", 3)).containsExactly("".getBytes(UTF_8));
     }
 
     @Test
     public void testComputeMaxForMaxUtf8Chars()
     {
-        assertThat(truncateMax(Slices.wrappedBuffer("\uDBFF\uDFFF\uDBFF\uDFFF\uDBFF\uDFFF".getBytes(UTF_8)), 11)).isEqualTo(EMPTY_SLICE);
+        assertThat(truncateMax("\uDBFF\uDFFF\uDBFF\uDFFF\uDBFF\uDFFF", 11)).isEqualTo(new byte[0]);
     }
 
     @Test
     public void testComputeMaxSkipsMaxUtf8Chars()
     {
-        assertThat(truncateMax(Slices.wrappedBuffer("a\uDBFF\uDFFF\uDBFF\uDFFF\uDBFF\uDFFF".getBytes(UTF_8)), 12).getBytes()).containsExactly("b".getBytes(UTF_8));
+        assertThat(truncateMax("a\uDBFF\uDFFF\uDBFF\uDFFF\uDBFF\uDFFF", 12)).containsExactly("b".getBytes(UTF_8));
     }
 
     @Test
     public void testComputeMixMaxReturnsNullForMaxLengthEquals0()
     {
-        assertThat(truncateMin(Slices.wrappedBuffer("simple/test".getBytes(UTF_8)), 0)).isEqualTo(EMPTY_SLICE);
-        assertThat(truncateMax(Slices.wrappedBuffer("simple/test".getBytes(UTF_8)), 0)).isEqualTo(EMPTY_SLICE);
+        assertThat(StringStatisticsBuilder.StringCompactor.truncateMin(Slices.wrappedBuffer("simple/test".getBytes(UTF_8)), 0)).isEqualTo(EMPTY_SLICE);
+        assertThat(truncateMax("simple/test", 0)).isEqualTo(new byte[0]);
+    }
+
+    private static byte[] truncateMin(String input, int maxLength)
+    {
+        return StringStatisticsBuilder.StringCompactor.truncateMin(Slices.wrappedBuffer(input.getBytes(UTF_8)), maxLength).getBytes();
+    }
+
+    private static byte[] truncateMax(String input, int maxLength)
+    {
+        return StringStatisticsBuilder.StringCompactor.truncateMax(Slices.wrappedBuffer(input.getBytes(UTF_8)), maxLength).getBytes();
     }
 }

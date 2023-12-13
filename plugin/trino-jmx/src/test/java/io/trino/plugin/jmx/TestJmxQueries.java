@@ -19,6 +19,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Locale;
 import java.util.Set;
@@ -29,8 +30,10 @@ import static io.trino.plugin.jmx.JmxMetadata.HISTORY_SCHEMA_NAME;
 import static io.trino.plugin.jmx.JmxMetadata.JMX_SCHEMA_NAME;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestJmxQueries
 {
     private QueryAssertions assertions;

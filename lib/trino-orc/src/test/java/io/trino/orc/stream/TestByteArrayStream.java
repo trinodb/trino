@@ -19,7 +19,7 @@ import io.airlift.slice.Slices;
 import io.trino.orc.OrcCorruptionException;
 import io.trino.orc.OrcDecompressor;
 import io.trino.orc.checkpoint.ByteArrayStreamCheckpoint;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.ArrayList;

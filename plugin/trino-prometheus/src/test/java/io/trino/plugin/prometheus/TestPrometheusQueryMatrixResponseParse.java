@@ -15,9 +15,11 @@ package io.trino.plugin.prometheus;
 
 import com.google.common.io.Resources;
 import io.trino.spi.TrinoException;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -25,12 +27,13 @@ import java.net.URL;
 import java.util.List;
 
 import static java.time.Instant.ofEpochMilli;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestPrometheusQueryMatrixResponseParse
 {
     private InputStream promMatrixResponse;
@@ -40,7 +43,7 @@ public class TestPrometheusQueryMatrixResponseParse
     public void trueStatusOnSuccessResponse()
             throws IOException
     {
-        assertTrue(new PrometheusQueryResponseParse(promMatrixResponse).getStatus());
+        assertThat(new PrometheusQueryResponseParse(promMatrixResponse).getStatus()).isTrue();
     }
 
     @Test
@@ -48,7 +51,7 @@ public class TestPrometheusQueryMatrixResponseParse
             throws IOException
     {
         List<PrometheusMetricResult> results = new PrometheusQueryResponseParse(promMatrixResponse).getResults();
-        assertEquals(results.get(0).getMetricHeader().get("__name__"), "up");
+        assertThat(results.get(0).getMetricHeader()).containsEntry("__name__", "up");
     }
 
     @Test
@@ -56,7 +59,7 @@ public class TestPrometheusQueryMatrixResponseParse
             throws IOException
     {
         List<PrometheusMetricResult> results = new PrometheusQueryResponseParse(promMatrixResponse).getResults();
-        assertEquals(results.get(0).getTimeSeriesValues().getValues().get(0).getTimestamp(), ofEpochMilli(1565962969044L));
+        assertThat(results.get(0).getTimeSeriesValues().getValues().get(0).getTimestamp()).isEqualTo(ofEpochMilli(1565962969044L));
     }
 
     @Test
@@ -64,7 +67,7 @@ public class TestPrometheusQueryMatrixResponseParse
             throws IOException
     {
         List<PrometheusMetricResult> results = new PrometheusQueryResponseParse(promMatrixResponse).getResults();
-        assertEquals(results.get(0).getTimeSeriesValues().getValues().get(0).getValue(), "1");
+        assertThat(results.get(0).getTimeSeriesValues().getValues().get(0).getValue()).isEqualTo("1");
     }
 
     @Test
@@ -75,20 +78,24 @@ public class TestPrometheusQueryMatrixResponseParse
                 .hasMessageContaining("Unable to parse Prometheus response: error bad_data invalid parameter 'query': parse error at char 4: bad duration syntax");
     }
 
-    @BeforeMethod
+    @BeforeEach
     public void setUp()
             throws Exception
     {
         URL promMatrixResponse = Resources.getResource(getClass(), "/prometheus-data/up_matrix_response.json");
-        assertNotNull(promMatrixResponse, "metadataUrl is null");
+        assertThat(promMatrixResponse)
+                .describedAs("metadataUrl is null")
+                .isNotNull();
         this.promMatrixResponse = promMatrixResponse.openStream();
 
         URL promErrorResponse = Resources.getResource(getClass(), "/prometheus-data/prom_error_response.json");
-        assertNotNull(promMatrixResponse, "metadataUrl is null");
+        assertThat(promMatrixResponse)
+                .describedAs("metadataUrl is null")
+                .isNotNull();
         this.promErrorResponse = promErrorResponse.openStream();
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
             throws Exception
     {

@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.pinot.auth.none;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPinotEmptyAuthenticationProvider
 {
@@ -25,6 +25,6 @@ public class TestPinotEmptyAuthenticationProvider
     public void testAuthenticationToken()
     {
         PinotEmptyAuthenticationProvider underTest = PinotEmptyAuthenticationProvider.instance();
-        assertEquals(underTest.getAuthenticationToken(), Optional.empty());
+        assertThat(underTest.getAuthenticationToken()).isEqualTo(Optional.empty());
     }
 }

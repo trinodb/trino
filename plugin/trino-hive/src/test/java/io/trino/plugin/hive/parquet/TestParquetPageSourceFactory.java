@@ -33,7 +33,7 @@ import static io.trino.spi.type.RowType.rowType;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 import static org.apache.parquet.schema.Type.Repetition.REQUIRED;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestParquetPageSourceFactory
 {
@@ -64,9 +64,7 @@ public class TestParquetPageSourceFactory
                 new GroupType(OPTIONAL, "optional_level1",
                         new GroupType(OPTIONAL, "optional_level2",
                                 new PrimitiveType(REQUIRED, INT32, "required_level3"))));
-        assertEquals(
-                ParquetPageSourceFactory.getColumnType(columnHandle, fileSchema, useColumnNames).get(),
-                fileSchema.getType("optional_level1"));
+        assertThat(ParquetPageSourceFactory.getColumnType(columnHandle, fileSchema, useColumnNames).get()).isEqualTo(fileSchema.getType("optional_level1"));
     }
 
     @DataProvider

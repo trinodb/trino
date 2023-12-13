@@ -237,6 +237,11 @@ public final class IntArrayBlock
         return sb.toString();
     }
 
+    boolean[] getRawValueIsNull()
+    {
+        return valueIsNull;
+    }
+
     @Experimental(eta = "2023-12-31")
     public int[] getRawValues()
     {

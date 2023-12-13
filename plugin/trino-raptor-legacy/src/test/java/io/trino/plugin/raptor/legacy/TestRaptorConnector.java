@@ -44,9 +44,11 @@ import io.trino.testing.TestingConnectorSession;
 import io.trino.testing.TestingNodeManager;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -69,11 +71,12 @@ import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.trino.testing.TestingPageSinkId.TESTING_PAGE_SINK_ID;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.DateTimeUtils.parseDate;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestRaptorConnector
 {
     private static final ConnectorSession SESSION = TestingConnectorSession.builder()
@@ -85,7 +88,7 @@ public class TestRaptorConnector
     private File dataDir;
     private RaptorConnector connector;
 
-    @BeforeMethod
+    @BeforeEach
     public void setup()
             throws Exception
     {
@@ -118,7 +121,7 @@ public class TestRaptorConnector
                 dbi);
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
             throws Exception
     {
@@ -133,50 +136,50 @@ public class TestRaptorConnector
         long tableId1 = createTable("test1");
         long tableId2 = createTable("test2");
 
-        assertFalse(metadataDao.isMaintenanceBlockedLocked(tableId1));
-        assertFalse(metadataDao.isMaintenanceBlockedLocked(tableId2));
+        assertThat(metadataDao.isMaintenanceBlockedLocked(tableId1)).isFalse();
+        assertThat(metadataDao.isMaintenanceBlockedLocked(tableId2)).isFalse();
 
         // begin delete for table1
         ConnectorTransactionHandle txn1 = beginTransaction();
         ConnectorTableHandle handle1 = getTableHandle(connector.getMetadata(SESSION, txn1), "test1");
         connector.getMetadata(SESSION, txn1).beginMerge(SESSION, handle1, NO_RETRIES);
 
-        assertTrue(metadataDao.isMaintenanceBlockedLocked(tableId1));
-        assertFalse(metadataDao.isMaintenanceBlockedLocked(tableId2));
+        assertThat(metadataDao.isMaintenanceBlockedLocked(tableId1)).isTrue();
+        assertThat(metadataDao.isMaintenanceBlockedLocked(tableId2)).isFalse();
 
         // begin delete for table2
         ConnectorTransactionHandle txn2 = beginTransaction();
         ConnectorTableHandle handle2 = getTableHandle(connector.getMetadata(SESSION, txn2), "test2");
         connector.getMetadata(SESSION, txn2).beginMerge(SESSION, handle2, NO_RETRIES);
 
-        assertTrue(metadataDao.isMaintenanceBlockedLocked(tableId1));
-        assertTrue(metadataDao.isMaintenanceBlockedLocked(tableId2));
+        assertThat(metadataDao.isMaintenanceBlockedLocked(tableId1)).isTrue();
+        assertThat(metadataDao.isMaintenanceBlockedLocked(tableId2)).isTrue();
 
         // begin another delete for table1
         ConnectorTransactionHandle txn3 = beginTransaction();
         ConnectorTableHandle handle3 = getTableHandle(connector.getMetadata(SESSION, txn3), "test1");
         connector.getMetadata(SESSION, txn3).beginMerge(SESSION, handle3, NO_RETRIES);
 
-        assertTrue(metadataDao.isMaintenanceBlockedLocked(tableId1));
-        assertTrue(metadataDao.isMaintenanceBlockedLocked(tableId2));
+        assertThat(metadataDao.isMaintenanceBlockedLocked(tableId1)).isTrue();
+        assertThat(metadataDao.isMaintenanceBlockedLocked(tableId2)).isTrue();
 
         // commit first delete for table1
         connector.commit(txn1);
 
-        assertTrue(metadataDao.isMaintenanceBlockedLocked(tableId1));
-        assertTrue(metadataDao.isMaintenanceBlockedLocked(tableId2));
+        assertThat(metadataDao.isMaintenanceBlockedLocked(tableId1)).isTrue();
+        assertThat(metadataDao.isMaintenanceBlockedLocked(tableId2)).isTrue();
 
         // rollback second delete for table1
         connector.rollback(txn3);
 
-        assertFalse(metadataDao.isMaintenanceBlockedLocked(tableId1));
-        assertTrue(metadataDao.isMaintenanceBlockedLocked(tableId2));
+        assertThat(metadataDao.isMaintenanceBlockedLocked(tableId1)).isFalse();
+        assertThat(metadataDao.isMaintenanceBlockedLocked(tableId2)).isTrue();
 
         // commit delete for table2
         connector.commit(txn2);
 
-        assertFalse(metadataDao.isMaintenanceBlockedLocked(tableId1));
-        assertFalse(metadataDao.isMaintenanceBlockedLocked(tableId2));
+        assertThat(metadataDao.isMaintenanceBlockedLocked(tableId1)).isFalse();
+        assertThat(metadataDao.isMaintenanceBlockedLocked(tableId2)).isFalse();
     }
 
     @Test
@@ -184,13 +187,13 @@ public class TestRaptorConnector
     {
         long tableId = createTable("test");
 
-        assertFalse(metadataDao.isMaintenanceBlockedLocked(tableId));
+        assertThat(metadataDao.isMaintenanceBlockedLocked(tableId)).isFalse();
         metadataDao.blockMaintenance(tableId);
-        assertTrue(metadataDao.isMaintenanceBlockedLocked(tableId));
+        assertThat(metadataDao.isMaintenanceBlockedLocked(tableId)).isTrue();
 
         connector.start();
 
-        assertFalse(metadataDao.isMaintenanceBlockedLocked(tableId));
+        assertThat(metadataDao.isMaintenanceBlockedLocked(tableId)).isFalse();
     }
 
     @Test
@@ -252,7 +255,7 @@ public class TestRaptorConnector
         raptorPageSink.appendPage(inputPage);
 
         Collection<Slice> shards = raptorPageSink.finish().get();
-        assertEquals(shards.size(), expectedSplits);
+        assertThat(shards.size()).isEqualTo(expectedSplits);
         connector.getMetadata(session, txn1).dropTable(session, handle1);
         connector.commit(txn1);
     }

@@ -14,8 +14,7 @@
 package io.trino.jdbc;
 
 import com.google.common.collect.ImmutableSet;
-import org.testng.annotations.Parameters;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -33,10 +32,10 @@ public class JdbcDriverIT
             "META-INF/MANIFEST.MF",
             "META-INF/services/java.sql.Driver");
 
-    @Parameters("jdbc-jar")
     @Test
-    public void testDependenciesRelocated(String file)
+    public void testDependenciesRelocated()
     {
+        String file = System.getProperty("jdbc-jar");
         try (JarFile jarFile = new JarFile(file)) {
             List<String> nonRelocatedFiles = jarFile.stream()
                     .filter(value -> !value.isDirectory())

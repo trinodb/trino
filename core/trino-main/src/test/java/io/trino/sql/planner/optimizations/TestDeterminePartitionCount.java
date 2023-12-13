@@ -64,7 +64,7 @@ public class TestDeterminePartitionCount
     {
         String catalogName = "mock";
         MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
-                .withGetTableHandle(((session, tableName) -> {
+                .withGetTableHandle((session, tableName) -> {
                     if (tableName.getTableName().equals("table_with_stats_a")
                             || tableName.getTableName().equals("table_with_stats_b")
                             || tableName.getTableName().equals("table_without_stats_a")
@@ -72,7 +72,7 @@ public class TestDeterminePartitionCount
                         return new MockConnectorTableHandle(tableName);
                     }
                     return null;
-                }))
+                })
                 .withGetColumns(schemaTableName -> ImmutableList.of(
                         new ColumnMetadata("column_a", VARCHAR),
                         new ColumnMetadata("column_b", VARCHAR)))

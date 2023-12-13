@@ -15,6 +15,7 @@ package io.trino.spi.function;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.errorprone.annotations.DoNotCall;
 import io.trino.spi.Experimental;
 
 import java.util.Objects;
@@ -71,13 +72,9 @@ public class LongVariableConstraint
         return Objects.hash(name, expression);
     }
 
-    /**
-     * This method is only visible for JSON deserialization.
-     *
-     * @deprecated use builder
-     */
-    @Deprecated
     @JsonCreator
+    @DoNotCall // For JSON deserialization only
+    @Deprecated // Discourage usages in SPI consumers
     public static LongVariableConstraint fromJson(
             @JsonProperty("name") String name,
             @JsonProperty("expression") String expression)

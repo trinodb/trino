@@ -26,7 +26,7 @@ import java.util.Arrays;
 import java.util.Map;
 
 import static io.trino.plugin.session.file.FileSessionPropertyManager.CODEC;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestFileSessionPropertyManager
         extends AbstractTestSessionPropertyManager
@@ -39,8 +39,8 @@ public class TestFileSessionPropertyManager
             Path configurationFile = tempFile.path();
             Files.write(configurationFile, CODEC.toJsonBytes(Arrays.asList(specs)));
             SessionPropertyConfigurationManager manager = new FileSessionPropertyManager(new FileSessionPropertyManagerConfig().setConfigFile(configurationFile.toFile()));
-            assertEquals(manager.getSystemSessionProperties(CONTEXT), systemProperties);
-            assertEquals(manager.getCatalogSessionProperties(CONTEXT), catalogProperties);
+            assertThat(manager.getSystemSessionProperties(CONTEXT)).isEqualTo(systemProperties);
+            assertThat(manager.getCatalogSessionProperties(CONTEXT)).isEqualTo(catalogProperties);
         }
     }
 }

@@ -64,7 +64,8 @@ import static io.trino.sql.analyzer.RegexLibrary.JONI;
         "spill-window-operator",
         "experimental.spill-window-operator",
         "legacy.allow-set-view-authorization",
-        "parse-decimal-literals-as-double"
+        "parse-decimal-literals-as-double",
+        "experimental.late-materialization.enabled"
 })
 public class FeaturesConfig
 {
@@ -94,7 +95,6 @@ public class FeaturesConfig
     private double spillMaxUsedSpaceThreshold = 0.9;
     private double memoryRevokingTarget = 0.5;
     private double memoryRevokingThreshold = 0.9;
-    private boolean lateMaterializationEnabled;
 
     private DataSize filterAndProjectMinOutputPageSize = DataSize.of(500, KILOBYTE);
     private int filterAndProjectMinOutputPageRowCount = 256;
@@ -414,19 +414,6 @@ public class FeaturesConfig
     public FeaturesConfig setMaxGroupingSets(int maxGroupingSets)
     {
         this.maxGroupingSets = maxGroupingSets;
-        return this;
-    }
-
-    public boolean isLateMaterializationEnabled()
-    {
-        return lateMaterializationEnabled;
-    }
-
-    @Config("experimental.late-materialization.enabled")
-    @LegacyConfig("experimental.work-processor-pipelines")
-    public FeaturesConfig setLateMaterializationEnabled(boolean lateMaterializationEnabled)
-    {
-        this.lateMaterializationEnabled = lateMaterializationEnabled;
         return this;
     }
 

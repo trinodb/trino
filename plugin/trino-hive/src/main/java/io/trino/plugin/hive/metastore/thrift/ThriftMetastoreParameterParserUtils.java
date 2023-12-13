@@ -28,15 +28,6 @@ final class ThriftMetastoreParameterParserUtils
 {
     private ThriftMetastoreParameterParserUtils() {}
 
-    static Optional<Boolean> toBoolean(@Nullable String parameterValue)
-    {
-        if (parameterValue == null) {
-            return Optional.empty();
-        }
-        Boolean value = Boolean.parseBoolean(parameterValue);
-        return Optional.of(value);
-    }
-
     static OptionalLong toLong(@Nullable String parameterValue)
     {
         if (parameterValue == null) {

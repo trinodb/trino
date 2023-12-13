@@ -41,13 +41,12 @@ import io.trino.spi.type.TypeManager;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Maps.fromProperties;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_OPEN_ERROR;
@@ -87,7 +86,7 @@ public abstract class LineFileWriterFactory
             List<String> inputColumnNames,
             StorageFormat storageFormat,
             HiveCompressionCodec compressionCodec,
-            Properties schema,
+            Map<String, String> schema,
             ConnectorSession session,
             OptionalInt bucketNumber,
             AcidTransaction transaction,
@@ -114,10 +113,10 @@ public abstract class LineFileWriterFactory
                 .mapToObj(ordinal -> new Column(fileColumnNames.get(ordinal), fileColumnTypes.get(ordinal), ordinal))
                 .toList();
 
-        LineSerializer lineSerializer = lineSerializerFactory.create(columns, fromProperties(schema));
+        LineSerializer lineSerializer = lineSerializerFactory.create(columns, schema);
 
         try {
-            TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity());
+            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
             AggregatedMemoryContext outputStreamMemoryContext = newSimpleAggregatedMemoryContext();
             OutputStream outputStream = fileSystem.newOutputFile(location).create(outputStreamMemoryContext);
 
@@ -141,10 +140,10 @@ public abstract class LineFileWriterFactory
         }
     }
 
-    private Optional<Slice> getFileHeader(Properties schema, List<Column> columns)
+    private Optional<Slice> getFileHeader(Map<String, String> schema, List<Column> columns)
             throws IOException
     {
-        String skipHeaderCount = schema.getProperty(SKIP_HEADER_COUNT_KEY, "0");
+        String skipHeaderCount = schema.getOrDefault(SKIP_HEADER_COUNT_KEY, "0");
         if (skipHeaderCount.equals("0")) {
             return Optional.empty();
         }
@@ -157,7 +156,7 @@ public abstract class LineFileWriterFactory
                 columns.stream()
                         .map(column -> new Column(column.name(), VARCHAR, column.ordinal()))
                         .collect(toImmutableList()),
-                fromProperties(schema));
+                schema);
 
         PageBuilder pageBuilder = new PageBuilder(headerSerializer.getTypes());
         pageBuilder.declarePosition();

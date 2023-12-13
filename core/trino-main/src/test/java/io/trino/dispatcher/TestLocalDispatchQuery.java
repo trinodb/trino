@@ -82,7 +82,7 @@ import static io.trino.sql.tree.SaveMode.FAIL;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.util.concurrent.Executors.newCachedThreadPool;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestLocalDispatchQuery
 {
@@ -97,6 +97,7 @@ public class TestLocalDispatchQuery
         Metadata metadata = createTestMetadataManager();
         TransactionManager transactionManager = createTestTransactionManager();
         AccessControlManager accessControl = new AccessControlManager(
+                NodeVersion.UNKNOWN,
                 transactionManager,
                 emptyEventListenerManager(),
                 new AccessControlConfig(),
@@ -151,7 +152,7 @@ public class TestLocalDispatchQuery
                 queryMonitor,
                 new TestClusterSizeMonitor(new InMemoryNodeManager(ImmutableSet.of()), new NodeSchedulerConfig()),
                 executor,
-                (queryExecution -> dataDefinitionExecution.start()));
+                queryExecution -> dataDefinitionExecution.start());
         queryStateMachine.addStateChangeListener(state -> {
             if (state.ordinal() >= QueryState.PLANNING.ordinal()) {
                 countDownLatch.countDown();
@@ -159,7 +160,7 @@ public class TestLocalDispatchQuery
         });
         localDispatchQuery.startWaitingForResources();
         countDownLatch.await();
-        assertTrue(localDispatchQuery.getDispatchInfo().getCoordinatorLocation().isPresent());
+        assertThat(localDispatchQuery.getDispatchInfo().getCoordinatorLocation().isPresent()).isTrue();
     }
 
     private static class NoConnectorServicesProvider

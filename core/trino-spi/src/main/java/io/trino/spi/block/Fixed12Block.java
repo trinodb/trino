@@ -294,9 +294,15 @@ public final class Fixed12Block
         return values[offset + 2];
     }
 
-    int getPositionOffset()
+    int getRawOffset()
     {
         return positionOffset;
+    }
+
+    @Nullable
+    boolean[] getRawValueIsNull()
+    {
+        return valueIsNull;
     }
 
     int[] getRawValues()

@@ -26,6 +26,9 @@ import io.trino.plugin.elasticsearch.ElasticsearchConfig;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
+import org.elasticsearch.client.Node;
+import org.elasticsearch.client.Request;
+import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.Response;
 import org.elasticsearch.client.ResponseException;
 import org.elasticsearch.client.RestClient;
@@ -36,7 +39,9 @@ import java.util.Map;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.time.temporal.ChronoUnit.MILLIS;
+import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -67,19 +72,44 @@ public class BackpressureRestClient
 
     public void setHosts(HttpHost... hosts)
     {
-        delegate.setHosts(hosts);
+        delegate.setNodes(stream(hosts)
+                .map(Node::new)
+                .collect(toImmutableList()));
     }
 
     public Response performRequest(String method, String endpoint, Header... headers)
             throws IOException
     {
-        return executeWithRetries(() -> delegate.performRequest(method, endpoint, headers));
+        return executeWithRetries(() -> delegate.performRequest(toRequest(method, endpoint, headers)));
     }
 
     public Response performRequest(String method, String endpoint, Map<String, String> params, HttpEntity entity, Header... headers)
             throws IOException
     {
-        return executeWithRetries(() -> delegate.performRequest(method, endpoint, params, entity, headers));
+        return executeWithRetries(() -> delegate.performRequest(toRequest(method, endpoint, params, entity, headers)));
+    }
+
+    private static Request toRequest(String method, String endpoint, Map<String, String> params, HttpEntity entity, Header... headers)
+    {
+        Request request = toRequest(method, endpoint, headers);
+        requireNonNull(params, "parameters cannot be null");
+        for (Map.Entry<String, String> entry : params.entrySet()) {
+            request.addParameter(entry.getKey(), entry.getValue());
+        }
+        request.setEntity(entity);
+        return request;
+    }
+
+    private static Request toRequest(String method, String endpoint, Header... headers)
+    {
+        requireNonNull(headers, "headers cannot be null");
+        Request request = new Request(method, endpoint);
+        RequestOptions.Builder options = request.getOptions().toBuilder();
+        for (Header header : headers) {
+            options.addHeader(header.getName(), header.getValue());
+        }
+        request.setOptions(options);
+        return request;
     }
 
     public void close()

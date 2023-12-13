@@ -242,7 +242,7 @@ public final class DoubleType
     @ScalarOperator(COMPARISON_UNORDERED_LAST)
     private static long comparisonUnorderedLastOperator(double left, double right)
     {
-        return Double.compare(left, right);
+        return compare(left, right);
     }
 
     @ScalarOperator(COMPARISON_UNORDERED_FIRST)
@@ -258,7 +258,8 @@ public final class DoubleType
         if (Double.isNaN(right)) {
             return 1;
         }
-        return Double.compare(left, right);
+
+        return compare(left, right);
     }
 
     @ScalarOperator(LESS_THAN)
@@ -271,5 +272,14 @@ public final class DoubleType
     private static boolean lessThanOrEqualOperator(double left, double right)
     {
         return left <= right;
+    }
+
+    private static int compare(double left, double right)
+    {
+        if (left == right) { // Double.compare considers 0.0 and -0.0 different from each other
+            return 0;
+        }
+
+        return Double.compare(left, right);
     }
 }

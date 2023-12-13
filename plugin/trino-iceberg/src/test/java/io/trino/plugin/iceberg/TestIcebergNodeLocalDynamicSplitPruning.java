@@ -69,25 +69,24 @@ import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
+import static io.trino.plugin.iceberg.util.OrcTypeConverter.toOrcType;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.iceberg.types.Types.NestedField.optional;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIcebergNodeLocalDynamicSplitPruning
 {
     private static final String SCHEMA_NAME = "test";
     private static final String TABLE_NAME = "test";
-    private static final Column KEY_COLUMN = new Column("a_integer", HIVE_INT, Optional.empty());
+    private static final Column KEY_COLUMN = new Column("a_integer", HIVE_INT, Optional.empty(), Map.of());
     private static final ColumnIdentity KEY_COLUMN_IDENTITY = new ColumnIdentity(1, KEY_COLUMN.getName(), PRIMITIVE, ImmutableList.of());
     private static final IcebergColumnHandle KEY_ICEBERG_COLUMN_HANDLE = new IcebergColumnHandle(KEY_COLUMN_IDENTITY, INTEGER, ImmutableList.of(), INTEGER, Optional.empty());
     private static final int KEY_COLUMN_VALUE = 42;
-    private static final Column DATA_COLUMN = new Column("a_varchar", HIVE_STRING, Optional.empty());
+    private static final Column DATA_COLUMN = new Column("a_varchar", HIVE_STRING, Optional.empty(), Map.of());
     private static final ColumnIdentity DATA_COLUMN_IDENTITY = new ColumnIdentity(2, DATA_COLUMN.getName(), PRIMITIVE, ImmutableList.of());
     private static final IcebergColumnHandle DATA_ICEBERG_COLUMN_HANDLE = new IcebergColumnHandle(DATA_COLUMN_IDENTITY, VARCHAR, ImmutableList.of(), VARCHAR, Optional.empty());
     private static final String DATA_COLUMN_VALUE = "hello world";
@@ -113,16 +112,16 @@ public class TestIcebergNodeLocalDynamicSplitPruning
             writeOrcContent(outputFile);
 
             try (ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, icebergConfig, inputFile, getDynamicFilter(getTupleDomainForSplitPruning()))) {
-                assertNull(emptyPageSource.getNextPage());
+                assertThat(emptyPageSource.getNextPage()).isNull();
             }
 
             try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, icebergConfig, inputFile, getDynamicFilter(getNonSelectiveTupleDomain()))) {
                 Page page = nonEmptyPageSource.getNextPage();
-                assertNotNull(page);
-                assertEquals(page.getBlock(0).getPositionCount(), 1);
-                assertEquals(page.getBlock(0).getInt(0, 0), KEY_COLUMN_VALUE);
-                assertEquals(page.getBlock(1).getPositionCount(), 1);
-                assertEquals(page.getBlock(1).getSlice(0, 0, page.getBlock(1).getSliceLength(0)).toStringUtf8(), DATA_COLUMN_VALUE);
+                assertThat(page).isNotNull();
+                assertThat(page.getBlock(0).getPositionCount()).isEqualTo(1);
+                assertThat(page.getBlock(0).getInt(0, 0)).isEqualTo(KEY_COLUMN_VALUE);
+                assertThat(page.getBlock(1).getPositionCount()).isEqualTo(1);
+                assertThat(page.getBlock(1).getSlice(0, 0, page.getBlock(1).getSliceLength(0)).toStringUtf8()).isEqualTo(DATA_COLUMN_VALUE);
             }
         }
     }
@@ -137,7 +136,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                 OutputStreamOrcDataSink.create(outputFile),
                 columnNames,
                 types,
-                TypeConverter.toOrcType(TABLE_SCHEMA),
+                toOrcType(TABLE_SCHEMA),
                 NONE,
                 new OrcWriterOptions(),
                 ImmutableMap.of(),
@@ -189,7 +188,7 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                         false,
                         Optional.empty(),
                         ImmutableSet.of(),
-                        Optional.empty()),
+                        Optional.of(false)),
                 transaction);
 
         FileFormatDataSourceStats stats = new FileFormatDataSourceStats();

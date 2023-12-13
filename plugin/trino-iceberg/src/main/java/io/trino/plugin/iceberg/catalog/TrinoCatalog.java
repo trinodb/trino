@@ -22,8 +22,10 @@ import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
+import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.TrinoPrincipal;
+import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.SortOrder;
@@ -73,6 +75,8 @@ public interface TrinoCatalog
     void renameNamespace(ConnectorSession session, String source, String target);
 
     List<SchemaTableName> listTables(ConnectorSession session, Optional<String> namespace);
+
+    Map<SchemaTableName, RelationType> getRelationTypes(ConnectorSession session, Optional<String> namespace);
 
     Optional<Iterator<RelationColumnsMetadata>> streamRelationColumns(
             ConnectorSession session,
@@ -167,6 +171,8 @@ public interface TrinoCatalog
     void dropMaterializedView(ConnectorSession session, SchemaTableName viewName);
 
     Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName);
+
+    Optional<BaseTable> getMaterializedViewStorageTable(ConnectorSession session, SchemaTableName viewName);
 
     void renameMaterializedView(ConnectorSession session, SchemaTableName source, SchemaTableName target);
 

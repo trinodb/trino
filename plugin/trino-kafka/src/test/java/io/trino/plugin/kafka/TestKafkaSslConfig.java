@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.inject.ConfigurationException;
 import io.trino.plugin.kafka.security.KafkaEndpointIdentificationAlgorithm;
 import io.trino.plugin.kafka.security.KafkaSslConfig;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -134,7 +134,7 @@ public class TestKafkaSslConfig
         }
         Map<String, Object> securityProperties = config.getKafkaClientProperties();
         assertThat(securityProperties).containsKey(SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG);
-        assertThat(securityProperties.get(SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG)).isEqualTo("");
+        assertThat(securityProperties).containsEntry(SSL_ENDPOINT_IDENTIFICATION_ALGORITHM_CONFIG, "");
     }
 
     @Test

@@ -42,7 +42,7 @@ import static io.trino.plugin.hive.HiveTableProperties.SORTED_BY_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
-import static org.testng.util.Strings.isNullOrEmpty;
+import static org.assertj.core.util.Strings.isNullOrEmpty;
 
 public abstract class AbstractTestHiveFileSystemAbfs
         extends AbstractTestHiveFileSystem

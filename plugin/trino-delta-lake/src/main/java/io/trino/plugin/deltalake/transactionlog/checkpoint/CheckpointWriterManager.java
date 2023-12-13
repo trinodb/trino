@@ -29,6 +29,7 @@ import io.trino.plugin.hive.NodeVersion;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.TypeManager;
 
 import java.io.IOException;
@@ -38,6 +39,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogParser.LAST_CHECKPOINT_FILENAME;
@@ -103,6 +105,8 @@ public class CheckpointWriterManager
                             typeManager,
                             fileSystem,
                             fileFormatDataSourceStats,
+                            Optional.empty(),
+                            TupleDomain.all(),
                             Optional.empty())
                     .filter(entry -> entry.getMetaData() != null || entry.getProtocol() != null)
                     .collect(toImmutableList());
@@ -135,7 +139,9 @@ public class CheckpointWriterManager
                                 typeManager,
                                 fileSystem,
                                 fileFormatDataSourceStats,
-                                Optional.of(new MetadataAndProtocolEntry(metadataLogEntry.getMetaData(), protocolLogEntry.getProtocol())))
+                                Optional.of(new MetadataAndProtocolEntry(metadataLogEntry.getMetaData(), protocolLogEntry.getProtocol())),
+                                TupleDomain.all(),
+                                Optional.of(alwaysTrue()))
                         .forEach(checkpointBuilder::addLogEntry);
             }
 

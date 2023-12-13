@@ -22,6 +22,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.SystemSessionProperties.COLLECT_PLAN_STATISTICS_FOR_ALL_QUERIES;
 import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_COLUMN_NAMING_PROPERTY;
@@ -33,8 +34,10 @@ import static io.trino.testing.statistics.MetricComparisonStrategies.relativeErr
 import static io.trino.testing.statistics.Metrics.OUTPUT_ROW_COUNT;
 import static io.trino.testing.statistics.Metrics.distinctValuesCount;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestTpchDistributedStats
 {
     private StatisticsAssertion statisticsAssertion;

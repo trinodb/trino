@@ -49,6 +49,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -80,12 +81,12 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Fail.fail;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestEventDrivenTaskSource
 {
     private static final int INVOCATION_COUNT = 20;
@@ -283,11 +284,11 @@ public class TestEventDrivenTaskSource
     {
         List<TestingExchangeSourceHandleSource> handleSources = new ArrayList<>();
         Map<PlanFragmentId, Exchange> exchanges = new HashMap<>();
-        Multimaps.asMap(sourceHandles).forEach(((fragmentId, handles) -> {
+        Multimaps.asMap(sourceHandles).forEach((fragmentId, handles) -> {
             TestingExchangeSourceHandleSource handleSource = new TestingExchangeSourceHandleSource(executor, handles);
             handleSources.add(handleSource);
             exchanges.put(fragmentId, new TestingExchange(handleSource));
-        }));
+        });
         remoteSources.keySet().forEach(fragmentId -> {
             if (!exchanges.containsKey(fragmentId)) {
                 TestingExchangeSourceHandleSource handleSource = new TestingExchangeSourceHandleSource(executor, ImmutableList.of());
@@ -297,7 +298,7 @@ public class TestEventDrivenTaskSource
         });
 
         Map<PlanNodeId, SplitSource> splitSources = new HashMap<>();
-        Multimaps.asMap(splits).forEach(((planNodeId, connectorSplits) -> splitSources.put(planNodeId, new TestingSplitSource(executor, connectorSplits))));
+        Multimaps.asMap(splits).forEach((planNodeId, connectorSplits) -> splitSources.put(planNodeId, new TestingSplitSource(executor, connectorSplits)));
 
         SplitAssignerTester tester = new SplitAssignerTester();
         int partitionCount = getPartitionCount(sourceHandles.values(), splits.values());
@@ -321,7 +322,7 @@ public class TestEventDrivenTaskSource
                 1,
                 1,
                 partitioningScheme,
-                (getSplitDuration) -> getSplitInvocations.incrementAndGet())) {
+                getSplitDuration -> getSplitInvocations.incrementAndGet())) {
             while (tester.getTaskDescriptors().isEmpty()) {
                 AssignmentResult result = taskSource.process().get(10, SECONDS);
                 tester.update(result);
@@ -330,11 +331,11 @@ public class TestEventDrivenTaskSource
         }
 
         for (TestingExchangeSourceHandleSource handleSource : handleSources) {
-            assertTrue(handleSource.isClosed());
+            assertThat(handleSource.isClosed()).isTrue();
         }
         for (SplitSource splitSource : splitSources.values()) {
             if (splitSource instanceof TestingSplitSource source) {
-                assertTrue(source.isClosed());
+                assertThat(source.isClosed()).isTrue();
             }
             else {
                 fail("unexpected split source: " + splitSource.getClass());
@@ -366,20 +367,20 @@ public class TestEventDrivenTaskSource
                     RemoteSplit remoteSplit = (RemoteSplit) entry.getValue().getConnectorSplit();
                     SpoolingExchangeInput input = (SpoolingExchangeInput) remoteSplit.getExchangeInput();
                     for (ExchangeSourceHandle handle : input.getExchangeSourceHandles()) {
-                        assertEquals(handle.getPartitionId(), partitionId);
+                        assertThat(handle.getPartitionId()).isEqualTo(partitionId);
                         actualHandles.computeIfAbsent(partitionId, key -> HashMultimap.create()).put(entry.getKey(), (TestingExchangeSourceHandle) handle);
                     }
                 }
                 else {
                     TestingConnectorSplit split = (TestingConnectorSplit) entry.getValue().getConnectorSplit();
-                    assertEquals(split.getBucket().orElseThrow(), partitionId);
+                    assertThat(split.getBucket().orElseThrow()).isEqualTo(partitionId);
                     actualSplits.computeIfAbsent(partitionId, key -> HashMultimap.create()).put(entry.getKey(), split);
                 }
             }
         }
 
-        assertEquals(actualHandles, expectedHandles);
-        assertEquals(actualSplits, expectedSplits);
+        assertThat(actualHandles).isEqualTo(expectedHandles);
+        assertThat(actualSplits).isEqualTo(expectedSplits);
     }
 
     private static FaultTolerantPartitioningScheme createPartitioningScheme(int partitionCount)

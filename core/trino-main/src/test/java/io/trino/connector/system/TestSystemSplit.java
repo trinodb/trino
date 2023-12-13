@@ -19,7 +19,7 @@ import io.trino.spi.predicate.TupleDomain;
 import org.junit.jupiter.api.Test;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSystemSplit
 {
@@ -31,7 +31,7 @@ public class TestSystemSplit
         JsonCodec<SystemSplit> codec = jsonCodec(SystemSplit.class);
         SystemSplit actual = codec.fromJson(codec.toJson(expected));
 
-        assertEquals(actual.getAddresses(), expected.getAddresses());
-        assertEquals(actual.getConstraint(), expected.getConstraint());
+        assertThat(actual.getAddresses()).isEqualTo(expected.getAddresses());
+        assertThat(actual.getConstraint()).isEqualTo(expected.getConstraint());
     }
 }

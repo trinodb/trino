@@ -24,65 +24,73 @@ import io.trino.plugin.kinesis.util.TestUtils;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SchemaTableName;
-import org.testng.annotations.Parameters;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Map;
 
 import static io.trino.testing.TestingConnectorSession.SESSION;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public class TestS3TableConfigClient
 {
     private static final Logger log = Logger.get(TestS3TableConfigClient.class);
+
+    private final String tableDescriptionS3;
+    private final String accessKey;
+    private final String secretKey;
+
+    public TestS3TableConfigClient()
+    {
+        tableDescriptionS3 = System.getProperty("kinesis.test-table-description-location");
+        accessKey = System.getProperty("kinesis.awsAccessKey");
+        secretKey = System.getProperty("kinesis.awsSecretKey");
+    }
 
     @Test
     public void testS3URIValues()
     {
         // Verify that S3URI values will work:
         AmazonS3URI uri1 = new AmazonS3URI("s3://our.data.warehouse/prod/client_actions");
-        assertNotNull(uri1.getKey());
-        assertNotNull(uri1.getBucket());
+        assertThat(uri1.getKey()).isNotNull();
+        assertThat(uri1.getBucket()).isNotNull();
 
-        assertEquals(uri1.toString(), "s3://our.data.warehouse/prod/client_actions");
-        assertEquals(uri1.getBucket(), "our.data.warehouse");
-        assertEquals(uri1.getKey(), "prod/client_actions");
-        assertTrue(uri1.getRegion() == null);
+        assertThat(uri1.toString()).isEqualTo("s3://our.data.warehouse/prod/client_actions");
+        assertThat(uri1.getBucket()).isEqualTo("our.data.warehouse");
+        assertThat(uri1.getKey()).isEqualTo("prod/client_actions");
+        assertThat(uri1.getRegion() == null).isTrue();
 
         // show info:
         log.info("Tested out URI1 : %s", uri1);
 
         AmazonS3URI uri2 = new AmazonS3URI("s3://some.big.bucket/long/complex/path");
-        assertNotNull(uri2.getKey());
-        assertNotNull(uri2.getBucket());
+        assertThat(uri2.getKey()).isNotNull();
+        assertThat(uri2.getBucket()).isNotNull();
 
-        assertEquals(uri2.toString(), "s3://some.big.bucket/long/complex/path");
-        assertEquals(uri2.getBucket(), "some.big.bucket");
-        assertEquals(uri2.getKey(), "long/complex/path");
-        assertTrue(uri2.getRegion() == null);
+        assertThat(uri2.toString()).isEqualTo("s3://some.big.bucket/long/complex/path");
+        assertThat(uri2.getBucket()).isEqualTo("some.big.bucket");
+        assertThat(uri2.getKey()).isEqualTo("long/complex/path");
+        assertThat(uri2.getRegion() == null).isTrue();
 
         // info:
         log.info("Tested out URI2 : %s", uri2);
 
         AmazonS3URI uri3 = new AmazonS3URI("s3://trino.kinesis.config/unit-test/trino-kinesis");
-        assertNotNull(uri3.getKey());
-        assertNotNull(uri3.getBucket());
+        assertThat(uri3.getKey()).isNotNull();
+        assertThat(uri3.getBucket()).isNotNull();
 
-        assertEquals(uri3.toString(), "s3://trino.kinesis.config/unit-test/trino-kinesis");
-        assertEquals(uri3.getBucket(), "trino.kinesis.config");
-        assertEquals(uri3.getKey(), "unit-test/trino-kinesis");
+        assertThat(uri3.toString()).isEqualTo("s3://trino.kinesis.config/unit-test/trino-kinesis");
+        assertThat(uri3.getBucket()).isEqualTo("trino.kinesis.config");
+        assertThat(uri3.getKey()).isEqualTo("unit-test/trino-kinesis");
     }
 
-    @Parameters({
-            "kinesis.test-table-description-location",
-            "kinesis.awsAccessKey",
-            "kinesis.awsSecretKey"
-    })
     @Test
-    public void testTableReading(String tableDescriptionS3, String accessKey, String secretKey)
+    public void testTableReading()
     {
         // To run this test: setup an S3 bucket with a folder for unit testing, and put
         // MinimalTable.json in that folder.
@@ -94,6 +102,7 @@ public class TestS3TableConfigClient
                 .put("kinesis.hide-internal-columns", "false")
                 .put("kinesis.access-key", TestUtils.noneToBlank(accessKey))
                 .put("kinesis.secret-key", TestUtils.noneToBlank(secretKey))
+                .put("bootstrap.quiet", "true")
                 .buildOrThrow();
 
         KinesisPlugin kinesisPlugin = new KinesisPlugin();
@@ -111,13 +120,13 @@ public class TestS3TableConfigClient
         KinesisMetadata metadata = (KinesisMetadata) kinesisConnector.getMetadata(SESSION, new ConnectorTransactionHandle() {});
         SchemaTableName tblName = new SchemaTableName("default", "test123");
         KinesisTableHandle tableHandle = metadata.getTableHandle(SESSION, tblName);
-        assertNotNull(metadata);
+        assertThat(metadata).isNotNull();
         SchemaTableName tableSchemaName = tableHandle.toSchemaTableName();
-        assertEquals(tableSchemaName.getSchemaName(), "default");
-        assertEquals(tableSchemaName.getTableName(), "test123");
-        assertEquals(tableHandle.getStreamName(), "test123");
-        assertEquals(tableHandle.getMessageDataFormat(), "json");
+        assertThat(tableSchemaName.getSchemaName()).isEqualTo("default");
+        assertThat(tableSchemaName.getTableName()).isEqualTo("test123");
+        assertThat(tableHandle.getStreamName()).isEqualTo("test123");
+        assertThat(tableHandle.getMessageDataFormat()).isEqualTo("json");
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(SESSION, tableHandle);
-        assertEquals(columnHandles.size(), 12);
+        assertThat(columnHandles.size()).isEqualTo(12);
     }
 }

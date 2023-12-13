@@ -28,7 +28,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.cassandra.CassandraTestingUtils.CASSANDRA_TYPE_MANAGER;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCassandraClusteringPredicatesExtractor
 {
@@ -61,7 +61,7 @@ public class TestCassandraClusteringPredicatesExtractor
                         col4, Domain.singleValue(BIGINT, 26L)));
         CassandraClusteringPredicatesExtractor predicatesExtractor = new CassandraClusteringPredicatesExtractor(CASSANDRA_TYPE_MANAGER, cassandraTable.getClusteringKeyColumns(), tupleDomain, cassandraVersion);
         String predicate = predicatesExtractor.getClusteringKeyPredicates();
-        assertEquals(predicate, "\"clusteringKey1\" = 34");
+        assertThat(predicate).isEqualTo("\"clusteringKey1\" = 34");
     }
 
     @Test
@@ -73,6 +73,6 @@ public class TestCassandraClusteringPredicatesExtractor
                         col4, Domain.singleValue(BIGINT, 26L)));
         CassandraClusteringPredicatesExtractor predicatesExtractor = new CassandraClusteringPredicatesExtractor(CASSANDRA_TYPE_MANAGER, cassandraTable.getClusteringKeyColumns(), tupleDomain, cassandraVersion);
         TupleDomain<ColumnHandle> unenforcedPredicates = TupleDomain.withColumnDomains(ImmutableMap.of(col4, Domain.singleValue(BIGINT, 26L)));
-        assertEquals(predicatesExtractor.getUnenforcedConstraints(), unenforcedPredicates);
+        assertThat(predicatesExtractor.getUnenforcedConstraints()).isEqualTo(unenforcedPredicates);
     }
 }

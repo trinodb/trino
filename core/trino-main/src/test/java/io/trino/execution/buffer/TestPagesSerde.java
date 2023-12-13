@@ -18,6 +18,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.airlift.slice.Slices;
 import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.spi.Page;
@@ -26,7 +27,6 @@ import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.block.VariableWidthBlock;
-import io.trino.spi.block.VariableWidthBlockBuilder;
 import io.trino.spi.type.Type;
 import io.trino.tpch.LineItem;
 import io.trino.tpch.LineItemGenerator;
@@ -34,6 +34,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import javax.crypto.SecretKey;
 
@@ -53,10 +54,10 @@ import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.Ciphers.createRandomAesEncryptionKey;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestPagesSerde
 {
     private BlockEncodingSerde blockEncodingSerde;
@@ -185,20 +186,20 @@ public class TestPagesSerde
         // empty page
         Page page = new Page(builder.build());
         int pageSize = serializedSize(ImmutableList.of(BIGINT), page);
-        assertEquals(pageSize, 40);
+        assertThat(pageSize).isEqualTo(40);
 
         // page with one value
         BIGINT.writeLong(builder, 123);
         pageSize = 35; // Now we have moved to the normal block implementation so the page size overhead is 35
         page = new Page(builder.build());
         int firstValueSize = serializedSize(ImmutableList.of(BIGINT), page) - pageSize;
-        assertEquals(firstValueSize, 9); // value size + value overhead
+        assertThat(firstValueSize).isEqualTo(9); // value size + value overhead
 
         // page with two values
         BIGINT.writeLong(builder, 456);
         page = new Page(builder.build());
         int secondValueSize = serializedSize(ImmutableList.of(BIGINT), page) - (pageSize + firstValueSize);
-        assertEquals(secondValueSize, 8); // value size (value overhead is shared with previous value)
+        assertThat(secondValueSize).isEqualTo(8); // value size (value overhead is shared with previous value)
     }
 
     @Test
@@ -209,20 +210,20 @@ public class TestPagesSerde
         // empty page
         Page page = new Page(builder.build());
         int pageSize = serializedSize(ImmutableList.of(VARCHAR), page);
-        assertEquals(pageSize, 48);
+        assertThat(pageSize).isEqualTo(48);
 
         // page with one value
         VARCHAR.writeString(builder, "alice");
         pageSize = 44; // Now we have moved to the normal block implementation so the page size overhead is 44
         page = new Page(builder.build());
         int firstValueSize = serializedSize(ImmutableList.of(VARCHAR), page) - pageSize;
-        assertEquals(firstValueSize, 8 + 5); // length + nonNullsCount + "alice"
+        assertThat(firstValueSize).isEqualTo(8 + 5); // length + nonNullsCount + "alice"
 
         // page with two values
         VARCHAR.writeString(builder, "bob");
         page = new Page(builder.build());
         int secondValueSize = serializedSize(ImmutableList.of(VARCHAR), page) - (pageSize + firstValueSize);
-        assertEquals(secondValueSize, 4 + 3); // length + "bob" (null shared with first entry)
+        assertThat(secondValueSize).isEqualTo(4 + 3); // length + "bob" (null shared with first entry)
     }
 
     private int serializedSize(List<? extends Type> types, Page expectedPage)
@@ -239,9 +240,9 @@ public class TestPagesSerde
             assertPageEquals(types, pageIterator.next(), expectedPage);
         }
         else {
-            assertEquals(expectedPage.getPositionCount(), 0);
+            assertThat(expectedPage.getPositionCount()).isEqualTo(0);
         }
-        assertFalse(pageIterator.hasNext());
+        assertThat(pageIterator.hasNext()).isFalse();
 
         return slice.length();
     }
@@ -275,7 +276,7 @@ public class TestPagesSerde
         Page page = createTestPage(numberOfEntries);
         Slice serialized = serializer.serialize(page);
         Page deserialized = deserializer.deserialize(serialized);
-        assertEquals(deserialized.getChannelCount(), 1);
+        assertThat(deserialized.getChannelCount()).isEqualTo(1);
 
         VariableWidthBlock expected = (VariableWidthBlock) page.getBlock(0);
         VariableWidthBlock actual = (VariableWidthBlock) deserialized.getBlock(0);
@@ -285,14 +286,13 @@ public class TestPagesSerde
 
     private static Page createTestPage(int numberOfEntries)
     {
-        VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, 1, 1000);
-        blockBuilder.buildEntry(value -> {
-            value.writeInt(numberOfEntries);
-            for (int i = 0; i < numberOfEntries; i++) {
-                value.writeLong(i);
-            }
-        });
-        return new Page(blockBuilder.build());
+        Slice slice = Slices.allocate(Integer.BYTES + numberOfEntries * Long.BYTES);
+        SliceOutput out = slice.getOutput();
+        out.writeInt(numberOfEntries);
+        for (int i = 0; i < numberOfEntries; i++) {
+            out.writeLong(i);
+        }
+        return new Page(new VariableWidthBlock(1, slice, new int[] {0, slice.length()}, Optional.empty()));
     }
 
     private static class RolloverBlockSerde
@@ -302,15 +302,15 @@ public class TestPagesSerde
         public Block readBlock(SliceInput input)
         {
             int numberOfEntries = input.readInt();
-            VariableWidthBlockBuilder blockBuilder = new VariableWidthBlockBuilder(null, 1, 1000);
-            blockBuilder.buildEntry(value -> {
-                value.writeInt(numberOfEntries);
-                for (int i = 0; i < numberOfEntries; ++i) {
-                    // read 8 bytes at a time
-                    value.writeLong(input.readLong());
-                }
-            });
-            return blockBuilder.build();
+
+            Slice slice = Slices.allocate(Integer.BYTES + numberOfEntries * Long.BYTES);
+            SliceOutput out = slice.getOutput();
+            out.writeInt(numberOfEntries);
+            for (int i = 0; i < numberOfEntries; ++i) {
+                // read 8 bytes at a time
+                out.writeLong(input.readLong());
+            }
+            return new VariableWidthBlock(1, slice, new int[] {0, slice.length()}, Optional.empty());
         }
 
         @Override

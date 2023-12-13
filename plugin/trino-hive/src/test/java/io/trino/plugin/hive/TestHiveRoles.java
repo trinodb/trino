@@ -13,9 +13,6 @@
  */
 package io.trino.plugin.hive;
 
-import org.testng.annotations.Test;
-
-@Test(singleThreaded = true)
 public class TestHiveRoles
         extends AbstractTestHiveRoles
 {

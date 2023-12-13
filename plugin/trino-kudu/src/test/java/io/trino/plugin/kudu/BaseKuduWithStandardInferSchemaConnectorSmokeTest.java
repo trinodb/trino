@@ -17,7 +17,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseKuduWithStandardInferSchemaConnectorSmokeTest
         extends BaseKuduConnectorSmokeTest
@@ -33,6 +33,6 @@ public abstract class BaseKuduWithStandardInferSchemaConnectorSmokeTest
     {
         // The special $schemas table is created when listing schema names with schema emulation enabled
         // Depending on test ordering, this table may or may not be created when this test runs, so filter it out
-        assertEquals(computeActual("SHOW TABLES FROM default LIKE '%$schemas'").getRowCount(), 0);
+        assertThat(computeActual("SHOW TABLES FROM default LIKE '%$schemas'").getRowCount()).isEqualTo(0);
     }
 }

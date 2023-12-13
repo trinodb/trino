@@ -22,9 +22,11 @@ import io.trino.client.StatementStats;
 import io.trino.spi.type.StandardTypes;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.sql.Connection;
@@ -42,18 +44,19 @@ import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestProgressMonitor
 {
     private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
 
     private MockWebServer server;
 
-    @BeforeMethod
+    @BeforeEach
     public void setup()
             throws IOException
     {
@@ -61,7 +64,7 @@ public class TestProgressMonitor
         server.start();
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void teardown()
             throws IOException
     {
@@ -118,21 +121,21 @@ public class TestProgressMonitor
                 trinoStatement.setProgressMonitor(progressMonitor);
                 try (ResultSet rs = statement.executeQuery("bogus query for testing")) {
                     ResultSetMetaData metadata = rs.getMetaData();
-                    assertEquals(metadata.getColumnCount(), 1);
-                    assertEquals(metadata.getColumnName(1), "_col0");
+                    assertThat(metadata.getColumnCount()).isEqualTo(1);
+                    assertThat(metadata.getColumnName(1)).isEqualTo("_col0");
 
-                    assertTrue(rs.next());
-                    assertEquals(rs.getLong(1), 253161L);
-                    assertEquals(rs.getLong("_col0"), 253161L);
+                    assertThat(rs.next()).isTrue();
+                    assertThat(rs.getLong(1)).isEqualTo(253161L);
+                    assertThat(rs.getLong("_col0")).isEqualTo(253161L);
 
-                    assertFalse(rs.next());
+                    assertThat(rs.next()).isFalse();
                 }
                 trinoStatement.clearProgressMonitor();
 
                 List<QueryStats> queryStatsList = progressMonitor.finish();
                 assertGreaterThanOrEqual(queryStatsList.size(), 5); // duplicate stats is possible
-                assertEquals(queryStatsList.get(0).getState(), "QUEUED");
-                assertEquals(queryStatsList.get(queryStatsList.size() - 1).getState(), "FINISHED");
+                assertThat(queryStatsList.get(0).getState()).isEqualTo("QUEUED");
+                assertThat(queryStatsList.get(queryStatsList.size() - 1).getState()).isEqualTo("FINISHED");
             }
         }
     }

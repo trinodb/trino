@@ -15,13 +15,14 @@ package io.trino.operator.unnest;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarArray;
-import io.trino.spi.block.ColumnarRow;
+import io.trino.spi.block.RowBlock;
+
+import java.util.List;
 
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.unnest.UnnestOperator.ensureCapacity;
 import static io.trino.spi.block.ColumnarArray.toColumnarArray;
-import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static java.util.Objects.requireNonNull;
 
 public class ArrayOfRowsUnnester
@@ -29,32 +30,22 @@ public class ArrayOfRowsUnnester
 {
     private static final int INSTANCE_SIZE = instanceSize(ArrayOfRowsUnnester.class);
 
-    private final int fieldCount;
     private final UnnestBlockBuilder[] blockBuilders;
-
     private int[] arrayLengths = new int[0];
     private ColumnarArray columnarArray;
-    private ColumnarRow columnarRow;
 
     public ArrayOfRowsUnnester(int fieldCount)
     {
-        blockBuilders = createUnnestBlockBuilders(fieldCount);
-        this.fieldCount = fieldCount;
-    }
-
-    private static UnnestBlockBuilder[] createUnnestBlockBuilders(int fieldCount)
-    {
-        UnnestBlockBuilder[] builders = new UnnestBlockBuilder[fieldCount];
+        blockBuilders = new UnnestBlockBuilder[fieldCount];
         for (int i = 0; i < fieldCount; i++) {
-            builders[i] = new UnnestBlockBuilder();
+            blockBuilders[i] = new UnnestBlockBuilder();
         }
-        return builders;
     }
 
     @Override
     public int getChannelCount()
     {
-        return fieldCount;
+        return blockBuilders.length;
     }
 
     @Override
@@ -62,16 +53,16 @@ public class ArrayOfRowsUnnester
     {
         requireNonNull(block, "block is null");
         columnarArray = toColumnarArray(block);
-        columnarRow = toColumnarRow(columnarArray.getElementsBlock());
 
-        for (int i = 0; i < fieldCount; i++) {
-            blockBuilders[i].resetInputBlock(columnarRow.getField(i), columnarRow.getNullCheckBlock());
+        List<Block> fields = RowBlock.getRowFieldsFromBlock(columnarArray.getElementsBlock());
+        for (int i = 0; i < blockBuilders.length; i++) {
+            blockBuilders[i].resetInputBlock(fields.get(i));
         }
 
         int positionCount = block.getPositionCount();
         arrayLengths = ensureCapacity(arrayLengths, positionCount, false);
-        for (int j = 0; j < positionCount; j++) {
-            arrayLengths[j] = columnarArray.getLength(j);
+        for (int i = 0; i < positionCount; i++) {
+            arrayLengths[i] = columnarArray.getLength(i);
         }
     }
 
@@ -82,14 +73,15 @@ public class ArrayOfRowsUnnester
     }
 
     @Override
-    public Block[] buildOutputBlocks(int[] outputEntriesPerPosition, int startPosition, int batchSize, int outputRowCount)
+    public Block[] buildOutputBlocks(int[] outputEntriesPerPosition, int startPosition, int inputBatchSize, int outputRowCount)
     {
-        boolean nullRequired = needToInsertNulls(startPosition, batchSize, outputRowCount);
+        int unnestLength = columnarArray.getOffset(startPosition + inputBatchSize) - columnarArray.getOffset(startPosition);
+        boolean nullRequired = unnestLength < outputRowCount;
 
-        Block[] outputBlocks = new Block[fieldCount];
-        for (int i = 0; i < fieldCount; i++) {
+        Block[] outputBlocks = new Block[blockBuilders.length];
+        for (int i = 0; i < blockBuilders.length; i++) {
             if (nullRequired) {
-                outputBlocks[i] = blockBuilders[i].buildWithNulls(outputEntriesPerPosition, startPosition, batchSize, outputRowCount, arrayLengths);
+                outputBlocks[i] = blockBuilders[i].buildWithNulls(outputEntriesPerPosition, startPosition, inputBatchSize, outputRowCount, arrayLengths);
             }
             else {
                 outputBlocks[i] = blockBuilders[i].buildWithoutNulls(outputRowCount);
@@ -99,31 +91,10 @@ public class ArrayOfRowsUnnester
         return outputBlocks;
     }
 
-    private boolean needToInsertNulls(int offset, int inputBatchSize, int outputRowCount)
-    {
-        int start = columnarArray.getOffset(offset);
-        int end = columnarArray.getOffset(offset + inputBatchSize);
-        int totalLength = end - start;
-
-        if (totalLength < outputRowCount) {
-            return true;
-        }
-
-        if (columnarRow.mayHaveNull()) {
-            for (int i = start; i < end; i++) {
-                if (columnarRow.isNull(i)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
     @Override
     public long getRetainedSizeInBytes()
     {
-        // The lengths array in blockBuilders is the same object as in the unnester and doesn't need to be counted again.
+        // The lengths array in blockBuilders is the same object as in the unnester and does not need to be counted again.
         return INSTANCE_SIZE + sizeOf(arrayLengths);
     }
 }

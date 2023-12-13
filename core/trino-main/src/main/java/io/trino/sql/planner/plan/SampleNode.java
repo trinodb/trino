@@ -58,7 +58,7 @@ public class SampleNode
         super(id);
 
         checkArgument(sampleRatio >= 0.0, "sample ratio must be greater than or equal to 0");
-        checkArgument((sampleRatio <= 1.0), "sample ratio must be less than or equal to 1");
+        checkArgument(sampleRatio <= 1.0, "sample ratio must be less than or equal to 1");
 
         this.sampleType = requireNonNull(sampleType, "sampleType is null");
         this.source = requireNonNull(source, "source is null");

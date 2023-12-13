@@ -321,18 +321,9 @@ public class TracingAccessControl
     }
 
     @Override
-    public Set<String> filterColumns(SecurityContext context, CatalogSchemaTableName tableName, Set<String> columns)
-    {
-        Span span = startSpan("filterColumns");
-        try (var ignored = scopedSpan(span)) {
-            return delegate.filterColumns(context, tableName, columns);
-        }
-    }
-
-    @Override
     public Map<SchemaTableName, Set<String>> filterColumns(SecurityContext context, String catalogName, Map<SchemaTableName, Set<String>> tableColumns)
     {
-        Span span = startSpan("filterColumns bulk");
+        Span span = startSpan("filterColumns");
         try (var ignored = scopedSpan(span)) {
             return delegate.filterColumns(context, catalogName, tableColumns);
         }

@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -314,6 +315,32 @@ class ArbitraryDistributionSplitAssigner
         return assignment.build();
     }
 
+    @Override
+    public String toString()
+    {
+        return toStringHelper(this)
+                .add("catalogRequirement", catalogRequirement)
+                .add("partitionedSources", partitionedSources)
+                .add("replicatedSources", replicatedSources)
+                .add("allSources", allSources)
+                .add("adaptiveGrowthPeriod", adaptiveGrowthPeriod)
+                .add("adaptiveGrowthFactor", adaptiveGrowthFactor)
+                .add("minTargetPartitionSizeInBytes", minTargetPartitionSizeInBytes)
+                .add("maxTargetPartitionSizeInBytes", maxTargetPartitionSizeInBytes)
+                .add("standardSplitSizeInBytes", standardSplitSizeInBytes)
+                .add("maxTaskSplitCount", maxTaskSplitCount)
+                .add("nextPartitionId", nextPartitionId)
+                .add("adaptiveCounter", adaptiveCounter)
+                .add("targetPartitionSizeInBytes", targetPartitionSizeInBytes)
+                .add("roundedTargetPartitionSizeInBytes", roundedTargetPartitionSizeInBytes)
+                .add("allAssignments", allAssignments)
+                .add("openAssignments", openAssignments)
+                .add("completedSources", completedSources)
+                .add("replicatedSplits.size()", replicatedSplits.size())
+                .add("noMoreReplicatedSplits", noMoreReplicatedSplits)
+                .toString();
+    }
+
     private Optional<HostAddress> getHostRequirement(Split split)
     {
         if (split.getConnectorSplit().isRemotelyAccessible()) {
@@ -395,6 +422,17 @@ class ArbitraryDistributionSplitAssigner
         public void setFull(boolean full)
         {
             this.full = full;
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("partitionId", partitionId)
+                    .add("assignedDataSizeInBytes", assignedDataSizeInBytes)
+                    .add("assignedSplitCount", assignedSplitCount)
+                    .add("full", full)
+                    .toString();
         }
     }
 }

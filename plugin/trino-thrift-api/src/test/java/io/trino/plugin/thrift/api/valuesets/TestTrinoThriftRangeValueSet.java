@@ -20,7 +20,7 @@ import io.trino.plugin.thrift.api.valuesets.TrinoThriftRangeValueSet.TrinoThrift
 import io.trino.plugin.thrift.api.valuesets.TrinoThriftRangeValueSet.TrinoThriftRange;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.ValueSet;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.thrift.api.TrinoThriftBlock.bigintData;
 import static io.trino.plugin.thrift.api.valuesets.TrinoThriftRangeValueSet.TrinoThriftBound.ABOVE;
@@ -29,8 +29,7 @@ import static io.trino.plugin.thrift.api.valuesets.TrinoThriftRangeValueSet.Trin
 import static io.trino.plugin.thrift.api.valuesets.TrinoThriftValueSet.fromValueSet;
 import static io.trino.spi.predicate.Range.range;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTrinoThriftRangeValueSet
 {
@@ -38,8 +37,8 @@ public class TestTrinoThriftRangeValueSet
     public void testFromValueSetAll()
     {
         TrinoThriftValueSet thriftValueSet = fromValueSet(ValueSet.all(BIGINT));
-        assertNotNull(thriftValueSet.getRangeValueSet());
-        assertEquals(thriftValueSet.getRangeValueSet().getRanges(), ImmutableList.of(
+        assertThat(thriftValueSet.getRangeValueSet()).isNotNull();
+        assertThat(thriftValueSet.getRangeValueSet().getRanges()).isEqualTo(ImmutableList.of(
                 new TrinoThriftRange(new TrinoThriftMarker(null, ABOVE), new TrinoThriftMarker(null, BELOW))));
     }
 
@@ -47,16 +46,16 @@ public class TestTrinoThriftRangeValueSet
     public void testFromValueSetNone()
     {
         TrinoThriftValueSet thriftValueSet = fromValueSet(ValueSet.none(BIGINT));
-        assertNotNull(thriftValueSet.getRangeValueSet());
-        assertEquals(thriftValueSet.getRangeValueSet().getRanges(), ImmutableList.of());
+        assertThat(thriftValueSet.getRangeValueSet()).isNotNull();
+        assertThat(thriftValueSet.getRangeValueSet().getRanges()).isEqualTo(ImmutableList.of());
     }
 
     @Test
     public void testFromValueSetOf()
     {
         TrinoThriftValueSet thriftValueSet = fromValueSet(ValueSet.of(BIGINT, 1L, 2L, 3L));
-        assertNotNull(thriftValueSet.getRangeValueSet());
-        assertEquals(thriftValueSet.getRangeValueSet().getRanges(), ImmutableList.of(
+        assertThat(thriftValueSet.getRangeValueSet()).isNotNull();
+        assertThat(thriftValueSet.getRangeValueSet().getRanges()).isEqualTo(ImmutableList.of(
                 new TrinoThriftRange(new TrinoThriftMarker(longValue(1), EXACTLY), new TrinoThriftMarker(longValue(1), EXACTLY)),
                 new TrinoThriftRange(new TrinoThriftMarker(longValue(2), EXACTLY), new TrinoThriftMarker(longValue(2), EXACTLY)),
                 new TrinoThriftRange(new TrinoThriftMarker(longValue(3), EXACTLY), new TrinoThriftMarker(longValue(3), EXACTLY))));
@@ -66,8 +65,8 @@ public class TestTrinoThriftRangeValueSet
     public void testFromValueSetOfRangesUnbounded()
     {
         TrinoThriftValueSet thriftValueSet = fromValueSet(ValueSet.ofRanges(Range.greaterThanOrEqual(BIGINT, 0L)));
-        assertNotNull(thriftValueSet.getRangeValueSet());
-        assertEquals(thriftValueSet.getRangeValueSet().getRanges(), ImmutableList.of(
+        assertThat(thriftValueSet.getRangeValueSet()).isNotNull();
+        assertThat(thriftValueSet.getRangeValueSet().getRanges()).isEqualTo(ImmutableList.of(
                 new TrinoThriftRange(new TrinoThriftMarker(longValue(0), EXACTLY), new TrinoThriftMarker(null, BELOW))));
     }
 
@@ -77,8 +76,8 @@ public class TestTrinoThriftRangeValueSet
         TrinoThriftValueSet thriftValueSet = fromValueSet(ValueSet.ofRanges(
                 range(BIGINT, -10L, true, -1L, false),
                 range(BIGINT, -1L, false, 100L, true)));
-        assertNotNull(thriftValueSet.getRangeValueSet());
-        assertEquals(thriftValueSet.getRangeValueSet().getRanges(), ImmutableList.of(
+        assertThat(thriftValueSet.getRangeValueSet()).isNotNull();
+        assertThat(thriftValueSet.getRangeValueSet().getRanges()).isEqualTo(ImmutableList.of(
                 new TrinoThriftRange(new TrinoThriftMarker(longValue(-10), EXACTLY), new TrinoThriftMarker(longValue(-1), BELOW)),
                 new TrinoThriftRange(new TrinoThriftMarker(longValue(-1), ABOVE), new TrinoThriftMarker(longValue(100), EXACTLY))));
     }

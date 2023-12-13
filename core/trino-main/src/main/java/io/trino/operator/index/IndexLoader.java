@@ -344,7 +344,7 @@ public class IndexLoader
             }
 
             // Generate a RecordSet that presents unique index keys that have not been cached
-            UnloadedIndexKeyRecordSet indexKeysRecordSet = (lookupSourceInputChannels.equals(allInputChannels))
+            UnloadedIndexKeyRecordSet indexKeysRecordSet = lookupSourceInputChannels.equals(allInputChannels)
                     ? recordSetForLookupSource
                     : new UnloadedIndexKeyRecordSet(pipelineContext.getSession(), indexSnapshotReference.get(), allInputChannels, indexTypes, requests, joinCompiler);
 

@@ -14,7 +14,7 @@
 package io.trino.plugin.hive;
 
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.testing.TestingNames.randomNameSuffix;
 

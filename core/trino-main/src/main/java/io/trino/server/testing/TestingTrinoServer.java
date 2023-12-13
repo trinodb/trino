@@ -34,6 +34,8 @@ import io.airlift.http.server.testing.TestingHttpServerModule;
 import io.airlift.jaxrs.JaxrsModule;
 import io.airlift.jmx.testing.TestingJmxModule;
 import io.airlift.json.JsonModule;
+import io.airlift.log.Level;
+import io.airlift.log.Logging;
 import io.airlift.node.testing.TestingNodeModule;
 import io.airlift.openmetrics.JmxOpenMetricsModule;
 import io.airlift.tracetoken.TraceTokenModule;
@@ -116,20 +118,18 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.file.Path;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeoutException;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
+import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static java.lang.Integer.parseInt;
 import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.Files.isDirectory;
@@ -139,6 +139,11 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class TestingTrinoServer
         implements Closeable
 {
+    static {
+        Logging logging = Logging.initialize();
+        logging.setLevel("io.trino.event.QueryMonitor", Level.ERROR);
+    }
+
     private static final String VERSION = "testversion";
 
     public static TestingTrinoServer create()
@@ -255,6 +260,7 @@ public class TestingTrinoServer
 
         if (coordinator) {
             serverProperties.put("catalog.store", "memory");
+            serverProperties.put("failure-detector.enabled", "false");
 
             // Reduce memory footprint in tests
             serverProperties.put("query.min-expire-age", "5s");
@@ -396,7 +402,7 @@ public class TestingTrinoServer
         EventListenerManager eventListenerManager = injector.getInstance(EventListenerManager.class);
         eventListeners.forEach(eventListenerManager::addEventListener);
 
-        injector.getInstance(Announcer.class).forceAnnounce();
+        getFutureValue(injector.getInstance(Announcer.class).forceAnnounce());
 
         refreshNodes();
     }
@@ -668,18 +674,6 @@ public class TestingTrinoServer
         serviceSelectorManager.forceRefresh();
         nodeManager.refreshNodes();
         return nodeManager.getAllNodes();
-    }
-
-    public void waitForNodeRefresh(Duration timeout)
-            throws InterruptedException, TimeoutException
-    {
-        Instant start = Instant.now();
-        while (refreshNodes().getActiveNodes().size() < 1) {
-            if (Duration.between(start, Instant.now()).compareTo(timeout) > 0) {
-                throw new TimeoutException("Timed out while waiting for the node to refresh");
-            }
-            MILLISECONDS.sleep(10);
-        }
     }
 
     public <T> T getInstance(Key<T> key)

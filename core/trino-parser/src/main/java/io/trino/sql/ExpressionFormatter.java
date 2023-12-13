@@ -887,7 +887,7 @@ public final class ExpressionFormatter
             builder.append(switch (node.getWrapperBehavior()) {
                 case WITHOUT -> " WITHOUT ARRAY WRAPPER";
                 case CONDITIONAL -> " WITH CONDITIONAL ARRAY WRAPPER";
-                case UNCONDITIONAL -> (" WITH UNCONDITIONAL ARRAY WRAPPER");
+                case UNCONDITIONAL -> " WITH UNCONDITIONAL ARRAY WRAPPER";
             });
 
             if (node.getQuotesBehavior().isPresent()) {
@@ -1021,6 +1021,10 @@ public final class ExpressionFormatter
                         .append('(')
                         .append(formatOrderBy(node.getOrderBy().get()))
                         .append(')');
+            }
+
+            if (node.getFilter().isPresent()) {
+                builder.append(" FILTER ").append(visitFilter(node.getFilter().get(), null));
             }
 
             return builder.toString();

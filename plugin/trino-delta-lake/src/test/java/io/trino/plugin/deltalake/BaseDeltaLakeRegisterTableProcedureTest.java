@@ -46,7 +46,6 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertFalse;
 
 @TestInstance(PER_CLASS)
 public abstract class BaseDeltaLakeRegisterTableProcedureTest
@@ -110,7 +109,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
         // Drop table from metastore and use the table content to register a table
         metastore.dropTable(SCHEMA, tableName, false);
         // Verify that dropTableFromMetastore actually works
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
 
         assertQuerySucceeds(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, tableName, tableLocation));
         String showCreateTableNew = (String) computeScalar("SHOW CREATE TABLE " + tableName);

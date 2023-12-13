@@ -17,8 +17,7 @@ import io.trino.plugin.hive.coercions.CoercionUtils.CoercionContext;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.Type;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 
@@ -35,36 +34,29 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDateCoercer
 {
-    @Test(dataProvider = "validDateProvider")
-    public void testValidVarcharToDate(String date)
+    @Test
+    public void testValidVarcharToDate()
     {
-        assertVarcharToDateCoercion(createUnboundedVarcharType(), date);
+        assertVarcharToDateCoercion(createUnboundedVarcharType(), "+10000-04-13");
+        assertVarcharToDateCoercion(createUnboundedVarcharType(), "1900-01-01");
+        assertVarcharToDateCoercion(createUnboundedVarcharType(), "2000-01-01");
+        assertVarcharToDateCoercion(createUnboundedVarcharType(), "2023-03-12");
     }
 
-    @DataProvider
-    public static Object[][] validDateProvider()
+    @Test
+    public void testThrowsExceptionWhenStringIsNotAValidDate()
     {
-        return new Object[][] {
-                {"+10000-04-13"},
-                {"1900-01-01"},
-                {"2000-01-01"},
-                {"2023-03-12"}};
-    }
-
-    @Test(dataProvider = "invalidDateProvider")
-    public void testThrowsExceptionWhenStringIsNotAValidDate(String date)
-    {
-        assertThatThrownBy(() -> assertVarcharToDateCoercion(createUnboundedVarcharType(), date, null))
+        // hive would return 2023-02-09
+        assertThatThrownBy(() -> assertVarcharToDateCoercion(createUnboundedVarcharType(), "2023-01-40", null))
                 .hasMessageMatching(".*Invalid date value.*is not a valid date.*");
-    }
 
-    @DataProvider
-    public static Object[][] invalidDateProvider()
-    {
-        return new Object[][] {
-                {"2023-01-40"}, // hive would return 2023-02-09
-                {"2023-15-13"}, // hive would return 2024-03-13
-                {"invalidDate"}}; // hive would return null
+        // hive would return 2024-03-13
+        assertThatThrownBy(() -> assertVarcharToDateCoercion(createUnboundedVarcharType(), "2023-15-13", null))
+                .hasMessageMatching(".*Invalid date value.*is not a valid date.*");
+
+        // hive would return null
+        assertThatThrownBy(() -> assertVarcharToDateCoercion(createUnboundedVarcharType(), "invalidDate", null))
+                .hasMessageMatching(".*Invalid date value.*is not a valid date.*");
     }
 
     @Test

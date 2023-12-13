@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -28,8 +28,8 @@ import java.nio.file.Path;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static org.apache.kafka.common.security.auth.SecurityProtocol.SSL;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertNotNull;
 
 public class TestKafkaPlugin
 {
@@ -49,9 +49,10 @@ public class TestKafkaPlugin
                         .put("kafka.table-names", "test")
                         .put("kafka.nodes", "localhost:9092")
                         .put("kafka.config.resources", resource.toString())
+                        .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
                 new TestingConnectorContext());
-        assertNotNull(connector);
+        assertThat(connector).isNotNull();
         connector.shutdown();
     }
 
@@ -85,9 +86,10 @@ public class TestKafkaPlugin
                         .put("kafka.ssl.truststore.location", truststorePath.toString())
                         .put("kafka.ssl.truststore.password", "truststore-password")
                         .put("kafka.ssl.endpoint-identification-algorithm", "https")
+                        .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
                 new TestingConnectorContext());
-        assertNotNull(connector);
+        assertThat(connector).isNotNull();
         connector.shutdown();
     }
 
@@ -116,6 +118,7 @@ public class TestKafkaPlugin
                         .put("kafka.ssl.truststore.location", truststorePath.toString())
                         .put("kafka.ssl.truststore.password", "truststore-password")
                         .put("kafka.ssl.endpoint-identification-algorithm", "https")
+                        .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
                 new TestingConnectorContext()))
                 .hasMessageContaining("Error: Invalid configuration property kafka.ssl.keystore.location: file does not exist: /not/a/real/path");
@@ -146,6 +149,7 @@ public class TestKafkaPlugin
                         .put("kafka.ssl.truststore.location", "/not/a/real/path")
                         .put("kafka.ssl.truststore.password", "truststore-password")
                         .put("kafka.ssl.endpoint-identification-algorithm", "https")
+                        .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
                 new TestingConnectorContext()))
                 .hasMessageContaining("Error: Invalid configuration property kafka.ssl.truststore.location: file does not exist: /not/a/real/path");
@@ -166,6 +170,7 @@ public class TestKafkaPlugin
                         .put("kafka.nodes", "localhost:9092")
                         .put("kafka.security-protocol", "PLAINTEXT")
                         .put("kafka.config.resources", "/not/a/real/path/1,/not/a/real/path/2")
+                        .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
                 new TestingConnectorContext()))
                 .hasMessageContainingAll("Error: Invalid configuration property", ": file does not exist: /not/a/real/path/1", ": file does not exist: /not/a/real/path/2");
@@ -190,9 +195,10 @@ public class TestKafkaPlugin
                         .put("kafka.table-names", "test")
                         .put("kafka.nodes", "localhost:9092")
                         .put("kafka.config.resources", nativeKafkaResourcePath.toString())
+                        .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
                 new TestingConnectorContext());
-        assertNotNull(connector);
+        assertThat(connector).isNotNull();
         connector.shutdown();
     }
 

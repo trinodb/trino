@@ -13,14 +13,13 @@
  */
 package io.trino.plugin.base.util;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertTrue;
 
 public class TestClosables
 {
@@ -30,7 +29,7 @@ public class TestClosables
         RuntimeException rootException = new RuntimeException("root");
         TestClosable closable = new TestClosable(Optional.empty());
         closeAllSuppress(rootException, closable);
-        assertTrue(closable.isClosed());
+        assertThat(closable.isClosed()).isTrue();
         assertThat(rootException.getSuppressed()).isEmpty();
     }
 
@@ -41,7 +40,7 @@ public class TestClosables
         RuntimeException closeException = new RuntimeException("close");
         TestClosable closable = new TestClosable(Optional.of(closeException));
         closeAllSuppress(rootException, closable);
-        assertTrue(closable.isClosed());
+        assertThat(closable.isClosed()).isTrue();
         assertThat(rootException.getSuppressed()).containsExactly(closeException);
     }
 
@@ -51,7 +50,7 @@ public class TestClosables
         RuntimeException rootException = new RuntimeException("root");
         TestClosable closable = new TestClosable(Optional.of(rootException));
         closeAllSuppress(rootException, closable);
-        assertTrue(closable.isClosed());
+        assertThat(closable.isClosed()).isTrue();
         assertThat(rootException.getSuppressed()).isEmpty();
     }
 
@@ -74,10 +73,10 @@ public class TestClosables
         TestClosable closable3 = new TestClosable(Optional.empty()); // non throwing
         TestClosable closable4 = new TestClosable(Optional.of(rootException)); // throwing root
         closeAllSuppress(rootException, closable1, closable2, closable3, closable4, null);
-        assertTrue(closable1.isClosed());
-        assertTrue(closable2.isClosed());
-        assertTrue(closable3.isClosed());
-        assertTrue(closable4.isClosed());
+        assertThat(closable1.isClosed()).isTrue();
+        assertThat(closable2.isClosed()).isTrue();
+        assertThat(closable3.isClosed()).isTrue();
+        assertThat(closable4.isClosed()).isTrue();
         assertThat(rootException.getSuppressed()).containsExactly(closeException1, closeException2);
     }
 

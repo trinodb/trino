@@ -13,11 +13,11 @@
  */
 package io.trino.plugin.pinot.auth.password;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPinotPasswordAuthenticationProvider
 {
@@ -25,6 +25,6 @@ public class TestPinotPasswordAuthenticationProvider
     public void testAuthenticationToken()
     {
         PinotPasswordAuthenticationProvider underTest = new PinotPasswordAuthenticationProvider("admin", "verysecret");
-        assertEquals(underTest.getAuthenticationToken(), Optional.of("Basic YWRtaW46dmVyeXNlY3JldA=="));
+        assertThat(underTest.getAuthenticationToken()).isEqualTo(Optional.of("Basic YWRtaW46dmVyeXNlY3JldA=="));
     }
 }

@@ -15,6 +15,7 @@ package io.trino.spi;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import com.google.errorprone.annotations.DoNotCall;
 
 import java.math.BigDecimal;
 import java.util.Collection;
@@ -82,9 +83,10 @@ public final class SplitWeight
      * to avoid breakages that could arise if {@link SplitWeight#UNIT_VALUE} changes in the future.
      */
     @JsonCreator
+    @DoNotCall // For JSON serialization only
     public static SplitWeight fromRawValue(long value)
     {
-        return value == UNIT_VALUE ? STANDARD_WEIGHT : new SplitWeight(value);
+        return fromRawValueInternal(value);
     }
 
     /**
@@ -104,7 +106,12 @@ public final class SplitWeight
             throw new IllegalArgumentException("Invalid weight: " + weight);
         }
         // Must round up to avoid small weights rounding to 0
-        return fromRawValue((long) Math.ceil(weight * UNIT_VALUE));
+        return fromRawValueInternal((long) Math.ceil(weight * UNIT_VALUE));
+    }
+
+    private static SplitWeight fromRawValueInternal(long value)
+    {
+        return value == UNIT_VALUE ? STANDARD_WEIGHT : new SplitWeight(value);
     }
 
     public static SplitWeight standard()

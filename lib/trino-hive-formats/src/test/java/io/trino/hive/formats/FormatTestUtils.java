@@ -123,7 +123,7 @@ import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveO
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaTimestampObjectInspector;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.data.Offset.offset;
 
 public final class FormatTestUtils
 {
@@ -398,13 +398,13 @@ public final class FormatTestUtils
     public static void assertColumnValueEquals(Type type, Object actual, Object expected)
     {
         if (actual == null || expected == null) {
-            assertEquals(actual, expected);
+            assertThat(actual).isEqualTo(expected);
             return;
         }
         if (type instanceof ArrayType) {
             List<?> actualArray = (List<?>) actual;
             List<?> expectedArray = (List<?>) expected;
-            assertEquals(actualArray.size(), expectedArray.size());
+            assertThat(actualArray.size()).isEqualTo(expectedArray.size());
 
             Type elementType = type.getTypeParameters().get(0);
             for (int i = 0; i < actualArray.size(); i++) {
@@ -416,7 +416,7 @@ public final class FormatTestUtils
         else if (type instanceof MapType) {
             Map<?, ?> actualMap = (Map<?, ?>) actual;
             Map<?, ?> expectedMap = (Map<?, ?>) expected;
-            assertEquals(actualMap.size(), expectedMap.size());
+            assertThat(actualMap.size()).isEqualTo(expectedMap.size());
 
             Type keyType = type.getTypeParameters().get(0);
             Type valueType = type.getTypeParameters().get(1);
@@ -442,8 +442,8 @@ public final class FormatTestUtils
 
             List<?> actualRow = (List<?>) actual;
             List<?> expectedRow = (List<?>) expected;
-            assertEquals(actualRow.size(), fieldTypes.size());
-            assertEquals(actualRow.size(), expectedRow.size());
+            assertThat(actualRow.size()).isEqualTo(fieldTypes.size());
+            assertThat(actualRow.size()).isEqualTo(expectedRow.size());
 
             for (int fieldId = 0; fieldId < actualRow.size(); fieldId++) {
                 Type fieldType = fieldTypes.get(fieldId);
@@ -455,10 +455,11 @@ public final class FormatTestUtils
         else if (type.equals(DOUBLE)) {
             Double actualDouble = (Double) actual;
             Double expectedDouble = (Double) expected;
-            assertEquals(actualDouble, expectedDouble, 0.001);
+            assertThat(actualDouble)
+                    .isCloseTo(expectedDouble, offset(0.001));
         }
         else if (!Objects.equals(actual, expected)) {
-            assertEquals(actual, expected);
+            assertThat(actual).isEqualTo(expected);
         }
     }
 

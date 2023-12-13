@@ -18,6 +18,7 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.JdbcSqlExecutor;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Map;
@@ -26,7 +27,9 @@ import java.util.Properties;
 import static io.trino.plugin.jdbc.H2QueryRunner.createH2QueryRunner;
 import static io.trino.tpch.TpchTable.NATION;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
+@Execution(SAME_THREAD)
 public class TestJdbcFlushMetadataCacheProcedure
         extends AbstractTestQueryFramework
 {

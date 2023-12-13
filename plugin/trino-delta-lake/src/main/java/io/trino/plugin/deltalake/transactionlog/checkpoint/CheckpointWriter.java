@@ -52,6 +52,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -111,7 +112,14 @@ public class CheckpointWriter
         RowType metadataEntryType = checkpointSchemaManager.getMetadataEntryType();
         RowType protocolEntryType = checkpointSchemaManager.getProtocolEntryType(protocolEntry.getReaderFeatures().isPresent(), protocolEntry.getWriterFeatures().isPresent());
         RowType txnEntryType = checkpointSchemaManager.getTxnEntryType();
-        RowType addEntryType = checkpointSchemaManager.getAddEntryType(entries.getMetadataEntry(), entries.getProtocolEntry(), writeStatsAsJson, writeStatsAsStruct);
+        // TODO https://github.com/trinodb/trino/issues/19586 Add support for writing 'partitionValues_parsed' field
+        RowType addEntryType = checkpointSchemaManager.getAddEntryType(
+                entries.getMetadataEntry(),
+                entries.getProtocolEntry(),
+                alwaysTrue(),
+                writeStatsAsJson,
+                writeStatsAsStruct,
+                false);
         RowType removeEntryType = checkpointSchemaManager.getRemoveEntryType();
 
         List<String> columnNames = ImmutableList.of(

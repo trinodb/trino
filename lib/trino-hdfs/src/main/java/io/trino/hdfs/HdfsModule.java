@@ -21,6 +21,7 @@ import io.trino.hdfs.gcs.GcsStorageFactory;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class HdfsModule
         implements Module
@@ -32,6 +33,9 @@ public class HdfsModule
 
         binder.bind(HdfsConfiguration.class).to(DynamicHdfsConfiguration.class).in(Scopes.SINGLETON);
         binder.bind(HdfsEnvironment.class).in(Scopes.SINGLETON);
+
+        binder.bind(TrinoFileSystemCacheStats.class).toInstance(TrinoFileSystemCacheStats.instance());
+        newExporter(binder).export(TrinoFileSystemCacheStats.class).withGeneratedName();
 
         binder.bind(HdfsConfigurationInitializer.class).in(Scopes.SINGLETON);
         newSetBinder(binder, ConfigurationInitializer.class);

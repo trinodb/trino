@@ -36,8 +36,7 @@ import static io.trino.metadata.GlobalFunctionCatalog.builtinFunctionName;
 import static io.trino.spi.function.FunctionKind.SCALAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.lang.Integer.parseInt;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestResolvedFunction
 {
@@ -49,8 +48,8 @@ public class TestResolvedFunction
         ResolvedFunction resolvedFunction = createResolvedFunction("top", 3);
         ResolvedFunctionDecoder decoder = new ResolvedFunctionDecoder(TestResolvedFunction::varcharTypeLoader);
         Optional<ResolvedFunction> copy = decoder.fromQualifiedName(resolvedFunction.toQualifiedName());
-        assertTrue(copy.isPresent());
-        assertEquals(copy.get(), resolvedFunction);
+        assertThat(copy.isPresent()).isTrue();
+        assertThat(copy.get()).isEqualTo(resolvedFunction);
     }
 
     private static ResolvedFunction createResolvedFunction(String name, int depth)
@@ -80,7 +79,7 @@ public class TestResolvedFunction
     {
         Matcher matcher = VARCHAR_MATCHER.matcher(typeId.getId());
         boolean matches = matcher.matches();
-        assertTrue(matches);
+        assertThat(matches).isTrue();
         return createVarcharType(parseInt(matcher.group(1)));
     }
 }

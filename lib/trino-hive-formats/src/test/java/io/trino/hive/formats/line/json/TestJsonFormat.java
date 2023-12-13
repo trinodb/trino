@@ -37,6 +37,7 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.VarcharType;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.serde2.Deserializer;
 import org.apache.hadoop.hive.serde2.SerDeException;
 import org.apache.hadoop.hive.serde2.SerDeUtils;
@@ -44,8 +45,7 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.StructField;
 import org.apache.hadoop.hive.serde2.objectinspector.StructObjectInspector;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapred.JobConf;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -59,7 +59,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.hive.formats.FormatTestUtils.assertColumnValueEquals;
 import static io.trino.hive.formats.FormatTestUtils.createLineBuffer;
 import static io.trino.hive.formats.FormatTestUtils.decodeRecordReaderValue;
@@ -96,8 +95,8 @@ import static org.apache.hadoop.hive.serde.serdeConstants.LIST_COLUMNS;
 import static org.apache.hadoop.hive.serde.serdeConstants.LIST_COLUMN_TYPES;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.apache.hadoop.hive.serde2.SerDeUtils.escapeString;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertTrue;
 
 public class TestJsonFormat
 {
@@ -1011,7 +1010,7 @@ public class TestJsonFormat
     private static Deserializer createHiveDeserializer(List<Column> columns, List<String> timestampFormats, boolean hcatalog)
             throws SerDeException
     {
-        JobConf configuration = new JobConf(newEmptyConfiguration());
+        Configuration configuration = new Configuration(false);
 
         Properties schema = new Properties();
         schema.put(LIST_COLUMNS, columns.stream()
@@ -1101,7 +1100,7 @@ public class TestJsonFormat
 
     private static MapType toMapKeyType(Type type)
     {
-        assertTrue(isScalarType(type));
+        assertThat(isScalarType(type)).isTrue();
         return new MapType(type, BIGINT, TYPE_OPERATORS);
     }
 

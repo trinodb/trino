@@ -29,6 +29,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -41,12 +42,13 @@ import static io.trino.memory.TestMemoryManager.createQueryRunner;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestGracefulShutdown
 {
     private static final long SHUTDOWN_TIMEOUT_MILLIS = 240_000;
@@ -109,12 +111,12 @@ public class TestGracefulShutdown
 
             List<BasicQueryInfo> queryInfos = queryRunner.getCoordinator().getQueryManager().getQueries();
             for (BasicQueryInfo info : queryInfos) {
-                assertEquals(info.getState(), FINISHED);
+                assertThat(info.getState()).isEqualTo(FINISHED);
             }
 
             TestShutdownAction shutdownAction = (TestShutdownAction) worker.getShutdownAction();
             shutdownAction.waitForShutdownComplete(SHUTDOWN_TIMEOUT_MILLIS);
-            assertTrue(shutdownAction.isWorkerShutdown());
+            assertThat(shutdownAction.isWorkerShutdown()).isTrue();
         }
     }
 

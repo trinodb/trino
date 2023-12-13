@@ -25,7 +25,10 @@ public class TestFileBasedSystemAccessControl
     @Override
     protected SystemAccessControl newFileBasedSystemAccessControl(File configFile, Map<String, String> properties)
     {
-        return newFileBasedSystemAccessControl(ImmutableMap.<String, String>builder().putAll(properties).put("security.config-file",
-                configFile.getAbsolutePath()).buildOrThrow());
+        return newFileBasedSystemAccessControl(ImmutableMap.<String, String>builder()
+                .putAll(properties)
+                .put("security.config-file", configFile.getAbsolutePath())
+                .put("bootstrap.quiet", "true")
+                .buildOrThrow());
     }
 }

@@ -17,7 +17,7 @@ import io.trino.plugin.kafka.encoder.json.format.JsonDateTimeFormatter;
 import io.trino.spi.type.SqlTimestamp;
 import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.TimeZoneKey;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
@@ -25,7 +25,7 @@ import static io.trino.plugin.kafka.encoder.json.format.DateTimeFormat.RFC2822;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.trino.testing.DateTimeTestingUtils.sqlTimestampWithTimeZoneOf;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRFC2822JsonDateTimeFormatter
 {
@@ -37,13 +37,13 @@ public class TestRFC2822JsonDateTimeFormatter
     private static void testTimestamp(SqlTimestamp value, String expectedLiteral)
     {
         String actualLiteral = getFormatter().formatTimestamp(value);
-        assertEquals(actualLiteral, expectedLiteral);
+        assertThat(actualLiteral).isEqualTo(expectedLiteral);
     }
 
     private static void testTimestampWithTZ(SqlTimestampWithTimeZone value, String expectedLiteral)
     {
         String actualLiteral = getFormatter().formatTimestampWithZone(value);
-        assertEquals(actualLiteral, expectedLiteral);
+        assertThat(actualLiteral).isEqualTo(expectedLiteral);
     }
 
     @Test

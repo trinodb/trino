@@ -119,7 +119,7 @@ class DereferencePushdown
         }
 
         return (expression.getBase() instanceof SymbolReference) ||
-                ((expression.getBase() instanceof SubscriptExpression) && isRowSubscriptChain((SubscriptExpression) (expression.getBase()), session, typeAnalyzer, types));
+                ((expression.getBase() instanceof SubscriptExpression) && isRowSubscriptChain((SubscriptExpression) expression.getBase(), session, typeAnalyzer, types));
     }
 
     private static boolean prefixExists(Expression expression, Set<Expression> expressions)

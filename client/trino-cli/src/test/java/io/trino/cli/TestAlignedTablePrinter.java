@@ -31,7 +31,7 @@ import static io.trino.client.ClientStandardTypes.VARCHAR;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Arrays.asList;
 import static java.util.stream.Collectors.toMap;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestAlignedTablePrinter
 {
@@ -70,7 +70,7 @@ public class TestAlignedTablePrinter
                 " bye       | done  |      -15 \n" +
                 "(5 rows)\n";
 
-        assertEquals(writer.getBuffer().toString(), expected);
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 
     @Test
@@ -93,7 +93,7 @@ public class TestAlignedTablePrinter
                 " [68 65 6c 6c 6f] \n" +
                 "(1 row)\n";
 
-        assertEquals(writer.getBuffer().toString(), expected);
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 
     @Test
@@ -116,7 +116,7 @@ public class TestAlignedTablePrinter
                 " {key2=68 65 6c 6c 6f, key=68 65 6c 6c 6f} \n" +
                 "(1 row)\n";
 
-        assertEquals(writer.getBuffer().toString(), expected);
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 
     @Test
@@ -139,7 +139,7 @@ public class TestAlignedTablePrinter
                 " {68 65 6c 6c 6f=world} \n" +
                 "(1 row)\n";
 
-        assertEquals(writer.getBuffer().toString(), expected);
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 
     @Test
@@ -162,7 +162,7 @@ public class TestAlignedTablePrinter
                 " {key2={nested=68 65 6c 6c 6f}, key=[68 65 6c 6c 6f, NULL]} \n" +
                 "(1 row)\n";
 
-        assertEquals(writer.getBuffer().toString(), expected);
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 
     @Test
@@ -186,7 +186,7 @@ public class TestAlignedTablePrinter
                 " without wrapping |      \n" +
                 "(1 row)\n";
 
-        assertEquals(writer.getBuffer().toString(), expected);
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 
     @Test
@@ -207,7 +207,7 @@ public class TestAlignedTablePrinter
                 "-------+------\n" +
                 "(0 rows)\n";
 
-        assertEquals(writer.getBuffer().toString(), expected);
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 
     @Test
@@ -239,7 +239,7 @@ public class TestAlignedTablePrinter
                 " cat   |                                                 | dog   \n" +
                 "(3 rows)\n";
 
-        assertEquals(writer.getBuffer().toString(), expected);
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 
     @Test
@@ -272,7 +272,7 @@ public class TestAlignedTablePrinter
                 " bye        | done   |        -15 \n" +
                 "(3 rows)\n";
 
-        assertEquals(writer.getBuffer().toString(), expected);
+        assertThat(writer.getBuffer().toString()).isEqualTo(expected);
     }
 
     static Column column(String name, String type)

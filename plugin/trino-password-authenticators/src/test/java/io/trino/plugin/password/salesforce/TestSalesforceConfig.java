@@ -15,7 +15,7 @@ package io.trino.plugin.password.salesforce;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
@@ -23,7 +23,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static java.util.concurrent.TimeUnit.MINUTES;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSalesforceConfig
 {
@@ -65,8 +65,8 @@ public class TestSalesforceConfig
     {
         String orgs = "my18CharOrgId,your18CharOrgId, his18CharOrgId ,her18CharOrgId";
         int expected = (int) orgs.chars().filter(sep -> sep == ',').count() + 1;
-        int actual = (new SalesforceConfig()
-                .setAllowedOrganizations(orgs)).getOrgSet().size();
-        assertEquals(expected, actual);
+        int actual = new SalesforceConfig()
+                .setAllowedOrganizations(orgs).getOrgSet().size();
+        assertThat(expected).isEqualTo(actual);
     }
 }

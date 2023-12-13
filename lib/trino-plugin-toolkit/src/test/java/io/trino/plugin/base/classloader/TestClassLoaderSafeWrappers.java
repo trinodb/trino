@@ -27,7 +27,10 @@ import io.trino.spi.connector.RecordSet;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.function.table.ConnectorTableFunction;
-import org.testng.annotations.Test;
+import io.trino.spi.function.table.TableFunctionDataProcessor;
+import io.trino.spi.function.table.TableFunctionProcessorProvider;
+import io.trino.spi.function.table.TableFunctionSplitProcessor;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
 import java.util.Iterator;
@@ -36,7 +39,7 @@ import java.util.stream.Stream;
 
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static java.lang.String.format;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Fail.fail;
 
 public class TestClassLoaderSafeWrappers
 {
@@ -58,6 +61,9 @@ public class TestClassLoaderSafeWrappers
         testClassLoaderSafe(RecordSet.class, ClassLoaderSafeRecordSet.class);
         testClassLoaderSafe(EventListener.class, ClassLoaderSafeEventListener.class);
         testClassLoaderSafe(ConnectorTableFunction.class, ClassLoaderSafeConnectorTableFunction.class);
+        testClassLoaderSafe(TableFunctionSplitProcessor.class, ClassLoaderSafeTableFunctionSplitProcessor.class);
+        testClassLoaderSafe(TableFunctionDataProcessor.class, ClassLoaderSafeTableFunctionDataProcessor.class);
+        testClassLoaderSafe(TableFunctionProcessorProvider.class, ClassLoaderSafeTableFunctionProcessorProvider.class);
     }
 
     private static <I, C extends I> void testClassLoaderSafe(Class<I> iface, Class<C> clazz)

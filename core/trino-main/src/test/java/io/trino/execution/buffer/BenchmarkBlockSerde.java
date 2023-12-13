@@ -422,7 +422,7 @@ public class BenchmarkBlockSerde
         public void setup()
         {
             RowType type = RowType.anonymous(ImmutableList.of(BIGINT));
-            super.setup(type, (random -> BenchmarkDataGenerator.randomRow(type.getTypeParameters(), random)));
+            super.setup(type, random -> BenchmarkDataGenerator.randomRow(type.getTypeParameters(), random));
         }
     }
 

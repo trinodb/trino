@@ -28,7 +28,6 @@ import static io.airlift.units.Duration.nanosSince;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestResourceGroupIntegration
 {
@@ -59,10 +58,10 @@ public class TestResourceGroupIntegration
             queryRunner.execute(testSessionBuilder().setCatalog("tpch").setSchema("tiny").setSource("dashboard-foo").build(), "SELECT COUNT(*), clerk FROM orders GROUP BY clerk");
             List<ResourceGroupInfo> path = manager.tryGetPathToRoot(new ResourceGroupId(new ResourceGroupId(new ResourceGroupId("global"), "user-user"), "dashboard-user"))
                     .orElseThrow(() -> new IllegalStateException("Resource group not found"));
-            assertEquals(path.size(), 3);
+            assertThat(path.size()).isEqualTo(3);
             assertThat(path.get(1).getSubGroups()).isPresent();
-            assertEquals(path.get(2).getId(), new ResourceGroupId("global"));
-            assertEquals(path.get(2).getHardConcurrencyLimit(), 100);
+            assertThat(path.get(2).getId()).isEqualTo(new ResourceGroupId("global"));
+            assertThat(path.get(2).getHardConcurrencyLimit()).isEqualTo(100);
             assertThat(path.get(2).getRunningQueries()).isNotPresent();
         }
     }

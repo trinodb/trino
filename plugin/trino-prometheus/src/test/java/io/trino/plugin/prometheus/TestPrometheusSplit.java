@@ -28,9 +28,11 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import org.apache.http.NameValuePair;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.math.BigDecimal;
 import java.net.URI;
@@ -59,28 +61,23 @@ import static java.time.ZoneOffset.UTC;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.http.client.utils.URLEncodedUtils.parse;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotEquals;
-import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestPrometheusSplit
 {
-    private PrometheusHttpServer prometheusHttpServer;
+    private final PrometheusHttpServer prometheusHttpServer = new PrometheusHttpServer();
     private final PrometheusSplit split = new PrometheusSplit("http://127.0.0.1/test.file");
     private static final int NUMBER_MORE_THAN_EXPECTED_NUMBER_SPLITS = 100;
 
-    @BeforeClass
-    public void setUp()
-    {
-        prometheusHttpServer = new PrometheusHttpServer();
-    }
-
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         prometheusHttpServer.stop();
-        prometheusHttpServer = null;
     }
 
     @Test
@@ -88,23 +85,23 @@ public class TestPrometheusSplit
     {
         // http split with default port
         PrometheusSplit httpSplit = new PrometheusSplit("http://prometheus.com/prometheus");
-        assertEquals(httpSplit.getAddresses(), ImmutableList.of(HostAddress.fromString("prometheus.com")));
-        assertTrue(httpSplit.isRemotelyAccessible());
+        assertThat(httpSplit.getAddresses()).isEqualTo(ImmutableList.of(HostAddress.fromString("prometheus.com")));
+        assertThat(httpSplit.isRemotelyAccessible()).isTrue();
 
         // http split with custom port
         httpSplit = new PrometheusSplit("http://prometheus.com:8080/prometheus");
-        assertEquals(httpSplit.getAddresses(), ImmutableList.of(HostAddress.fromParts("prometheus.com", 8080)));
-        assertTrue(httpSplit.isRemotelyAccessible());
+        assertThat(httpSplit.getAddresses()).isEqualTo(ImmutableList.of(HostAddress.fromParts("prometheus.com", 8080)));
+        assertThat(httpSplit.isRemotelyAccessible()).isTrue();
 
         // http split with default port
         PrometheusSplit httpsSplit = new PrometheusSplit("https://prometheus.com/prometheus");
-        assertEquals(httpsSplit.getAddresses(), ImmutableList.of(HostAddress.fromString("prometheus.com")));
-        assertTrue(httpsSplit.isRemotelyAccessible());
+        assertThat(httpsSplit.getAddresses()).isEqualTo(ImmutableList.of(HostAddress.fromString("prometheus.com")));
+        assertThat(httpsSplit.isRemotelyAccessible()).isTrue();
 
         // http split with custom port
         httpsSplit = new PrometheusSplit("https://prometheus.com:8443/prometheus");
-        assertEquals(httpsSplit.getAddresses(), ImmutableList.of(HostAddress.fromParts("prometheus.com", 8443)));
-        assertTrue(httpsSplit.isRemotelyAccessible());
+        assertThat(httpsSplit.getAddresses()).isEqualTo(ImmutableList.of(HostAddress.fromParts("prometheus.com", 8443)));
+        assertThat(httpsSplit.isRemotelyAccessible()).isTrue();
     }
 
     @Test
@@ -113,10 +110,10 @@ public class TestPrometheusSplit
         JsonCodec<PrometheusSplit> codec = jsonCodec(PrometheusSplit.class);
         String json = codec.toJson(split);
         PrometheusSplit copy = codec.fromJson(json);
-        assertEquals(copy.getUri(), split.getUri());
+        assertThat(copy.getUri()).isEqualTo(split.getUri());
 
-        assertEquals(copy.getAddresses(), ImmutableList.of(HostAddress.fromString("127.0.0.1")));
-        assertTrue(copy.isRemotelyAccessible());
+        assertThat(copy.getAddresses()).isEqualTo(ImmutableList.of(HostAddress.fromString("127.0.0.1")));
+        assertThat(copy.isRemotelyAccessible()).isTrue();
     }
 
     @Test
@@ -139,9 +136,8 @@ public class TestPrometheusSplit
                 config.getMaxQueryRangeDuration().toMillis() +
                 config.getQueryChunkSizeDuration().toMillis() -
                 OFFSET_MILLIS * 20);
-        assertEquals(queryInSplit,
-                URI.create("http://doesnotmatter:9090/api/v1/query?query=up%20now[" + getQueryChunkSizeDurationAsPrometheusCompatibleDurationString(config) + "]" + "&time=" +
-                        timeShouldBe).getQuery());
+        assertThat(queryInSplit).isEqualTo(URI.create("http://doesnotmatter:9090/api/v1/query?query=up%20now[" + getQueryChunkSizeDurationAsPrometheusCompatibleDurationString(config) + "]" + "&time=" +
+                timeShouldBe).getQuery());
     }
 
     @Test
@@ -164,9 +160,8 @@ public class TestPrometheusSplit
                 config.getMaxQueryRangeDuration().toMillis() +
                 config.getQueryChunkSizeDuration().toMillis() -
                 OFFSET_MILLIS * 20);
-        assertEquals(queryInSplit,
-                URI.create("http://doesnotmatter:9090/api/v1/query?query=up[" + getQueryChunkSizeDurationAsPrometheusCompatibleDurationString(config) + "]" + "&time=" +
-                        timeShouldBe).getQuery());
+        assertThat(queryInSplit).isEqualTo(URI.create("http://doesnotmatter:9090/api/v1/query?query=up[" + getQueryChunkSizeDurationAsPrometheusCompatibleDurationString(config) + "]" + "&time=" +
+                timeShouldBe).getQuery());
     }
 
     @Test
@@ -191,7 +186,7 @@ public class TestPrometheusSplit
         URI uriAsFormed = URI.create("http://doesnotmatter:9090/api/v1/query?query=up[" +
                 getQueryChunkSizeDurationAsPrometheusCompatibleDurationString(config) + "]" +
                 "&time=" + timeShouldBe);
-        assertEquals(queryInSplit, uriAsFormed.getQuery());
+        assertThat(queryInSplit).isEqualTo(uriAsFormed.getQuery());
     }
 
     @Test
@@ -212,8 +207,8 @@ public class TestPrometheusSplit
         Map<String, String> paramsMap1 = parse(URI.create(split1.getUri()), StandardCharsets.UTF_8).stream().collect(Collectors.toMap(NameValuePair::getName, NameValuePair::getValue));
         PrometheusSplit split2 = (PrometheusSplit) splits.getNextBatch(1).getNow(null).getSplits().get(0);
         Map<String, String> paramsMap2 = parse(URI.create(split2.getUri()), StandardCharsets.UTF_8).stream().collect(Collectors.toMap(NameValuePair::getName, NameValuePair::getValue));
-        assertEquals(paramsMap1.get("query"), "up[1d]");
-        assertEquals(paramsMap2.get("query"), "up[1d]");
+        assertThat(paramsMap1).containsEntry("query", "up[1d]");
+        assertThat(paramsMap2).containsEntry("query", "up[1d]");
         long diff = Double.valueOf(paramsMap2.get("time")).longValue() - Double.valueOf(paramsMap1.get("time")).longValue();
         assertEquals(config.getQueryChunkSizeDuration().getValue(TimeUnit.SECONDS), diff, 0.0001);
     }
@@ -231,7 +226,7 @@ public class TestPrometheusSplit
                 maxQueryRangeDuration, queryChunkSizeDuration, prometheusTableHandle);
         List<String> expectedSplitTimes = ImmutableList.of(
                 "827199.998", "913599.999", "1000000");
-        assertEquals(splitTimes, expectedSplitTimes);
+        assertThat(splitTimes).isEqualTo(expectedSplitTimes);
     }
 
     @Test
@@ -245,7 +240,7 @@ public class TestPrometheusSplit
         List<String> splitTimes = PrometheusSplitManager.generateTimesForSplits(now, maxQueryRangeDuration, queryChunkSizeDuration, prometheusTableHandle);
         List<String> expectedSplitTimes = ImmutableList.of(
                 "827199.999", "1000000");
-        assertEquals(splitTimes, expectedSplitTimes);
+        assertThat(splitTimes).isEqualTo(expectedSplitTimes);
     }
 
     @Test
@@ -258,7 +253,7 @@ public class TestPrometheusSplit
         PrometheusTableHandle prometheusTableHandle = new PrometheusTableHandle("schemaName", "tableName");
         List<String> splitTimes = PrometheusSplitManager.generateTimesForSplits(now, maxQueryRangeDuration, queryChunkSizeDuration, prometheusTableHandle);
         List<String> promTimesReturned = mockPrometheusResponseToChunkedQueries(queryChunkSizeDuration, splitTimes);
-        assertEquals(promTimesReturned, convertMockTimesToStrings(promTimeValuesMock));
+        assertThat(promTimesReturned).isEqualTo(convertMockTimesToStrings(promTimeValuesMock));
     }
 
     @Test
@@ -271,28 +266,28 @@ public class TestPrometheusSplit
         PrometheusTableHandle prometheusTableHandle = new PrometheusTableHandle("schemaName", "tableName");
         List<String> splitTimes = PrometheusSplitManager.generateTimesForSplits(now, maxQueryRangeDuration, queryChunkSizeDuration, prometheusTableHandle);
         List<String> promTimesReturned = mockPrometheusResponseToChunkedQueries(queryChunkSizeDuration, splitTimes);
-        assertEquals(promTimesReturned, convertMockTimesToStrings(promTimeValuesMock));
+        assertThat(promTimesReturned).isEqualTo(convertMockTimesToStrings(promTimeValuesMock));
     }
 
     @Test
     public void testMockPrometheusResponseShouldBeCorrectWhenUpperBoundaryAlignsWithData()
     {
         List<Double> expectedResponse = ImmutableList.of(1568638142.0, 1568638157.0, 1568638171.999);
-        assertEquals(mockPrometheusResponseToQuery(new io.airlift.units.Duration(30, TimeUnit.SECONDS), "1568638171.999"), expectedResponse);
+        assertThat(mockPrometheusResponseToQuery(new io.airlift.units.Duration(30, SECONDS), "1568638171.999")).isEqualTo(expectedResponse);
     }
 
     @Test
     public void testMockPrometheusResponseShouldBeCorrectWhenLowerBoundaryAlignsWithData()
     {
         List<Double> expectedResponse = ImmutableList.of(1568638142.0, 1568638157.0, 1568638171.999);
-        assertEquals(mockPrometheusResponseToQuery(new io.airlift.units.Duration(30, TimeUnit.SECONDS), "1568638172."), expectedResponse);
+        assertThat(mockPrometheusResponseToQuery(new io.airlift.units.Duration(30, SECONDS), "1568638172.")).isEqualTo(expectedResponse);
     }
 
     @Test
     public void testMockPrometheusResponseShouldBeCorrectWhenLowerBoundaryLaterThanData()
     {
         List<Double> expectedResponse = ImmutableList.of(1568638157.0, 1568638171.999);
-        assertEquals(mockPrometheusResponseToQuery(new io.airlift.units.Duration(30, TimeUnit.SECONDS), "1568638172.001"), expectedResponse);
+        assertThat(mockPrometheusResponseToQuery(new io.airlift.units.Duration(30, SECONDS), "1568638172.001")).isEqualTo(expectedResponse);
     }
 
     @Test
@@ -300,7 +295,7 @@ public class TestPrometheusSplit
     {
         List<String> expectedResponse = ImmutableList.of("1568638112", "1568638126.997", "1568638142", "1568638157", "1568638171.999");
         List<String> splitTimes = ImmutableList.of("1568638141.999", "1568638172.");
-        assertEquals(mockPrometheusResponseToChunkedQueries(new io.airlift.units.Duration(30, TimeUnit.SECONDS), splitTimes), expectedResponse);
+        assertThat(mockPrometheusResponseToChunkedQueries(new io.airlift.units.Duration(30, SECONDS), splitTimes)).isEqualTo(expectedResponse);
     }
 
     @Test
@@ -313,10 +308,11 @@ public class TestPrometheusSplit
                 new PrometheusColumnHandle("timestamp", TIMESTAMP_COLUMN_TYPE, 2), testDomain));
         PrometheusPredicateTimeInfo predicateTimes = PrometheusSplitManager.determinePredicateTimes(testTupleDomain).orElseThrow();
         Instant expected = ofEpochMilli(1570460709643L);
-        assertEquals(predicateTimes.getPredicateLowerTimeBound().orElseThrow(), expected);
+        assertThat(predicateTimes.getPredicateLowerTimeBound().orElseThrow()).isEqualTo(expected);
     }
 
-    @Test(enabled = false)
+    @Test
+    @Disabled
     public void testPredicatePushDownSetsLowerBoundOnly()
     {
         long predicateLowValue = 1568638171999L - 600000L;
@@ -337,8 +333,9 @@ public class TestPrometheusSplit
         Instant earliestSplitAsTime = ofEpochMilli(longFromDecimalSecondString(earliestSplit));
         TemporalAmount queryChunkAsTime = java.time.Duration.ofMillis(queryChunkSizeDuration.toMillis());
         Instant startOfQuery = earliestSplitAsTime.minus(queryChunkAsTime);
-        assertNotEquals(startOfQuery, now.minus(maxQueryAsTime).minus(java.time.Duration.ofMillis((splitTimes.size() - 1) * OFFSET_MILLIS)));
-        assertEquals(startOfQuery.toEpochMilli(), ofEpochMilli(predicateLowValue).toEpochMilli() - ((splitTimes.size() - 1) * OFFSET_MILLIS));
+        assertThat(startOfQuery)
+                .isNotEqualTo(now.minus(maxQueryAsTime).minus(Duration.ofMillis((splitTimes.size() - 1) * OFFSET_MILLIS)));
+        assertThat(startOfQuery.toEpochMilli()).isEqualTo(ofEpochMilli(predicateLowValue).toEpochMilli() - ((splitTimes.size() - 1) * OFFSET_MILLIS));
     }
 
     @Test
@@ -369,8 +366,8 @@ public class TestPrometheusSplit
         java.time.Duration actualMaxDuration = Duration.between(earliestSplitAsTime
                 .minus(queryChunkAsTime), lastSplitAsTime);
 
-        assertEquals(lastSplitAsTime.toEpochMilli(), 1568638171999L);
-        assertEquals(actualMaxDuration, expectedMaxQueryAsTime);
+        assertThat(lastSplitAsTime.toEpochMilli()).isEqualTo(1568638171999L);
+        assertThat(actualMaxDuration).isEqualTo(expectedMaxQueryAsTime);
     }
 
     @Test
@@ -403,8 +400,8 @@ public class TestPrometheusSplit
         java.time.Duration actualMaxDuration = Duration.between(earliestSplitAsTime
                 .minus(queryChunkAsTime), lastSplitAsTime);
 
-        assertEquals(lastSplitAsTime.toEpochMilli(), 1568638171999L);
-        assertEquals(actualMaxDuration, expectedMaxQueryAsTime);
+        assertThat(lastSplitAsTime.toEpochMilli()).isEqualTo(1568638171999L);
+        assertThat(actualMaxDuration).isEqualTo(expectedMaxQueryAsTime);
     }
 
     @Test
@@ -422,8 +419,9 @@ public class TestPrometheusSplit
         Instant earliestSplitAsTime = ofEpochMilli(longFromDecimalSecondString(earliestSplit));
         TemporalAmount queryChunkAsTime = java.time.Duration.ofMillis(queryChunkSizeDuration.toMillis());
         Instant startOfQuery = earliestSplitAsTime.minus(queryChunkAsTime);
-        assertEquals(startOfQuery, now.minus(maxQueryAsTime).minus(java.time.Duration.ofMillis((splitTimes.size() - 1) * OFFSET_MILLIS)));
-        assertNotEquals(startOfQuery.toEpochMilli(), ofEpochMilli(predicateLowValue).toEpochMilli());
+        assertThat(startOfQuery).isEqualTo(now.minus(maxQueryAsTime).minus(Duration.ofMillis((splitTimes.size() - 1) * OFFSET_MILLIS)));
+        assertThat(startOfQuery.toEpochMilli())
+                .isNotEqualTo(ofEpochMilli(predicateLowValue).toEpochMilli());
     }
 
     /**

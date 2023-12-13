@@ -52,6 +52,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
@@ -61,7 +62,7 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public class OrcFileWriter
+public final class OrcFileWriter
         implements FileWriter
 {
     private static final Logger log = Logger.get(OrcFileWriter.class);
@@ -150,23 +151,21 @@ public class OrcFileWriter
     public void appendRows(Page dataPage)
     {
         Block[] blocks = new Block[fileInputColumnIndexes.length];
-        boolean[] nullBlocksArray = new boolean[fileInputColumnIndexes.length];
-        boolean hasNullBlocks = false;
+        boolean hasUnwrittenColumn = false;
         int positionCount = dataPage.getPositionCount();
         for (int i = 0; i < fileInputColumnIndexes.length; i++) {
             int inputColumnIndex = fileInputColumnIndexes[i];
             if (inputColumnIndex < 0) {
-                hasNullBlocks = true;
                 blocks[i] = RunLengthEncodedBlock.create(nullBlocks.get(i), positionCount);
+                hasUnwrittenColumn = true;
             }
             else {
                 blocks[i] = dataPage.getBlock(inputColumnIndex);
             }
-            nullBlocksArray[i] = inputColumnIndex < 0;
         }
         if (transaction.isInsert() && useAcidSchema) {
-            Optional<boolean[]> nullBlocks = hasNullBlocks ? Optional.of(nullBlocksArray) : Optional.empty();
-            Block rowBlock = RowBlock.fromFieldBlocks(positionCount, nullBlocks, blocks);
+            verify(!hasUnwrittenColumn, "Unwritten columns are not supported for ACID transactional insert");
+            Block rowBlock = RowBlock.fromFieldBlocks(positionCount, blocks);
             blocks = buildAcidColumns(rowBlock, transaction);
         }
         Page page = new Page(dataPage.getPositionCount(), blocks);
@@ -183,7 +182,7 @@ public class OrcFileWriter
     {
         try {
             if (transaction.isAcidTransactionRunning() && useAcidSchema) {
-                updateUserMetadata();
+                updateAcidUserMetadata();
             }
             orcWriter.close();
         }
@@ -214,28 +213,26 @@ public class OrcFileWriter
         return rollbackAction;
     }
 
-    private void updateUserMetadata()
+    private void updateAcidUserMetadata()
     {
         int bucketValue = computeBucketValue(bucketNumber.orElse(0), 0);
         long writeId = maxWriteId.isPresent() ? maxWriteId.getAsLong() : transaction.getWriteId();
-        if (transaction.isAcidTransactionRunning()) {
-            int stripeRowCount = orcWriter.getStripeRowCount();
-            Map<String, String> userMetadata = new HashMap<>();
-            switch (writerKind) {
-                case INSERT:
-                    userMetadata.put("hive.acid.stats", format("%s,0,0", stripeRowCount));
-                    break;
-                case DELETE:
-                    userMetadata.put("hive.acid.stats", format("0,0,%s", stripeRowCount));
-                    break;
-                default:
-                    throw new IllegalStateException("In updateUserMetadata, unknown writerKind " + writerKind);
-            }
-            userMetadata.put("hive.acid.key.index", format("%s,%s,%s;", writeId, bucketValue, stripeRowCount - 1));
-            userMetadata.put("hive.acid.version", "2");
-
-            orcWriter.updateUserMetadata(userMetadata);
+        int stripeRowCount = orcWriter.getStripeRowCount();
+        Map<String, String> userMetadata = new HashMap<>();
+        switch (writerKind) {
+            case INSERT:
+                userMetadata.put("hive.acid.stats", format("%s,0,0", stripeRowCount));
+                break;
+            case DELETE:
+                userMetadata.put("hive.acid.stats", format("0,0,%s", stripeRowCount));
+                break;
+            default:
+                throw new IllegalStateException("In updateUserMetadata, unknown writerKind " + writerKind);
         }
+        userMetadata.put("hive.acid.key.index", format("%s,%s,%s;", writeId, bucketValue, stripeRowCount - 1));
+        userMetadata.put("hive.acid.version", "2");
+
+        orcWriter.updateUserMetadata(userMetadata);
     }
 
     @Override

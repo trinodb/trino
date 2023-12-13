@@ -21,6 +21,7 @@ import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.glue.GlueMetastoreStats;
 import io.trino.plugin.iceberg.IcebergConfig;
+import io.trino.plugin.iceberg.IcebergSecurityConfig;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalog;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
@@ -31,6 +32,7 @@ import org.weakref.jmx.Managed;
 
 import java.util.Optional;
 
+import static io.trino.plugin.iceberg.IcebergSecurityConfig.IcebergSecurity.SYSTEM;
 import static java.util.Objects.requireNonNull;
 
 public class TrinoGlueCatalogFactory
@@ -45,7 +47,9 @@ public class TrinoGlueCatalogFactory
     private final Optional<String> defaultSchemaLocation;
     private final AWSGlueAsync glueClient;
     private final boolean isUniqueTableLocation;
+    private final boolean hideMaterializedViewStorageTable;
     private final GlueMetastoreStats stats;
+    private final boolean isUsingSystemSecurity;
 
     @Inject
     public TrinoGlueCatalogFactory(
@@ -57,6 +61,7 @@ public class TrinoGlueCatalogFactory
             GlueHiveMetastoreConfig glueConfig,
             IcebergConfig icebergConfig,
             IcebergGlueCatalogConfig catalogConfig,
+            IcebergSecurityConfig securityConfig,
             GlueMetastoreStats stats,
             AWSGlueAsync glueClient)
     {
@@ -69,7 +74,9 @@ public class TrinoGlueCatalogFactory
         this.defaultSchemaLocation = glueConfig.getDefaultWarehouseDir();
         this.glueClient = requireNonNull(glueClient, "glueClient is null");
         this.isUniqueTableLocation = icebergConfig.isUniqueTableLocation();
+        this.hideMaterializedViewStorageTable = icebergConfig.isHideMaterializedViewStorageTable();
         this.stats = requireNonNull(stats, "stats is null");
+        this.isUsingSystemSecurity = securityConfig.getSecuritySystem() == SYSTEM;
     }
 
     @Managed
@@ -91,7 +98,9 @@ public class TrinoGlueCatalogFactory
                 trinoVersion,
                 glueClient,
                 stats,
+                isUsingSystemSecurity,
                 defaultSchemaLocation,
-                isUniqueTableLocation);
+                isUniqueTableLocation,
+                hideMaterializedViewStorageTable);
     }
 }

@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 
 import static java.nio.charset.StandardCharsets.US_ASCII;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveDecimalParser
 {
@@ -54,6 +54,6 @@ public class TestHiveDecimalParser
     {
         byte[] bytes = input.getBytes(US_ASCII);
         BigDecimal parsed = HiveDecimalParser.parseHiveDecimal(bytes, 0, bytes.length, DecimalType.createDecimalType(precision, scale));
-        assertEquals(parsed, expected);
+        assertThat(parsed).isEqualTo(expected);
     }
 }

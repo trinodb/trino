@@ -14,6 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ticker;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheStats;
 import com.google.common.collect.ImmutableMap;
@@ -66,7 +67,6 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.cache.CacheUtils.invalidateAllIf;
-import static io.trino.plugin.jdbc.BaseJdbcConfig.CACHING_DISABLED;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -97,41 +97,27 @@ public class CachingJdbcClient
             BaseJdbcConfig config)
     {
         this(
+                Ticker.systemTicker(),
                 delegate,
                 sessionPropertiesProviders,
                 identityMapping,
                 config.getMetadataCacheTtl(),
                 config.getSchemaNamesCacheTtl(),
                 config.getTableNamesCacheTtl(),
+                config.getStatisticsCacheTtl(),
                 config.isCacheMissing(),
                 config.getCacheMaximumSize());
     }
 
     public CachingJdbcClient(
-            JdbcClient delegate,
-            Set<SessionPropertiesProvider> sessionPropertiesProviders,
-            IdentityCacheMapping identityMapping,
-            Duration metadataCachingTtl,
-            boolean cacheMissing,
-            long cacheMaximumSize)
-    {
-        this(delegate,
-                sessionPropertiesProviders,
-                identityMapping,
-                metadataCachingTtl,
-                metadataCachingTtl,
-                metadataCachingTtl,
-                cacheMissing,
-                cacheMaximumSize);
-    }
-
-    public CachingJdbcClient(
+            Ticker ticker,
             JdbcClient delegate,
             Set<SessionPropertiesProvider> sessionPropertiesProviders,
             IdentityCacheMapping identityMapping,
             Duration metadataCachingTtl,
             Duration schemaNamesCachingTtl,
             Duration tableNamesCachingTtl,
+            Duration statisticsCachingTtl,
             boolean cacheMissing,
             long cacheMaximumSize)
     {
@@ -142,23 +128,19 @@ public class CachingJdbcClient
         this.cacheMissing = cacheMissing;
         this.identityMapping = requireNonNull(identityMapping, "identityMapping is null");
 
-        long cacheSize = metadataCachingTtl.equals(CACHING_DISABLED)
-                // Disables the cache entirely
-                ? 0
-                : cacheMaximumSize;
-
-        schemaNamesCache = buildCache(cacheSize, schemaNamesCachingTtl);
-        tableNamesCache = buildCache(cacheSize, tableNamesCachingTtl);
-        tableHandlesByNameCache = buildCache(cacheSize, metadataCachingTtl);
-        tableHandlesByQueryCache = buildCache(cacheSize, metadataCachingTtl);
-        procedureHandlesByQueryCache = buildCache(cacheSize, metadataCachingTtl);
-        columnsCache = buildCache(cacheSize, metadataCachingTtl);
-        statisticsCache = buildCache(cacheSize, metadataCachingTtl);
+        schemaNamesCache = buildCache(ticker, cacheMaximumSize, schemaNamesCachingTtl);
+        tableNamesCache = buildCache(ticker, cacheMaximumSize, tableNamesCachingTtl);
+        tableHandlesByNameCache = buildCache(ticker, cacheMaximumSize, metadataCachingTtl);
+        tableHandlesByQueryCache = buildCache(ticker, cacheMaximumSize, metadataCachingTtl);
+        procedureHandlesByQueryCache = buildCache(ticker, cacheMaximumSize, metadataCachingTtl);
+        columnsCache = buildCache(ticker, cacheMaximumSize, metadataCachingTtl);
+        statisticsCache = buildCache(ticker, cacheMaximumSize, statisticsCachingTtl);
     }
 
-    private static <K, V> Cache<K, V> buildCache(long cacheSize, Duration cachingTtl)
+    private static <K, V> Cache<K, V> buildCache(Ticker ticker, long cacheSize, Duration cachingTtl)
     {
         return EvictableCacheBuilder.newBuilder()
+                .ticker(ticker)
                 .maximumSize(cacheSize)
                 .expireAfterWrite(cachingTtl.toMillis(), MILLISECONDS)
                 .shareNothingWhenDisabled()
@@ -576,6 +558,12 @@ public class CachingJdbcClient
     public OptionalInt getMaxWriteParallelism(ConnectorSession session)
     {
         return delegate.getMaxWriteParallelism(session);
+    }
+
+    @Override
+    public OptionalInt getMaxColumnNameLength(ConnectorSession session)
+    {
+        return delegate.getMaxColumnNameLength(session);
     }
 
     public void onDataChanged(SchemaTableName table)

@@ -16,7 +16,7 @@ package io.trino.plugin.hive;
 import io.trino.spi.connector.SchemaTableName;
 import org.junit.jupiter.api.Test;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTableOfflineException
 {
@@ -34,6 +34,6 @@ public class TestTableOfflineException
     private static void assertMessage(SchemaTableName tableName, boolean forPresto, String offlineMessage, String expectedMessage)
     {
         TableOfflineException tableOfflineException = new TableOfflineException(tableName, forPresto, offlineMessage);
-        assertEquals(tableOfflineException.getMessage(), expectedMessage);
+        assertThat(tableOfflineException.getMessage()).isEqualTo(expectedMessage);
     }
 }

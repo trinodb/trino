@@ -36,7 +36,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestPageSplitterUtil
 {
@@ -71,7 +70,7 @@ public class TestPageSplitterUtil
         for (Page page : pages) {
             totalPositionCount += page.getPositionCount();
         }
-        assertEquals(totalPositionCount, positionCount);
+        assertThat(totalPositionCount).isEqualTo(positionCount);
     }
 
     @Test
@@ -90,7 +89,7 @@ public class TestPageSplitterUtil
 
         // the page should only be split in half as the recursion should terminate
         // after seeing that the size of the Page doesn't decrease
-        assertEquals(pages.size(), 2);
+        assertThat(pages.size()).isEqualTo(2);
         Page first = pages.get(0);
         Page second = pages.get(1);
 

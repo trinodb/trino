@@ -20,15 +20,17 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.kafka.TestingKafka;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.stream.LongStream;
 
 import static io.trino.plugin.kafka.util.TestUtils.createEmptyTopicDescription;
 import static java.util.UUID.randomUUID;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@Execution(SAME_THREAD)
 public class TestMinimalFunctionality
         extends AbstractTestQueryFramework
 {
@@ -52,7 +54,7 @@ public class TestMinimalFunctionality
     @Test
     public void testTopicExists()
     {
-        assertTrue(getQueryRunner().listTables(getSession(), "kafka", "default").contains(QualifiedObjectName.valueOf("kafka.default." + topicName)));
+        assertThat(getQueryRunner().listTables(getSession(), "kafka", "default")).contains(QualifiedObjectName.valueOf("kafka.default." + topicName));
     }
 
     @Test

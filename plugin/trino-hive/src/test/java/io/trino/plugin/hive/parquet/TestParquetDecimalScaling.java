@@ -55,9 +55,10 @@ import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.transform;
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.parquet.TestParquetDecimalScaling.ParquetDecimalInsert.maximumValue;
 import static io.trino.plugin.hive.parquet.TestParquetDecimalScaling.ParquetDecimalInsert.minimumValue;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
+import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
 import static io.trino.spi.type.Decimals.overflows;
 import static io.trino.testing.DataProviders.cartesianProduct;
 import static io.trino.testing.DataProviders.toDataProvider;
@@ -450,7 +451,7 @@ public class TestParquetDecimalScaling
     {
         Properties tableProperties = createTableProperties(columnNames, Collections.singletonList(inspector));
 
-        JobConf jobConf = new JobConf(newEmptyConfiguration());
+        JobConf jobConf = new JobConf(false);
         jobConf.setEnum(COMPRESSION, UNCOMPRESSED);
         jobConf.setBoolean(ENABLE_DICTIONARY, false);
         jobConf.setEnum(WRITER_VERSION, writerVersion);
@@ -507,8 +508,8 @@ public class TestParquetDecimalScaling
     private static Properties createTableProperties(List<String> columnNames, List<ObjectInspector> objectInspectors)
     {
         Properties tableProperties = new Properties();
-        tableProperties.setProperty("columns", Joiner.on(',').join(columnNames));
-        tableProperties.setProperty("columns.types", Joiner.on(',').join(transform(objectInspectors, ObjectInspector::getTypeName)));
+        tableProperties.setProperty(LIST_COLUMNS, Joiner.on(',').join(columnNames));
+        tableProperties.setProperty(LIST_COLUMN_TYPES, Joiner.on(',').join(transform(objectInspectors, ObjectInspector::getTypeName)));
         return tableProperties;
     }
 

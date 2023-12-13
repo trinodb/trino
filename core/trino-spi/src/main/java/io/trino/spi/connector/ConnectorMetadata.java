@@ -62,6 +62,7 @@ import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.UNSUPPORTED_TABLE_TYPE;
 import static io.trino.spi.connector.SaveMode.IGNORE;
 import static io.trino.spi.connector.SaveMode.REPLACE;
@@ -283,6 +284,28 @@ public interface ConnectorMetadata
     }
 
     /**
+     * List table, view and materialized view names, possibly filtered by schema.
+     */
+    default Map<SchemaTableName, RelationType> getRelationTypes(ConnectorSession session, Optional<String> schemaName)
+    {
+        Set<SchemaTableName> materializedViews = Set.copyOf(listMaterializedViews(session, schemaName));
+        Set<SchemaTableName> views = Set.copyOf(listViews(session, schemaName));
+
+        return listTables(session, schemaName).stream()
+                .collect(toMap(
+                        identity(),
+                        relation -> {
+                            if (materializedViews.contains(relation)) {
+                                return RelationType.MATERIALIZED_VIEW;
+                            }
+                            if (views.contains(relation)) {
+                                return RelationType.VIEW;
+                            }
+                            return RelationType.TABLE;
+                        }));
+    }
+
+    /**
      * Gets all of the columns on the specified table, or an empty map if the columns cannot be enumerated.
      *
      * @throws RuntimeException if table handle is no longer valid
@@ -409,6 +432,7 @@ public interface ConnectorMetadata
                             ErrorCode errorCode = trinoException.getErrorCode();
                             silent = errorCode.equals(UNSUPPORTED_TABLE_TYPE.toErrorCode()) ||
                                     // e.g. table deleted concurrently
+                                    errorCode.equals(TABLE_NOT_FOUND.toErrorCode()) ||
                                     errorCode.equals(NOT_FOUND.toErrorCode()) ||
                                     // e.g. Iceberg/Delta table being deleted concurrently resulting in failure to load metadata from filesystem
                                     errorCode.getType() == EXTERNAL;

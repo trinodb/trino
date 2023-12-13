@@ -28,9 +28,11 @@ import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.config.RegisterArgumentFactory;
 import org.jdbi.v3.sqlobject.statement.GetGeneratedKeys;
 import org.jdbi.v3.sqlobject.statement.SqlUpdate;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.io.IOException;
@@ -53,11 +55,12 @@ import static java.util.Arrays.asList;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestShardCleaner
 {
     private Jdbi dbi;
@@ -68,7 +71,7 @@ public class TestShardCleaner
     private TestingTicker ticker;
     private ShardCleaner cleaner;
 
-    @BeforeMethod
+    @BeforeEach
     public void setup()
             throws IOException
     {
@@ -105,7 +108,7 @@ public class TestShardCleaner
                 config.getMaxCompletedTransactionAge());
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void teardown()
             throws IOException
     {
@@ -128,7 +131,7 @@ public class TestShardCleaner
         long txn3 = dao.insertTransaction(new Timestamp(now));
 
         ShardDao shardDao = dbi.onDemand(ShardDao.class);
-        assertEquals(shardDao.finalizeTransaction(txn1, true), 1);
+        assertThat(shardDao.finalizeTransaction(txn1, true)).isEqualTo(1);
 
         assertQuery("SELECT transaction_id, successful FROM transactions",
                 row(txn1, true),
@@ -146,7 +149,7 @@ public class TestShardCleaner
     @Test
     public void testDeleteOldShards()
     {
-        assertEquals(cleaner.getBackupShardsQueued().getTotalCount(), 0);
+        assertThat(cleaner.getBackupShardsQueued().getTotalCount()).isEqualTo(0);
 
         ShardDao dao = dbi.onDemand(ShardDao.class);
 
@@ -156,7 +159,7 @@ public class TestShardCleaner
 
         // shards for failed transaction
         long txn1 = dao.insertTransaction();
-        assertEquals(dao.finalizeTransaction(txn1, false), 1);
+        assertThat(dao.finalizeTransaction(txn1, false)).isEqualTo(1);
 
         dao.insertCreatedShard(shard1, txn1);
         dao.insertCreatedShard(shard2, txn1);
@@ -177,7 +180,7 @@ public class TestShardCleaner
         // move shards for failed transaction to deleted
         cleaner.deleteOldShards();
 
-        assertEquals(cleaner.getBackupShardsQueued().getTotalCount(), 2);
+        assertThat(cleaner.getBackupShardsQueued().getTotalCount()).isEqualTo(2);
 
         // verify database
         assertQuery("SELECT shard_uuid, transaction_id FROM created_shards",
@@ -192,7 +195,7 @@ public class TestShardCleaner
     public void testCleanLocalShardsImmediately()
             throws Exception
     {
-        assertEquals(cleaner.getLocalShardsCleaned().getTotalCount(), 0);
+        assertThat(cleaner.getLocalShardsCleaned().getTotalCount()).isEqualTo(0);
         TestingShardDao shardDao = dbi.onDemand(TestingShardDao.class);
         MetadataDao metadataDao = dbi.onDemand(MetadataDao.class);
 
@@ -207,7 +210,7 @@ public class TestShardCleaner
         for (UUID shard : shards) {
             shardDao.insertShard(shard, tableId, null, 0, 0, 0, 0);
             createShardFile(shard);
-            assertTrue(shardFileExists(shard));
+            assertThat(shardFileExists(shard)).isTrue();
         }
 
         int node1 = shardDao.insertNode("node1");
@@ -224,20 +227,20 @@ public class TestShardCleaner
         Set<UUID> local = cleaner.getLocalShards();
         cleaner.cleanLocalShardsImmediately(local);
 
-        assertEquals(cleaner.getLocalShardsCleaned().getTotalCount(), 2);
+        assertThat(cleaner.getLocalShardsCleaned().getTotalCount()).isEqualTo(2);
 
         // shards 2 and 3 should be deleted
         // shard 1 is referenced by this node
-        assertTrue(shardFileExists(shard1));
-        assertFalse(shardFileExists(shard2));
-        assertFalse(shardFileExists(shard3));
+        assertThat(shardFileExists(shard1)).isTrue();
+        assertThat(shardFileExists(shard2)).isFalse();
+        assertThat(shardFileExists(shard3)).isFalse();
     }
 
     @Test
     public void testCleanLocalShards()
             throws Exception
     {
-        assertEquals(cleaner.getLocalShardsCleaned().getTotalCount(), 0);
+        assertThat(cleaner.getLocalShardsCleaned().getTotalCount()).isEqualTo(0);
 
         TestingShardDao shardDao = dbi.onDemand(TestingShardDao.class);
         MetadataDao metadataDao = dbi.onDemand(MetadataDao.class);
@@ -254,7 +257,7 @@ public class TestShardCleaner
         for (UUID shard : shards) {
             shardDao.insertShard(shard, tableId, null, 0, 0, 0, 0);
             createShardFile(shard);
-            assertTrue(shardFileExists(shard));
+            assertThat(shardFileExists(shard)).isTrue();
         }
 
         int node1 = shardDao.insertNode("node1");
@@ -271,11 +274,11 @@ public class TestShardCleaner
         // mark unreferenced shards
         cleaner.cleanLocalShards();
 
-        assertEquals(cleaner.getLocalShardsCleaned().getTotalCount(), 0);
+        assertThat(cleaner.getLocalShardsCleaned().getTotalCount()).isEqualTo(0);
 
         // make sure nothing is deleted
         for (UUID shard : shards) {
-            assertTrue(shardFileExists(shard));
+            assertThat(shardFileExists(shard)).isTrue();
         }
 
         // add reference for shard 3
@@ -288,21 +291,21 @@ public class TestShardCleaner
         // clean shards
         cleaner.cleanLocalShards();
 
-        assertEquals(cleaner.getLocalShardsCleaned().getTotalCount(), 2);
+        assertThat(cleaner.getLocalShardsCleaned().getTotalCount()).isEqualTo(2);
 
         // shards 2 and 4 should be deleted
         // shards 1 and 3 are referenced by this node
-        assertTrue(shardFileExists(shard1));
-        assertFalse(shardFileExists(shard2));
-        assertTrue(shardFileExists(shard3));
-        assertFalse(shardFileExists(shard4));
+        assertThat(shardFileExists(shard1)).isTrue();
+        assertThat(shardFileExists(shard2)).isFalse();
+        assertThat(shardFileExists(shard3)).isTrue();
+        assertThat(shardFileExists(shard4)).isFalse();
     }
 
     @Test
     public void testCleanBackupShards()
             throws Exception
     {
-        assertEquals(cleaner.getBackupShardsCleaned().getTotalCount(), 0);
+        assertThat(cleaner.getBackupShardsCleaned().getTotalCount()).isEqualTo(0);
 
         TestingDao dao = dbi.onDemand(TestingDao.class);
 
@@ -327,11 +330,11 @@ public class TestShardCleaner
 
         cleaner.cleanBackupShards();
 
-        assertEquals(cleaner.getBackupShardsCleaned().getTotalCount(), 2);
+        assertThat(cleaner.getBackupShardsCleaned().getTotalCount()).isEqualTo(2);
 
-        assertFalse(shardBackupExists(shard1));
-        assertFalse(shardBackupExists(shard2));
-        assertTrue(shardBackupExists(shard3));
+        assertThat(shardBackupExists(shard1)).isFalse();
+        assertThat(shardBackupExists(shard2)).isFalse();
+        assertThat(shardBackupExists(shard3)).isTrue();
 
         assertQuery("SELECT shard_uuid FROM deleted_shards",
                 row(shard3));
@@ -355,17 +358,17 @@ public class TestShardCleaner
         long txn5 = dao.insertTransaction(new Timestamp(now));
         long txn6 = dao.insertTransaction(new Timestamp(now));
 
-        assertEquals(shardDao.finalizeTransaction(txn1, true), 1);
-        assertEquals(shardDao.finalizeTransaction(txn2, false), 1);
-        assertEquals(shardDao.finalizeTransaction(txn3, false), 1);
-        assertEquals(shardDao.finalizeTransaction(txn5, true), 1);
-        assertEquals(shardDao.finalizeTransaction(txn6, false), 1);
+        assertThat(shardDao.finalizeTransaction(txn1, true)).isEqualTo(1);
+        assertThat(shardDao.finalizeTransaction(txn2, false)).isEqualTo(1);
+        assertThat(shardDao.finalizeTransaction(txn3, false)).isEqualTo(1);
+        assertThat(shardDao.finalizeTransaction(txn5, true)).isEqualTo(1);
+        assertThat(shardDao.finalizeTransaction(txn6, false)).isEqualTo(1);
 
-        assertEquals(dao.updateTransactionEndTime(txn1, yesterdayEnd), 1);
-        assertEquals(dao.updateTransactionEndTime(txn2, yesterdayEnd), 1);
-        assertEquals(dao.updateTransactionEndTime(txn3, yesterdayEnd), 1);
-        assertEquals(dao.updateTransactionEndTime(txn5, todayEnd), 1);
-        assertEquals(dao.updateTransactionEndTime(txn6, todayEnd), 1);
+        assertThat(dao.updateTransactionEndTime(txn1, yesterdayEnd)).isEqualTo(1);
+        assertThat(dao.updateTransactionEndTime(txn2, yesterdayEnd)).isEqualTo(1);
+        assertThat(dao.updateTransactionEndTime(txn3, yesterdayEnd)).isEqualTo(1);
+        assertThat(dao.updateTransactionEndTime(txn5, todayEnd)).isEqualTo(1);
+        assertThat(dao.updateTransactionEndTime(txn6, todayEnd)).isEqualTo(1);
 
         shardDao.insertCreatedShard(randomUUID(), txn2);
         shardDao.insertCreatedShard(randomUUID(), txn2);
@@ -397,7 +400,7 @@ public class TestShardCleaner
     {
         File file = storageService.getStorageFile(uuid);
         storageService.createParents(file);
-        assertTrue(file.createNewFile());
+        assertThat(file.createNewFile()).isTrue();
     }
 
     private boolean shardBackupExists(UUID uuid)
@@ -410,7 +413,7 @@ public class TestShardCleaner
     {
         for (UUID uuid : uuids) {
             File file = temporary.resolve("empty-" + randomUUID()).toFile();
-            assertTrue(file.createNewFile());
+            assertThat(file.createNewFile()).isTrue();
             backupStore.backupShard(uuid, file);
         }
     }

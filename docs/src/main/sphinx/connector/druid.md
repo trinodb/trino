@@ -83,30 +83,29 @@ connector {ref}`modifies some types <type-mapping-overview>` when reading data.
 The connector maps Druid types to the corresponding Trino types according to the
 following table:
 
-```{eval-rst}
-.. list-table:: Druid type to Trino type mapping
-  :widths: 30, 30, 50
-  :header-rows: 1
+:::{list-table} Druid type to Trino type mapping
+:widths: 30, 30, 50
+:header-rows: 1
 
-  * - Druid type
-    - Trino type
-    - Notes
-  * - ``STRING``
-    - ``VARCHAR``
-    -
-  * - ``FLOAT``
-    - ``REAL``
-    -
-  * - ``DOUBLE``
-    - ``DOUBLE``
-    -
-  * - ``LONG``
-    - ``BIGINT``
-    - Except for the special ``_time`` column, which is mapped to ``TIMESTAMP``.
-  * - ``TIMESTAMP``
-    - ``TIMESTAMP``
-    - Only applicable to the special ``_time`` column.
-```
+* - Druid type
+  - Trino type
+  - Notes
+* - `STRING`
+  - `VARCHAR`
+  -
+* - `FLOAT`
+  - `REAL`
+  -
+* - `DOUBLE`
+  - `DOUBLE`
+  -
+* - `LONG`
+  - `BIGINT`
+  - Except for the special `_time` column, which is mapped to `TIMESTAMP`.
+* - `TIMESTAMP`
+  - `TIMESTAMP`
+  - Only applicable to the special `_time` column.
+:::
 
 No other data types are supported.
 

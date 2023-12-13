@@ -24,7 +24,7 @@ import com.amazonaws.services.glue.AWSGlueAsyncClientBuilder;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.hdfs.s3.AwsCurrentRegionHolder.getCurrentRegionFromEC2Metadata;
+import static io.trino.plugin.hive.metastore.glue.AwsCurrentRegionHolder.getCurrentRegionFromEc2Metadata;
 
 public final class GlueClientUtil
 {
@@ -55,7 +55,7 @@ public final class GlueClientUtil
             asyncGlueClientBuilder.setRegion(config.getGlueRegion().get());
         }
         else if (config.getPinGlueClientToCurrentRegion()) {
-            asyncGlueClientBuilder.setRegion(getCurrentRegionFromEC2Metadata().getName());
+            asyncGlueClientBuilder.setRegion(getCurrentRegionFromEc2Metadata().getName());
         }
 
         asyncGlueClientBuilder.setCredentials(credentialsProvider);

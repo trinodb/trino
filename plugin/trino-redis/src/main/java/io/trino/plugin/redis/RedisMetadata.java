@@ -147,7 +147,7 @@ public class RedisMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        RedisTableHandle redisTableHandle = ((RedisTableHandle) tableHandle);
+        RedisTableHandle redisTableHandle = (RedisTableHandle) tableHandle;
 
         RedisTableDescription redisTableDescription = getDefinedTables().get(redisTableHandle.toSchemaTableName());
         if (redisTableDescription == null) {
@@ -240,7 +240,7 @@ public class RedisMetadata
                 handle.getKeyName(),
                 newDomain);
 
-        return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, false));
+        return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter, constraint.getExpression(), false));
     }
 
     @Override

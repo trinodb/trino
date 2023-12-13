@@ -90,7 +90,7 @@ public final class MetadataReader
         // 4 bytes: MetadataLength
         // MAGIC
 
-        validateParquet(dataSource.getEstimatedSize() >= MAGIC.length() + POST_SCRIPT_SIZE, "%s is not a valid Parquet File", dataSource.getId());
+        validateParquet(dataSource.getEstimatedSize() >= MAGIC.length() + POST_SCRIPT_SIZE, dataSource.getId(), "%s is not a valid Parquet File", dataSource.getId());
 
         // Read the tail of the file
         long estimatedFileSize = dataSource.getEstimatedSize();
@@ -98,14 +98,14 @@ public final class MetadataReader
         Slice buffer = dataSource.readTail(toIntExact(expectedReadSize));
 
         Slice magic = buffer.slice(buffer.length() - MAGIC.length(), MAGIC.length());
-        validateParquet(MAGIC.equals(magic), "Not valid Parquet file: %s expected magic number: %s got: %s", dataSource.getId(), MAGIC.toStringUtf8(), magic.toStringUtf8());
+        validateParquet(MAGIC.equals(magic), dataSource.getId(), "Expected magic number: %s got: %s", MAGIC.toStringUtf8(), magic.toStringUtf8());
 
         int metadataLength = buffer.getInt(buffer.length() - POST_SCRIPT_SIZE);
         long metadataIndex = estimatedFileSize - POST_SCRIPT_SIZE - metadataLength;
         validateParquet(
                 metadataIndex >= MAGIC.length() && metadataIndex < estimatedFileSize - POST_SCRIPT_SIZE,
-                "Corrupted Parquet file: %s metadata index: %s out of range",
                 dataSource.getId(),
+                "Metadata index: %s out of range",
                 metadataIndex);
 
         int completeFooterSize = metadataLength + POST_SCRIPT_SIZE;
@@ -116,16 +116,16 @@ public final class MetadataReader
         InputStream metadataStream = buffer.slice(buffer.length() - completeFooterSize, metadataLength).getInput();
 
         FileMetaData fileMetaData = readFileMetaData(metadataStream);
-        ParquetMetadata parquetMetadata = createParquetMetadata(fileMetaData, dataSource.getId().toString());
+        ParquetMetadata parquetMetadata = createParquetMetadata(fileMetaData, dataSource.getId());
         validateFileMetadata(dataSource.getId(), parquetMetadata.getFileMetaData(), parquetWriteValidation);
         return parquetMetadata;
     }
 
-    public static ParquetMetadata createParquetMetadata(FileMetaData fileMetaData, String filename)
+    public static ParquetMetadata createParquetMetadata(FileMetaData fileMetaData, ParquetDataSourceId dataSourceId)
             throws ParquetCorruptionException
     {
         List<SchemaElement> schema = fileMetaData.getSchema();
-        validateParquet(!schema.isEmpty(), "Empty Parquet schema in file: %s", filename);
+        validateParquet(!schema.isEmpty(), dataSourceId, "Schema is empty");
 
         MessageType messageType = readParquetSchema(schema);
         List<BlockMetaData> blocks = new ArrayList<>();
@@ -136,12 +136,13 @@ public final class MetadataReader
                 blockMetaData.setRowCount(rowGroup.getNum_rows());
                 blockMetaData.setTotalByteSize(rowGroup.getTotal_byte_size());
                 List<ColumnChunk> columns = rowGroup.getColumns();
-                validateParquet(!columns.isEmpty(), "No columns in row group: %s", rowGroup);
+                validateParquet(!columns.isEmpty(), dataSourceId, "No columns in row group: %s", rowGroup);
                 String filePath = columns.get(0).getFile_path();
                 for (ColumnChunk columnChunk : columns) {
                     validateParquet(
                             (filePath == null && columnChunk.getFile_path() == null)
                                     || (filePath != null && filePath.equals(columnChunk.getFile_path())),
+                            dataSourceId,
                             "all column chunks of the same row group must be in the same file");
                     ColumnMetaData metaData = columnChunk.meta_data;
                     String[] path = metaData.path_in_schema.stream()

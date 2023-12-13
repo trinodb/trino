@@ -103,7 +103,7 @@ public class CassandraClientConfig
         return nativeProtocolPort;
     }
 
-    @Config(("cassandra.native-protocol-port"))
+    @Config("cassandra.native-protocol-port")
     public CassandraClientConfig setNativeProtocolPort(int nativeProtocolPort)
     {
         this.nativeProtocolPort = nativeProtocolPort;

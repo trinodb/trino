@@ -19,7 +19,7 @@ import io.airlift.configuration.ConfigDescription;
 public class IcebergGlueCatalogConfig
 {
     private boolean cacheTableMetadata = true;
-    private boolean skipArchive;
+    private boolean skipArchive = true;
 
     public boolean isCacheTableMetadata()
     {

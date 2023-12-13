@@ -25,8 +25,8 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
-import org.testng.SkipException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -64,7 +64,7 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestPhoenixConnectorTest
         extends BaseJdbcConnectorTest
@@ -108,6 +108,7 @@ public class TestPhoenixConnectorTest
     }
 
     // TODO: wait https://github.com/trinodb/trino/pull/14939 done and then remove this test
+    @Test
     @Override
     public void testArithmeticPredicatePushdown()
     {
@@ -204,65 +205,65 @@ public class TestPhoenixConnectorTest
     @Override
     protected TestTable createTableWithDefaultColumns()
     {
-        throw new SkipException("Phoenix connector does not support column default values");
+        return abort("Phoenix connector does not support column default values");
     }
 
     @Override
     protected TestTable createTableWithUnsupportedColumn()
     {
         // Apparently all Phoenix types are supported in the Phoenix connector.
-        throw new SkipException("Cannot find an unsupported data type");
+        return abort("Cannot find an unsupported data type");
     }
 
+    @Test
     @Override
     public void testRenameColumn()
     {
         assertThatThrownBy(super::testRenameColumn)
                 // TODO (https://github.com/trinodb/trino/issues/7205) support column rename in Phoenix
                 .hasMessageContaining("Syntax error. Encountered \"RENAME\"");
-        throw new SkipException("Rename column is not yet supported by Phoenix connector");
+        abort("Rename column is not yet supported by Phoenix connector");
     }
 
+    @Test
     @Override
     public void testAlterTableRenameColumnToLongName()
     {
         assertThatThrownBy(super::testAlterTableRenameColumnToLongName)
                 // TODO (https://github.com/trinodb/trino/issues/7205) support column rename in Phoenix
                 .hasMessageContaining("Syntax error. Encountered \"RENAME\"");
-        throw new SkipException("Rename column is not yet supported by Phoenix connector");
+        abort("Rename column is not yet supported by Phoenix connector");
     }
 
+    @Test
+    @Disabled
     @Override
-    public void testRenameColumnName(String columnName)
+    public void testRenameColumnName()
     {
-        // The column name is rejected when creating a table
-        if (columnName.equals("a\"quote")) {
-            super.testRenameColumnName(columnName);
-            return;
-        }
-        assertThatThrownBy(() -> super.testRenameColumnName(columnName))
-                // TODO (https://github.com/trinodb/trino/issues/7205) support column rename in Phoenix
-                .hasMessageContaining("Syntax error. Encountered \"RENAME\"");
-        throw new SkipException("Rename column is not yet supported by Phoenix connector");
     }
 
+    @Test
     @Override
-    public void testAddAndDropColumnName(String columnName)
+    public void testAddAndDropColumnName()
     {
-        // TODO: Investigate why these two case fail
-        if (columnName.equals("an'apostrophe")) {
-            assertThatThrownBy(() -> super.testAddAndDropColumnName(columnName))
-                    .hasMessageContaining("Syntax error. Mismatched input");
-            throw new SkipException("TODO");
+        for (String columnName : testColumnNameDataProvider()) {
+            // TODO: Investigate why these two case fail
+            if (columnName.equals("an'apostrophe")) {
+                assertThatThrownBy(() -> testAddAndDropColumnName(columnName, requiresDelimiting(columnName)))
+                        .hasMessageContaining("Syntax error. Mismatched input");
+                abort("TODO");
+            }
+            if (columnName.equals("a\\backslash`")) {
+                assertThatThrownBy(() -> testAddAndDropColumnName(columnName, requiresDelimiting(columnName)))
+                        .hasMessageContaining("Undefined column");
+                abort("TODO");
+            }
+
+            testAddAndDropColumnName(columnName, requiresDelimiting(columnName));
         }
-        if (columnName.equals("a\\backslash`")) {
-            assertThatThrownBy(() -> super.testAddAndDropColumnName(columnName))
-                    .hasMessageContaining("Undefined column");
-            throw new SkipException("TODO");
-        }
-        super.testAddAndDropColumnName(columnName);
     }
 
+    @Test
     @Override
     public void testInsertArray()
     {
@@ -271,10 +272,11 @@ public class TestPhoenixConnectorTest
                 .hasMessage("Phoenix JDBC driver replaced 'null' with '0.0' at index 1 in [0.0]");
     }
 
+    @Test
     @Override
     public void testCreateSchema()
     {
-        throw new SkipException("test disabled until issue fixed"); // TODO https://github.com/trinodb/trino/issues/2348
+        abort("test disabled until issue fixed"); // TODO https://github.com/trinodb/trino/issues/2348
     }
 
     @Override
@@ -309,6 +311,7 @@ public class TestPhoenixConnectorTest
         return Optional.of(dataMappingTestSetup);
     }
 
+    @Test
     @Override
     public void testShowCreateTable()
     {
@@ -332,6 +335,7 @@ public class TestPhoenixConnectorTest
                         ")");
     }
 
+    @Test
     @Override
     public void testCharVarcharComparison()
     {
@@ -355,6 +359,7 @@ public class TestPhoenixConnectorTest
         }
     }
 
+    @Test
     @Override
     public void testVarcharCharComparison()
     {
@@ -385,6 +390,7 @@ public class TestPhoenixConnectorTest
         }
     }
 
+    @Test
     @Override
     public void testCharTrailingSpace()
     {
@@ -399,6 +405,7 @@ public class TestPhoenixConnectorTest
     }
 
     // Overridden because Phoenix requires a ROWID column
+    @Test
     @Override
     public void testCountDistinctWithStringTypes()
     {
@@ -415,6 +422,7 @@ public class TestPhoenixConnectorTest
         }
     }
 
+    @Test
     @Override
     public void testMergeLarge()
     {
@@ -523,10 +531,11 @@ public class TestPhoenixConnectorTest
         assertUpdate("DROP TABLE " + targetTable);
     }
 
+    @Test
     @Override
     public void testUpdateRowConcurrently()
     {
-        throw new SkipException("Phoenix doesn't support concurrent update of different columns in a row");
+        abort("Phoenix doesn't support concurrent update of different columns in a row");
     }
 
     @Test
@@ -590,7 +599,7 @@ public class TestPhoenixConnectorTest
     public void testCreateTableWithProperties()
     {
         assertUpdate("CREATE TABLE test_create_table_with_properties (created_date date, a bigint, b double, c varchar(10), d varchar(10)) WITH(rowkeys = 'created_date row_timestamp, a,b,c', salt_buckets=10)");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_with_properties"));
+        assertThat(getQueryRunner().tableExists(getSession(), "test_create_table_with_properties")).isTrue();
         assertTableColumnNames("test_create_table_with_properties", "created_date", "a", "b", "c", "d");
         assertThat(computeActual("SHOW CREATE TABLE test_create_table_with_properties").getOnlyValue())
                 .isEqualTo("CREATE TABLE phoenix.tpch.test_create_table_with_properties (\n" +
@@ -614,7 +623,7 @@ public class TestPhoenixConnectorTest
     public void testCreateTableWithPresplits()
     {
         assertUpdate("CREATE TABLE test_create_table_with_presplits (rid varchar(10), val1 varchar(10)) with(rowkeys = 'rid', SPLIT_ON='\"1\",\"2\",\"3\"')");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_with_presplits"));
+        assertThat(getQueryRunner().tableExists(getSession(), "test_create_table_with_presplits")).isTrue();
         assertTableColumnNames("test_create_table_with_presplits", "rid", "val1");
         assertUpdate("DROP TABLE test_create_table_with_presplits");
     }
@@ -648,10 +657,11 @@ public class TestPhoenixConnectorTest
         assertQuery("SELECT * FROM test_col_insert", "SELECT 1, 'val1', 'val2'");
     }
 
+    @Test
     @Override
     public void testTopNPushdown()
     {
-        throw new SkipException("Phoenix does not support topN push down, but instead replaces partial topN with partial Limit.");
+        abort("Phoenix does not support topN push down, but instead replaces partial topN with partial Limit.");
     }
 
     @Test
@@ -780,34 +790,38 @@ public class TestPhoenixConnectorTest
                 .hasMessageContaining("Concurrent modification to table");
     }
 
+    @Test
     @Override
     public void testCreateSchemaWithLongName()
     {
         // TODO: Find the maximum table schema length in Phoenix and enable this test.
-        throw new SkipException("TODO");
+        abort("TODO");
     }
 
+    @Test
     @Override
     public void testCreateTableWithLongTableName()
     {
         // TODO: Find the maximum table name length in Phoenix and enable this test.
         // Table name length with 65536 chars throws "startRow's length must be less than or equal to 32767 to meet the criteria for a row key."
         // 32767 chars still causes the same error and shorter names (e.g. 10000) causes timeout.
-        throw new SkipException("TODO");
+        abort("TODO");
     }
 
+    @Test
     @Override
     public void testCreateTableWithLongColumnName()
     {
         // TODO: Find the maximum column name length in Phoenix and enable this test.
-        throw new SkipException("TODO");
+        abort("TODO");
     }
 
+    @Test
     @Override
     public void testAlterTableAddLongColumnName()
     {
         // TODO: Find the maximum column name length in Phoenix and enable this test.
-        throw new SkipException("TODO");
+        abort("TODO");
     }
 
     @Test

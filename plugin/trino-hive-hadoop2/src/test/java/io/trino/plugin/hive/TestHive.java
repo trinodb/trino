@@ -28,7 +28,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-// staging directory is shared mutable state
 @TestInstance(PER_CLASS)
 public class TestHive
         extends AbstractTestHive
@@ -47,14 +46,6 @@ public class TestHive
         }
 
         setup(HostAndPort.fromString(metastore), database);
-    }
-
-    @Test
-    public void forceTestNgToRespectSingleThreaded()
-    {
-        // TODO: Remove after updating TestNG to 7.4.0+ (https://github.com/trinodb/trino/issues/8571)
-        // TestNG doesn't enforce @Test(singleThreaded = true) when tests are defined in base class. According to
-        // https://github.com/cbeust/testng/issues/2361#issuecomment-688393166 a workaround it to add a dummy test to the leaf test class.
     }
 
     @Test

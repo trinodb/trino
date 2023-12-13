@@ -18,8 +18,7 @@ import io.trino.spi.security.PrincipalType;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPrincipalPrivileges
 {
@@ -31,9 +30,9 @@ public class TestPrincipalPrivileges
                 hivePrivilegeInfo(PrincipalType.USER, "user002"),
                 hivePrivilegeInfo(PrincipalType.ROLE, "role001")));
 
-        assertNotNull(principalPrivileges);
-        assertEquals(principalPrivileges.getUserPrivileges().size(), 2);
-        assertEquals(principalPrivileges.getRolePrivileges().size(), 1);
+        assertThat(principalPrivileges).isNotNull();
+        assertThat(principalPrivileges.getUserPrivileges().size()).isEqualTo(2);
+        assertThat(principalPrivileges.getRolePrivileges().size()).isEqualTo(1);
     }
 
     private static HivePrivilegeInfo hivePrivilegeInfo(PrincipalType type, String key)

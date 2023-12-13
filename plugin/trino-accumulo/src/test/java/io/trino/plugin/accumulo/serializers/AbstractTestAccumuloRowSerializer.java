@@ -46,7 +46,7 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class AbstractTestAccumuloRowSerializer
 {
@@ -67,11 +67,11 @@ public abstract class AbstractTestAccumuloRowSerializer
         List<Object> expected = ImmutableList.of("a", "b", "c");
         byte[] data = serializer.encode(type, AccumuloRowSerializer.getBlockFromArray(VARCHAR, expected));
         List<Object> actual = serializer.decode(type, data);
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
 
         deserializeData(serializer, data);
         actual = AccumuloRowSerializer.getArrayFromBlock(VARCHAR, serializer.getArray(COLUMN_NAME, type));
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -82,19 +82,19 @@ public abstract class AbstractTestAccumuloRowSerializer
         Type type = BOOLEAN;
         byte[] data = serializer.encode(type, true);
         boolean actual = serializer.decode(type, data);
-        assertEquals(actual, true);
+        assertThat(actual).isEqualTo(true);
 
         deserializeData(serializer, data);
         actual = serializer.getBoolean(COLUMN_NAME);
-        assertEquals(actual, true);
+        assertThat(actual).isEqualTo(true);
 
         data = serializer.encode(type, false);
         actual = serializer.decode(type, data);
-        assertEquals(actual, false);
+        assertThat(actual).isEqualTo(false);
 
         deserializeData(serializer, data);
         actual = serializer.getBoolean(COLUMN_NAME);
-        assertEquals(actual, false);
+        assertThat(actual).isEqualTo(false);
     }
 
     @Test
@@ -108,7 +108,7 @@ public abstract class AbstractTestAccumuloRowSerializer
         deserializeData(serializer, data);
         long actual = serializer.getDate(COLUMN_NAME);
 
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -120,11 +120,11 @@ public abstract class AbstractTestAccumuloRowSerializer
         Double expected = 123.45678;
         byte[] data = serializer.encode(type, expected);
         Double actual = serializer.decode(type, data);
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
 
         deserializeData(serializer, data);
         actual = serializer.getDouble(COLUMN_NAME);
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -136,11 +136,11 @@ public abstract class AbstractTestAccumuloRowSerializer
         Float expected = 123.45678f;
         byte[] data = serializer.encode(type, expected);
         Float actual = ((Double) serializer.decode(type, data)).floatValue();
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
 
         deserializeData(serializer, data);
         actual = serializer.getFloat(COLUMN_NAME);
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -153,11 +153,11 @@ public abstract class AbstractTestAccumuloRowSerializer
         byte[] data = serializer.encode(type, expected);
         @SuppressWarnings("unchecked")
         Integer actual = ((Long) serializer.decode(type, data)).intValue();
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
 
         deserializeData(serializer, data);
         actual = serializer.getInt(COLUMN_NAME);
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -169,11 +169,11 @@ public abstract class AbstractTestAccumuloRowSerializer
         Long expected = 123456L;
         byte[] data = serializer.encode(type, expected);
         Long actual = serializer.decode(type, data);
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
 
         deserializeData(serializer, data);
         actual = serializer.getLong(COLUMN_NAME);
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -187,11 +187,11 @@ public abstract class AbstractTestAccumuloRowSerializer
         Map<Object, Object> expected = ImmutableMap.of("a", 1L, "b", 2L, "3", 3L);
         byte[] data = serializer.encode(type, AccumuloRowSerializer.getSqlMapFromMap(type, expected));
         Map<Object, Object> actual = serializer.decode(type, data);
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
 
         deserializeData(serializer, data);
         actual = AccumuloRowSerializer.getMapFromSqlMap(type, serializer.getMap(COLUMN_NAME, type));
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -203,11 +203,11 @@ public abstract class AbstractTestAccumuloRowSerializer
         Short expected = 12345;
         byte[] data = serializer.encode(type, expected);
         Short actual = ((Long) serializer.decode(type, data)).shortValue();
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
 
         deserializeData(serializer, data);
         actual = serializer.getShort(COLUMN_NAME);
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -219,11 +219,11 @@ public abstract class AbstractTestAccumuloRowSerializer
         Time expected = new Time(new java.util.Date().getTime());
         byte[] data = serializer.encode(type, expected);
         Time actual = new Time(serializer.decode(type, data));
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
 
         deserializeData(serializer, data);
         actual = serializer.getTime(COLUMN_NAME);
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -235,11 +235,11 @@ public abstract class AbstractTestAccumuloRowSerializer
         Timestamp expected = new Timestamp(new java.util.Date().getTime());
         byte[] data = serializer.encode(type, expected);
         Timestamp actual = new Timestamp(serializer.decode(type, data));
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
 
         deserializeData(serializer, data);
         actual = serializer.getTimestamp(COLUMN_NAME);
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -251,11 +251,11 @@ public abstract class AbstractTestAccumuloRowSerializer
         Byte expected = 123;
         byte[] data = serializer.encode(type, expected);
         Byte actual = ((Long) serializer.decode(type, data)).byteValue();
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
 
         deserializeData(serializer, data);
         actual = serializer.getByte(COLUMN_NAME);
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -267,11 +267,11 @@ public abstract class AbstractTestAccumuloRowSerializer
         byte[] expected = b(UUID.randomUUID().toString());
         byte[] data = serializer.encode(type, expected);
         byte[] actual = serializer.decode(type, data);
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
 
         deserializeData(serializer, data);
         actual = serializer.getVarbinary(COLUMN_NAME);
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     @Test
@@ -283,11 +283,11 @@ public abstract class AbstractTestAccumuloRowSerializer
         String expected = UUID.randomUUID().toString();
         byte[] data = serializer.encode(type, expected);
         String actual = serializer.decode(type, data);
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
 
         deserializeData(serializer, data);
         actual = serializer.getVarchar(COLUMN_NAME);
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
     }
 
     protected void deserializeData(AccumuloRowSerializer serializer, byte[] data)

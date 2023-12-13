@@ -20,31 +20,35 @@ import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
 import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
-import org.apache.hadoop.hive.metastore.TableType;
-import org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat;
-import org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_FACTORY;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
+import static io.trino.plugin.hive.TableType.EXTERNAL_TABLE;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.util.HiveClassNames.HUDI_PARQUET_INPUT_FORMAT;
+import static io.trino.plugin.hive.util.HiveClassNames.MAPRED_PARQUET_OUTPUT_FORMAT_CLASS;
+import static io.trino.plugin.hive.util.HiveClassNames.PARQUET_HIVE_SERDE_CLASS;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.nio.file.Files.createTempDirectory;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestFileHiveMetastore
 {
     private Path tmpDir;
@@ -84,17 +88,14 @@ public class TestFileHiveMetastore
     @Test
     public void testPreserveHudiInputFormat()
     {
-        StorageFormat storageFormat = StorageFormat.create(
-                ParquetHiveSerDe.class.getName(),
-                HUDI_PARQUET_INPUT_FORMAT,
-                MapredParquetOutputFormat.class.getName());
+        StorageFormat storageFormat = StorageFormat.create(PARQUET_HIVE_SERDE_CLASS, HUDI_PARQUET_INPUT_FORMAT, MAPRED_PARQUET_OUTPUT_FORMAT_CLASS);
 
         Table table = Table.builder()
                 .setDatabaseName("default")
                 .setTableName("some_table_name" + randomNameSuffix())
-                .setTableType(TableType.EXTERNAL_TABLE.name())
+                .setTableType(EXTERNAL_TABLE.name())
                 .setOwner(Optional.of("public"))
-                .addDataColumn(new Column("foo", HIVE_INT, Optional.empty()))
+                .addDataColumn(new Column("foo", HIVE_INT, Optional.empty(), Map.of()))
                 .setParameters(ImmutableMap.of("serialization.format", "1", "EXTERNAL", "TRUE"))
                 .withStorage(storageBuilder -> storageBuilder
                         .setStorageFormat(storageFormat)

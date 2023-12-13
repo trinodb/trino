@@ -22,7 +22,6 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.Identity;
 import io.trino.testing.LocalQueryRunner;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
@@ -50,10 +49,9 @@ public class TestCheckConstraint
             .setIdentity(Identity.forUser(USER).build())
             .build();
 
-    private QueryAssertions assertions;
+    private final QueryAssertions assertions;
 
-    @BeforeAll
-    public void init()
+    public TestCheckConstraint()
     {
         LocalQueryRunner runner = LocalQueryRunner.builder(SESSION).build();
 
@@ -152,7 +150,6 @@ public class TestCheckConstraint
     public void teardown()
     {
         assertions.close();
-        assertions = null;
     }
 
     /**

@@ -15,7 +15,7 @@ package io.trino.hive.formats.avro;
 
 import com.google.common.primitives.Longs;
 import io.trino.spi.type.Int128;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.concurrent.ThreadLocalRandom;

@@ -51,7 +51,7 @@ public class JsonRenderer
                 node.getDescriptor(),
                 node.getOutputs(),
                 node.getDetails(),
-                node.getEstimates(plan.getTypes()),
+                node.getEstimates(),
                 children);
     }
 

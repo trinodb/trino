@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -114,6 +115,12 @@ public class IcebergPageSource
     }
 
     @Override
+    public CompletableFuture<?> isBlocked()
+    {
+        return delegate.isBlocked();
+    }
+
+    @Override
     public Page getNextPage()
     {
         try {
@@ -164,7 +171,7 @@ public class IcebergPageSource
         Block[] fullPage = new Block[page.getChannelCount()];
         for (int channel = 0; channel < page.getChannelCount(); channel++) {
             if (channel == rowIdColumnIndex) {
-                fullPage[channel] = RowBlock.fromFieldBlocks(page.getPositionCount(), Optional.empty(), rowIdFields);
+                fullPage[channel] = RowBlock.fromFieldBlocks(page.getPositionCount(), rowIdFields);
                 continue;
             }
 

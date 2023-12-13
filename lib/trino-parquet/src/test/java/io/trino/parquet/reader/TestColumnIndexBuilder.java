@@ -27,12 +27,11 @@ import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Types;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.PrimitiveIterator;
@@ -58,12 +57,8 @@ import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.DOUBLE;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.FLOAT;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT64;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
-import static org.testng.internal.junit.ArrayAsserts.assertArrayEquals;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Fail.fail;
 
 // import static org.hamcrest.CoreMatchers.instanceOf;
 // import static org.junit.Assert.assertThat;
@@ -266,7 +261,7 @@ public class TestColumnIndexBuilder
         PrimitiveType type = Types.required(BINARY).as(LogicalTypeAnnotation.decimalType(2, 12)).named("test_binary_decimal");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
         //assertThat(builder, instanceOf(BinaryColumnIndexBuilder.class));
-        assertNull(builder.build());
+        assertThat(builder.build()).isNull();
         Operators.BinaryColumn col = binaryColumn("test_col");
 
         StatsBuilder sb = new StatsBuilder();
@@ -278,10 +273,10 @@ public class TestColumnIndexBuilder
         builder.add(sb.stats(type, null, null, null, null));
         builder.add(sb.stats(type, null, null));
         builder.add(sb.stats(type, decimalBinary("87656273")));
-        assertEquals(8, builder.getPageCount());
-        assertEquals(sb.getMinMaxSize(), builder.getMinMaxSize());
+        assertThat(8).isEqualTo(builder.getPageCount());
+        assertThat(sb.getMinMaxSize()).isEqualTo(builder.getMinMaxSize());
         ColumnIndex columnIndex = builder.build();
-        assertEquals(BoundaryOrder.UNORDERED, columnIndex.getBoundaryOrder());
+        assertThat(BoundaryOrder.UNORDERED).isEqualTo(columnIndex.getBoundaryOrder());
         assertCorrectNullCounts(columnIndex, 2, 0, 3, 3, 0, 4, 2, 0);
         assertCorrectNullPages(columnIndex, true, false, false, true, false, true, true, false);
         assertCorrectValues(columnIndex.getMaxValues(),
@@ -323,10 +318,10 @@ public class TestColumnIndexBuilder
         builder.add(sb.stats(type, null, null));
         builder.add(sb.stats(type, decimalBinary("1234567890.12"), null, null, null));
         builder.add(sb.stats(type, null, null, null));
-        assertEquals(8, builder.getPageCount());
-        assertEquals(sb.getMinMaxSize(), builder.getMinMaxSize());
+        assertThat(8).isEqualTo(builder.getPageCount());
+        assertThat(sb.getMinMaxSize()).isEqualTo(builder.getMinMaxSize());
         columnIndex = builder.build();
-        assertEquals(BoundaryOrder.ASCENDING, columnIndex.getBoundaryOrder());
+        assertThat(BoundaryOrder.ASCENDING).isEqualTo(columnIndex.getBoundaryOrder());
         assertCorrectNullCounts(columnIndex, 4, 0, 0, 2, 0, 2, 3, 3);
         assertCorrectNullPages(columnIndex, true, false, false, true, false, true, false, true);
         assertCorrectValues(columnIndex.getMaxValues(),
@@ -368,10 +363,10 @@ public class TestColumnIndexBuilder
         builder.add(sb.stats(type, decimalBinary("987656273"), decimalBinary("-0.17")));
         builder.add(sb.stats(type, null, null));
         builder.add(sb.stats(type, decimalBinary("-234.23"), decimalBinary("-9999293.23")));
-        assertEquals(8, builder.getPageCount());
-        assertEquals(sb.getMinMaxSize(), builder.getMinMaxSize());
+        assertThat(8).isEqualTo(builder.getPageCount());
+        assertThat(sb.getMinMaxSize()).isEqualTo(builder.getMinMaxSize());
         columnIndex = builder.build();
-        assertEquals(BoundaryOrder.DESCENDING, columnIndex.getBoundaryOrder());
+        assertThat(BoundaryOrder.DESCENDING).isEqualTo(columnIndex.getBoundaryOrder());
         assertCorrectNullCounts(columnIndex, 3, 2, 3, 4, 0, 0, 2, 0);
         assertCorrectNullPages(columnIndex, true, true, false, true, false, false, true, false);
         assertCorrectValues(columnIndex.getMaxValues(),
@@ -410,7 +405,7 @@ public class TestColumnIndexBuilder
         PrimitiveType type = Types.required(BINARY).as(LogicalTypeAnnotation.stringType()).named("test_binary_utf8");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
         //assertThat(builder, instanceOf(BinaryColumnIndexBuilder.class));
-        assertNull(builder.build());
+        assertThat(builder.build()).isNull();
         Operators.BinaryColumn col = binaryColumn("test_col");
 
         StatsBuilder sb = new StatsBuilder();
@@ -422,10 +417,10 @@ public class TestColumnIndexBuilder
         builder.add(sb.stats(type, stringBinary("Dent"), stringBinary("Trilian"), null));
         builder.add(sb.stats(type, stringBinary("Beeblebrox")));
         builder.add(sb.stats(type, null, null));
-        assertEquals(8, builder.getPageCount());
-        assertEquals(sb.getMinMaxSize(), builder.getMinMaxSize());
+        assertThat(8).isEqualTo(builder.getPageCount());
+        assertThat(sb.getMinMaxSize()).isEqualTo(builder.getMinMaxSize());
         ColumnIndex columnIndex = builder.build();
-        assertEquals(BoundaryOrder.UNORDERED, columnIndex.getBoundaryOrder());
+        assertThat(BoundaryOrder.UNORDERED).isEqualTo(columnIndex.getBoundaryOrder());
         assertCorrectNullCounts(columnIndex, 2, 2, 5, 2, 0, 1, 0, 2);
         assertCorrectNullPages(columnIndex, true, false, true, true, false, false, false, true);
         assertCorrectValues(columnIndex.getMaxValues(),
@@ -467,10 +462,10 @@ public class TestColumnIndexBuilder
         builder.add(sb.stats(type, null, null));
         builder.add(sb.stats(type, stringBinary("Slartibartfast")));
         builder.add(sb.stats(type, null, null));
-        assertEquals(8, builder.getPageCount());
-        assertEquals(sb.getMinMaxSize(), builder.getMinMaxSize());
+        assertThat(8).isEqualTo(builder.getPageCount());
+        assertThat(sb.getMinMaxSize()).isEqualTo(builder.getMinMaxSize());
         columnIndex = builder.build();
-        assertEquals(BoundaryOrder.ASCENDING, columnIndex.getBoundaryOrder());
+        assertThat(BoundaryOrder.ASCENDING).isEqualTo(columnIndex.getBoundaryOrder());
         assertCorrectNullCounts(columnIndex, 2, 2, 5, 0, 1, 2, 0, 2);
         assertCorrectNullPages(columnIndex, false, true, true, false, false, true, false, true);
         assertCorrectValues(columnIndex.getMaxValues(),
@@ -512,10 +507,10 @@ public class TestColumnIndexBuilder
         builder.add(sb.stats(type, null, null));
         builder.add(sb.stats(type, null, null));
         builder.add(sb.stats(type, stringBinary("Dent"), stringBinary("Beeblebrox"), null, null));
-        assertEquals(8, builder.getPageCount());
-        assertEquals(sb.getMinMaxSize(), builder.getMinMaxSize());
+        assertThat(8).isEqualTo(builder.getPageCount());
+        assertThat(sb.getMinMaxSize()).isEqualTo(builder.getMinMaxSize());
         columnIndex = builder.build();
-        assertEquals(BoundaryOrder.DESCENDING, columnIndex.getBoundaryOrder());
+        assertThat(BoundaryOrder.DESCENDING).isEqualTo(columnIndex.getBoundaryOrder());
         assertCorrectNullCounts(columnIndex, 2, 0, 5, 1, 0, 2, 2, 2);
         assertCorrectNullPages(columnIndex, true, false, true, false, false, true, true, false);
         assertCorrectValues(columnIndex.getMaxValues(),
@@ -574,7 +569,7 @@ public class TestColumnIndexBuilder
                         stringBinary("Prefect"),
                         null,
                         stringBinary("Slartibartfast")));
-        assertEquals(BoundaryOrder.ASCENDING, columnIndex.getBoundaryOrder());
+        assertThat(BoundaryOrder.ASCENDING).isEqualTo(columnIndex.getBoundaryOrder());
         assertCorrectNullCounts(columnIndex, 1, 2, 3, 4, 5, 6, 7, 8);
         assertCorrectNullPages(columnIndex, true, true, false, false, true, false, true, false);
         assertCorrectValues(columnIndex.getMaxValues(),
@@ -623,8 +618,8 @@ public class TestColumnIndexBuilder
                         stringBinary("Prefect"),
                         null,
                         stringBinary("Slartibartfast")));
-        assertEquals(BoundaryOrder.ASCENDING, columnIndex.getBoundaryOrder());
-        assertNull(columnIndex.getNullCounts());
+        assertThat(BoundaryOrder.ASCENDING).isEqualTo(columnIndex.getBoundaryOrder());
+        assertThat(columnIndex.getNullCounts()).isNull();
         assertCorrectNullPages(columnIndex, true, true, false, false, true, false, true, false);
         assertCorrectValues(columnIndex.getMaxValues(),
                 null,
@@ -660,7 +655,7 @@ public class TestColumnIndexBuilder
         PrimitiveType type = Types.required(BOOLEAN).named("test_boolean");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
         //assertThat(builder, instanceOf(BooleanColumnIndexBuilder.class));
-        assertNull(builder.build());
+        assertThat(builder.build()).isNull();
         Operators.BooleanColumn col = booleanColumn("test_col");
 
         builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
@@ -670,10 +665,10 @@ public class TestColumnIndexBuilder
         builder.add(sb.stats(type, true, true, null, null));
         builder.add(sb.stats(type, null, null, null));
         builder.add(sb.stats(type, false, false));
-        assertEquals(5, builder.getPageCount());
-        assertEquals(sb.getMinMaxSize(), builder.getMinMaxSize());
+        assertThat(5).isEqualTo(builder.getPageCount());
+        assertThat(sb.getMinMaxSize()).isEqualTo(builder.getMinMaxSize());
         ColumnIndex columnIndex = builder.build();
-        assertEquals(BoundaryOrder.UNORDERED, columnIndex.getBoundaryOrder());
+        assertThat(BoundaryOrder.UNORDERED).isEqualTo(columnIndex.getBoundaryOrder());
         assertCorrectNullCounts(columnIndex, 0, 1, 2, 3, 0);
         assertCorrectNullPages(columnIndex, false, false, false, true, false);
         assertCorrectValues(columnIndex.getMaxValues(), true, true, true, null, false);
@@ -694,10 +689,10 @@ public class TestColumnIndexBuilder
         builder.add(sb.stats(type, false, true, null));
         builder.add(sb.stats(type, false, true, null, null));
         builder.add(sb.stats(type, null, null, null));
-        assertEquals(7, builder.getPageCount());
-        assertEquals(sb.getMinMaxSize(), builder.getMinMaxSize());
+        assertThat(7).isEqualTo(builder.getPageCount());
+        assertThat(sb.getMinMaxSize()).isEqualTo(builder.getMinMaxSize());
         columnIndex = builder.build();
-        assertEquals(BoundaryOrder.ASCENDING, columnIndex.getBoundaryOrder());
+        assertThat(BoundaryOrder.ASCENDING).isEqualTo(columnIndex.getBoundaryOrder());
         assertCorrectNullCounts(columnIndex, 2, 0, 3, 4, 1, 2, 3);
         assertCorrectNullPages(columnIndex, true, false, true, true, false, false, true);
         assertCorrectValues(columnIndex.getMaxValues(), null, false, null, null, true, true, null);
@@ -718,10 +713,10 @@ public class TestColumnIndexBuilder
         builder.add(sb.stats(type, true, false, null));
         builder.add(sb.stats(type, false, false, null, null));
         builder.add(sb.stats(type, null, null, null));
-        assertEquals(7, builder.getPageCount());
-        assertEquals(sb.getMinMaxSize(), builder.getMinMaxSize());
+        assertThat(7).isEqualTo(builder.getPageCount());
+        assertThat(sb.getMinMaxSize()).isEqualTo(builder.getMinMaxSize());
         columnIndex = builder.build();
-        assertEquals(BoundaryOrder.DESCENDING, columnIndex.getBoundaryOrder());
+        assertThat(BoundaryOrder.DESCENDING).isEqualTo(columnIndex.getBoundaryOrder());
         assertCorrectNullCounts(columnIndex, 2, 0, 3, 4, 1, 2, 3);
         assertCorrectNullPages(columnIndex, true, false, true, true, false, false, true);
         assertCorrectValues(columnIndex.getMaxValues(), null, true, null, null, true, false, null);
@@ -744,7 +739,7 @@ public class TestColumnIndexBuilder
                 asList(9L, 8L, 7L, 6L, 5L, 0L),
                 toBBList(false, null, false, null, true, null),
                 toBBList(true, null, false, null, true, null));
-        assertEquals(BoundaryOrder.DESCENDING, columnIndex.getBoundaryOrder());
+        assertThat(BoundaryOrder.DESCENDING).isEqualTo(columnIndex.getBoundaryOrder());
         assertCorrectNullCounts(columnIndex, 9, 8, 7, 6, 5, 0);
         assertCorrectNullPages(columnIndex, false, true, false, true, false, true);
         assertCorrectValues(columnIndex.getMaxValues(), true, null, false, null, true, null);
@@ -757,7 +752,7 @@ public class TestColumnIndexBuilder
         PrimitiveType type = Types.required(DOUBLE).named("test_double");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
         //assertThat(builder, instanceOf(DoubleColumnIndexBuilder.class));
-        assertNull(builder.build());
+        assertThat(builder.build()).isNull();
         Operators.DoubleColumn col = doubleColumn("test_col");
 
         StatsBuilder sb = new StatsBuilder();
@@ -767,10 +762,10 @@ public class TestColumnIndexBuilder
         builder.add(sb.stats(type, null, null, null));
         builder.add(sb.stats(type, 1.9, 2.32));
         builder.add(sb.stats(type, -21.0, 8.1));
-        assertEquals(6, builder.getPageCount());
-        assertEquals(sb.getMinMaxSize(), builder.getMinMaxSize());
+        assertThat(6).isEqualTo(builder.getPageCount());
+        assertThat(sb.getMinMaxSize()).isEqualTo(builder.getMinMaxSize());
         ColumnIndex columnIndex = builder.build();
-        assertEquals(BoundaryOrder.UNORDERED, columnIndex.getBoundaryOrder());
+        assertThat(BoundaryOrder.UNORDERED).isEqualTo(columnIndex.getBoundaryOrder());
         assertCorrectNullCounts(columnIndex, 0, 1, 2, 3, 0, 0);
         assertCorrectNullPages(columnIndex, false, false, false, true, false, false);
         assertCorrectValues(columnIndex.getMaxValues(), -4.1, 7.0, 2.2, null, 2.32, 8.1);
@@ -797,10 +792,10 @@ public class TestColumnIndexBuilder
         builder.add(sb.stats(type, null, null));
         builder.add(sb.stats(type, 3.0, 42.83));
         builder.add(sb.stats(type, null, null));
-        assertEquals(9, builder.getPageCount());
-        assertEquals(sb.getMinMaxSize(), builder.getMinMaxSize());
+        assertThat(9).isEqualTo(builder.getPageCount());
+        assertThat(sb.getMinMaxSize()).isEqualTo(builder.getMinMaxSize());
         columnIndex = builder.build();
-        assertEquals(BoundaryOrder.ASCENDING, columnIndex.getBoundaryOrder());
+        assertThat(BoundaryOrder.ASCENDING).isEqualTo(columnIndex.getBoundaryOrder());
         assertCorrectNullCounts(columnIndex, 2, 2, 1, 2, 3, 0, 2, 0, 2);
         assertCorrectNullPages(columnIndex, true, false, false, true, true, false, true, false, true);
         assertCorrectValues(columnIndex.getMaxValues(), null, -345.2, -234.6, null, null, 2.99999, null, 42.83, null);
@@ -827,10 +822,10 @@ public class TestColumnIndexBuilder
         builder.add(sb.stats(type, null, null));
         builder.add(sb.stats(type, null, null));
         builder.add(sb.stats(type, -3.0, -42.83));
-        assertEquals(9, builder.getPageCount());
-        assertEquals(sb.getMinMaxSize(), builder.getMinMaxSize());
+        assertThat(9).isEqualTo(builder.getPageCount());
+        assertThat(sb.getMinMaxSize()).isEqualTo(builder.getMinMaxSize());
         columnIndex = builder.build();
-        assertEquals(BoundaryOrder.DESCENDING, columnIndex.getBoundaryOrder());
+        assertThat(BoundaryOrder.DESCENDING).isEqualTo(columnIndex.getBoundaryOrder());
         assertCorrectNullCounts(columnIndex, 5, 0, 3, 1, 2, 0, 2, 2, 0);
         assertCorrectNullPages(columnIndex, true, false, true, false, true, false, true, true, false);
         assertCorrectValues(columnIndex.getMaxValues(), null, 532.3, null, 234.7, null, 234.69, null, null, -3.0);
@@ -864,7 +859,7 @@ public class TestColumnIndexBuilder
         builder.add(sb.stats(type, -1.0, -0.0));
         builder.add(sb.stats(type, 0.0, Double.NaN));
         builder.add(sb.stats(type, 1.0, 100.0));
-        assertNull(builder.build());
+        assertThat(builder.build()).isNull();
     }
 
     @Test
@@ -877,7 +872,7 @@ public class TestColumnIndexBuilder
                 asList(0L, 1L, 2L, 3L, 4L, 5L),
                 toBBList(-1.0, -2.0, -3.0, -4.0, -5.0, -6.0),
                 toBBList(1.0, 2.0, 3.0, 4.0, 5.0, 6.0));
-        assertEquals(BoundaryOrder.UNORDERED, columnIndex.getBoundaryOrder());
+        assertThat(BoundaryOrder.UNORDERED).isEqualTo(columnIndex.getBoundaryOrder());
         assertCorrectNullCounts(columnIndex, 0, 1, 2, 3, 4, 5);
         assertCorrectNullPages(columnIndex, false, false, false, false, false, false);
         assertCorrectValues(columnIndex.getMaxValues(), 1.0, 2.0, 3.0, 4.0, 5.0, 6.0);
@@ -890,7 +885,7 @@ public class TestColumnIndexBuilder
         PrimitiveType type = Types.required(FLOAT).named("test_float");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
         //assertThat(builder, instanceOf(FloatColumnIndexBuilder.class));
-        assertNull(builder.build());
+        assertThat(builder.build()).isNull();
         Operators.FloatColumn col = floatColumn("test_col");
 
         StatsBuilder sb = new StatsBuilder();
@@ -900,10 +895,10 @@ public class TestColumnIndexBuilder
         builder.add(sb.stats(type, null, null, null));
         builder.add(sb.stats(type, 1.9f, 2.32f));
         builder.add(sb.stats(type, -21.0f, 8.1f));
-        assertEquals(6, builder.getPageCount());
-        assertEquals(sb.getMinMaxSize(), builder.getMinMaxSize());
+        assertThat(6).isEqualTo(builder.getPageCount());
+        assertThat(sb.getMinMaxSize()).isEqualTo(builder.getMinMaxSize());
         ColumnIndex columnIndex = builder.build();
-        assertEquals(BoundaryOrder.UNORDERED, columnIndex.getBoundaryOrder());
+        assertThat(BoundaryOrder.UNORDERED).isEqualTo(columnIndex.getBoundaryOrder());
         assertCorrectNullCounts(columnIndex, 0, 1, 2, 3, 0, 0);
         assertCorrectNullPages(columnIndex, false, false, false, true, false, false);
         assertCorrectValues(columnIndex.getMaxValues(), -4.1f, 7.0f, 2.2f, null, 2.32f, 8.1f);
@@ -930,10 +925,10 @@ public class TestColumnIndexBuilder
         builder.add(sb.stats(type, null, null));
         builder.add(sb.stats(type, 3.0f, 42.83f));
         builder.add(sb.stats(type, null, null));
-        assertEquals(9, builder.getPageCount());
-        assertEquals(sb.getMinMaxSize(), builder.getMinMaxSize());
+        assertThat(9).isEqualTo(builder.getPageCount());
+        assertThat(sb.getMinMaxSize()).isEqualTo(builder.getMinMaxSize());
         columnIndex = builder.build();
-        assertEquals(BoundaryOrder.ASCENDING, columnIndex.getBoundaryOrder());
+        assertThat(BoundaryOrder.ASCENDING).isEqualTo(columnIndex.getBoundaryOrder());
         assertCorrectNullCounts(columnIndex, 2, 2, 1, 2, 3, 0, 2, 0, 2);
         assertCorrectNullPages(columnIndex, true, false, false, true, true, false, true, false, true);
         assertCorrectValues(columnIndex.getMaxValues(), null, -345.2f, -234.7f, null, null, 2.99999f, null, 42.83f, null);
@@ -960,10 +955,10 @@ public class TestColumnIndexBuilder
         builder.add(sb.stats(type, null, null));
         builder.add(sb.stats(type, null, null));
         builder.add(sb.stats(type, -3.0f, -42.83f));
-        assertEquals(9, builder.getPageCount());
-        assertEquals(sb.getMinMaxSize(), builder.getMinMaxSize());
+        assertThat(9).isEqualTo(builder.getPageCount());
+        assertThat(sb.getMinMaxSize()).isEqualTo(builder.getMinMaxSize());
         columnIndex = builder.build();
-        assertEquals(BoundaryOrder.DESCENDING, columnIndex.getBoundaryOrder());
+        assertThat(BoundaryOrder.DESCENDING).isEqualTo(columnIndex.getBoundaryOrder());
         assertCorrectNullCounts(columnIndex, 5, 0, 3, 1, 2, 0, 2, 2, 0);
         assertCorrectNullPages(columnIndex, true, false, true, false, true, false, true, true, false);
         assertCorrectValues(columnIndex.getMaxValues(), null, 532.3f, null, 234.7f, null, 234.6f, null, null, -3.0f);
@@ -997,7 +992,7 @@ public class TestColumnIndexBuilder
         builder.add(sb.stats(type, -1.0f, -0.0f));
         builder.add(sb.stats(type, 0.0f, Float.NaN));
         builder.add(sb.stats(type, 1.0f, 100.0f));
-        assertNull(builder.build());
+        assertThat(builder.build()).isNull();
     }
 
     @Test
@@ -1010,7 +1005,7 @@ public class TestColumnIndexBuilder
                 asList(9L, 8L, 7L, 6L, 0L, 0L),
                 toBBList(null, null, null, -3.0f, -2.0f, 0.1f),
                 toBBList(null, null, null, -2.0f, 0.0f, 6.0f));
-        assertEquals(BoundaryOrder.ASCENDING, columnIndex.getBoundaryOrder());
+        assertThat(BoundaryOrder.ASCENDING).isEqualTo(columnIndex.getBoundaryOrder());
         assertCorrectNullCounts(columnIndex, 9, 8, 7, 6, 0, 0);
         assertCorrectNullPages(columnIndex, true, true, true, false, false, false);
         assertCorrectValues(columnIndex.getMaxValues(), null, null, null, -2.0f, 0.0f, 6.0f);
@@ -1023,7 +1018,7 @@ public class TestColumnIndexBuilder
         PrimitiveType type = Types.required(INT32).named("test_int32");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
         //assertThat(builder, instanceOf(IntColumnIndexBuilder.class));
-        assertNull(builder.build());
+        assertThat(builder.build()).isNull();
         Operators.IntColumn col = intColumn("test_col");
 
         StatsBuilder sb = new StatsBuilder();
@@ -1033,10 +1028,10 @@ public class TestColumnIndexBuilder
         builder.add(sb.stats(type, null, null, null));
         builder.add(sb.stats(type, 1, 2));
         builder.add(sb.stats(type, -21, 8));
-        assertEquals(6, builder.getPageCount());
-        assertEquals(sb.getMinMaxSize(), builder.getMinMaxSize());
+        assertThat(6).isEqualTo(builder.getPageCount());
+        assertThat(sb.getMinMaxSize()).isEqualTo(builder.getMinMaxSize());
         ColumnIndex columnIndex = builder.build();
-        assertEquals(BoundaryOrder.UNORDERED, columnIndex.getBoundaryOrder());
+        assertThat(BoundaryOrder.UNORDERED).isEqualTo(columnIndex.getBoundaryOrder());
         assertCorrectNullCounts(columnIndex, 0, 1, 2, 3, 0, 0);
         assertCorrectNullPages(columnIndex, false, false, false, true, false, false);
         assertCorrectValues(columnIndex.getMaxValues(), 10, 7, 2, null, 2, 8);
@@ -1063,10 +1058,10 @@ public class TestColumnIndexBuilder
         builder.add(sb.stats(type, null, null));
         builder.add(sb.stats(type, 3, 42));
         builder.add(sb.stats(type, null, null));
-        assertEquals(9, builder.getPageCount());
-        assertEquals(sb.getMinMaxSize(), builder.getMinMaxSize());
+        assertThat(9).isEqualTo(builder.getPageCount());
+        assertThat(sb.getMinMaxSize()).isEqualTo(builder.getMinMaxSize());
         columnIndex = builder.build();
-        assertEquals(BoundaryOrder.ASCENDING, columnIndex.getBoundaryOrder());
+        assertThat(BoundaryOrder.ASCENDING).isEqualTo(columnIndex.getBoundaryOrder());
         assertCorrectNullCounts(columnIndex, 2, 2, 1, 2, 3, 0, 2, 0, 2);
         assertCorrectNullPages(columnIndex, true, false, false, true, true, false, true, false, true);
         assertCorrectValues(columnIndex.getMaxValues(), null, -345, -42, null, null, 2, null, 42, null);
@@ -1094,10 +1089,10 @@ public class TestColumnIndexBuilder
         builder.add(sb.stats(type, null, null));
         builder.add(sb.stats(type, null, null));
         builder.add(sb.stats(type, -3, -42));
-        assertEquals(9, builder.getPageCount());
-        assertEquals(sb.getMinMaxSize(), builder.getMinMaxSize());
+        assertThat(9).isEqualTo(builder.getPageCount());
+        assertThat(sb.getMinMaxSize()).isEqualTo(builder.getMinMaxSize());
         columnIndex = builder.build();
-        assertEquals(BoundaryOrder.DESCENDING, columnIndex.getBoundaryOrder());
+        assertThat(BoundaryOrder.DESCENDING).isEqualTo(columnIndex.getBoundaryOrder());
         assertCorrectNullCounts(columnIndex, 5, 0, 3, 1, 2, 0, 2, 2, 0);
         assertCorrectNullPages(columnIndex, true, false, true, false, true, false, true, true, false);
         assertCorrectValues(columnIndex.getMaxValues(), null, 532, null, 234, null, 42, null, null, -3);
@@ -1125,7 +1120,7 @@ public class TestColumnIndexBuilder
                 asList(0L, 10L, 0L, 3L, 5L, 7L),
                 toBBList(10, 8, 6, null, null, null),
                 toBBList(9, 7, 5, null, null, null));
-        assertEquals(BoundaryOrder.DESCENDING, columnIndex.getBoundaryOrder());
+        assertThat(BoundaryOrder.DESCENDING).isEqualTo(columnIndex.getBoundaryOrder());
         assertCorrectNullCounts(columnIndex, 0, 10, 0, 3, 5, 7);
         assertCorrectNullPages(columnIndex, false, false, false, true, true, true);
         assertCorrectValues(columnIndex.getMaxValues(), 9, 7, 5, null, null, null);
@@ -1138,7 +1133,7 @@ public class TestColumnIndexBuilder
         PrimitiveType type = Types.required(INT32).as(LogicalTypeAnnotation.intType(8, false)).named("test_uint8");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
         //assertThat(builder, instanceOf(IntColumnIndexBuilder.class));
-        assertNull(builder.build());
+        assertThat(builder.build()).isNull();
         Operators.IntColumn col = intColumn("test_col");
 
         StatsBuilder sb = new StatsBuilder();
@@ -1148,10 +1143,10 @@ public class TestColumnIndexBuilder
         builder.add(sb.stats(type, null, null, null));
         builder.add(sb.stats(type, 1, 0xFF));
         builder.add(sb.stats(type, 0xEF, 0xFA));
-        assertEquals(6, builder.getPageCount());
-        assertEquals(sb.getMinMaxSize(), builder.getMinMaxSize());
+        assertThat(6).isEqualTo(builder.getPageCount());
+        assertThat(sb.getMinMaxSize()).isEqualTo(builder.getMinMaxSize());
         ColumnIndex columnIndex = builder.build();
-        assertEquals(BoundaryOrder.UNORDERED, columnIndex.getBoundaryOrder());
+        assertThat(BoundaryOrder.UNORDERED).isEqualTo(columnIndex.getBoundaryOrder());
         assertCorrectNullCounts(columnIndex, 0, 1, 2, 3, 0, 0);
         assertCorrectNullPages(columnIndex, false, false, false, true, false, false);
         assertCorrectValues(columnIndex.getMaxValues(), 10, 17, 2, null, 0xFF, 0xFA);
@@ -1178,10 +1173,10 @@ public class TestColumnIndexBuilder
         builder.add(sb.stats(type, null, null));
         builder.add(sb.stats(type, 0xEF, 0xFF));
         builder.add(sb.stats(type, null, null));
-        assertEquals(9, builder.getPageCount());
-        assertEquals(sb.getMinMaxSize(), builder.getMinMaxSize());
+        assertThat(9).isEqualTo(builder.getPageCount());
+        assertThat(sb.getMinMaxSize()).isEqualTo(builder.getMinMaxSize());
         columnIndex = builder.build();
-        assertEquals(BoundaryOrder.ASCENDING, columnIndex.getBoundaryOrder());
+        assertThat(BoundaryOrder.ASCENDING).isEqualTo(columnIndex.getBoundaryOrder());
         assertCorrectNullCounts(columnIndex, 2, 2, 1, 2, 3, 0, 2, 0, 2);
         assertCorrectNullPages(columnIndex, true, false, false, true, true, false, true, false, true);
         assertCorrectValues(columnIndex.getMaxValues(), null, 0, 42, null, null, 0xEE, null, 0xFF, null);
@@ -1209,10 +1204,10 @@ public class TestColumnIndexBuilder
         builder.add(sb.stats(type, null, null));
         builder.add(sb.stats(type, null, null));
         builder.add(sb.stats(type, 41, 0));
-        assertEquals(9, builder.getPageCount());
-        assertEquals(sb.getMinMaxSize(), builder.getMinMaxSize());
+        assertThat(9).isEqualTo(builder.getPageCount());
+        assertThat(sb.getMinMaxSize()).isEqualTo(builder.getMinMaxSize());
         columnIndex = builder.build();
-        assertEquals(BoundaryOrder.DESCENDING, columnIndex.getBoundaryOrder());
+        assertThat(BoundaryOrder.DESCENDING).isEqualTo(columnIndex.getBoundaryOrder());
         assertCorrectNullCounts(columnIndex, 5, 0, 3, 1, 2, 0, 2, 2, 0);
         assertCorrectNullPages(columnIndex, true, false, true, false, true, false, true, true, false);
         assertCorrectValues(columnIndex.getMaxValues(), null, 0xFF, null, 0xEF, null, 0xEE, null, null, 41);
@@ -1236,7 +1231,7 @@ public class TestColumnIndexBuilder
         PrimitiveType type = Types.required(INT64).named("test_int64");
         ColumnIndexBuilder builder = ColumnIndexBuilder.getBuilder(type, Integer.MAX_VALUE);
         //assertThat(builder, instanceOf(LongColumnIndexBuilder.class));
-        assertNull(builder.build());
+        assertThat(builder.build()).isNull();
         Operators.LongColumn col = longColumn("test_col");
 
         StatsBuilder sb = new StatsBuilder();
@@ -1246,10 +1241,10 @@ public class TestColumnIndexBuilder
         builder.add(sb.stats(type, null, null, null));
         builder.add(sb.stats(type, 1L, 2L));
         builder.add(sb.stats(type, -21L, 8L));
-        assertEquals(6, builder.getPageCount());
-        assertEquals(sb.getMinMaxSize(), builder.getMinMaxSize());
+        assertThat(6).isEqualTo(builder.getPageCount());
+        assertThat(sb.getMinMaxSize()).isEqualTo(builder.getMinMaxSize());
         ColumnIndex columnIndex = builder.build();
-        assertEquals(BoundaryOrder.UNORDERED, columnIndex.getBoundaryOrder());
+        assertThat(BoundaryOrder.UNORDERED).isEqualTo(columnIndex.getBoundaryOrder());
         assertCorrectNullCounts(columnIndex, 0L, 1L, 2L, 3L, 0L, 0L);
         assertCorrectNullPages(columnIndex, false, false, false, true, false, false);
         assertCorrectValues(columnIndex.getMaxValues(), 10L, 7L, 2L, null, 2L, 8L);
@@ -1276,10 +1271,10 @@ public class TestColumnIndexBuilder
         builder.add(sb.stats(type, null, null));
         builder.add(sb.stats(type, -3L, 42L));
         builder.add(sb.stats(type, null, null));
-        assertEquals(9, builder.getPageCount());
-        assertEquals(sb.getMinMaxSize(), builder.getMinMaxSize());
+        assertThat(9).isEqualTo(builder.getPageCount());
+        assertThat(sb.getMinMaxSize()).isEqualTo(builder.getMinMaxSize());
         columnIndex = builder.build();
-        assertEquals(BoundaryOrder.ASCENDING, columnIndex.getBoundaryOrder());
+        assertThat(BoundaryOrder.ASCENDING).isEqualTo(columnIndex.getBoundaryOrder());
         assertCorrectNullCounts(columnIndex, 2, 2, 1, 2, 3, 0, 2, 0, 2);
         assertCorrectNullPages(columnIndex, true, false, false, true, true, false, true, false, true);
         assertCorrectValues(columnIndex.getMaxValues(), null, -345L, -42L, null, null, 2L, null, 42L, null);
@@ -1307,10 +1302,10 @@ public class TestColumnIndexBuilder
         builder.add(sb.stats(type, null, null));
         builder.add(sb.stats(type, null, null));
         builder.add(sb.stats(type, -3L, -42L));
-        assertEquals(9, builder.getPageCount());
-        assertEquals(sb.getMinMaxSize(), builder.getMinMaxSize());
+        assertThat(9).isEqualTo(builder.getPageCount());
+        assertThat(sb.getMinMaxSize()).isEqualTo(builder.getMinMaxSize());
         columnIndex = builder.build();
-        assertEquals(BoundaryOrder.DESCENDING, columnIndex.getBoundaryOrder());
+        assertThat(BoundaryOrder.DESCENDING).isEqualTo(columnIndex.getBoundaryOrder());
         assertCorrectNullCounts(columnIndex, 5, 0, 3, 1, 2, 0, 2, 2, 0);
         assertCorrectNullPages(columnIndex, true, false, true, false, true, false, true, true, false);
         assertCorrectValues(columnIndex.getMaxValues(), null, 532L, null, 234L, null, 42L, null, null, -3L);
@@ -1338,7 +1333,7 @@ public class TestColumnIndexBuilder
                 asList(1L, 2L, 3L, 4L, 5L, 6L),
                 toBBList(null, 2L, null, 4L, null, 9L),
                 toBBList(null, 3L, null, 15L, null, 10L));
-        assertEquals(BoundaryOrder.UNORDERED, columnIndex.getBoundaryOrder());
+        assertThat(BoundaryOrder.UNORDERED).isEqualTo(columnIndex.getBoundaryOrder());
         assertCorrectNullCounts(columnIndex, 1, 2, 3, 4, 5, 6);
         assertCorrectNullPages(columnIndex, true, false, true, false, true, false);
         assertCorrectValues(columnIndex.getMaxValues(), null, 3L, null, 15L, null, 10L);
@@ -1356,9 +1351,9 @@ public class TestColumnIndexBuilder
         builder.add(sb.stats(Types.required(DOUBLE).named("test_double"), null, null, null));
         builder.add(sb.stats(Types.required(INT32).named("test_int32"), null, null));
         builder.add(sb.stats(Types.required(INT64).named("test_int64"), -234L, -42L, null));
-        assertEquals(0, builder.getPageCount());
-        assertEquals(0, builder.getMinMaxSize());
-        assertNull(builder.build());
+        assertThat(0).isEqualTo(builder.getPageCount());
+        assertThat(0).isEqualTo(builder.getMinMaxSize());
+        assertThat(builder.build()).isNull();
     }
 
     private static List<ByteBuffer> toBBList(Binary... values)
@@ -1457,95 +1452,129 @@ public class TestColumnIndexBuilder
 
     private static void assertCorrectValues(List<ByteBuffer> values, Binary... expectedValues)
     {
-        assertEquals(expectedValues.length, values.size());
+        assertThat(expectedValues.length).isEqualTo(values.size());
         for (int i = 0; i < expectedValues.length; ++i) {
             Binary expectedValue = expectedValues[i];
             ByteBuffer value = values.get(i);
             if (expectedValue == null) {
-                assertFalse(value.hasRemaining(), "The byte buffer should be empty for null pages");
+                assertThat(value.hasRemaining())
+                        .describedAs("The byte buffer should be empty for null pages")
+                        .isFalse();
             }
             else {
-                assertArrayEquals("Invalid value for page " + i, expectedValue.getBytesUnsafe(), value.array());
+                assertThat(value.array())
+                        .describedAs("Invalid value for page " + i)
+                        .isEqualTo(expectedValue.getBytesUnsafe());
             }
         }
     }
 
     private static void assertCorrectValues(List<ByteBuffer> values, Boolean... expectedValues)
     {
-        assertEquals(expectedValues.length, values.size());
+        assertThat(expectedValues.length).isEqualTo(values.size());
         for (int i = 0; i < expectedValues.length; ++i) {
             Boolean expectedValue = expectedValues[i];
             ByteBuffer value = values.get(i);
             if (expectedValue == null) {
-                assertFalse(value.hasRemaining(), "The byte buffer should be empty for null pages");
+                assertThat(value.hasRemaining())
+                        .describedAs("The byte buffer should be empty for null pages")
+                        .isFalse();
             }
             else {
-                assertEquals(1, value.remaining(), "The byte buffer should be 1 byte long for boolean");
-                assertEquals(expectedValue.booleanValue(), value.get(0) != 0, "Invalid value for page " + i);
+                assertThat(1)
+                        .describedAs("The byte buffer should be 1 byte long for boolean")
+                        .isEqualTo(value.remaining());
+                assertThat(expectedValue.booleanValue())
+                        .describedAs("Invalid value for page " + i)
+                        .isEqualTo(value.get(0) != 0);
             }
         }
     }
 
     private static void assertCorrectValues(List<ByteBuffer> values, Double... expectedValues)
     {
-        assertEquals(expectedValues.length, values.size());
+        assertThat(expectedValues.length).isEqualTo(values.size());
         for (int i = 0; i < expectedValues.length; ++i) {
             Double expectedValue = expectedValues[i];
             ByteBuffer value = values.get(i);
             if (expectedValue == null) {
-                assertFalse(value.hasRemaining(), "The byte buffer should be empty for null pages");
+                assertThat(value.hasRemaining())
+                        .describedAs("The byte buffer should be empty for null pages")
+                        .isFalse();
             }
             else {
-                assertEquals(8, value.remaining(), "The byte buffer should be 8 bytes long for double");
-                assertTrue(Double.compare(expectedValue.doubleValue(), value.getDouble(0)) == 0, "Invalid value for page " + i);
+                assertThat(8)
+                        .describedAs("The byte buffer should be 8 bytes long for double")
+                        .isEqualTo(value.remaining());
+                assertThat(Double.compare(expectedValue.doubleValue(), value.getDouble(0)) == 0)
+                        .describedAs("Invalid value for page " + i)
+                        .isTrue();
             }
         }
     }
 
     private static void assertCorrectValues(List<ByteBuffer> values, Float... expectedValues)
     {
-        assertEquals(expectedValues.length, values.size());
+        assertThat(expectedValues.length).isEqualTo(values.size());
         for (int i = 0; i < expectedValues.length; ++i) {
             Float expectedValue = expectedValues[i];
             ByteBuffer value = values.get(i);
             if (expectedValue == null) {
-                assertFalse(value.hasRemaining(), "The byte buffer should be empty for null pages");
+                assertThat(value.hasRemaining())
+                        .describedAs("The byte buffer should be empty for null pages")
+                        .isFalse();
             }
             else {
-                assertEquals(4, value.remaining(), "The byte buffer should be 4 bytes long for double");
-                assertTrue(Float.compare(expectedValue.floatValue(), value.getFloat(0)) == 0, "Invalid value for page " + i);
+                assertThat(4)
+                        .describedAs("The byte buffer should be 4 bytes long for double")
+                        .isEqualTo(value.remaining());
+                assertThat(Float.compare(expectedValue.floatValue(), value.getFloat(0)) == 0)
+                        .describedAs("Invalid value for page " + i)
+                        .isTrue();
             }
         }
     }
 
     private static void assertCorrectValues(List<ByteBuffer> values, Integer... expectedValues)
     {
-        assertEquals(expectedValues.length, values.size());
+        assertThat(expectedValues.length).isEqualTo(values.size());
         for (int i = 0; i < expectedValues.length; ++i) {
             Integer expectedValue = expectedValues[i];
             ByteBuffer value = values.get(i);
             if (expectedValue == null) {
-                assertFalse(value.hasRemaining(), "The byte buffer should be empty for null pages");
+                assertThat(value.hasRemaining())
+                        .describedAs("The byte buffer should be empty for null pages")
+                        .isFalse();
             }
             else {
-                assertEquals(4, value.remaining(), "The byte buffer should be 4 bytes long for int32");
-                assertEquals(expectedValue.intValue(), value.getInt(0), "Invalid value for page " + i);
+                assertThat(4)
+                        .describedAs("The byte buffer should be 4 bytes long for int32")
+                        .isEqualTo(value.remaining());
+                assertThat(expectedValue.intValue())
+                        .describedAs("Invalid value for page " + i)
+                        .isEqualTo(value.getInt(0));
             }
         }
     }
 
     private static void assertCorrectValues(List<ByteBuffer> values, Long... expectedValues)
     {
-        assertEquals(expectedValues.length, values.size());
+        assertThat(expectedValues.length).isEqualTo(values.size());
         for (int i = 0; i < expectedValues.length; ++i) {
             Long expectedValue = expectedValues[i];
             ByteBuffer value = values.get(i);
             if (expectedValue == null) {
-                assertFalse(value.hasRemaining(), "The byte buffer should be empty for null pages");
+                assertThat(value.hasRemaining())
+                        .describedAs("The byte buffer should be empty for null pages")
+                        .isFalse();
             }
             else {
-                assertEquals(8, value.remaining(), "The byte buffer should be 8 bytes long for int64");
-                assertEquals(expectedValue.intValue(), value.getLong(0), "Invalid value for page " + i);
+                assertThat(8)
+                        .describedAs("The byte buffer should be 8 bytes long for int64")
+                        .isEqualTo(value.remaining());
+                assertThat(expectedValue.intValue())
+                        .describedAs("Invalid value for page " + i)
+                        .isEqualTo(value.getLong(0));
             }
         }
     }
@@ -1553,18 +1582,22 @@ public class TestColumnIndexBuilder
     private static void assertCorrectNullCounts(ColumnIndex columnIndex, long... expectedNullCounts)
     {
         List<Long> nullCounts = columnIndex.getNullCounts();
-        assertEquals(expectedNullCounts.length, nullCounts.size());
+        assertThat(expectedNullCounts.length).isEqualTo(nullCounts.size());
         for (int i = 0; i < expectedNullCounts.length; ++i) {
-            assertEquals(expectedNullCounts[i], nullCounts.get(i).longValue(), "Invalid null count at page " + i);
+            assertThat(expectedNullCounts[i])
+                    .describedAs("Invalid null count at page " + i)
+                    .isEqualTo(nullCounts.get(i).longValue());
         }
     }
 
     private static void assertCorrectNullPages(ColumnIndex columnIndex, boolean... expectedNullPages)
     {
         List<Boolean> nullPages = columnIndex.getNullPages();
-        assertEquals(expectedNullPages.length, nullPages.size());
+        assertThat(expectedNullPages.length).isEqualTo(nullPages.size());
         for (int i = 0; i < expectedNullPages.length; ++i) {
-            assertEquals(expectedNullPages[i], nullPages.get(i).booleanValue(), "Invalid null pages at page " + i);
+            assertThat(expectedNullPages[i])
+                    .describedAs("Invalid null pages at page " + i)
+                    .isEqualTo(nullPages.get(i).booleanValue());
         }
     }
 
@@ -1628,8 +1661,6 @@ public class TestColumnIndexBuilder
         IntList actualList = new IntArrayList();
         actualIt.forEachRemaining((int value) -> actualList.add(value));
         int[] actualValues = actualList.toIntArray();
-        assertArrayEquals(
-                "ExpectedValues: " + Arrays.toString(expectedValues) + " ActualValues: " + Arrays.toString(actualValues),
-                expectedValues, actualValues);
+        assertThat(actualValues).isEqualTo(expectedValues);
     }
 }

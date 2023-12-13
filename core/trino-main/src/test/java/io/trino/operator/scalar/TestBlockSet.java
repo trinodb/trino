@@ -37,9 +37,6 @@ import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExcept
 import static java.util.Collections.nCopies;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestBlockSet
 {
@@ -75,10 +72,10 @@ public class TestBlockSet
             blockSet.add(block, i);
         }
 
-        assertEquals(blockSet.size(), elementCount);
+        assertThat(blockSet.size()).isEqualTo(elementCount);
 
         for (int j = 0; j < block.getPositionCount(); j++) {
-            assertEquals(blockSet.positionOf(block, j), j);
+            assertThat(blockSet.positionOf(block, j)).isEqualTo(j);
         }
     }
 
@@ -104,17 +101,17 @@ public class TestBlockSet
 
         // The internal elementBlock and hashtable of the blockSet should contain
         // all distinct non-null elements plus one null
-        assertEquals(blockSet.size(), elementCount - elementCount / 10 + 1);
+        assertThat(blockSet.size()).isEqualTo(elementCount - elementCount / 10 + 1);
 
         int nullCount = 0;
         for (int j = 0; j < block.getPositionCount(); j++) {
             // The null is only added to blockSet once, so the internal elementBlock subscript is shifted by nullCountMinusOne
             if (!block.isNull(j)) {
-                assertEquals(blockSet.positionOf(block, j), j - nullCount + 1);
+                assertThat(blockSet.positionOf(block, j)).isEqualTo(j - nullCount + 1);
             }
             else {
                 // The first null added to blockSet is at position 0
-                assertEquals(blockSet.positionOf(block, j), 0);
+                assertThat(blockSet.positionOf(block, j)).isEqualTo(0);
                 nullCount++;
             }
         }
@@ -182,14 +179,14 @@ public class TestBlockSet
         valuesBuilder.appendNull();
         Block values = valuesBuilder.build();
 
-        assertEquals(set.positionOf(values, 4), -1);
-        assertEquals(set.positionOf(values, 2), 0);
-        assertEquals(set.positionOf(values, 1), 2);
-        assertEquals(set.positionOf(values, 0), 1);
-        assertFalse(set.contains(values, 3));
+        assertThat(set.positionOf(values, 4)).isEqualTo(-1);
+        assertThat(set.positionOf(values, 2)).isEqualTo(0);
+        assertThat(set.positionOf(values, 1)).isEqualTo(2);
+        assertThat(set.positionOf(values, 0)).isEqualTo(1);
+        assertThat(set.contains(values, 3)).isFalse();
 
         set.add(values, 4);
-        assertTrue(set.contains(values, 4));
+        assertThat(set.contains(values, 4)).isTrue();
     }
 
     @Test
@@ -215,14 +212,14 @@ public class TestBlockSet
         Set<Long> set = new HashSet<>();
         for (int blockPosition = 0; blockPosition < longBlock.getPositionCount(); blockPosition++) {
             long number = BIGINT.getLong(longBlock, blockPosition);
-            assertEquals(blockSet.contains(longBlock, blockPosition), set.contains(number));
-            assertEquals(blockSet.size(), set.size());
+            assertThat(blockSet.contains(longBlock, blockPosition)).isEqualTo(set.contains(number));
+            assertThat(blockSet.size()).isEqualTo(set.size());
 
             set.add(number);
             blockSet.add(longBlock, blockPosition);
 
-            assertEquals(blockSet.contains(longBlock, blockPosition), set.contains(number));
-            assertEquals(blockSet.size(), set.size());
+            assertThat(blockSet.contains(longBlock, blockPosition)).isEqualTo(set.contains(number));
+            assertThat(blockSet.size()).isEqualTo(set.size());
         }
     }
 

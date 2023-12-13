@@ -19,47 +19,46 @@ import org.junit.jupiter.api.Test;
 import static io.trino.plugin.hive.fs.HiveFileIterator.containsHiddenPathPartAfterIndex;
 import static io.trino.plugin.hive.fs.HiveFileIterator.isHiddenFileOrDirectory;
 import static io.trino.plugin.hive.fs.HiveFileIterator.isHiddenOrWithinHiddenParentDirectory;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHiveFileIterator
 {
     @Test
     public void testRelativeHiddenPathDetection()
     {
-        assertTrue(isHiddenOrWithinHiddenParentDirectory(Location.of("file:///root-path/.hidden/child"), Location.of("file:///root-path")));
-        assertTrue(isHiddenOrWithinHiddenParentDirectory(Location.of("file:///root-path/_hidden.txt"), Location.of("file:///root-path")));
+        assertThat(isHiddenOrWithinHiddenParentDirectory(Location.of("file:///root-path/.hidden/child"), Location.of("file:///root-path"))).isTrue();
+        assertThat(isHiddenOrWithinHiddenParentDirectory(Location.of("file:///root-path/_hidden.txt"), Location.of("file:///root-path"))).isTrue();
 
         // root path with trailing slash
-        assertTrue(isHiddenOrWithinHiddenParentDirectory(Location.of("file:///root-path/.hidden/child"), Location.of("file:///root-path/")));
-        assertTrue(isHiddenOrWithinHiddenParentDirectory(Location.of("file:///root-path/_hidden.txt"), Location.of("file:///root-path/")));
+        assertThat(isHiddenOrWithinHiddenParentDirectory(Location.of("file:///root-path/.hidden/child"), Location.of("file:///root-path/"))).isTrue();
+        assertThat(isHiddenOrWithinHiddenParentDirectory(Location.of("file:///root-path/_hidden.txt"), Location.of("file:///root-path/"))).isTrue();
 
         // root path containing .hidden
-        assertFalse(isHiddenOrWithinHiddenParentDirectory(Location.of("file:///root/.hidden/listing-root/file.txt"), Location.of("file:///root/.hidden/listing-root")));
+        assertThat(isHiddenOrWithinHiddenParentDirectory(Location.of("file:///root/.hidden/listing-root/file.txt"), Location.of("file:///root/.hidden/listing-root"))).isFalse();
 
         // root path ending with an underscore
-        assertFalse(isHiddenOrWithinHiddenParentDirectory(Location.of("file:///root/hidden-ending_/file.txt"), Location.of("file:///root/hidden-ending_")));
+        assertThat(isHiddenOrWithinHiddenParentDirectory(Location.of("file:///root/hidden-ending_/file.txt"), Location.of("file:///root/hidden-ending_"))).isFalse();
 
         // root path containing "arbitrary" characters
-        assertFalse(isHiddenOrWithinHiddenParentDirectory(Location.of("file:///root/With spaces and | pipes/.hidden/file.txt"), Location.of("file:///root/With spaces and | pipes/.hidden")));
+        assertThat(isHiddenOrWithinHiddenParentDirectory(Location.of("file:///root/With spaces and | pipes/.hidden/file.txt"), Location.of("file:///root/With spaces and | pipes/.hidden"))).isFalse();
     }
 
     @Test
     public void testHiddenFileNameDetection()
     {
-        assertFalse(isHiddenFileOrDirectory(Location.of("file:///parent/.hidden/ignore-parent-directories.txt")));
-        assertTrue(isHiddenFileOrDirectory(Location.of("file:///parent/visible/_hidden-file.txt")));
+        assertThat(isHiddenFileOrDirectory(Location.of("file:///parent/.hidden/ignore-parent-directories.txt"))).isFalse();
+        assertThat(isHiddenFileOrDirectory(Location.of("file:///parent/visible/_hidden-file.txt"))).isTrue();
     }
 
     @Test
     public void testHiddenDetectionEdgeCases()
     {
-        assertTrue(containsHiddenPathPartAfterIndex("/.leading-slash-hidden/file.txt", 0));
-        assertTrue(containsHiddenPathPartAfterIndex("/.leading-slash-hidden-directory/", 0));
-        assertTrue(containsHiddenPathPartAfterIndex("_root-hidden/file.txt", 0));
-        assertTrue(containsHiddenPathPartAfterIndex("_root-hidden/directory/", 0));
-        assertFalse(containsHiddenPathPartAfterIndex("root//multi-slash/", 0));
-        assertTrue(containsHiddenPathPartAfterIndex("root/child/.slash-hidden/file.txt", 0));
-        assertTrue(containsHiddenPathPartAfterIndex("root/child/.slash-hidden/parent/file.txt", 0));
+        assertThat(containsHiddenPathPartAfterIndex("/.leading-slash-hidden/file.txt", 0)).isTrue();
+        assertThat(containsHiddenPathPartAfterIndex("/.leading-slash-hidden-directory/", 0)).isTrue();
+        assertThat(containsHiddenPathPartAfterIndex("_root-hidden/file.txt", 0)).isTrue();
+        assertThat(containsHiddenPathPartAfterIndex("_root-hidden/directory/", 0)).isTrue();
+        assertThat(containsHiddenPathPartAfterIndex("root//multi-slash/", 0)).isFalse();
+        assertThat(containsHiddenPathPartAfterIndex("root/child/.slash-hidden/file.txt", 0)).isTrue();
+        assertThat(containsHiddenPathPartAfterIndex("root/child/.slash-hidden/parent/file.txt", 0)).isTrue();
     }
 }

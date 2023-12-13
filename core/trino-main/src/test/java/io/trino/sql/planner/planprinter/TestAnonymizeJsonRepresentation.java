@@ -38,6 +38,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Optional;
@@ -60,8 +61,10 @@ import static io.trino.sql.planner.planprinter.JsonRenderer.JsonRenderedNode;
 import static io.trino.sql.planner.planprinter.NodeRepresentation.TypedSymbol.typedSymbol;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestAnonymizeJsonRepresentation
 {
     private static final JsonCodec<JsonRenderedNode> JSON_RENDERED_NODE_CODEC = jsonCodec(JsonRenderedNode.class);
@@ -112,17 +115,17 @@ public class TestAnonymizeJsonRepresentation
                                 "keys", "[symbol_1, symbol_2]",
                                 "hash", "[]"),
                         ImmutableList.of(
-                                typedSymbol("symbol_1", "bigint"),
-                                typedSymbol("symbol_2", "bigint"),
-                                typedSymbol("symbol_3", "bigint")),
+                                typedSymbol("symbol_1", BIGINT),
+                                typedSymbol("symbol_2", BIGINT),
+                                typedSymbol("symbol_3", BIGINT)),
                         ImmutableList.of("symbol_3 := sum(\"symbol_4\")"),
                         ImmutableList.of(),
                         ImmutableList.of(valuesRepresentation(
                                 "0",
                                 ImmutableList.of(
-                                        typedSymbol("symbol_4", "bigint"),
-                                        typedSymbol("symbol_1", "bigint"),
-                                        typedSymbol("symbol_2", "bigint"))))));
+                                        typedSymbol("symbol_4", BIGINT),
+                                        typedSymbol("symbol_1", BIGINT),
+                                        typedSymbol("symbol_2", BIGINT))))));
     }
 
     @Test
@@ -146,20 +149,20 @@ public class TestAnonymizeJsonRepresentation
                         ImmutableMap.of(
                                 "criteria", "(\"symbol_1\" = \"symbol_2\")",
                                 "hash", "[]"),
-                        ImmutableList.of(typedSymbol("symbol_3", "bigint")),
+                        ImmutableList.of(typedSymbol("symbol_3", BIGINT)),
                         ImmutableList.of("dynamicFilterAssignments = {symbol_2 -> #DF}"),
                         ImmutableList.of(),
                         ImmutableList.of(
                                 valuesRepresentation(
                                         "0",
                                         ImmutableList.of(
-                                                typedSymbol("symbol_1", "bigint"),
-                                                typedSymbol("symbol_3", "bigint"))),
+                                                typedSymbol("symbol_1", BIGINT),
+                                                typedSymbol("symbol_3", BIGINT))),
                                 valuesRepresentation(
                                         "1",
                                         ImmutableList.of(
-                                                typedSymbol("symbol_4", "bigint"),
-                                                typedSymbol("symbol_2", "bigint"))))));
+                                                typedSymbol("symbol_4", BIGINT),
+                                                typedSymbol("symbol_2", BIGINT))))));
     }
 
     @Test
@@ -184,10 +187,10 @@ public class TestAnonymizeJsonRepresentation
                         ImmutableMap.of(
                                 "table", "[table = catalog_1.schema_1.table_1, connector = tpch]"),
                         ImmutableList.of(
-                                typedSymbol("symbol_1", "bigint"),
-                                typedSymbol("symbol_2", "bigint"),
-                                typedSymbol("symbol_3", "bigint"),
-                                typedSymbol("symbol_4", "bigint")),
+                                typedSymbol("symbol_1", BIGINT),
+                                typedSymbol("symbol_2", BIGINT),
+                                typedSymbol("symbol_3", BIGINT),
+                                typedSymbol("symbol_4", BIGINT)),
                         ImmutableList.of(
                                 "symbol_1 := column_1",
                                 "    :: [[bigint_value_1]]",
@@ -209,13 +212,13 @@ public class TestAnonymizeJsonRepresentation
                         "1",
                         "Sort",
                         ImmutableMap.of("orderBy", "[symbol_1 ASC NULLS FIRST]"),
-                        ImmutableList.of(typedSymbol("symbol_1", "bigint")),
+                        ImmutableList.of(typedSymbol("symbol_1", BIGINT)),
                         ImmutableList.of(),
                         ImmutableList.of(),
                         ImmutableList.of(
                                 valuesRepresentation(
                                         "0",
-                                        ImmutableList.of(typedSymbol("symbol_1", "bigint"))))));
+                                        ImmutableList.of(typedSymbol("symbol_1", BIGINT))))));
     }
 
     private static JsonRenderedNode valuesRepresentation(String id, List<NodeRepresentation.TypedSymbol> outputs)

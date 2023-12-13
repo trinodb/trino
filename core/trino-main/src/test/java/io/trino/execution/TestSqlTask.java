@@ -44,6 +44,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.net.URI;
 import java.util.Optional;
@@ -77,15 +78,13 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestSqlTask
 {
     public static final OutputBufferId OUT = new OutputBufferId(0);
@@ -142,12 +141,12 @@ public class TestSqlTask
                         .withNoMoreBufferIds(),
                 ImmutableMap.of(),
                 false);
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
-        assertEquals(taskInfo.getTaskStatus().getVersion(), STARTING_VERSION);
+        assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.RUNNING);
+        assertThat(taskInfo.getTaskStatus().getVersion()).isEqualTo(STARTING_VERSION);
 
         taskInfo = sqlTask.getTaskInfo();
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
-        assertEquals(taskInfo.getTaskStatus().getVersion(), STARTING_VERSION);
+        assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.RUNNING);
+        assertThat(taskInfo.getTaskStatus().getVersion()).isEqualTo(STARTING_VERSION);
 
         taskInfo = sqlTask.updateTask(TEST_SESSION,
                 Span.getInvalid(),
@@ -157,10 +156,10 @@ public class TestSqlTask
                         .withNoMoreBufferIds(),
                 ImmutableMap.of(),
                 false);
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
+        assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.FINISHED);
 
         taskInfo = sqlTask.getTaskInfo(STARTING_VERSION).get();
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
+        assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.FINISHED);
     }
 
     @Test
@@ -170,8 +169,8 @@ public class TestSqlTask
     {
         SqlTask sqlTask = createInitialTask();
 
-        assertEquals(sqlTask.getTaskStatus().getState(), TaskState.RUNNING);
-        assertEquals(sqlTask.getTaskStatus().getVersion(), STARTING_VERSION);
+        assertThat(sqlTask.getTaskStatus().getState()).isEqualTo(TaskState.RUNNING);
+        assertThat(sqlTask.getTaskStatus().getVersion()).isEqualTo(STARTING_VERSION);
         sqlTask.updateTask(TEST_SESSION,
                 Span.getInvalid(),
                 Optional.of(PLAN_FRAGMENT),
@@ -181,34 +180,34 @@ public class TestSqlTask
                 false);
 
         TaskInfo taskInfo = sqlTask.getTaskInfo(STARTING_VERSION).get();
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FLUSHING);
-        assertEquals(taskInfo.getTaskStatus().getVersion(), STARTING_VERSION + 1);
+        assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.FLUSHING);
+        assertThat(taskInfo.getTaskStatus().getVersion()).isEqualTo(STARTING_VERSION + 1);
 
         // completed future should be returned immediately when old caller's version is used
-        assertTrue(sqlTask.getTaskInfo(STARTING_VERSION).isDone());
+        assertThat(sqlTask.getTaskInfo(STARTING_VERSION).isDone()).isTrue();
 
         BufferResult results = sqlTask.getTaskResults(OUT, 0, DataSize.of(1, MEGABYTE)).get();
-        assertFalse(results.isBufferComplete());
-        assertEquals(results.getSerializedPages().size(), 1);
-        assertEquals(getSerializedPagePositionCount(results.getSerializedPages().get(0)), 1);
+        assertThat(results.isBufferComplete()).isFalse();
+        assertThat(results.getSerializedPages().size()).isEqualTo(1);
+        assertThat(getSerializedPagePositionCount(results.getSerializedPages().get(0))).isEqualTo(1);
 
         for (boolean moreResults = true; moreResults; moreResults = !results.isBufferComplete()) {
             results = sqlTask.getTaskResults(OUT, results.getToken() + results.getSerializedPages().size(), DataSize.of(1, MEGABYTE)).get();
         }
-        assertEquals(results.getSerializedPages().size(), 0);
+        assertThat(results.getSerializedPages().size()).isEqualTo(0);
 
         // complete the task by calling destroy on it
         TaskInfo info = sqlTask.destroyTaskResults(OUT);
-        assertEquals(info.getOutputBuffers().getState(), BufferState.FINISHED);
+        assertThat(info.getOutputBuffers().getState()).isEqualTo(BufferState.FINISHED);
 
         taskInfo = sqlTask.getTaskInfo(info.getTaskStatus().getVersion()).get();
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
+        assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.FINISHED);
 
         // completed future should be returned immediately when task is finished
-        assertTrue(sqlTask.getTaskInfo(STARTING_VERSION + 100).isDone());
+        assertThat(sqlTask.getTaskInfo(STARTING_VERSION + 100).isDone()).isTrue();
 
         taskInfo = sqlTask.getTaskInfo();
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
+        assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.FINISHED);
     }
 
     @Test
@@ -225,28 +224,30 @@ public class TestSqlTask
                         .withNoMoreBufferIds(),
                 ImmutableMap.of(),
                 false);
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
-        assertNull(taskInfo.getStats().getEndTime());
+        assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.RUNNING);
+        assertThat(taskInfo.getStats().getEndTime()).isNull();
 
         taskInfo = sqlTask.getTaskInfo();
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
-        assertNull(taskInfo.getStats().getEndTime());
+        assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.RUNNING);
+        assertThat(taskInfo.getStats().getEndTime()).isNull();
 
         taskInfo = sqlTask.cancel();
         // This call can race and report either cancelling or cancelled
-        assertTrue(taskInfo.getTaskStatus().getState().isTerminatingOrDone());
+        assertThat(taskInfo.getTaskStatus().getState().isTerminatingOrDone()).isTrue();
         // Task cancellation can race with output buffer state updates, but should transition to cancelled quickly
         int attempts = 1;
         while (!taskInfo.getTaskStatus().getState().isDone() && attempts < 3) {
             taskInfo = Futures.getUnchecked(sqlTask.getTaskInfo(taskInfo.getTaskStatus().getVersion()));
             attempts++;
         }
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.CANCELED, "Failed to see CANCELED after " + attempts + " attempts");
-        assertNotNull(taskInfo.getStats().getEndTime());
+        assertThat(taskInfo.getTaskStatus().getState())
+                .describedAs("Failed to see CANCELED after " + attempts + " attempts")
+                .isEqualTo(TaskState.CANCELED);
+        assertThat(taskInfo.getStats().getEndTime()).isNotNull();
 
         taskInfo = sqlTask.getTaskInfo();
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.CANCELED);
-        assertNotNull(taskInfo.getStats().getEndTime());
+        assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.CANCELED);
+        assertThat(taskInfo.getStats().getEndTime()).isNotNull();
     }
 
     @Test
@@ -256,8 +257,8 @@ public class TestSqlTask
     {
         SqlTask sqlTask = createInitialTask();
 
-        assertEquals(sqlTask.getTaskStatus().getState(), TaskState.RUNNING);
-        assertEquals(sqlTask.getTaskStatus().getVersion(), STARTING_VERSION);
+        assertThat(sqlTask.getTaskStatus().getState()).isEqualTo(TaskState.RUNNING);
+        assertThat(sqlTask.getTaskStatus().getVersion()).isEqualTo(STARTING_VERSION);
         sqlTask.updateTask(TEST_SESSION,
                 Span.getInvalid(),
                 Optional.of(PLAN_FRAGMENT),
@@ -267,16 +268,16 @@ public class TestSqlTask
                 false);
 
         TaskInfo taskInfo = sqlTask.getTaskInfo(STARTING_VERSION).get();
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FLUSHING);
-        assertEquals(taskInfo.getTaskStatus().getVersion(), STARTING_VERSION + 1);
+        assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.FLUSHING);
+        assertThat(taskInfo.getTaskStatus().getVersion()).isEqualTo(STARTING_VERSION + 1);
 
         sqlTask.destroyTaskResults(OUT);
 
         taskInfo = sqlTask.getTaskInfo(taskInfo.getTaskStatus().getVersion()).get();
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
+        assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.FINISHED);
 
         taskInfo = sqlTask.getTaskInfo();
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
+        assertThat(taskInfo.getTaskStatus().getState()).isEqualTo(TaskState.FINISHED);
     }
 
     @Test
@@ -289,7 +290,7 @@ public class TestSqlTask
         updateTask(sqlTask, EMPTY_SPLIT_ASSIGNMENTS, outputBuffers);
 
         ListenableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, DataSize.of(1, MEGABYTE));
-        assertFalse(bufferResult.isDone());
+        assertThat(bufferResult.isDone()).isFalse();
 
         // close the sources (no splits will ever be added)
         updateTask(sqlTask, ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, ImmutableSet.of(), true)), outputBuffers);
@@ -302,8 +303,8 @@ public class TestSqlTask
 
         // verify the buffer is closed
         bufferResult = sqlTask.getTaskResults(OUT, 0, DataSize.of(1, MEGABYTE));
-        assertTrue(bufferResult.isDone());
-        assertTrue(bufferResult.get().isBufferComplete());
+        assertThat(bufferResult.isDone()).isTrue();
+        assertThat(bufferResult.get().isBufferComplete()).isTrue();
     }
 
     @Test
@@ -315,17 +316,17 @@ public class TestSqlTask
         updateTask(sqlTask, EMPTY_SPLIT_ASSIGNMENTS, PipelinedOutputBuffers.createInitial(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
 
         ListenableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, DataSize.of(1, MEGABYTE));
-        assertFalse(bufferResult.isDone());
+        assertThat(bufferResult.isDone()).isFalse();
 
         sqlTask.cancel();
-        assertTrue(sqlTask.getTaskInfo().getTaskStatus().getState().isTerminatingOrDone());
+        assertThat(sqlTask.getTaskInfo().getTaskStatus().getState().isTerminatingOrDone()).isTrue();
 
         // buffer future will complete, the event is async so wait a bit for event to propagate
         bufferResult.get(1, SECONDS);
 
         bufferResult = sqlTask.getTaskResults(OUT, 0, DataSize.of(1, MEGABYTE));
-        assertTrue(bufferResult.isDone());
-        assertTrue(bufferResult.get().isBufferComplete());
+        assertThat(bufferResult.isDone()).isTrue();
+        assertThat(bufferResult.get().isBufferComplete()).isTrue();
     }
 
     @Test
@@ -338,23 +339,23 @@ public class TestSqlTask
         updateTask(sqlTask, EMPTY_SPLIT_ASSIGNMENTS, PipelinedOutputBuffers.createInitial(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
 
         ListenableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, DataSize.of(1, MEGABYTE));
-        assertFalse(bufferResult.isDone());
+        assertThat(bufferResult.isDone()).isFalse();
 
         long taskStatusVersion = sqlTask.getTaskInfo().getTaskStatus().getVersion();
         sqlTask.failed(new Exception("test"));
         // This call can race and return either FAILED or FAILING
         TaskInfo taskInfo = sqlTask.getTaskInfo(taskStatusVersion).get();
-        assertTrue(taskInfo.getTaskStatus().getState().isTerminatingOrDone());
+        assertThat(taskInfo.getTaskStatus().getState().isTerminatingOrDone()).isTrue();
 
         // This call should resolve to FAILED if the prior call did not
         taskStatusVersion = taskInfo.getTaskStatus().getVersion();
-        assertEquals(sqlTask.getTaskInfo(taskStatusVersion).get().getTaskStatus().getState(), TaskState.FAILED);
+        assertThat(sqlTask.getTaskInfo(taskStatusVersion).get().getTaskStatus().getState()).isEqualTo(TaskState.FAILED);
 
         // buffer will not be closed by fail event.  event is async so wait a bit for event to fire
         assertThatThrownBy(() -> bufferResult.get(1, SECONDS))
                 .isInstanceOf(TimeoutException.class)
                 .hasMessageContaining("Waited 1 seconds");
-        assertFalse(sqlTask.getTaskResults(OUT, 0, DataSize.of(1, MEGABYTE)).isDone());
+        assertThat(sqlTask.getTaskResults(OUT, 0, DataSize.of(1, MEGABYTE)).isDone()).isFalse();
     }
 
     @Test
@@ -374,17 +375,17 @@ public class TestSqlTask
                 ImmutableMap.of(),
                 false);
 
-        assertEquals(sqlTask.getTaskStatus().getDynamicFiltersVersion(), INITIAL_DYNAMIC_FILTERS_VERSION);
+        assertThat(sqlTask.getTaskStatus().getDynamicFiltersVersion()).isEqualTo(INITIAL_DYNAMIC_FILTERS_VERSION);
 
         TaskContext taskContext = sqlTask.getQueryContext().getTaskContextByTaskId(sqlTask.getTaskId());
 
         ListenableFuture<?> future = sqlTask.getTaskStatus(STARTING_VERSION);
-        assertFalse(future.isDone());
+        assertThat(future.isDone()).isFalse();
 
         // make sure future gets unblocked when dynamic filters version is updated
         taskContext.updateDomains(ImmutableMap.of(DYNAMIC_FILTER_SOURCE_ID, Domain.none(BIGINT)));
-        assertEquals(sqlTask.getTaskStatus().getVersion(), STARTING_VERSION + 1);
-        assertEquals(sqlTask.getTaskStatus().getDynamicFiltersVersion(), INITIAL_DYNAMIC_FILTERS_VERSION + 1);
+        assertThat(sqlTask.getTaskStatus().getVersion()).isEqualTo(STARTING_VERSION + 1);
+        assertThat(sqlTask.getTaskStatus().getDynamicFiltersVersion()).isEqualTo(INITIAL_DYNAMIC_FILTERS_VERSION + 1);
         future.get();
     }
 
@@ -404,25 +405,23 @@ public class TestSqlTask
                 ImmutableMap.of(),
                 false);
 
-        assertEquals(sqlTask.getTaskStatus().getDynamicFiltersVersion(), INITIAL_DYNAMIC_FILTERS_VERSION);
+        assertThat(sqlTask.getTaskStatus().getDynamicFiltersVersion()).isEqualTo(INITIAL_DYNAMIC_FILTERS_VERSION);
 
         // close the sources (no splits will ever be added)
         updateTask(sqlTask, ImmutableList.of(new SplitAssignment(TABLE_SCAN_NODE_ID, ImmutableSet.of(), true)), outputBuffers);
 
         // complete the task by calling destroy on it
         TaskInfo info = sqlTask.destroyTaskResults(OUT);
-        assertEquals(info.getOutputBuffers().getState(), BufferState.FINISHED);
+        assertThat(info.getOutputBuffers().getState()).isEqualTo(BufferState.FINISHED);
 
         assertEventually(new Duration(10, SECONDS), () -> {
             TaskStatus status = sqlTask.getTaskStatus(info.getTaskStatus().getVersion()).get();
-            assertEquals(status.getState(), TaskState.FINISHED);
-            assertEquals(status.getDynamicFiltersVersion(), INITIAL_DYNAMIC_FILTERS_VERSION + 1);
+            assertThat(status.getState()).isEqualTo(TaskState.FINISHED);
+            assertThat(status.getDynamicFiltersVersion()).isEqualTo(INITIAL_DYNAMIC_FILTERS_VERSION + 1);
         });
         VersionedDynamicFilterDomains versionedDynamicFilters = sqlTask.acknowledgeAndGetNewDynamicFilterDomains(INITIAL_DYNAMIC_FILTERS_VERSION);
-        assertEquals(versionedDynamicFilters.getVersion(), INITIAL_DYNAMIC_FILTERS_VERSION + 1);
-        assertEquals(
-                versionedDynamicFilters.getDynamicFilterDomains(),
-                ImmutableMap.of(DYNAMIC_FILTER_SOURCE_ID, Domain.none(VARCHAR)));
+        assertThat(versionedDynamicFilters.getVersion()).isEqualTo(INITIAL_DYNAMIC_FILTERS_VERSION + 1);
+        assertThat(versionedDynamicFilters.getDynamicFilterDomains()).isEqualTo(ImmutableMap.of(DYNAMIC_FILTER_SOURCE_ID, Domain.none(VARCHAR)));
     }
 
     private SqlTask createInitialTask()

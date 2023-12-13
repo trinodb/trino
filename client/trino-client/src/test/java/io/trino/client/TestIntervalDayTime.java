@@ -19,8 +19,8 @@ import static io.trino.client.IntervalDayTime.formatMillis;
 import static io.trino.client.IntervalDayTime.parseMillis;
 import static io.trino.client.IntervalDayTime.toMillis;
 import static java.util.concurrent.TimeUnit.DAYS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestIntervalDayTime
 {
@@ -41,15 +41,15 @@ public class TestIntervalDayTime
 
     private static void assertMillis(long millis, String formatted)
     {
-        assertEquals(formatMillis(millis), formatted);
-        assertEquals(parseMillis(formatted), millis);
+        assertThat(formatMillis(millis)).isEqualTo(formatted);
+        assertThat(parseMillis(formatted)).isEqualTo(millis);
     }
 
     @Test
     public void textMaxDays()
     {
         long days = Long.MAX_VALUE / DAYS.toMillis(1);
-        assertEquals(toMillis(days, 0, 0, 0, 0), DAYS.toMillis(days));
+        assertThat(toMillis(days, 0, 0, 0, 0)).isEqualTo(DAYS.toMillis(days));
     }
 
     @Test

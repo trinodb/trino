@@ -29,6 +29,7 @@ import io.trino.type.BlockTypeOperators;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Arrays;
 import java.util.List;
@@ -53,15 +54,13 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestTopNRankingOperator
 {
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getSimpleName() + "-%s"));
@@ -245,16 +244,16 @@ public class TestTopNRankingOperator
             for (Page inputPage : input) {
                 operator.addInput(inputPage);
                 if (partial) {
-                    assertFalse(operator.needsInput()); // full
-                    assertNotNull(operator.getOutput()); // partial flush
-                    assertFalse(operator.isFinished()); // not finished. just partial flushing.
+                    assertThat(operator.needsInput()).isFalse(); // full
+                    assertThat(operator.getOutput()).isNotNull(); // partial flush
+                    assertThat(operator.isFinished()).isFalse(); // not finished. just partial flushing.
                     assertThatThrownBy(() -> operator.addInput(inputPage)).isInstanceOf(IllegalStateException.class); // while flushing
-                    assertNull(operator.getOutput()); // clear flushing
-                    assertTrue(operator.needsInput()); // flushing done
+                    assertThat(operator.getOutput()).isNull(); // clear flushing
+                    assertThat(operator.needsInput()).isTrue(); // flushing done
                 }
                 else {
-                    assertTrue(operator.needsInput());
-                    assertNull(operator.getOutput());
+                    assertThat(operator.needsInput()).isTrue();
+                    assertThat(operator.getOutput()).isNull();
                 }
             }
         }
@@ -297,13 +296,13 @@ public class TestTopNRankingOperator
 
         int count = 0;
         for (Page page : result.getOutput()) {
-            assertEquals(page.getChannelCount(), 2);
+            assertThat(page.getChannelCount()).isEqualTo(2);
             for (int i = 0; i < page.getPositionCount(); i++) {
-                assertEquals(page.getBlock(1).getByte(i, 0), 1);
+                assertThat(page.getBlock(1).getByte(i, 0)).isEqualTo((byte) 1);
                 count++;
             }
         }
-        assertEquals(count, 1_000 * 500);
+        assertThat(count).isEqualTo(1_000 * 500);
     }
 
     @Test

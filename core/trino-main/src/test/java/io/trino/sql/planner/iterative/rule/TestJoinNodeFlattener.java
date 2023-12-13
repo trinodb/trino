@@ -39,6 +39,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -65,13 +66,13 @@ import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.trino.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestJoinNodeFlattener
 {
     private static final int DEFAULT_JOIN_LIMIT = 10;
@@ -141,9 +142,7 @@ public class TestJoinNodeFlattener
                 .setSources(leftJoin, valuesC).setFilter(createEqualsExpression(a1, c1))
                 .setOutputSymbols(a1, b1, c1)
                 .build();
-        assertEquals(
-                toMultiJoinNode(queryRunner.getPlannerContext(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes()),
-                expected);
+        assertThat(toMultiJoinNode(queryRunner.getPlannerContext(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes())).isEqualTo(expected);
     }
 
     @Test
@@ -170,9 +169,9 @@ public class TestJoinNodeFlattener
                 valuesC,
                 equiJoinClause(d, c));
         MultiJoinNode actual = toMultiJoinNode(queryRunner.getPlannerContext(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, true, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes());
-        assertEquals(actual.getOutputSymbols(), ImmutableList.of(d, c));
-        assertEquals(actual.getFilter(), and(createEqualsExpression(a, b), createEqualsExpression(d, c)));
-        assertTrue(actual.isPushedProjectionThroughJoin());
+        assertThat(actual.getOutputSymbols()).isEqualTo(ImmutableList.of(d, c));
+        assertThat(actual.getFilter()).isEqualTo(and(createEqualsExpression(a, b), createEqualsExpression(d, c)));
+        assertThat(actual.isPushedProjectionThroughJoin()).isTrue();
 
         List<PlanNode> actualSources = ImmutableList.copyOf(actual.getSources());
         assertPlan(
@@ -216,9 +215,9 @@ public class TestJoinNodeFlattener
                 valuesC,
                 equiJoinClause(d, c));
         MultiJoinNode actual = toMultiJoinNode(queryRunner.getPlannerContext(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, true, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes());
-        assertEquals(actual.getOutputSymbols(), ImmutableList.of(d, c));
-        assertEquals(actual.getFilter(), createEqualsExpression(d, c));
-        assertFalse(actual.isPushedProjectionThroughJoin());
+        assertThat(actual.getOutputSymbols()).isEqualTo(ImmutableList.of(d, c));
+        assertThat(actual.getFilter()).isEqualTo(createEqualsExpression(d, c));
+        assertThat(actual.isPushedProjectionThroughJoin()).isFalse();
 
         List<PlanNode> actualSources = ImmutableList.copyOf(actual.getSources());
         assertPlan(
@@ -266,9 +265,7 @@ public class TestJoinNodeFlattener
                 .setFilter(and(createEqualsExpression(b1, c1), createEqualsExpression(a1, b1)))
                 .setOutputSymbols(a1, b1)
                 .build();
-        assertEquals(
-                toMultiJoinNode(queryRunner.getPlannerContext(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes()),
-                expected);
+        assertThat(toMultiJoinNode(queryRunner.getPlannerContext(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes())).isEqualTo(expected);
     }
 
     @Test
@@ -312,9 +309,7 @@ public class TestJoinNodeFlattener
                 and(new ComparisonExpression(EQUAL, b1.toSymbolReference(), c1.toSymbolReference()), new ComparisonExpression(EQUAL, a1.toSymbolReference(), b1.toSymbolReference()), bcFilter, abcFilter),
                 ImmutableList.of(a1, b1, b2, c1, c2),
                 false);
-        assertEquals(
-                toMultiJoinNode(queryRunner.getPlannerContext(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes()),
-                expected);
+        assertThat(toMultiJoinNode(queryRunner.getPlannerContext(), joinNode, noLookup(), planNodeIdAllocator, DEFAULT_JOIN_LIMIT, false, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes())).isEqualTo(expected);
     }
 
     @Test
@@ -370,9 +365,7 @@ public class TestJoinNodeFlattener
                 .setFilter(and(createEqualsExpression(a1, b1), createEqualsExpression(a1, c1), createEqualsExpression(d1, e1), createEqualsExpression(d2, e2), createEqualsExpression(b1, e1)))
                 .setOutputSymbols(a1, b1, c1, d1, d2, e1, e2)
                 .build();
-        assertEquals(
-                toMultiJoinNode(queryRunner.getPlannerContext(), joinNode, noLookup(), planNodeIdAllocator, 5, false, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes()),
-                expected);
+        assertThat(toMultiJoinNode(queryRunner.getPlannerContext(), joinNode, noLookup(), planNodeIdAllocator, 5, false, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes())).isEqualTo(expected);
     }
 
     @Test
@@ -430,9 +423,7 @@ public class TestJoinNodeFlattener
                 .setFilter(and(createEqualsExpression(a1, c1), createEqualsExpression(b1, e1)))
                 .setOutputSymbols(a1, b1, c1, d1, d2, e1, e2)
                 .build();
-        assertEquals(
-                toMultiJoinNode(queryRunner.getPlannerContext(), joinNode, noLookup(), planNodeIdAllocator, 2, false, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes()),
-                expected);
+        assertThat(toMultiJoinNode(queryRunner.getPlannerContext(), joinNode, noLookup(), planNodeIdAllocator, 2, false, testSessionBuilder().build(), createTestingTypeAnalyzer(queryRunner.getPlannerContext()), p.getTypes())).isEqualTo(expected);
     }
 
     private ComparisonExpression createEqualsExpression(Symbol left, Symbol right)

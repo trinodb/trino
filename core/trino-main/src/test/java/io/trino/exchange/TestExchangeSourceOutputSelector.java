@@ -27,17 +27,18 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.exchange.ExchangeSourceOutputSelector.Selection.EXCLUDED;
 import static io.trino.spi.exchange.ExchangeSourceOutputSelector.Selection.INCLUDED;
 import static io.trino.spi.exchange.ExchangeSourceOutputSelector.Selection.UNKNOWN;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestExchangeSourceOutputSelector
 {
     private static final ExchangeId EXCHANGE_ID_1 = new ExchangeId("exchange_1");
@@ -66,9 +67,9 @@ public class TestExchangeSourceOutputSelector
         {
             ExchangeSourceOutputSelector selector = serializeDeserialize(ExchangeSourceOutputSelector.builder(ImmutableSet.of(EXCHANGE_ID_1, EXCHANGE_ID_2))
                     .build());
-            assertEquals(selector.getSelection(EXCHANGE_ID_1, 100, 1), UNKNOWN);
-            assertEquals(selector.getSelection(EXCHANGE_ID_2, 21, 2), UNKNOWN);
-            assertFalse(selector.isFinal());
+            assertThat(selector.getSelection(EXCHANGE_ID_1, 100, 1)).isEqualTo(UNKNOWN);
+            assertThat(selector.getSelection(EXCHANGE_ID_2, 21, 2)).isEqualTo(UNKNOWN);
+            assertThat(selector.isFinal()).isFalse();
         }
 
         {
@@ -77,7 +78,7 @@ public class TestExchangeSourceOutputSelector
                     .setPartitionCount(EXCHANGE_ID_2, 0)
                     .setFinal()
                     .build());
-            assertTrue(selector.isFinal());
+            assertThat(selector.isFinal()).isTrue();
             // final selector should have selection set for all partitions
             assertThatThrownBy(() -> selector.getSelection(EXCHANGE_ID_1, 100, 1))
                     .isInstanceOf(IllegalArgumentException.class)
@@ -93,17 +94,17 @@ public class TestExchangeSourceOutputSelector
                 .exclude(EXCHANGE_ID_2, 100)
                 .build());
         // ensure exchange id is taken into account
-        assertEquals(selector.getSelection(EXCHANGE_ID_1, 100, 1), UNKNOWN);
-        assertEquals(selector.getSelection(EXCHANGE_ID_2, 100, 1), EXCLUDED);
+        assertThat(selector.getSelection(EXCHANGE_ID_1, 100, 1)).isEqualTo(UNKNOWN);
+        assertThat(selector.getSelection(EXCHANGE_ID_2, 100, 1)).isEqualTo(EXCLUDED);
         // all attempts of a given task must be excluded
-        assertEquals(selector.getSelection(EXCHANGE_ID_2, 100, 2), EXCLUDED);
+        assertThat(selector.getSelection(EXCHANGE_ID_2, 100, 2)).isEqualTo(EXCLUDED);
         // ensure exchange id is taken into account
-        assertEquals(selector.getSelection(EXCHANGE_ID_2, 21, 2), UNKNOWN);
-        assertEquals(selector.getSelection(EXCHANGE_ID_1, 21, 2), INCLUDED);
-        assertEquals(selector.getSelection(EXCHANGE_ID_1, 21, 1), EXCLUDED);
-        assertEquals(selector.getSelection(EXCHANGE_ID_2, 1, 2), UNKNOWN);
-        assertEquals(selector.getSelection(EXCHANGE_ID_2, 200, 2), UNKNOWN);
-        assertFalse(selector.isFinal());
+        assertThat(selector.getSelection(EXCHANGE_ID_2, 21, 2)).isEqualTo(UNKNOWN);
+        assertThat(selector.getSelection(EXCHANGE_ID_1, 21, 2)).isEqualTo(INCLUDED);
+        assertThat(selector.getSelection(EXCHANGE_ID_1, 21, 1)).isEqualTo(EXCLUDED);
+        assertThat(selector.getSelection(EXCHANGE_ID_2, 1, 2)).isEqualTo(UNKNOWN);
+        assertThat(selector.getSelection(EXCHANGE_ID_2, 200, 2)).isEqualTo(UNKNOWN);
+        assertThat(selector.isFinal()).isFalse();
     }
 
     @Test
@@ -127,14 +128,14 @@ public class TestExchangeSourceOutputSelector
                 .setFinal()
                 .build());
 
-        assertEquals(selector.getSelection(EXCHANGE_ID_1, 0, 1), INCLUDED);
-        assertEquals(selector.getSelection(EXCHANGE_ID_1, 0, 2), EXCLUDED);
-        assertEquals(selector.getSelection(EXCHANGE_ID_1, 1, 0), EXCLUDED);
-        assertEquals(selector.getSelection(EXCHANGE_ID_1, 1, 2), EXCLUDED);
-        assertEquals(selector.getSelection(EXCHANGE_ID_1, 2, 0), INCLUDED);
-        assertEquals(selector.getSelection(EXCHANGE_ID_1, 2, 2), EXCLUDED);
-        assertEquals(selector.getSelection(EXCHANGE_ID_2, 0, 1), EXCLUDED);
-        assertEquals(selector.getSelection(EXCHANGE_ID_2, 0, 0), EXCLUDED);
+        assertThat(selector.getSelection(EXCHANGE_ID_1, 0, 1)).isEqualTo(INCLUDED);
+        assertThat(selector.getSelection(EXCHANGE_ID_1, 0, 2)).isEqualTo(EXCLUDED);
+        assertThat(selector.getSelection(EXCHANGE_ID_1, 1, 0)).isEqualTo(EXCLUDED);
+        assertThat(selector.getSelection(EXCHANGE_ID_1, 1, 2)).isEqualTo(EXCLUDED);
+        assertThat(selector.getSelection(EXCHANGE_ID_1, 2, 0)).isEqualTo(INCLUDED);
+        assertThat(selector.getSelection(EXCHANGE_ID_1, 2, 2)).isEqualTo(EXCLUDED);
+        assertThat(selector.getSelection(EXCHANGE_ID_2, 0, 1)).isEqualTo(EXCLUDED);
+        assertThat(selector.getSelection(EXCHANGE_ID_2, 0, 0)).isEqualTo(EXCLUDED);
 
         assertThatThrownBy(() -> selector.getSelection(EXCHANGE_ID_1, 100, 1))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -192,6 +193,20 @@ public class TestExchangeSourceOutputSelector
         assertThatThrownBy(() -> builder.exclude(EXCHANGE_ID_1, 0))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("decision for partition 0 is already made: 0");
+    }
+
+    @Test
+    public void testToString()
+    {
+        ExchangeSourceOutputSelector selector = ExchangeSourceOutputSelector.builder(ImmutableSet.of(EXCHANGE_ID_1, EXCHANGE_ID_2))
+                .include(EXCHANGE_ID_1, 0, 1)
+                .exclude(EXCHANGE_ID_1, 1)
+                .include(EXCHANGE_ID_1, 2, 0)
+                .exclude(EXCHANGE_ID_2, 3)
+                .setPartitionCount(EXCHANGE_ID_2, 4)
+                .build();
+
+        assertThat(selector).hasToString("ExchangeSourceOutputSelector[version=0, values={exchange_1=[0=1,1=E,2=0], exchange_2=[0=U,1=U,2=U,3=E]}, finalSelector=false]");
     }
 
     private ExchangeSourceOutputSelector serializeDeserialize(ExchangeSourceOutputSelector selector)

@@ -49,7 +49,7 @@ import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestFixJsonDataUtils
 {
@@ -100,9 +100,9 @@ public class TestFixJsonDataUtils
         List<List<Object>> rows = newArrayList(fixData(
                 ImmutableList.of(new Column("test", type.toString(), toClientTypeSignature(type))),
                 ImmutableList.of(ImmutableList.of(data))));
-        assertEquals(rows.size(), 1);
-        assertEquals(rows.get(0).size(), 1);
-        assertEquals(rows.get(0).get(0), expected);
+        assertThat(rows.size()).isEqualTo(1);
+        assertThat(rows.get(0).size()).isEqualTo(1);
+        assertThat(rows.get(0).get(0)).isEqualTo(expected);
     }
 
     private static ClientTypeSignature toClientTypeSignature(TypeSignature signature)

@@ -18,14 +18,13 @@ import io.airlift.bootstrap.ApplicationConfigurationException;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.testing.TestingConnectorContext;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static com.google.common.collect.MoreCollectors.toOptional;
 import static com.google.common.collect.Streams.stream;
 import static io.trino.plugin.singlestore.SingleStoreJdbcConfig.DRIVER_PROTOCOL_ERROR;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestSingleStoreJdbcConfig
 {
@@ -37,7 +36,11 @@ public class TestSingleStoreJdbcConfig
                 .filter(connectorFactory -> connectorFactory.getName().equals("singlestore"))
                 .collect(toOptional())
                 .orElseThrow();
-        assertThatThrownBy(() -> factory.create("test", ImmutableMap.of("connection-url", "jdbc:mariadb:test"), new TestingConnectorContext()))
+        assertThatThrownBy(() -> factory.create(
+                "test", ImmutableMap.of(
+                        "connection-url", "jdbc:mariadb:test",
+                        "bootstrap.quiet", "true"),
+                new TestingConnectorContext()))
                 .isInstanceOf(ApplicationConfigurationException.class)
                 .hasMessageContaining(DRIVER_PROTOCOL_ERROR);
     }
@@ -45,10 +48,10 @@ public class TestSingleStoreJdbcConfig
     @Test
     public void testLegacyConnectionUrl()
     {
-        assertTrue(isLegacyDriverSubprotocol("jdbc:mariadb:"));
-        assertTrue(isLegacyDriverSubprotocol("JDBC:MARIADB:"));
-        assertTrue(isLegacyDriverSubprotocol("jdbc:mariadb:test"));
-        assertFalse(isLegacyDriverSubprotocol("jdbc:singlestore:test"));
+        assertThat(isLegacyDriverSubprotocol("jdbc:mariadb:")).isTrue();
+        assertThat(isLegacyDriverSubprotocol("JDBC:MARIADB:")).isTrue();
+        assertThat(isLegacyDriverSubprotocol("jdbc:mariadb:test")).isTrue();
+        assertThat(isLegacyDriverSubprotocol("jdbc:singlestore:test")).isFalse();
     }
 
     private static boolean isLegacyDriverSubprotocol(String url)

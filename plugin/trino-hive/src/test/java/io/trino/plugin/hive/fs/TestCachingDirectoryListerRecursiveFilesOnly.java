@@ -21,7 +21,8 @@ import io.trino.filesystem.Location;
 import io.trino.plugin.hive.metastore.MetastoreUtil;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -30,11 +31,11 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.plugin.hive.HiveQueryRunner.TPCH_SCHEMA;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static java.lang.String.format;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 // some tests may invalidate the whole cache affecting therefore other concurrent tests
-@Test(singleThreaded = true)
+@Execution(SAME_THREAD)
 public class TestCachingDirectoryListerRecursiveFilesOnly
         extends BaseCachingDirectoryListerTest<CachingDirectoryLister>
 {
@@ -81,17 +82,17 @@ public class TestCachingDirectoryListerRecursiveFilesOnly
         assertQuery("SELECT sum(clicks) FROM recursive_directories", "VALUES (11000)");
 
         String tableLocation = getTableLocation(TPCH_SCHEMA, "recursive_directories");
-        assertTrue(isCached(tableLocation));
+        assertThat(isCached(tableLocation)).isTrue();
 
         // Insert should invalidate cache, even at the root directory path
         assertUpdate("INSERT INTO recursive_directories VALUES (1000)", 1);
-        assertFalse(isCached(tableLocation));
+        assertThat(isCached(tableLocation)).isFalse();
 
         // Results should include the new insert which is at the table location root for the unpartitioned table
         assertQuery("SELECT sum(clicks) FROM recursive_directories", "VALUES (12000)");
 
         assertUpdate("DROP TABLE recursive_directories");
 
-        assertFalse(isCached(tableLocation));
+        assertThat(isCached(tableLocation)).isFalse();
     }
 }

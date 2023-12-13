@@ -55,9 +55,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 // uses mutable state
 @TestInstance(PER_METHOD)
@@ -178,7 +175,7 @@ public class TestBinPackingNodeAllocator
             assertEventually(() -> {
                 // we need to wait as pending acquires are processed asynchronously
                 assertAcquired(acquire5);
-                assertEquals(acquire5.getNode().get(), NODE_2);
+                assertThat(acquire5.getNode().get()).isEqualTo(NODE_2);
             });
 
             // try to acquire one more node (should block)
@@ -193,7 +190,7 @@ public class TestBinPackingNodeAllocator
             // new node should be assigned
             assertEventually(() -> {
                 assertAcquired(acquire6);
-                assertEquals(acquire6.getNode().get(), NODE_3);
+                assertThat(acquire6.getNode().get()).isEqualTo(NODE_3);
             });
         }
     }
@@ -356,8 +353,8 @@ public class TestBinPackingNodeAllocator
 
             // pending acquire2 should be completed now but with an exception
             assertEventually(() -> {
-                assertFalse(acquire2.getNode().isCancelled());
-                assertTrue(acquire2.getNode().isDone());
+                assertThat(acquire2.getNode().isCancelled()).isFalse();
+                assertThat(acquire2.getNode().isDone()).isTrue();
                 assertThatThrownBy(() -> getFutureValue(acquire2.getNode()))
                         .hasMessage("No nodes available to run query");
             });
@@ -852,22 +849,34 @@ public class TestBinPackingNodeAllocator
     private void assertAcquired(NodeAllocator.NodeLease lease, Optional<InternalNode> expectedNode)
     {
         assertEventually(() -> {
-            assertFalse(lease.getNode().isCancelled(), "node lease cancelled");
-            assertTrue(lease.getNode().isDone(), "node lease not acquired");
+            assertThat(lease.getNode().isCancelled())
+                    .describedAs("node lease cancelled")
+                    .isFalse();
+            assertThat(lease.getNode().isDone())
+                    .describedAs("node lease not acquired")
+                    .isTrue();
             if (expectedNode.isPresent()) {
-                assertEquals(lease.getNode().get(), expectedNode.get());
+                assertThat(lease.getNode().get()).isEqualTo(expectedNode.get());
             }
         });
     }
 
     private void assertNotAcquired(NodeAllocator.NodeLease lease)
     {
-        assertFalse(lease.getNode().isCancelled(), "node lease cancelled");
-        assertFalse(lease.getNode().isDone(), "node lease acquired");
+        assertThat(lease.getNode().isCancelled())
+                .describedAs("node lease cancelled")
+                .isFalse();
+        assertThat(lease.getNode().isDone())
+                .describedAs("node lease acquired")
+                .isFalse();
         // enforce pending acquires processing and check again
         nodeAllocatorService.processPendingAcquires();
-        assertFalse(lease.getNode().isCancelled(), "node lease cancelled");
-        assertFalse(lease.getNode().isDone(), "node lease acquired");
+        assertThat(lease.getNode().isCancelled())
+                .describedAs("node lease cancelled")
+                .isFalse();
+        assertThat(lease.getNode().isDone())
+                .describedAs("node lease acquired")
+                .isFalse();
     }
 
     private static void assertEventually(ThrowingRunnable assertion)

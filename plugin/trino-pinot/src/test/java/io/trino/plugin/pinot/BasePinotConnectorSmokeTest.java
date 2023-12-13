@@ -97,7 +97,6 @@ import static org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_
 import static org.apache.pinot.spi.utils.JsonUtils.inputStreamToObject;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import static org.testng.Assert.assertEquals;
 
 public abstract class BasePinotConnectorSmokeTest
         extends BaseConnectorSmokeTest
@@ -189,7 +188,7 @@ public abstract class BasePinotConnectorSmokeTest
             int offset = i * step;
             allTypesRecordsBuilder.add(new ProducerRecord<>(ALL_TYPES_TABLE, "key" + i * step,
                     createTestRecord(
-                            Arrays.asList("string_" + (offset), "string1_" + (offset + 1), "string2_" + (offset + 2)),
+                            Arrays.asList("string_" + offset, "string1_" + (offset + 1), "string2_" + (offset + 2)),
                             true,
                             Arrays.asList(54 + i / 3, -10001, 1000),
                             Arrays.asList(-7.33F + i, Float.POSITIVE_INFINITY, 17.034F + i),
@@ -1016,8 +1015,8 @@ public abstract class BasePinotConnectorSmokeTest
     public void testRealType()
     {
         MaterializedResult result = computeActual("SELECT price FROM " + JSON_TABLE + " WHERE vendor = 'vendor1'");
-        assertEquals(getOnlyElement(result.getTypes()), REAL);
-        assertEquals(result.getOnlyValue(), 3.5F);
+        assertThat(getOnlyElement(result.getTypes())).isEqualTo(REAL);
+        assertThat(result.getOnlyValue()).isEqualTo(3.5F);
     }
 
     @Test
@@ -1093,8 +1092,8 @@ public abstract class BasePinotConnectorSmokeTest
                 "  ('Los Angeles', 7.75, 6.25, 10000.0)");
         MaterializedResult result = computeActual("SELECT \"avg(lucky_number)\"" +
                 "  FROM \"SELECT AVG(lucky_number) FROM my_table WHERE vendor in ('vendor2', 'vendor4')\"");
-        assertEquals(getOnlyElement(result.getTypes()), DOUBLE);
-        assertEquals(result.getOnlyValue(), 7.0);
+        assertThat(getOnlyElement(result.getTypes())).isEqualTo(DOUBLE);
+        assertThat(result.getOnlyValue()).isEqualTo(7.0);
     }
 
     @Test
@@ -1192,11 +1191,9 @@ public abstract class BasePinotConnectorSmokeTest
         assertQuery(
                 "SELECT column_name FROM information_schema.columns WHERE table_name = 'mixedcase'",
                 "VALUES 'stringcol', 'updatedatseconds', 'longcol'");
-        assertEquals(
-                computeActual("SHOW COLUMNS FROM default.mixedcase").getMaterializedRows().stream()
-                        .map(row -> row.getField(0))
-                        .collect(toImmutableSet()),
-                ImmutableSet.of("stringcol", "updatedatseconds", "longcol"));
+        assertThat(computeActual("SHOW COLUMNS FROM default.mixedcase").getMaterializedRows().stream()
+                .map(row -> row.getField(0))
+                .collect(toImmutableSet())).isEqualTo(ImmutableSet.of("stringcol", "updatedatseconds", "longcol"));
     }
 
     @Test
@@ -1331,7 +1328,7 @@ public abstract class BasePinotConnectorSmokeTest
         assertQuery("SELECT \"count(*)\" FROM \"SELECT COUNT(*) FROM " + ALL_TYPES_TABLE + "\"", "VALUES " + MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES);
         // If no limit is supplied to a broker query, 10 arbitrary rows will be returned. Verify this behavior:
         MaterializedResult result = computeActual("SELECT * FROM \"SELECT bool_col FROM " + ALL_TYPES_TABLE + "\"");
-        assertEquals(result.getRowCount(), DEFAULT_PINOT_LIMIT_FOR_BROKER_QUERIES);
+        assertThat(result.getRowCount()).isEqualTo(DEFAULT_PINOT_LIMIT_FOR_BROKER_QUERIES);
     }
 
     @Test

@@ -24,7 +24,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOutput
 {
@@ -48,6 +48,27 @@ public class TestOutput
         String json = codec.toJson(expected);
         Output actual = codec.fromJson(json);
 
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
+    }
+
+    @Test
+    public void testRoundWithComplexIdentifiers()
+    {
+        Output expected = new Output(
+                "catalog.Mój",
+                new CatalogVersion("default"),
+                "ści.e-Ma",
+                "ta.b-Elką go",
+                Optional.of(
+                        ImmutableList.of(
+                                new OutputColumn(
+                                        new Column("ko.LU-mieńka", "type"),
+                                        ImmutableSet.of(
+                                                new SourceColumn(new QualifiedObjectName("catalog.twój", "schema.ściema", "tabel.tabelkówna"), "co-lumn.słodziak\""))))));
+
+        String json = codec.toJson(expected);
+        Output actual = codec.fromJson(json);
+
+        assertThat(actual).isEqualTo(expected);
     }
 }

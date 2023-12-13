@@ -23,9 +23,11 @@ import io.trino.spi.security.ConnectorIdentity;
 public class MemoryFileSystemFactory
         implements TrinoFileSystemFactory
 {
+    private final MemoryFileSystem memoryFileSystem = new MemoryFileSystem();
+
     @Override
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
-        return new MemoryFileSystem();
+        return memoryFileSystem;
     }
 }

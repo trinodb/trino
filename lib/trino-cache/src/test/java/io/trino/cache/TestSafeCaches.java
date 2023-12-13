@@ -25,7 +25,6 @@ import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertSame;
 
 public class TestSafeCaches
 {
@@ -75,7 +74,7 @@ public class TestSafeCaches
         Object key = new Object();
         Object value = new Object();
         // Verify the previous load was inserted into the cache
-        assertSame(cache.get(key, () -> value), value);
+        assertThat(cache.get(key, () -> value)).isSameAs(value);
     }
 
     private static void verifyKeyInvalidationIsImpossible(Cache<Object, Object> cache)
@@ -118,14 +117,14 @@ public class TestSafeCaches
         Object key = new Object();
         Object firstValue = new Object();
         cache.get(key, () -> firstValue);
-        assertSame(cache.getIfPresent(key), firstValue);
+        assertThat(cache.getIfPresent(key)).isSameAs(firstValue);
 
         cache.invalidateAll();
         assertThat(cache.getIfPresent(key)).isNull();
 
         Object secondValue = new Object();
         cache.get(key, () -> secondValue);
-        assertSame(cache.getIfPresent(key), secondValue);
+        assertThat(cache.getIfPresent(key)).isSameAs(secondValue);
         cache.asMap().clear();
         assertThat(cache.getIfPresent(key)).isNull();
     }

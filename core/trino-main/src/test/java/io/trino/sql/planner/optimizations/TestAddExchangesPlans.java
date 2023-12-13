@@ -193,6 +193,30 @@ public class TestAddExchangesPlans
     }
 
     @Test
+    public void testSingleGatheringExchangeForUnionAllWithLimit()
+    {
+        assertDistributedPlan("""
+                SELECT * FROM (
+                    SELECT nationkey FROM nation
+                    UNION ALL
+                    SELECT nationkey FROM nation
+                    UNION ALL
+                    SELECT nationkey FROM nation
+                )
+                LIMIT 2
+                """,
+                output(
+                        limit(2, ImmutableList.of(), false,
+                                exchange(LOCAL, GATHER,
+                                        exchange(REMOTE, GATHER,
+                                            limit(2, ImmutableList.of(), true,
+                                                    exchange(LOCAL, REPARTITION,
+                                                            limit(2, ImmutableList.of(), true, tableScan("nation")),
+                                                            limit(2, ImmutableList.of(), true, tableScan("nation")),
+                                                            limit(2, ImmutableList.of(), true, tableScan("nation")))))))));
+    }
+
+    @Test
     public void testNonSpillableBroadcastJoinAboveTableScan()
     {
         assertDistributedPlan(
@@ -1103,10 +1127,10 @@ public class TestAddExchangesPlans
         MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
                 .withGetColumns(schemaTableName -> ImmutableList.of(
                         new ColumnMetadata("nationkey", BigintType.BIGINT)))
-                .withGetTableHandle(((session, schemaTableName) -> new MockConnectorTableHandle(
+                .withGetTableHandle((session, schemaTableName) -> new MockConnectorTableHandle(
                         SchemaTableName.schemaTableName("default", "nation"),
                         TupleDomain.all(),
-                        Optional.of(ImmutableList.of(new MockConnectorColumnHandle("nationkey", BigintType.BIGINT))))))
+                        Optional.of(ImmutableList.of(new MockConnectorColumnHandle("nationkey", BigintType.BIGINT)))))
                 .withName("mock")
                 .build();
         getQueryRunner().createCatalog("mock", connectorFactory, ImmutableMap.of());

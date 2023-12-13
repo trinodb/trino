@@ -59,6 +59,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -458,6 +459,18 @@ public class BinPackingNodeAllocatorService
             else {
                 throw new IllegalStateException("Node " + node + " already released");
             }
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("node", node)
+                    .add("released", released)
+                    .add("memoryLease", memoryLease)
+                    .add("taskId", taskId)
+                    .add("executionClass", executionClass)
+                    .toString();
         }
     }
 

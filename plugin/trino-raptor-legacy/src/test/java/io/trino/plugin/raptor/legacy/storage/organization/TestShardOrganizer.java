@@ -14,55 +14,47 @@
 package io.trino.plugin.raptor.legacy.storage.organization;
 
 import com.google.common.collect.ImmutableSet;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
+import static com.google.common.util.concurrent.Uninterruptibles.awaitUninterruptibly;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestShardOrganizer
 {
-    @Test(timeOut = 5_000)
+    @Test
+    @Timeout(5)
     public void testShardOrganizerInProgress()
             throws Exception
     {
-        ShardOrganizer organizer = createShardOrganizer();
+        CountDownLatch canComplete = new CountDownLatch(1);
+        ShardOrganizer organizer = new ShardOrganizer(
+                organizationSet -> () -> checkState(awaitUninterruptibly(canComplete, 10, SECONDS)),
+                1);
 
         Set<UUID> shards = ImmutableSet.of(UUID.randomUUID());
         OrganizationSet organizationSet = new OrganizationSet(1L, shards, OptionalInt.empty());
 
         organizer.enqueue(organizationSet);
 
-        assertTrue(organizer.inProgress(getOnlyElement(shards)));
-        assertEquals(organizer.getShardsInProgress(), 1);
+        assertThat(organizer.inProgress(getOnlyElement(shards))).isTrue();
+        assertThat(organizer.getShardsInProgress()).isEqualTo(1);
 
+        canComplete.countDown();
         while (organizer.inProgress(getOnlyElement(shards))) {
             MILLISECONDS.sleep(10);
         }
-        assertFalse(organizer.inProgress(getOnlyElement(shards)));
-        assertEquals(organizer.getShardsInProgress(), 0);
+        assertThat(organizer.inProgress(getOnlyElement(shards))).isFalse();
+        assertThat(organizer.getShardsInProgress()).isEqualTo(0);
         organizer.shutdown();
-    }
-
-    private static class MockJobFactory
-            implements JobFactory
-    {
-        @Override
-        public Runnable create(OrganizationSet organizationSet)
-        {
-            return () -> sleepUninterruptibly(10, MILLISECONDS);
-        }
-    }
-
-    static ShardOrganizer createShardOrganizer()
-    {
-        return new ShardOrganizer(new MockJobFactory(), 1);
     }
 }

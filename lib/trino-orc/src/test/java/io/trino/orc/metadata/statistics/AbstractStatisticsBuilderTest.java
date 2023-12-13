@@ -14,7 +14,7 @@
 package io.trino.orc.metadata.statistics;
 
 import com.google.common.collect.ImmutableList;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -27,9 +27,7 @@ import java.util.function.Supplier;
 
 import static io.trino.orc.metadata.statistics.ColumnStatistics.mergeColumnStatistics;
 import static java.lang.Math.min;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class AbstractStatisticsBuilderTest<B extends StatisticsBuilder, T>
 {
@@ -75,7 +73,7 @@ public abstract class AbstractStatisticsBuilderTest<B extends StatisticsBuilder,
         for (T value : values) {
             adder.accept(statisticsBuilder, value);
         }
-        assertEquals(statisticsBuilder.buildColumnStatistics().getMinAverageValueSizeInBytes(), expectedAverageValueBytes);
+        assertThat(statisticsBuilder.buildColumnStatistics().getMinAverageValueSizeInBytes()).isEqualTo(expectedAverageValueBytes);
 
         // test merge
         statisticsBuilder = statisticsBuilderSupplier.get();
@@ -89,7 +87,7 @@ public abstract class AbstractStatisticsBuilderTest<B extends StatisticsBuilder,
             adder.accept(statisticsBuilder, values.get(i));
         }
         ColumnStatistics secondStats = statisticsBuilder.buildColumnStatistics();
-        assertEquals(mergeColumnStatistics(ImmutableList.of(firstStats, secondStats)).getMinAverageValueSizeInBytes(), expectedAverageValueBytes);
+        assertThat(mergeColumnStatistics(ImmutableList.of(firstStats, secondStats)).getMinAverageValueSizeInBytes()).isEqualTo(expectedAverageValueBytes);
     }
 
     protected void assertMinMaxValues(T expectedMin, T expectedMax)
@@ -132,20 +130,20 @@ public abstract class AbstractStatisticsBuilderTest<B extends StatisticsBuilder,
 
     protected static void assertNoColumnStatistics(ColumnStatistics columnStatistics, long expectedNumberOfValues)
     {
-        assertEquals(columnStatistics.getNumberOfValues(), expectedNumberOfValues);
-        assertNull(columnStatistics.getBooleanStatistics());
-        assertNull(columnStatistics.getIntegerStatistics());
-        assertNull(columnStatistics.getDoubleStatistics());
-        assertNull(columnStatistics.getStringStatistics());
-        assertNull(columnStatistics.getDateStatistics());
-        assertNull(columnStatistics.getDecimalStatistics());
-        assertNull(columnStatistics.getBloomFilter());
+        assertThat(columnStatistics.getNumberOfValues()).isEqualTo(expectedNumberOfValues);
+        assertThat(columnStatistics.getBooleanStatistics()).isNull();
+        assertThat(columnStatistics.getIntegerStatistics()).isNull();
+        assertThat(columnStatistics.getDoubleStatistics()).isNull();
+        assertThat(columnStatistics.getStringStatistics()).isNull();
+        assertThat(columnStatistics.getDateStatistics()).isNull();
+        assertThat(columnStatistics.getDecimalStatistics()).isNull();
+        assertThat(columnStatistics.getBloomFilter()).isNull();
     }
 
     protected static void assertNoColumnStatistics(ColumnStatistics columnStatistics, int expectedNumberOfValues, int expectedNumberOfNanValues)
     {
         assertNoColumnStatistics(columnStatistics, expectedNumberOfValues);
-        assertEquals(columnStatistics.getNumberOfNanValues(), expectedNumberOfNanValues);
+        assertThat(columnStatistics.getNumberOfNanValues()).isEqualTo(expectedNumberOfNanValues);
     }
 
     private void assertColumnStatistics(
@@ -183,58 +181,58 @@ public abstract class AbstractStatisticsBuilderTest<B extends StatisticsBuilder,
 
     protected void assertColumnStatistics(ColumnStatistics columnStatistics, long expectedNumberOfValues, T expectedMin, T expectedMax)
     {
-        assertEquals(columnStatistics.getNumberOfValues(), expectedNumberOfValues);
+        assertThat(columnStatistics.getNumberOfValues()).isEqualTo(expectedNumberOfValues);
 
         if (statisticsType == StatisticsType.BOOLEAN && expectedNumberOfValues > 0) {
-            assertNotNull(columnStatistics.getBooleanStatistics());
+            assertThat(columnStatistics.getBooleanStatistics()).isNotNull();
         }
         else {
-            assertNull(columnStatistics.getBooleanStatistics());
+            assertThat(columnStatistics.getBooleanStatistics()).isNull();
         }
 
         if (statisticsType == StatisticsType.INTEGER && expectedNumberOfValues > 0) {
             assertRangeStatistics(columnStatistics.getIntegerStatistics(), expectedMin, expectedMax);
         }
         else {
-            assertNull(columnStatistics.getIntegerStatistics());
+            assertThat(columnStatistics.getIntegerStatistics()).isNull();
         }
 
         if (statisticsType == StatisticsType.DOUBLE && expectedNumberOfValues > 0) {
             assertRangeStatistics(columnStatistics.getDoubleStatistics(), expectedMin, expectedMax);
         }
         else {
-            assertNull(columnStatistics.getDoubleStatistics());
+            assertThat(columnStatistics.getDoubleStatistics()).isNull();
         }
 
         if (statisticsType == StatisticsType.STRING && expectedNumberOfValues > 0) {
             assertRangeStatistics(columnStatistics.getStringStatistics(), expectedMin, expectedMax);
         }
         else {
-            assertNull(columnStatistics.getStringStatistics());
+            assertThat(columnStatistics.getStringStatistics()).isNull();
         }
 
         if (statisticsType == StatisticsType.DATE && expectedNumberOfValues > 0) {
             assertRangeStatistics(columnStatistics.getDateStatistics(), expectedMin, expectedMax);
         }
         else {
-            assertNull(columnStatistics.getDateStatistics());
+            assertThat(columnStatistics.getDateStatistics()).isNull();
         }
 
         if (statisticsType == StatisticsType.DECIMAL && expectedNumberOfValues > 0) {
             assertRangeStatistics(columnStatistics.getDecimalStatistics(), expectedMin, expectedMax);
         }
         else {
-            assertNull(columnStatistics.getDecimalStatistics());
+            assertThat(columnStatistics.getDecimalStatistics()).isNull();
         }
 
-        assertNull(columnStatistics.getBloomFilter());
+        assertThat(columnStatistics.getBloomFilter()).isNull();
     }
 
     void assertRangeStatistics(RangeStatistics<?> rangeStatistics, T expectedMin, T expectedMax)
     {
-        assertNotNull(rangeStatistics);
-        assertEquals(rangeStatistics.getMin(), expectedMin);
-        assertEquals(rangeStatistics.getMax(), expectedMax);
+        assertThat(rangeStatistics).isNotNull();
+        assertThat(rangeStatistics.getMin()).isEqualTo(expectedMin);
+        assertThat(rangeStatistics.getMax()).isEqualTo(expectedMax);
     }
 
     public static class AggregateColumnStatistics

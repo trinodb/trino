@@ -91,7 +91,7 @@ import static io.trino.type.JoniRegexpType.JONI_REGEXP;
 import static io.trino.type.LikeFunctions.likePattern;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestConnectorExpressionTranslator
 {
@@ -412,7 +412,7 @@ public class TestConnectorExpressionTranslator
                     assertTranslationRoundTrips(
                             transactionSession,
                             BuiltinFunctionCallBuilder.resolve(PLANNER_CONTEXT.getMetadata())
-                                    .setName(("lower"))
+                                    .setName("lower")
                                     .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
                                     .build(),
                             new Call(VARCHAR_TYPE,
@@ -501,13 +501,13 @@ public class TestConnectorExpressionTranslator
     private void assertTranslationToConnectorExpression(Session session, Expression expression, Optional<ConnectorExpression> connectorExpression)
     {
         Optional<ConnectorExpression> translation = translate(session, expression, TYPE_PROVIDER, PLANNER_CONTEXT, TYPE_ANALYZER);
-        assertEquals(connectorExpression.isPresent(), translation.isPresent());
-        translation.ifPresent(value -> assertEquals(value, connectorExpression.get()));
+        assertThat(connectorExpression.isPresent()).isEqualTo(translation.isPresent());
+        translation.ifPresent(value -> assertThat(value).isEqualTo(connectorExpression.get()));
     }
 
     private void assertTranslationFromConnectorExpression(Session session, ConnectorExpression connectorExpression, Expression expected)
     {
         Expression translation = ConnectorExpressionTranslator.translate(session, connectorExpression, PLANNER_CONTEXT, variableMappings, LITERAL_ENCODER);
-        assertEquals(translation, expected);
+        assertThat(translation).isEqualTo(expected);
     }
 }

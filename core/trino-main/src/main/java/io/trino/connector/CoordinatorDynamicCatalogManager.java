@@ -166,6 +166,7 @@ public class CoordinatorDynamicCatalogManager
         return Optional.ofNullable(activeCatalogs.get(catalogName));
     }
 
+    @Override
     public Set<CatalogHandle> getActiveCatalogs()
     {
         return activeCatalogs.values().stream()

@@ -179,7 +179,7 @@ public class ThriftMetadata
                 newDomain,
                 handle.getDesiredColumns());
 
-        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary(), false));
+        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary(), constraint.getExpression(), false));
     }
 
     @Override

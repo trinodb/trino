@@ -36,10 +36,12 @@ import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.hive.metastore.Database.DEFAULT_DATABASE_NAME;
 import static io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
@@ -260,19 +262,20 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public Set<String> filterColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columns)
+    public Map<SchemaTableName, Set<String>> filterColumns(ConnectorSecurityContext context, Map<SchemaTableName, Set<String>> tableColumns)
+    {
+        return tableColumns.entrySet().stream()
+                .collect(toImmutableMap(
+                        Entry::getKey,
+                        entry -> filterColumns(context, entry.getKey(), entry.getValue())));
+    }
+
+    private Set<String> filterColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columns)
     {
         if (!hasAnyTablePermission(context, tableName)) {
             return ImmutableSet.of();
         }
         return columns;
-    }
-
-    @Override
-    public Map<SchemaTableName, Set<String>> filterColumns(ConnectorSecurityContext context, Map<SchemaTableName, Set<String>> tableColumns)
-    {
-        // Default implementation is good enough. Explicit implementation is expected by the test though.
-        return ConnectorAccessControl.super.filterColumns(context, tableColumns);
     }
 
     @Override

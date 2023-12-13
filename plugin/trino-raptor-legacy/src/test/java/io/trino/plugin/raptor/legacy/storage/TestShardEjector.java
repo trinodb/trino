@@ -30,9 +30,11 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.testing.TestingNodeManager;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.io.IOException;
@@ -55,11 +57,12 @@ import static java.nio.file.Files.createTempDirectory;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.stream.Collectors.toSet;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestShardEjector
 {
     private Jdbi dbi;
@@ -68,7 +71,7 @@ public class TestShardEjector
     private Path dataDir;
     private StorageService storageService;
 
-    @BeforeMethod
+    @BeforeEach
     public void setup()
             throws IOException
     {
@@ -82,7 +85,7 @@ public class TestShardEjector
         storageService.start();
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void teardown()
             throws Exception
     {
@@ -95,7 +98,7 @@ public class TestShardEjector
         }
     }
 
-    @Test(invocationCount = 20)
+    @RepeatedTest(20)
     public void testEjector()
             throws Exception
     {
@@ -138,7 +141,7 @@ public class TestShardEjector
         for (ShardInfo shard : shards.subList(0, 8)) {
             File file = storageService.getStorageFile(shard.getShardUuid());
             storageService.createParents(file);
-            assertTrue(file.createNewFile());
+            assertThat(file.createNewFile()).isTrue();
         }
 
         ejector.process();
@@ -155,13 +158,13 @@ public class TestShardEjector
         Set<UUID> remaining = uuids(shardManager.getNodeShards("node1"));
 
         for (UUID uuid : ejectedShards) {
-            assertFalse(remaining.contains(uuid));
-            assertFalse(storageService.getStorageFile(uuid).exists());
+            assertThat(remaining.contains(uuid)).isFalse();
+            assertThat(storageService.getStorageFile(uuid).exists()).isFalse();
         }
 
-        assertEquals(remaining, keptShards);
+        assertThat(remaining).isEqualTo(keptShards);
         for (UUID uuid : keptShards) {
-            assertTrue(storageService.getStorageFile(uuid).exists());
+            assertThat(storageService.getStorageFile(uuid).exists()).isTrue();
         }
 
         Set<UUID> others = ImmutableSet.<UUID>builder()
@@ -171,7 +174,7 @@ public class TestShardEjector
                 .addAll(uuids(shardManager.getNodeShards("node5")))
                 .build();
 
-        assertTrue(others.containsAll(ejectedShards));
+        assertThat(others.containsAll(ejectedShards)).isTrue();
     }
 
     private long createTable(String name)

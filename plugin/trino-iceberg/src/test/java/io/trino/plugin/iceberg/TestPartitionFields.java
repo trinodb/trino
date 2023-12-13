@@ -29,8 +29,8 @@ import java.util.function.Consumer;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionField;
 import static io.trino.plugin.iceberg.PartitionFields.toPartitionFields;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestPartitionFields
 {
@@ -87,9 +87,9 @@ public class TestPartitionFields
 
     private static void assertParse(String value, PartitionSpec expected, String canonicalRepresentation)
     {
-        assertEquals(expected.fields().size(), 1);
-        assertEquals(parseField(value), expected);
-        assertEquals(getOnlyElement(toPartitionFields(expected)), canonicalRepresentation);
+        assertThat(expected.fields().size()).isEqualTo(1);
+        assertThat(parseField(value)).isEqualTo(expected);
+        assertThat(getOnlyElement(toPartitionFields(expected))).isEqualTo(canonicalRepresentation);
     }
 
     private static void assertParse(String value, PartitionSpec expected)

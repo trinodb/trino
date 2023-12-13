@@ -52,8 +52,6 @@ import static io.trino.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 @Test(singleThreaded = true)
 public class TestSystemRuntimeConnector
@@ -224,8 +222,8 @@ public class TestSystemRuntimeConnector
                 format("SELECT state FROM system.runtime.queries WHERE query LIKE '%%%s%%' AND query NOT LIKE '%%system.runtime.queries%%'", testQueryId),
                 "VALUES 'WAITING_FOR_RESOURCES'",
                 new Duration(10, SECONDS));
-        assertFalse(metadataFuture.isDone());
-        assertFalse(queryFuture.isDone());
+        assertThat(metadataFuture.isDone()).isFalse();
+        assertThat(queryFuture.isDone()).isFalse();
 
         metadataFuture.set(ImmutableList.of(new ColumnMetadata("a", BIGINT)));
 
@@ -235,7 +233,7 @@ public class TestSystemRuntimeConnector
                 "VALUES 'FINISHED'",
                 new Duration(10, SECONDS));
         // Client should receive query result immediately afterwards
-        assertEventually(new Duration(5, SECONDS), () -> assertTrue(queryFuture.isDone()));
+        assertEventually(new Duration(5, SECONDS), () -> assertThat(queryFuture.isDone()).isTrue());
     }
 
     @Test(timeOut = 60_000)
@@ -270,15 +268,15 @@ public class TestSystemRuntimeConnector
         Optional<Object> queryId = computeActual(format("SELECT query_id FROM system.runtime.queries WHERE query LIKE '%%%s%%' AND query NOT LIKE '%%system.runtime.queries%%'", testQueryId))
                 .getOnlyColumn()
                 .collect(toOptional());
-        assertFalse(metadataFuture.isDone());
-        assertFalse(queryFuture.isDone());
-        assertTrue(queryId.isPresent());
+        assertThat(metadataFuture.isDone()).isFalse();
+        assertThat(queryFuture.isDone()).isFalse();
+        assertThat(queryId.isPresent()).isTrue();
 
         getQueryRunner().execute(format("CALL system.runtime.kill_query('%s', 'because')", queryId.get()));
         // Cancellation should happen within kill_query, but it still needs to be propagated to the thread performing analysis.
-        assertEventually(new Duration(5, SECONDS), () -> assertTrue(metadataFuture.isCancelled()));
+        assertEventually(new Duration(5, SECONDS), () -> assertThat(metadataFuture.isCancelled()).isTrue());
         // Client should receive query result (failure) immediately afterwards
-        assertEventually(new Duration(5, SECONDS), () -> assertTrue(queryFuture.isDone()));
+        assertEventually(new Duration(5, SECONDS), () -> assertThat(queryFuture.isDone()).isTrue());
     }
 
     @Test

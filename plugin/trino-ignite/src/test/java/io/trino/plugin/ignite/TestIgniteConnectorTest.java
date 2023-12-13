@@ -22,10 +22,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
-import io.trino.testng.services.Flaky;
-import org.intellij.lang.annotations.Language;
-import org.testng.SkipException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Locale;
@@ -38,14 +35,11 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestIgniteConnectorTest
         extends BaseJdbcConnectorTest
 {
-    private static final String SCHEMA_CHANGE_OPERATION_FAIL_ISSUE = "https://github.com/trinodb/trino/issues/14391";
-    @Language("RegExp")
-    private static final String SCHEMA_CHANGE_OPERATION_FAIL_MATCH = "Schema change operation failed: Thread got interrupted while trying to acquire table lock.";
-
     private TestingIgniteServer igniteServer;
 
     @Override
@@ -148,8 +142,8 @@ public class TestIgniteConnectorTest
             assertThat((String) computeScalar("SHOW CREATE TABLE " + normalTableName)).contains("primary_key = ARRAY['a']");
             assertThat((String) computeScalar("SHOW CREATE TABLE " + underscoreTableName)).contains("primary_key = ARRAY['b']");
             assertThat((String) computeScalar("SHOW CREATE TABLE " + percentTableName)).contains("primary_key = ARRAY['c']");
-            assertQueryFails("SHOW CREATE TABLE " + "\"test%\"", ".*Table 'ignite.public.test%' does not exist");
-            assertQueryFails("SHOW COLUMNS FROM " + "\"test%\"", ".*Table 'ignite.public.test%' does not exist");
+            assertQueryFails("SHOW CREATE TABLE " + "\"test%\"", ".*Table 'ignite.public.\"test%\"' does not exist");
+            assertQueryFails("SHOW COLUMNS FROM " + "\"test%\"", ".*Table 'ignite.public.\"test%\"' does not exist");
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + normalTableName);
@@ -245,6 +239,7 @@ public class TestIgniteConnectorTest
                         "dummy_id varchar NOT NULL primary key)");
     }
 
+    @Test
     @Override
     public void testShowCreateTable()
     {
@@ -337,7 +332,6 @@ public class TestIgniteConnectorTest
 
     @Test
     @Override
-    @Flaky(issue = SCHEMA_CHANGE_OPERATION_FAIL_ISSUE, match = SCHEMA_CHANGE_OPERATION_FAIL_MATCH)
     public void testDropAndAddColumnWithSameName()
     {
         // Override because Ignite can access old data after dropping and adding a column with same name
@@ -350,49 +344,18 @@ public class TestIgniteConnectorTest
         }
     }
 
-    @Test
-    @Override
-    @Flaky(issue = SCHEMA_CHANGE_OPERATION_FAIL_ISSUE, match = SCHEMA_CHANGE_OPERATION_FAIL_MATCH)
-    public void testAddColumn()
-    {
-        super.testAddColumn();
-    }
-
-    @Test
-    @Override
-    @Flaky(issue = SCHEMA_CHANGE_OPERATION_FAIL_ISSUE, match = SCHEMA_CHANGE_OPERATION_FAIL_MATCH)
-    public void testDropColumn()
-    {
-        super.testDropColumn();
-    }
-
-    @Test
-    @Override
-    @Flaky(issue = SCHEMA_CHANGE_OPERATION_FAIL_ISSUE, match = SCHEMA_CHANGE_OPERATION_FAIL_MATCH)
-    public void testAlterTableAddLongColumnName()
-    {
-        super.testAlterTableAddLongColumnName();
-    }
-
-    @Test(dataProvider = "testColumnNameDataProvider")
-    @Override
-    @Flaky(issue = SCHEMA_CHANGE_OPERATION_FAIL_ISSUE, match = SCHEMA_CHANGE_OPERATION_FAIL_MATCH)
-    public void testAddAndDropColumnName(String columnName)
-    {
-        super.testAddAndDropColumnName(columnName);
-    }
-
     @Override
     protected TestTable simpleTable()
     {
         return new TestTable(onRemoteDatabase(), format("%s.simple_table", getSession().getSchema().orElseThrow()), "(col BIGINT, id bigint primary key)", ImmutableList.of("1, 1", "2, 2"));
     }
 
+    @Test
     @Override
     public void testCharVarcharComparison()
     {
         // Ignite will map char to varchar, skip
-        throw new SkipException("Ignite map char to varchar, skip test");
+        abort("Ignite map char to varchar, skip test");
     }
 
     @Override
@@ -401,10 +364,11 @@ public class TestIgniteConnectorTest
         return format("Failed to insert data: Null value is not allowed for column '%s'", columnName.toUpperCase(Locale.ENGLISH));
     }
 
+    @Test
     @Override
     public void testCharTrailingSpace()
     {
-        throw new SkipException("Ignite not support char trailing space");
+        abort("Ignite not support char trailing space");
     }
 
     @Override
@@ -430,6 +394,7 @@ public class TestIgniteConnectorTest
         return Optional.of(dataMappingTestSetup);
     }
 
+    @Test
     @Override
     public void testDateYearOfEraPredicate()
     {

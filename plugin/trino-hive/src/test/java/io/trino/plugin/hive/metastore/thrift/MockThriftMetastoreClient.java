@@ -40,7 +40,6 @@ import io.trino.hive.thrift.metastore.Table;
 import io.trino.plugin.hive.acid.AcidOperation;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testng.services.ManageTestResources;
-import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.thrift.TException;
@@ -55,6 +54,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.hive.thrift.metastore.PrincipalType.ROLE;
 import static io.trino.hive.thrift.metastore.PrincipalType.USER;
+import static io.trino.plugin.hive.TableType.MANAGED_TABLE;
 
 @ManageTestResources.Suppress(because = "close() is no-op and instance's resources are negligible")
 public class MockThriftMetastoreClient
@@ -239,7 +239,7 @@ public class MockThriftMetastoreClient
                 ImmutableMap.of("numRows", "2398040535435"),
                 "",
                 "",
-                TableType.MANAGED_TABLE.name());
+                MANAGED_TABLE.name());
     }
 
     @Override
@@ -503,12 +503,6 @@ public class MockThriftMetastoreClient
     public void revokeRole(String role, String granteeName, PrincipalType granteeType, boolean grantOption)
     {
         // No-op
-    }
-
-    @Override
-    public List<RolePrincipalGrant> listGrantedPrincipals(String role)
-    {
-        throw new UnsupportedOperationException();
     }
 
     @Override

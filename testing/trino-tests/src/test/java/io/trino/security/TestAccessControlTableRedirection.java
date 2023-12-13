@@ -264,9 +264,9 @@ public class TestAccessControlTableRedirection
                     }
                     return null;
                 })
-                .withGetViews(((connectorSession, prefix) -> ImmutableMap.of()))
-                .withRedirectTable(((connectorSession, schemaTableName) -> Optional.ofNullable(TABLE_REDIRECTIONS.get(schemaTableName))
-                        .map(target -> new CatalogSchemaTableName(CATALOG_NAME, target))))
+                .withGetViews((connectorSession, prefix) -> ImmutableMap.of())
+                .withRedirectTable((connectorSession, schemaTableName) -> Optional.ofNullable(TABLE_REDIRECTIONS.get(schemaTableName))
+                        .map(target -> new CatalogSchemaTableName(CATALOG_NAME, target)))
                 .withGetColumns(schemaTableName -> {
                     if (REDIRECTION_TARGET_SCHEMA_TABLE_NAME.equals(schemaTableName)) {
                         return ImmutableList.of(new ColumnMetadata(ID_COLUMN_NAME, INTEGER), new ColumnMetadata(DATA_COLUMN_NAME, VARCHAR));

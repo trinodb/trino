@@ -46,7 +46,7 @@ import static io.trino.plugin.hive.HiveErrorCode.HIVE_WRITER_DATA_ERROR;
 import static io.trino.plugin.hive.avro.AvroHiveFileUtils.getCanonicalToGivenFieldName;
 import static java.util.Objects.requireNonNull;
 
-public class AvroHiveFileWriter
+public final class AvroHiveFileWriter
         implements FileWriter
 {
     private static final int INSTANCE_SIZE = instanceSize(AvroHiveFileWriter.class);

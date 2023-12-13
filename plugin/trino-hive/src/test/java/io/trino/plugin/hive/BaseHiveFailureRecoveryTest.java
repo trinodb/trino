@@ -16,7 +16,7 @@ package io.trino.plugin.hive;
 import io.trino.Session;
 import io.trino.operator.RetryPolicy;
 import io.trino.testing.ExtendedFailureRecoveryTest;
-import org.testng.annotations.DataProvider;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
@@ -50,20 +50,7 @@ public abstract class BaseHiveFailureRecoveryTest
         getQueryRunner().execute(sql);
     }
 
-    @Override
-    @DataProvider(name = "parallelTests", parallel = true)
-    public Object[][] parallelTests()
-    {
-        return moreParallelTests(super.parallelTests(),
-                parallelTest("testCreatePartitionedTable", this::testCreatePartitionedTable),
-                parallelTest("testInsertIntoNewPartition", this::testInsertIntoNewPartition),
-                parallelTest("testInsertIntoExistingPartition", this::testInsertIntoExistingPartition),
-                parallelTest("testInsertIntoNewPartitionBucketed", this::testInsertIntoNewPartitionBucketed),
-                parallelTest("testInsertIntoExistingPartitionBucketed", this::testInsertIntoExistingPartitionBucketed),
-                parallelTest("testReplaceExistingPartition", this::testReplaceExistingPartition),
-                parallelTest("testDeletePartitionWithSubquery", this::testDeletePartitionWithSubquery));
-    }
-
+    @Test
     @Override
     // delete is unsupported for non ACID tables
     protected void testDelete()
@@ -72,6 +59,7 @@ public abstract class BaseHiveFailureRecoveryTest
                 .hasMessageContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
+    @Test
     @Override
     // delete is unsupported for non ACID tables
     protected void testDeleteWithSubquery()
@@ -80,6 +68,7 @@ public abstract class BaseHiveFailureRecoveryTest
                 .hasMessageContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
+    @Test
     @Override
     // update is unsupported for non ACID tables
     protected void testUpdate()
@@ -88,6 +77,7 @@ public abstract class BaseHiveFailureRecoveryTest
                 .hasMessageContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
+    @Test
     @Override
     // update is unsupported for non ACID tables
     protected void testUpdateWithSubquery()
@@ -96,6 +86,7 @@ public abstract class BaseHiveFailureRecoveryTest
                 .hasMessageContaining(MODIFYING_NON_TRANSACTIONAL_TABLE_MESSAGE);
     }
 
+    @Test
     @Override
     protected void testMerge()
     {
@@ -103,6 +94,7 @@ public abstract class BaseHiveFailureRecoveryTest
                 .hasMessageContaining("Modifying Hive table rows is only supported for transactional tables");
     }
 
+    @Test
     @Override
     // materialized views are currently not implemented by Hive connector
     protected void testRefreshMaterializedView()
@@ -111,6 +103,7 @@ public abstract class BaseHiveFailureRecoveryTest
                 .hasMessageContaining("This connector does not support creating materialized views");
     }
 
+    @Test
     protected void testCreatePartitionedTable()
     {
         testTableModification(
@@ -119,6 +112,7 @@ public abstract class BaseHiveFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
+    @Test
     protected void testInsertIntoNewPartition()
     {
         testTableModification(
@@ -127,6 +121,7 @@ public abstract class BaseHiveFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
+    @Test
     protected void testInsertIntoExistingPartition()
     {
         testTableModification(
@@ -135,6 +130,7 @@ public abstract class BaseHiveFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
+    @Test
     protected void testInsertIntoNewPartitionBucketed()
     {
         testTableModification(
@@ -143,6 +139,7 @@ public abstract class BaseHiveFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
+    @Test
     protected void testInsertIntoExistingPartitionBucketed()
     {
         testTableModification(
@@ -151,6 +148,7 @@ public abstract class BaseHiveFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
+    @Test
     protected void testReplaceExistingPartition()
     {
         testTableModification(
@@ -162,6 +160,7 @@ public abstract class BaseHiveFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
+    @Test
     protected void testDeletePartitionWithSubquery()
     {
         assertThatThrownBy(() -> {

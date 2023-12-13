@@ -17,8 +17,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.type.DecimalParseResult;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Type;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.hive.HiveTimestampPrecision.NANOSECONDS;
 import static io.trino.plugin.hive.HiveType.toHiveType;
@@ -34,8 +33,37 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDecimalCoercers
 {
-    @Test(dataProvider = "dataProvider")
-    public void testDecimalToIntCoercion(String decimalString, Type coercedType, Object expectedValue)
+    @Test
+    public void testDecimalToIntCoercion()
+    {
+        testDecimalToIntCoercion("12.120000000000000000", TINYINT, 12L);
+        testDecimalToIntCoercion("-12.120000000000000000", TINYINT, -12L);
+        testDecimalToIntCoercion("12.120", TINYINT, 12L);
+        testDecimalToIntCoercion("-12.120", TINYINT, -12L);
+        testDecimalToIntCoercion("141.120000000000000000", TINYINT, null);
+        testDecimalToIntCoercion("-141.120", TINYINT, null);
+        testDecimalToIntCoercion("130.120000000000000000", SMALLINT, 130L);
+        testDecimalToIntCoercion("-130.120000000000000000", SMALLINT, -130L);
+        testDecimalToIntCoercion("130.120", SMALLINT, 130L);
+        testDecimalToIntCoercion("-130.120", SMALLINT, -130L);
+        testDecimalToIntCoercion("66000.30120000000000000", SMALLINT, null);
+        testDecimalToIntCoercion("-66000.120", SMALLINT, null);
+        testDecimalToIntCoercion("33000.12000000000000000", INTEGER, 33000L);
+        testDecimalToIntCoercion("-33000.12000000000000000", INTEGER, -33000L);
+        testDecimalToIntCoercion("33000.120", INTEGER, 33000L);
+        testDecimalToIntCoercion("-33000.120", INTEGER, -33000L);
+        testDecimalToIntCoercion("3300000000.1200000000000", INTEGER, null);
+        testDecimalToIntCoercion("3300000000.120", INTEGER, null);
+        testDecimalToIntCoercion("3300000000.1200000000000", BIGINT, 3300000000L);
+        testDecimalToIntCoercion("-3300000000.120000000000", BIGINT, -3300000000L);
+        testDecimalToIntCoercion("3300000000.12", BIGINT, 3300000000L);
+        testDecimalToIntCoercion("-3300000000.12", BIGINT, -3300000000L);
+        testDecimalToIntCoercion("330000000000000000000.12000000000", BIGINT, null);
+        testDecimalToIntCoercion("-330000000000000000000.12000000000", BIGINT, null);
+        testDecimalToIntCoercion("3300000", INTEGER, 3300000L);
+    }
+
+    private void testDecimalToIntCoercion(String decimalString, Type coercedType, Object expectedValue)
     {
         DecimalParseResult parseResult = Decimals.parse(decimalString);
 
@@ -46,38 +74,6 @@ public class TestDecimalCoercers
             assertThat(parseResult.getType().isShort()).isTrue();
         }
         assertDecimalToIntCoercion(parseResult.getType(), parseResult.getObject(), coercedType, expectedValue);
-    }
-
-    @DataProvider
-    public static Object[][] dataProvider()
-    {
-        return new Object[][] {
-                {"12.120000000000000000", TINYINT, 12L},
-                {"-12.120000000000000000", TINYINT, -12L},
-                {"12.120", TINYINT, 12L},
-                {"-12.120", TINYINT, -12L},
-                {"141.120000000000000000", TINYINT, null},
-                {"-141.120", TINYINT, null},
-                {"130.120000000000000000", SMALLINT, 130L},
-                {"-130.120000000000000000", SMALLINT, -130L},
-                {"130.120", SMALLINT, 130L},
-                {"-130.120", SMALLINT, -130L},
-                {"66000.30120000000000000", SMALLINT, null},
-                {"-66000.120", SMALLINT, null},
-                {"33000.12000000000000000", INTEGER, 33000L},
-                {"-33000.12000000000000000", INTEGER, -33000L},
-                {"33000.120", INTEGER, 33000L},
-                {"-33000.120", INTEGER, -33000L},
-                {"3300000000.1200000000000", INTEGER, null},
-                {"3300000000.120", INTEGER, null},
-                {"3300000000.1200000000000", BIGINT, 3300000000L},
-                {"-3300000000.120000000000", BIGINT, -3300000000L},
-                {"3300000000.12", BIGINT, 3300000000L},
-                {"-3300000000.12", BIGINT, -3300000000L},
-                {"330000000000000000000.12000000000", BIGINT, null},
-                {"-330000000000000000000.12000000000", BIGINT, null},
-                {"3300000", INTEGER, 3300000L},
-        };
     }
 
     private void assertDecimalToIntCoercion(Type fromType, Object valueToBeCoerced, Type toType, Object expectedValue)

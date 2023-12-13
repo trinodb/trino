@@ -32,7 +32,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
 import org.assertj.core.api.ThrowableAssert;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -46,9 +46,8 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static java.util.Collections.emptyMap;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
 
 public class TestRawDecoder
 {
@@ -93,7 +92,7 @@ public class TestRawDecoder
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row)
                 .orElseThrow(AssertionError::new);
 
-        assertEquals(decodedRow.size(), columns.size());
+        assertThat(decodedRow.size()).isEqualTo(columns.size());
 
         checkValue(decodedRow, row1, 4815162342L);
         checkValue(decodedRow, row2, 12345678);
@@ -119,7 +118,7 @@ public class TestRawDecoder
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row)
                 .orElseThrow(AssertionError::new);
 
-        assertEquals(decodedRow.size(), columns.size());
+        assertThat(decodedRow.size()).isEqualTo(columns.size());
 
         checkValue(decodedRow, row1, str);
         checkValue(decodedRow, row2, str);
@@ -149,7 +148,7 @@ public class TestRawDecoder
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row)
                 .orElseThrow(AssertionError::new);
 
-        assertEquals(decodedRow.size(), columns.size());
+        assertThat(decodedRow.size()).isEqualTo(columns.size());
 
         checkValue(decodedRow, row1, Math.PI);
         checkValue(decodedRow, row2, Math.E);
@@ -223,7 +222,7 @@ public class TestRawDecoder
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row)
                 .orElseThrow(AssertionError::new);
 
-        assertEquals(decodedRow.size(), columns.size());
+        assertThat(decodedRow.size()).isEqualTo(columns.size());
 
         checkValue(decodedRow, row01, 127);
         checkValue(decodedRow, row02, false);
@@ -432,7 +431,7 @@ public class TestRawDecoder
         Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row)
                 .orElseThrow(AssertionError::new);
 
-        assertEquals(decodedRow.size(), columns.size());
+        assertThat(decodedRow.size()).isEqualTo(columns.size());
 
         for (DecoderColumnHandle handle : columns) {
             checkTwice(decodedRow, handle);
@@ -442,19 +441,19 @@ public class TestRawDecoder
     private void checkTwice(Map<DecoderColumnHandle, FieldValueProvider> decodedRow, DecoderColumnHandle handle)
     {
         FieldValueProvider provider = decodedRow.get(handle);
-        assertNotNull(provider);
+        assertThat(provider).isNotNull();
         Type type = handle.getType();
         if (type == BigintType.BIGINT) {
-            assertEquals(provider.getLong(), provider.getLong());
+            assertThat(provider.getLong()).isEqualTo(provider.getLong());
         }
         else if (type == BooleanType.BOOLEAN) {
-            assertEquals(provider.getBoolean(), provider.getBoolean());
+            assertThat(provider.getBoolean()).isEqualTo(provider.getBoolean());
         }
         else if (type == DoubleType.DOUBLE) {
-            assertEquals(provider.getDouble(), provider.getDouble());
+            assertThat(provider.getDouble()).isEqualTo(provider.getDouble());
         }
         else if (type == VarcharType.VARCHAR) {
-            assertEquals(provider.getSlice(), provider.getSlice());
+            assertThat(provider.getSlice()).isEqualTo(provider.getSlice());
         }
     }
 

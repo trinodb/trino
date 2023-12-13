@@ -3,7 +3,7 @@
 A table function is a function returning a table. It can be invoked inside the
 `FROM` clause of a query:
 
-```
+```sql
 SELECT * FROM TABLE(my_function(1, 100))
 ```
 
@@ -15,25 +15,24 @@ Polymorphic table functions allow you to dynamically invoke custom logic from
 within the SQL query. They can be used for working with external systems as
 well as for enhancing Trino with capabilities going beyond the SQL standard.
 
-For the list of built-in table functions available in Trino, see {ref}`built in
-table functions<built-in-table-functions>`.
+For the list of built-in table functions available in Trino, see [built in
+table functions](built-in-table-functions).
 
 Trino supports adding custom table functions. They are declared by connectors
 through implementing dedicated interfaces. For guidance on adding new table
-functions, see the {doc}`developer guide</develop/table-functions>`.
+functions, see the [developer guide](/develop/table-functions).
 
 Connectors offer support for different functions on a per-connector basis. For
-more information about supported table functions, refer to the {doc}`connector
-documentation <../../connector>`.
+more information about supported table functions, refer to the [connector
+documentation](/connector).
 
 (built-in-table-functions)=
-
 ## Built-in table functions
 
 :::{function} exclude_columns(input => table, columns => descriptor) -> table
 Excludes from `table` all columns listed in `descriptor`:
 
-```
+```sql
 SELECT *
 FROM TABLE(exclude_columns(
                         input => TABLE(orders),
@@ -45,14 +44,13 @@ The argument `columns` is a descriptor without types.
 :::
 
 (sequence-table-function)=
-
 :::{function} sequence(start => bigint, stop => bigint, step => bigint) -> table(sequential_number bigint)
 :noindex: true
 
 Returns a single column `sequential_number` containing a sequence of
 bigint:
 
-```
+```sql
 SELECT *
 FROM TABLE(sequence(
                 start => 1000000,
@@ -60,7 +58,7 @@ FROM TABLE(sequence(
                 step => -3))
 ```
 
-`start` is the first element in te sequence. The default value is `0`.
+`start` is the first element in the sequence. The default value is `0`.
 
 `stop` is the end of the range, inclusive. The last element in the
 sequence is equal to `stop`, or it is the last value within range,
@@ -85,7 +83,7 @@ Every table function is provided by a catalog, and it belongs to a schema in
 the catalog. You can qualify the function name with a schema name, or with
 catalog and schema names:
 
-```
+```sql
 SELECT * FROM TABLE(schema_name.my_function(1, 100))
 SELECT * FROM TABLE(catalog_name.schema_name.my_function(1, 100))
 ```
@@ -143,7 +141,7 @@ argument is processed as a single partition. You can also specify
 declare that you are not interested in the function result if the argument is
 empty. This information is used by the Trino engine to optimize the query. The
 `KEEP WHEN EMPTY` option indicates that the function should be executed even
-if the table argument is empty. Note that by specifying `KEEP WHEN EMPTY` or
+if the table argument is empty. By specifying `KEEP WHEN EMPTY` or
 `PRUNE WHEN EMPTY`, you override the property set for the argument by the
 function author.
 
@@ -162,7 +160,7 @@ There are two conventions of passing arguments to a table function:
 
 - **Arguments passed by name**:
 
-  ```
+  ```sql
   SELECT * FROM TABLE(my_function(row_count => 100, column_count => 1))
   ```
 
@@ -172,7 +170,7 @@ case-sensitive, and with automatic uppercasing of unquoted names.
 
 - **Arguments passed positionally**:
 
-  ```
+  ```sql
   SELECT * FROM TABLE(my_function(1, 100))
   ```
 
@@ -184,7 +182,7 @@ You cannot mix the argument conventions in one invocation.
 
 You can also use parameters in arguments:
 
-```
+```sql
 PREPARE stmt FROM
 SELECT * FROM TABLE(my_function(row_count => ? + 1, column_count => ?));
 

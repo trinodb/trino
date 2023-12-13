@@ -25,8 +25,7 @@ import io.trino.orc.metadata.Stream.StreamKind;
 import java.io.IOException;
 import java.util.List;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class AbstractTestValueStream<T, C extends StreamCheckpoint, W extends ValueOutputStream<C>, R extends ValueInputStream<C>>
 {
@@ -44,7 +43,7 @@ public abstract class AbstractTestValueStream<T, C extends StreamCheckpoint, W e
                 outputStream.recordCheckpoint();
                 group.forEach(value -> writeValue(outputStream, value));
 
-                assertTrue(outputStream.getRetainedBytes() >= retainedBytes);
+                assertThat(outputStream.getRetainedBytes() >= retainedBytes).isTrue();
                 retainedBytes = outputStream.getRetainedBytes();
             }
             outputStream.close();
@@ -53,12 +52,12 @@ public abstract class AbstractTestValueStream<T, C extends StreamCheckpoint, W e
             StreamDataOutput streamDataOutput = outputStream.getStreamDataOutput(new OrcColumnId(33));
             streamDataOutput.writeData(sliceOutput);
             Stream stream = streamDataOutput.getStream();
-            assertEquals(stream.getStreamKind(), StreamKind.DATA);
-            assertEquals(stream.getColumnId(), new OrcColumnId(33));
-            assertEquals(stream.getLength(), sliceOutput.size());
+            assertThat(stream.getStreamKind()).isEqualTo(StreamKind.DATA);
+            assertThat(stream.getColumnId()).isEqualTo(new OrcColumnId(33));
+            assertThat(stream.getLength()).isEqualTo(sliceOutput.size());
 
             List<C> checkpoints = outputStream.getCheckpoints();
-            assertEquals(checkpoints.size(), groups.size());
+            assertThat(checkpoints.size()).isEqualTo(groups.size());
 
             R valueStream = createValueStream(sliceOutput.slice());
             for (List<T> group : groups) {
@@ -67,7 +66,9 @@ public abstract class AbstractTestValueStream<T, C extends StreamCheckpoint, W e
                     index++;
                     T actualValue = readValue(valueStream);
                     if (!actualValue.equals(expectedValue)) {
-                        assertEquals(actualValue, expectedValue, "index=" + index);
+                        assertThat(actualValue)
+                                .describedAs("index=" + index)
+                                .isEqualTo(expectedValue);
                     }
                 }
             }
@@ -76,7 +77,7 @@ public abstract class AbstractTestValueStream<T, C extends StreamCheckpoint, W e
                 for (T expectedValue : groups.get(groupIndex)) {
                     T actualValue = readValue(valueStream);
                     if (!actualValue.equals(expectedValue)) {
-                        assertEquals(actualValue, expectedValue);
+                        assertThat(actualValue).isEqualTo(expectedValue);
                     }
                 }
             }

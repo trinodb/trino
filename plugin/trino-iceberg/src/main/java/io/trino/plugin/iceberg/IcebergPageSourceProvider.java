@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.graph.Traverser;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.annotation.NotThreadSafe;
@@ -39,8 +38,8 @@ import io.trino.orc.OrcReaderOptions;
 import io.trino.orc.OrcRecordReader;
 import io.trino.orc.TupleDomainOrcPredicate;
 import io.trino.orc.TupleDomainOrcPredicate.TupleDomainOrcPredicateBuilder;
-import io.trino.orc.metadata.OrcType;
 import io.trino.parquet.BloomFilterStore;
+import io.trino.parquet.Column;
 import io.trino.parquet.Field;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSource;
@@ -177,10 +176,11 @@ import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromHandles;
-import static io.trino.plugin.iceberg.TypeConverter.ICEBERG_BINARY_TYPE;
-import static io.trino.plugin.iceberg.TypeConverter.ORC_ICEBERG_ID_KEY;
 import static io.trino.plugin.iceberg.delete.EqualityDeleteFilter.readEqualityDeletes;
 import static io.trino.plugin.iceberg.delete.PositionDeleteFilter.readPositionDeletes;
+import static io.trino.plugin.iceberg.util.OrcIcebergIds.fileColumnsByIcebergId;
+import static io.trino.plugin.iceberg.util.OrcTypeConverter.ICEBERG_BINARY_TYPE;
+import static io.trino.plugin.iceberg.util.OrcTypeConverter.ORC_ICEBERG_ID_KEY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static io.trino.spi.predicate.Utils.nativeValueToBlock;
@@ -662,14 +662,7 @@ public class IcebergPageSourceProvider
             OrcReader reader = OrcReader.createOrcReader(orcDataSource, options)
                     .orElseThrow(() -> new TrinoException(ICEBERG_BAD_DATA, "ORC file is zero length"));
 
-            List<OrcColumn> fileColumns = reader.getRootColumn().getNestedColumns();
-            if (nameMapping.isPresent() && !hasIds(reader.getRootColumn())) {
-                fileColumns = fileColumns.stream()
-                        .map(orcColumn -> setMissingFieldIds(orcColumn, nameMapping.get(), ImmutableList.of(orcColumn.getColumnName())))
-                        .collect(toImmutableList());
-            }
-
-            Map<Integer, OrcColumn> fileColumnsByIcebergId = mapIdsToOrcFileColumns(fileColumns);
+            Map<Integer, OrcColumn> fileColumnsByIcebergId = fileColumnsByIcebergId(reader, nameMapping);
 
             TupleDomainOrcPredicateBuilder predicateBuilder = TupleDomainOrcPredicate.builder()
                     .setBloomFiltersEnabled(options.isBloomFiltersEnabled());
@@ -803,48 +796,6 @@ public class IcebergPageSourceProvider
         }
     }
 
-    private static boolean hasIds(OrcColumn column)
-    {
-        if (column.getAttributes().containsKey(ORC_ICEBERG_ID_KEY)) {
-            return true;
-        }
-
-        return column.getNestedColumns().stream().anyMatch(IcebergPageSourceProvider::hasIds);
-    }
-
-    private static OrcColumn setMissingFieldIds(OrcColumn column, NameMapping nameMapping, List<String> qualifiedPath)
-    {
-        MappedField mappedField = nameMapping.find(qualifiedPath);
-
-        ImmutableMap.Builder<String, String> attributes = ImmutableMap.<String, String>builder()
-                .putAll(column.getAttributes());
-        if (mappedField != null && mappedField.id() != null) {
-            attributes.put(ORC_ICEBERG_ID_KEY, String.valueOf(mappedField.id()));
-        }
-
-        return new OrcColumn(
-                column.getPath(),
-                column.getColumnId(),
-                column.getColumnName(),
-                column.getColumnType(),
-                column.getOrcDataSourceId(),
-                column.getNestedColumns().stream()
-                        .map(nestedColumn -> {
-                            ImmutableList.Builder<String> nextQualifiedPath = ImmutableList.<String>builder()
-                                    .addAll(qualifiedPath);
-                            if (column.getColumnType() == OrcType.OrcTypeKind.LIST) {
-                                // The Trino ORC reader uses "item" for list element names, but the NameMapper expects "element"
-                                nextQualifiedPath.add("element");
-                            }
-                            else {
-                                nextQualifiedPath.add(nestedColumn.getColumnName());
-                            }
-                            return setMissingFieldIds(nestedColumn, nameMapping, nextQualifiedPath.build());
-                        })
-                        .collect(toImmutableList()),
-                attributes.buildOrThrow());
-    }
-
     /**
      * Gets the index based dereference chain to get from the readColumnHandle to the expectedColumnHandle
      */
@@ -863,20 +814,6 @@ public class IcebergPageSourceProvider
         }
 
         return dereferenceChain.build();
-    }
-
-    private static Map<Integer, OrcColumn> mapIdsToOrcFileColumns(List<OrcColumn> columns)
-    {
-        ImmutableMap.Builder<Integer, OrcColumn> columnsById = ImmutableMap.builder();
-        Traverser.forTree(OrcColumn::getNestedColumns)
-                .depthFirstPreOrder(columns)
-                .forEach(column -> {
-                    String fieldId = column.getAttributes().get(ORC_ICEBERG_ID_KEY);
-                    if (fieldId != null) {
-                        columnsById.put(Integer.parseInt(fieldId), column);
-                    }
-                });
-        return columnsById.buildOrThrow();
     }
 
     private static Integer getIcebergFieldId(OrcColumn column)
@@ -1049,7 +986,7 @@ public class IcebergPageSourceProvider
             ParquetPageSource.Builder pageSourceBuilder = ParquetPageSource.builder();
             int parquetSourceChannel = 0;
 
-            ImmutableList.Builder<Field> parquetColumnFieldsBuilder = ImmutableList.builder();
+            ImmutableList.Builder<Column> parquetColumnFieldsBuilder = ImmutableList.builder();
             for (int columnIndex = 0; columnIndex < readBaseColumns.size(); columnIndex++) {
                 IcebergColumnHandle column = readBaseColumns.get(columnIndex);
                 if (column.isIsDeletedColumn()) {
@@ -1094,7 +1031,7 @@ public class IcebergPageSourceProvider
                         pageSourceBuilder.addNullColumn(trinoType);
                         continue;
                     }
-                    parquetColumnFieldsBuilder.add(field.get());
+                    parquetColumnFieldsBuilder.add(new Column(parquetField.getName(), field.get()));
                     pageSourceBuilder.addSourceColumn(parquetSourceChannel);
                     parquetSourceChannel++;
                 }

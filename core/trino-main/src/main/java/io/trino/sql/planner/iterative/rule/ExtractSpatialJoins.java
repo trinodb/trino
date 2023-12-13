@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.errorprone.annotations.FormatMethod;
 import io.trino.Session;
 import io.trino.geospatial.KdbTree;
 import io.trino.geospatial.KdbTreeUtils;
@@ -508,6 +509,7 @@ public class ExtractSpatialJoins
         return kdbTree.get();
     }
 
+    @FormatMethod
     private static void checkSpatialPartitioningTable(boolean condition, String message, Object... arguments)
     {
         if (!condition) {

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 import io.trino.filesystem.Location;
+import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.reader.MetadataReader;
 import io.trino.plugin.deltalake.DataFileInfo.DataFileType;
 import io.trino.plugin.deltalake.transactionlog.statistics.DeltaLakeJsonFileStatistics;
@@ -28,11 +29,12 @@ import io.trino.spi.block.ArrayBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.ColumnarArray;
 import io.trino.spi.block.ColumnarMap;
-import io.trino.spi.block.ColumnarRow;
+import io.trino.spi.block.DictionaryBlock;
 import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.LazyBlockLoader;
 import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RowBlock;
+import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -54,6 +56,7 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -63,7 +66,6 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatistic
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeParquetStatisticsUtils.jsonEncodeMin;
 import static io.trino.spi.block.ColumnarArray.toColumnarArray;
 import static io.trino.spi.block.ColumnarMap.toColumnarMap;
-import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static io.trino.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static java.util.Locale.ENGLISH;
@@ -71,7 +73,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.function.UnaryOperator.identity;
 
-public class DeltaLakeWriter
+public final class DeltaLakeWriter
         implements FileWriter
 {
     private final ParquetFileWriter fileWriter;
@@ -195,7 +197,7 @@ public class DeltaLakeWriter
     private static DeltaLakeJsonFileStatistics readStatistics(FileMetaData fileMetaData, Location path, Map</* lowercase */ String, Type> typeForColumn, long rowCount)
             throws IOException
     {
-        ParquetMetadata parquetMetadata = MetadataReader.createParquetMetadata(fileMetaData, path.fileName());
+        ParquetMetadata parquetMetadata = MetadataReader.createParquetMetadata(fileMetaData, new ParquetDataSourceId(path.toString()));
 
         ImmutableMultimap.Builder<String, ColumnChunkMetaData> metadataForColumn = ImmutableMultimap.builder();
         for (BlockMetaData blockMetaData : parquetMetadata.getBlocks()) {
@@ -342,25 +344,61 @@ public class DeltaLakeWriter
         @Override
         public Block apply(Block block)
         {
-            ColumnarRow rowBlock = toColumnarRow(block);
-            Block[] fields = new Block[fieldCoercers.size()];
+            block = block.getLoadedBlock();
+
+            if (block instanceof RunLengthEncodedBlock runLengthEncodedBlock) {
+                RowBlock rowBlock = (RowBlock) runLengthEncodedBlock.getValue();
+                RowBlock newRowBlock = RowBlock.fromNotNullSuppressedFieldBlocks(
+                        1,
+                        rowBlock.isNull(0) ? Optional.of(new boolean[]{true}) : Optional.empty(),
+                        coerceFields(rowBlock.getFieldBlocks()));
+                return RunLengthEncodedBlock.create(newRowBlock, runLengthEncodedBlock.getPositionCount());
+            }
+            if (block instanceof DictionaryBlock dictionaryBlock) {
+                RowBlock rowBlock = (RowBlock) dictionaryBlock.getDictionary();
+                List<Block> fieldBlocks = rowBlock.getFieldBlocks().stream()
+                        .map(dictionaryBlock::createProjection)
+                        .toList();
+                return RowBlock.fromNotNullSuppressedFieldBlocks(
+                        dictionaryBlock.getPositionCount(),
+                        getNulls(dictionaryBlock),
+                        coerceFields(fieldBlocks));
+            }
+            RowBlock rowBlock = (RowBlock) block;
+            return RowBlock.fromNotNullSuppressedFieldBlocks(
+                    rowBlock.getPositionCount(),
+                    getNulls(rowBlock),
+                    coerceFields(rowBlock.getFieldBlocks()));
+        }
+
+        private static Optional<boolean[]> getNulls(Block rowBlock)
+        {
+            if (!rowBlock.mayHaveNull()) {
+                return Optional.empty();
+            }
+
+            boolean[] valueIsNull = new boolean[rowBlock.getPositionCount()];
+            for (int i = 0; i < rowBlock.getPositionCount(); i++) {
+                valueIsNull[i] = rowBlock.isNull(i);
+            }
+            return Optional.of(valueIsNull);
+        }
+
+        private Block[] coerceFields(List<Block> fields)
+        {
+            checkArgument(fields.size() == fieldCoercers.size());
+            Block[] newFields = new Block[fieldCoercers.size()];
             for (int i = 0; i < fieldCoercers.size(); i++) {
                 Optional<Function<Block, Block>> coercer = fieldCoercers.get(i);
+                Block fieldBlock = fields.get(i);
                 if (coercer.isPresent()) {
-                    fields[i] = coercer.get().apply(rowBlock.getField(i));
+                    newFields[i] = coercer.get().apply(fieldBlock);
                 }
                 else {
-                    fields[i] = rowBlock.getField(i);
+                    newFields[i] = fieldBlock;
                 }
             }
-            boolean[] valueIsNull = null;
-            if (rowBlock.mayHaveNull()) {
-                valueIsNull = new boolean[rowBlock.getPositionCount()];
-                for (int i = 0; i < rowBlock.getPositionCount(); i++) {
-                    valueIsNull[i] = rowBlock.isNull(i);
-                }
-            }
-            return RowBlock.fromFieldBlocks(rowBlock.getPositionCount(), Optional.ofNullable(valueIsNull), fields);
+            return newFields;
         }
     }
 

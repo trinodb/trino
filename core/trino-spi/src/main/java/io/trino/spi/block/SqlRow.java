@@ -95,6 +95,6 @@ public class SqlRow
     @Override
     public String toString()
     {
-        return format("SingleRowBlock{numFields=%d}", fieldBlocks.length);
+        return format("SqlRow{numFields=%d}", fieldBlocks.length);
     }
 }

@@ -52,7 +52,7 @@ jobs:
       - uses: actions/setup-java@v3
         with:
           distribution: 'temurin' # use same JDK distro as in Trino docker images
-          java-version: 17
+          java-version: 21
           cache: 'maven'
       - name: Configure Problem Matchers
         run: |
@@ -86,7 +86,7 @@ jobs:
       - uses: actions/setup-java@v3
         with:
           distribution: 'temurin' # use same JDK distro as in Trino docker images
-          java-version: 17
+          java-version: 21
           cache: 'maven'
       - name: Configure Problem Matchers
         run: |

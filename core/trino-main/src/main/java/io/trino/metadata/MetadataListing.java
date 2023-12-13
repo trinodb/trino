@@ -22,6 +22,7 @@ import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.predicate.Domain;
@@ -46,6 +47,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.TABLE_REDIRECTION_ERROR;
+import static java.util.function.Function.identity;
 
 public final class MetadataListing
 {
@@ -133,22 +135,29 @@ public final class MetadataListing
         return accessControl.filterTables(session.toSecurityContext(), prefix.getCatalogName(), tableNames);
     }
 
-    public static Set<SchemaTableName> listViews(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
+    public static Map<SchemaTableName, RelationType> getRelationTypes(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
     {
         try {
-            return doListViews(session, metadata, accessControl, prefix);
+            return doGetRelationTypes(session, metadata, accessControl, prefix);
         }
         catch (RuntimeException exception) {
-            throw handleListingException(exception, "views", prefix.getCatalogName());
+            throw handleListingException(exception, "tables", prefix.getCatalogName());
         }
     }
 
-    private static Set<SchemaTableName> doListViews(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
+    private static Map<SchemaTableName, RelationType> doGetRelationTypes(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)
     {
-        Set<SchemaTableName> tableNames = metadata.listViews(session, prefix).stream()
-                .map(QualifiedObjectName::asSchemaTableName)
-                .collect(toImmutableSet());
-        return accessControl.filterTables(session.toSecurityContext(), prefix.getCatalogName(), tableNames);
+        Map<SchemaTableName, RelationType> relationTypes = metadata.getRelationTypes(session, prefix);
+
+        // Table listing operation only involves getting table names, but not any metadata. So redirected tables are not
+        // handled any differently. The target table or catalog are not involved. Thus the following filter is only called
+        // for the source catalog on source table names.
+        Set<SchemaTableName> accessibleNames = accessControl.filterTables(session.toSecurityContext(), prefix.getCatalogName(), relationTypes.keySet());
+        if (accessibleNames.equals(relationTypes.keySet())) {
+            return relationTypes;
+        }
+        return accessibleNames.stream()
+                .collect(toImmutableMap(identity(), relationTypes::get));
     }
 
     public static Map<SchemaTableName, ViewInfo> getViews(Session session, Metadata metadata, AccessControl accessControl, QualifiedTablePrefix prefix)

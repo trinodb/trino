@@ -93,7 +93,7 @@ public class SetColumnTypeTask
                 exceptionMessage += ", but a view with that name exists.";
             }
             if (!statement.isTableExists()) {
-                throw semanticException(TABLE_NOT_FOUND, statement, exceptionMessage);
+                throw semanticException(TABLE_NOT_FOUND, statement, "%s", exceptionMessage);
             }
             return immediateVoidFuture();
         }

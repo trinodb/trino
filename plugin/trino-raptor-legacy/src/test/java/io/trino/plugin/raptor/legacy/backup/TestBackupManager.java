@@ -16,9 +16,11 @@ package io.trino.plugin.raptor.legacy.backup;
 import io.trino.plugin.raptor.legacy.storage.BackupStats;
 import io.trino.plugin.raptor.legacy.storage.FileStorageService;
 import io.trino.spi.TrinoException;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.io.IOException;
@@ -41,12 +43,13 @@ import static java.nio.file.Files.writeString;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
-import static org.testng.FileAssert.assertFile;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestBackupManager
 {
     private static final UUID FAILURE_UUID = randomUUID();
@@ -57,7 +60,7 @@ public class TestBackupManager
     private FileStorageService storageService;
     private BackupManager backupManager;
 
-    @BeforeMethod
+    @BeforeEach
     public void setup()
             throws IOException
     {
@@ -73,7 +76,7 @@ public class TestBackupManager
         backupManager = new BackupManager(Optional.of(backupStore), storageService, 5);
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
             throws Exception
     {
@@ -99,7 +102,7 @@ public class TestBackupManager
         }
         futures.forEach(CompletableFuture::join);
         for (UUID uuid : uuids) {
-            assertTrue(backupStore.shardExists(uuid));
+            assertThat(backupStore.shardExists(uuid)).isTrue();
         }
 
         assertBackupStats(5, 0, 0);
@@ -119,8 +122,8 @@ public class TestBackupManager
         assertThatThrownBy(() -> backupManager.submit(FAILURE_UUID, file).get(10, SECONDS))
                 .isInstanceOfSatisfying(ExecutionException.class, wrapper -> {
                     TrinoException e = (TrinoException) wrapper.getCause();
-                    assertEquals(e.getErrorCode(), RAPTOR_BACKUP_ERROR.toErrorCode());
-                    assertEquals(e.getMessage(), "Backup failed for testing");
+                    assertThat(e.getErrorCode()).isEqualTo(RAPTOR_BACKUP_ERROR.toErrorCode());
+                    assertThat(e.getMessage()).isEqualTo("Backup failed for testing");
                 });
 
         assertBackupStats(0, 1, 0);
@@ -140,13 +143,13 @@ public class TestBackupManager
         assertThatThrownBy(() -> backupManager.submit(CORRUPTION_UUID, file).get(10, SECONDS))
                 .isInstanceOfSatisfying(ExecutionException.class, wrapper -> {
                     TrinoException e = (TrinoException) wrapper.getCause();
-                    assertEquals(e.getErrorCode(), RAPTOR_BACKUP_CORRUPTION.toErrorCode());
-                    assertEquals(e.getMessage(), "Backup is corrupt after write: " + CORRUPTION_UUID);
+                    assertThat(e.getErrorCode()).isEqualTo(RAPTOR_BACKUP_CORRUPTION.toErrorCode());
+                    assertThat(e.getMessage()).isEqualTo("Backup is corrupt after write: " + CORRUPTION_UUID);
                 });
 
         File quarantineBase = storageService.getQuarantineFile(CORRUPTION_UUID);
-        assertFile(new File(quarantineBase.getPath() + ".original"));
-        assertFile(new File(quarantineBase.getPath() + ".restored"));
+        assertThat(new File(quarantineBase.getPath() + ".original")).isFile();
+        assertThat(new File(quarantineBase.getPath() + ".restored")).isFile();
 
         assertBackupStats(0, 1, 1);
         assertEmptyStagingDirectory();
@@ -155,15 +158,15 @@ public class TestBackupManager
     private void assertEmptyStagingDirectory()
     {
         File staging = storageService.getStagingFile(randomUUID()).getParentFile();
-        assertEquals(staging.list(), new String[] {});
+        assertThat(staging.list()).isEqualTo(new String[] {});
     }
 
     private void assertBackupStats(int successCount, int failureCount, int corruptionCount)
     {
         BackupStats stats = backupManager.getStats();
-        assertEquals(stats.getBackupSuccess().getTotalCount(), successCount);
-        assertEquals(stats.getBackupFailure().getTotalCount(), failureCount);
-        assertEquals(stats.getBackupCorruption().getTotalCount(), corruptionCount);
+        assertThat(stats.getBackupSuccess().getTotalCount()).isEqualTo(successCount);
+        assertThat(stats.getBackupFailure().getTotalCount()).isEqualTo(failureCount);
+        assertThat(stats.getBackupCorruption().getTotalCount()).isEqualTo(corruptionCount);
     }
 
     private static class TestingBackupStore

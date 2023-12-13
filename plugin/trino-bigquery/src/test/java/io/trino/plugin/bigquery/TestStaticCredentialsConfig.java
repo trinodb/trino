@@ -26,9 +26,9 @@ import java.util.Optional;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Fail.fail;
 
 public class TestStaticCredentialsConfig
 {
@@ -48,8 +48,8 @@ public class TestStaticCredentialsConfig
         ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
         StaticCredentialsConfig config = configurationFactory.build(StaticCredentialsConfig.class);
 
-        assertEquals(config.getCredentialsKey(), Optional.of("key"));
-        assertEquals(config.getCredentialsFile(), Optional.empty());
+        assertThat(config.getCredentialsKey()).isEqualTo(Optional.of("key"));
+        assertThat(config.getCredentialsFile()).isEqualTo(Optional.empty());
     }
 
     @Test
@@ -63,8 +63,8 @@ public class TestStaticCredentialsConfig
             ConfigurationFactory configurationFactory = new ConfigurationFactory(properties);
             StaticCredentialsConfig config = configurationFactory.build(StaticCredentialsConfig.class);
 
-            assertEquals(config.getCredentialsKey(), Optional.empty());
-            assertEquals(config.getCredentialsFile(), Optional.of(file.toString()));
+            assertThat(config.getCredentialsKey()).isEqualTo(Optional.empty());
+            assertThat(config.getCredentialsFile()).isEqualTo(Optional.of(file.toString()));
         }
         catch (IOException e) {
             fail(e.getMessage());

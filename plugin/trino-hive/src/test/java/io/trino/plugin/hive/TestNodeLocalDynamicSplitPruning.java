@@ -16,7 +16,9 @@ package io.trino.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.testing.TempFile;
+import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.filesystem.memory.MemoryFileSystemFactory;
 import io.trino.metadata.TableHandle;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.orc.OrcReaderConfig;
@@ -30,43 +32,41 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.EmptyPageSource;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.TestingConnectorSession;
 import org.junit.jupiter.api.Test;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
-import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.getDefaultHivePageSourceFactories;
 import static io.trino.plugin.hive.HiveType.HIVE_INT;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
+import static io.trino.plugin.hive.util.SerdeConstants.SERIALIZATION_LIB;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
-import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestNodeLocalDynamicSplitPruning
+class TestNodeLocalDynamicSplitPruning
 {
     private static final String SCHEMA_NAME = "test";
     private static final String TABLE_NAME = "test";
-    private static final Column BUCKET_COLUMN = new Column("l_orderkey", HIVE_INT, Optional.empty());
-    private static final Column PARTITION_COLUMN = new Column("l_partkey", HIVE_INT, Optional.empty());
+    private static final Column BUCKET_COLUMN = new Column("l_orderkey", HIVE_INT, Optional.empty(), ImmutableMap.of());
+    private static final Column PARTITION_COLUMN = new Column("l_partkey", HIVE_INT, Optional.empty(), ImmutableMap.of());
     private static final HiveColumnHandle BUCKET_HIVE_COLUMN_HANDLE = new HiveColumnHandle(
             BUCKET_COLUMN.getName(),
             0,
             BUCKET_COLUMN.getType(),
-            BUCKET_COLUMN.getType().getType(TESTING_TYPE_MANAGER),
+            INTEGER,
             Optional.empty(),
             REGULAR,
             Optional.empty());
@@ -74,57 +74,60 @@ public class TestNodeLocalDynamicSplitPruning
             PARTITION_COLUMN.getName(),
             0,
             PARTITION_COLUMN.getType(),
-            PARTITION_COLUMN.getType().getType(TESTING_TYPE_MANAGER),
+            INTEGER,
             Optional.empty(),
             PARTITION_KEY,
             Optional.empty());
 
     @Test
-    public void testDynamicBucketPruning()
+    void testDynamicBucketPruning()
             throws IOException
     {
         HiveConfig config = new HiveConfig();
         HiveTransactionHandle transaction = new HiveTransactionHandle(false);
-        try (TempFile tempFile = new TempFile()) {
-            try (ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, config, tempFile.file(), getDynamicFilter(getTupleDomainForBucketSplitPruning()))) {
-                assertEquals(emptyPageSource.getClass(), EmptyPageSource.class);
-            }
+        try (ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, config, getDynamicFilter(getTupleDomainForBucketSplitPruning()))) {
+            assertThat(emptyPageSource.getClass()).isEqualTo(EmptyPageSource.class);
+        }
 
-            try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, config, tempFile.file(), getDynamicFilter(getNonSelectiveBucketTupleDomain()))) {
-                assertEquals(nonEmptyPageSource.getClass(), HivePageSource.class);
-            }
+        try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, config, getDynamicFilter(getNonSelectiveBucketTupleDomain()))) {
+            assertThat(nonEmptyPageSource.getClass()).isEqualTo(HivePageSource.class);
         }
     }
 
     @Test
-    public void testDynamicPartitionPruning()
+    void testDynamicPartitionPruning()
             throws IOException
     {
         HiveConfig config = new HiveConfig();
         HiveTransactionHandle transaction = new HiveTransactionHandle(false);
-        try (TempFile tempFile = new TempFile()) {
-            try (ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, config, tempFile.file(), getDynamicFilter(getTupleDomainForPartitionSplitPruning()))) {
-                assertEquals(emptyPageSource.getClass(), EmptyPageSource.class);
-            }
 
-            try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, config, tempFile.file(), getDynamicFilter(getNonSelectivePartitionTupleDomain()))) {
-                assertEquals(nonEmptyPageSource.getClass(), HivePageSource.class);
-            }
+        try (ConnectorPageSource emptyPageSource = createTestingPageSource(transaction, config, getDynamicFilter(getTupleDomainForPartitionSplitPruning()))) {
+            assertThat(emptyPageSource.getClass()).isEqualTo(EmptyPageSource.class);
+        }
+
+        try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, config, getDynamicFilter(getNonSelectivePartitionTupleDomain()))) {
+            assertThat(nonEmptyPageSource.getClass()).isEqualTo(HivePageSource.class);
         }
     }
 
-    private static ConnectorPageSource createTestingPageSource(HiveTransactionHandle transaction, HiveConfig hiveConfig, File outputFile, DynamicFilter dynamicFilter)
+    private static ConnectorPageSource createTestingPageSource(HiveTransactionHandle transaction, HiveConfig hiveConfig, DynamicFilter dynamicFilter)
+            throws IOException
     {
-        Properties splitProperties = new Properties();
-        splitProperties.setProperty(FILE_INPUT_FORMAT, hiveConfig.getHiveStorageFormat().getInputFormat());
-        splitProperties.setProperty(SERIALIZATION_LIB, hiveConfig.getHiveStorageFormat().getSerde());
+        Location location = Location.of("memory:///file");
+        TrinoFileSystemFactory fileSystemFactory = new MemoryFileSystemFactory();
+        fileSystemFactory.create(ConnectorIdentity.ofUser("test")).newOutputFile(location).create().close();
+
+        Map<String, String> splitProperties = ImmutableMap.<String, String>builder()
+                .put(FILE_INPUT_FORMAT, hiveConfig.getHiveStorageFormat().getInputFormat())
+                .put(SERIALIZATION_LIB, hiveConfig.getHiveStorageFormat().getSerde())
+                .buildOrThrow();
         HiveSplit split = new HiveSplit(
                 "",
-                "file:///" + outputFile.getAbsolutePath(),
+                location.toString(),
                 0,
-                outputFile.length(),
-                outputFile.length(),
-                outputFile.lastModified(),
+                0,
+                0,
+                0,
                 splitProperties,
                 ImmutableList.of(new HivePartitionKey(PARTITION_COLUMN.getName(), "42")),
                 ImmutableList.of(),
@@ -156,7 +159,7 @@ public class TestNodeLocalDynamicSplitPruning
         HivePageSourceProvider provider = new HivePageSourceProvider(
                 TESTING_TYPE_MANAGER,
                 hiveConfig,
-                getDefaultHivePageSourceFactories(HDFS_ENVIRONMENT, hiveConfig));
+                getDefaultHivePageSourceFactories(fileSystemFactory, hiveConfig));
 
         return provider.createPageSource(
                 transaction,

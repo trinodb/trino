@@ -60,6 +60,9 @@ public class PrimitiveColumnWriter
     private static final int INSTANCE_SIZE = instanceSize(PrimitiveColumnWriter.class);
     private static final int MINIMUM_OUTPUT_BUFFER_CHUNK_SIZE = 8 * 1024;
     private static final int MAXIMUM_OUTPUT_BUFFER_CHUNK_SIZE = 2 * 1024 * 1024;
+    // ParquetMetadataConverter.MAX_STATS_SIZE is 4096, we need a value which would guarantee that min and max
+    // don't add up to 4096 (so less than 2048). Using 1K as that is big enough for most use cases.
+    private static final int MAX_STATISTICS_LENGTH_IN_BYTES = 1024;
 
     private final ColumnDescriptor columnDescriptor;
     private final CompressionCodec compressionCodec;
@@ -180,7 +183,7 @@ public class PrimitiveColumnWriter
                 totalUnCompressedSize,
                 totalCompressedSize,
                 -1);
-        columnMetaData.setStatistics(ParquetMetadataConverter.toParquetStatistics(columnStatistics));
+        columnMetaData.setStatistics(ParquetMetadataUtils.toParquetStatistics(columnStatistics, MAX_STATISTICS_LENGTH_IN_BYTES));
         ImmutableList.Builder<PageEncodingStats> pageEncodingStats = ImmutableList.builder();
         dataPagesWithEncoding.entrySet().stream()
                 .map(encodingAndCount -> new PageEncodingStats(PageType.DATA_PAGE, encodingAndCount.getKey(), encodingAndCount.getValue()))

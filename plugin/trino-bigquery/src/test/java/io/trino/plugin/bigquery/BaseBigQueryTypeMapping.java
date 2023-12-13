@@ -45,6 +45,7 @@ import static io.trino.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static io.trino.type.JsonType.JSON;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -415,6 +416,22 @@ public abstract class BaseBigQueryTypeMapping
     }
 
     @Test
+    public void testBigQueryUnsupportedDate()
+    {
+        try (TestTable table = new TestTable(getBigQuerySqlExecutor(), "test.unsupported_date", "(col date)")) {
+            assertQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES date '-0001-01-01'",
+                    "BigQuery supports dates between 0001-01-01 and 9999-12-31 but got -0001-01-01");
+            assertQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES date '0000-12-31'",
+                    "BigQuery supports dates between 0001-01-01 and 9999-12-31 but got 0000-12-31");
+            assertQueryFails(
+                    "INSERT INTO " + table.getName() + " VALUES date '10000-01-01'",
+                    "BigQuery supports dates between 0001-01-01 and 9999-12-31 but got \\+10000-01-01");
+        }
+    }
+
+    @Test
     public void testTimestamp()
     {
         timestampTypeTest("timestamp(6)", "timestamp")
@@ -676,6 +693,16 @@ public abstract class BaseBigQueryTypeMapping
                 .addRoundTrip("GEOGRAPHY", "NULL", VARCHAR, "CAST(NULL AS VARCHAR)")
                 .execute(getQueryRunner(), bigqueryCreateAndInsert("test.geography"))
                 .execute(getQueryRunner(), bigqueryViewCreateAndInsert("test.geography"));
+    }
+
+    @Test
+    public void testJson()
+    {
+        SqlDataTypeTest.create()
+                .addRoundTrip("JSON", "JSON '{\"name\": \"Alice\", \"age\": 30}'", JSON, "JSON '{\"name\": \"Alice\", \"age\": 30}'")
+                .addRoundTrip("JSON", "NULL", JSON, "CAST(NULL AS JSON)")
+                .execute(getQueryRunner(), bigqueryCreateAndInsert("test.json"))
+                .execute(getQueryRunner(), bigqueryViewCreateAndInsert("test.json"));
     }
 
     @Test

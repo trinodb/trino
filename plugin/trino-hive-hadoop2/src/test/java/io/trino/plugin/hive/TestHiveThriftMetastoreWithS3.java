@@ -26,10 +26,10 @@ import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
 import io.trino.plugin.hive.s3.S3HiveQueryRunner;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Parameters;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -41,11 +41,14 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestHiveThriftMetastoreWithS3
         extends AbstractTestQueryFramework
 {
     private final String s3endpoint;
+    private final String s3Region;
     private final String awsAccessKey;
     private final String awsSecretKey;
     private final String writableBucket;
@@ -53,23 +56,14 @@ public class TestHiveThriftMetastoreWithS3
     private final Path hadoopCoreSiteXmlTempFile;
     private final AmazonS3 s3Client;
 
-    @Parameters({
-            "hive.hadoop2.s3.endpoint",
-            "hive.hadoop2.s3.awsAccessKey",
-            "hive.hadoop2.s3.awsSecretKey",
-            "hive.hadoop2.s3.writableBucket",
-    })
-    public TestHiveThriftMetastoreWithS3(
-            String s3endpoint,
-            String awsAccessKey,
-            String awsSecretKey,
-            String writableBucket)
+    public TestHiveThriftMetastoreWithS3()
             throws IOException
     {
-        this.s3endpoint = requireNonNull(s3endpoint, "s3endpoint is null");
-        this.awsAccessKey = requireNonNull(awsAccessKey, "awsAccessKey is null");
-        this.awsSecretKey = requireNonNull(awsSecretKey, "awsSecretKey is null");
-        this.writableBucket = requireNonNull(writableBucket, "writableBucket is null");
+        this.s3endpoint = requireNonNull(System.getProperty("hive.hadoop2.s3.endpoint"), "hive.hadoop2.s3.endpoint is null");
+        this.s3Region = requireNonNull(System.getProperty("hive.hadoop2.s3.region"), "hive.hadoop2.s3.region is null");
+        this.awsAccessKey = requireNonNull(System.getProperty("hive.hadoop2.s3.awsAccessKey"), "hive.hadoop2.s3.awsAccessKey is null");
+        this.awsSecretKey = requireNonNull(System.getProperty("hive.hadoop2.s3.awsSecretKey"), "hive.hadoop2.s3.awsSecretKey is null");
+        this.writableBucket = requireNonNull(System.getProperty("hive.hadoop2.s3.writableBucket"), "hive.hadoop2.s3.writableBucket is null");
         this.schemaName = "test_thrift_s3_" + randomNameSuffix();
 
         String coreSiteXmlContent = Resources.toString(Resources.getResource("s3/hive-core-site.template.xml"), UTF_8)
@@ -99,6 +93,7 @@ public class TestHiveThriftMetastoreWithS3
         return S3HiveQueryRunner.builder()
                 .setHiveMetastoreEndpoint(hiveHadoop.getHiveMetastoreEndpoint())
                 .setS3Endpoint(s3endpoint)
+                .setS3Region(s3Region)
                 .setS3AccessKey(awsAccessKey)
                 .setS3SecretKey(awsSecretKey)
                 .setBucketName(writableBucket)
@@ -108,14 +103,14 @@ public class TestHiveThriftMetastoreWithS3
                 .build();
     }
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         String schemaLocation = "s3a://%s/%s".formatted(writableBucket, schemaName);
         assertUpdate("CREATE SCHEMA " + schemaName + " WITH (location = '" + schemaLocation + "')");
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         assertUpdate("DROP SCHEMA IF EXISTS " + schemaName);

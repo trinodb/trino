@@ -550,7 +550,7 @@ class StatementAnalyzer
             }
 
             // analyze the query that creates the data
-            Scope queryScope = analyze(insert.getQuery());
+            Scope queryScope = analyze(insert.getQuery(), Optional.empty(), false);
 
             // verify the insert destination columns match the query
             RedirectionAwareTableHandle redirection = metadata.getRedirectionAwareTableHandle(session, targetTable);
@@ -928,7 +928,7 @@ class StatementAnalyzer
             accessControl.checkCanCreateTable(session.toSecurityContext(), targetTable, explicitlySetProperties);
 
             // analyze the query that creates the table
-            Scope queryScope = analyze(node.getQuery());
+            Scope queryScope = analyze(node.getQuery(), Optional.empty(), false);
 
             ImmutableList.Builder<ColumnMetadata> columnsBuilder = ImmutableList.builder();
 
@@ -1517,10 +1517,9 @@ class StatementAnalyzer
         @Override
         protected Scope visitQuery(Query node, Optional<Scope> scope)
         {
-            verify(isTopLevel || node.getFunctions().isEmpty(), "Inline functions must be at the top level");
             for (FunctionSpecification function : node.getFunctions()) {
                 if (function.getName().getPrefix().isPresent()) {
-                    throw semanticException(SYNTAX_ERROR, function, "Inline function names cannot be qualified: " + function.getName());
+                    throw semanticException(SYNTAX_ERROR, function, "Inline function names cannot be qualified: %s", function.getName());
                 }
                 function.getRoutineCharacteristics().stream()
                         .filter(SecurityCharacteristic.class::isInstance)
@@ -2501,7 +2500,7 @@ class StatementAnalyzer
             Query query = parseView(originalSql, name, table);
 
             if (!query.getFunctions().isEmpty()) {
-                throw semanticException(NOT_SUPPORTED, table, "View contains inline function: " + name);
+                throw semanticException(NOT_SUPPORTED, table, "View contains inline function: %s", name);
             }
 
             analysis.registerTableForView(table);
@@ -4239,7 +4238,7 @@ class StatementAnalyzer
 
                         Optional<String> name;
                         if (!allColumns.getAliases().isEmpty()) {
-                            name = Optional.of((allColumns.getAliases().get(i)).getCanonicalValue());
+                            name = Optional.of(allColumns.getAliases().get(i).getCanonicalValue());
                         }
                         else {
                             name = field.getName();
@@ -4416,11 +4415,14 @@ class StatementAnalyzer
 
             tableFieldsMap.asMap().forEach((table, tableFields) -> {
                 Set<String> accessibleColumns = accessControl.filterColumns(
-                        session.toSecurityContext(),
-                        table.asCatalogSchemaTableName(),
-                        tableFields.stream()
-                                .map(field -> field.getOriginColumnName().get())
-                                .collect(toImmutableSet()));
+                                session.toSecurityContext(),
+                                table.getCatalogName(),
+                                ImmutableMap.of(
+                                        table.asSchemaTableName(),
+                                        tableFields.stream()
+                                                .map(field -> field.getOriginColumnName().get())
+                                                .collect(toImmutableSet())))
+                        .getOrDefault(table.asSchemaTableName(), ImmutableSet.of());
                 accessibleFields.addAll(tableFields.stream()
                         .filter(field -> accessibleColumns.contains(field.getOriginColumnName().get()))
                         .collect(toImmutableList()));
@@ -4466,7 +4468,7 @@ class StatementAnalyzer
 
                 Optional<String> alias = field.getName();
                 if (!allColumns.getAliases().isEmpty()) {
-                    alias = Optional.of((allColumns.getAliases().get(i)).getValue());
+                    alias = Optional.of(allColumns.getAliases().get(i).getValue());
                 }
 
                 Field newField = new Field(
@@ -4517,13 +4519,13 @@ class StatementAnalyzer
                 unfoldedExpressionsBuilder.add(outputExpression);
 
                 Type outputExpressionType = type.getTypeParameters().get(i);
-                if (node.getSelect().isDistinct() && !(outputExpressionType.isComparable())) {
+                if (node.getSelect().isDistinct() && !outputExpressionType.isComparable()) {
                     throw semanticException(TYPE_MISMATCH, node.getSelect(), "DISTINCT can only be applied to comparable types (actual: %s)", type.getTypeParameters().get(i));
                 }
 
                 Optional<String> name = ((RowType) type).getFields().get(i).getName();
                 if (!allColumns.getAliases().isEmpty()) {
-                    name = Optional.of((allColumns.getAliases().get(i)).getValue());
+                    name = Optional.of(allColumns.getAliases().get(i).getValue());
                 }
                 itemOutputFieldBuilder.add(Field.newUnqualified(name, outputExpressionType));
             }

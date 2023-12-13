@@ -23,6 +23,7 @@ import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.FileFormat;
@@ -48,7 +49,6 @@ import java.util.regex.Pattern;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
 import static io.trino.plugin.iceberg.IcebergUtil.METADATA_FOLDER_NAME;
@@ -449,7 +449,7 @@ public class TestIcebergRegisterTableProcedure
         // create hadoop table
         String hadoopTableName = "hadoop_table_" + randomNameSuffix();
         String hadoopTableLocation = metastoreDir.getPath() + "/" + hadoopTableName;
-        HadoopTables hadoopTables = new HadoopTables(newEmptyConfiguration());
+        HadoopTables hadoopTables = new HadoopTables(new Configuration(false));
         Schema schema = new Schema(ImmutableList.of(
                 Types.NestedField.optional(1, "id", Types.IntegerType.get()),
                 Types.NestedField.optional(2, "name", Types.StringType.get())));

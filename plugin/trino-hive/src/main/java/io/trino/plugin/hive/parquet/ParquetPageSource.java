@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.parquet;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.parquet.Column;
 import io.trino.parquet.ParquetCorruptionException;
 import io.trino.parquet.ParquetDataSourceId;
 import io.trino.parquet.reader.ParquetReader;
@@ -56,6 +57,11 @@ public class ParquetPageSource
         this.parquetReader = requireNonNull(parquetReader, "parquetReader is null");
         this.columnAdaptations = ImmutableList.copyOf(requireNonNull(columnAdaptations, "columnAdaptations is null"));
         this.isColumnAdaptationRequired = isColumnAdaptationRequired(columnAdaptations);
+    }
+
+    public List<Column> getColumnFields()
+    {
+        return parquetReader.getColumnFields();
     }
 
     @Override

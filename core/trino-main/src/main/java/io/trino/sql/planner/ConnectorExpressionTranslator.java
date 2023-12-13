@@ -701,9 +701,9 @@ public final class ConnectorExpressionTranslator
 
             FunctionName name;
             if (isInlineFunction(functionName)) {
-                throw new IllegalArgumentException("Connector expressions cannot reference inline functions: " + functionName);
+                return Optional.empty();
             }
-            else if (isBuiltinFunctionName(functionName)) {
+            if (isBuiltinFunctionName(functionName)) {
                 name = new FunctionName(functionName.getFunctionName());
             }
             else {

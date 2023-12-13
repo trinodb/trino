@@ -110,8 +110,6 @@ public interface ThriftMetastore
 
     void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor);
 
-    Set<RoleGrant> listGrantedPrincipals(String role);
-
     Set<RoleGrant> listRoleGrants(HivePrincipal principal);
 
     void grantTablePrivileges(String databaseName, String tableName, String tableOwner, HivePrincipal grantee, HivePrincipal grantor, Set<HivePrivilege> privileges, boolean grantOption);
@@ -212,11 +210,6 @@ public interface ThriftMetastore
     }
 
     default void updateTableWriteId(String dbName, String tableName, long transactionId, long writeId, OptionalLong rowCountChange)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    default void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
     {
         throw new UnsupportedOperationException();
     }

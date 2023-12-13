@@ -75,7 +75,6 @@ import static io.airlift.concurrent.MoreFutures.asVoid;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.execution.scheduler.Exchanges.getAllSourceHandles;
-import static io.trino.operator.RetryPolicy.NONE;
 import static io.trino.operator.RetryPolicy.QUERY;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_FAILED;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
@@ -92,7 +91,6 @@ public class DeduplicatingDirectExchangeBuffer
     private static final Duration SINK_INSTANCE_HANDLE_GET_TIMEOUT = Duration.succinctDuration(60, SECONDS);
 
     private final Executor executor;
-    private final RetryPolicy retryPolicy;
 
     @GuardedBy("this")
     private final Set<TaskId> allTasks = new HashSet<>();
@@ -130,9 +128,7 @@ public class DeduplicatingDirectExchangeBuffer
             ExchangeId exchangeId)
     {
         this.executor = requireNonNull(executor, "executor is null");
-        requireNonNull(retryPolicy, "retryPolicy is null");
-        checkArgument(retryPolicy != NONE, "retries should be enabled");
-        this.retryPolicy = retryPolicy;
+        checkArgument(retryPolicy == QUERY, "the class is used for query level retries only, got: %s", retryPolicy);
         this.pageBuffer = new PageBuffer(
                 exchangeManagerRegistry,
                 queryId,
@@ -195,10 +191,8 @@ public class DeduplicatingDirectExchangeBuffer
         if (taskId.getAttemptId() > maxAttemptId) {
             maxAttemptId = taskId.getAttemptId();
 
-            if (retryPolicy == QUERY) {
-                pageBuffer.removePagesForPreviousAttempts(maxAttemptId);
-                updateMaxRetainedSize();
-            }
+            pageBuffer.removePagesForPreviousAttempts(maxAttemptId);
+            updateMaxRetainedSize();
         }
     }
 
@@ -217,7 +211,7 @@ public class DeduplicatingDirectExchangeBuffer
         checkState(!successfulTasks.contains(taskId), "task is finished: %s", taskId);
         checkState(!failedTasks.containsKey(taskId), "task is failed: %s", taskId);
 
-        if (retryPolicy == QUERY && taskId.getAttemptId() < maxAttemptId) {
+        if (taskId.getAttemptId() < maxAttemptId) {
             return;
         }
 
@@ -283,60 +277,19 @@ public class DeduplicatingDirectExchangeBuffer
             return;
         }
 
-        Map<TaskId, Throwable> failures;
-        switch (retryPolicy) {
-            case TASK -> {
-                Set<Integer> allPartitions = allTasks.stream()
-                        .map(TaskId::getPartitionId)
-                        .collect(toImmutableSet());
+        Set<TaskId> latestAttemptTasks = allTasks.stream()
+                .filter(taskId -> taskId.getAttemptId() == maxAttemptId)
+                .collect(toImmutableSet());
 
-                Set<Integer> successfulPartitions = successfulTasks.stream()
-                        .map(TaskId::getPartitionId)
-                        .collect(toImmutableSet());
-
-                if (successfulPartitions.containsAll(allPartitions)) {
-                    Map<Integer, TaskId> partitionToTaskMap = new HashMap<>();
-                    for (TaskId successfulTaskId : successfulTasks) {
-                        Integer partitionId = successfulTaskId.getPartitionId();
-                        TaskId existing = partitionToTaskMap.get(partitionId);
-                        if (existing == null || existing.getAttemptId() > successfulTaskId.getAttemptId()) {
-                            partitionToTaskMap.put(partitionId, successfulTaskId);
-                        }
-                    }
-
-                    outputSource = pageBuffer.createOutputSource(ImmutableSet.copyOf(partitionToTaskMap.values()));
-                    unblock(outputReady);
-                    return;
-                }
-
-                Set<Integer> runningPartitions = allTasks.stream()
-                        .filter(taskId -> !successfulTasks.contains(taskId))
-                        .filter(taskId -> !failedTasks.containsKey(taskId))
-                        .map(TaskId::getPartitionId)
-                        .collect(toImmutableSet());
-
-                failures = failedTasks.entrySet().stream()
-                        .filter(entry -> !successfulPartitions.contains(entry.getKey().getPartitionId()))
-                        .filter(entry -> !runningPartitions.contains(entry.getKey().getPartitionId()))
-                        .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
-            }
-            case QUERY -> {
-                Set<TaskId> latestAttemptTasks = allTasks.stream()
-                        .filter(taskId -> taskId.getAttemptId() == maxAttemptId)
-                        .collect(toImmutableSet());
-
-                if (successfulTasks.containsAll(latestAttemptTasks)) {
-                    outputSource = pageBuffer.createOutputSource(latestAttemptTasks);
-                    unblock(outputReady);
-                    return;
-                }
-
-                failures = failedTasks.entrySet().stream()
-                        .filter(entry -> entry.getKey().getAttemptId() == maxAttemptId)
-                        .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
-            }
-            default -> throw new UnsupportedOperationException("unexpected retry policy: " + retryPolicy);
+        if (successfulTasks.containsAll(latestAttemptTasks)) {
+            outputSource = pageBuffer.createOutputSource(latestAttemptTasks);
+            unblock(outputReady);
+            return;
         }
+
+        Map<TaskId, Throwable> failures = failedTasks.entrySet().stream()
+                .filter(entry -> entry.getKey().getAttemptId() == maxAttemptId)
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
         Throwable failure = null;
         for (Map.Entry<TaskId, Throwable> entry : failures.entrySet()) {

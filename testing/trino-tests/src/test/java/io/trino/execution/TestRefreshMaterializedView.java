@@ -102,20 +102,20 @@ public class TestRefreshMaterializedView
                                                 Optional.of(new CatalogSchemaTableName("mock", "default", "test_storage")),
                                                 Optional.of("mock"),
                                                 Optional.of("default"),
-                                                ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("nationkey", BIGINT.getTypeId())),
+                                                ImmutableList.of(new ConnectorMaterializedViewDefinition.Column("nationkey", BIGINT.getTypeId(), Optional.empty())),
                                                 Optional.of(Duration.ZERO),
                                                 Optional.empty(),
                                                 Optional.of("alice"),
                                                 ImmutableList.of(),
                                                 ImmutableMap.of())))
                                 .withDelegateMaterializedViewRefreshToConnector((connectorSession, schemaTableName) -> true)
-                                .withRefreshMaterializedView(((connectorSession, schemaTableName) -> {
+                                .withRefreshMaterializedView((connectorSession, schemaTableName) -> {
                                     startRefreshMaterializedView.set(null);
                                     SettableFuture<Void> refreshMaterializedView = SettableFuture.create();
                                     finishRefreshMaterializedView.addListener(() -> refreshMaterializedView.set(null), directExecutor());
                                     addExceptionCallback(refreshMaterializedView, () -> refreshInterrupted.set(null));
                                     return toCompletableFuture(refreshMaterializedView);
-                                }))
+                                })
                                 .build()));
         queryRunner.createCatalog("mock", "mock");
         return queryRunner;

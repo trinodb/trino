@@ -17,7 +17,7 @@ import io.trino.execution.buffer.PipelinedOutputBuffers;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.ARBITRARY;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Tests for {@link ScaledPipelinedOutputBufferManager}.
@@ -28,34 +28,34 @@ public class TestScaledPipelinedOutputBufferManager
     public void test()
     {
         ScaledPipelinedOutputBufferManager scaledPipelinedOutputBufferManager = new ScaledPipelinedOutputBufferManager();
-        assertEquals(scaledPipelinedOutputBufferManager.getOutputBuffers(), PipelinedOutputBuffers.createInitial(ARBITRARY));
+        assertThat(scaledPipelinedOutputBufferManager.getOutputBuffers()).isEqualTo(PipelinedOutputBuffers.createInitial(ARBITRARY));
 
         scaledPipelinedOutputBufferManager.addOutputBuffer(new PipelinedOutputBuffers.OutputBufferId(0));
         PipelinedOutputBuffers expectedOutputBuffers = PipelinedOutputBuffers.createInitial(ARBITRARY).withBuffer(new PipelinedOutputBuffers.OutputBufferId(0), 0);
-        assertEquals(scaledPipelinedOutputBufferManager.getOutputBuffers(), expectedOutputBuffers);
+        assertThat(scaledPipelinedOutputBufferManager.getOutputBuffers()).isEqualTo(expectedOutputBuffers);
 
         scaledPipelinedOutputBufferManager.addOutputBuffer(new PipelinedOutputBuffers.OutputBufferId(1));
         scaledPipelinedOutputBufferManager.addOutputBuffer(new PipelinedOutputBuffers.OutputBufferId(2));
 
         expectedOutputBuffers = expectedOutputBuffers.withBuffer(new PipelinedOutputBuffers.OutputBufferId(1), 1);
         expectedOutputBuffers = expectedOutputBuffers.withBuffer(new PipelinedOutputBuffers.OutputBufferId(2), 2);
-        assertEquals(scaledPipelinedOutputBufferManager.getOutputBuffers(), expectedOutputBuffers);
+        assertThat(scaledPipelinedOutputBufferManager.getOutputBuffers()).isEqualTo(expectedOutputBuffers);
 
         // set no more buffers
         scaledPipelinedOutputBufferManager.addOutputBuffer(new PipelinedOutputBuffers.OutputBufferId(3));
         scaledPipelinedOutputBufferManager.noMoreBuffers();
         expectedOutputBuffers = expectedOutputBuffers.withBuffer(new PipelinedOutputBuffers.OutputBufferId(3), 3);
         expectedOutputBuffers = expectedOutputBuffers.withNoMoreBufferIds();
-        assertEquals(scaledPipelinedOutputBufferManager.getOutputBuffers(), expectedOutputBuffers);
+        assertThat(scaledPipelinedOutputBufferManager.getOutputBuffers()).isEqualTo(expectedOutputBuffers);
 
         // try to add another buffer, which should not result in an error
         // and output buffers should not change
         scaledPipelinedOutputBufferManager.addOutputBuffer(new PipelinedOutputBuffers.OutputBufferId(5));
-        assertEquals(scaledPipelinedOutputBufferManager.getOutputBuffers(), expectedOutputBuffers);
+        assertThat(scaledPipelinedOutputBufferManager.getOutputBuffers()).isEqualTo(expectedOutputBuffers);
 
         // try to set no more buffers again, which should not result in an error
         // and output buffers should not change
         scaledPipelinedOutputBufferManager.noMoreBuffers();
-        assertEquals(scaledPipelinedOutputBufferManager.getOutputBuffers(), expectedOutputBuffers);
+        assertThat(scaledPipelinedOutputBufferManager.getOutputBuffers()).isEqualTo(expectedOutputBuffers);
     }
 }

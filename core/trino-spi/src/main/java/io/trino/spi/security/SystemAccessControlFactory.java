@@ -32,6 +32,8 @@ public interface SystemAccessControlFactory
 
     interface SystemAccessControlContext
     {
+        String getVersion();
+
         OpenTelemetry getOpenTelemetry();
 
         Tracer getTracer();

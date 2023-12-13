@@ -16,8 +16,8 @@ package io.trino.plugin.deltalake.expression;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestSparkExpressions
 {
@@ -208,7 +208,7 @@ public class TestSparkExpressions
 
     private static void assertExpressionTranslates(@Language("SQL") String sparkExpression, @Language("SQL") String trinoExpression)
     {
-        assertEquals(toTrinoExpression(sparkExpression), trinoExpression);
+        assertThat(toTrinoExpression(sparkExpression)).isEqualTo(trinoExpression);
     }
 
     private static String toTrinoExpression(@Language("SQL") String sparkExpression)

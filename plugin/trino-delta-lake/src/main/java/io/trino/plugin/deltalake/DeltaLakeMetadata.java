@@ -32,6 +32,7 @@ import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.classloader.ClassLoaderSafeSystemTable;
+import io.trino.plugin.base.filter.UtcConstraintExtractor;
 import io.trino.plugin.base.projection.ApplyProjectionUtil;
 import io.trino.plugin.deltalake.DeltaLakeAnalyzeProperties.AnalyzeMode;
 import io.trino.plugin.deltalake.expression.ParsingException;
@@ -175,6 +176,7 @@ import static com.google.common.collect.Maps.filterKeys;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.primitives.Ints.max;
 import static io.trino.filesystem.Locations.appendPath;
+import static io.trino.plugin.base.filter.UtcConstraintExtractor.extractTupleDomain;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.ProjectedColumnRepresentation;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.extractSupportedProjectedColumns;
 import static io.trino.plugin.base.projection.ApplyProjectionUtil.replaceWithNewVariables;
@@ -346,7 +348,7 @@ public class DeltaLakeMetadata
 
     // Matches the dummy column Databricks stores in the metastore
     private static final List<Column> DUMMY_DATA_COLUMNS = ImmutableList.of(
-            new Column("col", HiveType.toHiveType(new ArrayType(VarcharType.createUnboundedVarcharType())), Optional.empty()));
+            new Column("col", HiveType.toHiveType(new ArrayType(VarcharType.createUnboundedVarcharType())), Optional.empty(), Map.of()));
     private static final Set<ColumnStatisticType> SUPPORTED_STATISTICS_TYPE = ImmutableSet.<ColumnStatisticType>builder()
             .add(TOTAL_SIZE_IN_BYTES)
             .add(NUMBER_OF_DISTINCT_VALUES_SUMMARY)
@@ -760,7 +762,7 @@ public class DeltaLakeMetadata
                             return Stream.of();
                         }
                         String tableLocation = metastoreTable.get().location();
-                        TableSnapshot snapshot = getSnapshot(session, table, tableLocation, Optional.empty());
+                        TableSnapshot snapshot = transactionLogAccess.loadSnapshot(session, table, tableLocation);
                         MetadataEntry metadata = transactionLogAccess.getMetadataEntry(snapshot, session);
                         ProtocolEntry protocol = transactionLogAccess.getProtocolEntry(session, snapshot);
                         Map<String, String> columnComments = getColumnComments(metadata);
@@ -771,7 +773,7 @@ public class DeltaLakeMetadata
                                 .collect(toImmutableList());
                         return Stream.of(TableColumnsMetadata.forTable(table, columnMetadata));
                     }
-                    catch (NotADeltaLakeTableException e) {
+                    catch (NotADeltaLakeTableException | IOException e) {
                         return Stream.empty();
                     }
                     catch (RuntimeException e) {
@@ -2343,7 +2345,6 @@ public class DeltaLakeMetadata
         }
         ColumnMappingMode columnMappingMode = DeltaLakeTableProperties.getColumnMappingMode(properties);
         if (columnMappingMode == ID || columnMappingMode == NAME) {
-            // TODO Add 'columnMapping' feature to reader and writer features when supporting writer version 7
             readerVersion = max(readerVersion, COLUMN_MAPPING_MODE_SUPPORTED_READER_VERSION);
             writerVersion = max(writerVersion, COLUMN_MAPPING_MODE_SUPPORTED_WRITER_VERSION);
         }
@@ -2695,31 +2696,56 @@ public class DeltaLakeMetadata
         DeltaLakeTableHandle tableHandle = (DeltaLakeTableHandle) handle;
         SchemaTableName tableName = tableHandle.getSchemaTableName();
 
-        Set<DeltaLakeColumnHandle> partitionColumns = ImmutableSet.copyOf(extractPartitionColumns(tableHandle.getMetadataEntry(), tableHandle.getProtocolEntry(), typeManager));
-        Map<ColumnHandle, Domain> constraintDomains = constraint.getSummary().getDomains().orElseThrow(() -> new IllegalArgumentException("constraint summary is NONE"));
+        checkArgument(constraint.getSummary().getDomains().isPresent(), "constraint summary is NONE");
 
-        ImmutableMap.Builder<DeltaLakeColumnHandle, Domain> enforceableDomains = ImmutableMap.builder();
-        ImmutableMap.Builder<DeltaLakeColumnHandle, Domain> unenforceableDomains = ImmutableMap.builder();
-        ImmutableSet.Builder<DeltaLakeColumnHandle> constraintColumns = ImmutableSet.builder();
-        // We need additional field to track partition columns used in queries as enforceDomains seem to be not catching
-        // cases when partition columns is used within complex filter as 'partitionColumn % 2 = 0'
-        constraint.getPredicateColumns().stream()
-                .flatMap(Collection::stream)
-                .map(DeltaLakeColumnHandle.class::cast)
-                .forEach(constraintColumns::add);
-        for (Entry<ColumnHandle, Domain> domainEntry : constraintDomains.entrySet()) {
-            DeltaLakeColumnHandle column = (DeltaLakeColumnHandle) domainEntry.getKey();
-            if (!partitionColumns.contains(column)) {
-                unenforceableDomains.put(column, domainEntry.getValue());
-            }
-            else {
-                enforceableDomains.put(column, domainEntry.getValue());
-            }
-            constraintColumns.add(column);
+        UtcConstraintExtractor.ExtractionResult extractionResult = extractTupleDomain(constraint);
+        TupleDomain<ColumnHandle> predicate = extractionResult.tupleDomain();
+
+        if (predicate.isAll() && constraint.getPredicateColumns().isEmpty()) {
+            return Optional.empty();
         }
 
-        TupleDomain<DeltaLakeColumnHandle> newEnforcedConstraint = TupleDomain.withColumnDomains(enforceableDomains.buildOrThrow());
-        TupleDomain<DeltaLakeColumnHandle> newUnenforcedConstraint = TupleDomain.withColumnDomains(unenforceableDomains.buildOrThrow());
+        TupleDomain<DeltaLakeColumnHandle> newEnforcedConstraint;
+        TupleDomain<DeltaLakeColumnHandle> newUnenforcedConstraint;
+        Set<DeltaLakeColumnHandle> newConstraintColumns;
+        if (predicate.isNone()) {
+            // Engine does not pass none Constraint.summary. It can become none when combined with the expression and connector's domain knowledge.
+            newEnforcedConstraint = TupleDomain.none();
+            newUnenforcedConstraint = TupleDomain.all();
+            newConstraintColumns = constraint.getPredicateColumns().stream()
+                    .flatMap(Collection::stream)
+                    .map(DeltaLakeColumnHandle.class::cast)
+                    .collect(toImmutableSet());
+        }
+        else {
+            Set<DeltaLakeColumnHandle> partitionColumns = ImmutableSet.copyOf(extractPartitionColumns(tableHandle.getMetadataEntry(), tableHandle.getProtocolEntry(), typeManager));
+            Map<ColumnHandle, Domain> constraintDomains = predicate.getDomains().orElseThrow();
+
+            ImmutableMap.Builder<DeltaLakeColumnHandle, Domain> enforceableDomains = ImmutableMap.builder();
+            ImmutableMap.Builder<DeltaLakeColumnHandle, Domain> unenforceableDomains = ImmutableMap.builder();
+            ImmutableSet.Builder<DeltaLakeColumnHandle> constraintColumns = ImmutableSet.builder();
+            // We need additional field to track partition columns used in queries as enforceDomains seem to be not catching
+            // cases when partition columns is used within complex filter as 'partitionColumn % 2 = 0'
+            constraint.getPredicateColumns().stream()
+                    .flatMap(Collection::stream)
+                    .map(DeltaLakeColumnHandle.class::cast)
+                    .forEach(constraintColumns::add);
+            for (Entry<ColumnHandle, Domain> domainEntry : constraintDomains.entrySet()) {
+                DeltaLakeColumnHandle column = (DeltaLakeColumnHandle) domainEntry.getKey();
+                if (!partitionColumns.contains(column)) {
+                    unenforceableDomains.put(column, domainEntry.getValue());
+                }
+                else {
+                    enforceableDomains.put(column, domainEntry.getValue());
+                }
+                constraintColumns.add(column);
+            }
+
+            newEnforcedConstraint = TupleDomain.withColumnDomains(enforceableDomains.buildOrThrow());
+            newUnenforcedConstraint = TupleDomain.withColumnDomains(unenforceableDomains.buildOrThrow());
+            newConstraintColumns = constraintColumns.build();
+        }
+
         DeltaLakeTableHandle newHandle = new DeltaLakeTableHandle(
                 tableName.getSchemaName(),
                 tableName.getTableName(),
@@ -2734,7 +2760,7 @@ public class DeltaLakeMetadata
                 tableHandle.getNonPartitionConstraint()
                         .intersect(newUnenforcedConstraint)
                         .simplify(domainCompactionThreshold),
-                Sets.union(tableHandle.getConstraintColumns(), constraintColumns.build()),
+                Sets.union(tableHandle.getConstraintColumns(), newConstraintColumns),
                 tableHandle.getWriteType(),
                 tableHandle.getProjectedColumns(),
                 tableHandle.getUpdatedColumns(),
@@ -2754,6 +2780,7 @@ public class DeltaLakeMetadata
         return Optional.of(new ConstraintApplicationResult<>(
                 newHandle,
                 newUnenforcedConstraint.transformKeys(ColumnHandle.class::cast),
+                extractionResult.remainingExpression(),
                 false));
     }
 
@@ -3519,7 +3546,13 @@ public class DeltaLakeMetadata
     private List<AddFileEntry> getAddFileEntriesMatchingEnforcedPartitionConstraint(ConnectorSession session, DeltaLakeTableHandle tableHandle)
     {
         TableSnapshot tableSnapshot = getSnapshot(session, tableHandle);
-        List<AddFileEntry> validDataFiles = transactionLogAccess.getActiveFiles(tableSnapshot, tableHandle.getMetadataEntry(), tableHandle.getProtocolEntry(), session);
+        List<AddFileEntry> validDataFiles = transactionLogAccess.getActiveFiles(
+                tableSnapshot,
+                tableHandle.getMetadataEntry(),
+                tableHandle.getProtocolEntry(),
+                tableHandle.getEnforcedPartitionConstraint(),
+                tableHandle.getProjectedColumns(),
+                session);
         TupleDomain<DeltaLakeColumnHandle> enforcedPartitionConstraint = tableHandle.getEnforcedPartitionConstraint();
         if (enforcedPartitionConstraint.isAll()) {
             return validDataFiles;

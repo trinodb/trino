@@ -19,20 +19,24 @@ import io.trino.plugin.session.AbstractTestSessionPropertyManager;
 import io.trino.plugin.session.SessionMatchSpec;
 import io.trino.spi.resourcegroups.ResourceGroupId;
 import io.trino.spi.session.SessionConfigurationContext;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public class TestDbSessionPropertyManager
         extends AbstractTestSessionPropertyManager
 {
@@ -45,7 +49,7 @@ public class TestDbSessionPropertyManager
 
     private static final ResourceGroupId TEST_RG = new ResourceGroupId("rg1");
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
     {
         mysqlContainer = new TestingMySqlContainer();
@@ -60,14 +64,14 @@ public class TestDbSessionPropertyManager
         dao = daoProvider.get();
     }
 
-    @BeforeMethod
+    @BeforeEach
     public void setupTest()
     {
         specsProvider = new RefreshingDbSpecsProvider(config, dao);
         manager = new DbSessionPropertyManager(specsProvider);
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void teardown()
     {
         dao.dropSessionPropertiesTable();
@@ -75,7 +79,7 @@ public class TestDbSessionPropertyManager
         dao.dropSessionSpecsTable();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void destroy()
     {
         specsProvider.destroy();
@@ -90,9 +94,11 @@ public class TestDbSessionPropertyManager
         long failureCountBefore = specsProvider.getDbLoadFailures().getTotalCount();
         specsProvider.refresh();
         long failureCountAfter = specsProvider.getDbLoadFailures().getTotalCount();
-        assertEquals(failureCountAfter, failureCountBefore, "specs refresh should not fail");
-        assertEquals(manager.getSystemSessionProperties(CONTEXT), systemProperties);
-        assertEquals(manager.getCatalogSessionProperties(CONTEXT), catalogProperties);
+        assertThat(failureCountAfter)
+                .describedAs("specs refresh should not fail")
+                .isEqualTo(failureCountBefore);
+        assertThat(manager.getSystemSessionProperties(CONTEXT)).isEqualTo(systemProperties);
+        assertThat(manager.getCatalogSessionProperties(CONTEXT)).isEqualTo(catalogProperties);
     }
 
     private void insertSpecs(SessionMatchSpec[] specs)
@@ -131,28 +137,32 @@ public class TestDbSessionPropertyManager
         SessionConfigurationContext context1 = new SessionConfigurationContext("foo123", Optional.of("src1"),
                 ImmutableSet.of(), Optional.empty(), TEST_RG);
         Map<String, String> sessionProperties1 = manager.getSystemSessionProperties(context1);
-        assertEquals(sessionProperties1.get("prop_1"), "val_1");
-        assertFalse(sessionProperties1.containsKey("prop_2"));
+        assertThat(sessionProperties1)
+                .containsEntry("prop_1", "val_1")
+                .doesNotContainKey("prop_2");
 
         specsProvider.refresh();
         SessionConfigurationContext context2 = new SessionConfigurationContext("bar123", Optional.of("bar123"),
                 ImmutableSet.of(), Optional.empty(), TEST_RG);
         Map<String, String> sessionProperties2 = manager.getSystemSessionProperties(context2);
-        assertEquals(sessionProperties2.get("prop_2"), "val_2");
-        assertFalse(sessionProperties2.containsKey("prop_1"));
+        assertThat(sessionProperties2)
+                .doesNotContainKey("prop_1")
+                .containsEntry("prop_2", "val_2");
 
         specsProvider.refresh();
         SessionConfigurationContext context3 = new SessionConfigurationContext("foo123", Optional.of("bar123"),
                 ImmutableSet.of(), Optional.empty(), TEST_RG);
         Map<String, String> sessionProperties3 = manager.getSystemSessionProperties(context3);
-        assertEquals(sessionProperties3.get("prop_1"), "val_1");
-        assertEquals(sessionProperties3.get("prop_2"), "val_2");
+        assertThat(sessionProperties3)
+                .containsEntry("prop_1", "val_1")
+                .containsEntry("prop_2", "val_2");
 
         specsProvider.refresh();
         SessionConfigurationContext context4 = new SessionConfigurationContext("abc", Optional.empty(), ImmutableSet.of(), Optional.empty(), TEST_RG);
         Map<String, String> sessionProperties4 = manager.getSystemSessionProperties(context4);
-        assertFalse(sessionProperties4.containsKey("prop_1"));
-        assertFalse(sessionProperties4.containsKey("prop_2"));
+        assertThat(sessionProperties4)
+                .doesNotContainKey("prop_1")
+                .doesNotContainKey("prop_2");
     }
 
     /**
@@ -181,10 +191,10 @@ public class TestDbSessionPropertyManager
         long failuresAfter = specsProvider.getDbLoadFailures().getTotalCount();
 
         // Failed reloading, use cached configurations
-        assertEquals(failuresAfter - failuresBefore, 1);
+        assertThat(failuresAfter - failuresBefore).isEqualTo(1);
         Map<String, String> sessionProperties1 = manager.getSystemSessionProperties(context1);
-        assertEquals(sessionProperties1.get("prop_1"), "val_1");
-        assertEquals(sessionProperties1.get("prop_3"), null);
+        assertThat(sessionProperties1).containsEntry("prop_1", "val_1");
+        assertThat(sessionProperties1).doesNotContainKey("prop_3");
     }
 
     /**
@@ -209,10 +219,10 @@ public class TestDbSessionPropertyManager
 
         SessionConfigurationContext context = new SessionConfigurationContext("foo", Optional.of("bar"), ImmutableSet.of(), Optional.empty(), TEST_RG);
         Map<String, String> sessionProperties = manager.getSystemSessionProperties(context);
-        assertEquals(sessionProperties.get("prop_1"), "val_1_3");
-        assertEquals(sessionProperties.get("prop_2"), "val_2_2");
-        assertEquals(sessionProperties.get("prop_3"), "val_3_1");
-        assertEquals(sessionProperties.size(), 3);
+        assertThat(sessionProperties).containsEntry("prop_1", "val_1_3");
+        assertThat(sessionProperties).containsEntry("prop_2", "val_2_2");
+        assertThat(sessionProperties).containsEntry("prop_3", "val_3_1");
+        assertThat(sessionProperties.size()).isEqualTo(3);
     }
 
     @Test
@@ -228,9 +238,8 @@ public class TestDbSessionPropertyManager
 
         specsProvider.refresh();
         SessionConfigurationContext context1 = new SessionConfigurationContext("foo", Optional.empty(), ImmutableSet.of(), Optional.empty(), TEST_RG);
-        assertEquals(manager.getCatalogSessionProperties(context1),
-                ImmutableMap.of("catalog_1",
-                        ImmutableMap.of("prop_1", "val_1_bis", "prop_2", "val_2", "prop_3", "val_3")));
+        assertThat(manager.getCatalogSessionProperties(context1)).isEqualTo(ImmutableMap.of("catalog_1",
+                ImmutableMap.of("prop_1", "val_1_bis", "prop_2", "val_2", "prop_3", "val_3")));
     }
 
     @Test
@@ -238,7 +247,7 @@ public class TestDbSessionPropertyManager
     {
         specsProvider.refresh();
         SessionConfigurationContext context1 = new SessionConfigurationContext("foo", Optional.empty(), ImmutableSet.of(), Optional.empty(), TEST_RG);
-        assertEquals(manager.getSystemSessionProperties(context1), ImmutableMap.of());
-        assertEquals(manager.getCatalogSessionProperties(context1), ImmutableMap.of());
+        assertThat(manager.getSystemSessionProperties(context1)).isEqualTo(ImmutableMap.of());
+        assertThat(manager.getCatalogSessionProperties(context1)).isEqualTo(ImmutableMap.of());
     }
 }

@@ -13,7 +13,7 @@
  */
 package io.trino.parquet.reader.flat;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Random;
 

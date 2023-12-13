@@ -29,9 +29,10 @@ import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tracing.TracingMetadata;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.io.IOException;
@@ -47,10 +48,13 @@ import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.creat
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 // Cost-based optimizers' behaviors are affected by the statistics returned by the Connectors. Here is to count the getTableStatistics calls
 // when CBOs work with Iceberg Connector.
-@Test(singleThreaded = true) // counting metadata is a shared mutable state
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public class TestIcebergGetTableStatisticsOperations
         extends AbstractTestQueryFramework
 {
@@ -98,18 +102,15 @@ public class TestIcebergGetTableStatisticsOperations
         return localQueryRunner;
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
             throws IOException
     {
         deleteRecursively(metastoreDir.toPath(), ALLOW_INSECURE);
         localQueryRunner.close();
-        localQueryRunner = null;
-        spanExporter = null;
     }
 
-    @BeforeMethod
-    public void resetCounters()
+    private void resetCounters()
     {
         spanExporter.reset();
     }
@@ -117,6 +118,8 @@ public class TestIcebergGetTableStatisticsOperations
     @Test
     public void testTwoWayJoin()
     {
+        resetCounters();
+
         planDistributedQuery("SELECT * " +
                 "FROM iceberg.tiny.orders o, iceberg.tiny.lineitem l " +
                 "WHERE o.orderkey = l.orderkey");
@@ -126,6 +129,8 @@ public class TestIcebergGetTableStatisticsOperations
     @Test
     public void testThreeWayJoin()
     {
+        resetCounters();
+
         planDistributedQuery("SELECT * " +
                 "FROM iceberg.tiny.customer c, iceberg.tiny.orders o, iceberg.tiny.lineitem l " +
                 "WHERE o.orderkey = l.orderkey AND c.custkey = o.custkey");

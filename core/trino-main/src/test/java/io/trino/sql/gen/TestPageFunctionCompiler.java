@@ -36,10 +36,7 @@ import static io.trino.sql.relational.Expressions.constant;
 import static io.trino.sql.relational.Expressions.field;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotSame;
-import static org.testng.Assert.assertSame;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPageFunctionCompiler
 {
@@ -60,7 +57,7 @@ public class TestPageFunctionCompiler
         // process good page and verify we got the expected number of result rows
         Page goodPage = createLongBlockPage(0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
         Block goodResult = project(projection, goodPage, SelectedPositions.positionsRange(0, goodPage.getPositionCount()));
-        assertEquals(goodPage.getPositionCount(), goodResult.getPositionCount());
+        assertThat(goodPage.getPositionCount()).isEqualTo(goodResult.getPositionCount());
 
         // addition will throw due to integer overflow
         Page badPage = createLongBlockPage(0, 1, 2, 3, 4, Long.MAX_VALUE);
@@ -70,7 +67,7 @@ public class TestPageFunctionCompiler
         // running the good page should still work
         // if block builder in generated code was not reset properly, we could get junk results after the failure
         goodResult = project(projection, goodPage, SelectedPositions.positionsRange(0, goodPage.getPositionCount()));
-        assertEquals(goodPage.getPositionCount(), goodResult.getPositionCount());
+        assertThat(goodPage.getPositionCount()).isEqualTo(goodResult.getPositionCount());
     }
 
     @Test
@@ -85,45 +82,29 @@ public class TestPageFunctionCompiler
         PageProjection projection = projectionSupplier.get();
         Work<Block> work = projection.project(SESSION, new DriverYieldSignal(), createLongBlockPage(0), SelectedPositions.positionsRange(0, 1));
         // class name should look like PageProjectionOutput_20170707_223500_67496_zguwn_2_7_XX
-        assertTrue(work.getClass().getSimpleName().startsWith("PageProjectionWork_" + stageId.replace('.', '_') + "_" + planNodeId));
+        assertThat(work.getClass().getSimpleName().startsWith("PageProjectionWork_" + stageId.replace('.', '_') + "_" + planNodeId)).isTrue();
     }
 
     @Test
     public void testCache()
     {
         PageFunctionCompiler cacheCompiler = FUNCTION_RESOLUTION.getPageFunctionCompiler(100);
-        assertSame(
-                cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty()),
-                cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty()));
-        assertSame(
-                cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint")),
-                cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint")));
-        assertSame(
-                cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint")),
-                cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint2")));
-        assertSame(
-                cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty()),
-                cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint2")));
+        assertThat(cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty())).isSameAs(cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty()));
+        assertThat(cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint"))).isSameAs(cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint")));
+        assertThat(cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint"))).isSameAs(cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint2")));
+        assertThat(cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty())).isSameAs(cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint2")));
 
         PageFunctionCompiler noCacheCompiler = FUNCTION_RESOLUTION.getPageFunctionCompiler();
-        assertNotSame(
-                noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty()),
-                noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty()));
-        assertNotSame(
-                noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint")),
-                noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint")));
-        assertNotSame(
-                noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint")),
-                noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint2")));
-        assertNotSame(
-                noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty()),
-                noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint2")));
+        assertThat(noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty())).isNotSameAs(noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty()));
+        assertThat(noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint"))).isNotSameAs(noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint")));
+        assertThat(noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint"))).isNotSameAs(noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint2")));
+        assertThat(noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty())).isNotSameAs(noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint2")));
     }
 
     private Block project(PageProjection projection, Page page, SelectedPositions selectedPositions)
     {
         Work<Block> work = projection.project(SESSION, new DriverYieldSignal(), page, selectedPositions);
-        assertTrue(work.process());
+        assertThat(work.process()).isTrue();
         return work.getResult();
     }
 

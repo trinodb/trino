@@ -20,7 +20,7 @@ import io.airlift.stats.TDigest;
 import io.airlift.units.Duration;
 import io.trino.spi.metrics.Metric;
 import io.trino.spi.metrics.Metrics;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Map;
@@ -28,6 +28,7 @@ import java.util.Map;
 import static io.trino.spi.metrics.Metrics.accumulator;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestMetrics
 {
@@ -103,12 +104,15 @@ public class TestMetrics
         assertThat(result.getAirliftDuration()).isEqualTo(duration.getAirliftDuration());
     }
 
-    @Test(expectedExceptions = ClassCastException.class)
+    @Test
     public void testFailIncompatibleTypes()
     {
-        Metrics m1 = new Metrics(ImmutableMap.of("a", new TDigestHistogram(new TDigest())));
-        Metrics m2 = new Metrics(ImmutableMap.of("a", new LongCount(0)));
-        merge(m1, m2);
+        assertThatThrownBy(() -> {
+            Metrics m1 = new Metrics(ImmutableMap.of("a", new TDigestHistogram(new TDigest())));
+            Metrics m2 = new Metrics(ImmutableMap.of("a", new LongCount(0)));
+            merge(m1, m2);
+        })
+                .isInstanceOf(ClassCastException.class);
     }
 
     @Test

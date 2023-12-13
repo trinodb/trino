@@ -29,13 +29,14 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.trino.operator.output.PositionsAppenderUtil.calculateBlockResetSize;
 import static io.trino.operator.output.PositionsAppenderUtil.calculateNewArraySize;
-import static io.trino.spi.block.RowBlock.fromFieldBlocks;
+import static io.trino.spi.block.RowBlock.fromNotNullSuppressedFieldBlocks;
 import static java.util.Objects.requireNonNull;
 
 public class RowPositionsAppender
         implements PositionsAppender
 {
     private static final int INSTANCE_SIZE = instanceSize(RowPositionsAppender.class);
+    private final RowType type;
     private final UnnestingPositionsAppender[] fieldAppenders;
     private int initialEntryCount;
     private boolean initialized;
@@ -57,11 +58,12 @@ public class RowPositionsAppender
         for (int i = 0; i < fields.length; i++) {
             fields[i] = positionsAppenderFactory.create(type.getFields().get(i).getType(), expectedPositions, maxPageSizeInBytes);
         }
-        return new RowPositionsAppender(fields, expectedPositions);
+        return new RowPositionsAppender(type, fields, expectedPositions);
     }
 
-    private RowPositionsAppender(UnnestingPositionsAppender[] fieldAppenders, int expectedPositions)
+    private RowPositionsAppender(RowType type, UnnestingPositionsAppender[] fieldAppenders, int expectedPositions)
     {
+        this.type = type;
         this.fieldAppenders = requireNonNull(fieldAppenders, "fields is null");
         this.initialEntryCount = expectedPositions;
         resetSize();
@@ -77,21 +79,21 @@ public class RowPositionsAppender
         }
         ensureCapacity(positions.size());
         RowBlock sourceRowBlock = (RowBlock) block;
-        IntArrayList nonNullPositions;
-        if (sourceRowBlock.mayHaveNull()) {
-            nonNullPositions = processNullablePositions(positions, sourceRowBlock);
-            hasNullRow |= nonNullPositions.size() < positions.size();
-            hasNonNullRow |= !nonNullPositions.isEmpty();
-        }
-        else {
-            // the source Block does not have nulls
-            nonNullPositions = processNonNullablePositions(positions, sourceRowBlock);
-            hasNonNullRow = true;
+
+        for (int i = 0; i < fieldAppenders.length; i++) {
+            fieldAppenders[i].append(positions, sourceRowBlock.getFieldBlock(i));
         }
 
-        List<Block> fieldBlocks = sourceRowBlock.getChildren();
-        for (int i = 0; i < fieldAppenders.length; i++) {
-            fieldAppenders[i].append(nonNullPositions, fieldBlocks.get(i));
+        if (sourceRowBlock.mayHaveNull()) {
+            for (int i = 0; i < positions.size(); i++) {
+                boolean positionIsNull = sourceRowBlock.isNull(positions.getInt(i));
+                rowIsNull[positionCount + i] = positionIsNull;
+                hasNullRow |= positionIsNull;
+                hasNonNullRow |= !positionIsNull;
+            }
+        }
+        else {
+            hasNonNullRow = true;
         }
 
         positionCount += positions.size();
@@ -105,6 +107,12 @@ public class RowPositionsAppender
 
         ensureCapacity(rlePositionCount);
         RowBlock sourceRowBlock = (RowBlock) value;
+
+        List<Block> fieldBlocks = sourceRowBlock.getFieldBlocks();
+        for (int i = 0; i < fieldAppenders.length; i++) {
+            fieldAppenders[i].appendRle(fieldBlocks.get(i).getSingleValueBlock(0), rlePositionCount);
+        }
+
         if (sourceRowBlock.isNull(0)) {
             // append rlePositionCount nulls
             Arrays.fill(rowIsNull, positionCount, positionCount + rlePositionCount, true);
@@ -112,11 +120,6 @@ public class RowPositionsAppender
         }
         else {
             // append not null row value
-            List<Block> fieldBlocks = sourceRowBlock.getChildren();
-            int fieldPosition = sourceRowBlock.getFieldBlockOffset(0);
-            for (int i = 0; i < fieldAppenders.length; i++) {
-                fieldAppenders[i].appendRle(fieldBlocks.get(i).getSingleValueBlock(fieldPosition), rlePositionCount);
-            }
             hasNonNullRow = true;
         }
         positionCount += rlePositionCount;
@@ -130,17 +133,18 @@ public class RowPositionsAppender
 
         ensureCapacity(1);
         RowBlock sourceRowBlock = (RowBlock) value;
+
+        List<Block> fieldBlocks = sourceRowBlock.getChildren();
+        for (int i = 0; i < fieldAppenders.length; i++) {
+            fieldAppenders[i].append(position, fieldBlocks.get(i));
+        }
+
         if (sourceRowBlock.isNull(position)) {
             rowIsNull[positionCount] = true;
             hasNullRow = true;
         }
         else {
             // append not null row value
-            List<Block> fieldBlocks = sourceRowBlock.getChildren();
-            int fieldPosition = sourceRowBlock.getFieldBlockOffset(position);
-            for (int i = 0; i < fieldAppenders.length; i++) {
-                fieldAppenders[i].append(fieldPosition, fieldBlocks.get(i));
-            }
             hasNonNullRow = true;
         }
         positionCount++;
@@ -150,17 +154,25 @@ public class RowPositionsAppender
     @Override
     public Block build()
     {
-        Block[] fieldBlocks = new Block[fieldAppenders.length];
-        for (int i = 0; i < fieldAppenders.length; i++) {
-            fieldBlocks[i] = fieldAppenders[i].build();
-        }
         Block result;
         if (hasNonNullRow) {
-            result = fromFieldBlocks(positionCount, hasNullRow ? Optional.of(rowIsNull) : Optional.empty(), fieldBlocks);
+            Block[] fieldBlocks = new Block[fieldAppenders.length];
+            for (int i = 0; i < fieldAppenders.length; i++) {
+                fieldBlocks[i] = fieldAppenders[i].build();
+            }
+            result = fromNotNullSuppressedFieldBlocks(positionCount, hasNullRow ? Optional.of(rowIsNull) : Optional.empty(), fieldBlocks);
         }
         else {
-            Block nullRowBlock = fromFieldBlocks(1, Optional.of(new boolean[] {true}), fieldBlocks);
-            result = RunLengthEncodedBlock.create(nullRowBlock, positionCount);
+            for (UnnestingPositionsAppender fieldAppender : fieldAppenders) {
+                fieldAppender.reset();
+            }
+            if (hasNullRow) {
+                Block nullRowBlock = type.createBlockBuilder(null, 0).appendNull().build();
+                result = RunLengthEncodedBlock.create(nullRowBlock, positionCount);
+            }
+            else {
+                result = type.createBlockBuilder(null, 0).build();
+            }
         }
 
         reset();
@@ -199,7 +211,8 @@ public class RowPositionsAppender
         return sizeInBytes;
     }
 
-    private void reset()
+    @Override
+    public void reset()
     {
         initialEntryCount = calculateBlockResetSize(positionCount);
         initialized = false;
@@ -208,31 +221,6 @@ public class RowPositionsAppender
         hasNonNullRow = false;
         hasNullRow = false;
         resetSize();
-    }
-
-    private IntArrayList processNullablePositions(IntArrayList positions, RowBlock sourceRowBlock)
-    {
-        int[] nonNullPositions = new int[positions.size()];
-        int nonNullPositionsCount = 0;
-
-        for (int i = 0; i < positions.size(); i++) {
-            int position = positions.getInt(i);
-            boolean positionIsNull = sourceRowBlock.isNull(position);
-            nonNullPositions[nonNullPositionsCount] = sourceRowBlock.getFieldBlockOffset(position);
-            nonNullPositionsCount += positionIsNull ? 0 : 1;
-            rowIsNull[positionCount + i] = positionIsNull;
-        }
-
-        return IntArrayList.wrap(nonNullPositions, nonNullPositionsCount);
-    }
-
-    private static IntArrayList processNonNullablePositions(IntArrayList positions, RowBlock sourceRowBlock)
-    {
-        int[] nonNullPositions = new int[positions.size()];
-        for (int i = 0; i < positions.size(); i++) {
-            nonNullPositions[i] = sourceRowBlock.getFieldBlockOffset(positions.getInt(i));
-        }
-        return IntArrayList.wrap(nonNullPositions);
     }
 
     private void ensureCapacity(int additionalCapacity)

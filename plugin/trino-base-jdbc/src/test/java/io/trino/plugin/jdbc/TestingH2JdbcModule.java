@@ -71,7 +71,9 @@ public class TestingH2JdbcModule
 
     public static Map<String, String> createProperties()
     {
-        return ImmutableMap.of("connection-url", createH2ConnectionUrl());
+        return ImmutableMap.of(
+                "connection-url", createH2ConnectionUrl(),
+                "bootstrap.quiet", "true");
     }
 
     public static String createH2ConnectionUrl()

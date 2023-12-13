@@ -19,13 +19,12 @@ import io.trino.parquet.writer.repdef.DefLevelWriterProviders;
 import io.trino.parquet.writer.repdef.RepLevelWriterProvider;
 import io.trino.parquet.writer.repdef.RepLevelWriterProviders;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.ColumnarRow;
+import io.trino.spi.block.RowBlock;
 
 import java.io.IOException;
 import java.util.List;
 
 import static io.airlift.slice.SizeOf.instanceSize;
-import static io.trino.spi.block.ColumnarRow.toColumnarRow;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.Preconditions.checkArgument;
 
@@ -47,22 +46,23 @@ public class StructColumnWriter
     public void writeBlock(ColumnChunk columnChunk)
             throws IOException
     {
-        ColumnarRow columnarRow = toColumnarRow(columnChunk.getBlock());
-        checkArgument(columnarRow.getFieldCount() == columnWriters.size(), "ColumnarRow field size %s is not equal to columnWriters size %s", columnarRow.getFieldCount(), columnWriters.size());
+        Block block = columnChunk.getBlock();
+        List<Block> fields = RowBlock.getNullSuppressedRowFieldsFromBlock(block);
+        checkArgument(fields.size() == columnWriters.size(), "Row field size %s is not equal to columnWriters size %s", fields.size(), columnWriters.size());
 
         List<DefLevelWriterProvider> defLevelWriterProviders = ImmutableList.<DefLevelWriterProvider>builder()
                 .addAll(columnChunk.getDefLevelWriterProviders())
-                .add(DefLevelWriterProviders.of(columnarRow, maxDefinitionLevel))
+                .add(DefLevelWriterProviders.of(block, maxDefinitionLevel))
                 .build();
         List<RepLevelWriterProvider> repLevelWriterProviders = ImmutableList.<RepLevelWriterProvider>builder()
                 .addAll(columnChunk.getRepLevelWriterProviders())
-                .add(RepLevelWriterProviders.of(columnarRow))
+                .add(RepLevelWriterProviders.of(block))
                 .build();
 
         for (int i = 0; i < columnWriters.size(); ++i) {
             ColumnWriter columnWriter = columnWriters.get(i);
-            Block block = columnarRow.getField(i);
-            columnWriter.writeBlock(new ColumnChunk(block, defLevelWriterProviders, repLevelWriterProviders));
+            Block field = fields.get(i);
+            columnWriter.writeBlock(new ColumnChunk(field, defLevelWriterProviders, repLevelWriterProviders));
         }
     }
 

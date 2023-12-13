@@ -16,7 +16,9 @@ package io.trino.plugin.mongodb;
 import com.google.common.collect.ImmutableMap;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
+import io.airlift.log.Level;
 import io.airlift.log.Logger;
+import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
@@ -34,6 +36,11 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public final class MongoQueryRunner
 {
+    static {
+        Logging logging = Logging.initialize();
+        logging.setLevel("org.mongodb.driver", Level.OFF);
+    }
+
     private static final String TPCH_SCHEMA = "tpch";
 
     private MongoQueryRunner() {}

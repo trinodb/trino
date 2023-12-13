@@ -19,9 +19,8 @@ import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 
-import static io.trino.hadoop.ConfigurationInstantiator.newEmptyConfiguration;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestTrinoFileSystemCacheStats
 {
@@ -30,50 +29,50 @@ public class TestTrinoFileSystemCacheStats
             throws Exception
     {
         TrinoFileSystemCache trinoFileSystemCache = new TrinoFileSystemCache();
-        TrinoFileSystemCacheStats trinoFileSystemCacheStats = trinoFileSystemCache.getFileSystemCacheStats();
-        assertEquals(trinoFileSystemCacheStats.getCacheSize(), 0);
-        assertEquals(trinoFileSystemCache.getCacheSize(), 0);
+        TrinoFileSystemCacheStats trinoFileSystemCacheStats = trinoFileSystemCache.getStats();
+        assertThat(trinoFileSystemCacheStats.getCacheSize()).isEqualTo(0);
+        assertThat(trinoFileSystemCache.getCacheSize()).isEqualTo(0);
 
-        Configuration configuration = newEmptyConfiguration();
+        Configuration configuration = new Configuration(false);
         trinoFileSystemCache.get(new URI("file:///tmp/path/"), configuration);
-        assertEquals(trinoFileSystemCacheStats.getGetCalls().getTotalCount(), 1);
-        assertEquals(trinoFileSystemCacheStats.getCacheSize(), 1);
-        assertEquals(trinoFileSystemCache.getCacheSize(), 1);
+        assertThat(trinoFileSystemCacheStats.getGetCalls().getTotalCount()).isEqualTo(1);
+        assertThat(trinoFileSystemCacheStats.getCacheSize()).isEqualTo(1);
+        assertThat(trinoFileSystemCache.getCacheSize()).isEqualTo(1);
 
         trinoFileSystemCache.get(new URI("file:///tmp/path1/"), configuration);
-        assertEquals(trinoFileSystemCacheStats.getGetCalls().getTotalCount(), 2);
-        assertEquals(trinoFileSystemCacheStats.getCacheSize(), 1);
-        assertEquals(trinoFileSystemCache.getCacheSize(), 1);
+        assertThat(trinoFileSystemCacheStats.getGetCalls().getTotalCount()).isEqualTo(2);
+        assertThat(trinoFileSystemCacheStats.getCacheSize()).isEqualTo(1);
+        assertThat(trinoFileSystemCache.getCacheSize()).isEqualTo(1);
 
         // use getUnique to ensure cache size is increased
         FileSystem fileSystem = trinoFileSystemCache.getUnique(new URI("file:///tmp/path2/"), configuration);
-        assertEquals(trinoFileSystemCacheStats.getGetCalls().getTotalCount(), 2);
-        assertEquals(trinoFileSystemCacheStats.getGetUniqueCalls().getTotalCount(), 1);
-        assertEquals(trinoFileSystemCacheStats.getCacheSize(), 2);
-        assertEquals(trinoFileSystemCache.getCacheSize(), 2);
+        assertThat(trinoFileSystemCacheStats.getGetCalls().getTotalCount()).isEqualTo(2);
+        assertThat(trinoFileSystemCacheStats.getGetUniqueCalls().getTotalCount()).isEqualTo(1);
+        assertThat(trinoFileSystemCacheStats.getCacheSize()).isEqualTo(2);
+        assertThat(trinoFileSystemCache.getCacheSize()).isEqualTo(2);
 
         trinoFileSystemCache.remove(fileSystem);
-        assertEquals(trinoFileSystemCacheStats.getRemoveCalls().getTotalCount(), 1);
-        assertEquals(trinoFileSystemCacheStats.getCacheSize(), 1);
-        assertEquals(trinoFileSystemCache.getCacheSize(), 1);
+        assertThat(trinoFileSystemCacheStats.getRemoveCalls().getTotalCount()).isEqualTo(1);
+        assertThat(trinoFileSystemCacheStats.getCacheSize()).isEqualTo(1);
+        assertThat(trinoFileSystemCache.getCacheSize()).isEqualTo(1);
 
         trinoFileSystemCache.closeAll();
-        assertEquals(trinoFileSystemCacheStats.getCacheSize(), 0);
-        assertEquals(trinoFileSystemCache.getCacheSize(), 0);
+        assertThat(trinoFileSystemCacheStats.getCacheSize()).isEqualTo(0);
+        assertThat(trinoFileSystemCache.getCacheSize()).isEqualTo(0);
     }
 
     @Test
     public void testFailedCallsCountIsCorrect()
     {
         TrinoFileSystemCache trinoFileSystemCache = new TrinoFileSystemCache();
-        TrinoFileSystemCacheStats trinoFileSystemCacheStats = trinoFileSystemCache.getFileSystemCacheStats();
-        Configuration configuration = newEmptyConfiguration();
+        TrinoFileSystemCacheStats trinoFileSystemCacheStats = trinoFileSystemCache.getStats();
+        Configuration configuration = new Configuration(false);
         configuration.setInt("fs.cache.max-size", 0);
         assertThatThrownBy(() -> trinoFileSystemCache.get(new URI("file:///tmp/path/"), configuration))
                 .hasMessageMatching("FileSystem max cache size has been reached: 0");
-        assertEquals(trinoFileSystemCacheStats.getGetCallsFailed().getTotalCount(), 1);
-        assertEquals(trinoFileSystemCacheStats.getGetCalls().getTotalCount(), 1);
-        assertEquals(trinoFileSystemCacheStats.getCacheSize(), 0);
-        assertEquals(trinoFileSystemCache.getCacheSize(), 0);
+        assertThat(trinoFileSystemCacheStats.getGetCallsFailed().getTotalCount()).isEqualTo(1);
+        assertThat(trinoFileSystemCacheStats.getGetCalls().getTotalCount()).isEqualTo(1);
+        assertThat(trinoFileSystemCacheStats.getCacheSize()).isEqualTo(0);
+        assertThat(trinoFileSystemCache.getCacheSize()).isEqualTo(0);
     }
 }

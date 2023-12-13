@@ -57,7 +57,7 @@ public class ForwardingFileIo
     @Override
     public OutputFile newOutputFile(String path)
     {
-        return new ForwardingOutputFile(fileSystem, path);
+        return new ForwardingOutputFile(fileSystem, Location.of(path));
     }
 
     @Override

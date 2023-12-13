@@ -25,10 +25,10 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingAccessControlManager.TestingPrivilege;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
-import org.testng.SkipException;
 
 import java.util.List;
 
@@ -267,10 +267,11 @@ public class TestQueryPlanDeterminism
                 "    )\n");
     }
 
+    @Test
     @Override
     public void testLargeIn()
     {
         // testLargeIn is expensive
-        throw new SkipException("Skipping testLargeIn");
+        Assumptions.abort("Skipping testLargeIn");
     }
 }

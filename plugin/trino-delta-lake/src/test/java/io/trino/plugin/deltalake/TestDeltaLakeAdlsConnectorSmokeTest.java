@@ -126,7 +126,7 @@ public class TestDeltaLakeAdlsConnectorSmokeTest
         String targetDirectory = bucketName + "/" + table;
 
         try {
-            List<ClassPath.ResourceInfo> resources = ClassPath.from(TestDeltaLakeAdlsConnectorSmokeTest.class.getClassLoader())
+            List<ClassPath.ResourceInfo> resources = ClassPath.from(getClass().getClassLoader())
                     .getResources()
                     .stream()
                     .filter(resourceInfo -> resourceInfo.getResourceName().startsWith(resourcePath + "/"))

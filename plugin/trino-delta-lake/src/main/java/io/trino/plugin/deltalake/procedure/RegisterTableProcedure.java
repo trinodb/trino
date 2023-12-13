@@ -19,7 +19,9 @@ import com.google.inject.Provider;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
+import io.trino.plugin.base.util.UncheckedCloseable;
 import io.trino.plugin.deltalake.DeltaLakeConfig;
+import io.trino.plugin.deltalake.DeltaLakeMetadata;
 import io.trino.plugin.deltalake.DeltaLakeMetadataFactory;
 import io.trino.plugin.deltalake.metastore.DeltaLakeMetastore;
 import io.trino.plugin.deltalake.statistics.CachingExtendedStatisticsAccess;
@@ -140,59 +142,63 @@ public class RegisterTableProcedure
         checkProcedureArgument(!isNullOrEmpty(tableLocation), "table_location cannot be null or empty");
 
         SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
-        DeltaLakeMetastore metastore = metadataFactory.create(session.getIdentity()).getMetastore();
+        DeltaLakeMetadata metadata = metadataFactory.create(session.getIdentity());
+        metadata.beginQuery(session);
+        try (UncheckedCloseable ignore = () -> metadata.cleanupQuery(session)) {
+            DeltaLakeMetastore metastore = metadata.getMetastore();
 
-        if (metastore.getDatabase(schemaName).isEmpty()) {
-            throw new SchemaNotFoundException(schemaTableName.getSchemaName());
-        }
-
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-        try {
-            Location transactionLogDir = Location.of(getTransactionLogDir(tableLocation));
-            if (!fileSystem.listFiles(transactionLogDir).hasNext()) {
-                throw new TrinoException(GENERIC_USER_ERROR, format("No transaction log found in location %s", transactionLogDir));
+            if (metastore.getDatabase(schemaName).isEmpty()) {
+                throw new SchemaNotFoundException(schemaTableName.getSchemaName());
             }
-        }
-        catch (IOException e) {
-            throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, format("Failed checking table location %s", tableLocation), e);
-        }
 
-        Table table = buildTable(session, schemaTableName, tableLocation, true);
+            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+            try {
+                Location transactionLogDir = Location.of(getTransactionLogDir(tableLocation));
+                if (!fileSystem.listFiles(transactionLogDir).hasNext()) {
+                    throw new TrinoException(GENERIC_USER_ERROR, format("No transaction log found in location %s", transactionLogDir));
+                }
+            }
+            catch (IOException e) {
+                throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, format("Failed checking table location %s", tableLocation), e);
+            }
 
-        PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner().orElseThrow());
-        statisticsAccess.invalidateCache(schemaTableName, Optional.of(tableLocation));
-        transactionLogAccess.invalidateCache(schemaTableName, Optional.of(tableLocation));
-        // Verify we're registering a location with a valid table
-        try {
-            TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(session, table.getSchemaTableName(), tableLocation);
-            transactionLogAccess.getMetadataEntry(tableSnapshot, session); // verify metadata exists
-        }
-        catch (TrinoException e) {
-            throw e;
-        }
-        catch (IOException | RuntimeException e) {
-            throw new TrinoException(DELTA_LAKE_INVALID_TABLE, "Failed to access table location: " + tableLocation, e);
-        }
+            Table table = buildTable(session, schemaTableName, tableLocation, true);
 
-        // Ensure the table has queryId set. This is relied on for exception handling
-        String queryId = session.getQueryId();
-        verify(
-                getQueryId(table).orElseThrow(() -> new IllegalArgumentException("Query id is not present")).equals(queryId),
-                "Table '%s' does not have correct query id set",
-                table);
-        try {
-            metastore.createTable(
-                    session,
-                    table,
-                    principalPrivileges);
-        }
-        catch (TableAlreadyExistsException e) {
-            // Ignore TableAlreadyExistsException when table looks like created by us.
-            // This may happen when an actually successful metastore create call is retried
-            // e.g. because of a timeout on our side.
-            Optional<Table> existingTable = metastore.getRawMetastoreTable(schemaName, tableName);
-            if (existingTable.isEmpty() || !isCreatedBy(existingTable.get(), queryId)) {
+            PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner().orElseThrow());
+            statisticsAccess.invalidateCache(schemaTableName, Optional.of(tableLocation));
+            transactionLogAccess.invalidateCache(schemaTableName, Optional.of(tableLocation));
+            // Verify we're registering a location with a valid table
+            try {
+                TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(session, table.getSchemaTableName(), tableLocation);
+                transactionLogAccess.getMetadataEntry(tableSnapshot, session); // verify metadata exists
+            }
+            catch (TrinoException e) {
                 throw e;
+            }
+            catch (IOException | RuntimeException e) {
+                throw new TrinoException(DELTA_LAKE_INVALID_TABLE, "Failed to access table location: " + tableLocation, e);
+            }
+
+            // Ensure the table has queryId set. This is relied on for exception handling
+            String queryId = session.getQueryId();
+            verify(
+                    getQueryId(table).orElseThrow(() -> new IllegalArgumentException("Query id is not present")).equals(queryId),
+                    "Table '%s' does not have correct query id set",
+                    table);
+            try {
+                metastore.createTable(
+                        session,
+                        table,
+                        principalPrivileges);
+            }
+            catch (TableAlreadyExistsException e) {
+                // Ignore TableAlreadyExistsException when table looks like created by us.
+                // This may happen when an actually successful metastore create call is retried
+                // e.g. because of a timeout on our side.
+                Optional<Table> existingTable = metastore.getRawMetastoreTable(schemaName, tableName);
+                if (existingTable.isEmpty() || !isCreatedBy(existingTable.get(), queryId)) {
+                    throw e;
+                }
             }
         }
     }

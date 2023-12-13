@@ -20,7 +20,7 @@ import io.trino.plugin.hive.PartitionUpdate.UpdateMode;
 import org.junit.jupiter.api.Test;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPartitionUpdate
 {
@@ -41,13 +41,13 @@ public class TestPartitionUpdate
 
         PartitionUpdate actual = CODEC.fromJson(CODEC.toJson(expected));
 
-        assertEquals(actual.getName(), "test");
-        assertEquals(actual.getUpdateMode(), UpdateMode.APPEND);
-        assertEquals(actual.getWritePath(), Location.of("/writePath"));
-        assertEquals(actual.getTargetPath(), Location.of("/targetPath"));
-        assertEquals(actual.getFileNames(), ImmutableList.of("file1", "file3"));
-        assertEquals(actual.getRowCount(), 123);
-        assertEquals(actual.getInMemoryDataSizeInBytes(), 456);
-        assertEquals(actual.getOnDiskDataSizeInBytes(), 789);
+        assertThat(actual.getName()).isEqualTo("test");
+        assertThat(actual.getUpdateMode()).isEqualTo(UpdateMode.APPEND);
+        assertThat(actual.getWritePath()).isEqualTo(Location.of("/writePath"));
+        assertThat(actual.getTargetPath()).isEqualTo(Location.of("/targetPath"));
+        assertThat(actual.getFileNames()).isEqualTo(ImmutableList.of("file1", "file3"));
+        assertThat(actual.getRowCount()).isEqualTo(123);
+        assertThat(actual.getInMemoryDataSizeInBytes()).isEqualTo(456);
+        assertThat(actual.getOnDiskDataSizeInBytes()).isEqualTo(789);
     }
 }

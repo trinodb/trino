@@ -106,6 +106,7 @@ import static io.trino.sql.planner.optimizations.ActualProperties.Global.arbitra
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.coordinatorSinglePartition;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.partitionedOn;
 import static io.trino.sql.planner.optimizations.ActualProperties.Global.singlePartition;
+import static io.trino.sql.planner.optimizations.StreamPropertyDerivations.isLocalExchangesSourceSingleStreamDistributed;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ONE;
@@ -696,18 +697,19 @@ public final class PropertyDerivations
             if (node.getScope() == LOCAL) {
                 if (inputProperties.size() == 1) {
                     ActualProperties inputProperty = inputProperties.get(0);
-                    if (inputProperty.isEffectivelySinglePartition() && node.getOrderingScheme().isEmpty()) {
+                    if (inputProperty.isEffectivelySinglePartition() && node.getOrderingScheme().isEmpty() && !inputProperty.getLocalProperties().isEmpty()) {
                         verify(node.getInputs().size() == 1);
                         verify(node.getSources().size() == 1);
-                        PlanNode source = node.getSources().get(0);
-                        StreamPropertyDerivations.StreamProperties streamProperties = StreamPropertyDerivations.derivePropertiesRecursively(source, plannerContext, session, types, typeAnalyzer);
-                        if (streamProperties.isSingleStream()) {
-                            Map<Symbol, Symbol> inputToOutput = exchangeInputToOutput(node, 0);
+                        Map<Symbol, Symbol> inputToOutput = exchangeInputToOutput(node, 0);
+                        List<LocalProperty<Symbol>> inputLocalProperties = LocalProperties.translate(inputProperty.getLocalProperties(), symbol -> Optional.ofNullable(inputToOutput.get(symbol)));
+                        // If no local properties are present to propagate, then we can skip recursive stream properties derivation
+                        // which traverses all child plan nodes again and is therefore expensive to check
+                        @SuppressWarnings("deprecation")
+                        boolean propagateLocalProperties = !inputLocalProperties.isEmpty() && isLocalExchangesSourceSingleStreamDistributed(node, plannerContext.getMetadata(), session);
+                        if (propagateLocalProperties) {
                             // Single stream input's local sorting and grouping properties are preserved
                             // In case of merging exchange, it's orderingScheme takes precedence
-                            localProperties.addAll(LocalProperties.translate(
-                                    inputProperty.getLocalProperties(),
-                                    symbol -> Optional.ofNullable(inputToOutput.get(symbol))));
+                            localProperties.addAll(inputLocalProperties);
                         }
                     }
                 }

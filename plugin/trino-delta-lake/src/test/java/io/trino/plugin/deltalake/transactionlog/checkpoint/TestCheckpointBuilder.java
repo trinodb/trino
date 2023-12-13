@@ -30,7 +30,7 @@ import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEn
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry.protocolEntry;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry.removeFileEntry;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeTransactionLogEntry.transactionEntry;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCheckpointBuilder
 {
@@ -77,6 +77,6 @@ public class TestCheckpointBuilder
                 Set.of(app1TransactionV3, app2TransactionV5),
                 Set.of(addA2),
                 Set.of(removeB, removeC));
-        assertEquals(expectedCheckpoint, builder.build());
+        assertThat(expectedCheckpoint).isEqualTo(builder.build());
     }
 }

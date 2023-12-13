@@ -79,6 +79,26 @@ enum NullsProvider
 
     abstract Optional<boolean[]> getNulls(int positionCount);
 
+    Optional<boolean[]> getNulls(int positionCount, Optional<boolean[]> forcedNulls)
+    {
+        Optional<boolean[]> nulls = getNulls(positionCount);
+        if (forcedNulls.isEmpty()) {
+            return nulls;
+        }
+        if (nulls.isEmpty()) {
+            return forcedNulls;
+        }
+
+        boolean[] nullPositions = nulls.get();
+        boolean[] forcedNullPositions = forcedNulls.get();
+        for (int i = 0; i < positionCount; i++) {
+            if (forcedNullPositions[i]) {
+                nullPositions[i] = true;
+            }
+        }
+        return Optional.of(nullPositions);
+    }
+
     @DataProvider
     public static Object[][] nullsProviders()
     {

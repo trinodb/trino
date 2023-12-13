@@ -16,16 +16,14 @@ package io.trino.memory.context;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.memory.context.AggregatedMemoryContext.newRootAggregatedMemoryContext;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestMemoryContexts
 {
@@ -40,14 +38,14 @@ public class TestMemoryContexts
         LocalMemoryContext localContext = aggregateContext.newLocalMemoryContext("test");
         localContext.setBytes(100);
 
-        assertEquals(localContext.getBytes(), 100);
-        assertEquals(aggregateContext.getBytes(), 100);
-        assertEquals(reservationHandler.getReservation(), 100);
+        assertThat(localContext.getBytes()).isEqualTo(100);
+        assertThat(aggregateContext.getBytes()).isEqualTo(100);
+        assertThat(reservationHandler.getReservation()).isEqualTo(100);
 
         localContext.close();
-        assertEquals(localContext.getBytes(), 0);
-        assertEquals(aggregateContext.getBytes(), 0);
-        assertEquals(reservationHandler.getReservation(), 0);
+        assertThat(localContext.getBytes()).isEqualTo(0);
+        assertThat(aggregateContext.getBytes()).isEqualTo(0);
+        assertThat(reservationHandler.getReservation()).isEqualTo(0);
     }
 
     @Test
@@ -57,22 +55,22 @@ public class TestMemoryContexts
         AggregatedMemoryContext aggregateContext = newRootAggregatedMemoryContext(reservationHandler, GUARANTEED_MEMORY);
         LocalMemoryContext localContext = aggregateContext.newLocalMemoryContext("test");
 
-        assertEquals(localContext.setBytes(10), NOT_BLOCKED);
-        assertEquals(localContext.getBytes(), 10);
-        assertEquals(aggregateContext.getBytes(), 10);
-        assertEquals(reservationHandler.getReservation(), aggregateContext.getBytes());
+        assertThat(localContext.setBytes(10)).isEqualTo(NOT_BLOCKED);
+        assertThat(localContext.getBytes()).isEqualTo(10);
+        assertThat(aggregateContext.getBytes()).isEqualTo(10);
+        assertThat(reservationHandler.getReservation()).isEqualTo(aggregateContext.getBytes());
 
         LocalMemoryContext secondLocalContext = aggregateContext.newLocalMemoryContext("test");
-        assertEquals(secondLocalContext.setBytes(20), NOT_BLOCKED);
-        assertEquals(secondLocalContext.getBytes(), 20);
-        assertEquals(aggregateContext.getBytes(), 30);
-        assertEquals(localContext.getBytes(), 10);
-        assertEquals(reservationHandler.getReservation(), aggregateContext.getBytes());
+        assertThat(secondLocalContext.setBytes(20)).isEqualTo(NOT_BLOCKED);
+        assertThat(secondLocalContext.getBytes()).isEqualTo(20);
+        assertThat(aggregateContext.getBytes()).isEqualTo(30);
+        assertThat(localContext.getBytes()).isEqualTo(10);
+        assertThat(reservationHandler.getReservation()).isEqualTo(aggregateContext.getBytes());
 
         aggregateContext.close();
 
-        assertEquals(aggregateContext.getBytes(), 0);
-        assertEquals(reservationHandler.getReservation(), 0);
+        assertThat(aggregateContext.getBytes()).isEqualTo(0);
+        assertThat(reservationHandler.getReservation()).isEqualTo(0);
     }
 
     @Test
@@ -84,19 +82,19 @@ public class TestMemoryContexts
         AggregatedMemoryContext aggregateContext2 = parentContext.newAggregatedMemoryContext();
         LocalMemoryContext childContext1 = aggregateContext1.newLocalMemoryContext("test");
 
-        assertTrue(childContext1.trySetBytes(500));
-        assertTrue(childContext1.trySetBytes(1_000));
-        assertFalse(childContext1.trySetBytes(1_001));
-        assertEquals(reservationHandler.getReservation(), parentContext.getBytes());
+        assertThat(childContext1.trySetBytes(500)).isTrue();
+        assertThat(childContext1.trySetBytes(1_000)).isTrue();
+        assertThat(childContext1.trySetBytes(1_001)).isFalse();
+        assertThat(reservationHandler.getReservation()).isEqualTo(parentContext.getBytes());
 
         aggregateContext1.close();
         aggregateContext2.close();
         parentContext.close();
 
-        assertEquals(aggregateContext1.getBytes(), 0);
-        assertEquals(aggregateContext2.getBytes(), 0);
-        assertEquals(parentContext.getBytes(), 0);
-        assertEquals(reservationHandler.getReservation(), 0);
+        assertThat(aggregateContext1.getBytes()).isEqualTo(0);
+        assertThat(aggregateContext2.getBytes()).isEqualTo(0);
+        assertThat(parentContext.getBytes()).isEqualTo(0);
+        assertThat(reservationHandler.getReservation()).isEqualTo(0);
     }
 
     @Test
@@ -109,13 +107,13 @@ public class TestMemoryContexts
         LocalMemoryContext childContext1 = aggregateContext1.newLocalMemoryContext("test");
         LocalMemoryContext childContext2 = aggregateContext2.newLocalMemoryContext("test");
 
-        assertEquals(childContext1.setBytes(1), NOT_BLOCKED);
-        assertEquals(childContext2.setBytes(1), NOT_BLOCKED);
+        assertThat(childContext1.setBytes(1)).isEqualTo(NOT_BLOCKED);
+        assertThat(childContext2.setBytes(1)).isEqualTo(NOT_BLOCKED);
 
-        assertEquals(aggregateContext1.getBytes(), 1);
-        assertEquals(aggregateContext2.getBytes(), 1);
-        assertEquals(parentContext.getBytes(), aggregateContext1.getBytes() + aggregateContext2.getBytes());
-        assertEquals(reservationHandler.getReservation(), parentContext.getBytes());
+        assertThat(aggregateContext1.getBytes()).isEqualTo(1);
+        assertThat(aggregateContext2.getBytes()).isEqualTo(1);
+        assertThat(parentContext.getBytes()).isEqualTo(aggregateContext1.getBytes() + aggregateContext2.getBytes());
+        assertThat(reservationHandler.getReservation()).isEqualTo(parentContext.getBytes());
     }
 
     @Test
@@ -128,40 +126,49 @@ public class TestMemoryContexts
 
         // exhaust the max memory available
         reservationHandler.exhaustMemory();
-        assertEquals(reservationHandler.getReservation(), maxMemory);
+        assertThat(reservationHandler.getReservation()).isEqualTo(maxMemory);
 
         // even if the pool is exhausted we never block queries using a trivial amount of memory
-        assertEquals(childContext.setBytes(1_000), NOT_BLOCKED);
-        assertNotEquals(childContext.setBytes(GUARANTEED_MEMORY + 1), NOT_BLOCKED);
+        assertThat(childContext.setBytes(1_000)).isEqualTo(NOT_BLOCKED);
+        assertThat(childContext.setBytes(GUARANTEED_MEMORY + 1))
+                .isNotEqualTo(NOT_BLOCKED);
 
         // at this point the memory contexts have reserved GUARANTEED_MEMORY + 1 bytes
         childContext.close();
         parentContext.close();
 
-        assertEquals(childContext.getBytes(), 0);
-        assertEquals(parentContext.getBytes(), 0);
+        assertThat(childContext.getBytes()).isEqualTo(0);
+        assertThat(parentContext.getBytes()).isEqualTo(0);
 
         // since we have exhausted the memory above after the memory contexts are closed
         // the pool must still be exhausted
-        assertEquals(reservationHandler.getReservation(), maxMemory);
+        assertThat(reservationHandler.getReservation()).isEqualTo(maxMemory);
     }
 
-    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "SimpleLocalMemoryContext is already closed")
+    @Test
     public void testClosedLocalMemoryContext()
     {
-        AggregatedMemoryContext aggregateContext = newSimpleAggregatedMemoryContext();
-        LocalMemoryContext localContext = aggregateContext.newLocalMemoryContext("test");
-        localContext.close();
-        localContext.setBytes(100);
+        assertThatThrownBy(() -> {
+            AggregatedMemoryContext aggregateContext = newSimpleAggregatedMemoryContext();
+            LocalMemoryContext localContext = aggregateContext.newLocalMemoryContext("test");
+            localContext.close();
+            localContext.setBytes(100);
+        })
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("SimpleLocalMemoryContext is already closed");
     }
 
-    @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "SimpleAggregatedMemoryContext is already closed")
+    @Test
     public void testClosedAggregateMemoryContext()
     {
-        AggregatedMemoryContext aggregateContext = newSimpleAggregatedMemoryContext();
-        LocalMemoryContext localContext = aggregateContext.newLocalMemoryContext("test");
-        aggregateContext.close();
-        localContext.setBytes(100);
+        assertThatThrownBy(() -> {
+            AggregatedMemoryContext aggregateContext = newSimpleAggregatedMemoryContext();
+            LocalMemoryContext localContext = aggregateContext.newLocalMemoryContext("test");
+            aggregateContext.close();
+            localContext.setBytes(100);
+        })
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("SimpleAggregatedMemoryContext is already closed");
     }
 
     private static class TestMemoryReservationHandler

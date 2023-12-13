@@ -18,11 +18,17 @@ import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastoreConfig.DEFAULT_STATS_CACHE_TTL;
+import static java.util.concurrent.TimeUnit.DAYS;
+import static java.util.concurrent.TimeUnit.HOURS;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestCachingHiveMetastoreConfig
 {
@@ -30,8 +36,8 @@ public class TestCachingHiveMetastoreConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(CachingHiveMetastoreConfig.class)
-                .setMetastoreCacheTtl(new Duration(0, TimeUnit.SECONDS))
-                .setStatsCacheTtl(new Duration(5, TimeUnit.MINUTES))
+                .setMetastoreCacheTtl(new Duration(0, SECONDS))
+                .setStatsCacheTtl(new Duration(5, MINUTES))
                 .setMetastoreRefreshInterval(null)
                 .setMetastoreCacheMaximumSize(10000)
                 .setMaxMetastoreRefreshThreads(10)
@@ -53,14 +59,35 @@ public class TestCachingHiveMetastoreConfig
                 .buildOrThrow();
 
         CachingHiveMetastoreConfig expected = new CachingHiveMetastoreConfig()
-                .setMetastoreCacheTtl(new Duration(2, TimeUnit.HOURS))
-                .setStatsCacheTtl(new Duration(10, TimeUnit.MINUTES))
-                .setMetastoreRefreshInterval(new Duration(30, TimeUnit.MINUTES))
+                .setMetastoreCacheTtl(new Duration(2, HOURS))
+                .setStatsCacheTtl(new Duration(10, MINUTES))
+                .setMetastoreRefreshInterval(new Duration(30, MINUTES))
                 .setMetastoreCacheMaximumSize(5000)
                 .setMaxMetastoreRefreshThreads(2500)
                 .setCacheMissing(false)
                 .setPartitionCacheEnabled(false);
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testStatsCacheTtl()
+    {
+        // enabled by default
+        assertThat(new CachingHiveMetastoreConfig().getStatsCacheTtl()).isEqualTo(DEFAULT_STATS_CACHE_TTL);
+
+        // takes higher of the DEFAULT_STATS_CACHE_TTL or metastoreTtl if not set explicitly
+        assertThat(new CachingHiveMetastoreConfig()
+                .setMetastoreCacheTtl(new Duration(1, SECONDS))
+                .getStatsCacheTtl()).isEqualTo(DEFAULT_STATS_CACHE_TTL);
+        assertThat(new CachingHiveMetastoreConfig()
+                .setMetastoreCacheTtl(new Duration(1111, DAYS))
+                .getStatsCacheTtl()).isEqualTo(new Duration(1111, DAYS));
+
+        // explicit configuration is honored
+        assertThat(new CachingHiveMetastoreConfig()
+                .setStatsCacheTtl(new Duration(135, MILLISECONDS))
+                .setMetastoreCacheTtl(new Duration(1111, DAYS))
+                .getStatsCacheTtl()).isEqualTo(new Duration(135, MILLISECONDS));
     }
 }

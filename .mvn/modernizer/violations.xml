@@ -177,33 +177,9 @@
     </violation>
 
     <violation>
-        <name>org/apache/hadoop/mapred/JobConf."&lt;init&gt;":()V</name>
-        <version>1.1</version>
-        <comment>This constructor reads default configuration resource files implicitly. Prefer new JobConf(Configuration)</comment>
-    </violation>
-
-    <violation>
-        <name>org/apache/hadoop/mapred/JobConf."&lt;init&gt;":(Ljava/lang/Class;)V</name>
-        <version>1.1</version>
-        <comment>This constructor reads default configuration resource files implicitly. Prefer new JobConf(Configuration)</comment>
-    </violation>
-
-    <violation>
-        <name>org/apache/hadoop/conf/Configuration."&lt;init&gt;":()V</name>
-        <version>1.1</version>
-        <comment>Prefer ConfigurationInstantiator.newEmptyConfiguration() for two reasons: (1) loading default resources is unlikely desired and (2) ConfigurationInstantiator adds additional safety checks</comment>
-    </violation>
-
-    <violation>
         <name>org/apache/hadoop/fs/FileSystem.close:()V</name>
         <version>1.1</version>
         <comment>Hadoop FileSystem instances are shared and should not be closed</comment>
-    </violation>
-
-    <violation>
-        <name>org/apache/hadoop/conf/Configuration."&lt;init&gt;":(Z)V</name>
-        <version>1.1</version>
-        <comment>Prefer ConfigurationInstantiator.newEmptyConfiguration()</comment>
     </violation>
 
     <violation>

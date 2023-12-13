@@ -34,7 +34,8 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.LongSerializer;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.time.Duration;
 import java.util.List;
@@ -53,9 +54,9 @@ import static org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CL
 import static org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@Execution(SAME_THREAD)
 public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
         extends AbstractTestQueryFramework
 {
@@ -242,7 +243,7 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                         .put(VALUE_SERIALIZER_CLASS_CONFIG, KafkaJsonSchemaSerializer.class.getName())
                         .buildOrThrow());
 
-        assertTrue(tableExists(topicName));
+        assertThat(tableExists(topicName)).isTrue();
 
         String errorMessage = "Not supported schema: JSON";
         assertThatThrownBy(() -> getQueryRunner().execute("SHOW COLUMNS FROM " + toDoubleQuoted(topicName)))
@@ -366,13 +367,13 @@ public class TestKafkaWithConfluentSchemaRegistryMinimalFunctionality
                         .withMaxAttempts(10)
                         .withDelay(Duration.ofMillis(100))
                         .build())
-                .run(() -> assertTrue(schemaExists()));
+                .run(() -> assertThat(schemaExists()).isTrue());
         Failsafe.with(
                 RetryPolicy.builder()
                         .withMaxAttempts(10)
                         .withDelay(Duration.ofMillis(100))
                         .build())
-                .run(() -> assertTrue(tableExists(tableName)));
+                .run(() -> assertThat(tableExists(tableName)).isTrue());
     }
 
     private boolean schemaExists()

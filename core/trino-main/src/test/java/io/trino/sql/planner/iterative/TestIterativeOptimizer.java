@@ -32,6 +32,7 @@ import io.trino.testing.LocalQueryRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Optional;
 
@@ -43,11 +44,12 @@ import static io.trino.sql.planner.plan.Patterns.tableScan;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestIterativeOptimizer
 {
     @Test
@@ -70,12 +72,12 @@ public class TestIterativeOptimizer
                     queryRunner.createPlan(transactionSession, "SELECT 1", ImmutableList.of(optimizer), OPTIMIZED_AND_VALIDATED, NOOP, planOptimizersStatsCollector));
             Optional<QueryPlanOptimizerStatistics> queryRuleStats = planOptimizersStatsCollector.getTopRuleStats().stream().findFirst();
 
-            assertTrue(queryRuleStats.isPresent());
+            assertThat(queryRuleStats.isPresent()).isTrue();
             QueryPlanOptimizerStatistics queryRuleStat = queryRuleStats.get();
-            assertEquals(queryRuleStat.rule(), RemoveRedundantIdentityProjections.class.getCanonicalName());
-            assertEquals(queryRuleStat.invocations(), 4);
-            assertEquals(queryRuleStat.applied(), 3);
-            assertEquals(queryRuleStat.failures(), 0);
+            assertThat(queryRuleStat.rule()).isEqualTo(RemoveRedundantIdentityProjections.class.getCanonicalName());
+            assertThat(queryRuleStat.invocations()).isEqualTo(4);
+            assertThat(queryRuleStat.applied()).isEqualTo(3);
+            assertThat(queryRuleStat.failures()).isEqualTo(0);
         }
     }
 

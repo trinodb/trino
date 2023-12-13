@@ -27,10 +27,11 @@ import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.DistributedQueryRunner;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.EnumSet;
 
@@ -40,7 +41,11 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestRevokeOnTable
 {
     private static final Session admin = sessionOf("admin");
@@ -53,7 +58,7 @@ public class TestRevokeOnTable
     private DistributedQueryRunner queryRunner;
     private QueryAssertions assertions;
 
-    @BeforeClass
+    @BeforeAll
     public void initClass()
             throws Exception
     {
@@ -79,7 +84,7 @@ public class TestRevokeOnTable
         assertions = new QueryAssertions(queryRunner);
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void teardown()
     {
         assertions.close();
@@ -87,8 +92,18 @@ public class TestRevokeOnTable
         queryRunner = null; // closed by assertions.close
     }
 
-    @Test(dataProvider = "privilegesAndUsers")
-    public void testRevokeOnSchema(String privilege, Session user)
+    @Test
+    public void testRevokeOnSchema()
+    {
+        testRevokeOnSchema("CREATE", userWithCreate);
+        testRevokeOnSchema("SELECT", userWithSelect);
+        testRevokeOnSchema("INSERT", userWithInsert);
+        testRevokeOnSchema("UPDATE", userWithUpdate);
+        testRevokeOnSchema("DELETE", userWithDelete);
+        testRevokeOnSchema("ALL PRIVILEGES", userWithAllPrivileges);
+    }
+
+    private void testRevokeOnSchema(String privilege, Session user)
     {
         assertThat(assertions.query(user, "SHOW TABLES FROM default")).matches("VALUES (VARCHAR 'table_one')");
 
@@ -97,60 +112,77 @@ public class TestRevokeOnTable
         assertThat(assertions.query(user, "SHOW TABLES FROM default")).returnsEmptyResult();
     }
 
-    @Test(dataProvider = "privilegesAndUsers")
-    public void testRevokeOnNonExistingCatalog(String privilege, Session user)
+    @Test
+    public void testRevokeOnNonExistingCatalog()
+    {
+        testRevokeOnNonExistingCatalog("CREATE", userWithCreate);
+        testRevokeOnNonExistingCatalog("SELECT", userWithSelect);
+        testRevokeOnNonExistingCatalog("INSERT", userWithInsert);
+        testRevokeOnNonExistingCatalog("UPDATE", userWithUpdate);
+        testRevokeOnNonExistingCatalog("DELETE", userWithDelete);
+        testRevokeOnNonExistingCatalog("ALL PRIVILEGES", userWithAllPrivileges);
+    }
+
+    private void testRevokeOnNonExistingCatalog(String privilege, Session user)
     {
         assertThatThrownBy(() -> queryRunner.execute(admin, format("REVOKE %s ON TABLE missing_catalog.missing_schema.missing_table FROM %s", privilege, user.getUser())))
                 .hasMessageContaining("Table 'missing_catalog.missing_schema.missing_table' does not exist");
     }
 
-    @Test(dataProvider = "privilegesAndUsers")
-    public void testRevokeOnNonExistingSchema(String privilege, Session user)
+    @Test
+    public void testRevokeOnNonExistingSchema()
+    {
+        testRevokeOnNonExistingSchema("CREATE", userWithCreate);
+        testRevokeOnNonExistingSchema("SELECT", userWithSelect);
+        testRevokeOnNonExistingSchema("INSERT", userWithInsert);
+        testRevokeOnNonExistingSchema("UPDATE", userWithUpdate);
+        testRevokeOnNonExistingSchema("DELETE", userWithDelete);
+        testRevokeOnNonExistingSchema("ALL PRIVILEGES", userWithAllPrivileges);
+    }
+
+    private void testRevokeOnNonExistingSchema(String privilege, Session user)
     {
         assertThatThrownBy(() -> queryRunner.execute(admin, format("REVOKE %s ON TABLE missing_schema.missing_table FROM %s", privilege, user.getUser())))
                 .hasMessageContaining("Table 'local.missing_schema.missing_table' does not exist");
     }
 
-    @Test(dataProvider = "privilegesAndUsers")
-    public void testRevokeOnNonExistingTable(String privilege, Session user)
+    @Test
+    public void testRevokeOnNonExistingTable()
+    {
+        testRevokeOnNonExistingTable("CREATE", userWithCreate);
+        testRevokeOnNonExistingTable("SELECT", userWithSelect);
+        testRevokeOnNonExistingTable("INSERT", userWithInsert);
+        testRevokeOnNonExistingTable("UPDATE", userWithUpdate);
+        testRevokeOnNonExistingTable("DELETE", userWithDelete);
+        testRevokeOnNonExistingTable("ALL PRIVILEGES", userWithAllPrivileges);
+    }
+
+    private void testRevokeOnNonExistingTable(String privilege, Session user)
     {
         assertThatThrownBy(() -> queryRunner.execute(admin, format("REVOKE %s ON TABLE default.missing_table FROM %s", privilege, user.getUser())))
                 .hasMessageContaining("Table 'local.default.missing_table' does not exist");
     }
 
-    @Test(dataProvider = "privileges")
-    public void testAccessDenied(String privilege)
+    @Test
+    public void testAccessDenied()
     {
-        assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), format("REVOKE %s ON TABLE table_one FROM %s", privilege, randomUsername())))
-                .hasMessageContaining(
-                        "Access Denied: Cannot revoke privilege %s on table default.table_one",
-                        privilege.equals("ALL PRIVILEGES") ? "CREATE" : privilege);
-    }
+        assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), format("REVOKE CREATE ON TABLE table_one FROM %s", randomUsername())))
+                .hasMessageContaining("Access Denied: Cannot revoke privilege CREATE on table default.table_one");
 
-    @DataProvider(name = "privilegesAndUsers")
-    public static Object[][] privilegesAndUsers()
-    {
-        return new Object[][] {
-                {"CREATE", userWithCreate},
-                {"SELECT", userWithSelect},
-                {"INSERT", userWithInsert},
-                {"UPDATE", userWithUpdate},
-                {"DELETE", userWithDelete},
-                {"ALL PRIVILEGES", userWithAllPrivileges}
-        };
-    }
+        assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), format("REVOKE SELECT ON TABLE table_one FROM %s", randomUsername())))
+                .hasMessageContaining("Access Denied: Cannot revoke privilege SELECT on table default.table_one");
 
-    @DataProvider(name = "privileges")
-    public static Object[][] privileges()
-    {
-        return new Object[][] {
-                {"CREATE"},
-                {"SELECT"},
-                {"INSERT"},
-                {"UPDATE"},
-                {"DELETE"},
-                {"ALL PRIVILEGES"}
-        };
+        assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), format("REVOKE INSERT ON TABLE table_one FROM %s", randomUsername())))
+                .hasMessageContaining("Access Denied: Cannot revoke privilege INSERT on table default.table_one");
+
+        assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), format("REVOKE UPDATE ON TABLE table_one FROM %s", randomUsername())))
+                .hasMessageContaining("Access Denied: Cannot revoke privilege UPDATE on table default.table_one");
+
+        assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), format("REVOKE DELETE ON TABLE table_one FROM %s", randomUsername())))
+                .hasMessageContaining("Access Denied: Cannot revoke privilege DELETE on table default.table_one");
+
+        assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), format("REVOKE ALL PRIVILEGES ON TABLE table_one FROM %s", randomUsername())))
+                .hasMessageContaining("Access Denied: Cannot revoke privilege CREATE on table default.table_one");
     }
 
     private static Session sessionOf(String username)

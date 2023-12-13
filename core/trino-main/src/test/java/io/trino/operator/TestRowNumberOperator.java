@@ -30,6 +30,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Arrays;
 import java.util.List;
@@ -54,11 +55,12 @@ import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestRowNumberOperator
 {
     private ExecutorService executor;
@@ -132,7 +134,7 @@ public class TestRowNumberOperator
 
         List<Page> pages = toPages(operatorFactory, driverContext, input);
         Block rowNumberColumn = getRowNumberColumn(pages);
-        assertEquals(rowNumberColumn.getPositionCount(), 10);
+        assertThat(rowNumberColumn.getPositionCount()).isEqualTo(10);
 
         pages = stripRowNumberColumn(pages);
         MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(DOUBLE, BIGINT), pages);
@@ -164,13 +166,13 @@ public class TestRowNumberOperator
 
             int count = 0;
             for (Page page : result.getOutput()) {
-                assertEquals(page.getChannelCount(), 3);
+                assertThat(page.getChannelCount()).isEqualTo(3);
                 for (int i = 0; i < page.getPositionCount(); i++) {
-                    assertEquals(page.getBlock(2).getLong(i, 0), 1);
+                    assertThat(page.getBlock(2).getLong(i, 0)).isEqualTo(1);
                     count++;
                 }
             }
-            assertEquals(count, 6_000 * 600);
+            assertThat(count).isEqualTo(6_000 * 600);
         }
     }
 
@@ -228,7 +230,7 @@ public class TestRowNumberOperator
 
             List<Page> pages = toPages(operatorFactory, driverContext, input);
             Block rowNumberColumn = getRowNumberColumn(pages);
-            assertEquals(rowNumberColumn.getPositionCount(), 10);
+            assertThat(rowNumberColumn.getPositionCount()).isEqualTo(10);
 
             pages = stripRowNumberColumn(pages);
             MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(DOUBLE, BIGINT), pages);
@@ -236,9 +238,9 @@ public class TestRowNumberOperator
             ImmutableSet<?> expectedPartition1Set = ImmutableSet.copyOf(expectedPartition1.getMaterializedRows());
             ImmutableSet<?> expectedPartition2Set = ImmutableSet.copyOf(expectedPartition2.getMaterializedRows());
             ImmutableSet<?> expectedPartition3Set = ImmutableSet.copyOf(expectedPartition3.getMaterializedRows());
-            assertEquals(Sets.intersection(expectedPartition1Set, actualSet).size(), 4);
-            assertEquals(Sets.intersection(expectedPartition2Set, actualSet).size(), 4);
-            assertEquals(Sets.intersection(expectedPartition3Set, actualSet).size(), 2);
+            assertThat(Sets.intersection(expectedPartition1Set, actualSet).size()).isEqualTo(4);
+            assertThat(Sets.intersection(expectedPartition2Set, actualSet).size()).isEqualTo(4);
+            assertThat(Sets.intersection(expectedPartition3Set, actualSet).size()).isEqualTo(2);
         }
     }
 
@@ -296,10 +298,10 @@ public class TestRowNumberOperator
 
             List<Page> pages = toPages(operatorFactory, driverContext, input);
             Block rowNumberColumn = getRowNumberColumn(pages);
-            assertEquals(rowNumberColumn.getPositionCount(), 8);
+            assertThat(rowNumberColumn.getPositionCount()).isEqualTo(8);
             // Check that all row numbers generated are <= 3
             for (int i = 0; i < rowNumberColumn.getPositionCount(); i++) {
-                assertTrue(rowNumberColumn.getLong(i, 0) <= 3);
+                assertThat(rowNumberColumn.getLong(i, 0) <= 3).isTrue();
             }
 
             pages = stripRowNumberColumn(pages);
@@ -308,9 +310,9 @@ public class TestRowNumberOperator
             ImmutableSet<?> expectedPartition1Set = ImmutableSet.copyOf(expectedPartition1.getMaterializedRows());
             ImmutableSet<?> expectedPartition2Set = ImmutableSet.copyOf(expectedPartition2.getMaterializedRows());
             ImmutableSet<?> expectedPartition3Set = ImmutableSet.copyOf(expectedPartition3.getMaterializedRows());
-            assertEquals(Sets.intersection(expectedPartition1Set, actualSet).size(), 3);
-            assertEquals(Sets.intersection(expectedPartition2Set, actualSet).size(), 3);
-            assertEquals(Sets.intersection(expectedPartition3Set, actualSet).size(), 2);
+            assertThat(Sets.intersection(expectedPartition1Set, actualSet).size()).isEqualTo(3);
+            assertThat(Sets.intersection(expectedPartition2Set, actualSet).size()).isEqualTo(3);
+            assertThat(Sets.intersection(expectedPartition3Set, actualSet).size()).isEqualTo(2);
         }
     }
 
@@ -360,14 +362,14 @@ public class TestRowNumberOperator
 
         List<Page> pages = toPages(operatorFactory, driverContext, input);
         Block rowNumberColumn = getRowNumberColumn(pages);
-        assertEquals(rowNumberColumn.getPositionCount(), 3);
+        assertThat(rowNumberColumn.getPositionCount()).isEqualTo(3);
 
         pages = stripRowNumberColumn(pages);
         MaterializedResult actual = toMaterializedResult(driverContext.getSession(), ImmutableList.of(DOUBLE, BIGINT), pages);
-        assertEquals(actual.getMaterializedRows().size(), 3);
+        assertThat(actual.getMaterializedRows().size()).isEqualTo(3);
         ImmutableSet<?> actualSet = ImmutableSet.copyOf(actual.getMaterializedRows());
         ImmutableSet<?> expectedRowsSet = ImmutableSet.copyOf(expectedRows.getMaterializedRows());
-        assertEquals(Sets.intersection(expectedRowsSet, actualSet).size(), 3);
+        assertThat(Sets.intersection(expectedRowsSet, actualSet).size()).isEqualTo(3);
     }
 
     private static Block getRowNumberColumn(List<Page> pages)

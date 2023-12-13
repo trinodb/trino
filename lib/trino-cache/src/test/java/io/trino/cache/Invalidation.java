@@ -13,10 +13,6 @@
  */
 package io.trino.cache;
 
-import org.testng.annotations.DataProvider;
-
-import java.util.stream.Stream;
-
 enum Invalidation
 {
     INVALIDATE_KEY,
@@ -24,12 +20,4 @@ enum Invalidation
     INVALIDATE_SELECTED_KEYS,
     INVALIDATE_ALL,
     /**/;
-
-    @DataProvider
-    public static Object[][] invalidations()
-    {
-        return Stream.of(values())
-                .map(invalidation -> new Object[] {invalidation})
-                .toArray(Object[][]::new);
-    }
 }

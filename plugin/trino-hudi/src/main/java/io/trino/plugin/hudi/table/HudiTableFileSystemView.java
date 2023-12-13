@@ -452,7 +452,7 @@ public class HudiTableFileSystemView
 
         Optional<Entry<String, CompactionOperation>> compactionWithInstantTime =
                 getPendingCompactionOperationWithInstant(new HudiFileGroupId(partitionPath, baseFile.getFileId()));
-        return (compactionWithInstantTime.isPresent()) && (null != compactionWithInstantTime.get().getKey())
+        return compactionWithInstantTime.isPresent() && (null != compactionWithInstantTime.get().getKey())
                 && baseFile.getCommitTime().equals(compactionWithInstantTime.get().getKey());
     }
 

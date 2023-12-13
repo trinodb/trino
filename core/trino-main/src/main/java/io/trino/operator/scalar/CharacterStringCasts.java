@@ -107,7 +107,7 @@ public final class CharacterStringCasts
             return Slices.allocate(toIntExact(y));
         }
 
-        int lastCodePoint = codePoints.get(codePoints.size() - 1) - 1;
+        int lastCodePoint = codePoints.getInt(codePoints.size() - 1) - 1;
         /*
          * UTF-8 reserve codepoints from 0xD800 to 0xDFFF for encoding UTF-16
          * If the lastCodePoint after -1 operation is in this range, it will lead to an InvalidCodePointException
@@ -145,7 +145,7 @@ public final class CharacterStringCasts
     private static void trimTrailing(IntList codePoints, int codePointToTrim)
     {
         int endIndex = codePoints.size();
-        while (endIndex > 0 && codePoints.get(endIndex - 1) == codePointToTrim) {
+        while (endIndex > 0 && codePoints.getInt(endIndex - 1) == codePointToTrim) {
             endIndex--;
         }
         codePoints.size(endIndex);

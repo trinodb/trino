@@ -18,12 +18,14 @@ import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HiveMetadata;
 import io.trino.plugin.iceberg.ColumnIdentity;
 import io.trino.plugin.iceberg.IcebergMaterializedViewDefinition;
 import io.trino.plugin.iceberg.IcebergUtil;
 import io.trino.plugin.iceberg.PartitionTransforms.ColumnTransform;
+import io.trino.plugin.iceberg.fileio.ForwardingOutputFile;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ColumnMetadata;
@@ -33,6 +35,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorViewDefinition;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.connector.ViewNotFoundException;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.CharType;
 import io.trino.spi.type.MapType;
@@ -50,6 +53,7 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableMetadata;
+import org.apache.iceberg.TableMetadataParser;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.types.Types;
@@ -57,7 +61,6 @@ import org.apache.iceberg.types.Types;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -77,14 +80,21 @@ import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewAdditionalProperties.STORAGE_SCHEMA;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewAdditionalProperties.getStorageSchema;
 import static io.trino.plugin.iceberg.IcebergMaterializedViewDefinition.decodeMaterializedViewData;
-import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergTableName.tableNameWithType;
 import static io.trino.plugin.iceberg.IcebergTableProperties.getPartitioning;
+import static io.trino.plugin.iceberg.IcebergTableProperties.getSortOrder;
+import static io.trino.plugin.iceberg.IcebergTableProperties.getTableLocation;
+import static io.trino.plugin.iceberg.IcebergUtil.METADATA_FOLDER_NAME;
 import static io.trino.plugin.iceberg.IcebergUtil.commit;
+import static io.trino.plugin.iceberg.IcebergUtil.createTableProperties;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableProperties;
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromMetadata;
 import static io.trino.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.trino.plugin.iceberg.PartitionTransforms.getColumnTransform;
+import static io.trino.plugin.iceberg.SortFieldUtils.parseSortFields;
+import static io.trino.plugin.iceberg.TableType.MATERIALIZED_VIEW_STORAGE;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
@@ -96,8 +106,10 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
+import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.apache.iceberg.TableMetadata.newTableMetadata;
-import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT_DEFAULT;
+import static org.apache.iceberg.TableMetadataParser.getFileExtension;
+import static org.apache.iceberg.TableProperties.METADATA_COMPRESSION_DEFAULT;
 import static org.apache.iceberg.Transactions.createOrReplaceTableTransaction;
 import static org.apache.iceberg.Transactions.createTableTransaction;
 
@@ -111,17 +123,20 @@ public abstract class AbstractTrinoCatalog
     protected final CatalogName catalogName;
     private final TypeManager typeManager;
     protected final IcebergTableOperationsProvider tableOperationsProvider;
+    private final TrinoFileSystemFactory fileSystemFactory;
     private final boolean useUniqueTableLocation;
 
     protected AbstractTrinoCatalog(
             CatalogName catalogName,
             TypeManager typeManager,
             IcebergTableOperationsProvider tableOperationsProvider,
+            TrinoFileSystemFactory fileSystemFactory,
             boolean useUniqueTableLocation)
     {
         this.catalogName = requireNonNull(catalogName, "catalogName is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.tableOperationsProvider = requireNonNull(tableOperationsProvider, "tableOperationsProvider is null");
+        this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
         this.useUniqueTableLocation = useUniqueTableLocation;
     }
 
@@ -135,6 +150,7 @@ public abstract class AbstractTrinoCatalog
         else {
             icebergTable.updateProperties().set(TABLE_COMMENT, comment.get()).commit();
         }
+        invalidateTableCache(schemaTableName);
     }
 
     @Override
@@ -142,6 +158,7 @@ public abstract class AbstractTrinoCatalog
     {
         Table icebergTable = loadTable(session, schemaTableName);
         icebergTable.updateSchema().updateColumnDoc(columnIdentity.getName(), comment.orElse(null)).commit();
+        invalidateTableCache(schemaTableName);
     }
 
     @Override
@@ -153,7 +170,7 @@ public abstract class AbstractTrinoCatalog
                 getView(session, name).ifPresent(view -> views.put(name, view));
             }
             catch (TrinoException e) {
-                if (e.getErrorCode().equals(TABLE_NOT_FOUND.toErrorCode())) {
+                if (e.getErrorCode().equals(TABLE_NOT_FOUND.toErrorCode()) || e instanceof TableNotFoundException || e instanceof ViewNotFoundException) {
                     // Ignore view that was dropped during query execution (race condition)
                 }
                 else {
@@ -264,17 +281,52 @@ public abstract class AbstractTrinoCatalog
         }
     }
 
+    protected Location createMaterializedViewStorage(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition)
+    {
+        if (getStorageSchema(definition.getProperties()).isPresent()) {
+            throw new TrinoException(NOT_SUPPORTED, "Materialized view property '%s' is not supported when hiding materialized view storage tables is enabled".formatted(STORAGE_SCHEMA));
+        }
+        SchemaTableName storageTableName = new SchemaTableName(viewName.getSchemaName(), tableNameWithType(viewName.getTableName(), MATERIALIZED_VIEW_STORAGE));
+        String tableLocation = getTableLocation(definition.getProperties())
+                .orElseGet(() -> defaultTableLocation(session, viewName));
+        List<ColumnMetadata> columns = columnsForMaterializedView(definition);
+
+        Schema schema = schemaFromMetadata(columns);
+        PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(definition.getProperties()));
+        SortOrder sortOrder = parseSortFields(schema, getSortOrder(definition.getProperties()));
+        Map<String, String> properties = createTableProperties(new ConnectorTableMetadata(storageTableName, columns, definition.getProperties(), Optional.empty()));
+
+        TableMetadata metadata = newTableMetadata(schema, partitionSpec, sortOrder, tableLocation, properties);
+
+        String fileName = format("%05d-%s%s", 0, randomUUID(), getFileExtension(METADATA_COMPRESSION_DEFAULT));
+        Location metadataFileLocation = Location.of(tableLocation).appendPath(METADATA_FOLDER_NAME).appendPath(fileName);
+
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+        TableMetadataParser.write(metadata, new ForwardingOutputFile(fileSystem, metadataFileLocation));
+
+        return metadataFileLocation;
+    }
+
     protected SchemaTableName createMaterializedViewStorageTable(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition)
     {
         // Generate a storage table name and create a storage table. The properties in the definition are table properties for the
         // storage table as indicated in the materialized view definition.
         String storageTableName = "st_" + randomUUID().toString().replace("-", "");
-        Map<String, Object> storageTableProperties = new HashMap<>(definition.getProperties());
-        storageTableProperties.putIfAbsent(FILE_FORMAT_PROPERTY, DEFAULT_FILE_FORMAT_DEFAULT);
 
         String storageSchema = getStorageSchema(definition.getProperties()).orElse(viewName.getSchemaName());
         SchemaTableName storageTable = new SchemaTableName(storageSchema, storageTableName);
+        List<ColumnMetadata> columns = columnsForMaterializedView(definition);
 
+        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(storageTable, columns, definition.getProperties(), Optional.empty());
+        Transaction transaction = IcebergUtil.newCreateTableTransaction(this, tableMetadata, session, false);
+        AppendFiles appendFiles = transaction.newAppend();
+        commit(appendFiles, session);
+        transaction.commitTransaction();
+        return storageTable;
+    }
+
+    private List<ColumnMetadata> columnsForMaterializedView(ConnectorMaterializedViewDefinition definition)
+    {
         Schema schemaWithTimestampTzPreserved = schemaFromMetadata(mappedCopy(
                 definition.getColumns(),
                 column -> {
@@ -301,7 +353,7 @@ public abstract class AbstractTrinoCatalog
                 })
                 .collect(toImmutableSet());
 
-        List<ColumnMetadata> columns = mappedCopy(
+        return mappedCopy(
                 definition.getColumns(),
                 column -> {
                     Type type = typeManager.getType(column.getType());
@@ -314,13 +366,6 @@ public abstract class AbstractTrinoCatalog
                     }
                     return new ColumnMetadata(column.getName(), type);
                 });
-
-        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(storageTable, columns, storageTableProperties, Optional.empty());
-        Transaction transaction = IcebergUtil.newCreateTableTransaction(this, tableMetadata, session, false);
-        AppendFiles appendFiles = transaction.newAppend();
-        commit(appendFiles, session);
-        transaction.commitTransaction();
-        return storageTable;
     }
 
     /**
@@ -417,6 +462,19 @@ public abstract class AbstractTrinoCatalog
                 .put(TABLE_COMMENT, ICEBERG_MATERIALIZED_VIEW_COMMENT)
                 .buildOrThrow();
     }
+
+    protected Map<String, String> createMaterializedViewProperties(ConnectorSession session, Location storageMetadataLocation)
+    {
+        return ImmutableMap.<String, String>builder()
+                .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
+                .put(METADATA_LOCATION_PROP, storageMetadataLocation.toString())
+                .put(PRESTO_VIEW_FLAG, "true")
+                .put(TRINO_CREATED_BY, TRINO_CREATED_BY_VALUE)
+                .put(TABLE_COMMENT, ICEBERG_MATERIALIZED_VIEW_COMMENT)
+                .buildOrThrow();
+    }
+
+    protected abstract void invalidateTableCache(SchemaTableName schemaTableName);
 
     protected static class MaterializedViewMayBeBeingRemovedException
             extends RuntimeException

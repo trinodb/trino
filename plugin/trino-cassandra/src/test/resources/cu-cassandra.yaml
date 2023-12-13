@@ -260,8 +260,6 @@ ssl_storage_port: 7011
 listen_address: 127.0.0.1
 
 start_native_transport: true
-# port for the CQL native transport to listen for clients on
-native_transport_port: 9142
 
 # Whether to start the thrift rpc server.
 start_rpc: false

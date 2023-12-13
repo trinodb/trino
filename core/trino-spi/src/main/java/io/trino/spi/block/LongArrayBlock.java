@@ -161,7 +161,7 @@ public final class LongArrayBlock
             throw new IllegalArgumentException("offset must be zero");
         }
 
-        short value = (short) (values[position + arrayOffset]);
+        short value = (short) values[position + arrayOffset];
         if (value != values[position + arrayOffset]) {
             throw new ArithmeticException("short overflow");
         }
@@ -178,7 +178,7 @@ public final class LongArrayBlock
             throw new IllegalArgumentException("offset must be zero");
         }
 
-        byte value = (byte) (values[position + arrayOffset]);
+        byte value = (byte) values[position + arrayOffset];
         if (value != values[position + arrayOffset]) {
             throw new ArithmeticException("byte overflow");
         }
@@ -283,13 +283,18 @@ public final class LongArrayBlock
         return sb.toString();
     }
 
+    int getRawValuesOffset()
+    {
+        return arrayOffset;
+    }
+
     long[] getRawValues()
     {
         return values;
     }
 
-    int getRawValuesOffset()
+    boolean[] getRawValueIsNull()
     {
-        return arrayOffset;
+        return valueIsNull;
     }
 }

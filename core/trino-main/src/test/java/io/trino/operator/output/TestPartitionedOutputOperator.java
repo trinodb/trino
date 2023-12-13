@@ -21,6 +21,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -30,10 +31,12 @@ import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.testng.Assert.assertEquals;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestPartitionedOutputOperator
 {
     private ExecutorService executor;
@@ -63,10 +66,9 @@ public class TestPartitionedOutputOperator
         Page page = new Page(createLongSequenceBlock(0, 8));
 
         partitionedOutputOperator.addInput(page);
-        partitionedOutputOperator.finish();
 
         OperatorContext operatorContext = partitionedOutputOperator.getOperatorContext();
-        assertEquals(operatorContext.getOutputDataSize().getTotalCount(), page.getSizeInBytes());
-        assertEquals(operatorContext.getOutputPositions().getTotalCount(), page.getPositionCount());
+        assertThat(operatorContext.getOutputDataSize().getTotalCount()).isEqualTo(page.getSizeInBytes());
+        assertThat(operatorContext.getOutputPositions().getTotalCount()).isEqualTo(page.getPositionCount());
     }
 }

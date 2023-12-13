@@ -27,6 +27,7 @@ import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterat
 import io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointSchemaManager;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
 import io.trino.plugin.hive.parquet.ParquetReaderConfig;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.DoubleType;
@@ -45,6 +46,7 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.OptionalInt;
 
+import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.Iterators.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
@@ -67,9 +69,6 @@ import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.Float.floatToIntBits;
 import static java.time.ZoneOffset.UTC;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
 
 public class TestDeltaLakeFileStatistics
 {
@@ -107,7 +106,9 @@ public class TestDeltaLakeFileStatistics
                 new FileFormatDataSourceStats(),
                 new ParquetReaderConfig().toParquetReaderOptions(),
                 true,
-                new DeltaLakeConfig().getDomainCompactionThreshold());
+                new DeltaLakeConfig().getDomainCompactionThreshold(),
+                TupleDomain.all(),
+                Optional.empty());
         MetadataEntry metadataEntry = getOnlyElement(metadataEntryIterator).getMetaData();
         CheckpointEntryIterator protocolEntryIterator = new CheckpointEntryIterator(
                 checkpointFile,
@@ -121,7 +122,9 @@ public class TestDeltaLakeFileStatistics
                 new FileFormatDataSourceStats(),
                 new ParquetReaderConfig().toParquetReaderOptions(),
                 true,
-                new DeltaLakeConfig().getDomainCompactionThreshold());
+                new DeltaLakeConfig().getDomainCompactionThreshold(),
+                TupleDomain.all(),
+                Optional.empty());
         ProtocolEntry protocolEntry = getOnlyElement(protocolEntryIterator).getProtocol();
 
         CheckpointEntryIterator checkpointEntryIterator = new CheckpointEntryIterator(
@@ -136,71 +139,41 @@ public class TestDeltaLakeFileStatistics
                 new FileFormatDataSourceStats(),
                 new ParquetReaderConfig().toParquetReaderOptions(),
                 true,
-                new DeltaLakeConfig().getDomainCompactionThreshold());
+                new DeltaLakeConfig().getDomainCompactionThreshold(),
+                TupleDomain.all(),
+                Optional.of(alwaysTrue()));
         DeltaLakeTransactionLogEntry matchingAddFileEntry = null;
         while (checkpointEntryIterator.hasNext()) {
             DeltaLakeTransactionLogEntry entry = checkpointEntryIterator.next();
             if (entry.getAdd() != null && entry.getAdd().getPath().contains("part-00000-17951bea-0d04-43c1-979c-ea1fac19b382-c000.snappy.parquet")) {
-                assertNull(matchingAddFileEntry);
+                assertThat(matchingAddFileEntry).isNull();
                 matchingAddFileEntry = entry;
             }
         }
-        assertNotNull(matchingAddFileEntry);
+        assertThat(matchingAddFileEntry).isNotNull();
         assertThat(matchingAddFileEntry.getAdd().getStats()).isPresent();
         testStatisticsValues(matchingAddFileEntry.getAdd().getStats().get());
     }
 
     private static void testStatisticsValues(DeltaLakeFileStatistics fileStatistics)
     {
-        assertEquals(fileStatistics.getNumRecords(), Optional.of(1L));
-        assertEquals(
-                fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("byt", TINYINT, OptionalInt.empty(), "byt", TINYINT, REGULAR, Optional.empty())),
-                Optional.of(42L));
-        assertEquals(
-                fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("dat", DATE, OptionalInt.empty(), "dat", DATE, REGULAR, Optional.empty())),
-                Optional.of(LocalDate.parse("5000-01-01").toEpochDay()));
-        assertEquals(
-                fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("dec_long", DecimalType.createDecimalType(25, 3), OptionalInt.empty(), "dec_long", DecimalType.createDecimalType(25, 3), REGULAR, Optional.empty())),
-                Optional.of(encodeScaledValue(new BigDecimal("999999999999.123"), 3)));
-        assertEquals(
-                fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("dec_short", DecimalType.createDecimalType(5, 1), OptionalInt.empty(), "dec_short", DecimalType.createDecimalType(5, 1), REGULAR, Optional.empty())),
-                Optional.of(new BigDecimal("10.1").unscaledValue().longValueExact()));
-        assertEquals(
-                fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("dou", DoubleType.DOUBLE, OptionalInt.empty(), "dou", DoubleType.DOUBLE, REGULAR, Optional.empty())),
-                Optional.of(0.321));
-        assertEquals(
-                fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("fl", REAL, OptionalInt.empty(), "fl", REAL, REGULAR, Optional.empty())),
-                Optional.of((long) floatToIntBits(0.123f)));
-        assertEquals(
-                fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("in", INTEGER, OptionalInt.empty(), "in", INTEGER, REGULAR, Optional.empty())),
-                Optional.of(20000000L));
-        assertEquals(
-                fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("l", BIGINT, OptionalInt.empty(), "l", BIGINT, REGULAR, Optional.empty())),
-                Optional.of(10000000L));
+        assertThat(fileStatistics.getNumRecords()).isEqualTo(Optional.of(1L));
+        assertThat(fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("byt", TINYINT, OptionalInt.empty(), "byt", TINYINT, REGULAR, Optional.empty()))).isEqualTo(Optional.of(42L));
+        assertThat(fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("dat", DATE, OptionalInt.empty(), "dat", DATE, REGULAR, Optional.empty()))).isEqualTo(Optional.of(LocalDate.parse("5000-01-01").toEpochDay()));
+        assertThat(fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("dec_long", DecimalType.createDecimalType(25, 3), OptionalInt.empty(), "dec_long", DecimalType.createDecimalType(25, 3), REGULAR, Optional.empty()))).isEqualTo(Optional.of(encodeScaledValue(new BigDecimal("999999999999.123"), 3)));
+        assertThat(fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("dec_short", DecimalType.createDecimalType(5, 1), OptionalInt.empty(), "dec_short", DecimalType.createDecimalType(5, 1), REGULAR, Optional.empty()))).isEqualTo(Optional.of(new BigDecimal("10.1").unscaledValue().longValueExact()));
+        assertThat(fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("dou", DoubleType.DOUBLE, OptionalInt.empty(), "dou", DoubleType.DOUBLE, REGULAR, Optional.empty()))).isEqualTo(Optional.of(0.321));
+        assertThat(fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("fl", REAL, OptionalInt.empty(), "fl", REAL, REGULAR, Optional.empty()))).isEqualTo(Optional.of((long) floatToIntBits(0.123f)));
+        assertThat(fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("in", INTEGER, OptionalInt.empty(), "in", INTEGER, REGULAR, Optional.empty()))).isEqualTo(Optional.of(20000000L));
+        assertThat(fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("l", BIGINT, OptionalInt.empty(), "l", BIGINT, REGULAR, Optional.empty()))).isEqualTo(Optional.of(10000000L));
         Type rowType = RowType.rowType(RowType.field("s1", INTEGER), RowType.field("s3", VarcharType.createUnboundedVarcharType()));
-        assertEquals(
-                fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("row", rowType, OptionalInt.empty(), "row", rowType, REGULAR, Optional.empty())),
-                Optional.empty());
-        assertEquals(
-                fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("arr", new ArrayType(INTEGER), OptionalInt.empty(), "arr", new ArrayType(INTEGER), REGULAR, Optional.empty())),
-                Optional.empty());
-        assertEquals(
-                fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("m", new MapType(INTEGER, VarcharType.createUnboundedVarcharType(), new TypeOperators()), OptionalInt.empty(), "m", new MapType(INTEGER, VarcharType.createUnboundedVarcharType(), new TypeOperators()), REGULAR, Optional.empty())),
-                Optional.empty());
-        assertEquals(
-                fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("sh", SMALLINT, OptionalInt.empty(), "sh", SMALLINT, REGULAR, Optional.empty())),
-                Optional.of(123L));
-        assertEquals(
-                fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("str", VarcharType.createUnboundedVarcharType(), OptionalInt.empty(), "str", VarcharType.createUnboundedVarcharType(), REGULAR, Optional.empty())),
-                Optional.of(utf8Slice("a")));
-        assertEquals(
-                fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("ts", TIMESTAMP_TZ_MILLIS, OptionalInt.empty(), "ts", TIMESTAMP_TZ_MILLIS, REGULAR, Optional.empty())),
-                Optional.of(packDateTimeWithZone(LocalDateTime.parse("2960-10-31T01:00:00.000").toInstant(UTC).toEpochMilli(), UTC_KEY)));
-        assertEquals(
-                fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("bool", BOOLEAN, OptionalInt.empty(), "bool", BOOLEAN, REGULAR, Optional.empty())),
-                Optional.empty());
-        assertEquals(
-                fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("bin", VARBINARY, OptionalInt.empty(), "bin", VARBINARY, REGULAR, Optional.empty())),
-                Optional.empty());
+        assertThat(fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("row", rowType, OptionalInt.empty(), "row", rowType, REGULAR, Optional.empty()))).isEqualTo(Optional.empty());
+        assertThat(fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("arr", new ArrayType(INTEGER), OptionalInt.empty(), "arr", new ArrayType(INTEGER), REGULAR, Optional.empty()))).isEqualTo(Optional.empty());
+        assertThat(fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("m", new MapType(INTEGER, VarcharType.createUnboundedVarcharType(), new TypeOperators()), OptionalInt.empty(), "m", new MapType(INTEGER, VarcharType.createUnboundedVarcharType(), new TypeOperators()), REGULAR, Optional.empty()))).isEqualTo(Optional.empty());
+        assertThat(fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("sh", SMALLINT, OptionalInt.empty(), "sh", SMALLINT, REGULAR, Optional.empty()))).isEqualTo(Optional.of(123L));
+        assertThat(fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("str", VarcharType.createUnboundedVarcharType(), OptionalInt.empty(), "str", VarcharType.createUnboundedVarcharType(), REGULAR, Optional.empty()))).isEqualTo(Optional.of(utf8Slice("a")));
+        assertThat(fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("ts", TIMESTAMP_TZ_MILLIS, OptionalInt.empty(), "ts", TIMESTAMP_TZ_MILLIS, REGULAR, Optional.empty()))).isEqualTo(Optional.of(packDateTimeWithZone(LocalDateTime.parse("2960-10-31T01:00:00.000").toInstant(UTC).toEpochMilli(), UTC_KEY)));
+        assertThat(fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("bool", BOOLEAN, OptionalInt.empty(), "bool", BOOLEAN, REGULAR, Optional.empty()))).isEqualTo(Optional.empty());
+        assertThat(fileStatistics.getMinColumnValue(new DeltaLakeColumnHandle("bin", VARBINARY, OptionalInt.empty(), "bin", VARBINARY, REGULAR, Optional.empty()))).isEqualTo(Optional.empty());
     }
 }

@@ -14,12 +14,12 @@
 package io.trino.plugin.pinot;
 
 import io.airlift.testing.EquivalenceTester;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.pinot.MetadataUtil.COLUMN_CODEC;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPinotColumnHandle
 {
@@ -30,7 +30,7 @@ public class TestPinotColumnHandle
     {
         String json = COLUMN_CODEC.toJson(columnHandle);
         PinotColumnHandle copy = COLUMN_CODEC.fromJson(json);
-        assertEquals(copy, columnHandle);
+        assertThat(copy).isEqualTo(columnHandle);
     }
 
     @Test

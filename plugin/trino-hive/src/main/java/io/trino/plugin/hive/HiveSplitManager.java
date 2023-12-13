@@ -24,7 +24,6 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.stats.CounterStat;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.TrinoFileSystemFactory;
-import io.trino.hdfs.HdfsNamenodeStats;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore;
@@ -105,7 +104,6 @@ public class HiveSplitManager
     private final HiveTransactionManager transactionManager;
     private final HivePartitionManager partitionManager;
     private final TrinoFileSystemFactory fileSystemFactory;
-    private final HdfsNamenodeStats hdfsNamenodeStats;
     private final Executor executor;
     private final int maxOutstandingSplits;
     private final DataSize maxOutstandingSplitsSize;
@@ -125,7 +123,6 @@ public class HiveSplitManager
             HiveTransactionManager transactionManager,
             HivePartitionManager partitionManager,
             TrinoFileSystemFactory fileSystemFactory,
-            HdfsNamenodeStats hdfsNamenodeStats,
             ExecutorService executorService,
             VersionEmbedder versionEmbedder,
             TypeManager typeManager)
@@ -134,7 +131,6 @@ public class HiveSplitManager
                 transactionManager,
                 partitionManager,
                 fileSystemFactory,
-                hdfsNamenodeStats,
                 versionEmbedder.embedVersion(new BoundedExecutor(executorService, hiveConfig.getMaxSplitIteratorThreads())),
                 new CounterStat(),
                 hiveConfig.getMaxOutstandingSplits(),
@@ -153,7 +149,6 @@ public class HiveSplitManager
             HiveTransactionManager transactionManager,
             HivePartitionManager partitionManager,
             TrinoFileSystemFactory fileSystemFactory,
-            HdfsNamenodeStats hdfsNamenodeStats,
             Executor executor,
             CounterStat highMemorySplitSourceCounter,
             int maxOutstandingSplits,
@@ -170,7 +165,6 @@ public class HiveSplitManager
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         this.partitionManager = requireNonNull(partitionManager, "partitionManager is null");
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
-        this.hdfsNamenodeStats = requireNonNull(hdfsNamenodeStats, "hdfsNamenodeStats is null");
         this.executor = new ErrorCodedExecutor(executor);
         this.highMemorySplitSourceCounter = requireNonNull(highMemorySplitSourceCounter, "highMemorySplitSourceCounter is null");
         checkArgument(maxOutstandingSplits >= 1, "maxOutstandingSplits must be at least 1");
@@ -261,7 +255,6 @@ public class HiveSplitManager
                 createBucketSplitInfo(bucketHandle, bucketFilter),
                 session,
                 fileSystemFactory,
-                hdfsNamenodeStats,
                 transactionalMetadata.getDirectoryLister(),
                 executor,
                 splitLoaderConcurrency,

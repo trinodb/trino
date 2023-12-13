@@ -43,6 +43,7 @@ import static io.trino.plugin.hive.HiveTestUtils.SOCKS_PROXY;
 import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThriftHiveMetastoreBuilder;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
+import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static org.apache.hudi.common.model.HoodieTableType.COPY_ON_WRITE;
 
@@ -87,10 +88,13 @@ public final class S3HudiQueryRunner
                 "hudi",
                 "hudi",
                 ImmutableMap.<String, String>builder()
-                        .put("hive.s3.aws-access-key", MINIO_ACCESS_KEY)
-                        .put("hive.s3.aws-secret-key", MINIO_SECRET_KEY)
-                        .put("hive.s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
-                        .put("hive.s3.path-style-access", "true")
+                        .put("fs.hadoop.enabled", "false")
+                        .put("fs.native-s3.enabled", "true")
+                        .put("s3.aws-access-key", MINIO_ACCESS_KEY)
+                        .put("s3.aws-secret-key", MINIO_SECRET_KEY)
+                        .put("s3.region", MINIO_REGION)
+                        .put("s3.endpoint", hiveMinioDataLake.getMinio().getMinioAddress())
+                        .put("s3.path-style-access", "true")
                         .putAll(connectorProperties)
                         .buildOrThrow());
 

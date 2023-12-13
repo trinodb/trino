@@ -213,7 +213,7 @@ public class BloomFilter
     // http://web.archive.org/web/20071223173210/http://www.concentric.net/~Ttwang/tech/inthash.htm
     private static long getLongHash(long key)
     {
-        key = (~key) + (key << 21); // key = (key << 21) - key - 1;
+        key = ~key + (key << 21); // key = (key << 21) - key - 1;
         key ^= (key >> 24);
         key = (key + (key << 3)) + (key << 8); // key * 265
         key ^= (key >> 14);

@@ -16,7 +16,7 @@ package io.trino.plugin.resourcegroups.db;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import jakarta.validation.constraints.AssertTrue;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
@@ -27,7 +27,7 @@ import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static java.util.concurrent.TimeUnit.HOURS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDbResourceGroupConfig
 {
@@ -63,7 +63,7 @@ public class TestDbResourceGroupConfig
                 .setExactMatchSelectorEnabled(true);
 
         assertFullMapping(properties, expected);
-        assertTrue(expected.isRefreshIntervalValid());
+        assertThat(expected.isRefreshIntervalValid()).isTrue();
     }
 
     @Test

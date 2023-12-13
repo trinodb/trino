@@ -32,10 +32,13 @@ import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.testing.DataProviders;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -65,18 +68,19 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
+import static org.assertj.core.api.Fail.fail;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestJdbcConnection
 {
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getName()));
 
     private TestingTrinoServer server;
 
-    @BeforeClass
+    @BeforeAll
     public void setupServer()
             throws Exception
     {
@@ -109,7 +113,7 @@ public class TestJdbcConnection
         }
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
             throws Exception
     {
@@ -124,11 +128,11 @@ public class TestJdbcConnection
             throws SQLException
     {
         try (Connection connection = createConnection()) {
-            assertTrue(connection.getAutoCommit());
+            assertThat(connection.getAutoCommit()).isTrue();
             connection.setAutoCommit(false);
-            assertFalse(connection.getAutoCommit());
+            assertThat(connection.getAutoCommit()).isFalse();
             connection.setAutoCommit(true);
-            assertTrue(connection.getAutoCommit());
+            assertThat(connection.getAutoCommit()).isTrue();
         }
     }
 
@@ -353,8 +357,8 @@ public class TestJdbcConnection
                     .put("colon", "-::-")
                     .buildOrThrow();
             TrinoConnection trinoConnection = connection.unwrap(TrinoConnection.class);
-            assertEquals(trinoConnection.getExtraCredentials(), expectedCredentials);
-            assertEquals(listExtraCredentials(connection), expectedCredentials);
+            assertThat(trinoConnection.getExtraCredentials()).isEqualTo(expectedCredentials);
+            assertThat(listExtraCredentials(connection)).isEqualTo(expectedCredentials);
         }
     }
 
@@ -363,7 +367,7 @@ public class TestJdbcConnection
             throws SQLException
     {
         try (Connection connection = createConnection("clientInfo=hello%20world")) {
-            assertEquals(connection.getClientInfo("ClientInfo"), "hello world");
+            assertThat(connection.getClientInfo("ClientInfo")).isEqualTo("hello world");
         }
     }
 
@@ -372,7 +376,7 @@ public class TestJdbcConnection
             throws SQLException
     {
         try (Connection connection = createConnection("clientTags=c2,c3")) {
-            assertEquals(connection.getClientInfo("ClientTags"), "c2,c3");
+            assertThat(connection.getClientInfo("ClientTags")).isEqualTo("c2,c3");
         }
     }
 
@@ -381,7 +385,7 @@ public class TestJdbcConnection
             throws SQLException
     {
         try (Connection connection = createConnection("traceToken=trace%20me")) {
-            assertEquals(connection.getClientInfo("TraceToken"), "trace me");
+            assertThat(connection.getClientInfo("TraceToken")).isEqualTo("trace me");
         }
     }
 
@@ -411,8 +415,8 @@ public class TestJdbcConnection
     {
         try (Connection connection = createConnection("roles=hive:" + roleParameterValue)) {
             TrinoConnection trinoConnection = connection.unwrap(TrinoConnection.class);
-            assertEquals(trinoConnection.getRoles(), ImmutableMap.of("hive", clientSelectedRole));
-            assertEquals(listCurrentRoles(connection), currentRoles);
+            assertThat(trinoConnection.getRoles()).isEqualTo(ImmutableMap.of("hive", clientSelectedRole));
+            assertThat(listCurrentRoles(connection)).isEqualTo(currentRoles);
         }
     }
 
@@ -451,8 +455,17 @@ public class TestJdbcConnection
      * @see TestJdbcStatement#testConcurrentCancellationOnStatementClose()
      */
     // TODO https://github.com/trinodb/trino/issues/10096 - enable test once concurrent jdbc statements are supported
-    @Test(timeOut = 60_000, dataProviderClass = DataProviders.class, dataProvider = "trueFalse", enabled = false)
-    public void testConcurrentCancellationOnConnectionClose(boolean autoCommit)
+    @Test
+    @Timeout(60)
+    @Disabled
+    public void testConcurrentCancellationOnConnectionClose()
+            throws Exception
+    {
+        testConcurrentCancellationOnConnectionClose(true);
+        testConcurrentCancellationOnConnectionClose(false);
+    }
+
+    private void testConcurrentCancellationOnConnectionClose(boolean autoCommit)
             throws Exception
     {
         String sql = "SELECT * FROM blackhole.default.delay -- test cancellation " + randomUUID();
@@ -610,9 +623,9 @@ public class TestJdbcConnection
                 "SELECT source FROM system.runtime.queries WHERE query_id = ?")) {
             statement.setString(1, queryId);
             try (ResultSet rs = statement.executeQuery()) {
-                assertTrue(rs.next());
+                assertThat(rs.next()).isTrue();
                 assertThat(rs.getString("source")).isEqualTo(expectedSource);
-                assertFalse(rs.next());
+                assertThat(rs.next()).isFalse();
             }
         }
     }

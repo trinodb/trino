@@ -16,32 +16,27 @@ package io.trino.sql.query;
 import io.trino.spi.TrinoException;
 import io.trino.sql.parser.ParsingException;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.StandardErrorCode.EXCEEDED_FUNCTION_MEMORY_LIMIT;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
 @TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestListagg
 {
-    private QueryAssertions assertions;
-
-    @BeforeAll
-    public void init()
-    {
-        assertions = new QueryAssertions();
-    }
+    private final QueryAssertions assertions = new QueryAssertions();
 
     @AfterAll
     public void teardown()
     {
         assertions.close();
-        assertions = null;
     }
 
     @Test
@@ -395,5 +390,18 @@ public class TestListagg
                 .matches("VALUES " +
                         "   (1, VARCHAR '" + largeValue + ",everything,.....(2)')," +
                         "   (2, VARCHAR 'listagg,string joiner')");
+    }
+
+    @Test
+    void testFilter()
+    {
+        assertThat(assertions.query(
+                """
+                SELECT listagg(value, ',') WITHIN GROUP (ORDER BY id) FILTER (WHERE id % 2 = 0)
+                FROM (
+                     VALUES (1, 'a'), (2, 'b'), (3, 'c'), (4, 'd')
+                ) t(id, value)
+                 """))
+                .matches("VALUES VARCHAR 'b,d'");
     }
 }

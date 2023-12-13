@@ -57,7 +57,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalInt;
-import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -299,7 +298,7 @@ public class HiveWriterFactory
         }
 
         UpdateMode updateMode;
-        Properties schema;
+        Map<String, String> schema = new HashMap<>();
         WriteInfo writeInfo;
         StorageFormat outputStorageFormat;
         HiveCompressionCodec compressionCodec;
@@ -308,11 +307,10 @@ public class HiveWriterFactory
                 // Write to: a new partition in a new partitioned table,
                 //           or a new unpartitioned table.
                 updateMode = UpdateMode.NEW;
-                schema = new Properties();
-                schema.setProperty(LIST_COLUMNS, dataColumns.stream()
+                schema.put(LIST_COLUMNS, dataColumns.stream()
                         .map(DataColumn::getName)
                         .collect(joining(",")));
-                schema.setProperty(LIST_COLUMN_TYPES, dataColumns.stream()
+                schema.put(LIST_COLUMN_TYPES, dataColumns.stream()
                         .map(DataColumn::getHiveType)
                         .map(HiveType::getHiveTypeName)
                         .map(HiveTypeName::toString)
@@ -371,7 +369,7 @@ public class HiveWriterFactory
                     }
                 }
 
-                schema = getHiveSchema(table);
+                schema.putAll(getHiveSchema(table));
             }
 
             if (partitionName.isPresent()) {
@@ -417,7 +415,7 @@ public class HiveWriterFactory
 
                     outputStorageFormat = partition.get().getStorage().getStorageFormat();
                     compressionCodec = selectCompressionCodec(session, outputStorageFormat);
-                    schema = getHiveSchema(partition.get(), table);
+                    schema.putAll(getHiveSchema(partition.get(), table));
 
                     writeInfo = locationService.getPartitionWriteInfo(locationHandle, partition, partitionName.get());
                     break;
@@ -431,7 +429,7 @@ public class HiveWriterFactory
 
                     outputStorageFormat = fromHiveStorageFormat(partitionStorageFormat);
                     compressionCodec = selectCompressionCodec(session, partitionStorageFormat);
-                    schema = getHiveSchema(table);
+                    schema.putAll(getHiveSchema(table));
 
                     writeInfo = locationService.getPartitionWriteInfo(locationHandle, Optional.empty(), partitionName.get());
                     break;
@@ -442,7 +440,7 @@ public class HiveWriterFactory
             }
         }
 
-        additionalTableParameters.forEach(schema::setProperty);
+        schema.putAll(additionalTableParameters);
 
         validateSchema(partitionName, schema);
 
@@ -623,7 +621,7 @@ public class HiveWriterFactory
                 OrcFileWriterFactory::createOrcDataSink);
     }
 
-    private void validateSchema(Optional<String> partitionName, Properties schema)
+    private void validateSchema(Optional<String> partitionName, Map<String, String> schema)
     {
         // existing tables may have columns in a different order
         List<String> fileColumnNames = getColumnNames(schema);

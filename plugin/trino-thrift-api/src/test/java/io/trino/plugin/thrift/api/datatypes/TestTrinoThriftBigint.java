@@ -16,7 +16,7 @@ package io.trino.plugin.thrift.api.datatypes;
 import io.trino.plugin.thrift.api.TrinoThriftBlock;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.List;
@@ -27,11 +27,8 @@ import static io.trino.plugin.thrift.api.datatypes.TrinoThriftBigint.fromBlock;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.util.Collections.unmodifiableList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
 
 public class TestTrinoThriftBigint
 {
@@ -108,11 +105,9 @@ public class TestTrinoThriftBigint
     {
         Block source = longBlock(1, null, 2, null, 3, null, 4, null, 5, null, 6, null, 7, null);
         TrinoThriftBlock column = fromBlock(source);
-        assertNotNull(column.getBigintData());
-        assertEquals(column.getBigintData().getNulls(),
-                new boolean[] {false, true, false, true, false, true, false, true, false, true, false, true, false, true});
-        assertEquals(column.getBigintData().getLongs(),
-                new long[] {1, 0, 2, 0, 3, 0, 4, 0, 5, 0, 6, 0, 7, 0});
+        assertThat(column.getBigintData()).isNotNull();
+        assertThat(column.getBigintData().getNulls()).isEqualTo(new boolean[] {false, true, false, true, false, true, false, true, false, true, false, true, false, true});
+        assertThat(column.getBigintData().getLongs()).isEqualTo(new long[] {1, 0, 2, 0, 3, 0, 4, 0, 5, 0, 6, 0, 7, 0});
     }
 
     @Test
@@ -120,9 +115,9 @@ public class TestTrinoThriftBigint
     {
         Block source = longBlock(null, null, null, null, null);
         TrinoThriftBlock column = fromBlock(source);
-        assertNotNull(column.getBigintData());
-        assertEquals(column.getBigintData().getNulls(), new boolean[] {true, true, true, true, true});
-        assertNull(column.getBigintData().getLongs());
+        assertThat(column.getBigintData()).isNotNull();
+        assertThat(column.getBigintData().getNulls()).isEqualTo(new boolean[] {true, true, true, true, true});
+        assertThat(column.getBigintData().getLongs()).isNull();
     }
 
     @Test
@@ -130,38 +125,38 @@ public class TestTrinoThriftBigint
     {
         Block source = longBlock(1, 2, 3, 4, 5);
         TrinoThriftBlock column = fromBlock(source);
-        assertNotNull(column.getBigintData());
-        assertNull(column.getBigintData().getNulls());
-        assertEquals(column.getBigintData().getLongs(), new long[] {1, 2, 3, 4, 5});
+        assertThat(column.getBigintData()).isNotNull();
+        assertThat(column.getBigintData().getNulls()).isNull();
+        assertThat(column.getBigintData().getLongs()).isEqualTo(new long[] {1, 2, 3, 4, 5});
     }
 
     @Test
     public void testWriteBlockEmpty()
     {
         TrinoThriftBlock column = fromBlock(longBlock());
-        assertNotNull(column.getBigintData());
-        assertNull(column.getBigintData().getNulls());
-        assertNull(column.getBigintData().getLongs());
+        assertThat(column.getBigintData()).isNotNull();
+        assertThat(column.getBigintData().getNulls()).isNull();
+        assertThat(column.getBigintData().getLongs()).isNull();
     }
 
     @Test
     public void testWriteBlockSingleValue()
     {
         TrinoThriftBlock column = fromBlock(longBlock(1));
-        assertNotNull(column.getBigintData());
-        assertNull(column.getBigintData().getNulls());
-        assertEquals(column.getBigintData().getLongs(), new long[] {1});
+        assertThat(column.getBigintData()).isNotNull();
+        assertThat(column.getBigintData().getNulls()).isNull();
+        assertThat(column.getBigintData().getLongs()).isEqualTo(new long[] {1});
     }
 
     private void assertBlockEquals(Block block, List<Long> expected)
     {
-        assertEquals(block.getPositionCount(), expected.size());
+        assertThat(block.getPositionCount()).isEqualTo(expected.size());
         for (int i = 0; i < expected.size(); i++) {
             if (expected.get(i) == null) {
-                assertTrue(block.isNull(i));
+                assertThat(block.isNull(i)).isTrue();
             }
             else {
-                assertEquals(block.getLong(i, 0), expected.get(i).longValue());
+                assertThat(block.getLong(i, 0)).isEqualTo(expected.get(i).longValue());
             }
         }
     }

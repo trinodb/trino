@@ -63,7 +63,7 @@ import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static io.trino.util.StructuralTestUtil.mapType;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
@@ -248,16 +248,16 @@ public class BenchmarkUnnestOperator
     public void testBlocks()
     {
         Block block = produceBlock(new ArrayType(VARCHAR), 100, 0.1f, 50);
-        assertEquals(block.getPositionCount(), 100);
+        assertThat(block.getPositionCount()).isEqualTo(100);
 
         block = produceBlock(mapType(VARCHAR, INTEGER), 100, 0.1f, 50);
-        assertEquals(block.getPositionCount(), 100);
+        assertThat(block.getPositionCount()).isEqualTo(100);
 
         block = produceBlock(RowType.anonymous(Arrays.asList(VARCHAR, VARCHAR)), 100, 0.1f, 50);
-        assertEquals(block.getPositionCount(), 100);
+        assertThat(block.getPositionCount()).isEqualTo(100);
 
         block = produceBlock(new ArrayType(RowType.anonymous(Arrays.asList(VARCHAR, VARCHAR, VARCHAR))), 100, 0.1f, 50);
-        assertEquals(block.getPositionCount(), 100);
+        assertThat(block.getPositionCount()).isEqualTo(100);
     }
 
     public static void main(String[] args)

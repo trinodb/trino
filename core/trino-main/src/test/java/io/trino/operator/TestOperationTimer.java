@@ -25,7 +25,6 @@ import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterrup
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestOperationTimer
 {
@@ -132,17 +131,17 @@ public class TestOperationTimer
         {
             previousWallNanos = timing.getWallNanos();
             previousCpuNanos = timing.getCpuNanos();
-            assertEquals(timing.getCalls(), calls);
+            assertThat(timing.getCalls()).isEqualTo(calls);
             timer.accept(timing);
             calls++;
-            assertEquals(timing.getCalls(), calls);
+            assertThat(timing.getCalls()).isEqualTo(calls);
             assertThat(timing.getWallNanos()).isGreaterThan(previousWallNanos);
             if (trackCpuTime) {
                 assertThat(timing.getCpuNanos()).isGreaterThan(previousCpuNanos);
                 assertThat(timing.getWallNanos()).isGreaterThan(timing.getCpuNanos());
             }
             else {
-                assertEquals(timing.getCpuNanos(), 0);
+                assertThat(timing.getCpuNanos()).isEqualTo(0);
             }
         }
     }

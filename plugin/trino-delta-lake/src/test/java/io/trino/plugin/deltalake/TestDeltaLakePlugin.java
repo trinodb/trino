@@ -34,7 +34,12 @@ public class TestDeltaLakePlugin
     public void testCreateConnector()
     {
         ConnectorFactory factory = getConnectorFactory();
-        factory.create("test", ImmutableMap.of("hive.metastore.uri", "thrift://foo:1234"), new TestingConnectorContext())
+        factory.create(
+                "test",
+                        ImmutableMap.of(
+                                "hive.metastore.uri", "thrift://foo:1234",
+                                "bootstrap.quiet", "true"),
+                        new TestingConnectorContext())
                 .shutdown();
     }
 
@@ -43,7 +48,12 @@ public class TestDeltaLakePlugin
     {
         Plugin plugin = new TestingDeltaLakePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        factory.create("test", ImmutableMap.of("hive.metastore.uri", "thrift://foo:1234"), new TestingConnectorContext())
+        factory.create(
+                "test",
+                        ImmutableMap.of(
+                                "hive.metastore.uri", "thrift://foo:1234",
+                                "bootstrap.quiet", "true"),
+                        new TestingConnectorContext())
                 .shutdown();
     }
 
@@ -55,7 +65,8 @@ public class TestDeltaLakePlugin
                         "test",
                         ImmutableMap.of(
                                 "hive.metastore", "file",
-                                "hive.metastore.catalog.dir", "/tmp"),
+                                "hive.metastore.catalog.dir", "/tmp",
+                                "bootstrap.quiet", "true"),
                         new TestingConnectorContext())
                 .shutdown();
     }
@@ -68,7 +79,8 @@ public class TestDeltaLakePlugin
                         "test",
                         ImmutableMap.of(
                                 "hive.metastore", "thrift",
-                                "hive.metastore.uri", "thrift://foo:1234"),
+                                "hive.metastore.uri", "thrift://foo:1234",
+                                "bootstrap.quiet", "true"),
                         new TestingConnectorContext())
                 .shutdown();
 
@@ -77,7 +89,8 @@ public class TestDeltaLakePlugin
                 ImmutableMap.of(
                         "hive.metastore", "thrift",
                         "hive.metastore.uri", "thrift://foo:1234",
-                        "delta.hide-non-delta-lake-tables", "true"),
+                        "delta.hide-non-delta-lake-tables", "true",
+                        "bootstrap.quiet", "true"),
                 new TestingConnectorContext()))
                 .isInstanceOf(ApplicationConfigurationException.class)
                 // TODO support delta.hide-non-delta-lake-tables with thrift metastore
@@ -92,7 +105,8 @@ public class TestDeltaLakePlugin
                         "test",
                         ImmutableMap.of(
                                 "hive.metastore", "glue",
-                                "hive.metastore.glue.region", "us-east-2"),
+                                "hive.metastore.glue.region", "us-east-2",
+                                "bootstrap.quiet", "true"),
                         new TestingConnectorContext())
                 .shutdown();
 
@@ -100,7 +114,8 @@ public class TestDeltaLakePlugin
                 "test",
                 ImmutableMap.of(
                         "hive.metastore", "glue",
-                        "hive.metastore.uri", "thrift://foo:1234"),
+                        "hive.metastore.uri", "thrift://foo:1234",
+                        "bootstrap.quiet", "true"),
                 new TestingConnectorContext()))
                 .isInstanceOf(ApplicationConfigurationException.class)
                 .hasMessageContaining("Error: Configuration property 'hive.metastore.uri' was not used");
@@ -113,7 +128,8 @@ public class TestDeltaLakePlugin
         factory.create("test",
                         ImmutableMap.of(
                                 "hive.metastore.uri", "thrift://foo:1234",
-                                "delta.metadata.cache-ttl", "0s"),
+                                "delta.metadata.cache-ttl", "0s",
+                                "bootstrap.quiet", "true"),
                         new TestingConnectorContext())
                 .shutdown();
     }
@@ -125,7 +141,8 @@ public class TestDeltaLakePlugin
         factory.create("test",
                         ImmutableMap.of(
                                 "hive.metastore.uri", "thrift://foo:1234",
-                                "delta.metadata.live-files.cache-ttl", "0s"),
+                                "delta.metadata.live-files.cache-ttl", "0s",
+                                "bootstrap.quiet", "true"),
                         new TestingConnectorContext())
                 .shutdown();
     }
@@ -138,7 +155,8 @@ public class TestDeltaLakePlugin
                 ImmutableMap.of(
                         "hive.metastore.uri", "thrift://foo:1234",
                         // Try setting any property provided by HiveConfig class
-                        HiveConfig.CONFIGURATION_HIVE_PARTITION_PROJECTION_ENABLED, "true"),
+                        HiveConfig.CONFIGURATION_HIVE_PARTITION_PROJECTION_ENABLED, "true",
+                        "bootstrap.quiet", "true"),
                 new TestingConnectorContext()))
                 .hasMessageContaining("Error: Configuration property 'hive.partition-projection-enabled' was not used");
     }
@@ -152,6 +170,7 @@ public class TestDeltaLakePlugin
                         ImmutableMap.<String, String>builder()
                                 .put("hive.metastore.uri", "thrift://foo:1234")
                                 .put("delta.security", "read-only")
+                                .put("bootstrap.quiet", "true")
                                 .buildOrThrow(),
                         new TestingConnectorContext())
                 .shutdown();
@@ -166,6 +185,7 @@ public class TestDeltaLakePlugin
                 ImmutableMap.<String, String>builder()
                         .put("hive.metastore.uri", "thrift://foo:1234")
                         .put("delta.security", "system")
+                        .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
                 new TestingConnectorContext());
         assertThatThrownBy(connector::getAccessControl).isInstanceOf(UnsupportedOperationException.class);
@@ -187,6 +207,7 @@ public class TestDeltaLakePlugin
                                 .put("hive.metastore.uri", "thrift://foo:1234")
                                 .put("delta.security", "file")
                                 .put("security.config-file", tempFile.getAbsolutePath())
+                                .put("bootstrap.quiet", "true")
                                 .buildOrThrow(),
                         new TestingConnectorContext())
                 .shutdown();

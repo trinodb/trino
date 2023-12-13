@@ -14,7 +14,7 @@
 package io.trino.parquet.reader.flat;
 
 import io.trino.parquet.reader.flat.BenchmarkFlatDefinitionLevelDecoder.DataGenerator;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 

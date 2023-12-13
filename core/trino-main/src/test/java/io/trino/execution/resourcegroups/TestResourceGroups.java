@@ -53,8 +53,6 @@ import static io.trino.spi.resourcegroups.SchedulingPolicy.WEIGHTED;
 import static io.trino.spi.resourcegroups.SchedulingPolicy.WEIGHTED_FAIR;
 import static java.util.Collections.reverse;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestResourceGroups
 {
@@ -68,14 +66,14 @@ public class TestResourceGroups
         root.setHardConcurrencyLimit(1);
         MockManagedQueryExecution query1 = new MockManagedQueryExecutionBuilder().build();
         root.run(query1);
-        assertEquals(query1.getState(), RUNNING);
+        assertThat(query1.getState()).isEqualTo(RUNNING);
         MockManagedQueryExecution query2 = new MockManagedQueryExecutionBuilder().build();
         root.run(query2);
-        assertEquals(query2.getState(), QUEUED);
+        assertThat(query2.getState()).isEqualTo(QUEUED);
         MockManagedQueryExecution query3 = new MockManagedQueryExecutionBuilder().build();
         root.run(query3);
-        assertEquals(query3.getState(), FAILED);
-        assertEquals(query3.getThrowable().getMessage(), "Too many queued queries for \"root\"");
+        assertThat(query3.getState()).isEqualTo(FAILED);
+        assertThat(query3.getThrowable().getMessage()).isEqualTo("Too many queued queries for \"root\"");
     }
 
     @Test
@@ -100,35 +98,35 @@ public class TestResourceGroups
         group3.setHardConcurrencyLimit(1);
         MockManagedQueryExecution query1a = new MockManagedQueryExecutionBuilder().build();
         group1.run(query1a);
-        assertEquals(query1a.getState(), RUNNING);
+        assertThat(query1a.getState()).isEqualTo(RUNNING);
         MockManagedQueryExecution query1b = new MockManagedQueryExecutionBuilder().build();
         group1.run(query1b);
-        assertEquals(query1b.getState(), QUEUED);
+        assertThat(query1b.getState()).isEqualTo(QUEUED);
         MockManagedQueryExecution query2a = new MockManagedQueryExecutionBuilder().build();
         group2.run(query2a);
-        assertEquals(query2a.getState(), QUEUED);
+        assertThat(query2a.getState()).isEqualTo(QUEUED);
         MockManagedQueryExecution query2b = new MockManagedQueryExecutionBuilder().build();
         group2.run(query2b);
-        assertEquals(query2b.getState(), QUEUED);
+        assertThat(query2b.getState()).isEqualTo(QUEUED);
         MockManagedQueryExecution query3a = new MockManagedQueryExecutionBuilder().build();
         group3.run(query3a);
-        assertEquals(query3a.getState(), QUEUED);
+        assertThat(query3a.getState()).isEqualTo(QUEUED);
 
         query1a.complete();
         // 2a and not 1b should have started, as group1 was not eligible to start a second query
-        assertEquals(query1b.getState(), QUEUED);
-        assertEquals(query2a.getState(), RUNNING);
-        assertEquals(query2b.getState(), QUEUED);
-        assertEquals(query3a.getState(), QUEUED);
+        assertThat(query1b.getState()).isEqualTo(QUEUED);
+        assertThat(query2a.getState()).isEqualTo(RUNNING);
+        assertThat(query2b.getState()).isEqualTo(QUEUED);
+        assertThat(query3a.getState()).isEqualTo(QUEUED);
 
         query2a.complete();
-        assertEquals(query3a.getState(), RUNNING);
-        assertEquals(query2b.getState(), QUEUED);
-        assertEquals(query1b.getState(), QUEUED);
+        assertThat(query3a.getState()).isEqualTo(RUNNING);
+        assertThat(query2b.getState()).isEqualTo(QUEUED);
+        assertThat(query1b.getState()).isEqualTo(QUEUED);
 
         query3a.complete();
-        assertEquals(query1b.getState(), RUNNING);
-        assertEquals(query2b.getState(), QUEUED);
+        assertThat(query1b.getState()).isEqualTo(RUNNING);
+        assertThat(query2b.getState()).isEqualTo(QUEUED);
     }
 
     @Test
@@ -148,29 +146,29 @@ public class TestResourceGroups
         group2.setHardConcurrencyLimit(2);
         MockManagedQueryExecution query1a = new MockManagedQueryExecutionBuilder().build();
         group1.run(query1a);
-        assertEquals(query1a.getState(), RUNNING);
+        assertThat(query1a.getState()).isEqualTo(RUNNING);
         MockManagedQueryExecution query1b = new MockManagedQueryExecutionBuilder().build();
         group1.run(query1b);
-        assertEquals(query1b.getState(), QUEUED);
+        assertThat(query1b.getState()).isEqualTo(QUEUED);
         MockManagedQueryExecution query1c = new MockManagedQueryExecutionBuilder().build();
         group1.run(query1c);
-        assertEquals(query1c.getState(), QUEUED);
+        assertThat(query1c.getState()).isEqualTo(QUEUED);
         MockManagedQueryExecution query2a = new MockManagedQueryExecutionBuilder().build();
         group2.run(query2a);
-        assertEquals(query2a.getState(), QUEUED);
+        assertThat(query2a.getState()).isEqualTo(QUEUED);
 
-        assertEquals(root.getInfo().getNumEligibleSubGroups(), 2);
-        assertEquals(root.getOrCreateSubGroup("1").getQueuedQueries(), 2);
-        assertEquals(root.getOrCreateSubGroup("2").getQueuedQueries(), 1);
-        assertEquals(root.getSchedulingPolicy(), FAIR);
+        assertThat(root.getInfo().getNumEligibleSubGroups()).isEqualTo(2);
+        assertThat(root.getOrCreateSubGroup("1").getQueuedQueries()).isEqualTo(2);
+        assertThat(root.getOrCreateSubGroup("2").getQueuedQueries()).isEqualTo(1);
+        assertThat(root.getSchedulingPolicy()).isEqualTo(FAIR);
         root.setSchedulingPolicy(QUERY_PRIORITY);
-        assertEquals(root.getInfo().getNumEligibleSubGroups(), 2);
-        assertEquals(root.getOrCreateSubGroup("1").getQueuedQueries(), 2);
-        assertEquals(root.getOrCreateSubGroup("2").getQueuedQueries(), 1);
+        assertThat(root.getInfo().getNumEligibleSubGroups()).isEqualTo(2);
+        assertThat(root.getOrCreateSubGroup("1").getQueuedQueries()).isEqualTo(2);
+        assertThat(root.getOrCreateSubGroup("2").getQueuedQueries()).isEqualTo(1);
 
-        assertEquals(root.getSchedulingPolicy(), QUERY_PRIORITY);
-        assertEquals(root.getOrCreateSubGroup("1").getSchedulingPolicy(), QUERY_PRIORITY);
-        assertEquals(root.getOrCreateSubGroup("2").getSchedulingPolicy(), QUERY_PRIORITY);
+        assertThat(root.getSchedulingPolicy()).isEqualTo(QUERY_PRIORITY);
+        assertThat(root.getOrCreateSubGroup("1").getSchedulingPolicy()).isEqualTo(QUERY_PRIORITY);
+        assertThat(root.getOrCreateSubGroup("2").getSchedulingPolicy()).isEqualTo(QUERY_PRIORITY);
     }
 
     @Test
@@ -191,27 +189,27 @@ public class TestResourceGroups
         group2.setHardConcurrencyLimit(2);
         MockManagedQueryExecution query1a = new MockManagedQueryExecutionBuilder().build();
         group1.run(query1a);
-        assertEquals(query1a.getState(), RUNNING);
+        assertThat(query1a.getState()).isEqualTo(RUNNING);
         MockManagedQueryExecution query1b = new MockManagedQueryExecutionBuilder().build();
         group1.run(query1b);
-        assertEquals(query1b.getState(), QUEUED);
+        assertThat(query1b.getState()).isEqualTo(QUEUED);
         MockManagedQueryExecution query1c = new MockManagedQueryExecutionBuilder().build();
         group1.run(query1c);
-        assertEquals(query1c.getState(), QUEUED);
+        assertThat(query1c.getState()).isEqualTo(QUEUED);
         MockManagedQueryExecution query2a = new MockManagedQueryExecutionBuilder().build();
         group2.run(query2a);
-        assertEquals(query2a.getState(), QUEUED);
+        assertThat(query2a.getState()).isEqualTo(QUEUED);
 
         query1a.complete();
         // 1b and not 2a should have started, as it became queued first and group1 was eligible to run more
-        assertEquals(query1b.getState(), RUNNING);
-        assertEquals(query1c.getState(), QUEUED);
-        assertEquals(query2a.getState(), QUEUED);
+        assertThat(query1b.getState()).isEqualTo(RUNNING);
+        assertThat(query1c.getState()).isEqualTo(QUEUED);
+        assertThat(query2a.getState()).isEqualTo(QUEUED);
 
         // 2a and not 1c should have started, as all eligible sub groups get fair sharing
         query1b.complete();
-        assertEquals(query2a.getState(), RUNNING);
-        assertEquals(query1c.getState(), QUEUED);
+        assertThat(query2a.getState()).isEqualTo(RUNNING);
+        assertThat(query1c.getState()).isEqualTo(QUEUED);
     }
 
     @Test
@@ -226,17 +224,17 @@ public class TestResourceGroups
         root.run(query1);
         // Process the group to refresh stats
         root.updateGroupsAndProcessQueuedQueries();
-        assertEquals(query1.getState(), RUNNING);
+        assertThat(query1.getState()).isEqualTo(RUNNING);
         MockManagedQueryExecution query2 = new MockManagedQueryExecutionBuilder().build();
         root.run(query2);
-        assertEquals(query2.getState(), QUEUED);
+        assertThat(query2.getState()).isEqualTo(QUEUED);
         MockManagedQueryExecution query3 = new MockManagedQueryExecutionBuilder().build();
         root.run(query3);
-        assertEquals(query3.getState(), QUEUED);
+        assertThat(query3.getState()).isEqualTo(QUEUED);
 
         query1.complete();
-        assertEquals(query2.getState(), RUNNING);
-        assertEquals(query3.getState(), RUNNING);
+        assertThat(query2.getState()).isEqualTo(RUNNING);
+        assertThat(query3.getState()).isEqualTo(RUNNING);
     }
 
     @Test
@@ -255,17 +253,17 @@ public class TestResourceGroups
         subgroup.run(query1);
         // Process the group to refresh stats
         root.updateGroupsAndProcessQueuedQueries();
-        assertEquals(query1.getState(), RUNNING);
+        assertThat(query1.getState()).isEqualTo(RUNNING);
         MockManagedQueryExecution query2 = new MockManagedQueryExecutionBuilder().build();
         subgroup.run(query2);
-        assertEquals(query2.getState(), QUEUED);
+        assertThat(query2.getState()).isEqualTo(QUEUED);
         MockManagedQueryExecution query3 = new MockManagedQueryExecutionBuilder().build();
         subgroup.run(query3);
-        assertEquals(query3.getState(), QUEUED);
+        assertThat(query3.getState()).isEqualTo(QUEUED);
 
         query1.complete();
-        assertEquals(query2.getState(), RUNNING);
-        assertEquals(query3.getState(), RUNNING);
+        assertThat(query2.getState()).isEqualTo(RUNNING);
+        assertThat(query3.getState()).isEqualTo(RUNNING);
     }
 
     @Test
@@ -287,24 +285,24 @@ public class TestResourceGroups
                 .build();
 
         root.run(query1);
-        assertEquals(query1.getState(), RUNNING);
+        assertThat(query1.getState()).isEqualTo(RUNNING);
 
         MockManagedQueryExecution query2 = new MockManagedQueryExecutionBuilder().build();
         root.run(query2);
-        assertEquals(query2.getState(), RUNNING);
+        assertThat(query2.getState()).isEqualTo(RUNNING);
 
         MockManagedQueryExecution query3 = new MockManagedQueryExecutionBuilder().build();
         root.run(query3);
-        assertEquals(query3.getState(), QUEUED);
+        assertThat(query3.getState()).isEqualTo(QUEUED);
 
         query1.complete();
-        assertEquals(query2.getState(), RUNNING);
-        assertEquals(query3.getState(), QUEUED);
+        assertThat(query2.getState()).isEqualTo(RUNNING);
+        assertThat(query3.getState()).isEqualTo(QUEUED);
 
         root.generateCpuQuota(2);
         root.updateGroupsAndProcessQueuedQueries();
-        assertEquals(query2.getState(), RUNNING);
-        assertEquals(query3.getState(), RUNNING);
+        assertThat(query2.getState()).isEqualTo(RUNNING);
+        assertThat(query3.getState()).isEqualTo(RUNNING);
     }
 
     @Test
@@ -325,18 +323,18 @@ public class TestResourceGroups
                 .build();
 
         root.run(query1);
-        assertEquals(query1.getState(), RUNNING);
+        assertThat(query1.getState()).isEqualTo(RUNNING);
         MockManagedQueryExecution query2 = new MockManagedQueryExecutionBuilder().build();
         root.run(query2);
-        assertEquals(query2.getState(), QUEUED);
+        assertThat(query2.getState()).isEqualTo(QUEUED);
 
         query1.complete();
         root.updateGroupsAndProcessQueuedQueries();
-        assertEquals(query2.getState(), QUEUED);
+        assertThat(query2.getState()).isEqualTo(QUEUED);
 
         root.generateCpuQuota(2);
         root.updateGroupsAndProcessQueuedQueries();
-        assertEquals(query2.getState(), RUNNING);
+        assertThat(query2.getState()).isEqualTo(RUNNING);
     }
 
     /**
@@ -360,7 +358,7 @@ public class TestResourceGroups
 
         MockManagedQueryExecution q1 = new MockManagedQueryExecutionBuilder().build();
         child.run(q1);
-        assertEquals(q1.getState(), RUNNING);
+        assertThat(q1.getState()).isEqualTo(RUNNING);
         q1.consumeCpuTimeMillis(4);
 
         root.updateGroupsAndProcessQueuedQueries();
@@ -369,7 +367,7 @@ public class TestResourceGroups
         // q2 gets queued, because the cached usage is greater than the limit
         MockManagedQueryExecution q2 = new MockManagedQueryExecutionBuilder().build();
         child.run(q2);
-        assertEquals(q2.getState(), QUEUED);
+        assertThat(q2.getState()).isEqualTo(QUEUED);
 
         // Generating CPU quota before the query finishes. This assertion verifies CPU update during quota generation.
         root.generateCpuQuota(2);
@@ -378,12 +376,12 @@ public class TestResourceGroups
         // An incoming query starts running right away.
         MockManagedQueryExecution q3 = new MockManagedQueryExecutionBuilder().build();
         child.run(q3);
-        assertEquals(q3.getState(), RUNNING);
+        assertThat(q3.getState()).isEqualTo(RUNNING);
 
         // A queued query starts running only after invoking `updateGroupsAndProcessQueuedQueries`.
-        assertEquals(q2.getState(), QUEUED);
+        assertThat(q2.getState()).isEqualTo(QUEUED);
         root.updateGroupsAndProcessQueuedQueries();
-        assertEquals(q2.getState(), RUNNING);
+        assertThat(q2.getState()).isEqualTo(RUNNING);
     }
 
     @Test
@@ -403,7 +401,7 @@ public class TestResourceGroups
 
         MockManagedQueryExecution q1 = new MockManagedQueryExecutionBuilder().build();
         child.run(q1);
-        assertEquals(q1.getState(), RUNNING);
+        assertThat(q1.getState()).isEqualTo(RUNNING);
 
         q1.consumeCpuTimeMillis(4);
         q1.complete();
@@ -415,16 +413,16 @@ public class TestResourceGroups
         // q2 gets queued since cached usage exceeds the limit.
         MockManagedQueryExecution q2 = new MockManagedQueryExecutionBuilder().build();
         child.run(q2);
-        assertEquals(q2.getState(), QUEUED);
+        assertThat(q2.getState()).isEqualTo(QUEUED);
 
         root.generateCpuQuota(2);
         Stream.of(root, child).forEach(group -> assertWithinCpuLimit(group, 2));
-        assertEquals(q2.getState(), QUEUED);
+        assertThat(q2.getState()).isEqualTo(QUEUED);
 
         // q2 should run after groups are updated. CPU usage should not be double counted.
         root.updateGroupsAndProcessQueuedQueries();
         Stream.of(root, child).forEach(group -> assertWithinCpuLimit(group, 2));
-        assertEquals(q2.getState(), RUNNING);
+        assertThat(q2.getState()).isEqualTo(RUNNING);
     }
 
     @Test
@@ -442,7 +440,7 @@ public class TestResourceGroups
 
         MockManagedQueryExecution q1 = new MockManagedQueryExecutionBuilder().build();
         child.run(q1);
-        assertEquals(q1.getState(), RUNNING);
+        assertThat(q1.getState()).isEqualTo(RUNNING);
         q1.setMemoryUsage(DataSize.ofBytes(4));
 
         Stream.of(root, child).forEach(group -> assertWithinMemoryLimit(group, 0));
@@ -452,20 +450,20 @@ public class TestResourceGroups
         // A new query gets queued since the current usage exceeds the limit.
         MockManagedQueryExecution q2 = new MockManagedQueryExecutionBuilder().build();
         child.run(q2);
-        assertEquals(q2.getState(), QUEUED);
+        assertThat(q2.getState()).isEqualTo(QUEUED);
 
         q1.setMemoryUsage(DataSize.ofBytes(2));
 
         // A new incoming query q3 gets queued since cached usage still exceeds the limit.
         MockManagedQueryExecution q3 = new MockManagedQueryExecutionBuilder().build();
         child.run(q3);
-        assertEquals(q3.getState(), QUEUED);
+        assertThat(q3.getState()).isEqualTo(QUEUED);
 
         // q2 and q3 start running when cached usage is updated and queued queries are processed.
         root.updateGroupsAndProcessQueuedQueries();
         Stream.of(root, child).forEach(group -> assertWithinMemoryLimit(group, 2));
-        assertEquals(q2.getState(), RUNNING);
-        assertEquals(q3.getState(), RUNNING);
+        assertThat(q2.getState()).isEqualTo(RUNNING);
+        assertThat(q3.getState()).isEqualTo(RUNNING);
     }
 
     @Test
@@ -483,7 +481,7 @@ public class TestResourceGroups
 
         MockManagedQueryExecution q1 = new MockManagedQueryExecutionBuilder().build();
         child.run(q1);
-        assertEquals(q1.getState(), RUNNING);
+        assertThat(q1.getState()).isEqualTo(RUNNING);
         q1.setMemoryUsage(DataSize.ofBytes(4));
 
         Stream.of(root, child).forEach(group -> assertWithinMemoryLimit(group, 0));
@@ -497,7 +495,7 @@ public class TestResourceGroups
         // q2 starts running since usage is within the limit.
         MockManagedQueryExecution q2 = new MockManagedQueryExecutionBuilder().build();
         child.run(q2);
-        assertEquals(q2.getState(), RUNNING);
+        assertThat(q2.getState()).isEqualTo(RUNNING);
     }
 
     /**
@@ -537,9 +535,9 @@ public class TestResourceGroups
         rootChild1Child2.run(q2);
         rootChild2.run(q3);
 
-        assertEquals(q1.getState(), RUNNING);
-        assertEquals(q2.getState(), RUNNING);
-        assertEquals(q3.getState(), RUNNING);
+        assertThat(q1.getState()).isEqualTo(RUNNING);
+        assertThat(q2.getState()).isEqualTo(RUNNING);
+        assertThat(q3.getState()).isEqualTo(RUNNING);
 
         q1.consumeCpuTimeMillis(4);
         q2.consumeCpuTimeMillis(10);
@@ -557,12 +555,12 @@ public class TestResourceGroups
         // q4 submitted in rootChild2 gets queued because root's CPU usage exceeds the limit
         MockManagedQueryExecution q4 = new MockManagedQueryExecutionBuilder().build();
         rootChild2.run(q4);
-        assertEquals(q4.getState(), QUEUED);
+        assertThat(q4.getState()).isEqualTo(QUEUED);
 
         // q5 submitted in rootChild1Child1 gets queued because root's CPU usage exceeds the limit
         MockManagedQueryExecution q5 = new MockManagedQueryExecutionBuilder().build();
         rootChild1Child1.run(q5);
-        assertEquals(q5.getState(), QUEUED);
+        assertThat(q5.getState()).isEqualTo(QUEUED);
 
         // Assert CPU usage update after quota regeneration
         root.generateCpuQuota(4);
@@ -575,9 +573,9 @@ public class TestResourceGroups
         root.updateGroupsAndProcessQueuedQueries();
 
         // q4 gets dequeued, because CPU usages of root and rootChild2 are below their limits.
-        assertEquals(q4.getState(), RUNNING);
+        assertThat(q4.getState()).isEqualTo(RUNNING);
         // q5 does not get dequeued, because rootChild1's CPU usage exceeds the limit.
-        assertEquals(q5.getState(), QUEUED);
+        assertThat(q5.getState()).isEqualTo(QUEUED);
 
         q2.consumeCpuTimeMillis(3);
         q2.complete();
@@ -590,7 +588,7 @@ public class TestResourceGroups
         // q6 in rootChild2 gets queued because root's CPU usage exceeds the limit.
         MockManagedQueryExecution q6 = new MockManagedQueryExecutionBuilder().build();
         rootChild2.run(q6);
-        assertEquals(q6.getState(), QUEUED);
+        assertThat(q6.getState()).isEqualTo(QUEUED);
 
         // Assert usage after regeneration
         root.generateCpuQuota(6);
@@ -603,15 +601,15 @@ public class TestResourceGroups
         root.updateGroupsAndProcessQueuedQueries();
 
         // q5 is queued, because rootChild1's usage still exceeds the limit.
-        assertEquals(q5.getState(), QUEUED);
+        assertThat(q5.getState()).isEqualTo(QUEUED);
         // q6 starts running, because usage in rootChild2 and root are within their limits.
-        assertEquals(q6.getState(), RUNNING);
+        assertThat(q6.getState()).isEqualTo(RUNNING);
 
         // q5 starts running after rootChild1's usage comes within the limit
         root.generateCpuQuota(2);
         assertWithinCpuLimit(rootChild1, 5);
         root.updateGroupsAndProcessQueuedQueries();
-        assertEquals(q5.getState(), RUNNING);
+        assertThat(q5.getState()).isEqualTo(RUNNING);
     }
 
     /**
@@ -656,9 +654,9 @@ public class TestResourceGroups
         rootChild1Child2.run(q2);
         rootChild2.run(q3);
 
-        assertEquals(q1.getState(), RUNNING);
-        assertEquals(q2.getState(), RUNNING);
-        assertEquals(q3.getState(), RUNNING);
+        assertThat(q1.getState()).isEqualTo(RUNNING);
+        assertThat(q2.getState()).isEqualTo(RUNNING);
+        assertThat(q3.getState()).isEqualTo(RUNNING);
 
         q1.setMemoryUsage(DataSize.ofBytes(2));
         q2.setMemoryUsage(DataSize.ofBytes(5));
@@ -675,12 +673,12 @@ public class TestResourceGroups
         // q4 submitted in rootChild2 gets queued because root's memory usage exceeds the limit
         MockManagedQueryExecution q4 = new MockManagedQueryExecutionBuilder().build();
         rootChild2.run(q4);
-        assertEquals(q4.getState(), QUEUED);
+        assertThat(q4.getState()).isEqualTo(QUEUED);
 
         // q5 submitted in rootChild1Child1 gets queued because root's memory usage) exceeds the limit
         MockManagedQueryExecution q5 = new MockManagedQueryExecutionBuilder().build();
         rootChild1Child1.run(q5);
-        assertEquals(q5.getState(), QUEUED);
+        assertThat(q5.getState()).isEqualTo(QUEUED);
 
         q1.setMemoryUsage(DataSize.ofBytes(0));
 
@@ -690,9 +688,9 @@ public class TestResourceGroups
         assertWithinMemoryLimit(rootChild1Child1, 0);
 
         // q4 starts running since usage in root and rootChild2 is within the limits
-        assertEquals(q4.getState(), RUNNING);
+        assertThat(q4.getState()).isEqualTo(RUNNING);
         // q5 is queued since usage in rootChild1 exceeds the limit.
-        assertEquals(q5.getState(), QUEUED);
+        assertThat(q5.getState()).isEqualTo(QUEUED);
 
         // q2's completion triggers memory updates
         q2.complete();
@@ -702,12 +700,12 @@ public class TestResourceGroups
         // An incoming query starts running
         MockManagedQueryExecution q6 = new MockManagedQueryExecutionBuilder().build();
         rootChild1Child2.run(q6);
-        assertEquals(q6.getState(), RUNNING);
+        assertThat(q6.getState()).isEqualTo(RUNNING);
 
         // queued queries will start running after the update
-        assertEquals(q5.getState(), QUEUED);
+        assertThat(q5.getState()).isEqualTo(QUEUED);
         root.updateGroupsAndProcessQueuedQueries();
-        assertEquals(q5.getState(), RUNNING);
+        assertThat(q5.getState()).isEqualTo(RUNNING);
     }
 
     @Test
@@ -760,7 +758,7 @@ public class TestResourceGroups
 
         for (MockManagedQueryExecution query : orderedQueries) {
             root.updateGroupsAndProcessQueuedQueries();
-            assertEquals(query.getState(), RUNNING);
+            assertThat(query.getState()).isEqualTo(RUNNING);
             query.complete();
         }
     }
@@ -985,8 +983,8 @@ public class TestResourceGroups
             group2Queries = fillGroupTo(group2, group2Queries, 4);
         }
 
-        assertEquals(group1Ran, 1000);
-        assertEquals(group1Ran, 1000);
+        assertThat(group1Ran).isEqualTo(1000);
+        assertThat(group1Ran).isEqualTo(1000);
     }
 
     @Test
@@ -1045,15 +1043,15 @@ public class TestResourceGroups
         queries.addAll(fillGroupTo(rootBY, ImmutableSet.of(), 10, true));
 
         ResourceGroupInfo info = root.getInfo();
-        assertEquals(info.getNumRunningQueries(), 0);
-        assertEquals(info.getNumQueuedQueries(), 40);
+        assertThat(info.getNumRunningQueries()).isEqualTo(0);
+        assertThat(info.getNumQueuedQueries()).isEqualTo(40);
 
         // root.maxRunningQueries = 4, root.a.maxRunningQueries = 2, root.b.maxRunningQueries = 2. Will have 4 queries running and 36 left queued.
         root.setHardConcurrencyLimit(4);
         root.updateGroupsAndProcessQueuedQueries();
         info = root.getInfo();
-        assertEquals(info.getNumRunningQueries(), 4);
-        assertEquals(info.getNumQueuedQueries(), 36);
+        assertThat(info.getNumRunningQueries()).isEqualTo(4);
+        assertThat(info.getNumQueuedQueries()).isEqualTo(36);
 
         // Complete running queries
         Iterator<MockManagedQueryExecution> iterator = queries.iterator();
@@ -1068,22 +1066,22 @@ public class TestResourceGroups
         // 4 more queries start running, 32 left queued.
         root.updateGroupsAndProcessQueuedQueries();
         info = root.getInfo();
-        assertEquals(info.getNumRunningQueries(), 4);
-        assertEquals(info.getNumQueuedQueries(), 32);
+        assertThat(info.getNumRunningQueries()).isEqualTo(4);
+        assertThat(info.getNumQueuedQueries()).isEqualTo(32);
 
         // root.maxRunningQueries = 10, root.a.maxRunningQueries = 2, root.b.maxRunningQueries = 2. Still only have 4 running queries and 32 left queued.
         root.setHardConcurrencyLimit(10);
         root.updateGroupsAndProcessQueuedQueries();
         info = root.getInfo();
-        assertEquals(info.getNumRunningQueries(), 4);
-        assertEquals(info.getNumQueuedQueries(), 32);
+        assertThat(info.getNumRunningQueries()).isEqualTo(4);
+        assertThat(info.getNumQueuedQueries()).isEqualTo(32);
 
         // root.maxRunningQueries = 10, root.a.maxRunningQueries = 2, root.b.maxRunningQueries = 10. Will have 10 running queries and 26 left queued.
         rootB.setHardConcurrencyLimit(10);
         root.updateGroupsAndProcessQueuedQueries();
         info = root.getInfo();
-        assertEquals(info.getNumRunningQueries(), 10);
-        assertEquals(info.getNumQueuedQueries(), 26);
+        assertThat(info.getNumRunningQueries()).isEqualTo(10);
+        assertThat(info.getNumQueuedQueries()).isEqualTo(26);
     }
 
     @Test
@@ -1122,39 +1120,39 @@ public class TestResourceGroups
         queries.addAll(fillGroupTo(rootB, ImmutableSet.of(), 10, true));
 
         ResourceGroupInfo rootInfo = root.getFullInfo();
-        assertEquals(rootInfo.getId(), root.getId());
-        assertEquals(rootInfo.getState(), CAN_RUN);
-        assertEquals(rootInfo.getSoftMemoryLimit().toBytes(), root.getSoftMemoryLimitBytes());
-        assertEquals(rootInfo.getMemoryUsage(), DataSize.ofBytes(0));
-        assertEquals(rootInfo.getCpuUsage().toMillis(), 0);
+        assertThat(rootInfo.getId()).isEqualTo(root.getId());
+        assertThat(rootInfo.getState()).isEqualTo(CAN_RUN);
+        assertThat(rootInfo.getSoftMemoryLimit().toBytes()).isEqualTo(root.getSoftMemoryLimitBytes());
+        assertThat(rootInfo.getMemoryUsage()).isEqualTo(DataSize.ofBytes(0));
+        assertThat(rootInfo.getCpuUsage().toMillis()).isEqualTo(0);
         List<ResourceGroupInfo> subGroups = rootInfo.getSubGroups().get();
-        assertEquals(subGroups.size(), 2);
+        assertThat(subGroups.size()).isEqualTo(2);
         assertGroupInfoEquals(subGroups.get(0), rootA.getInfo());
-        assertEquals(subGroups.get(0).getId(), rootA.getId());
-        assertEquals(subGroups.get(0).getState(), CAN_QUEUE);
-        assertEquals(subGroups.get(0).getSoftMemoryLimit().toBytes(), rootA.getSoftMemoryLimitBytes());
-        assertEquals(subGroups.get(0).getHardConcurrencyLimit(), rootA.getHardConcurrencyLimit());
-        assertEquals(subGroups.get(0).getMaxQueuedQueries(), rootA.getMaxQueuedQueries());
-        assertEquals(subGroups.get(0).getNumEligibleSubGroups(), 2);
-        assertEquals(subGroups.get(0).getNumRunningQueries(), 0);
-        assertEquals(subGroups.get(0).getNumQueuedQueries(), 10);
+        assertThat(subGroups.get(0).getId()).isEqualTo(rootA.getId());
+        assertThat(subGroups.get(0).getState()).isEqualTo(CAN_QUEUE);
+        assertThat(subGroups.get(0).getSoftMemoryLimit().toBytes()).isEqualTo(rootA.getSoftMemoryLimitBytes());
+        assertThat(subGroups.get(0).getHardConcurrencyLimit()).isEqualTo(rootA.getHardConcurrencyLimit());
+        assertThat(subGroups.get(0).getMaxQueuedQueries()).isEqualTo(rootA.getMaxQueuedQueries());
+        assertThat(subGroups.get(0).getNumEligibleSubGroups()).isEqualTo(2);
+        assertThat(subGroups.get(0).getNumRunningQueries()).isEqualTo(0);
+        assertThat(subGroups.get(0).getNumQueuedQueries()).isEqualTo(10);
         assertGroupInfoEquals(subGroups.get(1), rootB.getInfo());
-        assertEquals(subGroups.get(1).getId(), rootB.getId());
-        assertEquals(subGroups.get(1).getState(), CAN_QUEUE);
-        assertEquals(subGroups.get(1).getSoftMemoryLimit().toBytes(), rootB.getSoftMemoryLimitBytes());
-        assertEquals(subGroups.get(1).getHardConcurrencyLimit(), rootB.getHardConcurrencyLimit());
-        assertEquals(subGroups.get(1).getMaxQueuedQueries(), rootB.getMaxQueuedQueries());
-        assertEquals(subGroups.get(1).getNumEligibleSubGroups(), 0);
-        assertEquals(subGroups.get(1).getNumRunningQueries(), 1);
-        assertEquals(subGroups.get(1).getNumQueuedQueries(), 9);
-        assertEquals(rootInfo.getSoftConcurrencyLimit(), root.getSoftConcurrencyLimit());
-        assertEquals(rootInfo.getHardConcurrencyLimit(), root.getHardConcurrencyLimit());
-        assertEquals(rootInfo.getMaxQueuedQueries(), root.getMaxQueuedQueries());
-        assertEquals(rootInfo.getNumQueuedQueries(), 19);
+        assertThat(subGroups.get(1).getId()).isEqualTo(rootB.getId());
+        assertThat(subGroups.get(1).getState()).isEqualTo(CAN_QUEUE);
+        assertThat(subGroups.get(1).getSoftMemoryLimit().toBytes()).isEqualTo(rootB.getSoftMemoryLimitBytes());
+        assertThat(subGroups.get(1).getHardConcurrencyLimit()).isEqualTo(rootB.getHardConcurrencyLimit());
+        assertThat(subGroups.get(1).getMaxQueuedQueries()).isEqualTo(rootB.getMaxQueuedQueries());
+        assertThat(subGroups.get(1).getNumEligibleSubGroups()).isEqualTo(0);
+        assertThat(subGroups.get(1).getNumRunningQueries()).isEqualTo(1);
+        assertThat(subGroups.get(1).getNumQueuedQueries()).isEqualTo(9);
+        assertThat(rootInfo.getSoftConcurrencyLimit()).isEqualTo(root.getSoftConcurrencyLimit());
+        assertThat(rootInfo.getHardConcurrencyLimit()).isEqualTo(root.getHardConcurrencyLimit());
+        assertThat(rootInfo.getMaxQueuedQueries()).isEqualTo(root.getMaxQueuedQueries());
+        assertThat(rootInfo.getNumQueuedQueries()).isEqualTo(19);
         List<QueryStateInfo> runningQueries = rootInfo.getRunningQueries().get();
-        assertEquals(runningQueries.size(), 1);
+        assertThat(runningQueries.size()).isEqualTo(1);
         QueryStateInfo queryInfo = runningQueries.get(0);
-        assertEquals(queryInfo.getResourceGroupId(), Optional.of(rootB.getId()));
+        assertThat(queryInfo.getResourceGroupId()).isEqualTo(Optional.of(rootB.getId()));
     }
 
     @Test
@@ -1202,23 +1200,23 @@ public class TestResourceGroups
         queries.addAll(fillGroupTo(rootBX, ImmutableSet.of(), 10, true));
         queries.addAll(fillGroupTo(rootBY, ImmutableSet.of(), 10, true));
 
-        assertEquals(root.getWaitingQueuedQueries(), 16);
-        assertEquals(rootA.getWaitingQueuedQueries(), 13);
-        assertEquals(rootAX.getWaitingQueuedQueries(), 10);
-        assertEquals(rootAY.getWaitingQueuedQueries(), 10);
-        assertEquals(rootB.getWaitingQueuedQueries(), 13);
-        assertEquals(rootBX.getWaitingQueuedQueries(), 10);
-        assertEquals(rootBY.getWaitingQueuedQueries(), 10);
+        assertThat(root.getWaitingQueuedQueries()).isEqualTo(16);
+        assertThat(rootA.getWaitingQueuedQueries()).isEqualTo(13);
+        assertThat(rootAX.getWaitingQueuedQueries()).isEqualTo(10);
+        assertThat(rootAY.getWaitingQueuedQueries()).isEqualTo(10);
+        assertThat(rootB.getWaitingQueuedQueries()).isEqualTo(13);
+        assertThat(rootBX.getWaitingQueuedQueries()).isEqualTo(10);
+        assertThat(rootBY.getWaitingQueuedQueries()).isEqualTo(10);
 
         root.setHardConcurrencyLimit(20);
         root.updateGroupsAndProcessQueuedQueries();
-        assertEquals(root.getWaitingQueuedQueries(), 0);
-        assertEquals(rootA.getWaitingQueuedQueries(), 5);
-        assertEquals(rootAX.getWaitingQueuedQueries(), 6);
-        assertEquals(rootAY.getWaitingQueuedQueries(), 6);
-        assertEquals(rootB.getWaitingQueuedQueries(), 5);
-        assertEquals(rootBX.getWaitingQueuedQueries(), 6);
-        assertEquals(rootBY.getWaitingQueuedQueries(), 6);
+        assertThat(root.getWaitingQueuedQueries()).isEqualTo(0);
+        assertThat(rootA.getWaitingQueuedQueries()).isEqualTo(5);
+        assertThat(rootAX.getWaitingQueuedQueries()).isEqualTo(6);
+        assertThat(rootAY.getWaitingQueuedQueries()).isEqualTo(6);
+        assertThat(rootB.getWaitingQueuedQueries()).isEqualTo(5);
+        assertThat(rootBX.getWaitingQueuedQueries()).isEqualTo(6);
+        assertThat(rootBY.getWaitingQueuedQueries()).isEqualTo(6);
     }
 
     private static int completeGroupQueries(Set<MockManagedQueryExecution> groupQueries)
@@ -1258,7 +1256,7 @@ public class TestResourceGroups
 
     private static void assertGroupInfoEquals(ResourceGroupInfo actual, ResourceGroupInfo expected)
     {
-        assertTrue(actual.getSchedulingWeight() == expected.getSchedulingWeight() &&
+        assertThat(actual.getSchedulingWeight() == expected.getSchedulingWeight() &&
                 actual.getSoftConcurrencyLimit() == expected.getSoftConcurrencyLimit() &&
                 actual.getHardConcurrencyLimit() == expected.getHardConcurrencyLimit() &&
                 actual.getMaxQueuedQueries() == expected.getMaxQueuedQueries() &&
@@ -1270,34 +1268,34 @@ public class TestResourceGroups
                 actual.getSchedulingPolicy() == expected.getSchedulingPolicy() &&
                 Objects.equals(actual.getSoftMemoryLimit(), expected.getSoftMemoryLimit()) &&
                 Objects.equals(actual.getMemoryUsage(), expected.getMemoryUsage()) &&
-                Objects.equals(actual.getCpuUsage(), expected.getCpuUsage()));
+                Objects.equals(actual.getCpuUsage(), expected.getCpuUsage())).isTrue();
     }
 
     private static void assertExceedsCpuLimit(InternalResourceGroup group, long expectedMillis)
     {
         long actualMillis = group.getResourceUsageSnapshot().getCpuUsageMillis();
-        assertEquals(actualMillis, expectedMillis);
-        assertTrue(actualMillis >= group.getHardCpuLimit().toMillis());
+        assertThat(actualMillis).isEqualTo(expectedMillis);
+        assertThat(actualMillis >= group.getHardCpuLimit().toMillis()).isTrue();
     }
 
     private static void assertWithinCpuLimit(InternalResourceGroup group, long expectedMillis)
     {
         long actualMillis = group.getResourceUsageSnapshot().getCpuUsageMillis();
-        assertEquals(actualMillis, expectedMillis);
-        assertTrue(actualMillis < group.getHardCpuLimit().toMillis());
+        assertThat(actualMillis).isEqualTo(expectedMillis);
+        assertThat(actualMillis < group.getHardCpuLimit().toMillis()).isTrue();
     }
 
     private static void assertExceedsMemoryLimit(InternalResourceGroup group, long expectedBytes)
     {
         long actualBytes = group.getResourceUsageSnapshot().getMemoryUsageBytes();
-        assertEquals(actualBytes, expectedBytes);
+        assertThat(actualBytes).isEqualTo(expectedBytes);
         assertThat(actualBytes).isGreaterThan(group.getSoftMemoryLimitBytes());
     }
 
     private static void assertWithinMemoryLimit(InternalResourceGroup group, long expectedBytes)
     {
         long actualBytes = group.getResourceUsageSnapshot().getMemoryUsageBytes();
-        assertEquals(actualBytes, expectedBytes);
+        assertThat(actualBytes).isEqualTo(expectedBytes);
         assertThat(actualBytes).isLessThanOrEqualTo(group.getSoftMemoryLimitBytes());
     }
 }

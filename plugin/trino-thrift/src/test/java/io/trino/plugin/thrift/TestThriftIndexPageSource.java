@@ -51,11 +51,7 @@ import static io.trino.plugin.thrift.api.TrinoThriftBlock.integerData;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.util.Collections.shuffle;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestThriftIndexPageSource
 {
@@ -97,59 +93,67 @@ public class TestThriftIndexPageSource
                 MAX_BYTES_PER_RESPONSE,
                 lookupRequestsConcurrency);
 
-        assertNull(pageSource.getNextPage());
-        assertEquals((long) stats.getIndexPageSize().getAllTime().getTotal(), 0);
+        assertThat(pageSource.getNextPage()).isNull();
+        assertThat((long) stats.getIndexPageSize().getAllTime().getTotal()).isEqualTo(0);
         signals.get(0).await(1, SECONDS);
         signals.get(1).await(1, SECONDS);
         signals.get(2).await(1, SECONDS);
-        assertEquals(signals.get(0).getCount(), 0, "first request wasn't sent");
-        assertEquals(signals.get(1).getCount(), 0, "second request wasn't sent");
-        assertEquals(signals.get(2).getCount(), 1, "third request shouldn't be sent");
+        assertThat(signals.get(0).getCount())
+                .describedAs("first request wasn't sent")
+                .isEqualTo(0);
+        assertThat(signals.get(1).getCount())
+                .describedAs("second request wasn't sent")
+                .isEqualTo(0);
+        assertThat(signals.get(2).getCount())
+                .describedAs("third request shouldn't be sent")
+                .isEqualTo(1);
 
         // at this point first two requests were sent
-        assertFalse(pageSource.isFinished());
-        assertNull(pageSource.getNextPage());
-        assertEquals((long) stats.getIndexPageSize().getAllTime().getTotal(), 0);
+        assertThat(pageSource.isFinished()).isFalse();
+        assertThat(pageSource.getNextPage()).isNull();
+        assertThat((long) stats.getIndexPageSize().getAllTime().getTotal()).isEqualTo(0);
 
         // completing the second request
         futures.get(1).set(pageResult(20, null));
         Page page = pageSource.getNextPage();
         pageSizeReceived += page.getSizeInBytes();
-        assertEquals((long) stats.getIndexPageSize().getAllTime().getTotal(), pageSizeReceived);
-        assertNotNull(page);
-        assertEquals(page.getPositionCount(), 1);
-        assertEquals(page.getBlock(0).getInt(0, 0), 20);
+        assertThat((long) stats.getIndexPageSize().getAllTime().getTotal()).isEqualTo(pageSizeReceived);
+        assertThat(page).isNotNull();
+        assertThat(page.getPositionCount()).isEqualTo(1);
+        assertThat(page.getBlock(0).getInt(0, 0)).isEqualTo(20);
         // not complete yet
-        assertFalse(pageSource.isFinished());
+        assertThat(pageSource.isFinished()).isFalse();
 
         // once one of the requests completes the next one should be sent
         signals.get(2).await(1, SECONDS);
-        assertEquals(signals.get(2).getCount(), 0, "third request wasn't sent");
+        assertThat(signals.get(2).getCount())
+                .describedAs("third request wasn't sent")
+                .isEqualTo(0);
 
         // completing the first request
         futures.get(0).set(pageResult(10, null));
         page = pageSource.getNextPage();
-        assertNotNull(page);
+        assertThat(page).isNotNull();
         pageSizeReceived += page.getSizeInBytes();
-        assertEquals((long) stats.getIndexPageSize().getAllTime().getTotal(), pageSizeReceived);
-        assertEquals(page.getPositionCount(), 1);
-        assertEquals(page.getBlock(0).getInt(0, 0), 10);
+        assertThat((long) stats.getIndexPageSize().getAllTime().getTotal()).isEqualTo(pageSizeReceived);
+        assertThat(page.getPositionCount()).isEqualTo(1);
+        assertThat(page.getBlock(0).getInt(0, 0)).isEqualTo(10);
         // still not complete
-        assertFalse(pageSource.isFinished());
+        assertThat(pageSource.isFinished()).isFalse();
 
         // completing the third request
         futures.get(2).set(pageResult(30, null));
         page = pageSource.getNextPage();
-        assertNotNull(page);
+        assertThat(page).isNotNull();
         pageSizeReceived += page.getSizeInBytes();
-        assertEquals((long) stats.getIndexPageSize().getAllTime().getTotal(), pageSizeReceived);
-        assertEquals(page.getPositionCount(), 1);
-        assertEquals(page.getBlock(0).getInt(0, 0), 30);
+        assertThat((long) stats.getIndexPageSize().getAllTime().getTotal()).isEqualTo(pageSizeReceived);
+        assertThat(page.getPositionCount()).isEqualTo(1);
+        assertThat(page.getBlock(0).getInt(0, 0)).isEqualTo(30);
         // finished now
-        assertTrue(pageSource.isFinished());
+        assertThat(pageSource.isFinished()).isTrue();
 
         // after completion
-        assertNull(pageSource.getNextPage());
+        assertThat(pageSource.getNextPage()).isNull();
         pageSource.close();
     }
 
@@ -216,10 +220,10 @@ public class TestThriftIndexPageSource
                 expected.add(split * 10 + row);
             }
         }
-        assertEquals(actual, expected);
+        assertThat(actual).isEqualTo(expected);
 
         // must be null after finish
-        assertNull(pageSource.getNextPage());
+        assertThat(pageSource.getNextPage()).isNull();
 
         pageSource.close();
     }

@@ -22,7 +22,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestNumericHistogram
 {
@@ -61,7 +61,7 @@ public class TestNumericHistogram
                 .put(4.233333333333333, 3.0)
                 .buildOrThrow();
 
-        assertEquals(histogram.getBuckets(), expected);
+        assertThat(histogram.getBuckets()).isEqualTo(expected);
     }
 
     @Test
@@ -79,7 +79,7 @@ public class TestNumericHistogram
                 .put(2.0, 500.0)
                 .buildOrThrow();
 
-        assertEquals(histogram.getBuckets(), expected);
+        assertThat(histogram.getBuckets()).isEqualTo(expected);
     }
 
     @Test
@@ -93,7 +93,7 @@ public class TestNumericHistogram
         Slice serialized = histogram.serialize();
         NumericHistogram deserialized = new NumericHistogram(serialized, 20);
 
-        assertEquals(deserialized.getBuckets(), histogram.getBuckets());
+        assertThat(deserialized.getBuckets()).isEqualTo(histogram.getBuckets());
     }
 
     @Test
@@ -108,7 +108,7 @@ public class TestNumericHistogram
 
         histogram.mergeWith(histogram);
 
-        assertEquals(histogram.getBuckets(), expected);
+        assertThat(histogram.getBuckets()).isEqualTo(expected);
     }
 
     @Test
@@ -131,6 +131,6 @@ public class TestNumericHistogram
         expected.compact();
 
         histogram1.mergeWith(histogram2);
-        assertEquals(histogram1.getBuckets(), expected.getBuckets());
+        assertThat(histogram1.getBuckets()).isEqualTo(expected.getBuckets());
     }
 }

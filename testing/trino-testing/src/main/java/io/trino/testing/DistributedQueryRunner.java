@@ -22,10 +22,9 @@ import com.google.inject.Module;
 import io.airlift.discovery.server.testing.TestingDiscoveryServer;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
-import io.airlift.testing.Assertions;
-import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.Session.SessionBuilder;
+import io.trino.connector.CoordinatorDynamicCatalogManager;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.execution.QueryManager;
@@ -38,6 +37,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.server.BasicQueryInfo;
+import io.trino.server.PluginManager;
 import io.trino.server.SessionPropertyDefaults;
 import io.trino.server.testing.FactoryConfiguration;
 import io.trino.server.testing.TestingTrinoServer;
@@ -78,6 +78,7 @@ import java.util.function.Function;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.common.base.Verify.verify;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
 import static io.airlift.log.Level.DEBUG;
 import static io.airlift.log.Level.ERROR;
@@ -88,8 +89,6 @@ import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createP
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.System.getenv;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class DistributedQueryRunner
         implements QueryRunner
@@ -136,14 +135,15 @@ public class DistributedQueryRunner
     {
         requireNonNull(defaultSession, "defaultSession is null");
 
+        long start = System.nanoTime();
         setupLogging();
 
         try {
-            long start = System.nanoTime();
+            long discoveryStart = System.nanoTime();
             discoveryServer = new TestingDiscoveryServer(environment);
             closer.register(() -> closeUnchecked(discoveryServer));
             closer.register(() -> extraCloseables.forEach(DistributedQueryRunner::closeUnchecked));
-            log.info("Created TestingDiscoveryServer in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
+            log.info("Created TestingDiscoveryServer in %s", nanosSince(discoveryStart));
 
             registerNewWorker = () -> createServer(false, extraProperties, environment, additionalModule, baseDataDir, Optional.empty(), Optional.of(ImmutableList.of()), ImmutableList.of());
 
@@ -196,7 +196,8 @@ public class DistributedQueryRunner
         defaultSession = defaultSession.toSessionRepresentation().toSession(coordinator.getSessionPropertyManager(), defaultSession.getIdentity().getExtraCredentials(), defaultSession.getExchangeEncryptionKey());
         this.trinoClient = closer.register(testingTrinoClientFactory.create(coordinator, defaultSession));
 
-        waitForAllNodesGloballyVisible();
+        ensureNodesGloballyVisible();
+        log.info("Created DistributedQueryRunner in %s", nanosSince(start));
     }
 
     private TestingTrinoServer createServer(
@@ -231,7 +232,10 @@ public class DistributedQueryRunner
         logging.setLevel("Bootstrap", WARN);
         logging.setLevel("org.glassfish", ERROR);
         logging.setLevel("org.eclipse.jetty.server", WARN);
-        logging.setLevel("io.trino.plugin.hive.util.RetryDriver", DEBUG);
+        logging.setLevel("org.hibernate.validator.internal.util.Version", WARN);
+        logging.setLevel(PluginManager.class.getName(), WARN);
+        logging.setLevel(CoordinatorDynamicCatalogManager.class.getName(), WARN);
+        logging.setLevel("io.trino.execution.scheduler.faulttolerant", DEBUG);
     }
 
     private static TestingTrinoServer createTestingTrinoServer(
@@ -281,41 +285,26 @@ public class DistributedQueryRunner
                 .build();
 
         String nodeRole = coordinator ? "coordinator" : "worker";
-        log.info("Created %s TestingTrinoServer in %s: %s", nodeRole, nanosSince(start).convertToMostSuccinctTimeUnit(), server.getBaseUrl());
+        log.info("Created TestingTrinoServer %s in %s: %s", nodeRole, nanosSince(start).convertToMostSuccinctTimeUnit(), server.getBaseUrl());
 
         return server;
     }
 
     public void addServers(int nodeCount)
-            throws Exception
     {
         for (int i = 0; i < nodeCount; i++) {
             registerNewWorker.run();
         }
-        waitForAllNodesGloballyVisible();
+        ensureNodesGloballyVisible();
     }
 
-    private void waitForAllNodesGloballyVisible()
-            throws InterruptedException
-    {
-        long start = System.nanoTime();
-        while (!allNodesGloballyVisible()) {
-            Assertions.assertLessThan(nanosSince(start), new Duration(10, SECONDS));
-            MILLISECONDS.sleep(10);
-        }
-        log.info("Announced servers in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
-    }
-
-    private boolean allNodesGloballyVisible()
+    private void ensureNodesGloballyVisible()
     {
         for (TestingTrinoServer server : servers) {
-            AllNodes allNodes = server.refreshNodes();
-            if (!allNodes.getInactiveNodes().isEmpty() ||
-                    (allNodes.getActiveNodes().size() != servers.size())) {
-                return false;
-            }
+            AllNodes nodes = server.refreshNodes();
+            verify(nodes.getInactiveNodes().isEmpty(), "Node manager has inactive nodes");
+            verify(nodes.getActiveNodes().size() == servers.size(), "Node manager has wrong active node count");
         }
-        return true;
     }
 
     public TestingTrinoClient getClient()
@@ -443,9 +432,7 @@ public class DistributedQueryRunner
     public void installPlugin(Plugin plugin)
     {
         plugins.add(plugin);
-        long start = System.nanoTime();
         servers.forEach(server -> server.installPlugin(plugin));
-        log.info("Installed plugin %s in %s", plugin.getClass().getSimpleName(), nanosSince(start).convertToMostSuccinctTimeUnit());
     }
 
     @Override

@@ -23,7 +23,7 @@ import io.trino.testing.BaseFailureRecoveryTest;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
-import org.testng.annotations.DataProvider;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
@@ -92,16 +92,7 @@ public abstract class BaseDeltaFailureRecoveryTest
         return true;
     }
 
-    @Override
-    @DataProvider(name = "parallelTests", parallel = true)
-    public Object[][] parallelTests()
-    {
-        return moreParallelTests(super.parallelTests(),
-                parallelTest("testCreatePartitionedTable", this::testCreatePartitionedTable),
-                parallelTest("testInsertIntoNewPartition", this::testInsertIntoNewPartition),
-                parallelTest("testInsertIntoExistingPartition", this::testInsertIntoExistingPartition));
-    }
-
+    @Test
     @Override
     protected void testDelete()
     {
@@ -186,6 +177,7 @@ public abstract class BaseDeltaFailureRecoveryTest
         }
     }
 
+    @Test
     @Override
     protected void testUpdate()
     {
@@ -269,6 +261,7 @@ public abstract class BaseDeltaFailureRecoveryTest
         }
     }
 
+    @Test
     @Override
     // materialized views are currently not implemented by Delta connector
     protected void testRefreshMaterializedView()
@@ -277,6 +270,7 @@ public abstract class BaseDeltaFailureRecoveryTest
                 .hasMessageContaining("This connector does not support creating materialized views");
     }
 
+    @Test
     protected void testCreatePartitionedTable()
     {
         testTableModification(
@@ -285,6 +279,7 @@ public abstract class BaseDeltaFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
+    @Test
     protected void testInsertIntoNewPartition()
     {
         testTableModification(
@@ -293,6 +288,7 @@ public abstract class BaseDeltaFailureRecoveryTest
                 Optional.of("DROP TABLE <table>"));
     }
 
+    @Test
     protected void testInsertIntoExistingPartition()
     {
         testTableModification(

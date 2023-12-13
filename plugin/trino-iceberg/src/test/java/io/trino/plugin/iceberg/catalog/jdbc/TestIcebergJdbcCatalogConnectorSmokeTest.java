@@ -15,13 +15,13 @@ package io.trino.plugin.iceberg.catalog.jdbc;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.Location;
-import io.trino.hadoop.ConfigurationInstantiator;
 import io.trino.plugin.iceberg.BaseIcebergConnectorSmokeTest;
 import io.trino.plugin.iceberg.IcebergConfig;
 import io.trino.plugin.iceberg.IcebergQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testng.services.ManageTestResources;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.BaseTable;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.jdbc.JdbcCatalog;
@@ -92,7 +92,7 @@ public class TestIcebergJdbcCatalogConnectorSmokeTest
                         .put(PROPERTY_PREFIX + "password", PASSWORD)
                         .put(WAREHOUSE_LOCATION, warehouseLocation.getAbsolutePath())
                         .buildOrThrow(),
-                ConfigurationInstantiator.newEmptyConfiguration());
+                new Configuration(false));
         return IcebergQueryRunner.builder()
                 .setIcebergProperties(
                         ImmutableMap.<String, String>builder()

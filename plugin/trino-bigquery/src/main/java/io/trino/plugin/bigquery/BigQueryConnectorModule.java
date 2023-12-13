@@ -68,7 +68,9 @@ public class BigQueryConnectorModule
         {
             // BigQuery related
             binder.bind(BigQueryReadClientFactory.class).in(Scopes.SINGLETON);
+            binder.bind(BigQueryWriteClientFactory.class).in(Scopes.SINGLETON);
             binder.bind(BigQueryClientFactory.class).in(Scopes.SINGLETON);
+            binder.bind(BigQueryTypeManager.class).in(Scopes.SINGLETON);
 
             // Connector implementation
             binder.bind(BigQueryConnector.class).in(Scopes.SINGLETON);

@@ -14,7 +14,7 @@
 package io.trino.plugin.raptor.legacy.backup;
 
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.util.Map;

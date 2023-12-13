@@ -14,9 +14,11 @@
 package io.trino.plugin.raptor.legacy.storage;
 
 import com.google.common.collect.ImmutableSet;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.io.IOException;
@@ -30,19 +32,18 @@ import static io.trino.plugin.raptor.legacy.storage.FileStorageService.getFileSy
 import static java.lang.String.format;
 import static java.nio.file.Files.createTempDirectory;
 import static java.util.UUID.randomUUID;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
-import static org.testng.FileAssert.assertDirectory;
-import static org.testng.FileAssert.assertFile;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestFileStorageService
 {
     private Path temporary;
     private FileStorageService store;
 
-    @BeforeMethod
+    @BeforeEach
     public void setup()
             throws IOException
     {
@@ -51,7 +52,7 @@ public class TestFileStorageService
         store.start();
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
             throws Exception
     {
@@ -63,7 +64,7 @@ public class TestFileStorageService
     {
         UUID uuid = UUID.fromString("701e1a79-74f7-4f56-b438-b41e8e7d019d");
         File expected = new File("/test", format("70/1e/%s.orc", uuid));
-        assertEquals(getFileSystemPath(new File("/test"), uuid), expected);
+        assertThat(getFileSystemPath(new File("/test"), uuid)).isEqualTo(expected);
     }
 
     @Test
@@ -73,9 +74,9 @@ public class TestFileStorageService
         File staging = temporary.resolve("staging").resolve(format("%s.orc", uuid)).toFile();
         File storage = temporary.resolve("storage").resolve("70").resolve("1e").resolve(format("%s.orc", uuid)).toFile();
         File quarantine = temporary.resolve("quarantine").resolve(format("%s.orc", uuid)).toFile();
-        assertEquals(store.getStagingFile(uuid), staging);
-        assertEquals(store.getStorageFile(uuid), storage);
-        assertEquals(store.getQuarantineFile(uuid), quarantine);
+        assertThat(store.getStagingFile(uuid)).isEqualTo(staging);
+        assertThat(store.getStorageFile(uuid)).isEqualTo(storage);
+        assertThat(store.getQuarantineFile(uuid)).isEqualTo(quarantine);
     }
 
     @Test
@@ -86,22 +87,22 @@ public class TestFileStorageService
         File storage = temporary.resolve("storage").toFile();
         File quarantine = temporary.resolve("quarantine").toFile();
 
-        assertDirectory(staging);
-        assertDirectory(storage);
-        assertDirectory(quarantine);
+        assertThat(staging).isDirectory();
+        assertThat(storage).isDirectory();
+        assertThat(quarantine).isDirectory();
 
         File file = store.getStagingFile(randomUUID());
         store.createParents(file);
-        assertFalse(file.exists());
-        assertTrue(file.createNewFile());
-        assertFile(file);
+        assertThat(file.exists()).isFalse();
+        assertThat(file.createNewFile()).isTrue();
+        assertThat(file).isFile();
 
         store.stop();
 
-        assertFalse(file.exists());
-        assertFalse(staging.exists());
-        assertDirectory(storage);
-        assertDirectory(quarantine);
+        assertThat(file.exists()).isFalse();
+        assertThat(staging.exists()).isFalse();
+        assertThat(storage).isDirectory();
+        assertThat(quarantine).isDirectory();
     }
 
     @Test
@@ -116,15 +117,15 @@ public class TestFileStorageService
         for (UUID shard : shards) {
             File file = store.getStorageFile(shard);
             store.createParents(file);
-            assertTrue(file.createNewFile());
+            assertThat(file.createNewFile()).isTrue();
         }
 
         File storage = temporary.resolve("storage").toFile();
-        assertTrue(new File(storage, "abc").mkdir());
-        assertTrue(new File(storage, "ab/cd").mkdirs());
-        assertTrue(new File(storage, format("ab/cd/%s.junk", randomUUID())).createNewFile());
-        assertTrue(new File(storage, "ab/cd/junk.orc").createNewFile());
+        assertThat(new File(storage, "abc").mkdir()).isTrue();
+        assertThat(new File(storage, "ab/cd").mkdirs()).isTrue();
+        assertThat(new File(storage, format("ab/cd/%s.junk", randomUUID())).createNewFile()).isTrue();
+        assertThat(new File(storage, "ab/cd/junk.orc").createNewFile()).isTrue();
 
-        assertEquals(store.getStorageShards(), shards);
+        assertThat(store.getStorageShards()).isEqualTo(shards);
     }
 }

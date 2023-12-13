@@ -20,6 +20,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static io.trino.plugin.iceberg.TableType.DATA;
+import static io.trino.plugin.iceberg.TableType.MATERIALIZED_VIEW_STORAGE;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -79,5 +80,11 @@ public final class IcebergTableName
         }
         String typeString = match.group("type");
         return typeString == null;
+    }
+
+    public static boolean isMaterializedViewStorage(String name)
+    {
+        Optional<TableType> tableType = tableTypeFrom(name);
+        return tableType.isPresent() && tableType.get() == MATERIALIZED_VIEW_STORAGE;
     }
 }

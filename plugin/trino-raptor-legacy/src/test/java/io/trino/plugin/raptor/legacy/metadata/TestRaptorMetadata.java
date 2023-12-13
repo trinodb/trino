@@ -42,9 +42,11 @@ import io.trino.testing.TestingConnectorSession;
 import io.trino.testing.TestingNodeManager;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Map;
@@ -73,14 +75,11 @@ import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_METHOD)
+@Execution(SAME_THREAD)
 public class TestRaptorMetadata
 {
     private static final SchemaTableName DEFAULT_TEST_ORDERS = new SchemaTableName("test", "orders");
@@ -94,7 +93,7 @@ public class TestRaptorMetadata
     private ShardManager shardManager;
     private RaptorMetadata metadata;
 
-    @BeforeMethod
+    @BeforeEach
     public void setupDatabase()
     {
         dbi = createTestingJdbi();
@@ -107,7 +106,7 @@ public class TestRaptorMetadata
         metadata = new RaptorMetadata(dbi, shardManager);
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void cleanupDatabase()
     {
         dummyHandle.close();
@@ -117,7 +116,7 @@ public class TestRaptorMetadata
     @Test
     public void testRenameColumn()
     {
-        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        assertThat(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS)).isNull();
         metadata.createTable(SESSION, getOrdersTable(), false);
         ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
         assertInstanceOf(tableHandle, RaptorTableHandle.class);
@@ -127,14 +126,14 @@ public class TestRaptorMetadata
 
         metadata.renameColumn(SESSION, raptorTableHandle, columnHandle, "orderkey_renamed");
 
-        assertNull(metadata.getColumnHandles(SESSION, tableHandle).get("orderkey"));
-        assertNotNull(metadata.getColumnHandles(SESSION, tableHandle).get("orderkey_renamed"));
+        assertThat(metadata.getColumnHandles(SESSION, tableHandle).get("orderkey")).isNull();
+        assertThat(metadata.getColumnHandles(SESSION, tableHandle).get("orderkey_renamed")).isNotNull();
     }
 
     @Test
     public void testAddColumn()
     {
-        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        assertThat(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS)).isNull();
         metadata.createTable(SESSION, buildTable(ImmutableMap.of(), tableMetadataBuilder(DEFAULT_TEST_ORDERS)
                         .column("orderkey", BIGINT)
                         .column("price", BIGINT)),
@@ -145,13 +144,13 @@ public class TestRaptorMetadata
         RaptorTableHandle raptorTableHandle = (RaptorTableHandle) tableHandle;
 
         metadata.addColumn(SESSION, raptorTableHandle, new ColumnMetadata("new_col", BIGINT));
-        assertNotNull(metadata.getColumnHandles(SESSION, raptorTableHandle).get("new_col"));
+        assertThat(metadata.getColumnHandles(SESSION, raptorTableHandle).get("new_col")).isNotNull();
     }
 
     @Test
     public void testDropColumn()
     {
-        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        assertThat(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS)).isNull();
         metadata.createTable(SESSION, buildTable(ImmutableMap.of(), tableMetadataBuilder(DEFAULT_TEST_ORDERS)
                         .column("orderkey", BIGINT)
                         .column("price", BIGINT)),
@@ -163,13 +162,13 @@ public class TestRaptorMetadata
 
         ColumnHandle lastColumn = metadata.getColumnHandles(SESSION, tableHandle).get("orderkey");
         metadata.dropColumn(SESSION, raptorTableHandle, lastColumn);
-        assertNull(metadata.getColumnHandles(SESSION, tableHandle).get("orderkey"));
+        assertThat(metadata.getColumnHandles(SESSION, tableHandle).get("orderkey")).isNull();
     }
 
     @Test
     public void testAddColumnAfterDropColumn()
     {
-        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        assertThat(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS)).isNull();
         metadata.createTable(SESSION, buildTable(ImmutableMap.of(), tableMetadataBuilder(DEFAULT_TEST_ORDERS)
                         .column("orderkey", BIGINT)
                         .column("price", BIGINT)),
@@ -182,14 +181,14 @@ public class TestRaptorMetadata
 
         metadata.dropColumn(SESSION, raptorTableHandle, column);
         metadata.addColumn(SESSION, raptorTableHandle, new ColumnMetadata("new_col", BIGINT));
-        assertNull(metadata.getColumnHandles(SESSION, tableHandle).get("orderkey"));
-        assertNotNull(metadata.getColumnHandles(SESSION, raptorTableHandle).get("new_col"));
+        assertThat(metadata.getColumnHandles(SESSION, tableHandle).get("orderkey")).isNull();
+        assertThat(metadata.getColumnHandles(SESSION, raptorTableHandle).get("new_col")).isNotNull();
     }
 
     @Test
     public void testDropColumnDisallowed()
     {
-        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        assertThat(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS)).isNull();
         Map<String, Object> properties = ImmutableMap.of(
                 BUCKET_COUNT_PROPERTY, 16,
                 BUCKETED_ON_PROPERTY, ImmutableList.of("orderkey"),
@@ -205,7 +204,7 @@ public class TestRaptorMetadata
         ConnectorTableHandle ordersTableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
         assertInstanceOf(ordersTableHandle, RaptorTableHandle.class);
         RaptorTableHandle ordersRaptorTableHandle = (RaptorTableHandle) ordersTableHandle;
-        assertEquals(ordersRaptorTableHandle.getTableId(), 1);
+        assertThat(ordersRaptorTableHandle.getTableId()).isEqualTo(1);
 
         assertInstanceOf(ordersRaptorTableHandle, RaptorTableHandle.class);
 
@@ -234,7 +233,7 @@ public class TestRaptorMetadata
     @Test
     public void testRenameTable()
     {
-        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        assertThat(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS)).isNull();
         metadata.createTable(SESSION, getOrdersTable(), false);
         ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
         assertInstanceOf(tableHandle, RaptorTableHandle.class);
@@ -243,40 +242,40 @@ public class TestRaptorMetadata
         SchemaTableName renamedTable = new SchemaTableName(raptorTableHandle.getSchemaName(), "orders_renamed");
 
         metadata.renameTable(SESSION, raptorTableHandle, renamedTable);
-        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        assertThat(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS)).isNull();
         ConnectorTableHandle renamedTableHandle = metadata.getTableHandle(SESSION, renamedTable);
-        assertNotNull(renamedTableHandle);
-        assertEquals(((RaptorTableHandle) renamedTableHandle).getTableName(), renamedTable.getTableName());
+        assertThat(renamedTableHandle).isNotNull();
+        assertThat(((RaptorTableHandle) renamedTableHandle).getTableName()).isEqualTo(renamedTable.getTableName());
     }
 
     @Test
     public void testCreateTable()
     {
-        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        assertThat(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS)).isNull();
 
         metadata.createTable(SESSION, getOrdersTable(), false);
 
         ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
         assertInstanceOf(tableHandle, RaptorTableHandle.class);
-        assertEquals(((RaptorTableHandle) tableHandle).getTableId(), 1);
+        assertThat(((RaptorTableHandle) tableHandle).getTableId()).isEqualTo(1);
 
         ConnectorTableMetadata table = metadata.getTableMetadata(SESSION, tableHandle);
         assertTableEqual(table, getOrdersTable());
 
         ColumnHandle columnHandle = metadata.getColumnHandles(SESSION, tableHandle).get("orderkey");
         assertInstanceOf(columnHandle, RaptorColumnHandle.class);
-        assertEquals(((RaptorColumnHandle) columnHandle).getColumnId(), 1);
+        assertThat(((RaptorColumnHandle) columnHandle).getColumnId()).isEqualTo(1);
 
         ColumnMetadata columnMetadata = metadata.getColumnMetadata(SESSION, tableHandle, columnHandle);
-        assertNotNull(columnMetadata);
-        assertEquals(columnMetadata.getName(), "orderkey");
-        assertEquals(columnMetadata.getType(), BIGINT);
+        assertThat(columnMetadata).isNotNull();
+        assertThat(columnMetadata.getName()).isEqualTo("orderkey");
+        assertThat(columnMetadata.getType()).isEqualTo(BIGINT);
     }
 
     @Test
     public void testTableProperties()
     {
-        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        assertThat(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS)).isNull();
 
         ConnectorTableMetadata ordersTable = getOrdersTable(ImmutableMap.of(
                 ORDERING_PROPERTY, ImmutableList.of("orderdate", "custkey"),
@@ -286,7 +285,7 @@ public class TestRaptorMetadata
         ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
         assertInstanceOf(tableHandle, RaptorTableHandle.class);
         RaptorTableHandle raptorTableHandle = (RaptorTableHandle) tableHandle;
-        assertEquals(raptorTableHandle.getTableId(), 1);
+        assertThat(raptorTableHandle.getTableId()).isEqualTo(1);
 
         long tableId = raptorTableHandle.getTableId();
         MetadataDao metadataDao = dbi.onDemand(MetadataDao.class);
@@ -298,10 +297,10 @@ public class TestRaptorMetadata
                 new TableColumn(DEFAULT_TEST_ORDERS, "custkey", BIGINT, 2, 1, OptionalInt.empty(), OptionalInt.of(1), false)));
 
         // verify temporal column
-        assertEquals(metadataDao.getTemporalColumnId(tableId), Long.valueOf(4));
+        assertThat(metadataDao.getTemporalColumnId(tableId)).isEqualTo(Long.valueOf(4));
 
         // verify no organization
-        assertFalse(metadataDao.getTableInformation(tableId).isOrganized());
+        assertThat(metadataDao.getTableInformation(tableId).isOrganized()).isFalse();
 
         metadata.dropTable(SESSION, tableHandle);
     }
@@ -309,7 +308,7 @@ public class TestRaptorMetadata
     @Test
     public void testTablePropertiesWithOrganization()
     {
-        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        assertThat(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS)).isNull();
 
         ConnectorTableMetadata ordersTable = getOrdersTable(ImmutableMap.of(
                 ORDERING_PROPERTY, ImmutableList.of("orderdate", "custkey"),
@@ -319,7 +318,7 @@ public class TestRaptorMetadata
         ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
         assertInstanceOf(tableHandle, RaptorTableHandle.class);
         RaptorTableHandle raptorTableHandle = (RaptorTableHandle) tableHandle;
-        assertEquals(raptorTableHandle.getTableId(), 1);
+        assertThat(raptorTableHandle.getTableId()).isEqualTo(1);
 
         long tableId = raptorTableHandle.getTableId();
         MetadataDao metadataDao = dbi.onDemand(MetadataDao.class);
@@ -331,7 +330,7 @@ public class TestRaptorMetadata
                 new TableColumn(DEFAULT_TEST_ORDERS, "custkey", BIGINT, 2, 1, OptionalInt.empty(), OptionalInt.of(1), false)));
 
         // verify organization
-        assertTrue(metadataDao.getTableInformation(tableId).isOrganized());
+        assertThat(metadataDao.getTableInformation(tableId).isOrganized()).isTrue();
 
         metadata.dropTable(SESSION, tableHandle);
     }
@@ -339,7 +338,7 @@ public class TestRaptorMetadata
     @Test
     public void testCreateBucketedTable()
     {
-        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        assertThat(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS)).isNull();
 
         ConnectorTableMetadata ordersTable = getOrdersTable(ImmutableMap.of(
                 BUCKET_COUNT_PROPERTY, 16,
@@ -349,7 +348,7 @@ public class TestRaptorMetadata
         ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
         assertInstanceOf(tableHandle, RaptorTableHandle.class);
         RaptorTableHandle raptorTableHandle = (RaptorTableHandle) tableHandle;
-        assertEquals(raptorTableHandle.getTableId(), 1);
+        assertThat(raptorTableHandle.getTableId()).isEqualTo(1);
 
         long tableId = raptorTableHandle.getTableId();
         MetadataDao metadataDao = dbi.onDemand(MetadataDao.class);
@@ -358,34 +357,34 @@ public class TestRaptorMetadata
                 new TableColumn(DEFAULT_TEST_ORDERS, "custkey", BIGINT, 2, 1, OptionalInt.of(0), OptionalInt.empty(), false),
                 new TableColumn(DEFAULT_TEST_ORDERS, "orderkey", BIGINT, 1, 0, OptionalInt.of(1), OptionalInt.empty(), false)));
 
-        assertEquals(raptorTableHandle.getBucketCount(), OptionalInt.of(16));
+        assertThat(raptorTableHandle.getBucketCount()).isEqualTo(OptionalInt.of(16));
 
-        assertEquals(getTableDistributionId(tableId), Long.valueOf(1));
+        assertThat(getTableDistributionId(tableId)).isEqualTo(Long.valueOf(1));
 
         metadata.dropTable(SESSION, tableHandle);
 
         // create a new table and verify it has a different distribution
         metadata.createTable(SESSION, ordersTable, false);
         tableId = ((RaptorTableHandle) metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS)).getTableId();
-        assertEquals(tableId, 2);
-        assertEquals(getTableDistributionId(tableId), Long.valueOf(2));
+        assertThat(tableId).isEqualTo(2);
+        assertThat(getTableDistributionId(tableId)).isEqualTo(Long.valueOf(2));
     }
 
     @Test
     public void testCreateBucketedTableAsSelect()
     {
-        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        assertThat(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS)).isNull();
 
         ConnectorTableMetadata ordersTable = getOrdersTable(ImmutableMap.of(
                 BUCKET_COUNT_PROPERTY, 32,
                 BUCKETED_ON_PROPERTY, ImmutableList.of("orderkey", "custkey")));
 
         ConnectorTableLayout layout = metadata.getNewTableLayout(SESSION, ordersTable).get();
-        assertEquals(layout.getPartitionColumns(), ImmutableList.of("orderkey", "custkey"));
-        assertTrue(layout.getPartitioning().isPresent());
+        assertThat(layout.getPartitionColumns()).isEqualTo(ImmutableList.of("orderkey", "custkey"));
+        assertThat(layout.getPartitioning().isPresent()).isTrue();
         assertInstanceOf(layout.getPartitioning().get(), RaptorPartitioningHandle.class);
         RaptorPartitioningHandle partitioning = (RaptorPartitioningHandle) layout.getPartitioning().get();
-        assertEquals(partitioning.getDistributionId(), 1);
+        assertThat(partitioning.getDistributionId()).isEqualTo(1);
 
         ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, ordersTable, Optional.of(layout), NO_RETRIES);
         metadata.finishCreateTable(SESSION, outputHandle, ImmutableList.of(), ImmutableList.of());
@@ -393,7 +392,7 @@ public class TestRaptorMetadata
         ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
         assertInstanceOf(tableHandle, RaptorTableHandle.class);
         RaptorTableHandle raptorTableHandle = (RaptorTableHandle) tableHandle;
-        assertEquals(raptorTableHandle.getTableId(), 1);
+        assertThat(raptorTableHandle.getTableId()).isEqualTo(1);
 
         long tableId = raptorTableHandle.getTableId();
         MetadataDao metadataDao = dbi.onDemand(MetadataDao.class);
@@ -402,9 +401,9 @@ public class TestRaptorMetadata
                 new TableColumn(DEFAULT_TEST_ORDERS, "orderkey", BIGINT, 1, 0, OptionalInt.of(0), OptionalInt.empty(), false),
                 new TableColumn(DEFAULT_TEST_ORDERS, "custkey", BIGINT, 2, 1, OptionalInt.of(1), OptionalInt.empty(), false)));
 
-        assertEquals(raptorTableHandle.getBucketCount(), OptionalInt.of(32));
+        assertThat(raptorTableHandle.getBucketCount()).isEqualTo(OptionalInt.of(32));
 
-        assertEquals(getTableDistributionId(tableId), Long.valueOf(1));
+        assertThat(getTableDistributionId(tableId)).isEqualTo(Long.valueOf(1));
 
         metadata.dropTable(SESSION, tableHandle);
     }
@@ -415,7 +414,7 @@ public class TestRaptorMetadata
         MetadataDao metadataDao = dbi.onDemand(MetadataDao.class);
 
         // create orders table
-        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        assertThat(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS)).isNull();
 
         ConnectorTableMetadata table = getOrdersTable(ImmutableMap.of(
                 BUCKET_COUNT_PROPERTY, 16,
@@ -428,17 +427,17 @@ public class TestRaptorMetadata
         RaptorTableHandle raptorTableHandle = (RaptorTableHandle) tableHandle;
 
         long tableId = raptorTableHandle.getTableId();
-        assertEquals(raptorTableHandle.getTableId(), 1);
+        assertThat(raptorTableHandle.getTableId()).isEqualTo(1);
 
         assertTableColumnsEqual(metadataDao.listBucketColumns(tableId), ImmutableList.of(
                 new TableColumn(DEFAULT_TEST_ORDERS, "orderkey", BIGINT, 1, 0, OptionalInt.of(0), OptionalInt.empty(), false)));
 
-        assertEquals(raptorTableHandle.getBucketCount(), OptionalInt.of(16));
+        assertThat(raptorTableHandle.getBucketCount()).isEqualTo(OptionalInt.of(16));
 
-        assertEquals(getTableDistributionId(tableId), Long.valueOf(1));
+        assertThat(getTableDistributionId(tableId)).isEqualTo(Long.valueOf(1));
 
         // create lineitems table
-        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_LINEITEMS));
+        assertThat(metadata.getTableHandle(SESSION, DEFAULT_TEST_LINEITEMS)).isNull();
 
         table = getLineItemsTable(ImmutableMap.of(
                 BUCKET_COUNT_PROPERTY, 16,
@@ -451,64 +450,70 @@ public class TestRaptorMetadata
         raptorTableHandle = (RaptorTableHandle) tableHandle;
 
         tableId = raptorTableHandle.getTableId();
-        assertEquals(tableId, 2);
+        assertThat(tableId).isEqualTo(2);
 
         assertTableColumnsEqual(metadataDao.listBucketColumns(tableId), ImmutableList.of(
                 new TableColumn(DEFAULT_TEST_LINEITEMS, "orderkey", BIGINT, 1, 0, OptionalInt.of(0), OptionalInt.empty(), false)));
 
-        assertEquals(raptorTableHandle.getBucketCount(), OptionalInt.of(16));
+        assertThat(raptorTableHandle.getBucketCount()).isEqualTo(OptionalInt.of(16));
 
-        assertEquals(getTableDistributionId(tableId), Long.valueOf(1));
+        assertThat(getTableDistributionId(tableId)).isEqualTo(Long.valueOf(1));
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Ordering column does not exist: orderdatefoo")
+    @Test
     public void testInvalidOrderingColumns()
     {
-        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        assertThat(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS)).isNull();
 
-        ConnectorTableMetadata ordersTable = getOrdersTable(ImmutableMap.of(ORDERING_PROPERTY, ImmutableList.of("orderdatefoo")));
-        metadata.createTable(SESSION, ordersTable, false);
-        fail("Expected createTable to fail");
+        assertThatThrownBy(() -> metadata.createTable(SESSION, getOrdersTable(ImmutableMap.of(ORDERING_PROPERTY, ImmutableList.of("orderdatefoo"))), false))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Ordering column does not exist: orderdatefoo");
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Temporal column does not exist: foo")
+    @Test
     public void testInvalidTemporalColumn()
     {
-        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        assertThat(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS)).isNull();
 
-        ConnectorTableMetadata ordersTable = getOrdersTable(ImmutableMap.of(TEMPORAL_COLUMN_PROPERTY, "foo"));
-        metadata.createTable(SESSION, ordersTable, false);
-        fail("Expected createTable to fail");
+        assertThatThrownBy(() -> metadata.createTable(SESSION, getOrdersTable(ImmutableMap.of(TEMPORAL_COLUMN_PROPERTY, "foo")), false))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Temporal column does not exist: foo");
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Temporal column must be of type timestamp or date: orderkey")
+    @Test
     public void testInvalidTemporalColumnType()
     {
-        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
-        metadata.createTable(SESSION, getOrdersTable(ImmutableMap.of(TEMPORAL_COLUMN_PROPERTY, "orderkey")), false);
+        assertThat(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS)).isNull();
+        assertThatThrownBy(() -> metadata.createTable(SESSION, getOrdersTable(ImmutableMap.of(TEMPORAL_COLUMN_PROPERTY, "orderkey")), false))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Temporal column must be of type timestamp or date: orderkey");
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Table with temporal columns cannot be organized")
+    @Test
     public void testInvalidTemporalOrganization()
     {
-        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
-        metadata.createTable(SESSION, getOrdersTable(ImmutableMap.of(
-                TEMPORAL_COLUMN_PROPERTY, "orderdate",
-                ORGANIZED_PROPERTY, true)),
-                false);
+        assertThat(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS)).isNull();
+        assertThatThrownBy(() -> metadata.createTable(SESSION, getOrdersTable(ImmutableMap.of(
+                        TEMPORAL_COLUMN_PROPERTY, "orderdate",
+                        ORGANIZED_PROPERTY, true)),
+                false))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Table with temporal columns cannot be organized");
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "Table organization requires an ordering")
+    @Test
     public void testInvalidOrderingOrganization()
     {
-        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
-        metadata.createTable(SESSION, getOrdersTable(ImmutableMap.of(ORGANIZED_PROPERTY, true)), false);
+        assertThat(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS)).isNull();
+        assertThatThrownBy(() -> metadata.createTable(SESSION, getOrdersTable(ImmutableMap.of(ORGANIZED_PROPERTY, true)), false))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("Table organization requires an ordering");
     }
 
     @Test
     public void testSortOrderProperty()
     {
-        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        assertThat(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS)).isNull();
 
         ConnectorTableMetadata ordersTable = getOrdersTable(ImmutableMap.of(ORDERING_PROPERTY, ImmutableList.of("orderdate", "custkey")));
         metadata.createTable(SESSION, ordersTable, false);
@@ -516,7 +521,7 @@ public class TestRaptorMetadata
         ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
         assertInstanceOf(tableHandle, RaptorTableHandle.class);
         RaptorTableHandle raptorTableHandle = (RaptorTableHandle) tableHandle;
-        assertEquals(raptorTableHandle.getTableId(), 1);
+        assertThat(raptorTableHandle.getTableId()).isEqualTo(1);
 
         long tableId = raptorTableHandle.getTableId();
         MetadataDao metadataDao = dbi.onDemand(MetadataDao.class);
@@ -528,14 +533,14 @@ public class TestRaptorMetadata
                 new TableColumn(DEFAULT_TEST_ORDERS, "custkey", BIGINT, 2, 1, OptionalInt.empty(), OptionalInt.of(1), false)));
 
         // verify temporal column is not set
-        assertEquals(metadataDao.getTemporalColumnId(tableId), null);
+        assertThat(metadataDao.getTemporalColumnId(tableId)).isEqualTo(null);
         metadata.dropTable(SESSION, tableHandle);
     }
 
     @Test
     public void testTemporalColumn()
     {
-        assertNull(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS));
+        assertThat(metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS)).isNull();
 
         ConnectorTableMetadata ordersTable = getOrdersTable(ImmutableMap.of(TEMPORAL_COLUMN_PROPERTY, "orderdate"));
         metadata.createTable(SESSION, ordersTable, false);
@@ -543,18 +548,18 @@ public class TestRaptorMetadata
         ConnectorTableHandle tableHandle = metadata.getTableHandle(SESSION, DEFAULT_TEST_ORDERS);
         assertInstanceOf(tableHandle, RaptorTableHandle.class);
         RaptorTableHandle raptorTableHandle = (RaptorTableHandle) tableHandle;
-        assertEquals(raptorTableHandle.getTableId(), 1);
+        assertThat(raptorTableHandle.getTableId()).isEqualTo(1);
 
         long tableId = raptorTableHandle.getTableId();
         MetadataDao metadataDao = dbi.onDemand(MetadataDao.class);
 
         // verify sort columns are not set
         List<TableColumn> sortColumns = metadataDao.listSortColumns(tableId);
-        assertEquals(sortColumns.size(), 0);
-        assertEquals(sortColumns, ImmutableList.of());
+        assertThat(sortColumns.size()).isEqualTo(0);
+        assertThat(sortColumns).isEqualTo(ImmutableList.of());
 
         // verify temporal column is set
-        assertEquals(metadataDao.getTemporalColumnId(tableId), Long.valueOf(4));
+        assertThat(metadataDao.getTemporalColumnId(tableId)).isEqualTo(Long.valueOf(4));
         metadata.dropTable(SESSION, tableHandle);
     }
 
@@ -563,7 +568,7 @@ public class TestRaptorMetadata
     {
         metadata.createTable(SESSION, getOrdersTable(), false);
         List<SchemaTableName> tables = metadata.listTables(SESSION, Optional.empty());
-        assertEquals(tables, ImmutableList.of(DEFAULT_TEST_ORDERS));
+        assertThat(tables).isEqualTo(ImmutableList.of(DEFAULT_TEST_ORDERS));
     }
 
     @Test
@@ -571,7 +576,7 @@ public class TestRaptorMetadata
     {
         metadata.createTable(SESSION, getOrdersTable(), false);
         Map<SchemaTableName, List<ColumnMetadata>> columns = metadata.listTableColumns(SESSION, new SchemaTablePrefix());
-        assertEquals(columns, ImmutableMap.of(DEFAULT_TEST_ORDERS, getOrdersTable().getColumns()));
+        assertThat(columns).isEqualTo(ImmutableMap.of(DEFAULT_TEST_ORDERS, getOrdersTable().getColumns()));
     }
 
     @Test
@@ -581,8 +586,8 @@ public class TestRaptorMetadata
         Map<SchemaTableName, List<ColumnMetadata>> filterCatalog = metadata.listTableColumns(SESSION, new SchemaTablePrefix());
         Map<SchemaTableName, List<ColumnMetadata>> filterSchema = metadata.listTableColumns(SESSION, new SchemaTablePrefix("test"));
         Map<SchemaTableName, List<ColumnMetadata>> filterTable = metadata.listTableColumns(SESSION, new SchemaTablePrefix("test", "orders"));
-        assertEquals(filterCatalog, filterSchema);
-        assertEquals(filterCatalog, filterTable);
+        assertThat(filterCatalog).isEqualTo(filterSchema);
+        assertThat(filterCatalog).isEqualTo(filterTable);
     }
 
     @Test
@@ -601,9 +606,9 @@ public class TestRaptorMetadata
 
         // verify getting data
         Map<SchemaTableName, ConnectorViewDefinition> views = metadata.getViews(SESSION, Optional.of("test"));
-        assertEquals(views.keySet(), ImmutableSet.of(test1, test2));
-        assertEquals(views.get(test1).getOriginalSql(), "test1");
-        assertEquals(views.get(test2).getOriginalSql(), "test2");
+        assertThat(views.keySet()).isEqualTo(ImmutableSet.of(test1, test2));
+        assertThat(views.get(test1).getOriginalSql()).isEqualTo("test1");
+        assertThat(views.get(test2).getOriginalSql()).isEqualTo("test2");
 
         // drop first view
         metadata.dropView(SESSION, test1);
@@ -622,18 +627,14 @@ public class TestRaptorMetadata
                 .isEmpty();
     }
 
-    @Test(expectedExceptions = TrinoException.class, expectedExceptionsMessageRegExp = "View already exists: test\\.test_view")
+    @Test
     public void testCreateViewWithoutReplace()
     {
         SchemaTableName test = new SchemaTableName("test", "test_view");
-        try {
-            metadata.createView(SESSION, test, testingViewDefinition("test"), false);
-        }
-        catch (Exception e) {
-            fail("should have succeeded");
-        }
-
         metadata.createView(SESSION, test, testingViewDefinition("test"), false);
+        assertThatThrownBy(() -> metadata.createView(SESSION, test, testingViewDefinition("test"), false))
+                .isInstanceOf(TrinoException.class)
+                .hasMessage("View already exists: test.test_view");
     }
 
     @Test
@@ -657,13 +658,13 @@ public class TestRaptorMetadata
         ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, getOrdersTable(), Optional.empty(), NO_RETRIES);
 
         // transaction is in progress
-        assertTrue(transactionExists(transactionId));
-        assertNull(transactionSuccessful(transactionId));
+        assertThat(transactionExists(transactionId)).isTrue();
+        assertThat(transactionSuccessful(transactionId)).isNull();
 
         // commit table creation
         metadata.finishCreateTable(SESSION, outputHandle, ImmutableList.of(), ImmutableList.of());
-        assertTrue(transactionExists(transactionId));
-        assertTrue(transactionSuccessful(transactionId));
+        assertThat(transactionExists(transactionId)).isTrue();
+        assertThat(transactionSuccessful(transactionId)).isTrue();
     }
 
     @Test
@@ -672,7 +673,7 @@ public class TestRaptorMetadata
         // creating a table allocates a transaction
         long transactionId = 1;
         metadata.createTable(SESSION, getOrdersTable(), false);
-        assertTrue(transactionSuccessful(transactionId));
+        assertThat(transactionSuccessful(transactionId)).isTrue();
 
         // start insert
         transactionId++;
@@ -680,13 +681,13 @@ public class TestRaptorMetadata
         ConnectorInsertTableHandle insertHandle = metadata.beginInsert(SESSION, tableHandle, ImmutableList.of(), NO_RETRIES);
 
         // transaction is in progress
-        assertTrue(transactionExists(transactionId));
-        assertNull(transactionSuccessful(transactionId));
+        assertThat(transactionExists(transactionId)).isTrue();
+        assertThat(transactionSuccessful(transactionId)).isNull();
 
         // commit insert
         metadata.finishInsert(SESSION, insertHandle, ImmutableList.of(), ImmutableList.of());
-        assertTrue(transactionExists(transactionId));
-        assertTrue(transactionSuccessful(transactionId));
+        assertThat(transactionExists(transactionId)).isTrue();
+        assertThat(transactionSuccessful(transactionId)).isTrue();
     }
 
     @Test
@@ -697,13 +698,13 @@ public class TestRaptorMetadata
         ConnectorOutputTableHandle outputHandle = metadata.beginCreateTable(SESSION, getOrdersTable(), Optional.empty(), NO_RETRIES);
 
         // transaction is in progress
-        assertTrue(transactionExists(transactionId));
-        assertNull(transactionSuccessful(transactionId));
+        assertThat(transactionExists(transactionId)).isTrue();
+        assertThat(transactionSuccessful(transactionId)).isNull();
 
         // force transaction to abort
         shardManager.rollbackTransaction(transactionId);
-        assertTrue(transactionExists(transactionId));
-        assertFalse(transactionSuccessful(transactionId));
+        assertThat(transactionExists(transactionId)).isTrue();
+        assertThat(transactionSuccessful(transactionId)).isFalse();
 
         // commit table creation
         assertTrinoExceptionThrownBy(() -> metadata.finishCreateTable(SESSION, outputHandle, ImmutableList.of(), ImmutableList.of()))
@@ -785,38 +786,38 @@ public class TestRaptorMetadata
 
     private static void assertTableEqual(ConnectorTableMetadata actual, ConnectorTableMetadata expected)
     {
-        assertEquals(actual.getTable(), expected.getTable());
+        assertThat(actual.getTable()).isEqualTo(expected.getTable());
 
         List<ColumnMetadata> actualColumns = actual.getColumns().stream()
                 .filter(columnMetadata -> !columnMetadata.isHidden())
                 .collect(Collectors.toList());
 
         List<ColumnMetadata> expectedColumns = expected.getColumns();
-        assertEquals(actualColumns.size(), expectedColumns.size());
+        assertThat(actualColumns.size()).isEqualTo(expectedColumns.size());
         for (int i = 0; i < actualColumns.size(); i++) {
             ColumnMetadata actualColumn = actualColumns.get(i);
             ColumnMetadata expectedColumn = expectedColumns.get(i);
-            assertEquals(actualColumn.getName(), expectedColumn.getName());
-            assertEquals(actualColumn.getType(), expectedColumn.getType());
+            assertThat(actualColumn.getName()).isEqualTo(expectedColumn.getName());
+            assertThat(actualColumn.getType()).isEqualTo(expectedColumn.getType());
         }
-        assertEquals(actual.getProperties(), expected.getProperties());
+        assertThat(actual.getProperties()).isEqualTo(expected.getProperties());
     }
 
     private static void assertTableColumnEqual(TableColumn actual, TableColumn expected)
     {
-        assertEquals(actual.getTable(), expected.getTable());
-        assertEquals(actual.getColumnId(), expected.getColumnId());
-        assertEquals(actual.getColumnName(), expected.getColumnName());
-        assertEquals(actual.getDataType(), expected.getDataType());
-        assertEquals(actual.getOrdinalPosition(), expected.getOrdinalPosition());
-        assertEquals(actual.getBucketOrdinal(), expected.getBucketOrdinal());
-        assertEquals(actual.getSortOrdinal(), expected.getSortOrdinal());
-        assertEquals(actual.isTemporal(), expected.isTemporal());
+        assertThat(actual.getTable()).isEqualTo(expected.getTable());
+        assertThat(actual.getColumnId()).isEqualTo(expected.getColumnId());
+        assertThat(actual.getColumnName()).isEqualTo(expected.getColumnName());
+        assertThat(actual.getDataType()).isEqualTo(expected.getDataType());
+        assertThat(actual.getOrdinalPosition()).isEqualTo(expected.getOrdinalPosition());
+        assertThat(actual.getBucketOrdinal()).isEqualTo(expected.getBucketOrdinal());
+        assertThat(actual.getSortOrdinal()).isEqualTo(expected.getSortOrdinal());
+        assertThat(actual.isTemporal()).isEqualTo(expected.isTemporal());
     }
 
     private static void assertTableColumnsEqual(List<TableColumn> actual, List<TableColumn> expected)
     {
-        assertEquals(actual.size(), expected.size());
+        assertThat(actual.size()).isEqualTo(expected.size());
         for (int i = 0; i < actual.size(); i++) {
             assertTableColumnEqual(actual.get(i), expected.get(i));
         }

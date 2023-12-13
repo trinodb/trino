@@ -25,6 +25,7 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 
@@ -39,8 +40,9 @@ import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.
 import static io.trino.plugin.hive.metastore.CountingAccessHiveMetastore.Method.UPDATE_TABLE_STATISTICS;
 import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-// metastore invocation counters shares mutable state so can't be run from many threads simultaneously
+@Execution(SAME_THREAD)// metastore invocation counters shares mutable state so can't be run from many threads simultaneously
 public class TestHiveMetastoreAccessOperations
         extends AbstractTestQueryFramework
 {
@@ -118,7 +120,7 @@ public class TestHiveMetastoreAccessOperations
 
         assertMetastoreInvocations("SELECT * FROM test_select_partition",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 2)
+                        .add(GET_TABLE)
                         .add(GET_PARTITION_NAMES_BY_FILTER)
                         .add(GET_PARTITIONS_BY_NAMES)
                         .build());
@@ -126,7 +128,7 @@ public class TestHiveMetastoreAccessOperations
         assertUpdate("INSERT INTO test_select_partition SELECT 2 AS data, 20 AS part", 1);
         assertMetastoreInvocations("SELECT * FROM test_select_partition",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 2)
+                        .add(GET_TABLE)
                         .add(GET_PARTITION_NAMES_BY_FILTER)
                         .add(GET_PARTITIONS_BY_NAMES)
                         .build());
@@ -134,7 +136,7 @@ public class TestHiveMetastoreAccessOperations
         // Specify a specific partition
         assertMetastoreInvocations("SELECT * FROM test_select_partition WHERE part = 10",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 2)
+                        .add(GET_TABLE)
                         .add(GET_PARTITION_NAMES_BY_FILTER)
                         .add(GET_PARTITIONS_BY_NAMES)
                         .build());
@@ -267,7 +269,7 @@ public class TestHiveMetastoreAccessOperations
 
         assertMetastoreInvocations("ANALYZE test_analyze_partition",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 2)
+                        .addCopies(GET_TABLE, 1)
                         .add(GET_PARTITION_NAMES_BY_FILTER)
                         .add(GET_PARTITIONS_BY_NAMES)
                         .add(GET_PARTITION_STATISTICS)
@@ -278,7 +280,7 @@ public class TestHiveMetastoreAccessOperations
 
         assertMetastoreInvocations("ANALYZE test_analyze_partition",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 2)
+                        .add(GET_TABLE)
                         .add(GET_PARTITION_NAMES_BY_FILTER)
                         .add(GET_PARTITIONS_BY_NAMES)
                         .add(GET_PARTITION_STATISTICS)
@@ -305,7 +307,7 @@ public class TestHiveMetastoreAccessOperations
 
         assertMetastoreInvocations("CALL system.drop_stats('test_schema', 'drop_stats_partition')",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 2)
+                        .add(GET_TABLE)
                         .add(GET_PARTITION_NAMES_BY_FILTER)
                         .add(UPDATE_PARTITION_STATISTICS)
                         .build());
@@ -314,7 +316,7 @@ public class TestHiveMetastoreAccessOperations
 
         assertMetastoreInvocations("CALL system.drop_stats('test_schema', 'drop_stats_partition')",
                 ImmutableMultiset.builder()
-                        .addCopies(GET_TABLE, 2)
+                        .add(GET_TABLE)
                         .add(GET_PARTITION_NAMES_BY_FILTER)
                         .addCopies(UPDATE_PARTITION_STATISTICS, 2)
                         .build());

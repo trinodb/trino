@@ -5907,7 +5907,7 @@ public class TestSqlParser
                 "ordinal_number FOR ORDINALITY, " +
                 "customer_name varchar PATH 'lax $.cust_no' DEFAULT 'anonymous' ON EMPTY null ON ERROR, " +
                 "customer_countries varchar FORMAT JSON PATH 'lax.cust_ctr[*]' WITH WRAPPER KEEP QUOTES null ON EMPTY ERROR ON ERROR," +
-                "customer_regions varchar FORMAT JSON PATH 'lax.cust_reg[*]' EMPTY ARRAY ON EMPTY EMPTY OBJECT ON ERROR) " +
+                "customer_regions varchar FORMAT JSON ENCODING UTF16 PATH 'lax.cust_reg[*]' EMPTY ARRAY ON EMPTY EMPTY OBJECT ON ERROR) " +
                 "EMPTY ON ERROR)"))
                 .isEqualTo(selectAllFrom(new JsonTable(
                         location(1, 15),
@@ -5943,8 +5943,8 @@ public class TestSqlParser
                                         location(1, 281),
                                         new Identifier(location(1, 281), "customer_regions", false),
                                         new GenericDataType(location(1, 298), new Identifier(location(1, 298), "varchar", false), ImmutableList.of()),
-                                        JSON,
-                                        Optional.of(new StringLiteral(location(1, 323), "lax.cust_reg[*]")),
+                                        UTF16,
+                                        Optional.of(new StringLiteral(location(1, 338), "lax.cust_reg[*]")),
                                         JsonQuery.ArrayWrapperBehavior.WITHOUT,
                                         Optional.empty(),
                                         JsonQuery.EmptyOrErrorBehavior.EMPTY_ARRAY,

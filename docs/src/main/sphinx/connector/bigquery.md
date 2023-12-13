@@ -165,59 +165,63 @@ each direction.
 The connector maps BigQuery types to the corresponding Trino types according
 to the following table:
 
-```{eval-rst}
-.. list-table:: BigQuery type to Trino type mapping
-  :widths: 30, 30, 50
-  :header-rows: 1
+:::{list-table} BigQuery type to Trino type mapping
+:widths: 30, 30, 50
+:header-rows: 1
 
-  * - BigQuery type
-    - Trino type
-    - Notes
-  * - ``BOOLEAN``
-    - ``BOOLEAN``
-    -
-  * - ``INT64``
-    - ``BIGINT``
-    - ``INT``, ``SMALLINT``, ``INTEGER``, ``BIGINT``, ``TINYINT``, and
-      ``BYTEINT`` are aliases for ``INT64`` in BigQuery.
-  * - ``FLOAT64``
-    - ``DOUBLE``
-    -
-  * - ``NUMERIC``
-    - ``DECIMAL(P,S)``
-    - The default precision and scale of ``NUMERIC`` is ``(38, 9)``.
-  * - ``BIGNUMERIC``
-    - ``DECIMAL(P,S)``
-    - Precision > 38 is not supported. The default precision and scale of
-      ``BIGNUMERIC`` is ``(77, 38)``.
-  * - ``DATE``
-    - ``DATE``
-    -
-  * - ``DATETIME``
-    - ``TIMESTAMP(6)``
-    -
-  * - ``STRING``
-    - ``VARCHAR``
-    -
-  * - ``BYTES``
-    - ``VARBINARY``
-    -
-  * - ``TIME``
-    - ``TIME(6)``
-    -
-  * - ``TIMESTAMP``
-    - ``TIMESTAMP(6) WITH TIME ZONE``
-    - Time zone is UTC
-  * - ``GEOGRAPHY``
-    - ``VARCHAR``
-    - In `Well-known text (WKT) <https://wikipedia.org/wiki/Well-known_text_representation_of_geometry>`_ format
-  * - ``ARRAY``
-    - ``ARRAY``
-    -
-  * - ``RECORD``
-    - ``ROW``
-    -
-```
+* - BigQuery type
+  - Trino type
+  - Notes
+* - `BOOLEAN`
+  - `BOOLEAN`
+  -
+* - `INT64`
+  - `BIGINT`
+  - `INT`, `SMALLINT`, `INTEGER`, `BIGINT`, `TINYINT`, and `BYTEINT` are aliases
+    for `INT64` in BigQuery.
+* - `FLOAT64`
+  - `DOUBLE`
+  -
+* - `NUMERIC`
+  - `DECIMAL(P,S)`
+  - The default precision and scale of `NUMERIC` is `(38, 9)`.
+* - `BIGNUMERIC`
+  - `DECIMAL(P,S)`
+  - Precision > 38 is not supported. The default precision and scale of
+    `BIGNUMERIC` is `(77, 38)`.
+* - `DATE`
+  - `DATE`
+  -
+* - `DATETIME`
+  - `TIMESTAMP(6)`
+  -
+* - `STRING`
+  - `VARCHAR`
+  -
+* - `BYTES`
+  - `VARBINARY`
+  -
+* - `TIME`
+  - `TIME(6)`
+  -
+* - `TIMESTAMP`
+  - `TIMESTAMP(6) WITH TIME ZONE`
+  - Time zone is UTC
+* - `GEOGRAPHY`
+  - `VARCHAR`
+  - In [Well-known text
+    (WKT)](https://wikipedia.org/wiki/Well-known_text_representation_of_geometry)
+    format
+* - `JSON`
+  - `JSON`
+  -
+* - `ARRAY`
+  - `ARRAY`
+  -
+* - `RECORD`
+  - `ROW`
+  -
+:::
 
 No other types are supported.
 
@@ -226,40 +230,39 @@ No other types are supported.
 The connector maps Trino types to the corresponding BigQuery types according
 to the following table:
 
-```{eval-rst}
-.. list-table:: Trino type to BigQuery type mapping
-  :widths: 30, 30, 50
-  :header-rows: 1
+:::{list-table} Trino type to BigQuery type mapping
+:widths: 30, 30, 50
+:header-rows: 1
 
-  * - Trino type
-    - BigQuery type
-    - Notes
-  * - ``BOOLEAN``
-    - ``BOOLEAN``
-    -
-  * - ``VARBINARY``
-    - ``BYTES``
-    -
-  * - ``DATE``
-    - ``DATE``
-    -
-  * - ``DOUBLE``
-    - ``FLOAT``
-    -
-  * - ``BIGINT``
-    - ``INT64``
-    - ``INT``, ``SMALLINT``, ``INTEGER``, ``BIGINT``, ``TINYINT``, and
-      ``BYTEINT`` are aliases for ``INT64`` in BigQuery.
-  * - ``DECIMAL(P,S)``
-    - ``NUMERIC``
-    - The default precision and scale of ``NUMERIC`` is ``(38, 9)``.
-  * - ``VARCHAR``
-    - ``STRING``
-    -
-  * - ``TIMESTAMP(6)``
-    - ``DATETIME``
-    -
-```
+* - Trino type
+  - BigQuery type
+  - Notes
+* - `BOOLEAN`
+  - `BOOLEAN`
+  -
+* - `VARBINARY`
+  - `BYTES`
+  -
+* - `DATE`
+  - `DATE`
+  -
+* - `DOUBLE`
+  - `FLOAT`
+  -
+* - `BIGINT`
+  - `INT64`
+  - `INT`, `SMALLINT`, `INTEGER`, `BIGINT`, `TINYINT`, and
+    `BYTEINT` are aliases for `INT64` in BigQuery.
+* - `DECIMAL(P,S)`
+  - `NUMERIC`
+  - The default precision and scale of `NUMERIC` is `(38, 9)`.
+* - `VARCHAR`
+  - `STRING`
+  -
+* - `TIMESTAMP(6)`
+  - `DATETIME`
+  -
+:::
 
 No other types are supported.
 
@@ -312,6 +315,7 @@ BigQuery database. In addition to the
 the following features:
 
 - {doc}`/sql/insert`
+- {doc}`/sql/delete`
 - {doc}`/sql/truncate`
 - {doc}`/sql/create-table`
 - {doc}`/sql/create-table-as`
@@ -319,6 +323,9 @@ the following features:
 - {doc}`/sql/create-schema`
 - {doc}`/sql/drop-schema`
 - {doc}`/sql/comment`
+
+```{include} sql-delete-limitation.fragment
+```
 
 (bigquery-fte-support)=
 

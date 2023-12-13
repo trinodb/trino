@@ -299,7 +299,7 @@ public final class Session
     public String getPreparedStatement(String name)
     {
         String sql = preparedStatements.get(name);
-        checkCondition(sql != null, NOT_FOUND, "Prepared statement not found: " + name);
+        checkCondition(sql != null, NOT_FOUND, "Prepared statement not found: %s", name);
         return sql;
     }
 

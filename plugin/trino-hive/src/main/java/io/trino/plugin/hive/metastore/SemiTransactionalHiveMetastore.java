@@ -52,6 +52,7 @@ import io.trino.plugin.hive.security.SqlStandardAccessControlMetadataMetastore;
 import io.trino.plugin.hive.util.ValidTxnWriteIdList;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -250,6 +251,24 @@ public class SemiTransactionalHiveMetastore
             throw new UnsupportedOperationException("Listing all tables after adding/dropping/altering tables/views in a transaction is not supported");
         }
         return delegate.getAllTables();
+    }
+
+    public synchronized Map<String, RelationType> getRelationTypes(String databaseName)
+    {
+        checkReadable();
+        if (!tableActions.isEmpty()) {
+            throw new UnsupportedOperationException("Listing all relations after adding/dropping/altering tables/views in a transaction is not supported");
+        }
+        return delegate.getRelationTypes(databaseName);
+    }
+
+    public synchronized Optional<Map<SchemaTableName, RelationType>> getRelationTypes()
+    {
+        checkReadable();
+        if (!tableActions.isEmpty()) {
+            throw new UnsupportedOperationException("Listing all relations after adding/dropping/altering tables/views in a transaction is not supported");
+        }
+        return delegate.getRelationTypes();
     }
 
     public synchronized Optional<Table> getTable(String databaseName, String tableName)
@@ -749,7 +768,7 @@ public class SemiTransactionalHiveMetastore
         }
 
         Location location = Location.of(table.getStorage().getLocation());
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session.getIdentity());
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         setExclusive(delegate -> {
             RecursiveDeleteResult recursiveDeleteResult = recursiveDeleteFiles(fileSystem, location, ImmutableSet.of(""), false);
             if (!recursiveDeleteResult.getNotDeletedEligibleItems().isEmpty()) {
@@ -791,8 +810,7 @@ public class SemiTransactionalHiveMetastore
                                     table,
                                     Optional.of(principalPrivileges),
                                     Optional.of(currentLocation),
-                                    partitionUpdateAndMergeResults,
-                                    partitions),
+                                    partitionUpdateAndMergeResults),
                             session.getIdentity(),
                             session.getQueryId()));
             return;
@@ -1147,13 +1165,6 @@ public class SemiTransactionalHiveMetastore
     public synchronized void revokeRoles(Set<String> roles, Set<HivePrincipal> grantees, boolean adminOption, HivePrincipal grantor)
     {
         setExclusive(delegate -> delegate.revokeRoles(roles, grantees, adminOption, grantor));
-    }
-
-    @Override
-    public synchronized Set<RoleGrant> listGrantedPrincipals(String role)
-    {
-        checkReadable();
-        return delegate.listGrantedPrincipals(role);
     }
 
     @Override
@@ -2949,18 +2960,11 @@ public class SemiTransactionalHiveMetastore
             extends TableAndMore
     {
         private final List<PartitionUpdateAndMergeResults> partitionMergeResults;
-        private final List<Partition> partitions;
 
-        public TableAndMergeResults(Table table, Optional<PrincipalPrivileges> principalPrivileges, Optional<Location> currentLocation, List<PartitionUpdateAndMergeResults> partitionMergeResults, List<Partition> partitions)
+        public TableAndMergeResults(Table table, Optional<PrincipalPrivileges> principalPrivileges, Optional<Location> currentLocation, List<PartitionUpdateAndMergeResults> partitionMergeResults)
         {
             super(table, principalPrivileges, currentLocation, Optional.empty(), false, PartitionStatistics.empty(), PartitionStatistics.empty(), false); // retries are not supported for transactional tables
             this.partitionMergeResults = requireNonNull(partitionMergeResults, "partitionMergeResults is null");
-            this.partitions = requireNonNull(partitions, "partitions is nul");
-        }
-
-        public List<Partition> getPartitions()
-        {
-            return partitions;
         }
 
         @Override
@@ -2969,7 +2973,6 @@ public class SemiTransactionalHiveMetastore
             return toStringHelper(this)
                     .add("table", getTable())
                     .add("partitionMergeResults", partitionMergeResults)
-                    .add("partitions", partitions)
                     .add("principalPrivileges", getPrincipalPrivileges())
                     .add("currentLocation", getCurrentLocation())
                     .toString();
@@ -3577,19 +3580,9 @@ public class SemiTransactionalHiveMetastore
         delegate.updateTableWriteId(dbName, tableName, transactionId, writeId, rowCountChange);
     }
 
-    public void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
-    {
-        delegate.alterPartitions(dbName, tableName, partitions, writeId);
-    }
-
     public void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
     {
         delegate.addDynamicPartitions(dbName, tableName, partitionNames, transactionId, writeId, operation);
-    }
-
-    public void commitTransaction(long transactionId)
-    {
-        delegate.commitTransaction(transactionId);
     }
 
     public static void cleanExtraOutputFiles(TrinoFileSystem fileSystem, String queryId, Location path, Set<String> filesToKeep)

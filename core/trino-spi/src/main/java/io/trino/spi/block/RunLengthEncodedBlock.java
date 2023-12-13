@@ -63,6 +63,11 @@ public final class RunLengthEncodedBlock
             return new RunLengthEncodedBlock(valueBlock, positionCount);
         }
 
+        // if the value is lazy be careful to not materialize it
+        if (value instanceof LazyBlock lazyBlock) {
+            return new LazyBlock(positionCount, () -> create(lazyBlock.getBlock(), positionCount));
+        }
+
         // unwrap the value
         ValueBlock valueBlock = value.getUnderlyingValueBlock();
         int valuePosition = value.getUnderlyingValuePosition(0);

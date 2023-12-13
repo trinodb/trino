@@ -191,7 +191,10 @@ public abstract class AbstractResourceConfigurationManager
     protected void configureGroup(ResourceGroup group, ResourceGroupSpec match)
     {
         if (match.getSoftMemoryLimit().isPresent()) {
-            group.setSoftMemoryLimitBytes(match.getSoftMemoryLimit().get().toBytes());
+            synchronized (memoryPoolFraction) {
+                memoryPoolFraction.remove(group);
+                group.setSoftMemoryLimitBytes(match.getSoftMemoryLimit().get().toBytes());
+            }
         }
         else {
             synchronized (memoryPoolFraction) {

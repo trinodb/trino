@@ -225,11 +225,11 @@ public class NativeLogicalTypesAvroTypeManager
                     yield (block, integer) -> timestampType.getLong(block, integer) / Timestamps.MICROSECONDS_PER_MILLISECOND;
                 }
                 else {
-                    yield ((block, integer) ->
+                    yield (block, integer) ->
                     {
                         SqlTimestamp timestamp = (SqlTimestamp) timestampType.getObject(block, integer);
                         return timestamp.roundTo(3).getMillis();
-                    });
+                    };
                 }
             }
             case TIMESTAMP_MICROS -> {
@@ -241,11 +241,11 @@ public class NativeLogicalTypesAvroTypeManager
                     yield (block, position) -> timestampType.getLong(block, position);
                 }
                 else {
-                    yield ((block, position) ->
+                    yield (block, position) ->
                     {
                         SqlTimestamp timestamp = (SqlTimestamp) timestampType.getObject(block, position);
                         return timestamp.roundTo(6).getEpochMicros();
-                    });
+                    };
                 }
             }
             case DECIMAL -> {

@@ -15,6 +15,8 @@ package io.trino.filesystem.azure;
 
 import com.azure.core.http.HttpClient;
 import com.azure.core.http.rest.PagedIterable;
+import com.azure.core.util.ClientOptions;
+import com.azure.core.util.TracingOptions;
 import com.azure.storage.blob.BlobClient;
 import com.azure.storage.blob.BlobContainerClient;
 import com.azure.storage.blob.BlobContainerClientBuilder;
@@ -53,21 +55,31 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.filesystem.azure.AzureUtils.handleAzureException;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
+import static java.util.UUID.randomUUID;
 import static java.util.function.Predicate.not;
 
 public class AzureFileSystem
         implements TrinoFileSystem
 {
     private final HttpClient httpClient;
+    private final TracingOptions tracingOptions;
     private final AzureAuth azureAuth;
     private final int readBlockSizeBytes;
     private final long writeBlockSizeBytes;
     private final int maxWriteConcurrency;
     private final long maxSingleUploadSizeBytes;
 
-    public AzureFileSystem(HttpClient httpClient, AzureAuth azureAuth, DataSize readBlockSize, DataSize writeBlockSize, int maxWriteConcurrency, DataSize maxSingleUploadSize)
+    public AzureFileSystem(
+            HttpClient httpClient,
+            TracingOptions tracingOptions,
+            AzureAuth azureAuth,
+            DataSize readBlockSize,
+            DataSize writeBlockSize,
+            int maxWriteConcurrency,
+            DataSize maxSingleUploadSize)
     {
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
+        this.tracingOptions = requireNonNull(tracingOptions, "tracingOptions is null");
         this.azureAuth = requireNonNull(azureAuth, "azureAuth is null");
         this.readBlockSizeBytes = toIntExact(readBlockSize.toBytes());
         this.writeBlockSizeBytes = writeBlockSize.toBytes();
@@ -224,7 +236,7 @@ public class AzureFileSystem
         AzureLocation azureLocation = new AzureLocation(location);
         try {
             // blob API returns directories as blobs, so it cannot be used when Gen2 is enabled
-            return (isHierarchicalNamespaceEnabled(azureLocation))
+            return isHierarchicalNamespaceEnabled(azureLocation)
                     ? listGen2Files(azureLocation)
                     : listBlobFiles(azureLocation);
         }
@@ -361,13 +373,41 @@ public class AzureFileSystem
         AzureLocation azureLocation = new AzureLocation(location);
         try {
             // blob API returns directories as blobs, so it cannot be used when Gen2 is enabled
-            return (isHierarchicalNamespaceEnabled(azureLocation))
+            return isHierarchicalNamespaceEnabled(azureLocation)
                     ? listGen2Directories(azureLocation)
                     : listBlobDirectories(azureLocation);
         }
         catch (RuntimeException e) {
             throw handleAzureException(e, "listing files", azureLocation);
         }
+    }
+
+    @Override
+    public Optional<Location> createTemporaryDirectory(Location targetPath, String temporaryPrefix, String relativePrefix)
+            throws IOException
+    {
+        AzureLocation azureLocation = new AzureLocation(targetPath);
+        if (!isHierarchicalNamespaceEnabled(azureLocation)) {
+            return Optional.empty();
+        }
+
+        // allow for absolute or relative temporary prefix
+        Location temporary;
+        if (temporaryPrefix.startsWith("/")) {
+            String prefix = temporaryPrefix;
+            while (prefix.startsWith("/")) {
+                prefix = prefix.substring(1);
+            }
+            temporary = azureLocation.baseLocation().appendPath(prefix);
+        }
+        else {
+            temporary = targetPath.appendPath(temporaryPrefix);
+        }
+
+        temporary = temporary.appendPath(randomUUID().toString());
+
+        createDirectory(temporary);
+        return Optional.of(temporary);
     }
 
     private Set<Location> listGen2Directories(AzureLocation location)
@@ -437,6 +477,7 @@ public class AzureFileSystem
 
         BlobContainerClientBuilder builder = new BlobContainerClientBuilder()
                 .httpClient(httpClient)
+                .clientOptions(new ClientOptions().setTracingOptions(tracingOptions))
                 .endpoint(String.format("https://%s.blob.core.windows.net", location.account()));
         azureAuth.setAuth(location.account(), builder);
         location.container().ifPresent(builder::containerName);
@@ -449,6 +490,7 @@ public class AzureFileSystem
 
         DataLakeServiceClientBuilder builder = new DataLakeServiceClientBuilder()
                 .httpClient(httpClient)
+                .clientOptions(new ClientOptions().setTracingOptions(tracingOptions))
                 .endpoint(String.format("https://%s.dfs.core.windows.net", location.account()));
         azureAuth.setAuth(location.account(), builder);
         DataLakeServiceClient client = builder.buildClient();

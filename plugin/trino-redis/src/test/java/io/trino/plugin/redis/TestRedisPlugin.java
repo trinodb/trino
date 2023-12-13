@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertInstanceOf;
-import static org.testng.Assert.assertNotNull;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRedisPlugin
 {
@@ -38,9 +38,10 @@ public class TestRedisPlugin
                 ImmutableMap.<String, String>builder()
                         .put("redis.table-names", "test")
                         .put("redis.nodes", "localhost:6379")
+                        .put("bootstrap.quiet", "true")
                         .buildOrThrow(),
                 new TestingConnectorContext());
-        assertNotNull(connector);
+        assertThat(connector).isNotNull();
         connector.shutdown();
     }
 }

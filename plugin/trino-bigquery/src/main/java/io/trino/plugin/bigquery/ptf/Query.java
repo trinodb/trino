@@ -26,6 +26,7 @@ import io.trino.plugin.bigquery.BigQueryClientFactory;
 import io.trino.plugin.bigquery.BigQueryColumnHandle;
 import io.trino.plugin.bigquery.BigQueryQueryRelationHandle;
 import io.trino.plugin.bigquery.BigQueryTableHandle;
+import io.trino.plugin.bigquery.BigQueryTypeManager;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableHandle;
@@ -45,8 +46,6 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.plugin.bigquery.Conversions.isSupportedType;
-import static io.trino.plugin.bigquery.Conversions.toColumnHandle;
 import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
@@ -59,25 +58,28 @@ public class Query
     public static final String NAME = "query";
 
     private final BigQueryClientFactory clientFactory;
+    private final BigQueryTypeManager typeManager;
 
     @Inject
-    public Query(BigQueryClientFactory clientFactory)
+    public Query(BigQueryClientFactory clientFactory, BigQueryTypeManager typeManager)
     {
         this.clientFactory = requireNonNull(clientFactory, "clientFactory is null");
+        this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
     @Override
     public ConnectorTableFunction get()
     {
-        return new ClassLoaderSafeConnectorTableFunction(new QueryFunction(clientFactory), getClass().getClassLoader());
+        return new ClassLoaderSafeConnectorTableFunction(new QueryFunction(clientFactory, typeManager), getClass().getClassLoader());
     }
 
     public static class QueryFunction
             extends AbstractConnectorTableFunction
     {
         private final BigQueryClientFactory clientFactory;
+        private final BigQueryTypeManager typeManager;
 
-        public QueryFunction(BigQueryClientFactory clientFactory)
+        public QueryFunction(BigQueryClientFactory clientFactory, BigQueryTypeManager typeManager)
         {
             super(
                     SCHEMA_NAME,
@@ -88,6 +90,7 @@ public class Query
                             .build()),
                     GENERIC_TABLE);
             this.clientFactory = requireNonNull(clientFactory, "clientFactory is null");
+            this.typeManager = requireNonNull(typeManager, "typeManager is null");
         }
 
         @Override
@@ -108,10 +111,10 @@ public class Query
 
             ImmutableList.Builder<BigQueryColumnHandle> columnsBuilder = ImmutableList.builderWithExpectedSize(schema.getFields().size());
             for (com.google.cloud.bigquery.Field field : schema.getFields()) {
-                if (!isSupportedType(field)) {
+                if (!typeManager.isSupportedType(field)) {
                     throw new UnsupportedOperationException("Unsupported type: " + field.getType());
                 }
-                columnsBuilder.add(toColumnHandle(field));
+                columnsBuilder.add(typeManager.toColumnHandle(field));
             }
 
             Descriptor returnedType = new Descriptor(columnsBuilder.build().stream()

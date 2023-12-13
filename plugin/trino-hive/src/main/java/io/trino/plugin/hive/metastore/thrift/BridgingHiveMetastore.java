@@ -34,6 +34,7 @@ import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.TrinoException;
+import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
@@ -147,6 +148,15 @@ public class BridgingHiveMetastore
     }
 
     @Override
+    public Map<String, RelationType> getRelationTypes(String databaseName)
+    {
+        ImmutableMap.Builder<String, RelationType> relationTypes = ImmutableMap.builder();
+        getAllTables(databaseName).forEach(name -> relationTypes.put(name, RelationType.TABLE));
+        getAllViews(databaseName).forEach(name -> relationTypes.put(name, RelationType.VIEW));
+        return relationTypes.buildKeepingLast();
+    }
+
+    @Override
     public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
     {
         return delegate.getTablesWithParameter(databaseName, parameterKey, parameterValue);
@@ -162,6 +172,17 @@ public class BridgingHiveMetastore
     public Optional<List<SchemaTableName>> getAllTables()
     {
         return delegate.getAllTables();
+    }
+
+    @Override
+    public Optional<Map<SchemaTableName, RelationType>> getRelationTypes()
+    {
+        return getAllTables().flatMap(relations -> getAllViews().map(views -> {
+            ImmutableMap.Builder<SchemaTableName, RelationType> relationTypes = ImmutableMap.builder();
+            relations.forEach(name -> relationTypes.put(name, RelationType.TABLE));
+            views.forEach(name -> relationTypes.put(name, RelationType.VIEW));
+            return relationTypes.buildKeepingLast();
+        }));
     }
 
     @Override
@@ -433,12 +454,6 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public Set<RoleGrant> listGrantedPrincipals(String role)
-    {
-        return delegate.listGrantedPrincipals(role);
-    }
-
-    @Override
     public Set<RoleGrant> listRoleGrants(HivePrincipal principal)
     {
         return delegate.listRoleGrants(principal);
@@ -538,16 +553,6 @@ public class BridgingHiveMetastore
     public void updateTableWriteId(String dbName, String tableName, long transactionId, long writeId, OptionalLong rowCountChange)
     {
         delegate.updateTableWriteId(dbName, tableName, transactionId, writeId, rowCountChange);
-    }
-
-    @Override
-    public void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
-    {
-        List<io.trino.hive.thrift.metastore.Partition> hadoopPartitions = partitions.stream()
-                .map(ThriftMetastoreUtil::toMetastoreApiPartition)
-                .peek(partition -> partition.setWriteId(writeId))
-                .collect(toImmutableList());
-        delegate.alterPartitions(dbName, tableName, hadoopPartitions, writeId);
     }
 
     @Override

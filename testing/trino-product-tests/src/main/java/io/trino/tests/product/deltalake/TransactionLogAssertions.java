@@ -15,21 +15,17 @@ package io.trino.tests.product.deltalake;
 
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.model.ListObjectsV2Result;
-import com.google.common.base.Throwables;
-import org.testng.Assert.ThrowingRunnable;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.fail;
 
-public class TransactionLogAssertions
+public final class TransactionLogAssertions
 {
     private TransactionLogAssertions() {}
 
@@ -48,43 +44,6 @@ public class TransactionLogAssertions
         Optional<String> lastJsonEntry = listJsonLogEntries(s3Client, bucketName, tableName).stream().max(String::compareTo);
         assertThat(lastJsonEntry).isPresent();
         assertEquals(lastJsonEntry.get(), format("%020d.json", versionNumber));
-    }
-
-    public static void assertNewVersion(AmazonS3 s3Client, String bucketName, String tableName, ThrowingRunnable runnable)
-    {
-        long initialVersion = getTransactionLogVersion(s3Client, bucketName, tableName);
-        try {
-            runnable.run();
-        }
-        catch (Throwable e) {
-            Throwables.throwIfUnchecked(e);
-            throw new RuntimeException(e);
-        }
-        assertThat(getTransactionLogVersion(s3Client, bucketName, tableName))
-                .isGreaterThan(initialVersion);
-    }
-
-    public static void assertNoNewVersion(AmazonS3 s3Client, String bucketName, String tableName, ThrowingRunnable runnable)
-    {
-        long initialVersion = getTransactionLogVersion(s3Client, bucketName, tableName);
-        try {
-            runnable.run();
-        }
-        catch (Throwable e) {
-            Throwables.throwIfUnchecked(e);
-            throw new RuntimeException(e);
-        }
-        assertThat(getTransactionLogVersion(s3Client, bucketName, tableName))
-                .isEqualTo(initialVersion);
-    }
-
-    private static long getTransactionLogVersion(AmazonS3 s3Client, String bucketName, String tableName)
-    {
-        Optional<String> lastJsonEntry = listJsonLogEntries(s3Client, bucketName, tableName).stream().max(String::compareTo);
-        if (lastJsonEntry.isEmpty()) {
-            fail("Cannot determine version for table " + tableName);
-        }
-        return parseLong(lastJsonEntry.get().split("\\.")[0]);
     }
 
     private static List<String> listJsonLogEntries(AmazonS3 s3Client, String bucketName, String tableName)

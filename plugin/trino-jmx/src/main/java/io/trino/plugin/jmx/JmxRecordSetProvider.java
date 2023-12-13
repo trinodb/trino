@@ -186,7 +186,7 @@ public class JmxRecordSetProvider
         ImmutableList.Builder<Integer> selectedColumns = ImmutableList.builder();
         for (int i = 0; i < columnHandles.size(); i++) {
             JmxColumnHandle column = columnHandles.get(i);
-            if (selectedColumnNames.contains((column.getColumnName()))) {
+            if (selectedColumnNames.contains(column.getColumnName())) {
                 selectedColumns.add(i);
             }
         }

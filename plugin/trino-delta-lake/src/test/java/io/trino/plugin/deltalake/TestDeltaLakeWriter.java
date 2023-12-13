@@ -44,7 +44,7 @@ import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Float.floatToRawIntBits;
 import static java.nio.ByteOrder.LITTLE_ENDIAN;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestDeltaLakeWriter
 {
@@ -61,10 +61,10 @@ public class TestDeltaLakeWriter
         DeltaLakeColumnHandle intColumn = new DeltaLakeColumnHandle(columnName, INTEGER, OptionalInt.empty(), columnName, INTEGER, REGULAR, Optional.empty());
 
         DeltaLakeFileStatistics fileStats = mergeStats(buildMultimap(columnName, metadata), ImmutableMap.of(columnName, INTEGER), 20);
-        assertEquals(fileStats.getNumRecords(), Optional.of(20L));
-        assertEquals(fileStats.getMinColumnValue(intColumn), Optional.of(-200L));
-        assertEquals(fileStats.getMaxColumnValue(intColumn), Optional.of(250L));
-        assertEquals(fileStats.getNullCount(columnName), Optional.of(13L));
+        assertThat(fileStats.getNumRecords()).isEqualTo(Optional.of(20L));
+        assertThat(fileStats.getMinColumnValue(intColumn)).isEqualTo(Optional.of(-200L));
+        assertThat(fileStats.getMaxColumnValue(intColumn)).isEqualTo(Optional.of(250L));
+        assertThat(fileStats.getNullCount(columnName)).isEqualTo(Optional.of(13L));
     }
 
     @Test
@@ -80,10 +80,10 @@ public class TestDeltaLakeWriter
         DeltaLakeColumnHandle floatColumn = new DeltaLakeColumnHandle(columnName, REAL, OptionalInt.empty(), columnName, REAL, REGULAR, Optional.empty());
 
         DeltaLakeFileStatistics fileStats = mergeStats(buildMultimap(columnName, metadata), ImmutableMap.of(columnName, REAL), 20);
-        assertEquals(fileStats.getNumRecords(), Optional.of(20L));
-        assertEquals(fileStats.getMinColumnValue(floatColumn), Optional.of((long) floatToRawIntBits(-2.001f)));
-        assertEquals(fileStats.getMaxColumnValue(floatColumn), Optional.of((long) floatToRawIntBits(1.0f)));
-        assertEquals(fileStats.getNullCount(columnName), Optional.of(13L));
+        assertThat(fileStats.getNumRecords()).isEqualTo(Optional.of(20L));
+        assertThat(fileStats.getMinColumnValue(floatColumn)).isEqualTo(Optional.of((long) floatToRawIntBits(-2.001f)));
+        assertThat(fileStats.getMaxColumnValue(floatColumn)).isEqualTo(Optional.of((long) floatToRawIntBits(1.0f)));
+        assertThat(fileStats.getNullCount(columnName)).isEqualTo(Optional.of(13L));
     }
 
     @Test
@@ -101,10 +101,10 @@ public class TestDeltaLakeWriter
         DeltaLakeColumnHandle floatColumn = new DeltaLakeColumnHandle(columnName, REAL, OptionalInt.empty(), columnName, REAL, REGULAR, Optional.empty());
 
         DeltaLakeFileStatistics fileStats = mergeStats(buildMultimap(columnName, metadata), ImmutableMap.of(columnName, REAL), 20);
-        assertEquals(fileStats.getNumRecords(), Optional.of(20L));
-        assertEquals(fileStats.getMinColumnValue(floatColumn), Optional.empty());
-        assertEquals(fileStats.getMaxColumnValue(floatColumn), Optional.empty());
-        assertEquals(fileStats.getNullCount(columnName), Optional.empty());
+        assertThat(fileStats.getNumRecords()).isEqualTo(Optional.of(20L));
+        assertThat(fileStats.getMinColumnValue(floatColumn)).isEqualTo(Optional.empty());
+        assertThat(fileStats.getMaxColumnValue(floatColumn)).isEqualTo(Optional.empty());
+        assertThat(fileStats.getNullCount(columnName)).isEqualTo(Optional.empty());
     }
 
     @Test
@@ -122,10 +122,10 @@ public class TestDeltaLakeWriter
         DeltaLakeColumnHandle doubleColumn = new DeltaLakeColumnHandle(columnName, DOUBLE, OptionalInt.empty(), columnName, DOUBLE, REGULAR, Optional.empty());
 
         DeltaLakeFileStatistics fileStats = mergeStats(buildMultimap(columnName, metadata), ImmutableMap.of(columnName, DOUBLE), 20);
-        assertEquals(fileStats.getNumRecords(), Optional.of(20L));
-        assertEquals(fileStats.getMinColumnValue(doubleColumn), Optional.empty());
-        assertEquals(fileStats.getMaxColumnValue(doubleColumn), Optional.empty());
-        assertEquals(fileStats.getNullCount(columnName), Optional.empty());
+        assertThat(fileStats.getNumRecords()).isEqualTo(Optional.of(20L));
+        assertThat(fileStats.getMinColumnValue(doubleColumn)).isEqualTo(Optional.empty());
+        assertThat(fileStats.getMaxColumnValue(doubleColumn)).isEqualTo(Optional.empty());
+        assertThat(fileStats.getNullCount(columnName)).isEqualTo(Optional.empty());
     }
 
     @Test
@@ -141,10 +141,10 @@ public class TestDeltaLakeWriter
         DeltaLakeColumnHandle varcharColumn = new DeltaLakeColumnHandle(columnName, VarcharType.createUnboundedVarcharType(), OptionalInt.empty(), columnName, VarcharType.createUnboundedVarcharType(), REGULAR, Optional.empty());
 
         DeltaLakeFileStatistics fileStats = mergeStats(buildMultimap(columnName, metadata), ImmutableMap.of(columnName, createUnboundedVarcharType()), 20);
-        assertEquals(fileStats.getNumRecords(), Optional.of(20L));
-        assertEquals(fileStats.getMinColumnValue(varcharColumn), Optional.of(utf8Slice("aba")));
-        assertEquals(fileStats.getMaxColumnValue(varcharColumn), Optional.of(utf8Slice("ab⌘")));
-        assertEquals(fileStats.getNullCount(columnName), Optional.of(12L));
+        assertThat(fileStats.getNumRecords()).isEqualTo(Optional.of(20L));
+        assertThat(fileStats.getMinColumnValue(varcharColumn)).isEqualTo(Optional.of(utf8Slice("aba")));
+        assertThat(fileStats.getMaxColumnValue(varcharColumn)).isEqualTo(Optional.of(utf8Slice("ab⌘")));
+        assertThat(fileStats.getNullCount(columnName)).isEqualTo(Optional.of(12L));
     }
 
     @Test
@@ -160,10 +160,10 @@ public class TestDeltaLakeWriter
         DeltaLakeColumnHandle varcharColumn = new DeltaLakeColumnHandle(columnName, VarcharType.createUnboundedVarcharType(), OptionalInt.empty(), columnName, VarcharType.createUnboundedVarcharType(), REGULAR, Optional.empty());
 
         DeltaLakeFileStatistics fileStats = mergeStats(buildMultimap(columnName, metadata), ImmutableMap.of(columnName, createUnboundedVarcharType()), 20);
-        assertEquals(fileStats.getNumRecords(), Optional.of(20L));
-        assertEquals(fileStats.getMinColumnValue(varcharColumn), Optional.of(utf8Slice("aba")));
-        assertEquals(fileStats.getMaxColumnValue(varcharColumn), Optional.of(utf8Slice("ab\uD83D\uDD74")));
-        assertEquals(fileStats.getNullCount(columnName), Optional.of(12L));
+        assertThat(fileStats.getNumRecords()).isEqualTo(Optional.of(20L));
+        assertThat(fileStats.getMinColumnValue(varcharColumn)).isEqualTo(Optional.of(utf8Slice("aba")));
+        assertThat(fileStats.getMaxColumnValue(varcharColumn)).isEqualTo(Optional.of(utf8Slice("ab\uD83D\uDD74")));
+        assertThat(fileStats.getNullCount(columnName)).isEqualTo(Optional.of(12L));
     }
 
     private ColumnChunkMetaData createMetaData(String columnName, PrimitiveType columnType, long valueCount, Statistics<?> statistics)
