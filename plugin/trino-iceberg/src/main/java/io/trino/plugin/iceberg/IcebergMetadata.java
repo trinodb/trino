@@ -225,6 +225,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.isExtendedStatist
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isMergeManifestsOnWrite;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isProjectionPushdownEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isQueryPartitionFilterRequired;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isQueryPartitionPruningRequired;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isStatisticsEnabled;
 import static io.trino.plugin.iceberg.IcebergTableName.isDataTable;
 import static io.trino.plugin.iceberg.IcebergTableName.isMaterializedViewStorage;
@@ -730,9 +731,11 @@ public class IcebergMetadata
                 return;
             }
             Set<Integer> columnsWithPredicates = new HashSet<>();
-            table.getConstraintColumns().stream()
-                    .map(IcebergColumnHandle::getId)
-                    .forEach(columnsWithPredicates::add);
+            if (!isQueryPartitionPruningRequired(session)) {
+                table.getConstraintColumns().stream()
+                        .map(IcebergColumnHandle::getId)
+                        .forEach(columnsWithPredicates::add);
+            }
             table.getUnenforcedPredicate().getDomains().ifPresent(domain -> domain.keySet().stream()
                     .map(IcebergColumnHandle::getId)
                     .forEach(columnsWithPredicates::add));
@@ -746,9 +749,12 @@ public class IcebergMetadata
                         .map(PartitionField::sourceId)
                         .map(id -> schema.idToName().get(id))
                         .collect(joining(", "));
+
+                String requiredOption = isQueryPartitionPruningRequired(session) ? "Pruning" : "Filter";
+
                 throw new TrinoException(
                         QUERY_REJECTED,
-                        format("Filter required for %s on at least one of the partition columns: %s", table.getSchemaTableName(), partitionColumnNames));
+                        format("%s required for %s on at least one of the partition columns: %s", requiredOption, table.getSchemaTableName(), partitionColumnNames));
             }
         }
     }

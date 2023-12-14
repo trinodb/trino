@@ -21,6 +21,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import jakarta.validation.constraints.AssertFalse;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
@@ -78,6 +79,7 @@ public class IcebergConfig
     private Optional<String> materializedViewsStorageSchema = Optional.empty();
     private boolean sortedWritingEnabled = true;
     private boolean queryPartitionFilterRequired;
+    private boolean queryPartitionPruningRequired;
 
     public CatalogType getCatalogType()
     {
@@ -411,6 +413,25 @@ public class IcebergConfig
     public boolean isQueryPartitionFilterRequired()
     {
         return queryPartitionFilterRequired;
+    }
+
+    @Config("iceberg.query-partition-pruning-required")
+    @ConfigDescription("Require a partition pruning on at least one partition column in the query plan. This can be enabled only with iceberg.query-partition-filter-required=true")
+    public IcebergConfig setQueryPartitionFilterPruningRequired(boolean queryPartitionPruningRequired)
+    {
+        this.queryPartitionPruningRequired = queryPartitionPruningRequired;
+        return this;
+    }
+
+    public boolean isQueryPartitionPruningRequired()
+    {
+        return queryPartitionPruningRequired;
+    }
+
+    @AssertTrue(message = "iceberg.query-partition-pruning-required may only be enabled when iceberg.query-partition-filter-required is set to true")
+    public boolean isQueryPartitionPruningEnabledWhenPartitionFilterIsEnabled()
+    {
+        return !queryPartitionPruningRequired || queryPartitionFilterRequired;
     }
 
     @AssertFalse(message = "iceberg.materialized-views.storage-schema may only be set when iceberg.materialized-views.hide-storage-table is set to false")

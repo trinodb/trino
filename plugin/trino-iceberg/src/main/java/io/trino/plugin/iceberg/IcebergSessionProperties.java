@@ -93,6 +93,7 @@ public final class IcebergSessionProperties
     private static final String MERGE_MANIFESTS_ON_WRITE = "merge_manifests_on_write";
     private static final String SORTED_WRITING_ENABLED = "sorted_writing_enabled";
     private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
+    private static final String QUERY_PARTITION_PRUNING_REQUIRED = "query_partition_pruning_required";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -327,6 +328,11 @@ public final class IcebergSessionProperties
                         "Require filter on partition column",
                         icebergConfig.isQueryPartitionFilterRequired(),
                         false))
+                .add(booleanProperty(
+                        QUERY_PARTITION_PRUNING_REQUIRED,
+                        "Require pruning on partition column",
+                        icebergConfig.isQueryPartitionPruningRequired(),
+                        false))
                 .build();
     }
 
@@ -536,5 +542,10 @@ public final class IcebergSessionProperties
     public static boolean isQueryPartitionFilterRequired(ConnectorSession session)
     {
         return session.getProperty(QUERY_PARTITION_FILTER_REQUIRED, Boolean.class);
+    }
+
+    public static boolean isQueryPartitionPruningRequired(ConnectorSession session)
+    {
+        return session.getProperty(QUERY_PARTITION_PRUNING_REQUIRED, Boolean.class);
     }
 }
