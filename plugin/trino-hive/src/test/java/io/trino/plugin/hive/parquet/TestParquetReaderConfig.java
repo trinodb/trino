@@ -53,6 +53,12 @@ public class TestParquetReaderConfig
                 .put("parquet.use-column-index", "false")
                 .put("parquet.use-bloom-filter", "false")
                 .put("parquet.small-file-threshold", "1kB")
+                .put("parquet.crypto-factory-class", "factory.class")
+                .put("parquet.encryption-kms-client-class", "kms.client.class")
+                .put("parquet.encryption-key-access-token", "default_token")
+                .put("parquet.encryption-kms-instance-id", "kms_id")
+                .put("parquet.encryption-kms-instance-url", "kms_url")
+                .put("parquet.encryption-cache-lifetime-seconds", "3600")
                 .buildOrThrow();
 
         ParquetReaderConfig expected = new ParquetReaderConfig()
@@ -63,7 +69,13 @@ public class TestParquetReaderConfig
                 .setMaxMergeDistance(DataSize.of(342, KILOBYTE))
                 .setUseColumnIndex(false)
                 .setUseBloomFilter(false)
-                .setSmallFileThreshold(DataSize.of(1, KILOBYTE));
+                .setSmallFileThreshold(DataSize.of(1, KILOBYTE))
+                .setCryptoFactoryClass("factory.class")
+                .setEncryptionKmsClientClass("kms.client.class")
+                .setEncryptionKeyAccessToken("default_token")
+                .setEncryptionKmsInstanceId("kms_id")
+                .setEncryptionKmsInstanceUrl("kms_url").
+                setEncryptionCacheLifetimeSeconds(3600L);
 
         assertFullMapping(properties, expected);
     }

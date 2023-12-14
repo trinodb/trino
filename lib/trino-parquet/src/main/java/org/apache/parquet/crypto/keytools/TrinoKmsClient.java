@@ -19,57 +19,52 @@
 
 package org.apache.parquet.crypto.keytools;
 
-//import io.trino.parquet.ParquetReaderOptions;
-//import org.apache.hadoop.conf.Configuration;
 import org.apache.parquet.crypto.KeyAccessDeniedException;
-import org.apache.parquet.crypto.TrinoParquetCryptoConfig;
+import io.trino.parquet.ParquetReaderOptions;
 
 public interface TrinoKmsClient
 {
 
-  public static final String KMS_INSTANCE_ID_DEFAULT = "DEFAULT";
-  public static final String KMS_INSTANCE_URL_DEFAULT = "DEFAULT";
-  public static final String KEY_ACCESS_TOKEN_DEFAULT = "DEFAULT";
+    /**
+     * Pass configuration with KMS-specific parameters.
+     *
+     * @param trinoParquetCryptoConfig ...
+     * @param kmsInstanceID ID of the KMS instance handled by this KmsClient. Use the default value, for KMS systems
+     * that don't work with multiple instances.
+     * @param kmsInstanceURL URL of the KMS instance handled by this KmsClient. Use the default value, for KMS systems
+     * that don't work with URLs.
+     * @param accessToken KMS access (authorization) token. Use the default value, for KMS systems that don't work with tokens.
+     * @throws KeyAccessDeniedException unauthorized to initialize the KMS client
+     */
+    public void initialize(ParquetReaderOptions trinoParquetCryptoConfig, String kmsInstanceID, String kmsInstanceURL, String accessToken)
+            throws KeyAccessDeniedException;
 
-  /**
-   * Pass configuration with KMS-specific parameters.
-   * @param trinoParquetCryptoConfig ...
-   * @param kmsInstanceID ID of the KMS instance handled by this KmsClient. Use the default value, for KMS systems
-   *                      that don't work with multiple instances.
-   * @param kmsInstanceURL URL of the KMS instance handled by this KmsClient. Use the default value, for KMS systems
-   *                      that don't work with URLs.
-   * @param accessToken KMS access (authorization) token. Use the default value, for KMS systems that don't work with tokens.
-   * @throws KeyAccessDeniedException unauthorized to initialize the KMS client
-   */
-  public void initialize(TrinoParquetCryptoConfig trinoParquetCryptoConfig, String kmsInstanceID, String kmsInstanceURL, String accessToken)
-      throws KeyAccessDeniedException;
+    /**
+     * Wraps a key - encrypts it with the master key, encodes the result
+     * and potentially adds a KMS-specific metadata.
+     * <p>
+     * If your KMS client code throws runtime exceptions related to access/permission problems
+     * (such as Hadoop AccessControlException), catch them and throw the KeyAccessDeniedException.
+     *
+     * @param keyBytes: key bytes to be wrapped
+     * @param masterKeyIdentifier: a string that uniquely identifies the master key in a KMS instance
+     * @return wrapped key
+     * @throws KeyAccessDeniedException unauthorized to encrypt with the given master key
+     */
+    public String wrapKey(byte[] keyBytes, String masterKeyIdentifier)
+            throws KeyAccessDeniedException;
 
-  /**
-   * Wraps a key - encrypts it with the master key, encodes the result
-   * and potentially adds a KMS-specific metadata.
-   *
-   * If your KMS client code throws runtime exceptions related to access/permission problems
-   * (such as Hadoop AccessControlException), catch them and throw the KeyAccessDeniedException.
-   *
-   * @param keyBytes: key bytes to be wrapped
-   * @param masterKeyIdentifier: a string that uniquely identifies the master key in a KMS instance
-   * @return wrapped key
-   * @throws KeyAccessDeniedException unauthorized to encrypt with the given master key
-   */
-  public String wrapKey(byte[] keyBytes, String masterKeyIdentifier)
-      throws KeyAccessDeniedException;
-
-  /**
-   * Decrypts (unwraps) a key with the master key.
-   *
-   * If your KMS client code throws runtime exceptions related to access/permission problems
-   * (such as Hadoop AccessControlException), catch them and throw the KeyAccessDeniedException.
-   *
-   * @param wrappedKey String produced by wrapKey operation
-   * @param masterKeyIdentifier: a string that uniquely identifies the master key in a KMS instance
-   * @return unwrapped key bytes
-   * @throws KeyAccessDeniedException unauthorized to unwrap with the given master key
-   */
-  public byte[] unwrapKey(String wrappedKey, String masterKeyIdentifier)
-      throws KeyAccessDeniedException;
+    /**
+     * Decrypts (unwraps) a key with the master key.
+     * <p>
+     * If your KMS client code throws runtime exceptions related to access/permission problems
+     * (such as Hadoop AccessControlException), catch them and throw the KeyAccessDeniedException.
+     *
+     * @param wrappedKey String produced by wrapKey operation
+     * @param masterKeyIdentifier: a string that uniquely identifies the master key in a KMS instance
+     * @return unwrapped key bytes
+     * @throws KeyAccessDeniedException unauthorized to unwrap with the given master key
+     */
+    public byte[] unwrapKey(String wrappedKey, String masterKeyIdentifier)
+            throws KeyAccessDeniedException;
 }

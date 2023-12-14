@@ -14,6 +14,8 @@
 package io.trino.parquet;
 
 import io.airlift.units.DataSize;
+import org.apache.parquet.crypto.keytools.KmsClient;
+import org.apache.parquet.crypto.keytools.TrinoKeyToolkit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
@@ -37,6 +39,10 @@ public class ParquetReaderOptions
     private final DataSize smallFileThreshold;
     private final String cryptoFactoryClass;
     private final String encryptionKmsClientClass;
+    private final String encryptionKmsInstanceId;
+    private final String encryptionKmsInstanceUrl;
+    private final String encryptionKeyAccessToken;
+    private final long encryptionCacheLifetimeSeconds;
 
     public ParquetReaderOptions()
     {
@@ -48,8 +54,12 @@ public class ParquetReaderOptions
         useColumnIndex = true;
         useBloomFilter = true;
         smallFileThreshold = DEFAULT_SMALL_FILE_THRESHOLD;
-        cryptoFactoryClass = null;
-        encryptionKmsClientClass = null;
+        this.cryptoFactoryClass = null;
+        this.encryptionKmsClientClass = null;
+        this.encryptionKmsInstanceId = null;
+        this.encryptionKmsInstanceUrl = null;
+        this.encryptionKeyAccessToken = KmsClient.KEY_ACCESS_TOKEN_DEFAULT;
+        this.encryptionCacheLifetimeSeconds = TrinoKeyToolkit.CACHE_LIFETIME_DEFAULT_SECONDS;
     }
 
     private ParquetReaderOptions(
@@ -62,7 +72,11 @@ public class ParquetReaderOptions
             boolean useBloomFilter,
             DataSize smallFileThreshold,
             String cryptoFactoryClass,
-            String encryptionKmsClientClass)
+            String encryptionKmsClientClass,
+            String encryptionKmsInstanceId,
+            String encryptionKmsInstanceUrl,
+            String encryptionKeyAccessToken,
+            long encryptionCacheLifetimeSeconds)
     {
         this.ignoreStatistics = ignoreStatistics;
         this.maxReadBlockSize = requireNonNull(maxReadBlockSize, "maxReadBlockSize is null");
@@ -75,6 +89,10 @@ public class ParquetReaderOptions
         this.smallFileThreshold = requireNonNull(smallFileThreshold, "smallFileThreshold is null");
         this.cryptoFactoryClass = cryptoFactoryClass;
         this.encryptionKmsClientClass = encryptionKmsClientClass;
+        this.encryptionKmsInstanceId = encryptionKmsInstanceId;
+        this.encryptionKmsInstanceUrl = encryptionKmsInstanceUrl;
+        this.encryptionKeyAccessToken = requireNonNull(encryptionKeyAccessToken, "encryptionKeyAccessToken is null");
+        this.encryptionCacheLifetimeSeconds = encryptionCacheLifetimeSeconds;
     }
 
     public boolean isIgnoreStatistics()
@@ -122,9 +140,29 @@ public class ParquetReaderOptions
         return cryptoFactoryClass;
     }
 
+    public long getEncryptionCacheLifetimeSeconds()
+    {
+        return this.encryptionCacheLifetimeSeconds;
+    }
+
+    public String getEncryptionKeyAccessToken()
+    {
+        return this.encryptionKeyAccessToken;
+    }
+
+    public String getEncryptionKmsInstanceId()
+    {
+        return this.encryptionKmsInstanceId;
+    }
+
+    public String getEncryptionKmsInstanceUrl()
+    {
+        return this.encryptionKmsInstanceUrl;
+    }
+
     public String getEncryptionKmsClientClass()
     {
-        return encryptionKmsClientClass;
+        return this.encryptionKmsClientClass;
     }
 
     public ParquetReaderOptions withIgnoreStatistics(boolean ignoreStatistics)
@@ -139,7 +177,11 @@ public class ParquetReaderOptions
                 useBloomFilter,
                 smallFileThreshold,
                 cryptoFactoryClass,
-                encryptionKmsClientClass);
+                encryptionKmsClientClass,
+                encryptionKmsInstanceId,
+                encryptionKmsInstanceUrl,
+                encryptionKeyAccessToken,
+                encryptionCacheLifetimeSeconds);
     }
 
     public ParquetReaderOptions withMaxReadBlockSize(DataSize maxReadBlockSize)
@@ -154,7 +196,11 @@ public class ParquetReaderOptions
                 useBloomFilter,
                 smallFileThreshold,
                 cryptoFactoryClass,
-                encryptionKmsClientClass);
+                encryptionKmsClientClass,
+                encryptionKmsInstanceId,
+                encryptionKmsInstanceUrl,
+                encryptionKeyAccessToken,
+                encryptionCacheLifetimeSeconds);
     }
 
     public ParquetReaderOptions withMaxReadBlockRowCount(int maxReadBlockRowCount)
@@ -169,7 +215,11 @@ public class ParquetReaderOptions
                 useBloomFilter,
                 smallFileThreshold,
                 cryptoFactoryClass,
-                encryptionKmsClientClass);
+                encryptionKmsClientClass,
+                encryptionKmsInstanceId,
+                encryptionKmsInstanceUrl,
+                encryptionKeyAccessToken,
+                encryptionCacheLifetimeSeconds);
     }
 
     public ParquetReaderOptions withMaxMergeDistance(DataSize maxMergeDistance)
@@ -184,7 +234,11 @@ public class ParquetReaderOptions
                 useBloomFilter,
                 smallFileThreshold,
                 cryptoFactoryClass,
-                encryptionKmsClientClass);
+                encryptionKmsClientClass,
+                encryptionKmsInstanceId,
+                encryptionKmsInstanceUrl,
+                encryptionKeyAccessToken,
+                encryptionCacheLifetimeSeconds);
     }
 
     public ParquetReaderOptions withMaxBufferSize(DataSize maxBufferSize)
@@ -199,7 +253,11 @@ public class ParquetReaderOptions
                 useBloomFilter,
                 smallFileThreshold,
                 cryptoFactoryClass,
-                encryptionKmsClientClass);
+                encryptionKmsClientClass,
+                encryptionKmsInstanceId,
+                encryptionKmsInstanceUrl,
+                encryptionKeyAccessToken,
+                encryptionCacheLifetimeSeconds);
     }
 
     public ParquetReaderOptions withUseColumnIndex(boolean useColumnIndex)
@@ -214,7 +272,11 @@ public class ParquetReaderOptions
                 useBloomFilter,
                 smallFileThreshold,
                 cryptoFactoryClass,
-                encryptionKmsClientClass);
+                encryptionKmsClientClass,
+                encryptionKmsInstanceId,
+                encryptionKmsInstanceUrl,
+                encryptionKeyAccessToken,
+                encryptionCacheLifetimeSeconds);
     }
 
     public ParquetReaderOptions withBloomFilter(boolean useBloomFilter)
@@ -229,7 +291,11 @@ public class ParquetReaderOptions
                 useBloomFilter,
                 smallFileThreshold,
                 cryptoFactoryClass,
-                encryptionKmsClientClass);
+                encryptionKmsClientClass,
+                encryptionKmsInstanceId,
+                encryptionKmsInstanceUrl,
+                encryptionKeyAccessToken,
+                encryptionCacheLifetimeSeconds);
     }
 
     public ParquetReaderOptions withSmallFileThreshold(DataSize smallFileThreshold)
@@ -244,7 +310,11 @@ public class ParquetReaderOptions
                 useBloomFilter,
                 smallFileThreshold,
                 cryptoFactoryClass,
-                encryptionKmsClientClass);
+                encryptionKmsClientClass,
+                encryptionKmsInstanceId,
+                encryptionKmsInstanceUrl,
+                encryptionKeyAccessToken,
+                encryptionCacheLifetimeSeconds);
     }
 
     public ParquetReaderOptions withCryptoFactoryClass(String cryptoFactoryClass)
@@ -259,7 +329,11 @@ public class ParquetReaderOptions
                 useBloomFilter,
                 smallFileThreshold,
                 cryptoFactoryClass,
-                encryptionKmsClientClass);
+                encryptionKmsClientClass,
+                encryptionKmsInstanceId,
+                encryptionKmsInstanceUrl,
+                encryptionKeyAccessToken,
+                encryptionCacheLifetimeSeconds);
     }
 
     public ParquetReaderOptions withEncryptionKmsClientClass(String encryptionKmsClientClass)
@@ -274,6 +348,86 @@ public class ParquetReaderOptions
                 useBloomFilter,
                 smallFileThreshold,
                 cryptoFactoryClass,
-                encryptionKmsClientClass);
+                encryptionKmsClientClass,
+                encryptionKmsInstanceId,
+                encryptionKmsInstanceUrl,
+                encryptionKeyAccessToken,
+                encryptionCacheLifetimeSeconds);
+    }
+
+    public ParquetReaderOptions withEncryptionKmsInstanceId(String encryptionKmsInstanceId)
+    {
+        return new ParquetReaderOptions(
+                ignoreStatistics,
+                maxReadBlockSize,
+                maxReadBlockRowCount,
+                maxMergeDistance,
+                maxBufferSize,
+                useColumnIndex,
+                useBloomFilter,
+                smallFileThreshold,
+                cryptoFactoryClass,
+                encryptionKmsClientClass,
+                encryptionKmsInstanceId,
+                encryptionKmsInstanceUrl,
+                encryptionKeyAccessToken,
+                encryptionCacheLifetimeSeconds);
+    }
+
+    public ParquetReaderOptions withEncryptionKmsInstanceUrl(String encryptionKmsInstanceUrl)
+    {
+        return new ParquetReaderOptions(
+                ignoreStatistics,
+                maxReadBlockSize,
+                maxReadBlockRowCount,
+                maxMergeDistance,
+                maxBufferSize,
+                useColumnIndex,
+                useBloomFilter,
+                smallFileThreshold,
+                cryptoFactoryClass,
+                encryptionKmsClientClass,
+                encryptionKmsInstanceId,
+                encryptionKmsInstanceUrl,
+                encryptionKeyAccessToken,
+                encryptionCacheLifetimeSeconds);
+    }
+
+    public ParquetReaderOptions withEncryptionKeyAccessToken(String encryptionKeyAccessToken)
+    {
+        return new ParquetReaderOptions(
+                ignoreStatistics,
+                maxReadBlockSize,
+                maxReadBlockRowCount,
+                maxMergeDistance,
+                maxBufferSize,
+                useColumnIndex,
+                useBloomFilter,
+                smallFileThreshold,
+                cryptoFactoryClass,
+                encryptionKmsClientClass,
+                encryptionKmsInstanceId,
+                encryptionKmsInstanceUrl,
+                encryptionKeyAccessToken,
+                encryptionCacheLifetimeSeconds);
+    }
+
+    public ParquetReaderOptions withEncryptionCacheLifetimeSeconds(long encryptionCacheLifetimeSeconds)
+    {
+        return new ParquetReaderOptions(
+                ignoreStatistics,
+                maxReadBlockSize,
+                maxReadBlockRowCount,
+                maxMergeDistance,
+                maxBufferSize,
+                useColumnIndex,
+                useBloomFilter,
+                smallFileThreshold,
+                cryptoFactoryClass,
+                encryptionKmsClientClass,
+                encryptionKmsInstanceId,
+                encryptionKmsInstanceUrl,
+                encryptionKeyAccessToken,
+                encryptionCacheLifetimeSeconds);
     }
 }

@@ -163,6 +163,59 @@ public class ParquetReaderConfig
         return options.getEncryptionKmsClientClass();
     }
 
+    @Config("parquet.encryption-kms-instance-id")
+    @ConfigDescription("")
+    public ParquetReaderConfig setEncryptionKmsInstanceId(String encryptionKmsInstanceId)
+    {
+        options = options.withEncryptionKmsInstanceId(encryptionKmsInstanceId);
+        return this;
+    }
+
+    public String getEncryptionKmsInstanceId()
+    {
+        return options.getEncryptionKmsInstanceId();
+    }
+
+
+    @Config("parquet.encryption-kms-instance-url")
+    @ConfigDescription("")
+    public ParquetReaderConfig setEncryptionKmsInstanceUrl(String encryptionKmsInstanceUrl)
+    {
+        options = options.withEncryptionKmsInstanceUrl(encryptionKmsInstanceUrl);
+        return this;
+    }
+
+    public String getEncryptionKmsInstanceUrl()
+    {
+        return options.getEncryptionKmsInstanceUrl();
+    }
+
+    @Config("parquet.encryption-key-access-token")
+    @ConfigDescription("")
+    public ParquetReaderConfig setEncryptionKeyAccessToken(String encryptionKeyAccessToken)
+    {
+        options = options.withEncryptionKeyAccessToken(encryptionKeyAccessToken);
+        return this;
+    }
+
+    public String getEncryptionKeyAccessToken()
+    {
+        return options.getEncryptionKeyAccessToken();
+    }
+
+    @Config("parquet.encryption-cache-lifetime-seconds")
+    @ConfigDescription("")
+    public ParquetReaderConfig setEncryptionCacheLifetimeSeconds(Long encryptionCacheLifetimeSeconds)
+    {
+        options = options.withEncryptionCacheLifetimeSeconds(encryptionCacheLifetimeSeconds);
+        return this;
+    }
+
+    public Long getEncryptionCacheLifetimeSeconds()
+    {
+        return options.getEncryptionCacheLifetimeSeconds();
+    }
+
     @Config("parquet.small-file-threshold")
     @ConfigDescription("Size below which a parquet file will be read entirely")
     public ParquetReaderConfig setSmallFileThreshold(DataSize smallFileThreshold)
