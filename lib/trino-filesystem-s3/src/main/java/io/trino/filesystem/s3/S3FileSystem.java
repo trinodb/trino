@@ -54,11 +54,14 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.partition;
 import static com.google.common.collect.Multimaps.toMultimap;
+import static io.trino.filesystem.s3.S3FileSystemConfig.S3SseType.NONE;
 import static io.trino.filesystem.s3.S3SseCUtils.encoded;
 import static io.trino.filesystem.s3.S3SseCUtils.md5Checksum;
+import static io.trino.filesystem.s3.S3SseRequestConfigurator.setEncryptionSettings;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toMap;
 
@@ -341,16 +344,20 @@ final class S3FileSystem
         location.verifyValidFileLocation();
         S3Location s3Location = new S3Location(location);
 
+        verify(key.isEmpty() || context.s3SseContext().sseType() == NONE, "Encryption key cannot be used with SSE configuration");
+
         GetObjectRequest request = GetObjectRequest.builder()
                 .overrideConfiguration(context::applyCredentialProviderOverride)
                 .requestPayer(requestPayer)
                 .key(s3Location.key())
                 .bucket(s3Location.bucket())
-                .applyMutation(builder -> key.ifPresent(encryption -> {
-                    builder.sseCustomerKeyMD5(md5Checksum(encryption));
-                    builder.sseCustomerAlgorithm(encryption.algorithm());
-                    builder.sseCustomerKey(encoded(encryption));
-                }))
+                .applyMutation(builder ->
+                    key.ifPresentOrElse(
+                            encryption ->
+                                builder.sseCustomerKeyMD5(md5Checksum(encryption))
+                                        .sseCustomerAlgorithm(encryption.algorithm())
+                                        .sseCustomerKey(encoded(encryption)),
+                            () -> setEncryptionSettings(builder, context.s3SseContext())))
                 .build();
 
         GetObjectPresignRequest preSignRequest = GetObjectPresignRequest.builder()
