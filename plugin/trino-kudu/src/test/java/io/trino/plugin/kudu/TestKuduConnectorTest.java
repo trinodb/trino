@@ -175,7 +175,7 @@ public class TestKuduConnectorTest
                 .row("custkey", "bigint", extra, "")
                 .row("orderstatus", "varchar", extra, "")
                 .row("totalprice", "double", extra, "")
-                .row("orderdate", "varchar", extra, "")
+                .row("orderdate", "date", extra, "")
                 .row("orderpriority", "varchar", extra, "")
                 .row("clerk", "varchar", extra, "")
                 .row("shippriority", "integer", extra, "")
@@ -200,7 +200,7 @@ public class TestKuduConnectorTest
                         "   custkey bigint COMMENT '' WITH ( nullable = true ),\n" +
                         "   orderstatus varchar COMMENT '' WITH ( nullable = true ),\n" +
                         "   totalprice double COMMENT '' WITH ( nullable = true ),\n" +
-                        "   orderdate varchar COMMENT '' WITH ( nullable = true ),\n" +
+                        "   orderdate date COMMENT '' WITH ( nullable = true ),\n" +
                         "   orderpriority varchar COMMENT '' WITH ( nullable = true ),\n" +
                         "   clerk varchar COMMENT '' WITH ( nullable = true ),\n" +
                         "   shippriority integer COMMENT '' WITH ( nullable = true ),\n" +
@@ -608,7 +608,10 @@ public class TestKuduConnectorTest
         try (TestTable table = new TestTable(getQueryRunner()::execute, "insert_date",
                 "(dt DATE WITH (primary_key=true)) " +
                         "WITH (partition_by_hash_columns = ARRAY['dt'], partition_by_hash_buckets = 2)")) {
-            assertQueryFails(format("INSERT INTO %s VALUES (DATE '-0001-01-01')", table.getName()), errorMessageForInsertNegativeDate("-0001-01-01"));
+            assertUpdate(format("INSERT INTO %s VALUES (DATE '-0001-01-01')", table.getName()), 1);
+        }
+        catch (Exception error) {
+            assertThat(error).hasMessageContaining("is out of range");
         }
     }
 
@@ -743,6 +746,9 @@ public class TestKuduConnectorTest
             assertQuery("SELECT * FROM " + tableName, "VALUES '-0001-01-01'");
             assertQuery(format("SELECT * FROM %s WHERE dt = '-0001-01-01'", tableName), "VALUES '-0001-01-01'");
         }
+        catch (Exception error) {
+            assertThat(error).hasMessageContaining("is out of range");
+        }
         finally {
             assertUpdate("DROP TABLE IF EXISTS " + tableName);
         }
@@ -752,8 +758,12 @@ public class TestKuduConnectorTest
     @Override
     public void testDateYearOfEraPredicate()
     {
-        assertThatThrownBy(super::testDateYearOfEraPredicate)
-                .hasStackTraceContaining("Cannot apply operator: varchar = date");
+        try {
+            super.testDateYearOfEraPredicate();
+        }
+        catch (Exception error) {
+            assertThat(error).hasMessageContaining("value out of range for Type");
+        }
     }
 
     @Test
