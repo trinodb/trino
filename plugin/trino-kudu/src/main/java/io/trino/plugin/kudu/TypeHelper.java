@@ -175,41 +175,8 @@ public final class TypeHelper
 
     public static Object getObject(Type type, RowResult row, int field)
     {
-        if (row.isNull(field)) {
-            return null;
-        }
-        if (type instanceof VarcharType) {
-            return row.getString(field);
-        }
-        if (type.equals(TIMESTAMP_MILLIS)) {
-            return truncateEpochMicrosToMillis(row.getLong(field));
-        }
-        if (type == BigintType.BIGINT) {
-            return row.getLong(field);
-        }
-        if (type == IntegerType.INTEGER) {
-            return row.getInt(field);
-        }
-        if (type == SmallintType.SMALLINT) {
-            return row.getShort(field);
-        }
-        if (type == TinyintType.TINYINT) {
-            return row.getByte(field);
-        }
-        if (type == DoubleType.DOUBLE) {
-            return row.getDouble(field);
-        }
-        if (type == RealType.REAL) {
-            return row.getFloat(field);
-        }
-        if (type == BooleanType.BOOLEAN) {
-            return row.getBoolean(field);
-        }
-        if (type instanceof VarbinaryType) {
-            return Slices.wrappedHeapBuffer(row.getBinary(field));
-        }
-        if (type instanceof DecimalType) {
-            return Decimals.encodeScaledValue(row.getDecimal(field), ((DecimalType) type).getScale());
+        if (type instanceof DecimalType decimalType) {
+            return Decimals.encodeScaledValue(row.getDecimal(field), decimalType.getScale());
         }
         throw new IllegalStateException("getObject not implemented for " + type);
     }
