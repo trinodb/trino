@@ -127,7 +127,11 @@ public final class DateTimeFunctions
     public static long fromUnixTime(ConnectorSession session, @SqlType(StandardTypes.DOUBLE) double unixTime)
     {
         // TODO (https://github.com/trinodb/trino/issues/5781)
-        return packDateTimeWithZone(Math.round(unixTime * 1000), session.getTimeZoneKey());
+        try {
+            return packDateTimeWithZone(Math.round(unixTime * 1000), session.getTimeZoneKey());
+        } catch (IllegalArgumentException e) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
     }
 
     @ScalarFunction("from_unixtime")
@@ -137,11 +141,11 @@ public final class DateTimeFunctions
         TimeZoneKey timeZoneKey;
         try {
             timeZoneKey = getTimeZoneKeyForOffset(toIntExact(hoursOffset * 60 + minutesOffset));
+            return packDateTimeWithZone(Math.round(unixTime * 1000), timeZoneKey);
         }
         catch (IllegalArgumentException e) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
         }
-        return packDateTimeWithZone(Math.round(unixTime * 1000), timeZoneKey);
     }
 
     @ScalarFunction("from_unixtime")
@@ -149,7 +153,12 @@ public final class DateTimeFunctions
     @SqlType("timestamp(3) with time zone")
     public static long fromUnixTime(@SqlType(StandardTypes.DOUBLE) double unixTime, @SqlType("varchar(x)") Slice zoneId)
     {
-        return packDateTimeWithZone(Math.round(unixTime * 1000), zoneId.toStringUtf8());
+        try {
+            return packDateTimeWithZone(Math.round(unixTime * 1000), zoneId.toStringUtf8());
+        }
+        catch (IllegalArgumentException e) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
     }
 
     @ScalarFunction("from_unixtime_nanos")

@@ -130,6 +130,10 @@ public class TestDateTimeFunctions
 
         assertThat(assertions.function("from_unixtime", "980172245.888"))
                 .matches("TIMESTAMP '2001-01-22 03:04:05.888 Pacific/Apia'");
+
+        assertTrinoExceptionThrownBy(assertions.function("from_unixtime", "123456789123456789")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("Millis overflow: 9223372036854775807");
     }
 
     @Test
@@ -214,6 +218,11 @@ public class TestDateTimeFunctions
 
         assertTrinoExceptionThrownBy(assertions.function("from_unixtime", "0", "-100", "100")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+        // test millisecond overflow
+        assertTrinoExceptionThrownBy(assertions.function("from_unixtime", "123456789123456789", "1", "1")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("Millis overflow: 9223372036854775807");
     }
 
     @Test
@@ -236,6 +245,10 @@ public class TestDateTimeFunctions
 
         assertThat(assertions.function("from_unixtime", "7200", "'America/Los_Angeles'"))
                 .matches("TIMESTAMP '1969-12-31 18:00:00.000 America/Los_Angeles'");
+
+        assertTrinoExceptionThrownBy(assertions.function("from_unixtime", "123456789123456789", "'Asia/Kolkata'")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
+                .hasMessage("Millis overflow: 9223372036854775807");
     }
 
     @Test
