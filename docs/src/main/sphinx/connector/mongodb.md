@@ -59,6 +59,7 @@ The following configuration properties are available:
 | `mongodb.write-concern`                  | The write concern                                                          |
 | `mongodb.required-replica-set`           | The required replica set name                                              |
 | `mongodb.cursor-batch-size`              | The number of elements to return in a batch                                |
+| `mongodb.allow-local-scheduling`         | Assign MongoDB splits to a specific worker                                 |
 
 ### `mongodb.connection-url`
 
@@ -202,6 +203,15 @@ Do not use a batch size of `1`.
 :::
 
 This property is optional; the default is `0`.
+
+### `mongodb.allow-local-scheduling`
+
+Set the value of this property to `true` if Trino and MongoDB share the same
+cluster, and specific MongoDB splits should be processed on the same worker and
+MongoDB node. Note that a shared deployment is not recommended, and enabling
+this property can lead to resource contention.
+
+This property is optional, and defaults to false.
 
 (table-definition-label)=
 
