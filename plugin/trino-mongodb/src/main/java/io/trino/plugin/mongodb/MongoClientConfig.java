@@ -259,7 +259,7 @@ public class MongoClientConfig
     }
 
     @Config("mongodb.allow-local-scheduling")
-    @ConfigDescription("Assign mongo splits to host if worker and mongo share the same cluster")
+    @ConfigDescription("Assign MongoDB splits to a specific host if worker and MongoDB share the same cluster")
     public MongoClientConfig setAllowLocalScheduling(boolean allowLocalScheduling)
     {
         this.allowLocalScheduling = allowLocalScheduling;
