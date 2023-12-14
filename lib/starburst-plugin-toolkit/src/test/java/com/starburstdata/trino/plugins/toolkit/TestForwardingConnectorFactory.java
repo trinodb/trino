@@ -10,7 +10,7 @@
 package com.starburstdata.trino.plugins.toolkit;
 
 import io.trino.spi.connector.ConnectorFactory;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static io.trino.spi.testing.InterfaceTestUtils.assertProperForwardingMethodsAreCalled;

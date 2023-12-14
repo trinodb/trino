@@ -26,7 +26,6 @@ import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
-import static org.testng.Assert.assertEquals;
 
 // With case-insensitive-name-matching enabled colliding schema/table names are considered as errors.
 // Some tests here create colliding names which can cause any other concurrent test to fail.
@@ -84,11 +83,11 @@ public class TestOracleParallelCaseInsensitiveMapping
             assertQuery(
                     "SELECT column_name FROM information_schema.columns WHERE table_name = 'nonlowercasetable'",
                     "VALUES 'lower_case_name', 'mixed_case_name', 'upper_case_name', 'partcol'");
-            assertEquals(
+            assertThat(
                     computeActual("SHOW COLUMNS FROM someschema.nonlowercasetable").getMaterializedRows().stream()
                             .map(row -> row.getField(0))
-                            .collect(toImmutableSet()),
-                    ImmutableSet.of("lower_case_name", "mixed_case_name", "upper_case_name", "partcol"));
+                            .collect(toImmutableSet()))
+                    .isEqualTo(ImmutableSet.of("lower_case_name", "mixed_case_name", "upper_case_name", "partcol"));
 
             // Note: until https://github.com/prestodb/presto/issues/2863 is resolved, this is *the* way to access the tables.
 

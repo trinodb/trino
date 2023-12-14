@@ -28,8 +28,9 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeUtils;
 import org.assertj.core.api.Assertions;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -75,14 +76,13 @@ import static java.lang.Math.toIntExact;
 import static java.util.stream.LongStream.rangeClosed;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestTupleDomainFilterUtils
 {
     private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
 
-    @Test(dataProvider = "testTupleDomainDiscreteValues")
+    @ParameterizedTest
+    @MethodSource("testTupleDomainDiscreteValues")
     public void testCreateTupleDomainFilters(Type type, List<Long> values)
     {
         ColumnHandle column = new TestingColumnHandle("column");
@@ -119,8 +119,7 @@ public class TestTupleDomainFilterUtils
         assertThat(testContains(type, filter, max - 1)).isFalse();
     }
 
-    @DataProvider
-    public Object[][] testTupleDomainDiscreteValues()
+    public static Object[][] testTupleDomainDiscreteValues()
     {
         return new Object[][] {
                 {INTEGER, ImmutableList.of(0L, 3L, 500L, 7000L)},
@@ -167,14 +166,14 @@ public class TestTupleDomainFilterUtils
                         utf8Slice("natura"),
                         utf8Slice("renovitur"),
                         utf8Slice("integra.")));
-        assertTrue(testContains(filter, utf8Slice("Igne")));
-        assertTrue(testContains(filter, utf8Slice("natura")));
-        assertTrue(testContains(filter, utf8Slice("renovitur")));
-        assertTrue(testContains(filter, utf8Slice("integra.")));
+        assertThat(testContains(filter, utf8Slice("Igne"))).isTrue();
+        assertThat(testContains(filter, utf8Slice("natura"))).isTrue();
+        assertThat(testContains(filter, utf8Slice("renovitur"))).isTrue();
+        assertThat(testContains(filter, utf8Slice("integra."))).isTrue();
 
-        assertFalse(filter.isNullAllowed());
-        assertFalse(testContains(filter, utf8Slice("natur")));
-        assertFalse(testContains(filter, utf8Slice("apple")));
+        assertThat(filter.isNullAllowed()).isFalse();
+        assertThat(testContains(filter, utf8Slice("natur"))).isFalse();
+        assertThat(testContains(filter, utf8Slice("apple"))).isFalse();
 
         int valuesCount = 10000;
         List<Slice> testValues = new ArrayList<>(valuesCount);
@@ -195,7 +194,7 @@ public class TestTupleDomainFilterUtils
             boolean contains = testContains(filter, testValues.get(i));
             if (i % 9 == 0) {
                 // No false negatives
-                assertTrue(contains);
+                assertThat(contains).isTrue();
             }
             hits += contains ? 1 : 0;
         }

@@ -25,12 +25,16 @@ import io.trino.testing.sql.JdbcSqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TrinoSqlExecutor;
 import io.trino.tpch.TpchTable;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
@@ -55,9 +59,11 @@ import static io.trino.type.JsonType.JSON;
 import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ISO_DATE;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-// DynamoDB may miss new tables when running in multi threads
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD) // DynamoDB may miss new tables when running in multi threads
 public class TestDynamoDbTypeMapping
         extends AbstractTestQueryFramework
 {
@@ -287,7 +293,8 @@ public class TestDynamoDbTypeMapping
         }
     }
 
-    @Test(dataProvider = "unsupportedDateDataProvider")
+    @ParameterizedTest
+    @MethodSource("unsupportedDateDataProvider")
     public void testUnsupportedDate(String unsupportedDate)
     {
         try (TestTable table = new TestTable(getQueryRunner()::execute, "test_unsupported_date", "(dt date)")) {
@@ -299,16 +306,15 @@ public class TestDynamoDbTypeMapping
         }
     }
 
-    @DataProvider
-    public Object[][] unsupportedDateDataProvider()
+    public List<String> unsupportedDateDataProvider()
     {
-        return new Object[][] {
-                {"-0000-01-01"},
-                {"0000-12-31"},
-                {"1582-10-05"}, // begin julian->gregorian switch
-                {"1582-10-14"}, // end julian->gregorian switch
-                {"10000-01-01"},
-        };
+        return ImmutableList.<String>builder()
+                .add("-0000-01-01")
+                .add("0000-12-31")
+                .add("1582-10-05") // begin julian->gregorian switch
+                .add("1582-10-14") // end julian->gregorian switch
+                .add("10000-01-01")
+                .build();
     }
 
     @Test

@@ -10,7 +10,7 @@
 package com.starburstdata.trino.plugins.dynamodb;
 
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
@@ -32,9 +32,8 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static java.util.stream.Collectors.toSet;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestDynamoDbConfig
 {
@@ -153,10 +152,10 @@ public class TestDynamoDbConfig
         try (Connection connection = DriverManager.getConnection(DynamoDbConnectionFactory.getConnectionUrl(config));
                 Statement statement = connection.createStatement();
                 ResultSet results = statement.executeQuery("SELECT * FROM sys_connection_props WHERE Name = 'Aws Region'")) {
-            assertTrue(results.next());
+            assertThat(results.next()).isTrue();
             Set<String> actual = Arrays.stream(results.getString("Values").split(",")).collect(toSet());
             Set<String> expected = new HashSet<>(DynamoDbConnectionFactory.AWS_REGION_TO_CDATA_REGION.values());
-            assertEquals(actual, expected);
+            assertThat(actual).isEqualTo(expected);
         }
     }
 }

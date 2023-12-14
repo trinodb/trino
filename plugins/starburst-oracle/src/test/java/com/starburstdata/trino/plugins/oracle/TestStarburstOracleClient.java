@@ -46,8 +46,6 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestStarburstOracleClient
 {
@@ -183,10 +181,12 @@ public class TestStarburstOracleClient
         }
         else {
             assertThat(result).isPresent();
-            assertEquals(result.get().getExpression(), expectedExpression.get());
+            assertThat(result.get().getExpression()).isEqualTo(expectedExpression.get());
             Optional<ColumnMapping> columnMapping = jdbcClient.toColumnMapping(SESSION, null, result.get().getJdbcTypeHandle());
-            assertTrue(columnMapping.isPresent(), "No mapping for: " + result.get().getJdbcTypeHandle());
-            assertEquals(columnMapping.get().getType(), aggregateFunction.getOutputType());
+            assertThat(columnMapping.isPresent())
+                    .as("No mapping for: " + result.get().getJdbcTypeHandle())
+                    .isTrue();
+            assertThat(columnMapping.get().getType()).isEqualTo(aggregateFunction.getOutputType());
         }
     }
 }

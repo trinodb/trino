@@ -30,8 +30,10 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.List;
 import java.util.Map;
@@ -49,6 +51,11 @@ public abstract class AbstractTestDynamicRowFiltering
 {
     protected static final List<TpchTable<?>> REQUIRED_TPCH_TABLES = ImmutableList.of(CUSTOMER, NATION);
 
+    public List<JoinDistributionType> joinDistributionTypes()
+    {
+        return ImmutableList.of(BROADCAST, PARTITIONED);
+    }
+
     @Test
     public void verifyDynamicFilteringEnabled()
     {
@@ -57,13 +64,9 @@ public abstract class AbstractTestDynamicRowFiltering
                 "VALUES ('enable_dynamic_filtering', 'true', 'true', 'boolean', 'Enable dynamic filtering')");
     }
 
-    @DataProvider
-    public Object[][] joinDistributionTypes()
-    {
-        return new Object[][] {{BROADCAST}, {PARTITIONED}};
-    }
-
-    @Test(timeOut = 30_000, dataProvider = "joinDistributionTypes")
+    @Timeout(30)
+    @ParameterizedTest
+    @MethodSource("joinDistributionTypes")
     public void testJoinWithSelectiveRowFiltering(JoinDistributionType joinDistributionType)
     {
         assertRowFiltering(
@@ -71,7 +74,9 @@ public abstract class AbstractTestDynamicRowFiltering
                 joinDistributionType);
     }
 
-    @Test(timeOut = 30_000, dataProvider = "joinDistributionTypes")
+    @Timeout(30)
+    @ParameterizedTest
+    @MethodSource("joinDistributionTypes")
     public void testJoinWithNonSelectiveRowFiltering(JoinDistributionType joinDistributionType)
     {
         assertNoRowFiltering(
@@ -79,7 +84,9 @@ public abstract class AbstractTestDynamicRowFiltering
                 joinDistributionType);
     }
 
-    @Test(timeOut = 30_000, dataProvider = "joinDistributionTypes")
+    @Timeout(30)
+    @ParameterizedTest
+    @MethodSource("joinDistributionTypes")
     public void testRowFilteringWithStrings(JoinDistributionType joinDistributionType)
     {
         // name is high cardinality, VariableWidthBlock is used
@@ -97,7 +104,9 @@ public abstract class AbstractTestDynamicRowFiltering
                 joinDistributionType);
     }
 
-    @Test(timeOut = 30_000, dataProvider = "joinDistributionTypes")
+    @Timeout(30)
+    @ParameterizedTest
+    @MethodSource("joinDistributionTypes")
     public void testJoinWithMultipleDynamicFilters(JoinDistributionType joinDistributionType)
     {
         assertNoRowFiltering(

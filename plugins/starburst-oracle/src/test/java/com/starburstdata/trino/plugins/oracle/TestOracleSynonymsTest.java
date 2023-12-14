@@ -19,8 +19,7 @@ import org.junit.jupiter.api.Test;
 
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toList;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestOracleSynonymsTest
         extends AbstractTestQueryFramework
@@ -44,8 +43,8 @@ public class TestOracleSynonymsTest
     public void testSynonyms()
     {
         oracleServer.get().executeInOracle("CREATE SYNONYM test_synonym FOR orders");
-        assertTrue(getQueryRunner().tableExists(getSession(), "test_synonym"));
-        assertEquals(computeActual("SHOW TABLES").getOnlyColumn().filter("test_synonym"::equals).collect(toList()), ImmutableList.of("test_synonym"));
+        assertThat(getQueryRunner().tableExists(getSession(), "test_synonym")).isTrue();
+        assertThat(computeActual("SHOW TABLES").getOnlyColumn().filter("test_synonym"::equals).collect(toList())).isEqualTo(ImmutableList.of("test_synonym"));
         assertQuery("SELECT orderkey FROM test_synonym", "SELECT orderkey FROM orders");
         oracleServer.get().executeInOracle("DROP SYNONYM test_synonym");
     }

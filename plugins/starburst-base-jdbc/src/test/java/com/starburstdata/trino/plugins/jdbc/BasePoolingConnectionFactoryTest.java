@@ -18,7 +18,8 @@ import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.credential.DefaultCredentialPropertiesProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.security.ConnectorIdentity;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.sql.Array;
 import java.sql.Blob;
@@ -46,47 +47,46 @@ import java.util.logging.Logger;
 import static io.trino.spi.block.TestingSession.SESSION;
 import static java.lang.Thread.sleep;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BasePoolingConnectionFactoryTest
 {
     protected abstract IdentityCacheMapping getIdentityCacheMapping();
 
-    @Test(timeOut = 60_000)
+    @Test
+    @Timeout(60)
     public void testPoolingConnectionFactory()
             throws SQLException, InterruptedException
     {
         try (PoolingConnectionFactory connectionFactory = createPoolingConnectionFactory("testPoolingConnectionFactory")) {
             Connection connection = openConnection(connectionFactory);
             TestConnection testConnection = connection.unwrap(TestConnection.class);
-            assertFalse(testConnection.isClosed);
+            assertThat(testConnection.isClosed).isFalse();
 
             // make sure we get same pooled connection
             int connectionNumber = testConnection.connectionNumber.get();
             connection.close();
             connection = openConnection(connectionFactory);
             testConnection = connection.unwrap(TestConnection.class);
-            assertEquals(connectionNumber, (int) testConnection.connectionNumber.get());
+            assertThat(connectionNumber).isEqualTo((int) testConnection.connectionNumber.get());
 
             // connection should not be closed after cache invalidation
             sleep(10_000);
-            assertEquals(connectionFactory.getEvictedDataSourcesSize(), 1);
+            assertThat(connectionFactory.getEvictedDataSourcesSize()).isEqualTo(1);
             sleep(10_000);
-            assertFalse(testConnection.isClosed);
+            assertThat(testConnection.isClosed).isFalse();
 
             // make sure invalidated pool is evicted eventually
             connection.close();
             sleep(10_000);
-            assertEquals(connectionFactory.getEvictedDataSourcesSize(), 0);
-            assertTrue(testConnection.isClosed);
+            assertThat(connectionFactory.getEvictedDataSourcesSize()).isEqualTo(0);
+            assertThat(testConnection.isClosed).isTrue();
 
             // we should get new connection after cache is invalidated
             connection = openConnection(connectionFactory);
             testConnection = connection.unwrap(TestConnection.class);
 
-            assertEquals((int) testConnection.connectionNumber.get(), connectionNumber + 1);
+            assertThat((int) testConnection.connectionNumber.get()).isEqualTo(connectionNumber + 1);
         }
     }
 
@@ -97,7 +97,9 @@ public abstract class BasePoolingConnectionFactoryTest
         try (PoolingConnectionFactory connectionFactory = createPoolingConnectionFactory("testAutoCommitReset")) {
             Connection connection = openConnection(connectionFactory);
             TestConnection testConnection = connection.unwrap(TestConnection.class);
-            assertTrue(connection.getAutoCommit(), "autoCommit should be true by default");
+            assertThat(connection.getAutoCommit())
+                    .as("autoCommit should be true by default")
+                    .isTrue();
 
             connection.setAutoCommit(false);
             connection.close();
@@ -105,8 +107,10 @@ public abstract class BasePoolingConnectionFactoryTest
             Connection sameConnection = openConnection(connectionFactory);
             TestConnection sameTestConnection = sameConnection.unwrap(TestConnection.class);
 
-            assertEquals(testConnection.connectionNumber, sameTestConnection.connectionNumber);
-            assertTrue(sameConnection.getAutoCommit(), "autoCommit should be reset to true");
+            assertThat(testConnection.connectionNumber).isEqualTo(sameTestConnection.connectionNumber);
+            assertThat(sameConnection.getAutoCommit())
+                    .as("autoCommit should be reset to true")
+                    .isTrue();
         }
     }
 

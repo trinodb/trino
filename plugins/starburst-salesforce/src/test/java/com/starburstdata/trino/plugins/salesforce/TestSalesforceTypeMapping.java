@@ -24,14 +24,17 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingSession;
 import io.trino.testing.datatype.DataSetup;
 import io.trino.testing.sql.JdbcSqlExecutor;
-import org.testng.SkipException;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -51,12 +54,16 @@ import static java.time.ZoneOffset.UTC;
 import static java.time.format.DateTimeFormatter.ISO_DATE;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 // Note that there are no CTAS-based type mapping tests in this class due to Salesforce custom object limits
 // We instead use static test names with no random suffix to avoid creating and deleting many tables and hitting this limit, which caused builds to fail
 // These tables are created if they don't exist and truncated when the test is closed as well as initially to ensure there is no data
 // Custom objects can be deleted by hand in Salesforce using the Object Manager
-@Test(singleThreaded = true) // Decimal tests share the same table
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD) // Decimal tests share the same table
 public class TestSalesforceTypeMapping
         extends AbstractTestQueryFramework
 {
@@ -306,15 +313,17 @@ public class TestSalesforceTypeMapping
                 .hasStackTraceContaining("invalid date");
     }
 
-    @Test(dataProvider = "testTimestampDataProvider")
+    @ParameterizedTest
+    @MethodSource("testTimestampDataProvider")
     public void testTime(ZoneId sessionZone)
     {
         // TIME data types inserted via the Salesforce JDBC driver do not support the test time zone
         // When read back the times are +1 hour
-        throw new SkipException("TIME data type tests are skipped");
+        abort("TIME data type tests are skipped");
     }
 
-    @Test(dataProvider = "testTimestampDataProvider")
+    @ParameterizedTest
+    @MethodSource("testTimestampDataProvider")
     public void testTimestamp(ZoneId sessionZone)
     {
         SqlDataTypeTest tests = SqlDataTypeTest.create();
@@ -336,16 +345,15 @@ public class TestSalesforceTypeMapping
         tests.execute(getQueryRunner(), session, salesforceCreateAndInsert("test_timestamp"));
     }
 
-    @DataProvider
-    public Object[][] testTimestampDataProvider()
+    public List<ZoneId> testTimestampDataProvider()
     {
-        return new Object[][] {
-                {UTC},
-                {jvmZone},
-                {vilnius},
-                {kathmandu},
-                {ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
-        };
+        return ImmutableList.<ZoneId>builder()
+                .add(UTC)
+                .add(jvmZone)
+                .add(vilnius)
+                .add(kathmandu)
+                .add(ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()))
+                .build();
     }
 
     private DataSetup salesforceCreateAndInsert(String tableName)

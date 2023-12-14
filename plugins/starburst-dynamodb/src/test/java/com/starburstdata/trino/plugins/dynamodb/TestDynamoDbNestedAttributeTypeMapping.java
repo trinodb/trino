@@ -15,8 +15,7 @@ import io.trino.Session;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.core.waiters.WaiterResponse;
@@ -223,11 +222,5 @@ public class TestDynamoDbNestedAttributeTypeMapping
                                 "c", AttributeValue.builder().ss("def", "ghi").build()
                         )).build()
                 )).build());
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        dynamoDbClient = null;
     }
 }

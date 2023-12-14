@@ -10,7 +10,7 @@
 package com.starburstdata.trino.plugins.salesforce;
 
 import com.google.common.collect.ImmutableMap;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
@@ -19,7 +19,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static java.lang.String.format;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSalesforcePasswordConfig
 {
@@ -60,6 +60,6 @@ public class TestSalesforcePasswordConfig
                 .setSecurityToken("foobar");
 
         SalesforceModule.PasswordConnectionUrlProvider provider = new SalesforceModule.PasswordConnectionUrlProvider(config, passwordConfig);
-        assertEquals(provider.get(), format("jdbc:salesforce:User=\"user\";Password=\"password\";UseSandbox=\"false\";OEMKey=\"%s\";SecurityToken=\"foobar\";", CDATA_OEM_KEY));
+        assertThat(provider.get()).isEqualTo(format("jdbc:salesforce:User=\"user\";Password=\"password\";UseSandbox=\"false\";OEMKey=\"%s\";SecurityToken=\"foobar\";", CDATA_OEM_KEY));
     }
 }

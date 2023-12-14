@@ -24,7 +24,6 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
-import static org.testng.Assert.assertFalse;
 
 public class TestStargateWithMemoryWritesEnabledConnectorTest
         extends BaseStargateConnectorTest
@@ -225,10 +224,10 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
         // This is unusual, because other connectors don't produce a ResultSet metadata for CREATE TABLE at all.
         // The query fails because there are no columns, but even if columns were not required, the query would fail
         // to execute in this connector because the connector wraps it in additional syntax, which causes syntax error.
-        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+        assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
         assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE numbers(n INTEGER)'))"))
                 .hasMessageContaining("descriptor has no fields");
-        assertFalse(getQueryRunner().tableExists(getSession(), "numbers"));
+        assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
     }
 
     @Test

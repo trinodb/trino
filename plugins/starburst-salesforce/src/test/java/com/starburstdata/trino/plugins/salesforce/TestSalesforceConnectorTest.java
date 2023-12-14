@@ -44,10 +44,11 @@ import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
 import org.apache.commons.math3.stat.descriptive.DescriptiveStatistics;
 import org.intellij.lang.annotations.Language;
-import org.testng.SkipException;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
-import org.testng.internal.collections.Pair;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.List;
 import java.util.Map;
@@ -83,7 +84,6 @@ import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIO
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.exchange;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
-import static io.trino.testing.DataProviders.toDataProvider;
 import static io.trino.testing.MaterializedResult.resultBuilder;
 import static io.trino.testing.QueryAssertions.assertContains;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
@@ -123,9 +123,7 @@ import static java.util.stream.Collectors.toMap;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotEquals;
-import static org.testng.Assert.assertTrue;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestSalesforceConnectorTest
         extends AbstractTestQueryFramework
@@ -134,15 +132,24 @@ public class TestSalesforceConnectorTest
     // running the expected queries against H2
     private final Map<String, String> tableColumnSuffixRegexes = ImmutableMap.<String, String>builder()
             .putAll(TpchTable.getTables().stream()
-                    .map(table -> Pair.of(getRepositorySpecificSalesforceTableName(table.getTableName()), table.getTableName()))
+                    .map(table -> new Pair(getRepositorySpecificSalesforceTableName(table.getTableName()), table.getTableName()))
                     .collect(Collectors.toMap(Pair::first, Pair::second)))
             .putAll(TpchTable.getTables().stream()
                     .map(TpchTable::getColumns)
                     .flatMap(List::stream)
-                    .map(column -> Pair.of(getSalesforceObjectName(column.getSimplifiedColumnName()), column.getSimplifiedColumnName()))
+                    .map(column -> new Pair(getSalesforceObjectName(column.getSimplifiedColumnName()), column.getSimplifiedColumnName()))
                     .distinct()
                     .collect(Collectors.toMap(Pair::first, Pair::second)))
             .buildOrThrow();
+
+    private record Pair(String first, String second)
+    {
+        private Pair
+        {
+            requireNonNull(first, "first is null");
+            requireNonNull(second, "second is null");
+        }
+    }
 
     protected final String salesforceCustomerTableName = getRepositorySpecificSalesforceTableName("customer");
     protected final String salesforceLineitemTableName = getRepositorySpecificSalesforceTableName("lineitem");
@@ -415,7 +422,8 @@ public class TestSalesforceConnectorTest
         assertQuery("SELECT orderkey__c FROM " + salesforceOrdersTableName + " WHERE totalprice__c IN (1, 2, 3)");
     }
 
-    @Test(dataProvider = "largeInValuesCount")
+    @ParameterizedTest
+    @MethodSource("largeInValuesCount")
     public void testLargeIn(int valuesCount)
     {
         String longValues = range(0, valuesCount)
@@ -428,7 +436,6 @@ public class TestSalesforceConnectorTest
         assertQuery("SELECT orderkey__c FROM " + salesforceOrdersTableName + " WHERE orderkey__c NOT IN (mod(1000, orderkey__c), " + longValues + ")");
     }
 
-    @DataProvider
     public static Object[][] largeInValuesCount()
     {
         return new Object[][] {
@@ -443,21 +450,21 @@ public class TestSalesforceConnectorTest
     public void testShowSchemas()
     {
         MaterializedResult result = computeActual("SHOW SCHEMAS");
-        assertTrue(result.getOnlyColumnAsSet().containsAll(ImmutableSet.of(getSession().getSchema().get(), INFORMATION_SCHEMA)));
+        assertThat(result.getOnlyColumnAsSet().containsAll(ImmutableSet.of(getSession().getSchema().get(), INFORMATION_SCHEMA))).isTrue();
     }
 
     @Test
     public void testShowSchemasFrom()
     {
         MaterializedResult result = computeActual(format("SHOW SCHEMAS FROM %s", getSession().getCatalog().get()));
-        assertTrue(result.getOnlyColumnAsSet().containsAll(ImmutableSet.of(getSession().getSchema().get(), INFORMATION_SCHEMA)));
+        assertThat(result.getOnlyColumnAsSet().containsAll(ImmutableSet.of(getSession().getSchema().get(), INFORMATION_SCHEMA))).isTrue();
     }
 
     @Test
     public void testShowSchemasLike()
     {
         MaterializedResult result = computeActual(format("SHOW SCHEMAS LIKE '%s'", getSession().getSchema().get()));
-        org.testng.Assert.assertEquals(result.getOnlyColumnAsSet(), ImmutableSet.of(getSession().getSchema().get()));
+        assertThat(result.getOnlyColumnAsSet()).isEqualTo(ImmutableSet.of(getSession().getSchema().get()));
     }
 
     @Test
@@ -467,9 +474,9 @@ public class TestSalesforceConnectorTest
         assertQueryFails("SHOW SCHEMAS LIKE 't$_%' ESCAPE '$$'", "Escape string must be a single character");
 
         Set<Object> allSchemas = computeActual("SHOW SCHEMAS").getOnlyColumnAsSet();
-        org.testng.Assert.assertEquals(allSchemas, computeActual("SHOW SCHEMAS LIKE '%_%'").getOnlyColumnAsSet());
+        assertThat(allSchemas).isEqualTo(computeActual("SHOW SCHEMAS LIKE '%_%'").getOnlyColumnAsSet());
         Set<Object> result = computeActual("SHOW SCHEMAS LIKE '%$_%' ESCAPE '$'").getOnlyColumnAsSet();
-        assertNotEquals(allSchemas, result);
+        assertThat(allSchemas).isNotEqualTo(result);
         assertThat(result).contains("information_schema").allMatch(schemaName -> ((String) schemaName).contains("_"));
     }
 
@@ -615,7 +622,7 @@ public class TestSalesforceConnectorTest
     {
         // TODO Not sure what is going on here, getting an error from H2, thinks this date is a double type
         //   Caused by: org.h2.jdbc.JdbcSQLDataException: Data conversion error converting "1996-01-02" [22018-200]
-        throw new SkipException("testLimitPushDown");
+        abort("testLimitPushDown");
     }
 
     @Test
@@ -652,12 +659,16 @@ public class TestSalesforceConnectorTest
         for (int i = 0; i < 100; i++) {
             List<MaterializedRow> values = computeActual("SELECT orderkey__c FROM " + salesforceOrdersTableName + " TABLESAMPLE BERNOULLI (50)").getMaterializedRows();
 
-            org.testng.Assert.assertEquals(values.size(), ImmutableSet.copyOf(values).size(), "TABLESAMPLE produced duplicate rows");
+            assertThat(values.size())
+                    .as("TABLESAMPLE produced duplicate rows")
+                    .isEqualTo(ImmutableSet.copyOf(values).size());
             stats.addValue(values.size() * 1.0 / total);
         }
 
         double mean = stats.getGeometricMean();
-        assertTrue(mean > 0.45 && mean < 0.55, format("Expected mean sampling rate to be ~0.5, but was %s", mean));
+        assertThat(mean > 0.45 && mean < 0.55)
+                .as(format("Expected mean sampling rate to be ~0.5, but was %s", mean))
+                .isTrue();
     }
 
     @Test
@@ -690,44 +701,44 @@ public class TestSalesforceConnectorTest
         }
 
         assertUpdate("CREATE TABLE " + tableName + " (a bigint, b double, c varchar)");
-        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
         assertTableColumnNames(tableName, "a", "b", "c");
 
         assertUpdate("DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
 
         assertQueryFails("CREATE TABLE " + tableName + " (a bad_type)", ".* Unknown type 'bad_type' for column 'a'");
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
 
         // TODO (https://github.com/trinodb/trino/issues/5901) revert to longer name__c when Oracle version is updated
         tableName = "test_cr_tab_not_exists_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (a bigint, b varchar, c double)");
-        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
         assertTableColumnNames(tableName, "a", "b", "c");
 
         assertUpdate("CREATE TABLE IF NOT EXISTS " + tableName + " (d bigint, e varchar)");
-        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
         assertTableColumnNames(tableName, "a", "b", "c");
 
         assertUpdate("DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
 
         // Test CREATE TABLE LIKE
         tableName = "test_create_original_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (a bigint, b double, c varchar)");
-        assertTrue(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isTrue();
         assertTableColumnNames(tableName, "a", "b", "c");
 
         String tableNameLike = "test_create_like_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableNameLike + " (LIKE " + tableName + ", d bigint, e varchar)");
-        assertTrue(getQueryRunner().tableExists(getSession(), tableNameLike));
+        assertThat(getQueryRunner().tableExists(getSession(), tableNameLike)).isTrue();
         assertTableColumnNames(tableNameLike, "a", "b", "c", "d", "e");
 
         assertUpdate("DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
 
         assertUpdate("DROP TABLE " + tableNameLike);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableNameLike));
+        assertThat(getQueryRunner().tableExists(getSession(), tableNameLike)).isFalse();
     }
 
     @Test
@@ -822,7 +833,7 @@ public class TestSalesforceConnectorTest
         assertQuery(session, "SELECT * FROM " + table, expectedQuery);
         assertUpdate(session, "DROP TABLE " + table);
 
-        assertFalse(getQueryRunner().tableExists(session, table));
+        assertThat(getQueryRunner().tableExists(session, table)).isFalse();
     }
 
     @Test
@@ -849,12 +860,12 @@ public class TestSalesforceConnectorTest
 
         assertUpdate("DROP TABLE " + uppercaseName);
 
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-        assertFalse(getQueryRunner().tableExists(getSession(), renamedTable));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        assertThat(getQueryRunner().tableExists(getSession(), renamedTable)).isFalse();
 
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " RENAME TO " + renamedTable);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
-        assertFalse(getQueryRunner().tableExists(getSession(), renamedTable));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
+        assertThat(getQueryRunner().tableExists(getSession(), renamedTable)).isFalse();
     }
 
     @Test
@@ -981,10 +992,10 @@ public class TestSalesforceConnectorTest
         assertQuery("SELECT * FROM " + tableName, "VALUES 'some value'");
 
         assertUpdate("DROP TABLE " + tableName);
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " RENAME COLUMN columnNotExists TO y");
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " RENAME COLUMN IF EXISTS columnNotExists TO y");
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
     }
 
     @Test
@@ -1005,10 +1016,10 @@ public class TestSalesforceConnectorTest
 
         assertUpdate("DROP TABLE " + tableName);
 
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " DROP COLUMN notExistColumn");
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " DROP COLUMN IF EXISTS notExistColumn");
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
     }
 
     @Test
@@ -1043,10 +1054,10 @@ public class TestSalesforceConnectorTest
                 "VALUES ('first', NULL, NULL, NULL), ('second', 'xxx', NULL, NULL), ('third', 'yyy', 33.3, NULL), ('fourth', 'zzz', 55.3, 'newColumn')");
         assertUpdate("DROP TABLE " + tableName);
 
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " ADD COLUMN x bigint");
         assertUpdate("ALTER TABLE IF EXISTS " + tableName + " ADD COLUMN IF NOT EXISTS x bigint");
-        assertFalse(getQueryRunner().tableExists(getSession(), tableName));
+        assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
     }
 
     @Test
@@ -1136,7 +1147,7 @@ public class TestSalesforceConnectorTest
             assertThatThrownBy(() -> query("CREATE TABLE " + tableName + " (a array(bigint))"))
                     // TODO Unify failure message across connectors
                     .hasMessageMatching("[Uu]nsupported (column )?type: \\Qarray(bigint)");
-            throw new SkipException("not supported");
+            abort("not supported");
         }
 
         assertUpdate("CREATE TABLE " + tableName + " (a ARRAY<DOUBLE>, b ARRAY<BIGINT>)");
@@ -1282,9 +1293,9 @@ public class TestSalesforceConnectorTest
     @Test
     public void testDropTableIfExists()
     {
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_drop_if_exists"));
+        assertThat(getQueryRunner().tableExists(getSession(), "test_drop_if_exists")).isFalse();
         assertUpdate("DROP TABLE IF EXISTS test_drop_if_exists");
-        assertFalse(getQueryRunner().tableExists(getSession(), "test_drop_if_exists"));
+        assertThat(getQueryRunner().tableExists(getSession(), "test_drop_if_exists")).isFalse();
     }
 
     @Test
@@ -1384,7 +1395,8 @@ public class TestSalesforceConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test(dataProvider = "testViewMetadataDataProvider")
+    @ParameterizedTest
+    @MethodSource("testViewMetadataDataProvider")
     public void testViewMetadata(String securityClauseInCreate, String securityClauseInShowCreate)
     {
         skipTestUnless(supportsViews());
@@ -1453,16 +1465,15 @@ public class TestSalesforceConnectorTest
 
         actual = computeActual("SHOW CREATE VIEW " + viewName);
 
-        org.testng.Assert.assertEquals(getOnlyElement(actual.getOnlyColumnAsSet()), expectedSql);
+        assertThat(getOnlyElement(actual.getOnlyColumnAsSet())).isEqualTo(expectedSql);
 
         actual = computeActual(format("SHOW CREATE VIEW %s.%s.%s", getSession().getCatalog().get(), getSession().getSchema().get(), viewName));
 
-        org.testng.Assert.assertEquals(getOnlyElement(actual.getOnlyColumnAsSet()), expectedSql);
+        assertThat(getOnlyElement(actual.getOnlyColumnAsSet())).isEqualTo(expectedSql);
 
         assertUpdate("DROP VIEW " + viewName);
     }
 
-    @DataProvider
     public static Object[][] testViewMetadataDataProvider()
     {
         return new Object[][] {
@@ -1509,13 +1520,13 @@ public class TestSalesforceConnectorTest
         executeExclusively(() -> {
             assertEventually(
                     new Duration(1, MINUTES),
-                    () -> org.testng.Assert.assertEquals(
+                    () -> assertThat(
                             queryManager.getQueries().stream()
                                     .map(BasicQueryInfo::getQueryId)
                                     .map(queryManager::getFullQueryInfo)
                                     .filter(info -> !info.isFinalQueryInfo())
-                                    .collect(toList()),
-                            ImmutableList.of()));
+                                    .collect(toList()))
+                            .isEmpty());
 
             // We cannot simply get the number of completed queries as soon as all the queries are completed, because this counter may not be up-to-date at that point.
             // The completed queries counter is updated in a final query info listener, which is called eventually.
@@ -1533,8 +1544,8 @@ public class TestSalesforceConnectorTest
             // TODO: Figure out a better way of synchronization
             assertEventually(
                     new Duration(1, MINUTES),
-                    () -> org.testng.Assert.assertEquals(dispatchManager.getStats().getCompletedQueries().getTotalCount() - beforeCompletedQueriesCount, 4));
-            org.testng.Assert.assertEquals(dispatchManager.getStats().getSubmittedQueries().getTotalCount() - beforeSubmittedQueriesCount, 4);
+                    () -> assertThat(dispatchManager.getStats().getCompletedQueries().getTotalCount() - beforeCompletedQueriesCount).isEqualTo(4));
+            assertThat(dispatchManager.getStats().getSubmittedQueries().getTotalCount() - beforeSubmittedQueriesCount).isEqualTo(4);
         });
     }
 
@@ -1557,7 +1568,7 @@ public class TestSalesforceConnectorTest
     public void testShowSchemasFromOther()
     {
         MaterializedResult result = computeActual("SHOW SCHEMAS FROM tpch");
-        assertTrue(result.getOnlyColumnAsSet().containsAll(ImmutableSet.of(INFORMATION_SCHEMA, "tiny", "sf1")));
+        assertThat(result.getOnlyColumnAsSet().containsAll(ImmutableSet.of(INFORMATION_SCHEMA, "tiny", "sf1"))).isTrue();
     }
 
     // TODO move to to engine-only
@@ -1583,17 +1594,17 @@ public class TestSalesforceConnectorTest
         MaterializedResultWithQueryId resultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
         QueryInfo queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
 
-        org.testng.Assert.assertEquals(queryInfo.getQueryStats().getOutputPositions(), 1L);
-        org.testng.Assert.assertEquals(queryInfo.getQueryStats().getWrittenPositions(), 25L);
-        assertTrue(queryInfo.getQueryStats().getLogicalWrittenDataSize().toBytes() > 0L);
+        assertThat(queryInfo.getQueryStats().getOutputPositions()).isEqualTo(1L);
+        assertThat(queryInfo.getQueryStats().getWrittenPositions()).isEqualTo(25L);
+        assertThat(queryInfo.getQueryStats().getLogicalWrittenDataSize().toBytes()).isGreaterThan(0L);
 
         sql = "INSERT INTO " + tableName + " SELECT * FROM " + salesforceNationTableName + " LIMIT 10";
         resultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
         queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
 
-        org.testng.Assert.assertEquals(queryInfo.getQueryStats().getOutputPositions(), 1L);
-        org.testng.Assert.assertEquals(queryInfo.getQueryStats().getWrittenPositions(), 10L);
-        assertTrue(queryInfo.getQueryStats().getLogicalWrittenDataSize().toBytes() > 0L);
+        assertThat(queryInfo.getQueryStats().getOutputPositions()).isEqualTo(1L);
+        assertThat(queryInfo.getQueryStats().getWrittenPositions()).isEqualTo(10L);
+        assertThat(queryInfo.getQueryStats().getLogicalWrittenDataSize().toBytes()).isGreaterThan(0L);
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -1634,7 +1645,8 @@ public class TestSalesforceConnectorTest
         throw new UnsupportedOperationException();
     }
 
-    @Test(dataProvider = "testColumnNameDataProvider")
+    @ParameterizedTest
+    @MethodSource("testColumnNameDataProvider")
     public void testColumnName(String columnName)
     {
         skipTestUnless(supportsCreateTable());
@@ -1689,14 +1701,13 @@ public class TestSalesforceConnectorTest
         return !identifierName.matches("[a-zA-Z][a-zA-Z0-9_]*");
     }
 
-    @DataProvider
-    public Object[][] testColumnNameDataProvider()
+    public List<String> testColumnNameDataProvider()
     {
         return testColumnNameTestData().stream()
                 .map(this::filterColumnNameTestData)
                 .filter(Optional::isPresent)
                 .map(Optional::get)
-                .collect(toDataProvider());
+                .collect(toImmutableList());
     }
 
     private List<String> testColumnNameTestData()
@@ -1735,7 +1746,8 @@ public class TestSalesforceConnectorTest
         return "test_data_mapping_smoke_" + trinoTypeName.replaceAll("[^a-zA-Z0-9]", "_") + "_" + randomNameSuffix();
     }
 
-    @Test(dataProvider = "testDataMappingSmokeTestDataProvider")
+    @ParameterizedTest
+    @MethodSource("testDataMappingSmokeTestDataProvider")
     public void testDataMappingSmokeTest(DataMappingTestSetup dataMappingTestSetup)
     {
         testDataMapping(dataMappingTestSetup);
@@ -1796,13 +1808,12 @@ public class TestSalesforceConnectorTest
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @DataProvider
-    public final Object[][] testDataMappingSmokeTestDataProvider()
+    public final List<DataMappingTestSetup> testDataMappingSmokeTestDataProvider()
     {
         return testDataMappingSmokeTestData().stream()
                 .map(this::filterDataMappingSmokeTestData)
                 .flatMap(Optional::stream)
-                .collect(toDataProvider());
+                .collect(toImmutableList());
     }
 
     private List<DataMappingTestSetup> testDataMappingSmokeTestData()
@@ -1834,19 +1845,19 @@ public class TestSalesforceConnectorTest
         return Optional.of(dataMappingTestSetup);
     }
 
-    @Test(dataProvider = "testCaseSensitiveDataMappingProvider")
+    @ParameterizedTest
+    @MethodSource("testCaseSensitiveDataMappingProvider")
     public void testCaseSensitiveDataMapping(DataMappingTestSetup dataMappingTestSetup)
     {
         testDataMapping(dataMappingTestSetup);
     }
 
-    @DataProvider
-    public final Object[][] testCaseSensitiveDataMappingProvider()
+    public final List<DataMappingTestSetup> testCaseSensitiveDataMappingProvider()
     {
         return testCaseSensitiveDataMappingData().stream()
                 .map(this::filterCaseSensitiveDataMappingTestData)
                 .flatMap(Optional::stream)
-                .collect(toDataProvider());
+                .collect(toImmutableList());
     }
 
     protected Optional<DataMappingTestSetup> filterCaseSensitiveDataMappingTestData(DataMappingTestSetup dataMappingTestSetup)
@@ -2163,13 +2174,15 @@ public class TestSalesforceConnectorTest
     {
         // TODO Not sure what is going on here, getting an error from H2, thinks this date is a double type
         //   Caused by: org.h2.jdbc.JdbcSQLDataException: Data conversion error converting "1996-01-02" [22018-200]
-        throw new SkipException("testSelectAll");
+        abort("testSelectAll");
     }
 
     /**
      * Test interactions between optimizer (including CBO), scheduling and connector metadata APIs.
      */
-    @Test(timeOut = 300_000, dataProvider = "joinDistributionTypes")
+    @Timeout(300)
+    @ParameterizedTest
+    @EnumSource(OptimizerConfig.JoinDistributionType.class)
     public void testJoinWithEmptySides(OptimizerConfig.JoinDistributionType joinDistributionType)
     {
         Session session = noJoinReordering(joinDistributionType);
@@ -2179,13 +2192,6 @@ public class TestSalesforceConnectorTest
         // empty probe side
         assertQuery(session, "SELECT count(*) FROM " + salesforceRegionTableName + " JOIN " + salesforceNationTableName + " ON " + salesforceNationTableName + ".regionkey__c = " + salesforceRegionTableName + ".regionkey__c AND " + salesforceRegionTableName + ".name__c = ''", "VALUES 0");
         assertQuery(session, "SELECT count(*) FROM " + salesforceNationTableName + " JOIN " + salesforceRegionTableName + " ON " + salesforceNationTableName + ".regionkey__c = " + salesforceRegionTableName + ".regionkey__c AND " + salesforceRegionTableName + ".regionkey__c < 0", "VALUES 0");
-    }
-
-    @DataProvider
-    public Object[][] joinDistributionTypes()
-    {
-        return Stream.of(OptimizerConfig.JoinDistributionType.values())
-                .collect(toDataProvider());
     }
 
     /**
@@ -2291,7 +2297,7 @@ public class TestSalesforceConnectorTest
 
         assertContains(all, fullSample);
         assertThat(emptySample.getMaterializedRows()).isEmpty();
-        assertTrue(all.getMaterializedRows().size() >= randomSample.getMaterializedRows().size());
+        assertThat(all.getMaterializedRows().size()).isGreaterThanOrEqualTo(randomSample.getMaterializedRows().size());
     }
 
     @Test
@@ -2304,7 +2310,7 @@ public class TestSalesforceConnectorTest
         assertThat(emptySample.getMaterializedRows()).isEmpty();
         // Assertions need to be loose here because SYSTEM sampling random selects data on split boundaries. In this case either all the data will be selected, or
         // none of it. Sampling with a 100% ratio is ignored, so that also cannot be used to guarantee results.
-        assertTrue(all.getMaterializedRows().size() >= halfSample.getMaterializedRows().size());
+        assertThat(all.getMaterializedRows().size()).isGreaterThanOrEqualTo(halfSample.getMaterializedRows().size());
     }
 
     @Test
@@ -2442,7 +2448,7 @@ public class TestSalesforceConnectorTest
         }
 
         if (!hasBehavior(SUPPORTS_CREATE_SCHEMA)) {
-            throw new SkipException("Skipping as connector does not support CREATE SCHEMA");
+            abort("Skipping as connector does not support CREATE SCHEMA");
         }
 
         String schemaName = "test_rename_schema_" + randomNameSuffix();
@@ -2772,13 +2778,14 @@ public class TestSalesforceConnectorTest
         }
     }
 
-    @DataProvider
-    public Object[][] fixedJoinDistributionTypes()
+    public List<JoinDistributionType> fixedJoinDistributionTypes()
     {
-        return new Object[][] {{BROADCAST}, {PARTITIONED}};
+        return ImmutableList.of(BROADCAST, PARTITIONED);
     }
 
-    @Test(timeOut = 120_000, dataProvider = "fixedJoinDistributionTypes")
+    @Timeout(120)
+    @ParameterizedTest
+    @MethodSource("fixedJoinDistributionTypes")
     public void testDynamicFiltering(JoinDistributionType joinDistributionType)
     {
         assertDynamicFiltering(
@@ -2786,7 +2793,8 @@ public class TestSalesforceConnectorTest
                 joinDistributionType);
     }
 
-    @Test(timeOut = 120_000)
+    @Test
+    @Timeout(120)
     public void testDynamicFilteringWithAggregationGroupingColumn()
     {
         assertDynamicFiltering(
@@ -2795,7 +2803,8 @@ public class TestSalesforceConnectorTest
                 PARTITIONED);
     }
 
-    @Test(timeOut = 120_000)
+    @Test
+    @Timeout(120)
     public void testDynamicFilteringWithAggregationAggregateColumn()
     {
         // Salesforce connector doesn't support aggregate pushdown
@@ -2804,7 +2813,8 @@ public class TestSalesforceConnectorTest
                         "ON a.count = b.orderkey__c AND b.totalprice__c < 1000");
     }
 
-    @Test(timeOut = 120_000)
+    @Test
+    @Timeout(120)
     public void testDynamicFilteringWithAggregationGroupingSet()
     {
         // DF pushdown is not supported for grouping column that is not part of every grouping set
@@ -2813,7 +2823,8 @@ public class TestSalesforceConnectorTest
                         "ON a.orderkey__c = b.orderkey__c AND b.totalprice__c < 1000");
     }
 
-    @Test(timeOut = 120_000)
+    @Test
+    @Timeout(120)
     public void testDynamicFilteringWithLimit()
     {
         // DF pushdown is not supported for limit queries
@@ -2822,7 +2833,8 @@ public class TestSalesforceConnectorTest
                         "ON a.orderkey__c = b.orderkey__c AND b.totalprice__c < 1000");
     }
 
-    @Test(timeOut = 120_000)
+    @Test
+    @Timeout(120)
     public void testDynamicFilteringDomainCompactionThreshold()
     {
         // Rather than creating and dropping the table, we only create it if it does not exist
@@ -2874,7 +2886,8 @@ public class TestSalesforceConnectorTest
                 .isGreaterThan(filteredInputPositions);
     }
 
-    @Test(timeOut = 120_000)
+    @Test
+    @Timeout(120)
     public void testDynamicFilteringCaseInsensitiveDomainCompaction()
     {
         // Rather than creating and dropping the table, we only create it if it does not exist
@@ -3067,7 +3080,7 @@ public class TestSalesforceConnectorTest
     protected static void skipTestUnless(boolean requirement)
     {
         if (!requirement) {
-            throw new SkipException("requirement not met");
+            abort("requirement not met");
         }
     }
 }

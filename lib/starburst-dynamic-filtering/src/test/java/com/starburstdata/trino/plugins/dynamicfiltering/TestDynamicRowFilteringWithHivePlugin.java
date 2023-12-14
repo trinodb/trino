@@ -23,8 +23,10 @@ import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.File;
 import java.util.Optional;
@@ -65,7 +67,7 @@ public class TestDynamicRowFilteringWithHivePlugin
         return queryRunner;
     }
 
-    @BeforeClass
+    @BeforeAll
     @Override
     public void init()
             throws Exception
@@ -79,7 +81,9 @@ public class TestDynamicRowFilteringWithHivePlugin
                 15000);
     }
 
-    @Test(timeOut = 30_000, dataProvider = "joinDistributionTypes")
+    @Timeout(30)
+    @ParameterizedTest
+    @MethodSource("joinDistributionTypes")
     public void testRowFilteringWithCharStrings(JoinDistributionType joinDistributionType)
     {
         assertRowFiltering(

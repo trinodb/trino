@@ -17,11 +17,11 @@ import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import org.junit.jupiter.api.Test;
-import org.testng.SkipException;
 
 import static io.trino.SystemSessionProperties.MARK_DISTINCT_STRATEGY;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.abort;
 
 public abstract class BaseStargateConnectorTest
         extends BaseJdbcConnectorTest
@@ -89,6 +89,7 @@ public abstract class BaseStargateConnectorTest
         assertThat(query("SELECT geometric_mean(nationkey) FROM nation")).isFullyPushedDown();
     }
 
+    @Test
     @Override
     public void testDistinctAggregationPushdown()
     {
@@ -142,10 +143,11 @@ public abstract class BaseStargateConnectorTest
                 .hasMessage("This connector does not support creating views");
     }
 
+    @Test
     @Override
     public void testDropNonEmptySchemaWithTable()
     {
-        throw new SkipException("Stargate connector not support creating tables");
+        abort("Stargate connector not support creating tables");
     }
 
     @Override

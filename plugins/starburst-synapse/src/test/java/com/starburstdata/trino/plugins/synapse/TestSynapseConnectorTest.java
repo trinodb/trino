@@ -47,7 +47,6 @@ import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
-import static org.testng.Assert.assertFalse;
 
 public class TestSynapseConnectorTest
         extends BaseSqlServerConnectorTest
@@ -865,7 +864,7 @@ public class TestSynapseConnectorTest
     @Override // Override because the JDBC prepares the query, but does not provide ResultSetMetadata
     public void testNativeQueryInsertStatementTableDoesNotExist()
     {
-        assertFalse(getQueryRunner().tableExists(getSession(), "non_existent_table"));
+        assertThat(getQueryRunner().tableExists(getSession(), "non_existent_table")).isFalse();
         assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
                 .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: INSERT INTO non_existent_table VALUES (1)");
     }

@@ -10,7 +10,7 @@
 package com.starburstdata.trino.plugins.dynamodb;
 
 import io.trino.plugin.jdbc.JdbcPageSinkProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 
