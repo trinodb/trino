@@ -95,6 +95,7 @@ public class TestDynamoDbConnectorTest
                 .build();
     }
 
+    @Test
     @Override
     public void testShowCreateTable()
     {
