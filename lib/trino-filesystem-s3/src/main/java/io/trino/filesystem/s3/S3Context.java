@@ -14,6 +14,7 @@
 package io.trino.filesystem.s3;
 
 import io.trino.filesystem.s3.S3FileSystemConfig.ObjectCannedAcl;
+import io.trino.filesystem.s3.S3FileSystemConfig.S3SseType;
 import io.trino.spi.security.ConnectorIdentity;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.AwsSessionCredentials;
@@ -85,18 +86,28 @@ record S3Context(
         credentialsProviderOverride.ifPresent(builder::credentialsProvider);
     }
 
-    record S3SseContext(S3FileSystemConfig.S3SseType sseType, Optional<String> sseKmsKeyId)
+    record S3SseContext(S3SseType sseType, Optional<String> sseKmsKeyId, Optional<S3SseCustomerKey> sseCustomerKey)
     {
-        public S3SseContext
+        S3SseContext
         {
             requireNonNull(sseType, "sseType is null");
             requireNonNull(sseKmsKeyId, "sseKmsKeyId is null");
-            checkArgument((sseType != KMS) || (sseKmsKeyId.isPresent()), "sseKmsKeyId is missing for SSE-KMS");
+            requireNonNull(sseCustomerKey, "sseCustomerKey is null");
+            switch (sseType) {
+                case KMS -> checkArgument(sseKmsKeyId.isPresent(), "sseKmsKeyId is missing for SSE-KMS");
+                case CUSTOMER -> checkArgument(sseCustomerKey.isPresent(), "sseCustomerKey is missing for SSE-C");
+                case NONE, S3 -> {}
+            }
+        }
+
+        public static S3SseContext of(S3SseType sseType, String sseKmsKeyId, String sseCustomerKey)
+        {
+            return new S3SseContext(sseType, Optional.ofNullable(sseKmsKeyId), Optional.ofNullable(sseCustomerKey).map(S3SseCustomerKey::onAes256));
         }
 
         public static S3SseContext withKmsKeyId(String kmsKeyId)
         {
-            return new S3SseContext(KMS, Optional.ofNullable(kmsKeyId));
+            return new S3SseContext(KMS, Optional.ofNullable(kmsKeyId), Optional.empty());
         }
     }
 }

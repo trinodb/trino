@@ -89,9 +89,10 @@ final class S3FileSystemLoader
         this.context = new S3Context(
                 toIntExact(config.getStreamingPartSize().toBytes()),
                 config.isRequesterPays(),
-                new S3SseContext(
+                S3SseContext.of(
                         config.getSseType(),
-                        Optional.ofNullable(config.getSseKmsKeyId())),
+                        config.getSseKmsKeyId(),
+                        config.getSseCustomerKey()),
                 Optional.empty(),
                 config.getCannedAcl(),
                 config.isSupportsExclusiveCreate());
