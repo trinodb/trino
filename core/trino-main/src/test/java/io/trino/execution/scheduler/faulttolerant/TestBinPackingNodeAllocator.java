@@ -832,7 +832,7 @@ public class TestBinPackingNodeAllocator
     }
 
     @Test
-    @Timeout(value = TEST_TIMEOUT, unit = MILLISECONDS)
+    @Timeout(value = TEST_TIMEOUT + 3000, unit = MILLISECONDS)
     public void testFailover()
     {
         InMemoryNodeManager nodeManager = new InMemoryNodeManager(NODE_1, NODE_2);
@@ -862,6 +862,9 @@ public class TestBinPackingNodeAllocator
             NodeAllocator.NodeLease acquireNoNodes = nodeAllocator.acquire(node2Flexible, oneGig, STANDARD);
             nodeAllocatorService.processPendingAcquires();
             assertNotAcquired(acquireNoNodes);
+            ticker.increment(61, TimeUnit.SECONDS);
+            assertEventually(() -> assertThatThrownBy(() -> getFutureValue(acquireNoNodes.getNode()))
+                    .hasMessage("No nodes available to run query"));
         }
     }
 
