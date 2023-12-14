@@ -261,7 +261,7 @@ public class TestKuduScannerKeepAlive
             TimeUnit.SECONDS.sleep(sleep);
 
             cursor.advanceNextPosition();
-            assertThat(cursor.getObject(1)).isEqualTo("a".repeat(65536));
+            assertThat(cursor.getSlice(1).toStringUtf8()).isEqualTo("a".repeat(65536));
         }
     }
 
