@@ -24,6 +24,8 @@ import software.amazon.awssdk.services.s3.model.RequestPayer;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.filesystem.s3.S3FileSystemConfig.S3SseType.CUSTOMER;
+import static io.trino.filesystem.s3.S3FileSystemConfig.S3SseType.KMS;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_ACCESS_KEY_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SECRET_KEY_PROPERTY;
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY;
@@ -84,17 +86,27 @@ record S3Context(
         credentialsProviderOverride.ifPresent(builder::credentialsProvider);
     }
 
-    record S3SseContext(S3FileSystemConfig.S3SseType sseType, String sseKmsKeyId)
+    record S3SseContext(S3FileSystemConfig.S3SseType sseType, String sseKmsKeyId, S3SseCustomerKey sseCustomerKey)
     {
         public S3SseContext
         {
             requireNonNull(sseType, "sseType is null");
-            checkArgument((sseType != S3FileSystemConfig.S3SseType.KMS) || (sseKmsKeyId != null), "sseKmsKeyId is null for SSE-KMS");
+            if (sseType == KMS) {
+                checkArgument(sseKmsKeyId != null, "sseKmsKeyId is null for SSE-KMS");
+            }
+            if (sseType == CUSTOMER) {
+                checkArgument(sseCustomerKey != null, "sseCustomerKey is null for SSE-C");
+            }
+        }
+
+        public static S3SseContext of(S3FileSystemConfig.S3SseType sseType, String sseKmsKeyId, String sseCustomerKey)
+        {
+            return new S3SseContext(sseType, sseKmsKeyId, sseCustomerKey == null ? null : S3SseCustomerKey.onAes256(sseCustomerKey));
         }
 
         public static S3SseContext withKmsKeyId(String kmsKeyId)
         {
-            return new S3SseContext(S3FileSystemConfig.S3SseType.KMS, kmsKeyId);
+            return new S3SseContext(S3FileSystemConfig.S3SseType.KMS, kmsKeyId, null);
         }
     }
 }
