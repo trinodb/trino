@@ -24,6 +24,8 @@ import static java.util.Objects.requireNonNull;
 
 public class IcebergCacheTableId
 {
+    private static final String STORAGE_PROPERTIES_READ_PREFIX = "read.";
+
     private final CatalogHandle catalog;
     private final String schemaName;
     private final String tableName;
@@ -81,5 +83,10 @@ public class IcebergCacheTableId
     public Map<String, String> getStorageProperties()
     {
         return storageProperties;
+    }
+
+    public static boolean isCacheableStorageProperty(Map.Entry<String, String> entry)
+    {
+        return entry.getKey().startsWith(STORAGE_PROPERTIES_READ_PREFIX);
     }
 }

@@ -80,6 +80,7 @@ public class IcebergCacheMetadata
                 handle.getTableLocation(),
                 normalizeTupleDomain(handle.getUnenforcedPredicate().transformKeys(column -> getCacheColumnId(tableHandle, column).orElseThrow())),
                 handle.getStorageProperties().entrySet().stream()
+                        .filter(IcebergCacheTableId::isCacheableStorageProperty)
                         .sorted(Map.Entry.comparingByKey())
                         .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
 

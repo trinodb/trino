@@ -73,6 +73,7 @@ import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_DAY;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.time.ZoneOffset.UTC;
+import static java.util.Map.entry;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestIcebergCacheIds
@@ -228,7 +229,7 @@ public class TestIcebergCacheIds
 
         // storage options is part of table id
         assertThat(icebergMetadata.getCacheTableId(
-                createIcebergTableHandle(catalogHandle, schemaTableName, Map.of("Test", "1"))))
+                createIcebergTableHandle(catalogHandle, schemaTableName, Map.of("read.split.target-size", "1"))))
                 .isNotEqualTo(icebergMetadata.getCacheTableId(
                         createIcebergTableHandle(catalogHandle, schemaTableName, "tableSchemaJson", partitionSpecJson, Set.of(), Optional.empty(), "location")));
 
@@ -283,6 +284,16 @@ public class TestIcebergCacheIds
         // different partitionDataJson should make ids different
         assertThat(splitManager.getCacheSplitId(createIcebergSplit("path", 0, 10, 10, IcebergFileFormat.ORC, unpartitionedPartitionSpecJson, unpartitionedPartitionDataJson, List.of())))
                 .isNotEqualTo(splitManager.getCacheSplitId(createIcebergSplit("path", 0, 10, 10, IcebergFileFormat.PARQUET, unpartitionedPartitionSpecJson, PartitionData.toJson(new PartitionData(new Long[]{1L})), List.of())));
+    }
+
+    @Test
+    public void testCacheableStorageProperty()
+    {
+        assertThat(IcebergCacheTableId.isCacheableStorageProperty(entry("not-cacheable", "test"))).isFalse();
+        assertThat(IcebergCacheTableId.isCacheableStorageProperty(entry("trino.stats.ndv.1231.ndv", "test"))).isFalse();
+        assertThat(IcebergCacheTableId.isCacheableStorageProperty(entry("fileloader.enabled", "test"))).isFalse();
+        assertThat(IcebergCacheTableId.isCacheableStorageProperty(entry("read.parquet.vectorization.batch-size", "test"))).isTrue();
+        assertThat(IcebergCacheTableId.isCacheableStorageProperty(entry("read.split.target-size", "test"))).isTrue();
     }
 
     private static IcebergSplit createIcebergSplit(
