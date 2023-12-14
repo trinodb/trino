@@ -155,7 +155,7 @@ public class TestPredicatePushdown
                         semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT", true,
                                 anyTree(
                                         tableScan("lineitem", ImmutableMap.of(
-                                        "LINE_ORDER_KEY", "orderkey"))),
+                                                "LINE_ORDER_KEY", "orderkey"))),
                                 node(ExchangeNode.class,
                                         filter("ORDERS_ORDER_KEY = CAST(random(5) AS bigint)",
                                                 tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
