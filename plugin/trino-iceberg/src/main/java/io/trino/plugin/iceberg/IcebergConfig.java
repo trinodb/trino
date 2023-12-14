@@ -417,7 +417,7 @@ public class IcebergConfig
 
     @Config("iceberg.query-partition-pruning-required")
     @ConfigDescription("Require a partition pruning on at least one partition column in the query plan. This can be enabled only with iceberg.query-partition-filter-required=true")
-    public IcebergConfig setQueryPartitionFilterPruningRequired(boolean queryPartitionPruningRequired)
+    public IcebergConfig setQueryPartitionPruningRequired(boolean queryPartitionPruningRequired)
     {
         this.queryPartitionPruningRequired = queryPartitionPruningRequired;
         return this;

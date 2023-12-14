@@ -171,6 +171,12 @@ implementation is used:
     `query_partition_filter_required` catalog session property for temporary,
     catalog specific use.
   - `false`
+* - `iceberg.query-partition-pruning-required`
+  - Set to `true` to force a query to use a partition pruning in the query plan.
+    This can be enabled only with `iceberg.query-partition-filter-required=true`.
+    You can use the`query_partition_pruning_required` catalog session property,
+    for temporary catalog specific use.
+  - `false`
 :::
 
 ## Type mapping
