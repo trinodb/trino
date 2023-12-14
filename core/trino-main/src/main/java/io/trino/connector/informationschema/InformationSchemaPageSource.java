@@ -277,43 +277,34 @@ public class InformationSchemaPageSource
 
     private void addTablesRecords(QualifiedTablePrefix prefix)
     {
-        boolean needsTableType = requiredColumns.contains("table_type") || requiredColumns.contains("trino_relation_type");
+        boolean needsTableType = requiredColumns.contains("table_type");
         Set<SchemaTableName> relations;
-        Map<SchemaTableName, RelationType> relationTypes;
+        Set<SchemaTableName> views;
         if (needsTableType) {
-            relationTypes = getRelationTypes(session, metadata, accessControl, prefix);
+            Map<SchemaTableName, RelationType> relationTypes = getRelationTypes(session, metadata, accessControl, prefix);
             relations = relationTypes.keySet();
+            views = relationTypes.entrySet().stream()
+                    .filter(entry -> entry.getValue() == RelationType.VIEW)
+                    .map(Entry::getKey)
+                    .collect(toImmutableSet());
         }
         else {
             relations = listTables(session, metadata, accessControl, prefix);
-            relationTypes = null;
+            views = Set.of();
         }
+        // TODO (https://github.com/trinodb/trino/issues/8207) define a type for materialized views
 
         for (SchemaTableName name : relations) {
             String type = null;
-            String trinoRelationType = null;
             if (needsTableType) {
-                switch (relationTypes.get(name)) {
-                    case TABLE -> {
-                        type = "BASE TABLE";
-                        trinoRelationType = type;
-                    }
-                    case VIEW -> {
-                        type = "VIEW";
-                        trinoRelationType = type;
-                    }
-                    case MATERIALIZED_VIEW -> {
-                        type = "BASE TABLE";
-                        trinoRelationType = "MATERIALIZED VIEW";
-                    }
-                }
+                // if table and view names overlap, the view wins
+                type = views.contains(name) ? "VIEW" : "BASE TABLE";
             }
             addRecord(
                     prefix.getCatalogName(),
                     name.getSchemaName(),
                     name.getTableName(),
                     type,
-                    trinoRelationType,
                     null);
             if (isLimitExhausted()) {
                 return;

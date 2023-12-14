@@ -47,7 +47,6 @@ public enum InformationSchemaTable
             .column("table_schema", createUnboundedVarcharType())
             .column("table_name", createUnboundedVarcharType())
             .column("table_type", createUnboundedVarcharType())
-            .hiddenColumn("trino_relation_type", createUnboundedVarcharType())
             .hiddenColumn("table_comment", createUnboundedVarcharType()) // MySQL compatible
             .build()),
     VIEWS(table("views")
