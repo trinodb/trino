@@ -1790,14 +1790,14 @@ public class TestLogicalPlanner
     {
         assertPlan(
                 """
-                SELECT col FROM (
-                    SELECT nationkey FROM nation
-                    UNION ALL
-                    SELECT nationkey FROM nation
-                    UNION ALL
-                    SELECT nationkey FROM nation
-                ) AS t(col)
-                LIMIT 2""",
+                        SELECT col FROM (
+                            SELECT nationkey FROM nation
+                            UNION ALL
+                            SELECT nationkey FROM nation
+                            UNION ALL
+                            SELECT nationkey FROM nation
+                        ) AS t(col)
+                        LIMIT 2""",
                 output(
                         limit(
                                 2,

@@ -462,11 +462,11 @@ public abstract class AbstractPredicatePushdownTest
     {
         assertPlan(
                 """
-                WITH t(a) AS (VALUES 'a', 'b')
-                SELECT *
-                FROM t t1 JOIN t t2 ON true
-                WHERE t1.a = 'aa'
-                """,
+                        WITH t(a) AS (VALUES 'a', 'b')
+                        SELECT *
+                        FROM t t1 JOIN t t2 ON true
+                        WHERE t1.a = 'aa'
+                        """,
                 output(values("field", "field_0")));
     }
 
