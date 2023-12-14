@@ -54,13 +54,13 @@ final class S3InputFile
     @Override
     public TrinoInput newInput()
     {
-        return new S3Input(location(), client, newGetObjectRequest());
+        return new S3Input(location(), client, newGetObjectRequest(), context);
     }
 
     @Override
     public TrinoInputStream newStream()
     {
-        return new S3InputStream(location(), client, newGetObjectRequest(), length);
+        return new S3InputStream(location(), client, newGetObjectRequest(), length, context);
     }
 
     @Override
@@ -109,15 +109,20 @@ final class S3InputFile
     private boolean headObject()
             throws IOException
     {
-        HeadObjectRequest request = HeadObjectRequest.builder()
+        HeadObjectRequest.Builder request = HeadObjectRequest.builder()
                 .overrideConfiguration(context::applyCredentialProviderOverride)
                 .requestPayer(requestPayer)
                 .bucket(location.bucket())
-                .key(location.key())
-                .build();
+                .key(location.key());
+
+        if (context.sseType().equals(S3FileSystemConfig.S3SseType.CUSTOMER)) {
+            request.sseCustomerAlgorithm(context.sseCustomerKey().algorithm());
+            request.sseCustomerKey(context.sseCustomerKey().key());
+            request.sseCustomerKeyMD5(context.sseCustomerKey().md5());
+        }
 
         try {
-            HeadObjectResponse response = client.headObject(request);
+            HeadObjectResponse response = client.headObject(request.build());
             if (length == null) {
                 length = response.contentLength();
             }

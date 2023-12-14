@@ -35,7 +35,10 @@ import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Arrays;
+import java.util.Optional;
 
+import static io.trino.filesystem.s3.S3FileSystemConfig.ObjectCannedAcl;
+import static io.trino.filesystem.s3.S3FileSystemConfig.S3SseType;
 import static io.trino.testing.containers.Minio.MINIO_API_PORT;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -111,7 +114,18 @@ public class TestS3Retries
                 .bucket(location.bucket())
                 .key(location.key())
                 .build();
-        S3Input input = new S3Input(location.location(), s3client, request);
+        S3Input input = new S3Input(
+                location.location(),
+                s3client,
+                request,
+                new S3Context(
+                        16 * 1000 * 1000,
+                        false,
+                        S3SseType.NONE,
+                        null,
+                        null,
+                        Optional.empty(),
+                        ObjectCannedAcl.NONE));
 
         byte[] bytes = new byte[TEST_DATA_SIZE];
         assertThatThrownBy(() -> input.readFully(0, bytes, 0, TEST_DATA_SIZE)).cause()

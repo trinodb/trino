@@ -30,7 +30,14 @@ import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SEC
 import static io.trino.filesystem.s3.S3FileSystemConstants.EXTRA_CREDENTIALS_SESSION_TOKEN_PROPERTY;
 import static java.util.Objects.requireNonNull;
 
-record S3Context(int partSize, boolean requesterPays, S3SseType sseType, String sseKmsKeyId, Optional<AwsCredentialsProvider> credentialsProviderOverride, ObjectCannedAcl cannedAcl)
+record S3Context(
+        int partSize,
+        boolean requesterPays,
+        S3SseType sseType,
+        String sseKmsKeyId,
+        S3SseCustomerKey sseCustomerKey,
+        Optional<AwsCredentialsProvider> credentialsProviderOverride,
+        ObjectCannedAcl cannedAcl)
 {
     private static final int MIN_PART_SIZE = 5 * 1024 * 1024; // S3 requirement
 
@@ -38,7 +45,12 @@ record S3Context(int partSize, boolean requesterPays, S3SseType sseType, String 
     {
         checkArgument(partSize >= MIN_PART_SIZE, "partSize must be at least %s bytes", MIN_PART_SIZE);
         requireNonNull(sseType, "sseType is null");
-        checkArgument((sseType != S3SseType.KMS) || (sseKmsKeyId != null), "sseKmsKeyId is null for SSE-KMS");
+        if (sseType == S3SseType.KMS) {
+            checkArgument(sseKmsKeyId != null, "sseKmsKeyId is null for SSE-KMS");
+        }
+        if (sseType == S3SseType.CUSTOMER) {
+            checkArgument(sseCustomerKey != null, "sseCustomerKey is null for SSE-C");
+        }
         requireNonNull(credentialsProviderOverride, "credentialsProviderOverride is null");
     }
 
@@ -49,7 +61,7 @@ record S3Context(int partSize, boolean requesterPays, S3SseType sseType, String 
 
     public S3Context withKmsKeyId(String kmsKeyId)
     {
-        return new S3Context(partSize, requesterPays, sseType, kmsKeyId, credentialsProviderOverride, cannedAcl);
+        return new S3Context(partSize, requesterPays, sseType, kmsKeyId, sseCustomerKey, credentialsProviderOverride, cannedAcl);
     }
 
     public S3Context withCredentials(ConnectorIdentity identity)
@@ -71,6 +83,7 @@ record S3Context(int partSize, boolean requesterPays, S3SseType sseType, String 
                 requesterPays,
                 sseType,
                 sseKmsKeyId,
+                sseCustomerKey,
                 Optional.of(credentialsProviderOverride),
                 cannedAcl);
     }
