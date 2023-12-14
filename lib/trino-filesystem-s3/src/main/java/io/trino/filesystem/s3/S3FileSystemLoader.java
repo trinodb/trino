@@ -78,7 +78,8 @@ final class S3FileSystemLoader
                 config.isRequesterPays(),
                 new S3SseContext(
                         config.getSseType(),
-                        config.getSseKmsKeyId()),
+                        config.getSseKmsKeyId(),
+                        config.getSseCustomerKey() == null ? null : S3SseCustomerKey.onAes256(config.getSseCustomerKey())),
                 Optional.empty(),
                 config.getCannedAcl(),
                 config.isSupportsExclusiveCreate());

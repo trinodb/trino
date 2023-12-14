@@ -299,8 +299,10 @@ final class S3OutputStream
         }
 
         currentPartNumber++;
-        UploadPartRequest request = UploadPartRequest.builder()
-                .overrideConfiguration(context::applyCredentialProviderOverride)
+        UploadPartRequest.Builder requestBuilder = UploadPartRequest.builder()
+                .overrideConfiguration(context::applyCredentialProviderOverride);
+        addEncryptionSettings(requestBuilder, context.s3SseContext());
+        UploadPartRequest request = requestBuilder
                 .requestPayer(requestPayer)
                 .bucket(location.bucket())
                 .key(location.key())
@@ -324,7 +326,7 @@ final class S3OutputStream
 
     private void finishUpload(String uploadId)
     {
-        CompleteMultipartUploadRequest request = CompleteMultipartUploadRequest.builder()
+        CompleteMultipartUploadRequest.Builder request = CompleteMultipartUploadRequest.builder()
                 .overrideConfiguration(context::applyCredentialProviderOverride)
                 .requestPayer(requestPayer)
                 .bucket(location.bucket())
@@ -335,10 +337,10 @@ final class S3OutputStream
                     if (exclusiveCreate) {
                         builder.ifNoneMatch("*");
                     }
-                })
-                .build();
+                });
 
-        client.completeMultipartUpload(request);
+        addEncryptionSettings(request, context.s3SseContext());
+        client.completeMultipartUpload(request.build());
     }
 
     private void abortUpload()

@@ -16,18 +16,25 @@ package io.trino.filesystem.s3;
 import io.trino.filesystem.s3.S3FileSystemConfig.S3SseType;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.filesystem.s3.S3FileSystemConfig.S3SseType.CUSTOMER;
+import static io.trino.filesystem.s3.S3FileSystemConfig.S3SseType.KMS;
 import static java.util.Objects.requireNonNull;
 
-record S3SseContext(S3SseType sseType, String sseKmsKeyId)
+record S3SseContext(S3SseType sseType, String sseKmsKeyId, S3SseCustomerKey sseCustomerKey)
 {
     public S3SseContext
     {
         requireNonNull(sseType, "sseType is null");
-        checkArgument((sseType != S3SseType.KMS) || (sseKmsKeyId != null), "sseKmsKeyId is null for SSE-KMS");
+        if (sseType == KMS) {
+            checkArgument(sseKmsKeyId != null, "sseKmsKeyId is null for SSE-KMS");
+        }
+        if (sseType == CUSTOMER) {
+            checkArgument(sseCustomerKey != null, "sseCustomerKey is null for SSE-C");
+        }
     }
 
     public static S3SseContext withKmsKeyId(String kmsKeyId)
     {
-        return new S3SseContext(S3SseType.KMS, kmsKeyId);
+        return new S3SseContext(S3SseType.KMS, kmsKeyId, null);
     }
 }

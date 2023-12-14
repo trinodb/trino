@@ -30,6 +30,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.time.Instant;
 
+import static io.trino.filesystem.s3.S3SseRequestConfigurator.addEncryptionSettings;
 import static java.util.Objects.requireNonNull;
 
 final class S3InputFile
@@ -99,26 +100,30 @@ final class S3InputFile
 
     private GetObjectRequest newGetObjectRequest()
     {
-        return GetObjectRequest.builder()
+        GetObjectRequest.Builder builder = GetObjectRequest.builder()
                 .overrideConfiguration(context::applyCredentialProviderOverride)
                 .requestPayer(requestPayer)
                 .bucket(location.bucket())
-                .key(location.key())
-                .build();
+                .key(location.key());
+
+        addEncryptionSettings(builder, context.s3SseContext());
+
+        return builder.build();
     }
 
     private boolean headObject()
             throws IOException
     {
-        HeadObjectRequest request = HeadObjectRequest.builder()
+        HeadObjectRequest.Builder request = HeadObjectRequest.builder()
                 .overrideConfiguration(context::applyCredentialProviderOverride)
                 .requestPayer(requestPayer)
                 .bucket(location.bucket())
-                .key(location.key())
-                .build();
+                .key(location.key());
+
+        addEncryptionSettings(request, context.s3SseContext());
 
         try {
-            HeadObjectResponse response = client.headObject(request);
+            HeadObjectResponse response = client.headObject(request.build());
             if (length == null) {
                 length = response.contentLength();
             }

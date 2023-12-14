@@ -19,6 +19,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.filesystem.s3.S3FileSystemConfig.ObjectCannedAcl;
 import io.trino.filesystem.s3.S3FileSystemConfig.S3SseType;
+import jakarta.validation.constraints.AssertTrue;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -26,6 +27,7 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.filesystem.s3.S3FileSystemConfig.RetryMode.LEGACY;
 import static io.trino.filesystem.s3.S3FileSystemConfig.RetryMode.STANDARD;
@@ -53,6 +55,7 @@ public class TestS3FileSystemConfig
                 .setMaxErrorRetries(10)
                 .setSseKmsKeyId(null)
                 .setUseWebIdentityTokenCredentialsProvider(false)
+                .setSseCustomerKey(null)
                 .setStreamingPartSize(DataSize.of(16, MEGABYTE))
                 .setRequesterPays(false)
                 .setMaxConnections(500)
@@ -89,6 +92,7 @@ public class TestS3FileSystemConfig
                 .put("s3.max-error-retries", "12")
                 .put("s3.sse.type", "KMS")
                 .put("s3.sse.kms-key-id", "mykey")
+                .put("s3.sse.customer-key", "customerKey")
                 .put("s3.use-web-identity-token-credentials-provider", "true")
                 .put("s3.streaming.part-size", "42MB")
                 .put("s3.requester-pays", "true")
@@ -125,6 +129,7 @@ public class TestS3FileSystemConfig
                 .setSseType(S3SseType.KMS)
                 .setSseKmsKeyId("mykey")
                 .setUseWebIdentityTokenCredentialsProvider(true)
+                .setSseCustomerKey("customerKey")
                 .setRequesterPays(true)
                 .setMaxConnections(42)
                 .setConnectionTtl(new Duration(1, MINUTES))
@@ -141,5 +146,15 @@ public class TestS3FileSystemConfig
                 .setSupportsExclusiveCreate(false);
 
         assertFullMapping(properties, expected);
+    }
+
+    @Test
+    public void testSSEWithCustomerKeyValidation()
+    {
+        assertFailsValidation(new S3FileSystemConfig()
+                        .setSseType(S3SseType.CUSTOMER),
+                "sseWithCustomerKeyConfigValid",
+                "s3.sse.customer-key has to be set for server-side encryption with customer-provided key",
+                AssertTrue.class);
     }
 }
