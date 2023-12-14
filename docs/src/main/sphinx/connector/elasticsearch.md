@@ -112,6 +112,9 @@ The allowed configuration values are:
 * - `elasticsearch.tls.truststore-password`
   - The key password for the trust store specified by
     `elasticsearch.tls.truststore-path`.
+* - `elasticsearch.tls.verify-hostnames`
+  - Flag to determine if the hostnames in the certificates must be verified. Defaults
+    to `true`.
 :::
 
 (elasticesearch-type-mapping)=
