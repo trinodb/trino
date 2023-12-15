@@ -62,9 +62,9 @@ import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.http.client.utils.URLEncodedUtils.parse;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.data.Offset.offset;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -210,7 +210,7 @@ public class TestPrometheusSplit
         assertThat(paramsMap1).containsEntry("query", "up[1d]");
         assertThat(paramsMap2).containsEntry("query", "up[1d]");
         long diff = Double.valueOf(paramsMap2.get("time")).longValue() - Double.valueOf(paramsMap1.get("time")).longValue();
-        assertEquals(config.getQueryChunkSizeDuration().getValue(TimeUnit.SECONDS), diff, 0.0001);
+        assertThat(config.getQueryChunkSizeDuration().getValue(TimeUnit.SECONDS)).isCloseTo(diff, offset(0.0001));
     }
 
     @Test
