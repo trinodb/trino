@@ -206,6 +206,9 @@ public class UniformNodeSelector
             List<InternalNode> candidateNodes;
             if (!split.isRemotelyAccessible()) {
                 candidateNodes = selectExactNodes(nodeMap, split.getAddresses(), includeCoordinator);
+                if (candidateNodes.isEmpty() && split.isRemotelyAccessibleIfNodeMissing()) {
+                    candidateNodes = selectNodes(minCandidates, randomCandidates);
+                }
             }
             else {
                 candidateNodes = selectNodes(minCandidates, randomCandidates);
