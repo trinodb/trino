@@ -186,6 +186,7 @@ import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -219,6 +220,7 @@ import static io.trino.plugin.iceberg.IcebergMetadataColumn.FILE_PATH;
 import static io.trino.plugin.iceberg.IcebergMetadataColumn.isMetadataColumnId;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getExpireSnapshotMinRetention;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getHiveCatalogName;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getQueryPartitionFilterRequiredCommonFields;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getRemoveOrphanFilesMinRetention;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isCollectExtendedStatisticsOnWrite;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isExtendedStatisticsEnabled;
@@ -313,6 +315,7 @@ public class IcebergMetadata
 
     public static final String ORC_BLOOM_FILTER_COLUMNS_KEY = "orc.bloom.filter.columns";
     public static final String ORC_BLOOM_FILTER_FPP_KEY = "orc.bloom.filter.fpp";
+    public static final String QUERY_PARTITION_FILTER_REQUIRED_FIELDS_CONFIG_KEY = "trino.query-partition-filter-required.fields";
 
     public static final String NUMBER_OF_DISTINCT_VALUES_NAME = "NUMBER_OF_DISTINCT_VALUES";
     private static final FunctionName NUMBER_OF_DISTINCT_VALUES_FUNCTION = new FunctionName(IcebergThetaSketchForStats.NAME);
@@ -723,39 +726,74 @@ public class IcebergMetadata
     public void validateScan(ConnectorSession session, ConnectorTableHandle handle)
     {
         IcebergTableHandle table = (IcebergTableHandle) handle;
-        if (isQueryPartitionFilterRequired(session) && table.getEnforcedPredicate().isAll() && !table.getForAnalyze().orElseThrow()) {
-            Schema schema = SchemaParser.fromJson(table.getTableSchemaJson());
-            Optional<PartitionSpec> partitionSpec = table.getPartitionSpecJson()
-                    .map(partitionSpecJson -> PartitionSpecParser.fromJson(schema, partitionSpecJson));
-            if (partitionSpec.isEmpty() || partitionSpec.get().isUnpartitioned()) {
-                return;
-            }
-            Set<Integer> columnsWithPredicates = new HashSet<>();
-            if (!isQueryPartitionPruningRequired(session)) {
-                table.getConstraintColumns().stream()
-                        .map(IcebergColumnHandle::getId)
-                        .forEach(columnsWithPredicates::add);
-            }
-            table.getUnenforcedPredicate().getDomains().ifPresent(domain -> domain.keySet().stream()
-                    .map(IcebergColumnHandle::getId)
-                    .forEach(columnsWithPredicates::add));
-            Set<Integer> partitionColumns = partitionSpec.get().fields().stream()
-                    .filter(field -> !field.transform().isVoid())
-                    .map(PartitionField::sourceId)
-                    .collect(toImmutableSet());
-            if (Collections.disjoint(columnsWithPredicates, partitionColumns)) {
-                String partitionColumnNames = partitionSpec.get().fields().stream()
-                        .filter(field -> !field.transform().isVoid())
-                        .map(PartitionField::sourceId)
-                        .map(id -> schema.idToName().get(id))
-                        .collect(joining(", "));
+        if (!isQueryPartitionFilterRequired(session) || table.getForAnalyze().orElse(false)) {
+            return;
+        }
 
-                String requiredOption = isQueryPartitionPruningRequired(session) ? "Pruning" : "Filter";
+        Schema schema = SchemaParser.fromJson(table.getTableSchemaJson());
+        Optional<PartitionSpec> partitionSpec = table.getPartitionSpecJson()
+                .map(partitionSpecJson -> PartitionSpecParser.fromJson(schema, partitionSpecJson));
+        if (partitionSpec.isEmpty() || partitionSpec.get().isUnpartitioned()) {
+            return;
+        }
+
+        Supplier<Stream<Integer>> tableAllPartitionColumnIdStreamSupplier = () -> partitionSpec.get().fields().stream()
+                .filter(field -> !field.transform().isVoid())
+                .map(PartitionField::sourceId);
+
+        Set<Integer> partitionColumns = tableAllPartitionColumnIdStreamSupplier.get()
+                .collect(toImmutableSet());
+
+        Set<String> mandatoryFilterPartitionColumnNames = new HashSet<>();
+        if (table.getStorageProperties().containsKey(QUERY_PARTITION_FILTER_REQUIRED_FIELDS_CONFIG_KEY)) {
+            Splitter.on(",").splitToStream(table.getStorageProperties().get(QUERY_PARTITION_FILTER_REQUIRED_FIELDS_CONFIG_KEY))
+                    .map(String::trim)
+                    .forEach(mandatoryFilterPartitionColumnNames::add);
+        }
+        if (getQueryPartitionFilterRequiredCommonFields(session).isPresent()) {
+            Splitter.on(",").splitToStream(getQueryPartitionFilterRequiredCommonFields(session).get())
+                    .map(String::trim)
+                    .forEach(mandatoryFilterPartitionColumnNames::add);
+        }
+
+        Set<Integer> mandatoryPartitionColumns = tableAllPartitionColumnIdStreamSupplier.get()
+                .filter(id -> mandatoryFilterPartitionColumnNames.contains(schema.idToName().get(id)))
+                .collect(toImmutableSet());
+
+        Set<Integer> columnsWithPredicates = new HashSet<>();
+        if (!isQueryPartitionPruningRequired(session)) {
+            table.getConstraintColumns().stream()
+                    .map(IcebergColumnHandle::getId)
+                    .forEach(columnsWithPredicates::add);
+        }
+        table.getEnforcedPredicate().getDomains().ifPresent(domain -> domain.keySet().stream()
+                .map(IcebergColumnHandle::getId)
+                .forEach(columnsWithPredicates::add));
+        table.getUnenforcedPredicate().getDomains().ifPresent(domain -> domain.keySet().stream()
+                .map(IcebergColumnHandle::getId)
+                .forEach(columnsWithPredicates::add));
+
+        String requiredOption = isQueryPartitionPruningRequired(session) ? "Pruning" : "Filter";
+        if (!mandatoryPartitionColumns.isEmpty()) {
+            if (!difference(mandatoryPartitionColumns, columnsWithPredicates).isEmpty()) {
+                String partitionColumnNames = tableAllPartitionColumnIdStreamSupplier.get()
+                        .map(id -> schema.idToName().get(id))
+                        .filter(mandatoryFilterPartitionColumnNames::contains)
+                        .collect(joining(", "));
 
                 throw new TrinoException(
                         QUERY_REJECTED,
-                        format("%s required for %s on at least one of the partition columns: %s", requiredOption, table.getSchemaTableName(), partitionColumnNames));
+                        format("%s required for %s on all the mandatory partition columns: %s", requiredOption, table.getSchemaTableName(), partitionColumnNames));
             }
+        }
+        else if (Collections.disjoint(partitionColumns, columnsWithPredicates)) {
+            String partitionColumnNames = tableAllPartitionColumnIdStreamSupplier.get()
+                    .map(id -> schema.idToName().get(id))
+                    .collect(joining(", "));
+
+            throw new TrinoException(
+                    QUERY_REJECTED,
+                    format("%s required for %s on at least one of the partition columns: %s", requiredOption, table.getSchemaTableName(), partitionColumnNames));
         }
     }
 

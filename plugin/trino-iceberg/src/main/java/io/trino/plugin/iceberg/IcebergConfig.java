@@ -80,6 +80,7 @@ public class IcebergConfig
     private boolean sortedWritingEnabled = true;
     private boolean queryPartitionFilterRequired;
     private boolean queryPartitionPruningRequired;
+    private Optional<String> queryPartitionFilterRequiredCommonFields = Optional.empty();
 
     public CatalogType getCatalogType()
     {
@@ -413,6 +414,19 @@ public class IcebergConfig
     public boolean isQueryPartitionFilterRequired()
     {
         return queryPartitionFilterRequired;
+    }
+
+    public Optional<String> getQueryPartitionFilterRequiredCommonFields()
+    {
+        return queryPartitionFilterRequiredCommonFields;
+    }
+
+    @Config("iceberg.query-partition-filter-required-common-fields")
+    @ConfigDescription("Require filter predicates on all the partition fields declared in this configuration")
+    public IcebergConfig setQueryPartitionFilterRequiredCommonFields(String queryPartitionFilterRequiredCommonFields)
+    {
+        this.queryPartitionFilterRequiredCommonFields = Optional.ofNullable(queryPartitionFilterRequiredCommonFields);
+        return this;
     }
 
     @Config("iceberg.query-partition-pruning-required")

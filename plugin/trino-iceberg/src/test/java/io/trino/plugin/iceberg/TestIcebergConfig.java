@@ -67,6 +67,7 @@ public class TestIcebergConfig
                 .setRegisterTableProcedureEnabled(false)
                 .setSortedWritingEnabled(true)
                 .setQueryPartitionFilterRequired(false)
+                .setQueryPartitionFilterRequiredCommonFields(null)
                 .setQueryPartitionPruningRequired(false));
     }
 
@@ -98,6 +99,7 @@ public class TestIcebergConfig
                 .put("iceberg.register-table-procedure.enabled", "true")
                 .put("iceberg.sorted-writing-enabled", "false")
                 .put("iceberg.query-partition-filter-required", "true")
+                .put("iceberg.query-partition-filter-required-common-fields", "log_ts,timestamp")
                 .put("iceberg.query-partition-pruning-required", "true")
                 .buildOrThrow();
 
@@ -126,6 +128,7 @@ public class TestIcebergConfig
                 .setRegisterTableProcedureEnabled(true)
                 .setSortedWritingEnabled(false)
                 .setQueryPartitionFilterRequired(true)
+                .setQueryPartitionFilterRequiredCommonFields("log_ts,timestamp")
                 .setQueryPartitionPruningRequired(true);
 
         assertFullMapping(properties, expected);

@@ -171,6 +171,10 @@ implementation is used:
     `query_partition_filter_required` catalog session property for temporary,
     catalog specific use.
   - `false`
+* - `iceberg.query-partition-filter-required-common-fields`
+  - Comma-separated list of field names to must be used in the filter of queries,
+    if those fields are the partition fields of each table.
+  - `null`
 * - `iceberg.query-partition-pruning-required`
   - Set to `true` to force a query to use a partition pruning in the query plan.
     This can be enabled only with `iceberg.query-partition-filter-required=true`.
