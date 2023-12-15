@@ -1,0 +1,7 @@
+<api:script xmlns:api="http://apiscript.com/ns?v1" xmlns:xs="http://www.cdata.com/ns/rsbscript/2" xmlns:other="http://apiscript.com/ns?v1">
+  <api:info title="{{ tablename }}" other:catalog="CData" other:schema="AmazonDynamoDB" description="{{ tablename }}" other:tableapiname="{{ tablename }}" other:version="20">
+    {% for column in columns -%}
+    <attr name="{{column.name}}" xs:type="{{column.type}}" {% if column.isKey %}key="true" {% endif %}{% if column.columnSize is not none %}columnsize="{{ column.columnSize }}" {% endif %}readonly="false" other:filterable="true" {% if column.description is not none %}description="{{ column.description }}" {% endif %}other:relativepath="{{ column.path }}" other:fullpath="{{ column.path }}" other:dynamodatatype="{{ column.internalType }}" other:apiname="&amp;quot;{{ column.name }}&amp;quot;" />
+    {% endfor -%}
+  </api:info>
+</api:script>
