@@ -74,8 +74,8 @@ public class TestParquetReaderConfig
                 .setEncryptionKmsClientClass("kms.client.class")
                 .setEncryptionKeyAccessToken("default_token")
                 .setEncryptionKmsInstanceId("kms_id")
-                .setEncryptionKmsInstanceUrl("kms_url").
-                setEncryptionCacheLifetimeSeconds(3600L);
+                .setEncryptionKmsInstanceUrl("kms_url")
+                .setEncryptionCacheLifetimeSeconds(3600L);
 
         assertFullMapping(properties, expected);
     }

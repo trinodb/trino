@@ -14,19 +14,22 @@
 package org.apache.parquet.crypto;
 
 import io.airlift.log.Logger;
-import io.trino.parquet.EncryptionUtils;
-import org.apache.parquet.hadoop.BadConfigurationException;
 
 public class TrinoCryptoConfigurationUtil
 {
     public static final Logger LOG = Logger.get(TrinoCryptoConfigurationUtil.class);
+
+    private TrinoCryptoConfigurationUtil()
+    {
+    }
 
     public static Class<?> getClassFromConfig(String className, Class<?> assignableFrom)
     {
         try {
             final Class<?> foundClass = Class.forName(className);
             if (!assignableFrom.isAssignableFrom(foundClass)) {
-                throw new IllegalArgumentException("class " + className + " is not a subclass of " + assignableFrom.getCanonicalName());
+                LOG.warn("class " + className + " is not a subclass of " + assignableFrom.getCanonicalName());
+                return null;
             }
             return foundClass;
         }

@@ -213,7 +213,8 @@ public class TableSnapshot
                             checkpoint,
                             checkpointFile,
                             partitionConstraint,
-                            addStatsMinMaxColumnFilter)));
+                            addStatsMinMaxColumnFilter,
+                            fileSystem)));
         }
         return resultStream;
     }
@@ -234,7 +235,8 @@ public class TableSnapshot
             LastCheckpoint checkpoint,
             TrinoInputFile checkpointFile,
             TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
-            Optional<Predicate<String>> addStatsMinMaxColumnFilter)
+            Optional<Predicate<String>> addStatsMinMaxColumnFilter,
+            TrinoFileSystem fileSystem)
             throws IOException
     {
         long fileSize;
@@ -258,7 +260,8 @@ public class TableSnapshot
                 checkpointRowStatisticsWritingEnabled,
                 domainCompactionThreshold,
                 partitionConstraint,
-                addStatsMinMaxColumnFilter);
+                addStatsMinMaxColumnFilter,
+                fileSystem);
     }
 
     public record MetadataAndProtocolEntry(MetadataEntry metadataEntry, ProtocolEntry protocolEntry)

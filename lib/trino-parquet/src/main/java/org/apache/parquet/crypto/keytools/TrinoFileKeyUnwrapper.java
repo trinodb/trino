@@ -30,31 +30,33 @@ import java.util.concurrent.ConcurrentMap;
 import static org.apache.parquet.crypto.keytools.TrinoKeyToolkit.KEK_READ_CACHE_PER_TOKEN;
 import static org.apache.parquet.crypto.keytools.TrinoKeyToolkit.KMS_CLIENT_CACHE_PER_TOKEN;
 
-public class TrinoParquetFileKeyUnwrapper
+public class TrinoFileKeyUnwrapper
         implements DecryptionKeyRetriever
 {
-    private static final Logger LOG = LoggerFactory.getLogger(FileKeyUnwrapper.class);
+    private static final Logger LOG = LoggerFactory.getLogger(TrinoFileKeyUnwrapper.class);
 
     //A map of KEK_ID -> KEK bytes, for the current token
     private final ConcurrentMap<String, byte[]> kekPerKekID;
-
-    private TrinoKeyToolkit.TrinoKmsClientAndDetails kmsClientAndDetails = null;
-    private TrinoHadoopFSKeyMaterialStore keyMaterialStore = null;
-    private boolean checkedKeyMaterialInternalStorage = false;
     private final Location parquetFilePath;
-    // TODO(wyu): shall we get it from Location or File?
+    // TODO(wyu): shall we get it from Location or File
     private final TrinoFileSystem trinoFileSystem;
     private final String accessToken;
     private final long cacheEntryLifetime;
     private final ParquetReaderOptions parquetReaderOptions;
+    private TrinoKeyToolkit.TrinoKmsClientAndDetails kmsClientAndDetails;
+    private TrinoHadoopFSKeyMaterialStore keyMaterialStore;
+    private boolean checkedKeyMaterialInternalStorage;
 
-    TrinoParquetFileKeyUnwrapper(ParquetReaderOptions conf, Location filePath, TrinoFileSystem trinoFileSystem)
+    TrinoFileKeyUnwrapper(ParquetReaderOptions conf, Location filePath, TrinoFileSystem trinoFileSystem)
     {
         this.trinoFileSystem = trinoFileSystem;
         this.parquetReaderOptions = conf;
         this.parquetFilePath = filePath;
         this.cacheEntryLifetime = 1000L * conf.getEncryptionCacheLifetimeSeconds();
         this.accessToken = conf.getEncryptionKeyAccessToken();
+        this.kmsClientAndDetails = null;
+        this.keyMaterialStore = null;
+        this.checkedKeyMaterialInternalStorage = false;
 
         // Check cache upon each file reading (clean once in cacheEntryLifetime)
         KMS_CLIENT_CACHE_PER_TOKEN.checkCacheForExpiredTokens(cacheEntryLifetime);
@@ -74,8 +76,7 @@ public class TrinoParquetFileKeyUnwrapper
 
         if (!checkedKeyMaterialInternalStorage) {
             if (!keyMetadata.keyMaterialStoredInternally()) {
-                keyMaterialStore = new TrinoHadoopFSKeyMaterialStore(trinoFileSystem);
-                keyMaterialStore.initialize(parquetFilePath, false);
+                keyMaterialStore = new TrinoHadoopFSKeyMaterialStore(trinoFileSystem, parquetFilePath, false);
             }
             checkedKeyMaterialInternalStorage = true;
         }
@@ -126,8 +127,8 @@ public class TrinoParquetFileKeyUnwrapper
             }
 
             // Decrypt the data key
-            byte[] AAD = Base64.getDecoder().decode(encodedKekID);
-            dataKey = TrinoKeyToolkit.decryptKeyLocally(encodedWrappedDEK, kekBytes, AAD);
+            byte[] aad = Base64.getDecoder().decode(encodedKekID);
+            dataKey = TrinoKeyToolkit.decryptKeyLocally(encodedWrappedDEK, kekBytes, aad);
         }
 
         return new KeyWithMasterID(dataKey, masterKeyID);

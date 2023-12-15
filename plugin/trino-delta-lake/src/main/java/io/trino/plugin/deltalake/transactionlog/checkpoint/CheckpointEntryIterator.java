@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.math.LongMath;
 import io.airlift.log.Logger;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.parquet.Column;
 import io.trino.parquet.ParquetReaderOptions;
@@ -161,7 +162,8 @@ public class CheckpointEntryIterator
             boolean checkpointRowStatisticsWritingEnabled,
             int domainCompactionThreshold,
             TupleDomain<DeltaLakeColumnHandle> partitionConstraint,
-            Optional<Predicate<String>> addStatsMinMaxColumnFilter)
+            Optional<Predicate<String>> addStatsMinMaxColumnFilter,
+            TrinoFileSystem trinoFileSystem)
     {
         this.checkpointPath = checkpoint.location().toString();
         this.session = requireNonNull(session, "session is null");
@@ -215,8 +217,7 @@ public class CheckpointEntryIterator
                 Optional.empty(),
                 domainCompactionThreshold,
                 OptionalLong.empty(),
-                //TODO(wyu)
-                null);
+                trinoFileSystem);
 
         verify(pageSource.getReaderColumns().isEmpty(), "All columns expected to be base columns");
 

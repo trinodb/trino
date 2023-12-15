@@ -11,30 +11,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.parquet.crypto.keytools;
 
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import io.trino.parquet.ParquetReaderOptions;
 import org.apache.parquet.crypto.DecryptionKeyRetriever;
 import org.apache.parquet.crypto.FileDecryptionProperties;
 import org.apache.parquet.crypto.ParquetCryptoRuntimeException;
 import org.apache.parquet.crypto.TrinoDecryptionPropertiesFactory;
-import io.trino.parquet.ParquetReaderOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class TrinoParquetPropertiesDrivenCryptoFactory
+public class TrinoPropertiesDrivenCryptoFactory
         implements TrinoDecryptionPropertiesFactory
 {
     private static final Logger LOG = LoggerFactory.getLogger(PropertiesDrivenCryptoFactory.class);
 
     @Override
-    public FileDecryptionProperties getFileDecryptionProperties(ParquetReaderOptions conf, Location filePath, TrinoFileSystem trinoFileSystem)
+    public FileDecryptionProperties getFileDecryptionProperties(ParquetReaderOptions parquetReaderOptions, Location filePath, TrinoFileSystem trinoFileSystem)
             throws ParquetCryptoRuntimeException
     {
-
-        DecryptionKeyRetriever keyRetriever = new TrinoParquetFileKeyUnwrapper(conf, filePath, trinoFileSystem);
+        DecryptionKeyRetriever keyRetriever = new TrinoFileKeyUnwrapper(parquetReaderOptions, filePath, trinoFileSystem);
 
         if (LOG.isDebugEnabled()) {
             LOG.debug("File decryption properties for {}", filePath);

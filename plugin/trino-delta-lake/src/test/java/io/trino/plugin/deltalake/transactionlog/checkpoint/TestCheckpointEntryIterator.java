@@ -1028,7 +1028,7 @@ public class TestCheckpointEntryIterator
                 true,
                 new DeltaLakeConfig().getDomainCompactionThreshold(),
                 partitionConstraint,
-                addStatsMinMaxColumnFilter);
+                addStatsMinMaxColumnFilter, fileSystem);
     }
 
     private static TrinoOutputFile createOutputFile(String path)

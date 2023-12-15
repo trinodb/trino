@@ -32,6 +32,10 @@ public class EncryptionUtils
 
     public static Optional<InternalFileDecryptor> createDecryptor(ParquetReaderOptions parquetReaderOptions, Location filePath, TrinoFileSystem trinoFileSystem)
     {
+        if (parquetReaderOptions == null || filePath == null || trinoFileSystem == null) {
+            return Optional.empty();
+        }
+
         TrinoDecryptionPropertiesFactory cryptoFactory = loadDecryptionPropertiesFactory(parquetReaderOptions);
         FileDecryptionProperties fileDecryptionProperties = (cryptoFactory == null) ? null : cryptoFactory.getFileDecryptionProperties(parquetReaderOptions, filePath, trinoFileSystem);
         return (fileDecryptionProperties == null) ? Optional.empty() : Optional.of(new InternalFileDecryptor(fileDecryptionProperties));
@@ -41,6 +45,10 @@ public class EncryptionUtils
     {
         final Class<?> foundClass = TrinoCryptoConfigurationUtil.getClassFromConfig(
                 trinoParquetCryptoConfig.getCryptoFactoryClass(), TrinoDecryptionPropertiesFactory.class);
+
+        if (foundClass == null) {
+            return null;
+        }
 
         try {
             return (TrinoDecryptionPropertiesFactory) foundClass.getConstructor().newInstance();

@@ -47,7 +47,6 @@ import org.apache.parquet.io.MessageColumnIO;
 import org.apache.parquet.io.PrimitiveColumnIO;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
-import org.assertj.core.util.Lists;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -264,7 +263,6 @@ public class TestEncryption
             rowGroupInfoBuilder.add(new RowGroupInfo(block, nextStart, Optional.empty()));
             nextStart += block.getRowCount();
         }
-
 
         List<Column> columns =
                 ImmutableList.of(

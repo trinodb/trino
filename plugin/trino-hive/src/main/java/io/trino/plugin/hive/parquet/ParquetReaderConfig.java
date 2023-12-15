@@ -176,7 +176,6 @@ public class ParquetReaderConfig
         return options.getEncryptionKmsInstanceId();
     }
 
-
     @Config("parquet.encryption-kms-instance-url")
     @ConfigDescription("")
     public ParquetReaderConfig setEncryptionKmsInstanceUrl(String encryptionKmsInstanceUrl)

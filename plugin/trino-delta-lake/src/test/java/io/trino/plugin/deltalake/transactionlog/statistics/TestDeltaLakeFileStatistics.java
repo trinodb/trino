@@ -108,7 +108,8 @@ public class TestDeltaLakeFileStatistics
                 true,
                 new DeltaLakeConfig().getDomainCompactionThreshold(),
                 TupleDomain.all(),
-                Optional.empty());
+                Optional.empty(),
+                null);
         MetadataEntry metadataEntry = getOnlyElement(metadataEntryIterator).getMetaData();
         CheckpointEntryIterator protocolEntryIterator = new CheckpointEntryIterator(
                 checkpointFile,
@@ -124,7 +125,8 @@ public class TestDeltaLakeFileStatistics
                 true,
                 new DeltaLakeConfig().getDomainCompactionThreshold(),
                 TupleDomain.all(),
-                Optional.empty());
+                Optional.empty(),
+                null);
         ProtocolEntry protocolEntry = getOnlyElement(protocolEntryIterator).getProtocol();
 
         CheckpointEntryIterator checkpointEntryIterator = new CheckpointEntryIterator(
@@ -141,7 +143,8 @@ public class TestDeltaLakeFileStatistics
                 true,
                 new DeltaLakeConfig().getDomainCompactionThreshold(),
                 TupleDomain.all(),
-                Optional.of(alwaysTrue()));
+                Optional.of(alwaysTrue()),
+                null);
         DeltaLakeTransactionLogEntry matchingAddFileEntry = null;
         while (checkpointEntryIterator.hasNext()) {
             DeltaLakeTransactionLogEntry entry = checkpointEntryIterator.next();
