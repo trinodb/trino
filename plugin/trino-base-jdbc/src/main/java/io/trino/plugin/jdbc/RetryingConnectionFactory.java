@@ -25,28 +25,30 @@ import io.trino.spi.connector.ConnectorSession;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLTransientException;
+import java.util.Set;
 
 import static java.time.temporal.ChronoUnit.MILLIS;
 import static java.time.temporal.ChronoUnit.SECONDS;
+import static java.util.Collections.singleton;
 import static java.util.Objects.requireNonNull;
 
 public class RetryingConnectionFactory
         implements ConnectionFactory
 {
+    private final Set<RetryStrategy> retryStrategies;
     private final RetryPolicy<Object> retryPolicy;
-
     private final ConnectionFactory delegate;
 
     @Inject
-    public RetryingConnectionFactory(StatisticsAwareConnectionFactory delegate, RetryStrategy retryStrategy)
+    public RetryingConnectionFactory(StatisticsAwareConnectionFactory delegate, Set<RetryStrategy> retryStrategies)
     {
-        requireNonNull(retryStrategy);
+        this.retryStrategies = retryStrategiesWithDefault(requireNonNull(retryStrategies));
         this.delegate = requireNonNull(delegate, "delegate is null");
         this.retryPolicy = RetryPolicy.builder()
                 .withMaxDuration(java.time.Duration.of(30, SECONDS))
                 .withMaxAttempts(5)
                 .withBackoff(50, 5_000, MILLIS, 4)
-                .handleIf(retryStrategy::isExceptionRecoverable)
+                .handleIf(this::combineRetryStrategies)
                 .abortOn(TrinoException.class)
                 .build();
     }
@@ -87,6 +89,25 @@ public class RetryingConnectionFactory
         {
             return Throwables.getCausalChain(exception).stream()
                     .anyMatch(SQLTransientException.class::isInstance);
+        }
+    }
+
+    private boolean combineRetryStrategies(Throwable throwable)
+    {
+        return retryStrategies.stream()
+                .map(retryStrategy -> retryStrategy.isExceptionRecoverable(throwable))
+                .filter(recoverable -> recoverable)
+                .findAny()
+                .orElse(false);
+    }
+
+    private static Set<RetryStrategy> retryStrategiesWithDefault(Set<RetryStrategy> retryStrategies)
+    {
+        if (retryStrategies.isEmpty()) {
+            return singleton(new DefaultRetryStrategy());
+        }
+        else {
+            return retryStrategies;
         }
     }
 }

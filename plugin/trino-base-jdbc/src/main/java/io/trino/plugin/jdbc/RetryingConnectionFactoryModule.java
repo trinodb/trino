@@ -15,10 +15,9 @@ package io.trino.plugin.jdbc;
 
 import com.google.inject.AbstractModule;
 import com.google.inject.Scopes;
-import io.trino.plugin.jdbc.RetryingConnectionFactory.DefaultRetryStrategy;
 import io.trino.plugin.jdbc.RetryingConnectionFactory.RetryStrategy;
 
-import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 
 public class RetryingConnectionFactoryModule
         extends AbstractModule
@@ -27,9 +26,6 @@ public class RetryingConnectionFactoryModule
     public void configure()
     {
         bind(RetryingConnectionFactory.class).in(Scopes.SINGLETON);
-        newOptionalBinder(binder(), RetryStrategy.class)
-                .setDefault()
-                .to(DefaultRetryStrategy.class)
-                .in(Scopes.SINGLETON);
+        newSetBinder(binder(), RetryStrategy.class);
     }
 }

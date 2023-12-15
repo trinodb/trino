@@ -44,6 +44,7 @@ import java.time.temporal.ChronoUnit;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.containers.TestContainers.startOrReuse;
 import static java.lang.String.format;
+import static java.util.Collections.singleton;
 
 public class TestingOracleServer
         implements AutoCloseable
@@ -131,7 +132,7 @@ public class TestingOracleServer
                 new OracleDriver(),
                 new BaseJdbcConfig().setConnectionUrl(connectionUrl),
                 StaticCredentialProvider.of(username, password)));
-        return new RetryingConnectionFactory(connectionFactory, new DefaultRetryStrategy());
+        return new RetryingConnectionFactory(connectionFactory, singleton(new DefaultRetryStrategy()));
     }
 
     @Override

@@ -34,7 +34,7 @@ import java.util.Deque;
 import java.util.stream.Stream;
 
 import static com.google.common.reflect.Reflection.newProxy;
-import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.trino.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFactory.Action.RETURN;
 import static io.trino.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFactory.Action.THROW_NPE;
 import static io.trino.plugin.jdbc.TestRetryingConnectionFactory.MockConnectorFactory.Action.THROW_SQL_EXCEPTION;
@@ -171,7 +171,7 @@ public class TestRetryingConnectionFactory
             binder.bind(MockConnectorFactory.class).in(Scopes.SINGLETON);
             binder.bind(ConnectionFactory.class).annotatedWith(ForBaseJdbc.class).to(Key.get(MockConnectorFactory.class));
             binder.install(new RetryingConnectionFactoryModule());
-            newOptionalBinder(binder, RetryStrategy.class).setBinding().to(OverrideRetryStrategy.class).in(Scopes.SINGLETON);
+            newSetBinder(binder, RetryStrategy.class).addBinding().to(OverrideRetryStrategy.class);
         });
     }
 
