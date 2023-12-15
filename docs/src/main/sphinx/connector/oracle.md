@@ -18,7 +18,7 @@ like Oracle and Hive, or different Oracle database instances.
 
 To connect to Oracle, you need:
 
-- Oracle 12 or higher.
+- Oracle 19 or higher.
 - Network access from the Trino coordinator and workers to Oracle.
   Port 1521 is the default port.
 
@@ -43,7 +43,7 @@ to the JDBC driver. The Oracle connector uses the Oracle JDBC Thin driver,
 and the syntax of the URL may be different depending on your Oracle
 configuration. For example, the connection URL is different if you are
 connecting to an Oracle SID or an Oracle service name. See the [Oracle
-Database JDBC driver documentation](https://docs.oracle.com/en/database/oracle/oracle-database/21/jjdbc/data-sources-and-URLs.html#GUID-088B1600-C6C2-4F19-A020-2DAF8FE1F1C3)
+Database JDBC driver documentation](https://docs.oracle.com/en/database/oracle/oracle-database/19/jjdbc/data-sources-and-URLs.html)
 for more information.
 
 The `connection-user` and `connection-password` are typically required and
@@ -54,7 +54,7 @@ properties files.
 :::{note}
 Oracle does not expose metadata comment via `REMARKS` column by default
 in JDBC driver. You can enable it using `oracle.remarks-reporting.enabled`
-config option. See [Additional Oracle Performance Extensions](https://docs.oracle.com/en/database/oracle/oracle-database/19/jjdbc/performance-extensions.html#GUID-96A38C6D-A288-4E0B-9F03-E711C146632B)
+config option. See [Additional Oracle Performance Extensions](https://docs.oracle.com/en/database/oracle/oracle-database/19/jjdbc/performance-extensions.html)
 for more details.
 :::
 
