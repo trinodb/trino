@@ -89,6 +89,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -324,6 +325,7 @@ public class FileHiveMetastore
             String prefix = catalogDirectory.toString();
             Set<String> databases = new HashSet<>();
 
+            // TODO this lists files recursively and may fail if e.g. table data being modified by other threads/processes
             FileIterator iterator = fileSystem.listFiles(catalogDirectory);
             while (iterator.hasNext()) {
                 Location location = iterator.next().location();
@@ -598,24 +600,16 @@ public class FileHiveMetastore
         Location metadataDirectory = getDatabaseMetadataDirectory(databaseName);
         try {
             String prefix = metadataDirectory.toString();
+            if (!prefix.endsWith("/")) {
+                prefix += "/";
+            }
             Set<String> tables = new HashSet<>();
 
-            FileIterator iterator = fileSystem.listFiles(metadataDirectory);
-            while (iterator.hasNext()) {
-                Location location = iterator.next().location();
-
-                String child = location.toString().substring(prefix.length());
-                if (child.startsWith("/")) {
-                    child = child.substring(1);
-                }
-
-                if (child.startsWith(".") || (child.indexOf('/') != child.lastIndexOf('/'))) {
-                    continue;
-                }
-
-                int length = child.length() - TRINO_SCHEMA_FILE_NAME_SUFFIX.length() - 1;
-                if ((length >= 1) && child.endsWith("/" + TRINO_SCHEMA_FILE_NAME_SUFFIX)) {
-                    tables.add(child.substring(0, length));
+            for (Location subdirectory : fileSystem.listDirectories(metadataDirectory)) {
+                String locationString = subdirectory.toString();
+                verify(locationString.startsWith(prefix) && locationString.endsWith("/"), "Unexpected subdirectory %s when listing %s", subdirectory, metadataDirectory);
+                if (fileSystem.newInputFile(subdirectory.appendPath(TRINO_SCHEMA_FILE_NAME_SUFFIX)).exists()) {
+                    tables.add(locationString.substring(prefix.length(), locationString.length() - 1));
                 }
             }
 
