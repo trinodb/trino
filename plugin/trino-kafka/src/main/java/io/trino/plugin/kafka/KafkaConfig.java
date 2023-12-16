@@ -48,6 +48,24 @@ public class KafkaConfig
     private boolean hideInternalColumns = true;
     private int messagesPerSplit = 100_000;
     private boolean timestampUpperBoundPushDownEnabled;
+    /**
+     * The domainCompactionThreshold variable represents the maximum number of ranges allowed in a tuple domain
+     * without compacting it. When the number of ranges exceeds this threshold, the tuple domain is compacted to reduce
+     * its size.
+     *
+     * The default value for domainCompactionThreshold is 1,000.
+     */
+    private int domainCompactionThreshold = 1_000;
+    /**
+     * Indicates whether the predicate force push down feature is enabled or disabled.
+     * When predicate force push down is enabled, the Kafka connector attempts to push down
+     * predicate filters to the Kafka broker for filtering messages at the broker level.
+     * If predicate force push down is disabled, the filtering happens at the Trino
+     * (formerly PrestoSQL) engine level.
+     *
+     * By default, the predicate force push down is enabled.
+     */
+    private boolean predicateForcePushDownEnabled = true;
     private String tableDescriptionSupplier = FileTableDescriptionSupplier.NAME;
     private List<File> resourceConfigFiles = ImmutableList.of();
     private String internalFieldPrefix = "_";
@@ -157,6 +175,33 @@ public class KafkaConfig
     public KafkaConfig setTimestampUpperBoundPushDownEnabled(boolean timestampUpperBoundPushDownEnabled)
     {
         this.timestampUpperBoundPushDownEnabled = timestampUpperBoundPushDownEnabled;
+        return this;
+    }
+
+    @Min(1)
+    public int getDomainCompactionThreshold()
+    {
+        return domainCompactionThreshold;
+    }
+
+    @Config("kafka.domain-compaction-threshold")
+    @ConfigDescription("Maximum ranges to allow in a tuple domain without compacting it")
+    public KafkaConfig setDomainCompactionThreshold(int domainCompactionThreshold)
+    {
+        this.domainCompactionThreshold = domainCompactionThreshold;
+        return this;
+    }
+
+    public boolean isPredicateForcePushDownEnabled()
+    {
+        return predicateForcePushDownEnabled;
+    }
+
+    @Config("kafka.predicate-force-push-down-enabled")
+    @ConfigDescription("predicate force pushing down enabled")
+    public KafkaConfig setPredicateForcePushDownEnabled(boolean predicateForcePushDownEnabled)
+    {
+        this.predicateForcePushDownEnabled = predicateForcePushDownEnabled;
         return this;
     }
 
