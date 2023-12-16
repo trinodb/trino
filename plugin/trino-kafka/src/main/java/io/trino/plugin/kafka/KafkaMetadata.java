@@ -36,6 +36,7 @@ import io.trino.spi.connector.RetryMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.TableNotFoundException;
+import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.statistics.ComputedStatistics;
@@ -53,6 +54,7 @@ import java.util.stream.Stream;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.plugin.kafka.ConstraintExtractor.extractTupleDomain;
 import static io.trino.spi.StandardErrorCode.DUPLICATE_COLUMN_NAME;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
@@ -131,6 +133,13 @@ public class KafkaMetadata
         return getTableMetadata(session, ((KafkaTableHandle) tableHandle).toSchemaTableName());
     }
 
+    /**
+     * Converts a TupleDomain of ColumnHandle to a TupleDomain of KafkaColumnHandle by simplifying the domains using the given threshold.
+     *
+     * @param predicate The TupleDomain of ColumnHandle to be converted.
+     * @param threshold The threshold used for domain simplification.
+     * @return The converted TupleDomain of KafkaColumnHandle.
+     */
     private static TupleDomain<KafkaColumnHandle> toCompactTupleDomain(TupleDomain<ColumnHandle> predicate, int threshold)
     {
         ImmutableMap.Builder<KafkaColumnHandle, Domain> builder = ImmutableMap.builder();
@@ -139,7 +148,7 @@ public class KafkaMetadata
                 builder.put((KafkaColumnHandle) columnHandle, domain.simplify(threshold));
             });
         });
-        return withColumnDomains(builder.build());
+        return withColumnDomains(builder.buildOrThrow());
     }
 
     public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle tableHandle)
@@ -152,7 +161,7 @@ public class KafkaMetadata
             pushedDown.putAll(table.getEnforcedPredicate(kafkaInternalFieldManager).getDomains()
                     .get().entrySet().stream()
                     .collect(Collectors.toMap(e -> (KafkaColumnHandle) e.getKey(), e -> e.getValue())));
-            predicate = predicate.intersect(withColumnDomains(pushedDown.build()));
+            predicate = predicate.intersect(withColumnDomains(pushedDown.buildOrThrow()));
         }
 
         return new ConnectorTableProperties(
@@ -273,12 +282,46 @@ public class KafkaMetadata
         return new ConnectorTableMetadata(schemaTableName, builder.build());
     }
 
+    /**
+     * Applies the given constraint on the Kafka table to potentially push down predicates
+     * for better query performance. The method extracts the TupleDomain from the constraint,
+     * intersects it with the existing effective predicate, and creates a new KafkaTableHandle
+     * with the updated information.
+     *
+     * <p>If the effective predicate and the new constraint result in an empty predicate or
+     * there are no predicate columns, an empty Optional is returned, indicating that the
+     * constraint can be fully pushed down and the connector should skip the filtering process.
+     * If the effective predicate remains unchanged, an empty Optional is also returned.
+     * Otherwise, a new KafkaTableHandle with the updated predicate information is returned
+     * in the Optional.
+     *
+     * <p>The method also handles the decision of whether predicate pushdown is suitable based
+     * on the session properties and the nature of the columns involved in the predicate.
+     * If pushdown is enabled and feasible, the result includes information about the pushdown.
+     *
+     * @param session The current connector session.
+     * @param table   The KafkaTableHandle representing the table.
+     * @param constraint The constraint to be applied to the table.
+     * @return An Optional containing the result of the constraint application. If the
+     *         effective predicate remains unchanged or can be fully pushed down, an empty
+     *         Optional is returned. Otherwise, the Optional contains a
+     *         ConstraintApplicationResult with the updated KafkaTableHandle and related
+     *         information.
+     */
     @Override
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
     {
         KafkaTableHandle handle = (KafkaTableHandle) table;
+        // We might need to dispose the predicate push-down of non-internal columns in the near future
+        ConstraintExtractor.ExtractionResult<KafkaColumnHandle> extractionResult = extractTupleDomain(constraint,
+                KafkaColumnHandle::getColumnTypeIfInternal);
+        ConnectorExpression connectorExpression = extractionResult.remainingExpression();
+        TupleDomain<KafkaColumnHandle> predicate = extractionResult.tupleDomain();
+        if (predicate.isAll() && constraint.getPredicateColumns().isEmpty()) {
+            return Optional.empty();
+        }
         // some effective/unforced tuple sitting in the table handle included, and it does work
-        TupleDomain<ColumnHandle> effectivePredicate = constraint.getSummary().intersect(handle.getConstraint());
+        TupleDomain<ColumnHandle> effectivePredicate = predicate.transformKeys(ColumnHandle.class::cast).intersect(handle.getConstraint());
         TupleDomain<KafkaColumnHandle> compactEffectivePredicate = toCompactTupleDomain(effectivePredicate, domainCompactionThreshold);
         KafkaTableHandle newHandle = new KafkaTableHandle(
                 handle.getSchemaName(),
@@ -303,7 +346,7 @@ public class KafkaMetadata
 
         TupleDomain<KafkaColumnHandle> newEffectivePredicate = newHandle.getCompactEffectivePredicate()
                 .intersect(handle.getCompactEffectivePredicate())
-                .intersect(withColumnDomains(pushedDown.build()));
+                .intersect(withColumnDomains(pushedDown.buildOrThrow()));
 
         // Get list of all columns involved in predicate
         Set<String> predicateColumnNames = new HashSet<>();
@@ -312,7 +355,7 @@ public class KafkaMetadata
                 .forEach(predicateColumnNames::add);
 
         boolean isRightForPush = false;
-        if (KafkaSessionProperties.isPredicatePushDownEnabled(session)){
+        if (KafkaSessionProperties.isPredicatePushDownEnabled(session)) {
             isRightForPush = checkIfPossibleToPush(newEffectivePredicate.getDomains().get().keySet());
         }
         // Get the column handle
@@ -353,10 +396,10 @@ public class KafkaMetadata
             // All predicates might be pushed down at this time, except for the special columns that don't support at right now.
             // e.g. _message*
             // discrete range matching for a query like: where x in (1, 6)
-            return Optional.of(new ConstraintApplicationResult<>(newHandle, isFullPushDown ? all() : remainingFilter, false));
+            return Optional.of(new ConstraintApplicationResult<>(newHandle, isFullPushDown ? all() : remainingFilter, connectorExpression, false));
         }
 
-        return Optional.of(new ConstraintApplicationResult<>(handle, effectivePredicate, false));
+        return Optional.of(new ConstraintApplicationResult<>(handle, effectivePredicate, connectorExpression, false));
     }
 
     @Override
@@ -385,10 +428,17 @@ public class KafkaMetadata
                 handle.isRightForPush(),
                 OptionalLong.of(limit));
 
-        return Optional.of(new LimitApplicationResult<>(handle, true,true));
+        return Optional.of(new LimitApplicationResult<>(handle, true, true));
     }
 
-    private boolean checkIfPossibleToPush(Set<KafkaColumnHandle> columnHandles) {
+    /**
+     * Checks if it's possible to push down the given set of KafkaColumnHandles.
+     *
+     * @param columnHandles The set of KafkaColumnHandles to check.
+     * @return {@code true} if it's possible to push down all column handles, {@code false} otherwise.
+     */
+    private boolean checkIfPossibleToPush(Set<KafkaColumnHandle> columnHandles)
+    {
         // Check if possible to push-down.
         return columnHandles.stream().allMatch(KafkaColumnHandle::isInternal);
     }
