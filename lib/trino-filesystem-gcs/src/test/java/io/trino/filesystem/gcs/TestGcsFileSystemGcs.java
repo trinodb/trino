@@ -38,8 +38,12 @@ public class TestGcsFileSystemGcs
     @Test
     void testCreateFileRetry()
     {
+        // Note: this test is meant to expose flakiness
+        // Without retries it may fail non-deterministically.
+        // Retries are enabled in the default GcsFileSystemConfig.
+        // In practice this may happen between 7 and 20 retries.
         assertThatNoException().isThrownBy(() -> {
-            for (int i = 1; i <= 100; i++) {
+            for (int i = 1; i <= 30; i++) {
                 TrinoOutputFile outputFile = getFileSystem().newOutputFile(getRootLocation().appendPath("testFile"));
                 try (OutputStream out = outputFile.createOrOverwrite()) {
                     out.write("test".getBytes(UTF_8));
