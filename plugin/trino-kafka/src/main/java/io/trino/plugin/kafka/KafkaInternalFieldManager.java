@@ -238,4 +238,15 @@ public class KafkaInternalFieldManager
     {
         return fieldsByIds.get(id);
     }
+
+    /**
+     * Retrieves the internal field ID of a KafkaColumnHandle based on the name.
+     *
+     * @param columnHandle The KafkaColumnHandle object for which to retrieve the internal field ID
+     * @return The InternalFieldId associated with the column handle
+     */
+    public InternalFieldId getInternalFieldId(KafkaColumnHandle columnHandle)
+    {
+        return getFieldByName(columnHandle.getName()).getInternalFieldId();
+    }
 }

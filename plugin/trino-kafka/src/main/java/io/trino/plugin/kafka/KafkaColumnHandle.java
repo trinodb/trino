@@ -21,6 +21,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.type.Type;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
@@ -141,6 +142,16 @@ public final class KafkaColumnHandle
     public boolean isInternal()
     {
         return internal;
+    }
+
+    /**
+     * Returns the type of the column if it is internal.
+     *
+     * @return An Optional containing the column's type if it's internal, or an empty Optional otherwise.
+     */
+    public Optional<Type> getColumnTypeIfInternal()
+    {
+        return isInternal() ? Optional.of(getType()) : Optional.empty();
     }
 
     ColumnMetadata getColumnMetadata()
