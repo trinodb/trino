@@ -79,7 +79,7 @@ public class HudiBackgroundSplitLoader
             HudiPartitionInfoLoader generator = new HudiPartitionInfoLoader(hudiDirectoryLister, hudiSplitFactory, asyncQueue, partitionQueue);
             splitGeneratorList.add(generator);
             ListenableFuture<Void> future = Futures.submit(generator, splitGeneratorExecutor);
-            addExceptionCallback(future, errorListener::accept);
+            addExceptionCallback(future, errorListener);
             splitGeneratorFutures.add(future);
         }
 
