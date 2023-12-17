@@ -35,7 +35,7 @@ class LocalFileIterator
     private final Path rootPath;
     private final Iterator<Path> iterator;
 
-    public LocalFileIterator(Location location, Path rootPath, Path path)
+    public LocalFileIterator(Location location, Path rootPath, Path path, boolean isRecursive)
             throws IOException
     {
         this.rootPath = requireNonNull(rootPath, "rootPath is null");
@@ -46,7 +46,7 @@ class LocalFileIterator
             this.iterator = emptyIterator();
         }
         else {
-            try (Stream<Path> stream = Files.walk(path)) {
+            try (Stream<Path> stream = (isRecursive ? Files.walk(path) : Files.list(path))) {
                 this.iterator = stream
                         .filter(Files::isRegularFile)
                         // materialize full list so stream can be closed
