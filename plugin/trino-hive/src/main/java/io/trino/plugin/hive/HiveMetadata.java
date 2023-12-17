@@ -3049,7 +3049,7 @@ public class HiveMetadata
             List<HiveColumnHandle> partitionColumns = handle.getPartitionColumns();
             if (!partitionColumns.isEmpty()) {
                 Set<ColumnHandle> referencedColumns = handle.getConstraintColumns();
-                if (Collections.disjoint(referencedColumns, partitionColumns)) {
+                if (Collections.disjoint(referencedColumns, partitionColumns) && handle.getCompactEffectivePredicate().filter((column, domain) -> partitionColumns.contains(column)).isAll()) {
                     String partitionColumnNames = partitionColumns.stream()
                             .map(HiveColumnHandle::getName)
                             .collect(joining(", "));

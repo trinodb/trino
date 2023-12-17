@@ -428,8 +428,19 @@ public abstract class BaseHiveConnectorTest
                 .setCatalogSessionProperty("hive", "query_partition_filter_required_schemas", queryPartitionFilterRequiredSchemas)
                 .build();
 
-        assertUpdate(session, "CREATE TABLE test_required_partition_filter(id integer, a varchar, b varchar, ds varchar) WITH (partitioned_by = ARRAY['ds'])");
-        assertUpdate(session, "INSERT INTO test_required_partition_filter(id, a, ds) VALUES (1, 'a', '1')", 1);
+        assertUpdate(session, "CREATE TABLE test_required_partition_filter(id integer, a varchar, ds integer) WITH (partitioned_by = ARRAY['ds'])");
+        // insert 900 partitions
+        for (int i = 0; i < 9; i++) {
+            int partStart = i * 100;
+            int partEnd = (i + 1) * 100 - 1;
+
+            @Language("SQL") String insertPartitions = "" +
+                    "INSERT INTO test_required_partition_filter " +
+                    "SELECT part id, 'a', part ds " +
+                    "FROM UNNEST(SEQUENCE(" + partStart + ", " + partEnd + ")) AS TMP(part)";
+
+            assertUpdate(insertPartitions, 100);
+        }
         String filterRequiredMessage = "Filter required on tpch\\.test_required_partition_filter for at least one partition column: ds";
 
         // no partition filter
@@ -440,15 +451,19 @@ public abstract class BaseHiveConnectorTest
         // partition filter that gets removed by planner
         assertQueryFails(session, "SELECT id FROM test_required_partition_filter WHERE ds IS NOT NULL OR true", filterRequiredMessage);
 
-        // equality partition filter
-        assertQuery(session, "SELECT id FROM test_required_partition_filter WHERE ds = '1'", "SELECT 1");
-        computeActual(session, "EXPLAIN SELECT id FROM test_required_partition_filter WHERE ds = '1'");
+        // partition filter
+        assertQuery(session, "SELECT id FROM test_required_partition_filter WHERE ds = 1", "SELECT 1");
+        computeActual(session, "EXPLAIN SELECT id FROM test_required_partition_filter WHERE ds = 1");
+        assertQuery(session, "SELECT count(id) FROM test_required_partition_filter WHERE ds < 300", "SELECT 300");
+        computeActual(session, "EXPLAIN SELECT id FROM test_required_partition_filter WHERE ds < 300");
+        assertQuery(session, "SELECT count(id) FROM test_required_partition_filter WHERE ds >= 300", "SELECT 600");
+        computeActual(session, "EXPLAIN SELECT id FROM test_required_partition_filter WHERE ds >= 300");
 
         // IS NOT NULL partition filter
-        assertQuery(session, "SELECT id FROM test_required_partition_filter WHERE ds IS NOT NULL", "SELECT 1");
+        assertQuery(session, "SELECT count(id) FROM test_required_partition_filter WHERE ds IS NOT NULL", "SELECT 900");
 
         // predicate involving a CAST (likely unwrapped)
-        assertQuery(session, "SELECT id FROM test_required_partition_filter WHERE CAST(ds AS integer) = 1", "SELECT 1");
+        assertQuery(session, "SELECT id FROM test_required_partition_filter WHERE CAST(ds AS varchar) = '1'", "SELECT 1");
 
         // partition predicate in outer query only
         assertQuery(session, "SELECT id FROM (SELECT * FROM test_required_partition_filter WHERE CAST(id AS smallint) = 1) WHERE CAST(ds AS integer) = 1", "select 1");

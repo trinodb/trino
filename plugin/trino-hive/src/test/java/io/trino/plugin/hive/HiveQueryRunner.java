@@ -255,7 +255,7 @@ public final class HiveQueryRunner
                     hiveProperties.put("hive.parquet.time-zone", TIME_ZONE.getID());
                 }
                 hiveProperties.put("hive.max-partitions-per-scan", "1000");
-                hiveProperties.put("hive.max-partitions-for-eager-load", "1000");
+                hiveProperties.put("hive.max-partitions-for-eager-load", "200");
                 hiveProperties.put("hive.security", SQL_STANDARD);
                 hiveProperties.putAll(this.hiveProperties.buildOrThrow());
 
