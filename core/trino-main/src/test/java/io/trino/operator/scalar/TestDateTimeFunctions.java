@@ -125,6 +125,9 @@ public class TestDateTimeFunctions
     @Test
     public void testFromUnixTime()
     {
+        assertTrinoExceptionThrownBy(assertions.function("from_unixtime", "123456789123456789")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT).hasMessage("millis value too large: 9223372036854775807");
+
         assertThat(assertions.function("from_unixtime", "980172245"))
                 .matches("TIMESTAMP '2001-01-22 03:04:05.000 Pacific/Apia'");
 

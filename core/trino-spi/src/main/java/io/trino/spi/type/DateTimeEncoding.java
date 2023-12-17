@@ -13,6 +13,11 @@
  */
 package io.trino.spi.type;
 
+import io.trino.spi.TrinoException;
+
+import java.util.Arrays;
+
+import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static java.util.Objects.requireNonNull;
@@ -27,7 +32,10 @@ public final class DateTimeEncoding
     private static long pack(long millisUtc, short timeZoneKey)
     {
         if (millisUtc << MILLIS_SHIFT >> MILLIS_SHIFT != millisUtc) {
-            throw new IllegalArgumentException("Millis overflow: " + millisUtc);
+            Thread thread = Thread.currentThread();
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT,
+                    String.format("millis value too large: %s", millisUtc),
+                    new IllegalArgumentException(Arrays.toString(thread.getStackTrace())));
         }
 
         return (millisUtc << MILLIS_SHIFT) | (timeZoneKey & TIME_ZONE_MASK);
