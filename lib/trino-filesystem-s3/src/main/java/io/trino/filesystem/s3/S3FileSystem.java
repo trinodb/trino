@@ -169,6 +169,19 @@ final class S3FileSystem
     public FileIterator listFiles(Location location)
             throws IOException
     {
+        return listFiles(location, true);
+    }
+
+    @Override
+    public FileIterator listFilesNonRecursively(Location location)
+            throws IOException
+    {
+        return listFiles(location, false);
+    }
+
+    private FileIterator listFiles(Location location, boolean isRecursive)
+            throws IOException
+    {
         S3Location s3Location = new S3Location(location);
 
         String key = s3Location.key();
@@ -176,10 +189,15 @@ final class S3FileSystem
             key += "/";
         }
 
-        ListObjectsV2Request request = ListObjectsV2Request.builder()
+        ListObjectsV2Request.Builder builder = ListObjectsV2Request.builder()
                 .bucket(s3Location.bucket())
-                .prefix(key)
-                .build();
+                .prefix(key);
+
+        if (!isRecursive) {
+            builder = builder.delimiter("/");
+        }
+
+        ListObjectsV2Request request = builder.build();
 
         try {
             Iterator<S3Object> iterator = client.listObjectsV2Paginator(request).contents().stream()

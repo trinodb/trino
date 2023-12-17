@@ -1306,6 +1306,26 @@ public class TestBackgroundHiveSplitLoader
                 }
 
                 @Override
+                public FileIterator listFilesNonRecursively(Location location)
+                {
+                    Iterator<FileEntry> iterator = List.of(fileEntry).iterator();
+                    return new FileIterator()
+                    {
+                        @Override
+                        public boolean hasNext()
+                        {
+                            return iterator.hasNext();
+                        }
+
+                        @Override
+                        public FileEntry next()
+                        {
+                            return iterator.next();
+                        }
+                    };
+                }
+
+                @Override
                 public TrinoInputFile newInputFile(Location location)
                 {
                     throw new UnsupportedOperationException();

@@ -156,6 +156,14 @@ public class MemoryFileSystem
         };
     }
 
+    // implementing same as recursive true
+    @Override
+    public FileIterator listFilesNonRecursively(Location location)
+            throws IOException
+    {
+        return listFiles(location);
+    }
+
     @Override
     public Optional<Boolean> directoryExists(Location location)
             throws IOException

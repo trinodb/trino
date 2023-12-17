@@ -111,6 +111,13 @@ final class SwitchingFileSystem
     }
 
     @Override
+    public FileIterator listFilesNonRecursively(Location location)
+            throws IOException
+    {
+        return fileSystem(location).listFilesNonRecursively(location);
+    }
+
+    @Override
     public Optional<Boolean> directoryExists(Location location)
             throws IOException
     {
