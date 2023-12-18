@@ -4691,7 +4691,7 @@ public abstract class BaseIcebergConnectorTest
         assertThat(actual).isNotNull();
         MaterializedResult expected = resultBuilder(getSession())
                 .row("write.format.default", format.name())
-                .row("write.parquet.compression-codec", "zstd").build();
+                .build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
     }
 
