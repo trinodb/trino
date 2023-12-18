@@ -170,6 +170,7 @@
             <!-- bump from default of 2 -->
             -XX:GCLockerRetryAllocationCount=10
         </air.test.jvm.additional-arguments>
+        <starburst-license.header-file>${air.main.basedir}/.mvn/license/starburst-header.txt</starburst-license.header-file>
 
         <!-- keep dependency properties sorted -->
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
