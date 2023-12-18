@@ -134,7 +134,7 @@ public class TestSqlServerManagedStatistics
 
                 .addRoundTrip("timestamp", "TIMESTAMP '1970-01-01 01:01:01.1234567'", new ColumnStatistics("null", "1.0", "0.0", "1970-01-01 01:01:01.123"))
                 .addRoundTrip("timestamp", "null", NULL_STATISTICS)
-                .addRoundTrip("timestamp(7)", "TIMESTAMP '1970-01-01 01:01:01.1234567'", new ManagedStatisticsDataTypeTest.ColumnStatistics("null", "1.0", "0.0", "1970-01-01 01:01:01.123456"))
+                .addRoundTrip("timestamp(7)", "TIMESTAMP '1970-01-01 01:01:01.1234567'", new ColumnStatistics("null", "1.0", "0.0", "1970-01-01 01:01:01.123456"))
                 .addRoundTrip("timestamp(7)", "null", NULL_STATISTICS)
                 .execute(getQueryRunner(), trinoCreateAndInsert("test_types"));
 
