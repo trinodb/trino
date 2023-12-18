@@ -278,16 +278,13 @@ public class TrinoRestCatalog
     @Override
     public void registerTable(ConnectorSession session, SchemaTableName tableName, TableMetadata tableMetadata)
     {
-        restSessionCatalog.registerTable(convert(session), toIdentifier(tableName), tableMetadata.metadataFileLocation());
+        throw new TrinoException(NOT_SUPPORTED, "registerTable is not supported for Iceberg REST catalog");
     }
 
     @Override
     public void unregisterTable(ConnectorSession session, SchemaTableName tableName)
     {
-        if (!restSessionCatalog.dropTable(convert(session), toIdentifier(tableName))) {
-            throw new TableNotFoundException(tableName);
-        }
-        invalidateTableCache(tableName);
+        throw new TrinoException(NOT_SUPPORTED, "unregisterTable is not supported for Iceberg REST catalogs");
     }
 
     @Override
