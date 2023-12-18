@@ -27,7 +27,8 @@ public record OpaQueryInputResource(
         TrinoFunction function,
         NamedEntity catalog,
         TrinoSchema schema,
-        TrinoTable table)
+        TrinoTable table,
+        TrinoColumn column)
 {
     public record NamedEntity(@NotNull String name)
     {
@@ -51,6 +52,7 @@ public record OpaQueryInputResource(
         private TrinoSchema schema;
         private TrinoTable table;
         private TrinoFunction function;
+        private TrinoColumn column;
 
         private Builder() {}
 
@@ -102,6 +104,12 @@ public record OpaQueryInputResource(
             return this;
         }
 
+        public Builder column(TrinoColumn column)
+        {
+            this.column = column;
+            return this;
+        }
+
         public OpaQueryInputResource build()
         {
             return new OpaQueryInputResource(
@@ -111,7 +119,8 @@ public record OpaQueryInputResource(
                     this.function,
                     this.catalog,
                     this.schema,
-                    this.table);
+                    this.table,
+                    this.column);
         }
     }
 }
