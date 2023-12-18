@@ -42,8 +42,7 @@ public final class FaultTolerantExecutionConnectorTestHelper
                 // to trigger spilling
                 .put("exchange.deduplication-buffer-size", "1kB")
                 .put("fault-tolerant-execution-task-memory", "1GB")
-                // limit number of threads to detect potential thread leaks
-                .put("query.executor-pool-size", "10")
+
                 // enable exchange compression to follow production deployment recommendations
                 .put("exchange.compression-enabled", "true")
                 .put("max-tasks-waiting-for-execution-per-query", "2")
