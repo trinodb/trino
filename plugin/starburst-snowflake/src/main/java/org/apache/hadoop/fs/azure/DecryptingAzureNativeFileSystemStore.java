@@ -95,7 +95,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.primitives.Bytes.indexOf;
 import static com.google.common.primitives.Bytes.reverse;
-import static com.starburstdata.trino.plugins.snowflake.distributed.HiveUtils.getQueryStageMasterKey;
+import static com.starburstdata.trino.plugin.snowflake.distributed.HiveUtils.getQueryStageMasterKey;
 import static org.apache.hadoop.fs.azure.NativeAzureFileSystem.PATH_DELIMITER;
 
 /**
