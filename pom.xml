@@ -39,6 +39,7 @@
         <module>core/trino-server-rpm</module>
         <module>core/trino-spi</module>
         <module>docs</module>
+        <module>lib/starburst-ci-cd</module>
         <module>lib/trino-array</module>
         <module>lib/trino-cache</module>
         <module>lib/trino-filesystem</module>

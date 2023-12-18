@@ -447,6 +447,7 @@ jobs:
       - name: Maven Tests
         run: |
           $MAVEN test ${MAVEN_TEST} -pl '
+            !:starburst-ci-cd,
             !:trino-accumulo,
             !:trino-base-jdbc,
             !:trino-bigquery,
@@ -563,6 +564,8 @@ jobs:
                 - plugin/trino-base-jdbc
                 - plugin/trino-memory
                 - plugin/trino-thrift
+            - modules:
+                - lib/starburst-ci-cd
             - modules:
                 - lib/trino-orc
                 - lib/trino-parquet
