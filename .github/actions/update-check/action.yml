@@ -23,7 +23,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: actions/github-script@v6
+    - uses: actions/github-script@v7
       id: update-check-run
       if: inputs.check_name != '' && inputs.conclusion != ''
       env:
@@ -61,7 +61,7 @@ runs:
             conclusion: process.env.conclusion
           });
           return result;
-    - uses: actions/github-script@v6
+    - uses: actions/github-script@v7
       id: comment
       if: always()
       env:
