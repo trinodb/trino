@@ -38,12 +38,11 @@ import static io.trino.plugin.opa.RequestTestUtilities.assertStringRequestsEqual
 import static io.trino.plugin.opa.RequestTestUtilities.buildValidatingRequestHandler;
 import static io.trino.plugin.opa.TestConstants.OK_RESPONSE;
 import static io.trino.plugin.opa.TestConstants.OPA_SERVER_BATCH_URI;
-import static io.trino.plugin.opa.TestConstants.OPA_SERVER_URI;
 import static io.trino.plugin.opa.TestConstants.TEST_IDENTITY;
 import static io.trino.plugin.opa.TestConstants.TEST_SECURITY_CONTEXT;
-import static io.trino.plugin.opa.TestHelpers.assertAccessControlMethodThrows;
-import static io.trino.plugin.opa.TestHelpers.assertBatchAccessControlMethodThrowsForIllegalResponses;
-import static io.trino.plugin.opa.TestHelpers.buildBatchAuthorizerWithPredefinedResponse;
+import static io.trino.plugin.opa.TestConstants.batchFilteringOpaConfig;
+import static io.trino.plugin.opa.TestHelpers.assertAccessControlMethodThrowsForIllegalResponses;
+import static io.trino.plugin.opa.TestHelpers.assertAccessControlMethodThrowsForResponse;
 import static io.trino.plugin.opa.TestHelpers.createMockHttpClient;
 import static io.trino.plugin.opa.TestHelpers.createOpaAuthorizer;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -216,7 +215,7 @@ public class TestOpaBatchAccessControlFiltering
                             };
                             return new MockResponse(responseContents, 200);
                         }));
-        OpaAccessControl authorizer = createOpaAuthorizer(OPA_SERVER_URI, OPA_SERVER_BATCH_URI, mockClient);
+        OpaAccessControl authorizer = createOpaAuthorizer(batchFilteringOpaConfig(), mockClient);
         Map<SchemaTableName, Set<String>> result = authorizer.filterColumns(
                 TEST_SECURITY_CONTEXT,
                 "my_catalog",
@@ -266,11 +265,13 @@ public class TestOpaBatchAccessControlFiltering
     @Test
     public void testFilterColumnErrorCases()
     {
-        assertBatchAccessControlMethodThrowsForIllegalResponses(
+        assertAccessControlMethodThrowsForIllegalResponses(
                 accessControl -> accessControl.filterColumns(
                         TEST_SECURITY_CONTEXT,
                         "my_catalog",
-                        ImmutableMap.of(new SchemaTableName("some_schema", "some_table"), ImmutableSet.of("column_one", "column_two"))));
+                        ImmutableMap.of(new SchemaTableName("some_schema", "some_table"), ImmutableSet.of("column_one", "column_two"))),
+                batchFilteringOpaConfig(),
+                OPA_SERVER_BATCH_URI);
     }
 
     @Test
@@ -328,15 +329,18 @@ public class TestOpaBatchAccessControlFiltering
                 .build();
         for (Pair<String, List<T>> testCase : responsesAndExpectedFilteredObjects) {
             InstrumentedHttpClient httpClient = createMockHttpClient(OPA_SERVER_BATCH_URI, buildValidatingRequestHandler(TEST_IDENTITY, 200, testCase.first()));
-            OpaAccessControl accessControl = createOpaAuthorizer(OPA_SERVER_URI, OPA_SERVER_BATCH_URI, httpClient);
+            OpaAccessControl accessControl = createOpaAuthorizer(batchFilteringOpaConfig(), httpClient);
             assertThat(method.apply(accessControl, TEST_SECURITY_CONTEXT, objectsToFilter)).containsExactlyInAnyOrderElementsOf(testCase.second());
             assertStringRequestsEqual(expectedRequests, httpClient.getRequests(), "/input/action");
         }
 
         Consumer<OpaAccessControl> methodWithItems = accessControl -> method.apply(accessControl, TEST_SECURITY_CONTEXT, objectsToFilter);
-        assertBatchAccessControlMethodThrowsForIllegalResponses(methodWithItems);
-        assertAccessControlMethodThrows(
-                () -> methodWithItems.accept(buildBatchAuthorizerWithPredefinedResponse(new MockResponse("{\"result\": [0, 1, 2, 3]}", 200))),
+        assertAccessControlMethodThrowsForIllegalResponses(methodWithItems, batchFilteringOpaConfig(), OPA_SERVER_BATCH_URI);
+        assertAccessControlMethodThrowsForResponse(
+                new MockResponse("{\"result\": [0, 1, 2, 3]}", 200),
+                OPA_SERVER_BATCH_URI,
+                batchFilteringOpaConfig(),
+                methodWithItems,
                 OpaQueryException.QueryFailed.class,
                 "Failed to query OPA backend");
     }
@@ -344,7 +348,7 @@ public class TestOpaBatchAccessControlFiltering
     private static void assertFilteringAccessControlMethodDoesNotSendRequests(Function<OpaAccessControl, Collection<?>> method)
     {
         InstrumentedHttpClient httpClientForEmptyRequest = createMockHttpClient(OPA_SERVER_BATCH_URI, request -> OK_RESPONSE);
-        assertThat(method.apply(createOpaAuthorizer(OPA_SERVER_URI, OPA_SERVER_BATCH_URI, httpClientForEmptyRequest))).isEmpty();
+        assertThat(method.apply(createOpaAuthorizer(batchFilteringOpaConfig(), httpClientForEmptyRequest))).isEmpty();
         assertThat(httpClientForEmptyRequest.getRequests()).isEmpty();
     }
 }

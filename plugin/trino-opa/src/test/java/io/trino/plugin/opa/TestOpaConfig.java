@@ -31,6 +31,8 @@ public class TestOpaConfig
         assertRecordedDefaults(recordDefaults(OpaConfig.class)
                 .setOpaUri(null)
                 .setOpaBatchUri(null)
+                .setOpaRowFiltersUri(null)
+                .setOpaColumnMaskingUri(null)
                 .setLogRequests(false)
                 .setLogResponses(false)
                 .setAllowPermissionManagementOperations(false));
@@ -42,6 +44,8 @@ public class TestOpaConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("opa.policy.uri", "https://opa.example.com")
                 .put("opa.policy.batched-uri", "https://opa-batch.example.com")
+                .put("opa.policy.row-filters-uri", "https://opa-row-filtering.example.com")
+                .put("opa.policy.column-masking-uri", "https://opa-column-masking.example.com")
                 .put("opa.log-requests", "true")
                 .put("opa.log-responses", "true")
                 .put("opa.allow-permission-management-operations", "true")
@@ -50,6 +54,8 @@ public class TestOpaConfig
         OpaConfig expected = new OpaConfig()
                 .setOpaUri(URI.create("https://opa.example.com"))
                 .setOpaBatchUri(URI.create("https://opa-batch.example.com"))
+                .setOpaRowFiltersUri(URI.create("https://opa-row-filtering.example.com"))
+                .setOpaColumnMaskingUri(URI.create("https://opa-column-masking.example.com"))
                 .setLogRequests(true)
                 .setLogResponses(true)
                 .setAllowPermissionManagementOperations(true);

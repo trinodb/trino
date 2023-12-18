@@ -38,6 +38,7 @@ import static io.trino.plugin.opa.TestConstants.OK_RESPONSE;
 import static io.trino.plugin.opa.TestConstants.OPA_SERVER_URI;
 import static io.trino.plugin.opa.TestConstants.TEST_IDENTITY;
 import static io.trino.plugin.opa.TestConstants.TEST_SECURITY_CONTEXT;
+import static io.trino.plugin.opa.TestConstants.simpleOpaConfig;
 import static io.trino.plugin.opa.TestHelpers.assertAccessControlMethodThrowsForIllegalResponses;
 import static io.trino.plugin.opa.TestHelpers.createMockHttpClient;
 import static io.trino.plugin.opa.TestHelpers.createOpaAuthorizer;
@@ -53,12 +54,14 @@ public class TestOpaAccessControlFiltering
         List<Identity> requestedIdentities = ImmutableList.of(userOne, userTwo);
 
         assertAccessControlMethodThrowsForIllegalResponses(
-                authorizer -> authorizer.filterViewQueryOwnedBy(TEST_IDENTITY, requestedIdentities));
+                authorizer -> authorizer.filterViewQueryOwnedBy(TEST_IDENTITY, requestedIdentities),
+                simpleOpaConfig(),
+                OPA_SERVER_URI);
         assertFilteringAccessControlMethodDoesNotSendRequests(
                 authorizer -> authorizer.filterViewQueryOwnedBy(TEST_IDENTITY, ImmutableList.of()));
 
         InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, buildHandler("/input/action/resource/user/user", "user-one"));
-        OpaAccessControl authorizer = createOpaAuthorizer(OPA_SERVER_URI, mockClient);
+        OpaAccessControl authorizer = createOpaAuthorizer(simpleOpaConfig(), mockClient);
         Collection<Identity> result = authorizer.filterViewQueryOwnedBy(
                 TEST_IDENTITY,
                 requestedIdentities);
@@ -96,12 +99,14 @@ public class TestOpaAccessControlFiltering
     {
         Set<String> requestedCatalogs = ImmutableSet.of("catalog_one", "catalog_two");
         assertAccessControlMethodThrowsForIllegalResponses(
-                authorizer -> authorizer.filterCatalogs(TEST_SECURITY_CONTEXT, requestedCatalogs));
+                authorizer -> authorizer.filterCatalogs(TEST_SECURITY_CONTEXT, requestedCatalogs),
+                simpleOpaConfig(),
+                OPA_SERVER_URI);
         assertFilteringAccessControlMethodDoesNotSendRequests(
                 authorizer -> authorizer.filterCatalogs(TEST_SECURITY_CONTEXT, ImmutableSet.of()));
 
         InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, buildHandler("/input/action/resource/catalog/name", "catalog_two"));
-        OpaAccessControl authorizer = createOpaAuthorizer(OPA_SERVER_URI, mockClient);
+        OpaAccessControl authorizer = createOpaAuthorizer(simpleOpaConfig(), mockClient);
         Set<String> result = authorizer.filterCatalogs(
                 TEST_SECURITY_CONTEXT,
                 requestedCatalogs);
@@ -137,12 +142,14 @@ public class TestOpaAccessControlFiltering
     {
         Set<String> requestedSchemas = ImmutableSet.of("schema_one", "schema_two");
         assertAccessControlMethodThrowsForIllegalResponses(
-                authorizer -> authorizer.filterSchemas(TEST_SECURITY_CONTEXT, "some_catalog", requestedSchemas));
+                authorizer -> authorizer.filterSchemas(TEST_SECURITY_CONTEXT, "some_catalog", requestedSchemas),
+                simpleOpaConfig(),
+                OPA_SERVER_URI);
         assertFilteringAccessControlMethodDoesNotSendRequests(
                 authorizer -> authorizer.filterSchemas(TEST_SECURITY_CONTEXT, "some_catalog", ImmutableSet.of()));
 
         InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, buildHandler("/input/action/resource/schema/schemaName", "schema_one"));
-        OpaAccessControl authorizer = createOpaAuthorizer(OPA_SERVER_URI, mockClient);
+        OpaAccessControl authorizer = createOpaAuthorizer(simpleOpaConfig(), mockClient);
         Set<String> result = authorizer.filterSchemas(
                 TEST_SECURITY_CONTEXT,
                 "my_catalog",
@@ -175,12 +182,14 @@ public class TestOpaAccessControlFiltering
                 .add(new SchemaTableName("schema_two", "table_two"))
                 .build();
         assertAccessControlMethodThrowsForIllegalResponses(
-                authorizer -> authorizer.filterTables(TEST_SECURITY_CONTEXT, "some_catalog", tables));
+                authorizer -> authorizer.filterTables(TEST_SECURITY_CONTEXT, "some_catalog", tables),
+                simpleOpaConfig(),
+                OPA_SERVER_URI);
         assertFilteringAccessControlMethodDoesNotSendRequests(
                 authorizer -> authorizer.filterTables(TEST_SECURITY_CONTEXT, "some_catalog", ImmutableSet.of()));
 
         InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, buildHandler("/input/action/resource/table/tableName", "table_one"));
-        OpaAccessControl authorizer = createOpaAuthorizer(OPA_SERVER_URI, mockClient);
+        OpaAccessControl authorizer = createOpaAuthorizer(simpleOpaConfig(), mockClient);
 
         Set<SchemaTableName> result = authorizer.filterTables(TEST_SECURITY_CONTEXT, "my_catalog", tables);
         assertThat(result).containsExactlyInAnyOrderElementsOf(tables.stream().filter(table -> table.getTableName().equals("table_one")).collect(toImmutableSet()));
@@ -214,7 +223,9 @@ public class TestOpaAccessControlFiltering
                 .put(tableThree, ImmutableSet.of("table_three_column_one", "table_three_column_two"))
                 .buildOrThrow();
         assertAccessControlMethodThrowsForIllegalResponses(
-                authorizer -> authorizer.filterColumns(TEST_SECURITY_CONTEXT, "some_catalog", requestedColumns));
+                authorizer -> authorizer.filterColumns(TEST_SECURITY_CONTEXT, "some_catalog", requestedColumns),
+                simpleOpaConfig(),
+                OPA_SERVER_URI);
         assertFilteringAccessControlMethodDoesNotSendRequests(
                 authorizer -> authorizer.filterColumns(TEST_SECURITY_CONTEXT, "some_catalog", ImmutableMap.of()).entrySet());
         assertFilteringAccessControlMethodDoesNotSendRequests(
@@ -235,7 +246,7 @@ public class TestOpaAccessControlFiltering
                 .build();
 
         InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, buildHandler("/input/action/resource/table/columns/0", columnsToAllow));
-        OpaAccessControl authorizer = createOpaAuthorizer(OPA_SERVER_URI, mockClient);
+        OpaAccessControl authorizer = createOpaAuthorizer(simpleOpaConfig(), mockClient);
 
         Map<SchemaTableName, Set<String>> result = authorizer.filterColumns(TEST_SECURITY_CONTEXT, "my_catalog", requestedColumns);
 
@@ -271,12 +282,14 @@ public class TestOpaAccessControlFiltering
         SchemaFunctionName functionTwo = new SchemaFunctionName("my_schema", "function_two");
         Set<SchemaFunctionName> requestedFunctions = ImmutableSet.of(functionOne, functionTwo);
         assertAccessControlMethodThrowsForIllegalResponses(
-                authorizer -> authorizer.filterFunctions(TEST_SECURITY_CONTEXT, "some_catalog", requestedFunctions));
+                authorizer -> authorizer.filterFunctions(TEST_SECURITY_CONTEXT, "some_catalog", requestedFunctions),
+                simpleOpaConfig(),
+                OPA_SERVER_URI);
         assertFilteringAccessControlMethodDoesNotSendRequests(
                 authorizer -> authorizer.filterFunctions(TEST_SECURITY_CONTEXT, "some_catalog", ImmutableSet.of()));
 
         InstrumentedHttpClient mockClient = createMockHttpClient(OPA_SERVER_URI, buildHandler("/input/action/resource/function/functionName", "function_two"));
-        OpaAccessControl authorizer = createOpaAuthorizer(OPA_SERVER_URI, mockClient);
+        OpaAccessControl authorizer = createOpaAuthorizer(simpleOpaConfig(), mockClient);
 
         Set<SchemaFunctionName> result = authorizer.filterFunctions(
                 TEST_SECURITY_CONTEXT,
@@ -303,7 +316,7 @@ public class TestOpaAccessControlFiltering
     private static void assertFilteringAccessControlMethodDoesNotSendRequests(Function<OpaAccessControl, Collection<?>> method)
     {
         InstrumentedHttpClient httpClientForEmptyRequest = createMockHttpClient(OPA_SERVER_URI, request -> OK_RESPONSE);
-        assertThat(method.apply(createOpaAuthorizer(OPA_SERVER_URI, httpClientForEmptyRequest))).isEmpty();
+        assertThat(method.apply(createOpaAuthorizer(simpleOpaConfig(), httpClientForEmptyRequest))).isEmpty();
         assertThat(httpClientForEmptyRequest.getRequests()).isEmpty();
     }
 
