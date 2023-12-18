@@ -41,6 +41,7 @@
         <module>docs</module>
         <module>lib/starburst-ci-cd</module>
         <module>lib/starburst-license</module>
+        <module>lib/starburst-plugin-toolkit</module>
         <module>lib/trino-array</module>
         <module>lib/trino-cache</module>
         <module>lib/trino-filesystem</module>

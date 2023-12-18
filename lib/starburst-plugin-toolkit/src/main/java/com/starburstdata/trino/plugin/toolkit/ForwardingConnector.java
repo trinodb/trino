@@ -11,6 +11,7 @@ package com.starburstdata.trino.plugin.toolkit;
 
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorAccessControl;
+import io.trino.spi.connector.ConnectorAlternativeChooser;
 import io.trino.spi.connector.ConnectorCapabilities;
 import io.trino.spi.connector.ConnectorIndexProvider;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -67,6 +68,12 @@ public abstract class ForwardingConnector
     public ConnectorRecordSetProvider getRecordSetProvider()
     {
         return delegate().getRecordSetProvider();
+    }
+
+    @Override
+    public ConnectorAlternativeChooser getAlternativeChooser()
+    {
+        return delegate().getAlternativeChooser();
     }
 
     @Override
