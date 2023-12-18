@@ -47,7 +47,7 @@ public class TestOptimizerConfig
                 .setJoinDistributionType(JoinDistributionType.AUTOMATIC)
                 .setJoinMultiClauseIndependenceFactor(0.25)
                 .setJoinReorderingStrategy(JoinReorderingStrategy.AUTOMATIC)
-                .setMaxReorderedJoins(9)
+                .setMaxReorderedJoins(8)
                 .setMaxPrefetchedInformationSchemaPrefixes(100)
                 .setColocatedJoinsEnabled(true)
                 .setSpatialJoinsEnabled(true)
