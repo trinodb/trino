@@ -97,6 +97,7 @@ import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.DiscretePredicates;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.ProjectionApplicationResult;
+import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SortingProperty;
@@ -113,6 +114,7 @@ import io.trino.spi.predicate.NullableValue;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.ArrayType;
@@ -391,6 +393,8 @@ public abstract class AbstractTestHive
                     .build());
 
     private static final String CREATE_TABLE_PARTITIONED_DATA_2ND_PARTITION_VALUE = "2015-07-04";
+
+    private static final String INVALID_LOCATION_PATH = "invalid_table_location";
 
     private static final MaterializedResult CREATE_TABLE_PARTITIONED_DATA_2ND =
             MaterializedResult.resultBuilder(SESSION, BIGINT, createUnboundedVarcharType(), TINYINT, SMALLINT, INTEGER, BIGINT, REAL, DOUBLE, BOOLEAN, ARRAY_TYPE, MAP_TYPE, ROW_TYPE, createUnboundedVarcharType())
@@ -817,7 +821,15 @@ public abstract class AbstractTestHive
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         countingDirectoryLister = new CountingDirectoryLister();
         metadataFactory = new HiveMetadataFactory(
-                LocationAccessControl.ALLOW_ALL,
+                new LocationAccessControl() {
+                    @Override
+                    public void checkCanUseLocation(ConnectorIdentity identity, String location)
+                    {
+                        if (location.contains(INVALID_LOCATION_PATH)) {
+                            throw new IllegalArgumentException("Cant access this path");
+                        }
+                    }
+                },
                 new CatalogName("hive"),
                 HiveMetastoreFactory.ofInstance(metastoreClient),
                 getDefaultHiveFileWriterFactories(hiveConfig, hdfsEnvironment),
@@ -1217,6 +1229,27 @@ public abstract class AbstractTestHive
                 .stream()
                 .map(HivePartition::getPartitionId)
                 .collect(toImmutableSet());
+    }
+
+    @Test
+    public void testCantCreateTableWhenLocationIsNotAccessible()
+    {
+        try (Transaction transaction = newTransaction()) {
+            ConnectorSession session = newSession();
+            SchemaTableName schemaTableName = temporaryTable("test_invalid_location");
+            ImmutableList<ColumnMetadata> columnMetadata = ImmutableList.<ColumnMetadata>builder()
+                    .add(new ColumnMetadata("not_important", VARCHAR))
+                    .build();
+            Map<String, Object> properties = ImmutableMap.<String, Object>builder()
+                    .put(BUCKETED_BY_PROPERTY, ImmutableList.of())
+                    .put(BUCKET_COUNT_PROPERTY, 0)
+                    .put(SORTED_BY_PROPERTY, ImmutableList.of())
+                    .put(STORAGE_FORMAT_PROPERTY, RCBINARY)
+                    .put(EXTERNAL_LOCATION_PROPERTY, "file://test/" + INVALID_LOCATION_PATH)
+                    .buildOrThrow();
+            ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(schemaTableName, columnMetadata, properties);
+            assertThatThrownBy(() -> transaction.getMetadata().createTable(session, tableMetadata, SaveMode.IGNORE)).hasMessage("Cant access this path");
+        }
     }
 
     @Test
