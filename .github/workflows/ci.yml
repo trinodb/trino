@@ -448,6 +448,7 @@ jobs:
         run: |
           $MAVEN test ${MAVEN_TEST} -pl '
             !:starburst-ci-cd,
+            !:starburst-license,
             !:trino-accumulo,
             !:trino-base-jdbc,
             !:trino-bigquery,
