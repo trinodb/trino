@@ -12,7 +12,7 @@ package com.starburstdata.presto.plugin.sqlserver;
 import com.google.common.collect.ImmutableList;
 import com.starburstdata.managed.statistics.BaseManagedStatisticsTest;
 import com.starburstdata.managed.statistics.ManagedStatisticsDataTypeTest;
-import com.starburstdata.managed.statistics.ManagedStatisticsDataTypeTest.ColumnStatistics;
+import com.starburstdata.managed.statistics.TestStatisticsUtil.ColumnStatistics;
 import com.starburstdata.presto.testing.testcontainers.TestingEventLoggerPostgreSqlServer;
 import io.trino.Session;
 import io.trino.plugin.sqlserver.TestingSqlServer;
