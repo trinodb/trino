@@ -283,7 +283,7 @@ jobs:
             $MAVEN test ${MAVEN_TEST} -pl :trino-test-jdbc-compatibility-old-server
           fi
       - name: Upload test results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         # Upload all test reports only on failure, because the artifacts are large
         if: failure()
         with:
@@ -292,7 +292,7 @@ jobs:
             **/target/surefire-reports
             **/target/checkstyle-*
       - name: Upload test report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         # Always upload the test report for the annotate.yml workflow,
         # but only the single XML file to keep the artifact small
         if: always()
@@ -303,7 +303,7 @@ jobs:
             **/surefire-reports/TEST-*.xml
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
       - name: Upload heap dump
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: heap dump ${{ github.job }}
@@ -361,7 +361,7 @@ jobs:
             $MAVEN test ${MAVEN_TEST} -pl :trino-hive -P cloud-tests
           fi
       - name: Upload test results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         # Upload all test reports only on failure, because the artifacts are large
         if: failure()
         with:
@@ -370,7 +370,7 @@ jobs:
             **/target/surefire-reports
             **/target/checkstyle-*
       - name: Upload test report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         # Always upload the test report for the annotate.yml workflow,
         # but only the single XML file to keep the artifact small
         if: always()
@@ -381,7 +381,7 @@ jobs:
             **/surefire-reports/TEST-*.xml
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
       - name: Upload heap dump
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: heap dump ${{ github.job }} (${{ matrix.config }})
@@ -589,7 +589,7 @@ jobs:
             !:trino-tests,
             !:trino-thrift'
       - name: Upload test results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         # Upload all test reports only on failure, because the artifacts are large
         if: failure()
         with:
@@ -598,7 +598,7 @@ jobs:
             **/target/surefire-reports
             **/target/checkstyle-*
       - name: Upload test report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         # Always upload the test report for the annotate.yml workflow,
         # but only the single XML file to keep the artifact small
         if: always()
@@ -609,7 +609,7 @@ jobs:
             **/surefire-reports/TEST-*.xml
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
       - name: Upload heap dump
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: heap dump ${{ github.job }}
@@ -1029,9 +1029,10 @@ jobs:
           # an environment variable ARTIFACT_NAME
           # ", :, <, >, |, *, ?, \, / are not allowed in artifact names, replace it with an underscore
           name=$(echo -n "${{ matrix.modules }}, ${{ matrix.profile }}, ${{ matrix.jdk }}, ${{ matrix.cloud }}" | sed -e 's/[":<>|\*\?\\\/]/_/g')
-          echo "ARTIFACT_NAME=$name" >> $GITHUB_ENV
+          # final artifact name can't be longer than 128 characters
+          echo "ARTIFACT_NAME=${name:0:100}" >> $GITHUB_ENV
       - name: Upload test results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         # Upload all test reports only on failure, because the artifacts are large
         if: failure()
         with:
@@ -1040,7 +1041,7 @@ jobs:
             **/target/surefire-reports
             **/target/checkstyle-*
       - name: Upload test report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         # Always upload the test report for the annotate.yml workflow,
         # but only the single XML file to keep the artifact small
         if: always()
@@ -1051,7 +1052,7 @@ jobs:
             **/surefire-reports/TEST-*.xml
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
       - name: Upload heap dump
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: heap dump ${{ github.job }} (${{ env.ARTIFACT_NAME }})
@@ -1122,7 +1123,7 @@ jobs:
           echo "Impacted plugin features:"
           cat impacted-features.log
       - name: Product tests artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: product tests and server tarball
           path: |
@@ -1283,7 +1284,7 @@ jobs:
           cache: false
           download_dependencies: false
       - name: Product tests artifact
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: product tests and server tarball
       - name: Fix artifact permissions
@@ -1325,7 +1326,7 @@ jobs:
             ${PTL_OPTS:-} \
             --bind=off --logs-dir logs/ --timeout 2h
       - name: Upload test logs and results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         # Upload all test reports only on failure, because the artifacts are large
         if: failure()
         with:
@@ -1334,7 +1335,7 @@ jobs:
             testing/trino-product-tests/target/*
             logs/*
       - name: Upload test report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         # Always upload the test report for the annotate.yml workflow,
         # but only the single XML file to keep the artifact small
         if: always()
