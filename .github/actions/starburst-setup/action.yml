@@ -1,0 +1,61 @@
+name: "starburst-init-action"
+description: "Perform common initialization steps for Starburst specific workflow"
+inputs:
+  aws-access-key-id:
+    description: "Access key id for login to AWS"
+    required: true
+  aws-secret-access-key:
+    description: "Secret access key for login to AWS"
+    required: true
+  secret-id:
+    description: "Id of secret from AWS Secrets Manager to use"
+    required: true
+  aws-region:
+    description: "Default AWS region to use"
+    required: false
+    default: "us-east-2"
+  login-maven:
+    description: "Should we login to codeartifact?"
+    required: false
+    default: "true"
+
+outputs:
+  run-job:
+    description: "Should job run?"
+    value: ${{ steps.job-should-run.outputs.run-job }}
+
+runs:
+  using: composite
+  steps:
+    - name: "GHA Node Info"
+      shell: bash
+      run: |
+        echo " *** Runner info"
+        curl -SsL --retry 3 http://instance-data/latest/dynamic/instance-identity/document || true
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ inputs.aws-access-key-id }}
+        aws-secret-access-key: ${{ inputs.aws-secret-access-key }}
+        aws-region: ${{ inputs.aws-region }}
+    - name: "Show AWS user"
+      shell: bash
+      run: |
+        echo " *** AWS user info"
+        aws sts get-caller-identity
+    - name: "Fetch secrets"
+      uses: t-botz/aws-secrets-manager-read-action@v2
+      id: secrets
+      env:
+        SEP_SECRET_ARN: "${{ inputs.secret-id }}"
+      with:
+        secret-id: ${{ env.SEP_SECRET_ARN }}
+        keys-as-env-vars: true
+        mask-json-values: true
+    - name: "Login to maven registry"
+      if: inputs.login-maven != 'false'
+      uses: starburstdata/codeartifact-login-action@v1
+      with:
+        domain: starburstdata-sep-cicd
+        owner: 843985043183
+        region: us-east-2

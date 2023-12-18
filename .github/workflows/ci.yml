@@ -18,8 +18,13 @@ defaults:
 env:
   # An envar that signals to tests we are executing in the CI environment
   CONTINUOUS_INTEGRATION: true
+  # credentials for the private repository
+  mavenReleaseUsername: ${{ secrets.CODE_ARTIFACT_USERNAME }}
+  mavenReleasePassword: ${{ secrets.CODE_ARTIFACT_PASSWORD }}
+  mavenSnapshotsUsername: ${{ secrets.CODE_ARTIFACT_USERNAME }}
+  mavenSnapshotsPassword: ${{ secrets.CODE_ARTIFACT_PASSWORD }}
   # allow overriding Maven command
-  MAVEN: ./mvnw --offline
+  MAVEN: ./mvnw --offline -s .github/settings.xml
   # maven.wagon.rto is in millis, defaults to 30m
   MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
   MAVEN_INSTALL_OPTS: "-Xmx3G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
@@ -69,6 +74,12 @@ jobs:
             ${{ github.event_name == 'repository_dispatch' &&
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
+      - name: Set up AWS code-artifacts login
+        uses: ./.github/actions/starburst-setup
+        with:
+          aws-access-key-id: ${{ secrets.ENG_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.ENG_AWS_SECRET_ACCESS_KEY }}
+          secret-id: ${{ secrets.SEP_SECRETS_AWS_ID }}
       - uses: ./.github/actions/setup
         with:
           java-version: ${{ matrix.java-version }}
@@ -97,6 +108,13 @@ jobs:
             ${{ github.event_name == 'repository_dispatch' &&
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
+      - name: Set up AWS code-artifacts login
+        uses: ./.github/actions/starburst-setup
+        with:
+          aws-access-key-id: ${{ secrets.ENG_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.ENG_AWS_SECRET_ACCESS_KEY }}
+          secret-id:
+            ${{ secrets.SEP_SECRETS_AWS_ID }}
       - uses: ./.github/actions/setup
         with:
           cleanup-node: true
@@ -188,6 +206,12 @@ jobs:
             ${{ github.event_name == 'repository_dispatch' &&
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
+      - name: Set up AWS code-artifacts login
+        uses: ./.github/actions/starburst-setup
+        with:
+          aws-access-key-id: ${{ secrets.ENG_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.ENG_AWS_SECRET_ACCESS_KEY }}
+          secret-id: ${{ secrets.SEP_SECRETS_AWS_ID }}
       - uses: ./.github/actions/setup
         with:
           cache: restore
@@ -229,6 +253,12 @@ jobs:
             ${{ github.event_name == 'repository_dispatch' &&
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
+      - name: Set up AWS code-artifacts login
+        uses: ./.github/actions/starburst-setup
+        with:
+          aws-access-key-id: ${{ secrets.ENG_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.ENG_AWS_SECRET_ACCESS_KEY }}
+          secret-id: ${{ secrets.SEP_SECRETS_AWS_ID }}
       - uses: ./.github/actions/setup
         with:
           cache: restore
@@ -296,6 +326,12 @@ jobs:
             ${{ github.event_name == 'repository_dispatch' &&
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
+      - name: Set up AWS code-artifacts login
+        uses: ./.github/actions/starburst-setup
+        with:
+          aws-access-key-id: ${{ secrets.ENG_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.ENG_AWS_SECRET_ACCESS_KEY }}
+          secret-id: ${{ secrets.SEP_SECRETS_AWS_ID }}
       - uses: ./.github/actions/setup
         with:
           cache: restore
@@ -436,6 +472,12 @@ jobs:
             ${{ github.event_name == 'repository_dispatch' &&
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
+      - name: Set up AWS code-artifacts login
+        uses: ./.github/actions/starburst-setup
+        with:
+          aws-access-key-id: ${{ secrets.ENG_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.ENG_AWS_SECRET_ACCESS_KEY }}
+          secret-id: ${{ secrets.SEP_SECRETS_AWS_ID }}
       - uses: ./.github/actions/setup
         with:
           cache: restore
@@ -540,6 +582,12 @@ jobs:
             ${{ github.event_name == 'repository_dispatch' &&
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
+      - name: Set up AWS code-artifacts login
+        uses: ./.github/actions/starburst-setup
+        with:
+          aws-access-key-id: ${{ secrets.ENG_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.ENG_AWS_SECRET_ACCESS_KEY }}
+          secret-id: ${{ secrets.SEP_SECRETS_AWS_ID }}
       - uses: ./.github/actions/setup
         with:
           cache: restore
@@ -657,6 +705,12 @@ jobs:
             ${{ github.event_name == 'repository_dispatch' &&
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
+      - name: Set up AWS code-artifacts login
+        uses: ./.github/actions/starburst-setup
+        with:
+          aws-access-key-id: ${{ secrets.ENG_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.ENG_AWS_SECRET_ACCESS_KEY }}
+          secret-id: ${{ secrets.SEP_SECRETS_AWS_ID }}
       - uses: ./.github/actions/setup
         with:
           cache: restore
@@ -948,6 +1002,12 @@ jobs:
             ${{ github.event_name == 'repository_dispatch' &&
                 github.event.client_payload.pull_request.head.sha == github.event.client_payload.slash_command.args.named.sha &&
                 format('refs/pull/{0}/head', github.event.client_payload.pull_request.number) || '' }}
+      - name: Set up AWS code-artifacts login
+        uses: ./.github/actions/starburst-setup
+        with:
+          aws-access-key-id: ${{ secrets.ENG_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.ENG_AWS_SECRET_ACCESS_KEY }}
+          secret-id: ${{ secrets.SEP_SECRETS_AWS_ID }}
       - uses: ./.github/actions/setup
         with:
           cache: restore

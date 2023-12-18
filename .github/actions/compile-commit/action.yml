@@ -35,7 +35,7 @@ runs:
         # It's important that these values are NOT passed as parameters, because then their values would always be taken from PR HEAD
         # -------
         # allow overriding Maven command
-        export MAVEN="./mvnw --offline"
+        export MAVEN="./mvnw --offline -s .github/settings.xml"
         # maven.wagon.rto is in millis, defaults to 30m
         MAVEN_INSTALL_OPTS="-Xmx3G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
         MAVEN_COMPILE_COMMITS="-B --strict-checksums --quiet -T 1C -DskipTests -Dmaven.source.skip=true -Dair.check.skip-all=true -Dmaven.javadoc.skip=true --no-snapshot-updates --no-transfer-progress -pl !:trino-server-rpm"

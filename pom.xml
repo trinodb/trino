@@ -207,6 +207,13 @@
         <dep.tcnative.version>2.0.62.Final</dep.tcnative.version>
         <dep.tempto.version>201</dep.tempto.version>
         <dep.wire.version>4.8.0</dep.wire.version>
+
+        <air.repository.snapshot.id>starburstdata-sep.snapshots</air.repository.snapshot.id>
+        <air.repository.snapshot.name>Starburstdata Snapshots</air.repository.snapshot.name>
+        <air.repository.snapshot.url>https://starburstdata-sep-cicd-843985043183.d.codeartifact.us-east-2.amazonaws.com/maven/snapshots/</air.repository.snapshot.url>
+        <air.repository.release.id>starburstdata-sep.releases</air.repository.release.id>
+        <air.repository.release.name>Starburstdata Releases</air.repository.release.name>
+        <air.repository.release.url>https://starburstdata-sep-cicd-843985043183.d.codeartifact.us-east-2.amazonaws.com/maven/releases/</air.repository.release.url>
     </properties>
 
     <dependencyManagement>
@@ -2162,6 +2169,30 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <repositories>
+        <!-- Allow the consumption of artifacts from our internal snapshot and release repositories for dynamodb, salesforce -->
+        <repository>
+            <releases>
+                <enabled>false</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+            <id>${air.repository.snapshot.id}</id>
+            <url>${air.repository.snapshot.url}</url>
+        </repository>
+        <repository>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+            <id>${air.repository.release.id}</id>
+            <url>${air.repository.release.url}</url>
+        </repository>
+    </repositories>
 
     <build>
         <pluginManagement>
