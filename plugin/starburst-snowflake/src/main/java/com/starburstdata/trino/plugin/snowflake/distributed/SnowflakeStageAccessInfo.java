@@ -132,6 +132,9 @@ public class SnowflakeStageAccessInfo
                 helper.add("wasbStorageAccount", wasbStorageAccount);
                 helper.add("wasbEndPoint", wasbEndPoint);
                 break;
+            case LOCAL_FS:
+            case GCS:
+                break;
         }
         return helper.toString();
     }

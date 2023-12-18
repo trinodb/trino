@@ -451,6 +451,7 @@ jobs:
             !:starburst-ci-cd,
             !:starburst-license,
             !:starburst-plugin-toolkit,
+            !:starburst-snowflake,
             !:trino-accumulo,
             !:trino-base-jdbc,
             !:trino-bigquery,
@@ -585,6 +586,12 @@ jobs:
             - { modules: lib/trino-filesystem-azure, profile: cloud-tests }
             - { modules: lib/trino-hdfs, profile: cloud-tests }
             - { modules: lib/trino-filesystem-gcs, profile: cloud-tests }
+            - { modules: plugin/starburst-snowflake, profile: default, cloud: aws }
+            - { modules: plugin/starburst-snowflake, profile: default, cloud: azure }
+            - { modules: plugin/starburst-snowflake, profile: distributed-integration-tests, cloud: aws }
+            - { modules: plugin/starburst-snowflake, profile: distributed-integration-tests, cloud: azure }
+            - { modules: plugin/starburst-snowflake, profile: jdbc-integration-tests, cloud: aws }
+            - { modules: plugin/starburst-snowflake, profile: parallel-integration-tests, cloud: aws }
             - { modules: plugin/trino-accumulo }
             - { modules: plugin/trino-bigquery }
             - { modules: plugin/trino-bigquery, profile: cloud-tests-arrow-and-fte }
@@ -662,6 +669,7 @@ jobs:
       - name: Maven Tests
         if: >-
           matrix.modules != 'plugin/trino-singlestore'
+          && matrix.modules != 'plugin/starburst-snowflake'
           && ! (contains(matrix.modules, 'trino-delta-lake') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-bigquery') && contains(matrix.profile, 'cloud-tests-arrow-and-fte'))
@@ -673,6 +681,41 @@ jobs:
           && ! (contains(matrix.modules, 'trino-filesystem-gcs') && contains(matrix.profile, 'cloud-tests'))
         run: $MAVEN test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }}
       # Additional tests for selected modules
+      - name: Run Snowflake AWS tests
+        env:
+          SNOWFLAKE_ACCOUNT_NAME: ${{ secrets.SNOWFLAKE_ACCOUNT_NAME }}
+          SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
+        if: >-
+          contains(matrix.modules, 'starburst-snowflake') &&
+          contains(matrix.cloud, 'aws') &&
+          (env.SNOWFLAKE_ACCOUNT_NAME != '' || env.SNOWFLAKE_PASSWORD != '')
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }} \
+          -Dsnowflake.test.server.url=jdbc:snowflake://"${SNOWFLAKE_ACCOUNT_NAME}".snowflakecomputing.com/ \
+          -Dsnowflake.test.server.user=test_user \
+          -Dsnowflake.test.server.password="${SNOWFLAKE_PASSWORD}" \
+          -Dsnowflake.test.server.role=test_role \
+          -Dsnowflake.test.warehouse=TRINO_PLUGINS_TEST_WH \
+          -Dsnowflake.test.account-url=https://"${SNOWFLAKE_ACCOUNT_NAME}".snowflakecomputing.com
+      - name: Run Snowflake Azure tests
+        env:
+          SNOWFLAKE_AZURE_ACCOUNT_NAME: ${{ secrets.SNOWFLAKE_AZURE_ACCOUNT_NAME }}
+          SNOWFLAKE_AZURE_PASSWORD: ${{ secrets.SNOWFLAKE_AZURE_PASSWORD }}
+          SNOWFLAKE_AZURE_REGION: ${{ secrets.SNOWFLAKE_AZURE_REGION }}
+        if: >-
+          contains(matrix.modules, 'starburst-snowflake') &&
+          contains(matrix.cloud, 'azure') &&
+          (env.SNOWFLAKE_AZURE_ACCOUNT_NAME != '' || env.SNOWFLAKE_AZURE_PASSWORD != '' || env.SNOWFLAKE_AZURE_REGION != '')
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }} \
+          -Dsnowflake.test.server.url=jdbc:snowflake://"${SNOWFLAKE_AZURE_ACCOUNT_NAME}"."${SNOWFLAKE_AZURE_REGION}".azure.snowflakecomputing.com/ \
+          -Dsnowflake.test.server.user=test_user \
+          -Dsnowflake.test.server.password="${SNOWFLAKE_AZURE_PASSWORD}" \
+          -Dsnowflake.test.server.role=test_role \
+          -Dsnowflake.test.warehouse=TRINO_PLUGINS_TEST_WH \
+          -Dsnowflake.test.account-url=https://"${SNOWFLAKE_AZURE_ACCOUNT_NAME}"."${SNOWFLAKE_AZURE_REGION}".azure.snowflakecomputing.com
       - name: HDFS file system cache isolated JVM tests
         if: contains(matrix.modules, 'trino-hdfs')
         run: |

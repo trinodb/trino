@@ -3,9 +3,9 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.starburstdata.trino.plugin</groupId>
-        <artifactId>starburst-trino-plugins</artifactId>
-        <version>435-SNAPSHOT</version>
+        <groupId>io.trino</groupId>
+        <artifactId>trino-root</artifactId>
+        <version>434-cork-1-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -48,10 +48,7 @@
         <dependency>
             <groupId>com.microsoft.azure</groupId>
             <artifactId>azure-keyvault-cryptography</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.starburstdata.trino.plugin</groupId>
-            <artifactId>starburst-base-jdbc</artifactId>
+            <version>1.0.0</version>
         </dependency>
 
         <dependency>
@@ -87,6 +84,10 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>starburst-base-jdbc</artifactId>
         </dependency>
 
         <dependency>
@@ -164,6 +165,7 @@
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpclient</artifactId>
+            <version>4.5.13</version>
             <exclusions>
                 <!-- commons-logging:commons-logging:1.2 conflicts with io.trino:trino-base-jdbc     -->
                 <!-- > io.trino:trino-base-jdbc > org.slf4j:jcl-over-slf4j:2.0.7 (duplicate classes) -->
@@ -266,6 +268,10 @@
                 <exclusion>
                     <groupId>com.microsoft.azure</groupId>
                     <artifactId>msal4j</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>javax.annotation</groupId>
+                    <artifactId>javax.annotation-api</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -407,6 +413,7 @@
                     <configuration>
                         <licenseSets>
                             <licenseSet>
+                                <header>${starburst-license.header-file}</header>
                                 <!-- exclude as files are coming from hadoop library and do not contain Starburst license headers -->
                                 <excludes combine.children="append">
                                     <exclude>src/main/java/org/apache/hadoop/fs/azure/SymmetricKey.java</exclude>
@@ -455,21 +462,6 @@
                                 </conflictingDependencies>
                                 <resources>
                                     <resource>mime.types</resource>
-                                </resources>
-                            </exception>
-                            <exception>
-                                <conflictingDependencies>
-                                    <dependency>
-                                        <groupId>net.snowflake</groupId>
-                                        <artifactId>snowflake-jdbc</artifactId>
-                                    </dependency>
-                                    <dependency>
-                                        <groupId>org.apache.httpcomponents</groupId>
-                                        <artifactId>httpclient</artifactId>
-                                    </dependency>
-                                </conflictingDependencies>
-                                <resources>
-                                    <resource>mozilla/public-suffix-list.txt</resource>
                                 </resources>
                             </exception>
                             <exception>

@@ -127,6 +127,7 @@ public final class ConverterFactory
                                 return new BigIntToScaledFixedConverter(vector, index, conversionContext, scale);
                             }
                         }
+                        default -> {}
                     }
                 }
                 case REAL -> {

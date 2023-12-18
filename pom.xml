@@ -63,6 +63,7 @@
         <module>lib/trino-plugin-toolkit</module>
         <module>lib/trino-record-decoder</module>
         <module>plugin/starburst-base-jdbc</module>
+        <module>plugin/starburst-snowflake</module>
         <module>plugin/trino-accumulo</module>
         <module>plugin/trino-accumulo-iterators</module>
         <module>plugin/trino-atop</module>
@@ -958,6 +959,12 @@
                 <artifactId>re2j</artifactId>
                 <version>1.6</version>
             </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>starburst-base-jdbc</artifactId>
+                <version>${project.version}</version>
+            </dependency>
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-array</artifactId>
@@ -1069,6 +1076,13 @@
                 <groupId>io.trino</groupId>
                 <artifactId>trino-faulttolerant-tests</artifactId>
                 <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>trino-faulttolerant-tests</artifactId>
+                <version>${project.version}</version>
+                <type>test-jar</type>
             </dependency>
 
             <dependency>
@@ -2317,6 +2331,10 @@
                                     <dependency>
                                         <groupId>org.apache.httpcomponents</groupId>
                                         <artifactId>httpclient</artifactId>
+                                    </dependency>
+                                    <dependency>
+                                        <groupId>net.snowflake</groupId>
+                                        <artifactId>snowflake-jdbc</artifactId>
                                     </dependency>
                                     <dependency>
                                         <groupId>org.apache.httpcomponents.client5</groupId>
