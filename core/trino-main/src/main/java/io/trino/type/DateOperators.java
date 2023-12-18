@@ -60,7 +60,7 @@ public final class DateOperators
         // Note: update DomainTranslator.Visitor.createVarcharCastToDateComparisonExtractionResult whenever CAST behavior changes.
 
         try {
-            return parseDate(trim(value).toStringUtf8());
+            return parseDate(trim(value).toStringUtf8().split(" ")[0]);
         }
         catch (IllegalArgumentException | ArithmeticException | DateTimeException e) {
             throw new TrinoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to date: " + value.toStringUtf8(), e);
