@@ -13,17 +13,27 @@
  */
 package io.trino.plugin.opa;
 
+import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import io.airlift.json.JsonCodec;
+import io.trino.plugin.opa.schema.OpaColumnMaskQueryResult;
 import io.trino.plugin.opa.schema.OpaQueryContext;
 import io.trino.plugin.opa.schema.OpaQueryInput;
 import io.trino.plugin.opa.schema.OpaQueryInputAction;
 import io.trino.plugin.opa.schema.OpaQueryInputResource;
 import io.trino.plugin.opa.schema.OpaQueryResult;
+import io.trino.plugin.opa.schema.OpaRowFiltersQueryResult;
+import io.trino.plugin.opa.schema.OpaViewExpression;
+import io.trino.plugin.opa.schema.TrinoColumn;
+import io.trino.plugin.opa.schema.TrinoTable;
+import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.security.AccessDeniedException;
+import io.trino.spi.type.Type;
 
 import java.net.URI;
 import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
@@ -32,18 +42,28 @@ import static java.util.Objects.requireNonNull;
 public class OpaHighLevelClient
 {
     private final JsonCodec<OpaQueryResult> queryResultCodec;
-    private final URI opaPolicyUri;
+    private final JsonCodec<OpaRowFiltersQueryResult> rowFiltersQueryResultCodec;
+    private final JsonCodec<OpaColumnMaskQueryResult> columnMaskQueryResultCodec;
     private final OpaHttpClient opaHttpClient;
+    private final URI opaPolicyUri;
+    private final Optional<URI> opaRowFiltersUri;
+    private final Optional<URI> opaColumnMaskingUri;
 
     @Inject
     public OpaHighLevelClient(
             JsonCodec<OpaQueryResult> queryResultCodec,
+            JsonCodec<OpaRowFiltersQueryResult> rowFiltersQueryResultCodec,
+            JsonCodec<OpaColumnMaskQueryResult> columnMaskQueryResultCodec,
             OpaHttpClient opaHttpClient,
             OpaConfig config)
     {
         this.queryResultCodec = requireNonNull(queryResultCodec, "queryResultCodec is null");
+        this.rowFiltersQueryResultCodec = requireNonNull(rowFiltersQueryResultCodec, "rowFiltersQueryResultCodec is null");
+        this.columnMaskQueryResultCodec = requireNonNull(columnMaskQueryResultCodec, "columnMaskQueryResultCodec is null");
         this.opaHttpClient = requireNonNull(opaHttpClient, "opaHttpClient is null");
         this.opaPolicyUri = config.getOpaUri();
+        this.opaRowFiltersUri = config.getOpaRowFiltersUri();
+        this.opaColumnMaskingUri = config.getOpaColumnMaskingUri();
     }
 
     public boolean queryOpa(OpaQueryInput input)
@@ -103,6 +123,31 @@ public class OpaHighLevelClient
             Function<T, OpaQueryInput> requestBuilder)
     {
         return opaHttpClient.parallelFilterFromOpa(items, requestBuilder, opaPolicyUri, queryResultCodec);
+    }
+
+    public List<OpaViewExpression> getRowFilterExpressionsFromOpa(OpaQueryContext context, CatalogSchemaTableName table)
+    {
+        OpaQueryInput queryInput = new OpaQueryInput(
+                context,
+                OpaQueryInputAction.builder()
+                        .operation("GetRowFilters")
+                        .resource(OpaQueryInputResource.builder().table(new TrinoTable(table)).build())
+                        .build());
+        return opaRowFiltersUri
+                .map(uri -> opaHttpClient.consumeOpaResponse(opaHttpClient.submitOpaRequest(queryInput, uri, rowFiltersQueryResultCodec)).result())
+                .orElse(ImmutableList.of());
+    }
+
+    public Optional<OpaViewExpression> getColumnMaskFromOpa(OpaQueryContext context, CatalogSchemaTableName table, String columnName, Type type)
+    {
+        OpaQueryInput queryInput = new OpaQueryInput(
+                context,
+                OpaQueryInputAction.builder()
+                        .operation("GetColumnMask")
+                        .resource(OpaQueryInputResource.builder().column(new TrinoColumn(table, columnName, type)).build())
+                        .build());
+        return opaColumnMaskingUri
+                .flatMap(uri -> opaHttpClient.consumeOpaResponse(opaHttpClient.submitOpaRequest(queryInput, uri, columnMaskQueryResultCodec)).result());
     }
 
     public static OpaQueryInput buildQueryInputForSimpleResource(OpaQueryContext context, String operation, OpaQueryInputResource resource)
