@@ -22,6 +22,7 @@ import io.trino.plugin.opa.schema.OpaQueryContext;
 import io.trino.plugin.opa.schema.OpaQueryInput;
 import io.trino.plugin.opa.schema.OpaQueryInputAction;
 import io.trino.plugin.opa.schema.OpaQueryInputResource;
+import io.trino.plugin.opa.schema.OpaViewExpression;
 import io.trino.plugin.opa.schema.TrinoCatalogSessionProperty;
 import io.trino.plugin.opa.schema.TrinoFunction;
 import io.trino.plugin.opa.schema.TrinoGrantPrincipal;
@@ -40,15 +41,19 @@ import io.trino.spi.security.Privilege;
 import io.trino.spi.security.SystemAccessControl;
 import io.trino.spi.security.SystemSecurityContext;
 import io.trino.spi.security.TrinoPrincipal;
+import io.trino.spi.security.ViewExpression;
+import io.trino.spi.type.Type;
 
 import java.security.Principal;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.opa.OpaHighLevelClient.buildQueryInputForSimpleResource;
@@ -707,6 +712,23 @@ public sealed class OpaAccessControl
                 "DropFunction",
                 () -> denyDropFunction(functionName.toString()),
                 OpaQueryInputResource.builder().function(TrinoFunction.fromTrinoFunction(functionName)).build());
+    }
+
+    @Override
+    public List<ViewExpression> getRowFilters(SystemSecurityContext context, CatalogSchemaTableName tableName)
+    {
+        List<OpaViewExpression> rowFilterExpressions = opaHighLevelClient.getRowFilterExpressionsFromOpa(buildQueryContext(context), tableName);
+        return rowFilterExpressions.stream()
+                .map(expression -> expression.toTrinoViewExpression(tableName.getCatalogName(), tableName.getSchemaTableName().getSchemaName()))
+                .collect(toImmutableList());
+    }
+
+    @Override
+    public Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
+    {
+        return opaHighLevelClient
+                .getColumnMaskFromOpa(buildQueryContext(context), tableName, columnName, type)
+                .map(expression -> expression.toTrinoViewExpression(tableName.getCatalogName(), tableName.getSchemaTableName().getSchemaName()));
     }
 
     private void checkTableOperation(SystemSecurityContext context, String actionName, CatalogSchemaTableName table, Consumer<String> deny)
