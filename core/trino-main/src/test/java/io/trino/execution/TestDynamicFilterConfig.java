@@ -47,15 +47,15 @@ public class TestDynamicFilterConfig
                 .setSmallMaxSizePerFilter(DataSize.of(5, MEGABYTE))
                 .setSmallDynamicFilterWaitTimeout(new Duration(20, TimeUnit.SECONDS))
                 .setSmallDynamicFilterMaxRowCount(100_000)
-                .setLargeMaxDistinctValuesPerDriver(10_000)
-                .setLargeMaxSizePerDriver(DataSize.of(2, MEGABYTE))
-                .setLargeRangeRowLimitPerDriver(20_000)
+                .setLargeMaxDistinctValuesPerDriver(50_000)
+                .setLargeMaxSizePerDriver(DataSize.of(4, MEGABYTE))
+                .setLargeRangeRowLimitPerDriver(100_000)
                 .setLargeMaxSizePerOperator(DataSize.of(5, MEGABYTE))
-                .setLargePartitionedMaxDistinctValuesPerDriver(1_000)
+                .setLargePartitionedMaxDistinctValuesPerDriver(20_000)
                 .setLargePartitionedMaxSizePerDriver(DataSize.of(200, KILOBYTE))
-                .setLargePartitionedRangeRowLimitPerDriver(2_000)
-                .setLargePartitionedMaxSizePerOperator(DataSize.of(2, MEGABYTE))
-                .setLargeMaxSizePerFilter(DataSize.of(5, MEGABYTE)));
+                .setLargePartitionedRangeRowLimitPerDriver(30_000)
+                .setLargePartitionedMaxSizePerOperator(DataSize.of(5, MEGABYTE))
+                .setLargeMaxSizePerFilter(DataSize.of(10, MEGABYTE)));
     }
 
     @Test
@@ -104,7 +104,7 @@ public class TestDynamicFilterConfig
                 .setSmallMaxSizePerFilter(DataSize.of(341, KILOBYTE))
                 .setLargeMaxDistinctValuesPerDriver(256)
                 .setLargeMaxSizePerDriver(DataSize.of(64, KILOBYTE))
-                .setLargeRangeRowLimitPerDriver(200000)
+                .setLargeRangeRowLimitPerDriver(200_000)
                 .setLargeMaxSizePerOperator(DataSize.of(642, KILOBYTE))
                 .setLargePartitionedMaxDistinctValuesPerDriver(256)
                 .setLargePartitionedMaxSizePerDriver(DataSize.of(64, KILOBYTE))

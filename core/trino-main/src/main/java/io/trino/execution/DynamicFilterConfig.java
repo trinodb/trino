@@ -67,15 +67,15 @@ public class DynamicFilterConfig
     private DataSize smallPartitionedMaxSizePerOperator = DataSize.of(500, KILOBYTE);
     private DataSize smallMaxSizePerFilter = DataSize.of(5, MEGABYTE);
 
-    private int largeMaxDistinctValuesPerDriver = 10_000;
-    private DataSize largeMaxSizePerDriver = DataSize.of(2, MEGABYTE);
-    private int largeRangeRowLimitPerDriver = 20_000;
+    private int largeMaxDistinctValuesPerDriver = 50_000;
+    private DataSize largeMaxSizePerDriver = DataSize.of(4, MEGABYTE);
+    private int largeRangeRowLimitPerDriver = 100_000;
     private DataSize largeMaxSizePerOperator = DataSize.of(5, MEGABYTE);
-    private int largePartitionedMaxDistinctValuesPerDriver = 1_000;
+    private int largePartitionedMaxDistinctValuesPerDriver = 20_000;
     private DataSize largePartitionedMaxSizePerDriver = DataSize.of(200, KILOBYTE);
-    private int largePartitionedRangeRowLimitPerDriver = 2_000;
-    private DataSize largePartitionedMaxSizePerOperator = DataSize.of(2, MEGABYTE);
-    private DataSize largeMaxSizePerFilter = DataSize.of(5, MEGABYTE);
+    private int largePartitionedRangeRowLimitPerDriver = 30_000;
+    private DataSize largePartitionedMaxSizePerOperator = DataSize.of(5, MEGABYTE);
+    private DataSize largeMaxSizePerFilter = DataSize.of(10, MEGABYTE);
 
     public boolean isEnableDynamicFiltering()
     {
@@ -372,7 +372,7 @@ public class DynamicFilterConfig
     }
 
     @NotNull
-    @MaxDataSize("10MB")
+    @MaxDataSize("15MB")
     public DataSize getLargeMaxSizePerFilter()
     {
         return largeMaxSizePerFilter;
