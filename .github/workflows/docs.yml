@@ -106,7 +106,7 @@ jobs:
           name=$(echo -n "${{ matrix.modules }}" | sed -e 's/[:]//g')
           echo "ARTIFACT_NAME=$name" >> $GITHUB_ENV
       - name: Upload test results
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         # Upload all test reports only on failure, because the artifacts are large
         if: failure()
         with:
@@ -115,7 +115,7 @@ jobs:
             **/target/surefire-reports
             **/target/checkstyle-*
       - name: Upload test report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         # Always upload the test report for the annotate.yml workflow,
         # but only the single XML file to keep the artifact small
         if: always()
