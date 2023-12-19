@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import java.time.ZonedDateTime;
 
 import static io.trino.plugin.hudi.HudiQueryRunner.createHudiQueryRunner;
+import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_COW_PT_BOOTSTRAP_TBL;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_COW_PT_TBL;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_NON_PART_COW;
 import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_TICKS_COW;
@@ -166,6 +167,15 @@ public class TestHudiSmokeTest
         assertQuery("SELECT \"$partition\" FROM " + HUDI_COW_PT_TBL + " WHERE id = 2", "VALUES 'dt=2021-12-09/hh=11'");
 
         assertQueryFails("SELECT \"$partition\" FROM " + HUDI_NON_PART_COW, ".* Column '\\$partition' cannot be resolved");
+    }
+
+    @Test
+    public void testPartitionedNoMetaBootstrapTable()
+    {
+        assertQuery("SELECT id, name, ts, dt, hh FROM " + HUDI_COW_PT_BOOTSTRAP_TBL + " WHERE id = 1",
+                "SELECT * FROM VALUES (1, 'a1', 1000, '2021-12-09', '10')");
+        assertQuery("SELECT id, name, ts, dt, hh FROM " + HUDI_COW_PT_BOOTSTRAP_TBL + " WHERE id = 2",
+                "SELECT * FROM VALUES (2, 'a2', 1000, '2021-12-09', '11')");
     }
 
     private TrinoInputFile toInputFile(String path)
