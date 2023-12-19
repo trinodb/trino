@@ -37,6 +37,7 @@ import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThri
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.testing.TestingNames.randomNameSuffix;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
@@ -61,7 +62,7 @@ final class TestBridgingHiveMetastore
             catch (InvocationTargetException e) {
                 throw e.getCause();
             }
-            if (method.getName().equals("createDatabase") || method.getName().equals("createTable")) {
+            if (method.getName().equals("createDatabase") || method.getName().equals("createTable") || method.getName().equals("dropTable")) {
                 throw new RuntimeException("Test-simulated Hive Metastore timeout exception");
             }
             return result;
@@ -125,6 +126,33 @@ final class TestBridgingHiveMetastore
                 .isInstanceOf(TableAlreadyExistsException.class);
 
         getMetastore().dropTable(databaseName, tableName, false);
+        getMetastore().dropDatabase(databaseName, false);
+    }
+
+    @Test
+    public void testDropTableWithRetries()
+    {
+        String databaseName = "test_database_" + randomNameSuffix();
+        Database.Builder database = Database.builder()
+                .setDatabaseName(databaseName)
+                .setOwnerName(Optional.empty())
+                .setOwnerType(Optional.empty());
+        getMetastore().createDatabase(database.build());
+
+        String tableName = "test_table" + randomNameSuffix();
+        Table.Builder table = Table.builder()
+                .setDatabaseName(databaseName)
+                .setTableName(tableName)
+                .setTableType(EXTERNAL_TABLE.name())
+                .setOwner(Optional.empty());
+        table.getStorageBuilder()
+                .setStorageFormat(fromHiveStorageFormat(PARQUET));
+        getMetastore().createTable(table.build(), NO_PRIVILEGES);
+
+        assertThat(getMetastore().getTable(databaseName, tableName)).isPresent();
+        getMetastore().dropTable(databaseName, tableName, false);
+        assertThat(getMetastore().getTable(databaseName, tableName)).isEmpty();
+
         getMetastore().dropDatabase(databaseName, false);
     }
 }

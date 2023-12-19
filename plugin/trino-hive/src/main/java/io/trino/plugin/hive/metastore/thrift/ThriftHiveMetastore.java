@@ -103,6 +103,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
@@ -1062,13 +1063,27 @@ public final class ThriftHiveMetastore
     @Override
     public void dropTable(String databaseName, String tableName, boolean deleteData)
     {
+        AtomicInteger attemptCount = new AtomicInteger();
         try {
             retry()
                     .stopOn(NoSuchObjectException.class)
                     .stopOnIllegalExceptions()
                     .run("dropTable", stats.getDropTable().wrap(() -> {
                         try (ThriftMetastoreClient client = createMetastoreClient()) {
-                            Table table = client.getTable(databaseName, tableName);
+                            attemptCount.incrementAndGet();
+                            Table table;
+                            try {
+                                table = client.getTable(databaseName, tableName);
+                            }
+                            catch (NoSuchObjectException e) {
+                                if (attemptCount.get() == 1) {
+                                    // Throw exception only on first attempt.
+                                    throw e;
+                                }
+                                // If table is not found on consecutive attempts it was probably dropped on first attempt and timeout occurred.
+                                // Exception in such case can be safely ignored and dropping table is finished.
+                                return null;
+                            }
                             client.dropTable(databaseName, tableName, deleteData);
                             String tableLocation = table.getSd().getLocation();
                             if (deleteFilesOnDrop && deleteData && isManagedTable(table) && !isNullOrEmpty(tableLocation)) {
