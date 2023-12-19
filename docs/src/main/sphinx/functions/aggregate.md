@@ -180,7 +180,7 @@ Synopsis:
 
 ```
 LISTAGG( expression [, separator] [ON OVERFLOW overflow_behaviour])
-    WITHIN GROUP (ORDER BY sort_item, [...])
+    WITHIN GROUP (ORDER BY sort_item, [...]) [FILTER (WHERE condition)]
 ```
 
 If `separator` is not specified, the empty string will be used as `separator`.
@@ -241,28 +241,36 @@ results in:
  200 | b,c
 ```
 
-This aggregation function can be also used with the `FILTER` keyword to specify
-which rows are processed during the `listagg` aggregation:
-
-```sql
-SELECT listagg(value, ',')
-    WITHIN GROUP (ORDER BY id)
-    FILTER (WHERE id % 2 = 0) csv_value
-FROM (VALUES
-    (1, 'a'),
-    (2, 'b'),
-    (3, 'c'),
-    (4, 'd')
-) t(id, value)
-```
-
-The example aggregates rows that have even-numbered `id`, and concatenates
-`value` to a comma-separated string:
+This aggregation function supports
+[filtering during aggregation](aggregate-function-filtering-during-aggregation)
+for scenarios where the aggregation for the data not matching the filter
+condition still needs to show up in the output:
 
 ```
- csv_value
------------
- b,d
+SELECT 
+    country,
+    listagg(city, ',')
+        WITHIN GROUP (ORDER BY population DESC)
+        FILTER (WHERE population >= 10_000_000) megacities
+FROM (VALUES 
+    ('India', 'Bangalore', 13_700_000),
+    ('India', 'Chennai', 12_200_000),
+    ('India', 'Ranchi', 1_547_000),
+    ('Austria', 'Vienna', 1_897_000),
+    ('Poland', 'Warsaw', 1_765_000)
+) t(country, city, population)
+GROUP BY country
+ORDER BY country;
+```
+
+results in:
+
+```text
+ country |    megacities     
+---------+-------------------
+ Austria | NULL              
+ India   | Bangalore,Chennai 
+ Poland  | NULL
 ```
 
 The current implementation of `listagg` function does not support window frames.
