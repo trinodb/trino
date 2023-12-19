@@ -18,6 +18,7 @@ import io.airlift.units.Duration;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.hdfs.HdfsFileSystemFactory;
 import io.trino.plugin.hive.metastore.HiveMetastoreConfig;
+import io.trino.plugin.hive.metastore.thrift.MetastoreClientAdapterProvider;
 import io.trino.plugin.hive.metastore.thrift.TestingTokenAwareMetastoreClientFactory;
 import io.trino.plugin.hive.metastore.thrift.ThriftHiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastore;
@@ -32,6 +33,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.trino.plugin.base.security.UserNameProvider.SIMPLE_USER_NAME_PROVIDER;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
+import static io.trino.plugin.hive.metastore.thrift.TestingTokenAwareMetastoreClientFactory.TIMEOUT;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 
@@ -55,6 +57,14 @@ public final class TestingThriftHiveMetastoreBuilder
         requireNonNull(timeout, "timeout is null");
         checkState(tokenAwareMetastoreClientFactory == null, "Metastore client already set");
         tokenAwareMetastoreClientFactory = new TestingTokenAwareMetastoreClientFactory(HiveTestUtils.SOCKS_PROXY, address, timeout);
+        return this;
+    }
+
+    public TestingThriftHiveMetastoreBuilder metastoreClient(HostAndPort address, MetastoreClientAdapterProvider metastoreClientAdapterProvider)
+    {
+        requireNonNull(address, "address is null");
+        checkState(tokenAwareMetastoreClientFactory == null, "Metastore client already set");
+        tokenAwareMetastoreClientFactory = new TestingTokenAwareMetastoreClientFactory(HiveTestUtils.SOCKS_PROXY, address, TIMEOUT, metastoreClientAdapterProvider);
         return this;
     }
 
