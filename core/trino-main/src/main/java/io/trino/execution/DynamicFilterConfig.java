@@ -43,7 +43,7 @@ public class DynamicFilterConfig
 {
     private boolean enableDynamicFiltering = true;
     private boolean enableCoordinatorDynamicFiltersDistribution = true;
-    private boolean enableLargeDynamicFilters;
+    private boolean enableLargeDynamicFilters = true;
 
     private Duration smallDynamicFilterWaitTimeout = new Duration(20, SECONDS);
     private long smallDynamicFilterMaxRowCount = 100_000;

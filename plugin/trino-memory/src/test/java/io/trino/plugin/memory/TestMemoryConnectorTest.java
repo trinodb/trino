@@ -60,6 +60,7 @@ public class TestMemoryConnectorTest
         return createMemoryQueryRunner(
                 // Adjust DF limits to test edge cases
                 ImmutableMap.<String, String>builder()
+                        .put("enable-large-dynamic-filters", "false")
                         .put("dynamic-filtering.small.max-distinct-values-per-driver", "100")
                         .put("dynamic-filtering.small.range-row-limit-per-driver", "100")
                         .put("dynamic-filtering.large.max-distinct-values-per-driver", "100")

@@ -75,6 +75,8 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.SystemSessionProperties.CACHE_AGGREGATIONS_ENABLED;
 import static io.trino.SystemSessionProperties.CACHE_COMMON_SUBQUERIES_ENABLED;
 import static io.trino.SystemSessionProperties.CACHE_PROJECTIONS_ENABLED;
+import static io.trino.SystemSessionProperties.DYNAMIC_ROW_FILTERING_ENABLED;
+import static io.trino.SystemSessionProperties.ENABLE_LARGE_DYNAMIC_FILTERS;
 import static io.trino.cache.CommonSubqueriesExtractor.scanFilterProjectKey;
 import static io.trino.cost.StatsCalculator.noopStatsCalculator;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
@@ -623,6 +625,7 @@ public abstract class BaseCacheSubqueriesTest
     protected Session withCacheEnabled()
     {
         return Session.builder(getSession())
+                .setSystemProperty(ENABLE_LARGE_DYNAMIC_FILTERS, "false")
                 .setSystemProperty(CACHE_COMMON_SUBQUERIES_ENABLED, "true")
                 .setSystemProperty(CACHE_AGGREGATIONS_ENABLED, "true")
                 .setSystemProperty(CACHE_PROJECTIONS_ENABLED, "true")
@@ -632,6 +635,7 @@ public abstract class BaseCacheSubqueriesTest
     protected Session withCacheDisabled()
     {
         return Session.builder(getSession())
+                .setSystemProperty(ENABLE_LARGE_DYNAMIC_FILTERS, "false")
                 .setSystemProperty(CACHE_COMMON_SUBQUERIES_ENABLED, "false")
                 .setSystemProperty(CACHE_AGGREGATIONS_ENABLED, "false")
                 .setSystemProperty(CACHE_PROJECTIONS_ENABLED, "false")
@@ -641,7 +645,7 @@ public abstract class BaseCacheSubqueriesTest
     protected Session withDynamicRowFiltering(Session baseSession, boolean enabled)
     {
         return Session.builder(baseSession)
-                .setSystemProperty("dynamic_row_filtering_enabled", String.valueOf(enabled))
+                .setSystemProperty(DYNAMIC_ROW_FILTERING_ENABLED, String.valueOf(enabled))
                 .build();
     }
 
