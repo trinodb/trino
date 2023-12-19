@@ -90,10 +90,11 @@ final class ParquetWriters
             Map<List<String>, Type> trinoTypes,
             ParquetProperties parquetProperties,
             CompressionCodec compressionCodec,
+            int pageValueCountLimit,
             Optional<DateTimeZone> parquetTimeZone)
     {
         TrinoValuesWriterFactory valuesWriterFactory = new TrinoValuesWriterFactory(parquetProperties);
-        WriteBuilder writeBuilder = new WriteBuilder(messageType, trinoTypes, parquetProperties, valuesWriterFactory, compressionCodec, parquetTimeZone);
+        WriteBuilder writeBuilder = new WriteBuilder(messageType, trinoTypes, parquetProperties, valuesWriterFactory, compressionCodec, pageValueCountLimit, parquetTimeZone);
         ParquetTypeVisitor.visit(messageType, writeBuilder);
         return writeBuilder.build();
     }
@@ -106,6 +107,7 @@ final class ParquetWriters
         private final ParquetProperties parquetProperties;
         private final TrinoValuesWriterFactory valuesWriterFactory;
         private final CompressionCodec compressionCodec;
+        private final int pageValueCountLimit;
         private final Optional<DateTimeZone> parquetTimeZone;
         private final ImmutableList.Builder<ColumnWriter> builder = ImmutableList.builder();
 
@@ -115,6 +117,7 @@ final class ParquetWriters
                 ParquetProperties parquetProperties,
                 TrinoValuesWriterFactory valuesWriterFactory,
                 CompressionCodec compressionCodec,
+                int pageValueCountLimit,
                 Optional<DateTimeZone> parquetTimeZone)
         {
             this.type = requireNonNull(messageType, "messageType is null");
@@ -122,6 +125,7 @@ final class ParquetWriters
             this.parquetProperties = requireNonNull(parquetProperties, "parquetProperties is null");
             this.valuesWriterFactory = requireNonNull(valuesWriterFactory, "valuesWriterFactory is null");
             this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
+            this.pageValueCountLimit = pageValueCountLimit;
             this.parquetTimeZone = requireNonNull(parquetTimeZone, "parquetTimeZone is null");
         }
 
@@ -177,7 +181,8 @@ final class ParquetWriters
                     parquetProperties.newDefinitionLevelWriter(columnDescriptor),
                     parquetProperties.newRepetitionLevelWriter(columnDescriptor),
                     compressionCodec,
-                    parquetProperties.getPageSizeThreshold());
+                    parquetProperties.getPageSizeThreshold(),
+                    pageValueCountLimit);
         }
 
         private String[] currentPath()

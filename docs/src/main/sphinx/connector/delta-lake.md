@@ -199,6 +199,9 @@ The following table describes {ref}`catalog session properties
 * - `parquet_writer_page_size`
   - The maximum page size created by the Parquet writer.
   - `1MB`
+* - `parquet_writer_page_value_count`
+  - The maximum value count of pages created by the Parquet writer.
+  - `60000`
 * - `parquet_writer_batch_size`
   - Maximum number of rows processed by the Parquet writer in a batch.
   - `10000`
