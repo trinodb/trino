@@ -14,6 +14,7 @@
 package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.spi.QueryId;
@@ -126,6 +127,8 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public abstract class BaseJdbcConnectorTest
         extends BaseConnectorTest
 {
+    private static final Logger log = Logger.get(BaseJdbcConnectorTest.class);
+
     private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed(getClass().getName()));
 
     protected abstract SqlExecutor onRemoteDatabase();
@@ -1247,6 +1250,8 @@ public abstract class BaseJdbcConnectorTest
                 "nation_lowercase",
                 "AS SELECT nationkey, lower(name) name, regionkey FROM nation")) {
             for (JoinOperator joinOperator : JoinOperator.values()) {
+                log.info("Testing joinOperator=%s", joinOperator);
+
                 if (joinOperator == FULL_JOIN && !hasBehavior(SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN)) {
                     assertThat(query(session, "SELECT r.name, n.name FROM nation n FULL JOIN region r ON n.regionkey = r.regionkey"))
                             .joinIsNotFullyPushedDown();
@@ -1306,6 +1311,7 @@ public abstract class BaseJdbcConnectorTest
 
                 // inequality along with an equality, which constitutes an equi-condition and allows filter to remain as part of the Join
                 for (String operator : nonEqualities) {
+                    log.info("Testing [joinOperator=%s] operator=%s on number", joinOperator, operator);
                     assertJoinConditionallyPushedDown(
                             session,
                             format("SELECT n.name, c.name FROM nation n %s customer c ON n.nationkey = c.nationkey AND n.regionkey %s c.custkey", joinOperator, operator),
@@ -1314,6 +1320,7 @@ public abstract class BaseJdbcConnectorTest
 
                 // varchar inequality along with an equality, which constitutes an equi-condition and allows filter to remain as part of the Join
                 for (String operator : nonEqualities) {
+                    log.info("Testing [joinOperator=%s] operator=%s on varchar", joinOperator, operator);
                     assertJoinConditionallyPushedDown(
                             session,
                             format("SELECT n.name, nl.name FROM nation n %s %s nl ON n.regionkey = nl.regionkey AND n.name %s nl.name", joinOperator, nationLowercaseTable.getName(), operator),
