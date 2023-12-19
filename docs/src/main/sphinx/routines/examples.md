@@ -414,6 +414,71 @@ SELECT from_date_string(NULL); -- NULL (handles NULL string)
 SELECT from_date_string('abc'); -- NULL (not matched to any format)
 ```
 
+## Human readable days
+
+Trino includes a built-in function called {func}`human_readable_seconds` that
+formats a number of seconds into a string:
+
+```sql
+SELECT human_readable_seconds(134823);
+-- 1 day, 13 hours, 27 minutes, 3 seconds
+```
+
+The example routine `hrd` formats a number of days into a human readable text
+that provides the approximate number of years and months:
+
+```sql
+FUNCTION hrd(d integer)
+RETURNS VARCHAR
+BEGIN
+    DECLARE answer varchar default 'About ';
+    DECLARE years real;
+    DECLARE months real;
+    SET years = truncate(d/365);
+    IF years > 0 then
+        SET answer = answer || format('%1.0f', years) || ' year';
+    END IF;
+    IF years > 1 THEN
+        SET answer = answer || 's';
+    END IF;
+    SET d = d - cast( years AS integer) * 365 ;
+    SET months = truncate(d / 30);
+    IF months > 0 and years > 0 THEN
+        SET answer = answer || ' and ';
+    END IF;
+    IF months > 0 THEN
+        set answer = answer || format('%1.0f', months) || ' month';
+    END IF;
+    IF months > 1 THEN
+        SET answer = answer || 's';
+    END IF;
+    IF years < 1 and months < 1 THEN
+        SET answer = 'Less than 1 month';
+    END IF;
+    RETURN answer;
+END;
+```
+
+The following examples show the output for a range of values under one month, under
+one year, and various larger values:
+
+```sql
+SELECT hrd(10); -- Less than 1 month
+SELECT hrd(95); -- About 3 months
+SELECT hrd(400); -- About 1 year and 1 month
+SELECT hrd(369); -- About 1 year
+SELECT hrd(800); -- About 2 years and 2 months
+SELECT hrd(1100); -- About 3 years
+SELECT hrd(5000); -- About 13 years and 8 months
+```
+
+Improvements of the routine could include the following modifications:
+
+* Take into account that one month equals 30.4375 days.
+* Take into account that one year equals 365.25 days.
+* Add weeks to the output.
+* Expand the cover decades, centuries, and millenia.
+
 ## Truncating long strings
 
 This example routine `strtrunc` truncates strings longer than 60 characters,
@@ -628,8 +693,8 @@ The preceding query produces the following output:
 
 Trino already has a built-in `bar()` [color function](/functions/color), but
 it's using ANSI escape codes to output colors, and thus is only usable for
-displaying results in a terminal. The following example shows a similar
-function, that only uses ASCII characters.
+displaying results in a terminal. The following example shows a similar routine,
+that only uses ASCII characters.
 
 ```sql
 FUNCTION ascii_bar(value DOUBLE)
@@ -700,8 +765,8 @@ The preceding query produces the following output:
  3.1 | 0.0416 | ▋
 ```
 
-It's also possible to draw more compacted charts. Following is a function
-drawing vertical bars:
+It's also possible to draw more compacted charts. Following is a routine drawing
+vertical bars:
 
 ```sql
 FUNCTION vertical_bar(value DOUBLE)
