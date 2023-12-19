@@ -598,6 +598,7 @@ jobs:
             !:starburst-salesforce,
             !:starburst-snowflake,
             !:starburst-stargate,
+            !:starburst-synapse,
             !:trino-accumulo,
             !:trino-base-jdbc,
             !:trino-bigquery,
@@ -747,6 +748,10 @@ jobs:
             - { modules: plugin/starburst-snowflake, profile: jdbc-integration-tests, cloud: aws }
             - { modules: plugin/starburst-snowflake, profile: parallel-integration-tests, cloud: aws }
             - { modules: plugin/starburst-stargate }
+            - { modules: plugin/starburst-synapse }
+            - { modules: plugin/starburst-synapse, profile: fault-tolerant-tests }
+            - { modules: plugin/starburst-synapse, profile: long-running-tests }
+            - { modules: plugin/starburst-synapse, profile: type-mapping-tests }
             - { modules: plugin/trino-accumulo }
             - { modules: plugin/trino-bigquery }
             - { modules: plugin/trino-bigquery, profile: cloud-tests-arrow-and-fte }
@@ -840,6 +845,7 @@ jobs:
         if: >-
           matrix.modules != 'plugin/trino-singlestore'
           && matrix.modules != 'plugin/starburst-snowflake'
+          && matrix.modules != 'plugin/starburst-synapse'
           && ! (contains(matrix.modules, 'trino-delta-lake') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-iceberg') && contains(matrix.profile, 'cloud-tests'))
           && ! (contains(matrix.modules, 'trino-bigquery') && contains(matrix.profile, 'cloud-tests-arrow-and-fte'))
@@ -886,6 +892,20 @@ jobs:
           -Dsnowflake.test.server.role=test_role \
           -Dsnowflake.test.warehouse=TRINO_PLUGINS_TEST_WH \
           -Dsnowflake.test.account-url=https://"${SNOWFLAKE_AZURE_ACCOUNT_NAME}"."${SNOWFLAKE_AZURE_REGION}".azure.snowflakecomputing.com
+      - name: Run Synapse tests
+        env:
+          SYNAPSE_ENDPOINT: ${{ secrets.SYNAPSE_ENDPOINT }}
+          SYNAPSE_USER: ${{ secrets.SYNAPSE_USER }}
+          SYNAPSE_PASSWORD: ${{ secrets.SYNAPSE_PASSWORD }}
+        if: >-
+          contains(matrix.modules, 'starburst-synapse') &&
+          (env.SYNAPSE_ENDPOINT != '' || env.SYNAPSE_USER != '' || env.SYNAPSE_PASSWORD != '')
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }} ${{ matrix.profile != '' && format('-P {0}', matrix.profile) || '' }} \
+            -Dtest.synapse.jdbc.endpoint="${SYNAPSE_ENDPOINT}" \
+            -Dtest.synapse.jdbc.user="${SYNAPSE_USER}" \
+            -Dtest.synapse.jdbc.password="${SYNAPSE_PASSWORD}"
       - name: HDFS file system cache isolated JVM tests
         if: contains(matrix.modules, 'trino-hdfs')
         run: |
