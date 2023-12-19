@@ -97,13 +97,21 @@ public class PrimitiveColumnWriter
     private final ParquetCompressor compressor;
 
     private final int pageSizeThreshold;
+    private final int pageValueCountLimit;
 
     // Total size of compressed parquet pages and the current uncompressed page buffered in memory
     // Used by ParquetWriter to decide when a row group is big enough to flush
     private long bufferedBytes;
     private long pageBufferedBytes;
 
-    public PrimitiveColumnWriter(ColumnDescriptor columnDescriptor, PrimitiveValueWriter primitiveValueWriter, ValuesWriter definitionLevelWriter, ValuesWriter repetitionLevelWriter, CompressionCodec compressionCodec, int pageSizeThreshold)
+    public PrimitiveColumnWriter(
+            ColumnDescriptor columnDescriptor,
+            PrimitiveValueWriter primitiveValueWriter,
+            ValuesWriter definitionLevelWriter,
+            ValuesWriter repetitionLevelWriter,
+            CompressionCodec compressionCodec,
+            int pageSizeThreshold,
+            int pageValueCountLimit)
     {
         this.columnDescriptor = requireNonNull(columnDescriptor, "columnDescriptor is null");
         this.maxDefinitionLevel = columnDescriptor.getMaxDefinitionLevel();
@@ -113,6 +121,7 @@ public class PrimitiveColumnWriter
         this.compressionCodec = requireNonNull(compressionCodec, "compressionCodec is null");
         this.compressor = getCompressor(compressionCodec);
         this.pageSizeThreshold = pageSizeThreshold;
+        this.pageValueCountLimit = pageValueCountLimit;
         this.columnStatistics = Statistics.createStats(columnDescriptor.getPrimitiveType());
         this.compressedOutputStream = new ChunkedSliceOutput(MINIMUM_OUTPUT_BUFFER_CHUNK_SIZE, MAXIMUM_OUTPUT_BUFFER_CHUNK_SIZE);
     }
@@ -146,7 +155,7 @@ public class PrimitiveColumnWriter
         }
 
         long currentPageBufferedBytes = getCurrentPageBufferedBytes();
-        if (currentPageBufferedBytes >= pageSizeThreshold) {
+        if (valueCount >= pageValueCountLimit || currentPageBufferedBytes >= pageSizeThreshold) {
             flushCurrentPageToBuffer();
         }
         else {
