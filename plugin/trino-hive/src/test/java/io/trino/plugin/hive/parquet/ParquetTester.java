@@ -811,7 +811,8 @@ class ParquetTester
                 schemaConverter.getMessageType(),
                 schemaConverter.getPrimitiveTypes(),
                 ParquetWriterOptions.builder()
-                        .setMaxPageSize(DataSize.ofBytes(100))
+                        .setMaxPageSize(DataSize.ofBytes(2000))
+                        .setMaxPageValueCount(200)
                         .setMaxBlockSize(DataSize.ofBytes(100000))
                         .build(),
                 compressionCodec,

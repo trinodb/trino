@@ -69,6 +69,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcWriterValid
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterBatchSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterBlockSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterPageSize;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterPageValueCount;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcWriterValidate;
 import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_FPP;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
@@ -176,6 +177,7 @@ public class IcebergFileWriterFactory
 
             ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
                     .setMaxPageSize(getParquetWriterPageSize(session))
+                    .setMaxPageValueCount(getParquetWriterPageValueCount(session))
                     .setMaxBlockSize(getParquetWriterBlockSize(session))
                     .setBatchSize(getParquetWriterBatchSize(session))
                     .build();
