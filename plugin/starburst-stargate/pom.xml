@@ -3,9 +3,9 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.starburstdata.trino.plugin</groupId>
-        <artifactId>starburst-trino-plugins</artifactId>
-        <version>435-SNAPSHOT</version>
+        <groupId>io.trino</groupId>
+        <artifactId>trino-root</artifactId>
+        <version>434-cork-1-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -28,15 +28,6 @@
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
         </dependency>
-        <dependency>
-            <groupId>com.starburstdata.trino.plugin</groupId>
-            <artifactId>starburst-license</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.starburstdata.trino.plugin</groupId>
-            <artifactId>starburst-plugin-toolkit</artifactId>
-        </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
@@ -46,6 +37,15 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>log</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>starburst-license</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>starburst-plugin-toolkit</artifactId>
         </dependency>
 
         <dependency>
@@ -132,13 +132,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.starburstdata.trino.plugin</groupId>
-            <artifactId>starburst-base-jdbc</artifactId>
-            <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>junit-extensions</artifactId>
             <scope>test</scope>
@@ -147,6 +140,13 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>starburst-base-jdbc</artifactId>
+            <type>test-jar</type>
             <scope>test</scope>
         </dependency>
 
@@ -292,4 +292,22 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>com.mycila</groupId>
+                    <artifactId>license-maven-plugin</artifactId>
+                    <configuration>
+                        <licenseSets>
+                            <licenseSet>
+                                <header>${starburst-license.header-file}</header>
+                            </licenseSet>
+                        </licenseSets>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
 </project>

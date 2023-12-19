@@ -169,6 +169,7 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
         return ImmutableList.of(200);
     }
 
+    @Test
     @Override
     public void verifySupportsDeleteDeclaration()
     {
@@ -178,6 +179,7 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
         }
     }
 
+    @Test
     @Override
     public void verifySupportsRowLevelDeleteDeclaration()
     {
@@ -250,6 +252,7 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
         }
     }
 
+    @Test
     @Override
     public void verifySupportsUpdateDeclaration()
     {

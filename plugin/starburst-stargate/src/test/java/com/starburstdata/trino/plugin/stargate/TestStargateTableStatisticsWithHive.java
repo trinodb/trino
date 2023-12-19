@@ -499,6 +499,7 @@ public class TestStargateTableStatisticsWithHive
     // Hive connector doesn't support multiple writes in a same transaction
     // so we directly push the data to remote Starburst - https://starburstdata.atlassian.net/browse/SEP-4832
     // TODO: Modify the test data setup so that this overriden test can be removed - https://starburstdata.atlassian.net/browse/SEP-6680
+    @Test
     @Override
     public void testStatsWithVarcharPredicatePushdown()
     {

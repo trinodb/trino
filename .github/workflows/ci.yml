@@ -597,6 +597,7 @@ jobs:
             !:starburst-plugin-toolkit,
             !:starburst-salesforce,
             !:starburst-snowflake,
+            !:starburst-stargate,
             !:trino-accumulo,
             !:trino-base-jdbc,
             !:trino-bigquery,
@@ -745,6 +746,7 @@ jobs:
             - { modules: plugin/starburst-snowflake, profile: distributed-integration-tests, cloud: azure }
             - { modules: plugin/starburst-snowflake, profile: jdbc-integration-tests, cloud: aws }
             - { modules: plugin/starburst-snowflake, profile: parallel-integration-tests, cloud: aws }
+            - { modules: plugin/starburst-stargate }
             - { modules: plugin/trino-accumulo }
             - { modules: plugin/trino-bigquery }
             - { modules: plugin/trino-bigquery, profile: cloud-tests-arrow-and-fte }
