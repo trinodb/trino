@@ -15,6 +15,7 @@ package io.trino.plugin.postgresql;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.plugin.jdbc.BaseJdbcConnectorTest;
@@ -80,6 +81,8 @@ import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 public class TestPostgreSqlConnectorTest
         extends BaseJdbcConnectorTest
 {
+    private static final Logger log = Logger.get(TestPostgreSqlConnectorTest.class);
+
     protected TestingPostgreSqlServer postgreSqlServer;
 
     @Override
@@ -641,6 +644,8 @@ public class TestPostgreSqlConnectorTest
 
             // inequality
             for (String operator : nonEqualities) {
+                log.info("Testing operator=%s", operator);
+
                 // bigint inequality predicate
                 assertThat(query(withoutDynamicFiltering, format("SELECT r.name, n.name FROM nation n JOIN region r ON n.regionkey %s r.regionkey", operator)))
                         // Currently no pushdown as inequality predicate is removed from Join to maintain Cross Join and Filter as separate nodes
@@ -654,6 +659,7 @@ public class TestPostgreSqlConnectorTest
 
             // inequality along with an equality, which constitutes an equi-condition and allows filter to remain as part of the Join
             for (String operator : nonEqualities) {
+                log.info("Testing operator=%s", operator);
                 assertConditionallyPushedDown(
                         session,
                         format("SELECT n.name, c.name FROM nation n JOIN customer c ON n.nationkey = c.nationkey AND n.regionkey %s c.custkey", operator),
@@ -663,6 +669,7 @@ public class TestPostgreSqlConnectorTest
 
             // varchar inequality along with an equality, which constitutes an equi-condition and allows filter to remain as part of the Join
             for (String operator : nonEqualities) {
+                log.info("Testing operator=%s", operator);
                 assertConditionallyPushedDown(
                         session,
                         format("SELECT n.name, nl.name FROM nation n JOIN %s nl ON n.regionkey = nl.regionkey AND n.name %s nl.name", nationLowercaseTable.getName(), operator),
