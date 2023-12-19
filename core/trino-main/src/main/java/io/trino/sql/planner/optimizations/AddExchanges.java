@@ -108,7 +108,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.SystemSessionProperties.getMaxWriterTaskCount;
+import static io.trino.SystemSessionProperties.getMaxNumberOfWriterTasks;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.getTaskConcurrency;
 import static io.trino.SystemSessionProperties.ignoreDownStreamPreferences;
@@ -753,9 +753,9 @@ public class AddExchanges
             WriterScalingOptions scalingOptions = writerTarget.getWriterScalingOptions(plannerContext.getMetadata(), session);
             if (partitioningScheme.isEmpty()) {
                 // use maxWritersTasks to set PartitioningScheme.partitionCount field to limit number of tasks that will take part in executing writing stage
-                int maxWriterTasks = writerTarget.getMaxWriterTasks(plannerContext.getMetadata(), session).orElse(getMaxWriterTaskCount(session));
+                int maxWriterTasks = writerTarget.getMaxWriterTasks(plannerContext.getMetadata(), session).orElse(getMaxNumberOfWriterTasks(session));
                 Optional<Integer> maxWritersNodesCount = getRetryPolicy(session) != RetryPolicy.TASK
-                        ? Optional.of(Math.min(maxWriterTasks, getMaxWriterTaskCount(session)))
+                        ? Optional.of(Math.min(maxWriterTasks, getMaxNumberOfWriterTasks(session)))
                         : Optional.empty();
                 if (scaleWriters && scalingOptions.isWriterTasksScalingEnabled()) {
                     partitioningScheme = Optional.of(new PartitioningScheme(Partitioning.create(SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION, ImmutableList.of()), newSource.getNode().getOutputSymbols(), Optional.empty(), false, Optional.empty(), maxWritersNodesCount));

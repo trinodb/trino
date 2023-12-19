@@ -41,7 +41,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
-import static io.trino.SystemSessionProperties.MAX_WRITER_TASK_COUNT;
+import static io.trino.SystemSessionProperties.MAX_NUMBER_OF_WRITER_TASKS;
 import static io.trino.SystemSessionProperties.REDISTRIBUTE_WRITES;
 import static io.trino.SystemSessionProperties.RETRY_POLICY;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
@@ -144,7 +144,7 @@ public class TestLimitMaxWriterNodesCount
         @Language("SQL") String query = "INSERT INTO unpartitioned_target_table VALUES ('one', 'two')";
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
+                .setSystemProperty(MAX_NUMBER_OF_WRITER_TASKS, "2")
                 .setSystemProperty(SCALE_WRITERS, "false")
                 .setCatalog(catalogName)
                 .build();
@@ -166,7 +166,7 @@ public class TestLimitMaxWriterNodesCount
         @Language("SQL") String query = "INSERT INTO unpartitioned_target_table VALUES ('one', 'two')";
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
+                .setSystemProperty(MAX_NUMBER_OF_WRITER_TASKS, "2")
                 .setSystemProperty(SCALE_WRITERS, "true")
                 .setCatalog(catalogName)
                 .build();
@@ -188,7 +188,7 @@ public class TestLimitMaxWriterNodesCount
         @Language("SQL") String query = "INSERT INTO unpartitioned_target_table VALUES ('one', 'two')";
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
+                .setSystemProperty(MAX_NUMBER_OF_WRITER_TASKS, "2")
                 .setSystemProperty(SCALE_WRITERS, "false")
                 .setSystemProperty(REDISTRIBUTE_WRITES, "false")
                 .setCatalog(catalogName)
@@ -209,7 +209,7 @@ public class TestLimitMaxWriterNodesCount
         @Language("SQL") String query = "INSERT INTO partitioned_target_table VALUES ('one', 'two'), ('three', 'four')";
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
+                .setSystemProperty(MAX_NUMBER_OF_WRITER_TASKS, "2")
                 .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
                 .setCatalog(catalogName)
                 .build();
@@ -231,7 +231,7 @@ public class TestLimitMaxWriterNodesCount
         @Language("SQL") String query = "INSERT INTO partitioned_bucketed_target_table VALUES ('one', 'two'), ('three', 'four')";
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
+                .setSystemProperty(MAX_NUMBER_OF_WRITER_TASKS, "2")
                 .setCatalog(catalogName)
                 .build();
 
@@ -252,7 +252,7 @@ public class TestLimitMaxWriterNodesCount
         @Language("SQL") String query = "INSERT INTO partitioned_target_table VALUES ('one', 'two'), ('three', 'four')";
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
+                .setSystemProperty(MAX_NUMBER_OF_WRITER_TASKS, "2")
                 .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
                 .setCatalog(catalogNameWithMaxWriterTasksSpecified)
                 .build();
@@ -274,7 +274,7 @@ public class TestLimitMaxWriterNodesCount
         @Language("SQL") String query = "INSERT INTO partitioned_target_table VALUES ('one', 'two'), ('three', 'four')";
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
+                .setSystemProperty(MAX_NUMBER_OF_WRITER_TASKS, "2")
                 .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
                 .setSystemProperty(RETRY_POLICY, "TASK")
                 .setCatalog(catalogNameWithMaxWriterTasksSpecified)
@@ -296,7 +296,7 @@ public class TestLimitMaxWriterNodesCount
         @Language("SQL") String query = "ALTER TABLE unpartitioned_target_table EXECUTE optimize(file_size_threshold => '10MB')";
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
+                .setSystemProperty(MAX_NUMBER_OF_WRITER_TASKS, "2")
                 .setSystemProperty(SCALE_WRITERS, "false")
                 .setCatalog(catalogName)
                 .build();
@@ -318,7 +318,7 @@ public class TestLimitMaxWriterNodesCount
         @Language("SQL") String query = "ALTER TABLE unpartitioned_target_table EXECUTE optimize(file_size_threshold => '10MB')";
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
+                .setSystemProperty(MAX_NUMBER_OF_WRITER_TASKS, "2")
                 .setSystemProperty(SCALE_WRITERS, "true")
                 .setCatalog(catalogName)
                 .build();
@@ -340,7 +340,7 @@ public class TestLimitMaxWriterNodesCount
         @Language("SQL") String query = "ALTER TABLE unpartitioned_target_table EXECUTE optimize(file_size_threshold => '10MB')";
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
+                .setSystemProperty(MAX_NUMBER_OF_WRITER_TASKS, "2")
                 .setSystemProperty(SCALE_WRITERS, "false")
                 .setSystemProperty(REDISTRIBUTE_WRITES, "false")
                 .setCatalog(catalogName)
@@ -361,7 +361,7 @@ public class TestLimitMaxWriterNodesCount
         @Language("SQL") String query = "ALTER TABLE partitioned_target_table EXECUTE optimize(file_size_threshold => '10MB')";
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
+                .setSystemProperty(MAX_NUMBER_OF_WRITER_TASKS, "2")
                 .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
                 .setCatalog(catalogName)
                 .build();
@@ -383,7 +383,7 @@ public class TestLimitMaxWriterNodesCount
         @Language("SQL") String query = "ALTER TABLE partitioned_target_table EXECUTE optimize(file_size_threshold => '10MB')";
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
+                .setSystemProperty(MAX_NUMBER_OF_WRITER_TASKS, "2")
                 .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
                 .setCatalog(catalogNameWithMaxWriterTasksSpecified)
                 .build();
@@ -405,7 +405,7 @@ public class TestLimitMaxWriterNodesCount
         @Language("SQL") String query = "ALTER TABLE partitioned_target_table EXECUTE optimize(file_size_threshold => '10MB')";
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
+                .setSystemProperty(MAX_NUMBER_OF_WRITER_TASKS, "2")
                 .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
                 .setSystemProperty(RETRY_POLICY, "TASK")
                 .setCatalog(catalogNameWithMaxWriterTasksSpecified)

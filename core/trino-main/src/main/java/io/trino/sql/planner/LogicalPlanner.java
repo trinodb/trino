@@ -127,7 +127,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.Streams.forEachPair;
 import static com.google.common.collect.Streams.zip;
-import static io.trino.SystemSessionProperties.getMaxWriterTaskCount;
+import static io.trino.SystemSessionProperties.getMaxNumberOfWriterTasks;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.isCollectPlanStatisticsForAllQueries;
 import static io.trino.SystemSessionProperties.isUsePreferredWritePartitioning;
@@ -695,9 +695,9 @@ public class LogicalPlanner
     {
         Optional<PartitioningScheme> partitioningScheme = Optional.empty();
 
-        int maxWriterTasks = target.getMaxWriterTasks(plannerContext.getMetadata(), session).orElse(getMaxWriterTaskCount(session));
+        int maxWriterTasks = target.getMaxWriterTasks(plannerContext.getMetadata(), session).orElse(getMaxNumberOfWriterTasks(session));
         Optional<Integer> maxWritersNodesCount = getRetryPolicy(session) != RetryPolicy.TASK
-                ? Optional.of(Math.min(maxWriterTasks, getMaxWriterTaskCount(session)))
+                ? Optional.of(Math.min(maxWriterTasks, getMaxNumberOfWriterTasks(session)))
                 : Optional.empty();
 
         if (writeTableLayout.isPresent()) {
@@ -1008,9 +1008,9 @@ public class LogicalPlanner
             }
             else if (isUsePreferredWritePartitioning(session)) {
                 // empty connector partitioning handle means evenly partitioning on partitioning columns
-                int maxWriterTasks = tableExecuteTarget.getMaxWriterTasks(plannerContext.getMetadata(), session).orElse(getMaxWriterTaskCount(session));
+                int maxWriterTasks = tableExecuteTarget.getMaxWriterTasks(plannerContext.getMetadata(), session).orElse(getMaxNumberOfWriterTasks(session));
                 Optional<Integer> maxWritersNodesCount = getRetryPolicy(session) != RetryPolicy.TASK
-                        ? Optional.of(Math.min(maxWriterTasks, getMaxWriterTaskCount(session)))
+                        ? Optional.of(Math.min(maxWriterTasks, getMaxNumberOfWriterTasks(session)))
                         : Optional.empty();
                 partitioningScheme = Optional.of(new PartitioningScheme(
                         Partitioning.create(FIXED_HASH_DISTRIBUTION, partitionFunctionArguments),

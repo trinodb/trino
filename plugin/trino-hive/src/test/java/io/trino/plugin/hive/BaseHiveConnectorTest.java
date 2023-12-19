@@ -122,7 +122,7 @@ import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_ARBITRAR
 import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_ARBITRARY_DISTRIBUTION_WRITE_TASK_TARGET_SIZE_MIN;
 import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_COMPUTE_TASK_TARGET_SIZE;
 import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_HASH_DISTRIBUTION_WRITE_TASK_TARGET_SIZE;
-import static io.trino.SystemSessionProperties.MAX_WRITER_TASK_COUNT;
+import static io.trino.SystemSessionProperties.MAX_NUMBER_OF_WRITER_TASKS;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY_PER_NODE;
 import static io.trino.SystemSessionProperties.REDISTRIBUTE_WRITES;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
@@ -4233,7 +4233,7 @@ public abstract class BaseHiveConnectorTest
     {
         Session session = Session.builder(getSession())
                 .setSystemProperty(SCALE_WRITERS, Boolean.toString(scaleWritersEnabled))
-                .setSystemProperty(MAX_WRITER_TASK_COUNT, Integer.toString(maxWriterTasks))
+                .setSystemProperty(MAX_NUMBER_OF_WRITER_TASKS, Integer.toString(maxWriterTasks))
                 .setSystemProperty(REDISTRIBUTE_WRITES, Boolean.toString(redistributeWrites))
                 .setSystemProperty(TASK_MIN_WRITER_COUNT, "1")
                 .setSystemProperty(WRITER_SCALING_MIN_DATA_PROCESSED, writerScalingMinDataProcessed.toString())
