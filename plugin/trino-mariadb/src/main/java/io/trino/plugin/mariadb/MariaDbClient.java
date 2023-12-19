@@ -339,6 +339,8 @@ public class MariaDbClient
             case Types.BIGINT:
                 return Optional.of(bigintColumnMapping());
             case Types.REAL:
+                // Disable pushdown because floating-point values are approximate and not stored as exact values,
+                // attempts to treat them as exact in comparisons may lead to problems
                 return Optional.of(ColumnMapping.longMapping(
                         REAL,
                         (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)),
