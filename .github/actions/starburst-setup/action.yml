@@ -18,6 +18,10 @@ inputs:
     description: "Should we login to codeartifact?"
     required: false
     default: "true"
+  login-docker:
+    description: "Should we login to ecr?"
+    required: false
+    default: "false"
 
 outputs:
   run-job:
@@ -59,3 +63,21 @@ runs:
         domain: starburstdata-sep-cicd
         owner: 843985043183
         region: us-east-2
+    - name: "Login to ECR docker registry"
+      if: inputs.login-docker != 'false'
+      uses: docker/login-action@v2
+      env:
+        DOCKER_REGISTRY: "843985043183.dkr.ecr.us-east-2.amazonaws.com"
+      with:
+        registry: ${{ env.DOCKER_REGISTRY }}
+    - name: "Login to ECR pull-through cache"
+      if: inputs.login-docker != 'false'
+      shell: bash
+      run: |
+        aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 843985043183.dkr.ecr.us-east-1.amazonaws.com
+    - name: "Login to docker hub"
+      if: inputs.login-docker != 'false'
+      uses: docker/login-action@v2
+      with:
+        username: ${{ env.DOCKERHUBUSERNAME }}
+        password: ${{ env.DOCKERHUBPASSWORD }}

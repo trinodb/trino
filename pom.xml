@@ -64,6 +64,7 @@
         <module>lib/trino-record-decoder</module>
         <module>plugin/starburst-base-jdbc</module>
         <module>plugin/starburst-dynamodb</module>
+        <module>plugin/starburst-oracle</module>
         <module>plugin/starburst-snowflake</module>
         <module>plugin/trino-accumulo</module>
         <module>plugin/trino-accumulo-iterators</module>

@@ -493,6 +493,7 @@ jobs:
             !:starburst-ci-cd,
             !:starburst-dynamodb,
             !:starburst-license,
+            !:starburst-oracle,
             !:starburst-plugin-toolkit,
             !:starburst-snowflake,
             !:trino-accumulo,
@@ -636,6 +637,7 @@ jobs:
             - { modules: lib/trino-hdfs, profile: cloud-tests }
             - { modules: lib/trino-filesystem-gcs, profile: cloud-tests }
             - { modules: plugin/starburst-dynamodb }
+            - { modules: plugin/starburst-oracle }
             - { modules: plugin/starburst-snowflake, profile: default, cloud: aws }
             - { modules: plugin/starburst-snowflake, profile: default, cloud: azure }
             - { modules: plugin/starburst-snowflake, profile: distributed-integration-tests, cloud: aws }
@@ -713,6 +715,15 @@ jobs:
           aws-access-key-id: ${{ secrets.ENG_AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.ENG_AWS_SECRET_ACCESS_KEY }}
           secret-id: ${{ secrets.SEP_SECRETS_AWS_ID }}
+      - name: Run ECR login for starburst-oracle tests
+        if: >-
+          contains(matrix.modules, 'starburst-oracle')
+        uses: ./.github/actions/starburst-setup
+        with:
+          aws-access-key-id: ${{ secrets.ENG_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.ENG_AWS_SECRET_ACCESS_KEY }}
+          secret-id: ${{ secrets.SEP_SECRETS_AWS_ID }}
+          login-docker: true
       - uses: ./.github/actions/setup
         with:
           cache: restore
