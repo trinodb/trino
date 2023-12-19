@@ -28,7 +28,6 @@ import io.trino.metadata.NodeState;
 import io.trino.security.AccessControl;
 import io.trino.server.ForWorkerInfo;
 import io.trino.server.HttpRequestSessionContextFactory;
-import io.trino.server.ProtocolConfig;
 import io.trino.server.security.ResourceSecurity;
 import io.trino.spi.Node;
 import io.trino.spi.QueryId;
@@ -71,7 +70,6 @@ public class WorkerResource
     private final AccessControl accessControl;
     private final HttpClient httpClient;
     private final HttpRequestSessionContextFactory sessionContextFactory;
-    private final Optional<String> alternateHeaderName;
 
     @Inject
     public WorkerResource(
@@ -79,15 +77,13 @@ public class WorkerResource
             InternalNodeManager nodeManager,
             AccessControl accessControl,
             @ForWorkerInfo HttpClient httpClient,
-            HttpRequestSessionContextFactory sessionContextFactory,
-            ProtocolConfig protocolConfig)
+            HttpRequestSessionContextFactory sessionContextFactory)
     {
         this.dispatchManager = requireNonNull(dispatchManager, "dispatchManager is null");
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
         this.accessControl = requireNonNull(accessControl, "accessControl is null");
         this.httpClient = requireNonNull(httpClient, "httpClient is null");
         this.sessionContextFactory = requireNonNull(sessionContextFactory, "sessionContextFactory is null");
-        this.alternateHeaderName = protocolConfig.getAlternateHeaderName();
     }
 
     @ResourceSecurity(WEB_UI)
@@ -119,7 +115,7 @@ public class WorkerResource
         Optional<QueryInfo> queryInfo = dispatchManager.getFullQueryInfo(queryId);
         if (queryInfo.isPresent()) {
             try {
-                checkCanViewQueryOwnedBy(sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders, alternateHeaderName), queryInfo.get().getSession().toIdentity(), accessControl);
+                checkCanViewQueryOwnedBy(sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders), queryInfo.get().getSession().toIdentity(), accessControl);
                 return proxyJsonResponse(nodeId, "v1/task/" + task);
             }
             catch (AccessDeniedException e) {

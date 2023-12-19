@@ -114,7 +114,7 @@
     </artifactSet>
 
     <artifactSet to="plugin/hive">
-        <artifact id="${project.groupId}:trino-hive-hadoop2:zip:${project.version}">
+        <artifact id="${project.groupId}:trino-hive:zip:${project.version}">
             <unpack />
         </artifact>
         <artifact id="${project.groupId}:trino-hdfs:zip:${project.version}">

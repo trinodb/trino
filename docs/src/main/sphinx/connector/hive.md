@@ -644,13 +644,13 @@ type conversions.
 * - `CHAR`
   - narrowing conversions for `CHAR`
 * - `TINYINT`
-  - `VARCHAR`, `SMALLINT`, `INTEGER`, `BIGINT`, `DOUBLE`
+  - `VARCHAR`, `SMALLINT`, `INTEGER`, `BIGINT`, `DOUBLE`, `DECIMAL`
 * - `SMALLINT`
-  - `VARCHAR`, `INTEGER`, `BIGINT`, `DOUBLE`
+  - `VARCHAR`, `INTEGER`, `BIGINT`, `DOUBLE`, `DECIMAL`
 * - `INTEGER`
-  - `VARCHAR`, `BIGINT`, `DOUBLE`
+  - `VARCHAR`, `BIGINT`, `DOUBLE`, `DECIMAL`
 * - `BIGINT`
-  - `VARCHAR`, `DOUBLE`
+  - `VARCHAR`, `DOUBLE`, `DECIMAL`
 * - `REAL`
   - `DOUBLE`, `DECIMAL`
 * - `DOUBLE`
@@ -658,6 +658,8 @@ type conversions.
 * - `DECIMAL`
   - `DOUBLE`, `REAL`, `VARCHAR`, `TINYINT`, `SMALLINT`, `INTEGER`, `BIGINT`, as
     well as narrowing and widening conversions for `DECIMAL`
+* - `DATE`
+  - `VARCHAR`
 * - `TIMESTAMP`
   - `VARCHAR`, `DATE`
 :::
@@ -909,9 +911,9 @@ SELECT * FROM example.web."page_views$properties";
 ```
 
 ```text
-       stats_generated_via_stats_task        | auto.purge |       presto_query_id       | presto_version | transactional
----------------------------------------------+------------+-----------------------------+----------------+---------------
- workaround for potential lack of HIVE-12730 | false      | 20230705_152456_00001_nfugi | 423            | false
+       stats_generated_via_stats_task        | auto.purge |       trino_query_id       | trino_version | transactional
+---------------------------------------------+------------+-----------------------------+---------------+---------------
+ workaround for potential lack of HIVE-12730 | false      | 20230705_152456_00001_nfugi | 434           | false
 ```
 
 ##### `$partitions` table

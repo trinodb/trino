@@ -252,7 +252,7 @@ public class TestCreateMaterializedViewTask
         Optional<MaterializedViewDefinition> definitionOptional =
                 metadata.getMaterializedView(testSession, QualifiedObjectName.valueOf(materializedViewName.toString()));
         assertThat(definitionOptional).isPresent();
-        Map<String, Object> properties = definitionOptional.get().getProperties();
+        Map<String, Object> properties = metadata.getMaterializedViewProperties(testSession, new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "mv"), definitionOptional.get());
         assertThat(properties.get("foo")).isEqualTo(DEFAULT_MATERIALIZED_VIEW_FOO_PROPERTY_VALUE);
         assertThat(properties.get("bar")).isEqualTo(DEFAULT_MATERIALIZED_VIEW_BAR_PROPERTY_VALUE);
     }
@@ -310,11 +310,19 @@ public class TestCreateMaterializedViewTask
             extends AbstractMockMetadata
     {
         private final Map<SchemaTableName, MaterializedViewDefinition> materializedViews = new ConcurrentHashMap<>();
+        private final Map<SchemaTableName, Map<String, Object>> materializedViewProperties = new ConcurrentHashMap<>();
 
         @Override
-        public void createMaterializedView(Session session, QualifiedObjectName viewName, MaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
+        public void createMaterializedView(
+                Session session,
+                QualifiedObjectName viewName,
+                MaterializedViewDefinition definition,
+                Map<String, Object> properties,
+                boolean replace,
+                boolean ignoreExisting)
         {
             materializedViews.put(viewName.asSchemaTableName(), definition);
+            materializedViewProperties.put(viewName.asSchemaTableName(), properties);
             if (!ignoreExisting) {
                 throw new TrinoException(ALREADY_EXISTS, "Materialized view already exists");
             }
@@ -373,6 +381,12 @@ public class TestCreateMaterializedViewTask
         public Optional<MaterializedViewDefinition> getMaterializedView(Session session, QualifiedObjectName viewName)
         {
             return Optional.ofNullable(materializedViews.get(viewName.asSchemaTableName()));
+        }
+
+        @Override
+        public Map<String, Object> getMaterializedViewProperties(Session session, QualifiedObjectName viewName, MaterializedViewDefinition materializedViewDefinition)
+        {
+            return materializedViewProperties.get(viewName.asSchemaTableName());
         }
 
         @Override

@@ -146,7 +146,7 @@ public class FjsMatcher
                 j = kmpShifts[j];
 
                 // Continue to match the whole pattern using KMP
-                while (j > 0) {
+                while (j >= 0) {
                     int size = findLongestMatch(input, i, pattern, j, Math.min(inputLimit - i, pattern.length - j));
                     i += size;
                     j += size;

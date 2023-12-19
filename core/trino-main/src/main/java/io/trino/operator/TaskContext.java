@@ -69,6 +69,7 @@ public class TaskContext
     private final GcMonitor gcMonitor;
     private final Executor notificationExecutor;
     private final ScheduledExecutorService yieldExecutor;
+    private final ScheduledExecutorService timeoutExecutor;
     private final Session session;
 
     private final long createNanos = System.nanoTime();
@@ -117,6 +118,7 @@ public class TaskContext
             GcMonitor gcMonitor,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
+            ScheduledExecutorService timeoutExecutor,
             Session session,
             MemoryTrackingContext taskMemoryContext,
             Runnable notifyStatusChanged,
@@ -129,6 +131,7 @@ public class TaskContext
                 gcMonitor,
                 notificationExecutor,
                 yieldExecutor,
+                timeoutExecutor,
                 session,
                 taskMemoryContext,
                 notifyStatusChanged,
@@ -144,6 +147,7 @@ public class TaskContext
             GcMonitor gcMonitor,
             Executor notificationExecutor,
             ScheduledExecutorService yieldExecutor,
+            ScheduledExecutorService timeoutExecutor,
             Session session,
             MemoryTrackingContext taskMemoryContext,
             Runnable notifyStatusChanged,
@@ -155,6 +159,7 @@ public class TaskContext
         this.queryContext = requireNonNull(queryContext, "queryContext is null");
         this.notificationExecutor = requireNonNull(notificationExecutor, "notificationExecutor is null");
         this.yieldExecutor = requireNonNull(yieldExecutor, "yieldExecutor is null");
+        this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
         this.session = session;
         this.taskMemoryContext = requireNonNull(taskMemoryContext, "taskMemoryContext is null");
 
@@ -186,6 +191,7 @@ public class TaskContext
                 this,
                 notificationExecutor,
                 yieldExecutor,
+                timeoutExecutor,
                 taskMemoryContext.newMemoryTrackingContext(),
                 inputPipeline,
                 outputPipeline,
@@ -379,7 +385,7 @@ public class TaskContext
         checkArgument(maxWriterCount > 0, "maxWriterCount must be > 0");
 
         int oldMaxWriterCount = this.maxWriterCount.getAndSet(maxWriterCount);
-        checkArgument(oldMaxWriterCount == -1 || oldMaxWriterCount == maxWriterCount, "maxWriterCount already set to " + oldMaxWriterCount);
+        checkArgument(oldMaxWriterCount == -1 || oldMaxWriterCount == maxWriterCount, "maxWriterCount already set to %s", oldMaxWriterCount);
     }
 
     public Optional<Integer> getMaxWriterCount()

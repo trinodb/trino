@@ -38,7 +38,7 @@ public class TestRenameMaterializedViewTask
     {
         QualifiedObjectName materializedViewName = qualifiedObjectName("existing_materialized_view");
         QualifiedObjectName newMaterializedViewName = qualifiedObjectName("existing_materialized_view_new");
-        metadata.createMaterializedView(testSession, materializedViewName, someMaterializedView(), false, false);
+        metadata.createMaterializedView(testSession, materializedViewName, someMaterializedView(), MATERIALIZED_VIEW_PROPERTIES, false, false);
 
         getFutureValue(executeRenameMaterializedView(asQualifiedName(materializedViewName), asQualifiedName(newMaterializedViewName)));
         assertThat(metadata.isMaterializedView(testSession, materializedViewName)).isFalse();
@@ -90,7 +90,7 @@ public class TestRenameMaterializedViewTask
     public void testRenameMaterializedViewTargetTableExists()
     {
         QualifiedObjectName materializedViewName = qualifiedObjectName("existing_materialized_view");
-        metadata.createMaterializedView(testSession, materializedViewName, someMaterializedView(), false, false);
+        metadata.createMaterializedView(testSession, materializedViewName, someMaterializedView(), MATERIALIZED_VIEW_PROPERTIES, false, false);
         QualifiedObjectName tableName = qualifiedObjectName("existing_table");
         metadata.createTable(testSession, TEST_CATALOG_NAME, someTable(tableName), FAIL);
 
@@ -125,7 +125,7 @@ public class TestRenameMaterializedViewTask
     public void testRenameMaterializedViewTargetViewExists()
     {
         QualifiedObjectName materializedViewName = qualifiedObjectName("existing_materialized_view");
-        metadata.createMaterializedView(testSession, materializedViewName, someMaterializedView(), false, false);
+        metadata.createMaterializedView(testSession, materializedViewName, someMaterializedView(), MATERIALIZED_VIEW_PROPERTIES, false, false);
         QualifiedName viewName = qualifiedName("existing_view");
         metadata.createView(testSession, QualifiedObjectName.valueOf(viewName.toString()), someView(), false);
 

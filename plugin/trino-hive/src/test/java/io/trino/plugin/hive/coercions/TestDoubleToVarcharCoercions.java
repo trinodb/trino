@@ -18,10 +18,7 @@ import io.trino.plugin.hive.coercions.CoercionUtils.CoercionContext;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
-
-import java.util.stream.Stream;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.plugin.hive.HiveTimestampPrecision.DEFAULT_PRECISION;
 import static io.trino.plugin.hive.HiveType.toHiveType;
@@ -31,23 +28,50 @@ import static io.trino.spi.predicate.Utils.nativeValueToBlock;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.spi.type.VarcharType.createVarcharType;
-import static io.trino.testing.DataProviders.cartesianProduct;
-import static io.trino.testing.DataProviders.toDataProvider;
-import static io.trino.testing.DataProviders.trueFalse;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDoubleToVarcharCoercions
 {
-    @Test(dataProvider = "doubleValues")
-    public void testDoubleToVarcharCoercions(Double doubleValue, boolean treatNaNAsNull)
+    @Test
+    public void testDoubleToVarcharCoercions()
+    {
+        testDoubleToVarcharCoercions(Double.NEGATIVE_INFINITY, true);
+        testDoubleToVarcharCoercions(Double.MIN_VALUE, true);
+        testDoubleToVarcharCoercions(Double.MAX_VALUE, true);
+        testDoubleToVarcharCoercions(Double.POSITIVE_INFINITY, true);
+        testDoubleToVarcharCoercions(Double.parseDouble("123456789.12345678"), true);
+
+        testDoubleToVarcharCoercions(Double.NEGATIVE_INFINITY, false);
+        testDoubleToVarcharCoercions(Double.MIN_VALUE, false);
+        testDoubleToVarcharCoercions(Double.MAX_VALUE, false);
+        testDoubleToVarcharCoercions(Double.POSITIVE_INFINITY, false);
+        testDoubleToVarcharCoercions(Double.parseDouble("123456789.12345678"), false);
+    }
+
+    private void testDoubleToVarcharCoercions(Double doubleValue, boolean treatNaNAsNull)
     {
         assertCoercions(DOUBLE, doubleValue, createUnboundedVarcharType(), Slices.utf8Slice(doubleValue.toString()), treatNaNAsNull);
     }
 
-    @Test(dataProvider = "doubleValues")
-    public void testDoubleSmallerVarcharCoercions(Double doubleValue, boolean treatNaNAsNull)
+    @Test
+    public void testDoubleSmallerVarcharCoercions()
+    {
+        testDoubleSmallerVarcharCoercions(Double.NEGATIVE_INFINITY, true);
+        testDoubleSmallerVarcharCoercions(Double.MIN_VALUE, true);
+        testDoubleSmallerVarcharCoercions(Double.MAX_VALUE, true);
+        testDoubleSmallerVarcharCoercions(Double.POSITIVE_INFINITY, true);
+        testDoubleSmallerVarcharCoercions(Double.parseDouble("123456789.12345678"), true);
+
+        testDoubleSmallerVarcharCoercions(Double.NEGATIVE_INFINITY, false);
+        testDoubleSmallerVarcharCoercions(Double.MIN_VALUE, false);
+        testDoubleSmallerVarcharCoercions(Double.MAX_VALUE, false);
+        testDoubleSmallerVarcharCoercions(Double.POSITIVE_INFINITY, false);
+        testDoubleSmallerVarcharCoercions(Double.parseDouble("123456789.12345678"), false);
+    }
+
+    private void testDoubleSmallerVarcharCoercions(Double doubleValue, boolean treatNaNAsNull)
     {
         assertThatThrownBy(() -> assertCoercions(DOUBLE, doubleValue, createVarcharType(1), doubleValue.toString(), treatNaNAsNull))
                 .isInstanceOf(TrinoException.class)
@@ -63,20 +87,6 @@ public class TestDoubleToVarcharCoercions
         assertThatThrownBy(() -> assertCoercions(DOUBLE, Double.NaN, createVarcharType(1), "NaN", false))
                 .isInstanceOf(TrinoException.class)
                 .hasMessageContaining("Varchar representation of NaN exceeds varchar(1) bounds");
-    }
-
-    @DataProvider
-    public Object[][] doubleValues()
-    {
-        return cartesianProduct(
-                Stream.of(
-                        Double.NEGATIVE_INFINITY,
-                        Double.MIN_VALUE,
-                        Double.MAX_VALUE,
-                        Double.POSITIVE_INFINITY,
-                        Double.parseDouble("123456789.12345678"))
-                        .collect(toDataProvider()),
-                trueFalse());
     }
 
     public static void assertCoercions(Type fromType, Object valueToBeCoerced, Type toType, Object expectedValue, boolean treatNaNAsNull)

@@ -96,35 +96,27 @@ public class MockThriftMetastoreClient
 
     public void mockColumnStats(String database, String table, Map<String, ColumnStatisticsData> columnStatistics)
     {
-        this.columnStatistics.compute(new SchemaTableName(database, table), (ignored, oldColumnStats) -> {
-            if (oldColumnStats == null) {
-                oldColumnStats = new HashMap<>();
-            }
-            oldColumnStats.putAll(Maps.transformEntries(columnStatistics, (columnName, stats) -> {
-                ColumnStatisticsObj statsObj = new ColumnStatisticsObj();
-                statsObj.setColName(columnName);
-                statsObj.setStatsData(stats);
-                return statsObj;
-            }));
-            return oldColumnStats;
-        });
+        this.columnStatistics.put(
+                new SchemaTableName(database, table),
+                Maps.transformEntries(columnStatistics, (columnName, stats) -> {
+                    ColumnStatisticsObj statsObj = new ColumnStatisticsObj();
+                    statsObj.setColName(columnName);
+                    statsObj.setStatsData(stats);
+                    return statsObj;
+                }));
     }
 
     public void mockPartitionColumnStats(String database, String table, String partitionName, Map<String, ColumnStatisticsData> columnStatistics)
     {
         Map<String, Map<String, ColumnStatisticsObj>> tablePartitionColumnStatistics = databaseTablePartitionColumnStatistics.computeIfAbsent(new SchemaTableName(database, table), key -> new HashMap<>());
-        tablePartitionColumnStatistics.compute(partitionName, (ignored, oldColumnStats) -> {
-            if (oldColumnStats == null) {
-                oldColumnStats = new HashMap<>();
-            }
-            oldColumnStats.putAll(Maps.transformEntries(columnStatistics, (columnName, stats) -> {
-                ColumnStatisticsObj statsObj = new ColumnStatisticsObj();
-                statsObj.setColName(columnName);
-                statsObj.setStatsData(stats);
-                return statsObj;
-            }));
-            return oldColumnStats;
-        });
+        tablePartitionColumnStatistics.put(
+                partitionName,
+                Maps.transformEntries(columnStatistics, (columnName, stats) -> {
+                    ColumnStatisticsObj statsObj = new ColumnStatisticsObj();
+                    statsObj.setColName(columnName);
+                    statsObj.setStatsData(stats);
+                    return statsObj;
+                }));
     }
 
     private static ColumnStatisticsData createLongColumnStats()
@@ -259,11 +251,14 @@ public class MockThriftMetastoreClient
 
         Map<String, ColumnStatisticsObj> columnStatistics = this.columnStatistics.get(new SchemaTableName(databaseName, tableName));
 
-        if (columnStatistics == null || !columnStatistics.keySet().containsAll(columnNames)) {
-            throw new NoSuchObjectException();
+        if (columnStatistics == null) {
+            return ImmutableList.of();
         }
 
-        return columnNames.stream().map(columnStatistics::get).collect(toImmutableList());
+        return columnNames.stream()
+                .filter(columnStatistics::containsKey)
+                .map(columnStatistics::get)
+                .collect(toImmutableList());
     }
 
     @Override
@@ -294,10 +289,13 @@ public class MockThriftMetastoreClient
 
         for (String partition : partitionNames) {
             Map<String, ColumnStatisticsObj> columnStatistics = tablePartitionColumnStatistics.get(partition);
-            if (columnStatistics == null || !columnStatistics.keySet().containsAll(columnNames)) {
-                throw new NoSuchObjectException();
+            if (columnStatistics == null) {
+                continue;
             }
-            result.put(partition, ImmutableList.copyOf(columnStatistics.values()));
+            result.put(partition, columnNames.stream()
+                    .filter(columnStatistics::containsKey)
+                    .map(columnStatistics::get)
+                    .collect(toImmutableList()));
         }
 
         return result.buildOrThrow();

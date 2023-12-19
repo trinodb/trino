@@ -13,13 +13,10 @@
  */
 package io.trino.operator;
 
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
-import java.util.List;
 
-import static com.google.common.collect.Lists.cartesianProduct;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestTopNPeerGroupLookup
@@ -41,28 +38,20 @@ public class TestTopNPeerGroupLookup
     private static final long UNMAPPED_GROUP_ID = Long.MIN_VALUE;
     private static final long DEFAULT_RETURN_VALUE = -1L;
 
-    @DataProvider
-    public static Object[][] parameters()
+    @Test
+    public void testCombinations()
     {
-        List<Integer> expectedSizes = Arrays.asList(0, 1, 2, 3, 1_000);
-        List<Float> fillFactors = Arrays.asList(0.1f, 0.9f, 1f);
-        List<Long> totalGroupIds = Arrays.asList(1L, 10L);
-        List<Long> totalRowIds = Arrays.asList(1L, 1_000L);
-
-        return to2DArray(cartesianProduct(expectedSizes, fillFactors, totalGroupIds, totalRowIds));
-    }
-
-    private static Object[][] to2DArray(List<List<Object>> nestedList)
-    {
-        Object[][] array = new Object[nestedList.size()][];
-        for (int i = 0; i < nestedList.size(); i++) {
-            array[i] = nestedList.get(i).toArray();
+        for (int expectedSize : Arrays.asList(0, 1, 2, 3, 1_000)) {
+            for (float fillFactor : Arrays.asList(0.1f, 0.9f, 1f)) {
+                testCombinations(expectedSize, fillFactor, 1L, 1L);
+                testCombinations(expectedSize, fillFactor, 10L, 1L);
+                testCombinations(expectedSize, fillFactor, 1L, 1_000L);
+                testCombinations(expectedSize, fillFactor, 10L, 1_000L);
+            }
         }
-        return array;
     }
 
-    @Test(dataProvider = "parameters")
-    public void testCombinations(int expectedSize, float fillFactor, long totalGroupIds, long totalRowIds)
+    private void testCombinations(int expectedSize, float fillFactor, long totalGroupIds, long totalRowIds)
     {
         TopNPeerGroupLookup lookup = new TopNPeerGroupLookup(expectedSize, fillFactor, HASH_STRATEGY, UNMAPPED_GROUP_ID, DEFAULT_RETURN_VALUE);
 

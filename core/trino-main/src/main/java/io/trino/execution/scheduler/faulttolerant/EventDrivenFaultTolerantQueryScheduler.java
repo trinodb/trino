@@ -935,6 +935,7 @@ public class EventDrivenFaultTolerantQueryScheduler
 
             log.debug("Scheduler debug info for %s START; reason=%s", queryStateMachine.getQueryId(), reason);
             log.debug("General state: %s", toStringHelper(this)
+                    .add("queryState", queryStateMachine.getQueryState())
                     .add("maxTaskExecutionAttempts", maxTaskExecutionAttempts)
                     .add("maxTasksWaitingForNode", maxTasksWaitingForNode)
                     .add("maxTasksWaitingForExecution", maxTasksWaitingForExecution)
@@ -2414,6 +2415,10 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         public void fail(Throwable t)
         {
+            if (stage.getState().isDone()) {
+                // stage already done; ignore
+                return;
+            }
             Closer closer = createStageExecutionCloser();
             closer.register(() -> stage.fail(t));
             try {

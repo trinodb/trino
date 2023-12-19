@@ -33,7 +33,7 @@ public class PlanSiblings
         super(location);
         this.type = requireNonNull(type, "type is null");
         this.siblings = ImmutableList.copyOf(siblings);
-        checkArgument(siblings.size() >= 2, "sibling plan must contain at least two siblings, actual: " + siblings.size());
+        checkArgument(siblings.size() >= 2, "sibling plan must contain at least two siblings, actual: %s", siblings.size());
     }
 
     public SiblingsPlanType getType()

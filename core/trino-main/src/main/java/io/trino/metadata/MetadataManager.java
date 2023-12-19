@@ -1530,7 +1530,13 @@ public final class MetadataManager
     }
 
     @Override
-    public void createMaterializedView(Session session, QualifiedObjectName viewName, MaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
+    public void createMaterializedView(
+            Session session,
+            QualifiedObjectName viewName,
+            MaterializedViewDefinition definition,
+            Map<String, Object> properties,
+            boolean replace,
+            boolean ignoreExisting)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, viewName.getCatalogName());
         CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle();
@@ -1540,6 +1546,7 @@ public final class MetadataManager
                 session.toConnectorSession(catalogHandle),
                 viewName.asSchemaTableName(),
                 definition.toConnectorMaterializedViewDefinition(),
+                properties,
                 replace,
                 ignoreExisting);
         if (catalogMetadata.getSecurityManagement() == SYSTEM) {
@@ -1673,8 +1680,7 @@ public final class MetadataManager
                 view.getComment(),
                 runAsIdentity,
                 view.getPath(),
-                view.getStorageTable(),
-                view.getProperties());
+                view.getStorageTable());
     }
 
     private Optional<ConnectorMaterializedViewDefinition> getMaterializedViewInternal(Session session, QualifiedObjectName viewName)
@@ -1693,6 +1699,24 @@ public final class MetadataManager
             return metadata.getMaterializedView(connectorSession, viewName.asSchemaTableName());
         }
         return Optional.empty();
+    }
+
+    @Override
+    public Map<String, Object> getMaterializedViewProperties(Session session, QualifiedObjectName viewName, MaterializedViewDefinition materializedViewDefinition)
+    {
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, viewName.getCatalogName());
+        if (catalog.isPresent()) {
+            CatalogMetadata catalogMetadata = catalog.get();
+            CatalogHandle catalogHandle = catalogMetadata.getCatalogHandle(session, viewName);
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
+
+            ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
+            return ImmutableMap.copyOf(metadata.getMaterializedViewProperties(
+                    connectorSession,
+                    viewName.asSchemaTableName(),
+                    materializedViewDefinition.toConnectorMaterializedViewDefinition()));
+        }
+        return ImmutableMap.of();
     }
 
     @Override
@@ -2737,7 +2761,10 @@ public final class MetadataManager
 
             GlobalFunctionCatalog globalFunctionCatalog = this.globalFunctionCatalog;
             if (globalFunctionCatalog == null) {
-                globalFunctionCatalog = new GlobalFunctionCatalog();
+                globalFunctionCatalog = new GlobalFunctionCatalog(
+                        () -> { throw new UnsupportedOperationException(); },
+                        () -> { throw new UnsupportedOperationException(); },
+                        () -> { throw new UnsupportedOperationException(); });
                 TypeOperators typeOperators = new TypeOperators();
                 globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(new FeaturesConfig(), typeOperators, new BlockTypeOperators(typeOperators), UNKNOWN));
                 globalFunctionCatalog.addFunctions(new InternalFunctionBundle(new LiteralFunction(new InternalBlockEncodingSerde(new BlockEncodingManager(), typeManager))));

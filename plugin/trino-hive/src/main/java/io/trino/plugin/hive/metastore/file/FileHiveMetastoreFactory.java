@@ -14,11 +14,13 @@
 package io.trino.plugin.hive.metastore.file;
 
 import com.google.inject.Inject;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.hive.HideDeltaLakeTables;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
+import io.trino.plugin.hive.metastore.tracing.TracingHiveMetastore;
 import io.trino.spi.security.ConnectorIdentity;
 
 import java.util.Optional;
@@ -26,13 +28,19 @@ import java.util.Optional;
 public class FileHiveMetastoreFactory
         implements HiveMetastoreFactory
 {
-    private final FileHiveMetastore metastore;
+    private final HiveMetastore metastore;
 
     @Inject
-    public FileHiveMetastoreFactory(NodeVersion nodeVersion, TrinoFileSystemFactory fileSystemFactory, @HideDeltaLakeTables boolean hideDeltaLakeTables, FileHiveMetastoreConfig config)
+    public FileHiveMetastoreFactory(
+            NodeVersion nodeVersion,
+            TrinoFileSystemFactory fileSystemFactory,
+            @HideDeltaLakeTables boolean hideDeltaLakeTables,
+            FileHiveMetastoreConfig config,
+            Tracer tracer)
     {
         // file metastore does not support impersonation, so just create a single shared instance
-        metastore = new FileHiveMetastore(nodeVersion, fileSystemFactory, hideDeltaLakeTables, config);
+        metastore = new TracingHiveMetastore(tracer,
+                new FileHiveMetastore(nodeVersion, fileSystemFactory, hideDeltaLakeTables, config));
     }
 
     @Override

@@ -15,18 +15,17 @@ package io.trino.plugin.iceberg;
 
 import io.trino.Session;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.sql.tree.ExplainType;
 import io.trino.testing.DistributedQueryRunner;
 import org.junit.jupiter.api.Test;
 
-import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Map;
+import java.util.Optional;
 
 import static io.trino.plugin.base.util.Closables.closeAllSuppress;
-import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
+import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -34,21 +33,19 @@ public class TestIcebergMaterializedView
         extends BaseIcebergMaterializedViewTest
 {
     private Session secondIceberg;
-    private String fileMetastoreDirectory;
     private HiveMetastore metastore;
 
     @Override
     protected DistributedQueryRunner createQueryRunner()
             throws Exception
     {
-        File metastoreDir = Files.createTempDirectory("test_iceberg_table_smoke_test").toFile();
-        metastoreDir.deleteOnExit();
-        this.fileMetastoreDirectory = metastoreDir.getAbsolutePath();
-        this.metastore = createTestingFileHiveMetastore(metastoreDir);
         DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
-                .setMetastoreDirectory(metastoreDir)
                 .build();
         try {
+            metastore = ((IcebergConnector) queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG)).getInjector()
+                    .getInstance(HiveMetastoreFactory.class)
+                    .createMetastore(Optional.empty());
+
             queryRunner.createCatalog("iceberg2", "iceberg", Map.of(
                     "iceberg.catalog.type", "TESTING_FILE_METASTORE",
                     "hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg2-catalog").toString(),
@@ -70,7 +67,7 @@ public class TestIcebergMaterializedView
     @Override
     protected String getSchemaDirectory()
     {
-        return Path.of(fileMetastoreDirectory, "tpch").toString();
+        return "local:///tpch";
     }
 
     @Override

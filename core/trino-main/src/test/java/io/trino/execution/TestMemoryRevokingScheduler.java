@@ -292,6 +292,7 @@ public class TestMemoryRevokingScheduler
                 new TestingGcMonitor(),
                 executor,
                 scheduledExecutor,
+                scheduledExecutor,
                 DataSize.of(1, GIGABYTE),
                 spillSpaceTracker));
     }

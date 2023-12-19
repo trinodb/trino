@@ -19,7 +19,7 @@ import io.trino.execution.executor.TaskExecutor;
 import io.trino.execution.executor.dedicated.ThreadPerDriverTaskExecutor;
 import io.trino.execution.executor.scheduler.FairScheduler;
 
-import static io.trino.version.EmbedVersion.testingVersionEmbedder;
+import static io.trino.util.EmbedVersion.testingVersionEmbedder;
 
 public class TestSqlTaskManagerThreadPerDriver
         extends BaseTestSqlTaskManager

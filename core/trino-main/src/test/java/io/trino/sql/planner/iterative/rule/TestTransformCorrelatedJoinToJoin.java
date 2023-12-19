@@ -16,6 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.JoinNode.Type;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.LongLiteral;
@@ -143,6 +144,22 @@ public class TestTransformCorrelatedJoinToJoin
                                         filter(
                                                 TRUE_LITERAL,
                                                 values("b")))));
+    }
+
+    @Test
+    public void doesNotFireForEnforceSingleRow()
+    {
+        tester().assertThat(new TransformCorrelatedJoinToJoin(tester().getPlannerContext()))
+                .on(p -> p.correlatedJoin(
+                        ImmutableList.of(p.symbol("corr")),
+                        p.values(p.symbol("corr")),
+                        INNER,
+                        TRUE_LITERAL,
+                        p.enforceSingleRow(
+                                p.filter(
+                                        PlanBuilder.expression("corr = a"),
+                                        p.values(p.symbol("a"))))))
+                .doesNotFire();
     }
 
     @Test

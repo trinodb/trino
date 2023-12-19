@@ -10,7 +10,7 @@
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>434</version>
+    <version>435</version>
     <packaging>pom</packaging>
 
     <name>${project.artifactId}</name>
@@ -77,7 +77,6 @@
         <module>plugin/trino-geospatial</module>
         <module>plugin/trino-google-sheets</module>
         <module>plugin/trino-hive</module>
-        <module>plugin/trino-hive-hadoop2</module>
         <module>plugin/trino-http-event-listener</module>
         <module>plugin/trino-hudi</module>
         <module>plugin/trino-iceberg</module>
@@ -114,7 +113,6 @@
         <module>plugin/trino-tpch</module>
         <module>service/trino-proxy</module>
         <module>service/trino-verifier</module>
-        <module>testing/trino-benchmark</module>
         <module>testing/trino-benchmark-queries</module>
         <module>testing/trino-benchto-benchmarks</module>
         <module>testing/trino-faulttolerant-tests</module>
@@ -134,7 +132,7 @@
 
     <scm>
         <connection>scm:git:git://github.com/trinodb/trino.git</connection>
-        <tag>434</tag>
+        <tag>435</tag>
         <url>https://github.com/trinodb/trino</url>
     </scm>
 
@@ -178,7 +176,7 @@
         <dep.antlr.version>4.13.1</dep.antlr.version>
         <dep.arrow.version>14.0.1</dep.arrow.version>
         <dep.avro.version>1.11.3</dep.avro.version>
-        <dep.aws-sdk.version>1.12.595</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.12.610</dep.aws-sdk.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
         <dep.confluent.version>7.5.1</dep.confluent.version>
         <dep.docker.images.version>87</dep.docker.images.version>
@@ -188,9 +186,9 @@
         <dep.flyway.version>10.1.0</dep.flyway.version>
         <dep.google.http.client.version>1.43.3</dep.google.http.client.version>
         <dep.iceberg.version>1.4.2-SNAPSHOT</dep.iceberg.version>
-        <dep.jna.version>5.13.0</dep.jna.version>
+        <dep.jna.version>5.14.0</dep.jna.version>
         <dep.jsonwebtoken.version>0.12.3</dep.jsonwebtoken.version>
-        <dep.kafka-clients.version>3.6.0</dep.kafka-clients.version>
+        <dep.kafka-clients.version>3.6.1</dep.kafka-clients.version>
         <dep.kotlin.version>1.9.20</dep.kotlin.version>
         <dep.okio.version>3.6.0</dep.okio.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
@@ -200,7 +198,7 @@
         <dep.takari.version>2.1.2</dep.takari.version>
         <dep.tcnative.version>2.0.62.Final</dep.tcnative.version>
         <dep.tempto.version>201</dep.tempto.version>
-        <dep.wire.version>4.8.0</dep.wire.version>
+        <dep.wire.version>4.8.1</dep.wire.version>
     </properties>
 
     <dependencyManagement>
@@ -209,7 +207,7 @@
             <dependency>
                 <groupId>com.azure</groupId>
                 <artifactId>azure-sdk-bom</artifactId>
-                <version>1.2.18</version>
+                <version>1.2.19</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -249,7 +247,7 @@
             <dependency>
                 <groupId>io.grpc</groupId>
                 <artifactId>grpc-bom</artifactId>
-                <version>1.59.0</version>
+                <version>1.60.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -273,7 +271,7 @@
             <dependency>
                 <groupId>org.jdbi</groupId>
                 <artifactId>jdbi3-bom</artifactId>
-                <version>3.41.3</version>
+                <version>3.42.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -297,7 +295,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.21.29</version>
+                <version>2.21.43</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -496,13 +494,13 @@
             <dependency>
                 <groupId>com.github.luben</groupId>
                 <artifactId>zstd-jni</artifactId>
-                <version>1.5.5-10</version>
+                <version>1.5.5-11</version>
             </dependency>
 
             <dependency>
                 <groupId>com.github.oshi</groupId>
                 <artifactId>oshi-core</artifactId>
-                <version>6.4.7</version>
+                <version>6.4.8</version>
             </dependency>
 
             <dependency>
@@ -514,7 +512,7 @@
             <dependency>
                 <groupId>com.google.cloud.bigdataoss</groupId>
                 <artifactId>gcs-connector</artifactId>
-                <version>hadoop3-2.2.18</version>
+                <version>3.0.0</version>
                 <classifier>shaded</classifier>
                 <exclusions>
                     <exclusion>
@@ -588,13 +586,13 @@
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>nimbus-jose-jwt</artifactId>
-                <version>9.37.1</version>
+                <version>9.37.2</version>
             </dependency>
 
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>oauth2-oidc-sdk</artifactId>
-                <version>11.6</version>
+                <version>11.7</version>
                 <classifier>jdk11</classifier>
             </dependency>
 
@@ -637,7 +635,7 @@
             <dependency>
                 <groupId>commons-io</groupId>
                 <artifactId>commons-io</artifactId>
-                <version>2.15.0</version>
+                <version>2.15.1</version>
             </dependency>
 
             <dependency>
@@ -932,7 +930,7 @@
             <dependency>
                 <groupId>io.projectreactor</groupId>
                 <artifactId>reactor-core</artifactId>
-                <version>3.4.33</version>
+                <version>3.4.34</version>
             </dependency>
 
             <!-- io.confluent:kafka-avro-serializer uses multiple versions of this transitive dependency -->
@@ -970,12 +968,6 @@
                 <artifactId>trino-base-jdbc</artifactId>
                 <version>${project.version}</version>
                 <type>test-jar</type>
-            </dependency>
-
-            <dependency>
-                <groupId>io.trino</groupId>
-                <artifactId>trino-benchmark</artifactId>
-                <version>${project.version}</version>
             </dependency>
 
             <dependency>
@@ -1143,12 +1135,6 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-hive-formats</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.trino</groupId>
-                <artifactId>trino-hive-hadoop2</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -1831,7 +1817,7 @@
             <dependency>
                 <groupId>org.apache.maven</groupId>
                 <artifactId>maven-model</artifactId>
-                <version>3.9.5</version>
+                <version>3.9.6</version>
             </dependency>
 
             <dependency>
@@ -1953,7 +1939,7 @@
             <dependency>
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
-                <version>3.40.0</version>
+                <version>3.41.0</version>
             </dependency>
 
             <dependency>
@@ -2026,7 +2012,7 @@
             <dependency>
                 <groupId>org.mariadb.jdbc</groupId>
                 <artifactId>mariadb-java-client</artifactId>
-                <version>3.3.0</version>
+                <version>3.3.1</version>
             </dependency>
 
             <dependency>
@@ -2044,7 +2030,7 @@
             <dependency>
                 <groupId>org.postgresql</groupId>
                 <artifactId>postgresql</artifactId>
-                <version>42.7.0</version>
+                <version>42.7.1</version>
             </dependency>
 
             <dependency>
@@ -2063,6 +2049,12 @@
                 <groupId>org.sonatype.aether</groupId>
                 <artifactId>aether-api</artifactId>
                 <version>1.13.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.threeten</groupId>
+                <artifactId>threetenbp</artifactId>
+                <version>1.6.8</version>
             </dependency>
 
             <dependency>

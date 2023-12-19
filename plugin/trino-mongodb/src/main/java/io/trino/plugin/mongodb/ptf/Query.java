@@ -21,9 +21,8 @@ import com.google.inject.Provider;
 import io.airlift.slice.Slice;
 import io.trino.plugin.mongodb.MongoColumnHandle;
 import io.trino.plugin.mongodb.MongoMetadata;
-import io.trino.plugin.mongodb.MongoMetadataFactory;
-import io.trino.plugin.mongodb.MongoSession;
 import io.trino.plugin.mongodb.MongoTableHandle;
+import io.trino.plugin.mongodb.MongoTransactionManager;
 import io.trino.plugin.mongodb.RemoteTableName;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ColumnHandle;
@@ -34,6 +33,7 @@ import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableSchema;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SchemaTableName;
+import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.function.table.AbstractConnectorTableFunction;
 import io.trino.spi.function.table.Argument;
 import io.trino.spi.function.table.ConnectorTableFunction;
@@ -62,30 +62,26 @@ public class Query
     public static final String SCHEMA_NAME = "system";
     public static final String NAME = "query";
 
-    private final MongoMetadata metadata;
-    private final MongoSession session;
+    private final MongoTransactionManager transactionManager;
 
     @Inject
-    public Query(MongoMetadataFactory mongoMetadataFactory, MongoSession session)
+    public Query(MongoTransactionManager transactionManager)
     {
-        requireNonNull(session, "session is null");
-        this.metadata = mongoMetadataFactory.create();
-        this.session = session;
+        this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
     }
 
     @Override
     public ConnectorTableFunction get()
     {
-        return new QueryFunction(metadata, session);
+        return new QueryFunction(transactionManager);
     }
 
     public static class QueryFunction
             extends AbstractConnectorTableFunction
     {
-        private final MongoMetadata metadata;
-        private final MongoSession mongoSession;
+        private final MongoTransactionManager transactionManager;
 
-        public QueryFunction(MongoMetadata metadata, MongoSession mongoSession)
+        public QueryFunction(MongoTransactionManager transactionManager)
         {
             super(
                     SCHEMA_NAME,
@@ -104,8 +100,7 @@ public class Query
                                     .type(VARCHAR)
                                     .build()),
                     GENERIC_TABLE);
-            this.metadata = requireNonNull(metadata, "metadata is null");
-            this.mongoSession = requireNonNull(mongoSession, "mongoSession is null");
+            this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
         }
 
         @Override
@@ -115,6 +110,7 @@ public class Query
                 Map<String, Argument> arguments,
                 ConnectorAccessControl accessControl)
         {
+            MongoMetadata metadata = transactionManager.getMetadata(transaction);
             String database = ((Slice) ((ScalarArgument) arguments.get("DATABASE")).getValue()).toStringUtf8();
             String collection = ((Slice) ((ScalarArgument) arguments.get("COLLECTION")).getValue()).toStringUtf8();
             String filter = ((Slice) ((ScalarArgument) arguments.get("FILTER")).getValue()).toStringUtf8();
@@ -124,11 +120,17 @@ public class Query
             if (!collection.equals(collection.toLowerCase(ENGLISH))) {
                 throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Only lowercase collection name is supported");
             }
-            RemoteTableName remoteTableName = mongoSession.toRemoteSchemaTableName(new SchemaTableName(database, collection));
+            SchemaTableName schemaTableName = new SchemaTableName(database, collection);
+            MongoTableHandle tableHandle = metadata.getTableHandle(session, schemaTableName);
+            if (tableHandle == null) {
+                throw new TableNotFoundException(schemaTableName);
+            }
+
+            RemoteTableName remoteTableName = tableHandle.getRemoteTableName();
             // Don't store Document object to MongoTableHandle for avoiding serialization issue
             parseFilter(filter);
 
-            MongoTableHandle tableHandle = new MongoTableHandle(new SchemaTableName(database, collection), remoteTableName, Optional.of(filter));
+            tableHandle = new MongoTableHandle(schemaTableName, remoteTableName, Optional.of(filter));
             ConnectorTableSchema tableSchema = metadata.getTableSchema(session, tableHandle);
             Map<String, ColumnHandle> columnsByName = metadata.getColumnHandles(session, tableHandle);
             List<ColumnHandle> columns = tableSchema.getColumns().stream()

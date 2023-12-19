@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.trino</groupId>
         <artifactId>trino-root</artifactId>
-        <version>434</version>
+        <version>435</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -213,39 +213,18 @@
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <!-- Any exclusions below can be deleted after each release -->
                                 <item>
-                                    <code>java.class.removed</code>
-                                    <old>interface io.trino.spi.block.VariableWidthBlockBuilder.VariableWidthEntryBuilder&lt;E extends java.lang.Throwable&gt;</old>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.connector.ConnectorMaterializedViewDefinition::&lt;init&gt;(java.lang.String, java.util.Optional&lt;io.trino.spi.connector.CatalogSchemaTableName&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.List&lt;io.trino.spi.connector.ConnectorMaterializedViewDefinition.Column&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.List&lt;io.trino.spi.connector.CatalogSchemaName&gt;, java.util.Map&lt;java.lang.String, java.lang.Object&gt;)</old>
+                                    <new>method void io.trino.spi.connector.ConnectorMaterializedViewDefinition::&lt;init&gt;(java.lang.String, java.util.Optional&lt;io.trino.spi.connector.CatalogSchemaTableName&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.List&lt;io.trino.spi.connector.ConnectorMaterializedViewDefinition.Column&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.List&lt;io.trino.spi.connector.CatalogSchemaName&gt;)</new>
                                 </item>
                                 <item>
                                     <code>java.method.removed</code>
-                                    <old>method &lt;E extends java.lang.Throwable&gt; void io.trino.spi.block.VariableWidthBlockBuilder::buildEntry(io.trino.spi.block.VariableWidthBlockBuilder.VariableWidthEntryBuilder&lt;E&gt;) throws E</old>
+                                    <old>method java.util.Map&lt;java.lang.String, java.lang.Object&gt; io.trino.spi.connector.ConnectorMaterializedViewDefinition::getProperties()</old>
                                 </item>
                                 <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.addedToInterface</code>
-                                    <new>method void io.trino.spi.block.BlockBuilder::append(io.trino.spi.block.ValueBlock, int)</new>
-                                </item>
-                                <item>
-                                    <code>java.method.addedToInterface</code>
-                                    <new>method void io.trino.spi.block.BlockBuilder::appendPositions(io.trino.spi.block.ValueBlock, int[], int, int)</new>
-                                </item>
-                                <item>
-                                    <code>java.method.addedToInterface</code>
-                                    <new>method void io.trino.spi.block.BlockBuilder::appendRange(io.trino.spi.block.ValueBlock, int, int)</new>
-                                </item>
-                                <item>
-                                    <code>java.method.addedToInterface</code>
-                                    <new>method void io.trino.spi.block.BlockBuilder::appendRepeated(io.trino.spi.block.ValueBlock, int, int)</new>
-                                </item>
-                                <item>
-                                    <code>java.method.returnTypeChangedCovariantly</code>
-                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.block.ShortArrayBlockBuilder::appendNull()</old>
-                                    <new>method io.trino.spi.block.ShortArrayBlockBuilder io.trino.spi.block.ShortArrayBlockBuilder::appendNull()</new>
-                                </item>
-                                <item>
-                                    <code>java.method.returnTypeChangedCovariantly</code>
-                                    <old>method io.trino.spi.block.BlockBuilder io.trino.spi.block.ShortArrayBlockBuilder::writeShort(short)</old>
-                                    <new>method io.trino.spi.block.ShortArrayBlockBuilder io.trino.spi.block.ShortArrayBlockBuilder::writeShort(short)</new>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method void io.trino.spi.connector.ConnectorMetadata::createMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.SchemaTableName, io.trino.spi.connector.ConnectorMaterializedViewDefinition, boolean, boolean)</old>
+                                    <new>method void io.trino.spi.connector.ConnectorMetadata::createMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.SchemaTableName, io.trino.spi.connector.ConnectorMaterializedViewDefinition, java.util.Map&lt;java.lang.String, java.lang.Object&gt;, boolean, boolean)</new>
                                 </item>
                             </differences>
                         </revapi.differences>

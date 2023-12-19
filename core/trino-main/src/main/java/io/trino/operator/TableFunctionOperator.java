@@ -128,7 +128,6 @@ public class TableFunctionOperator
         {
             requireNonNull(planNodeId, "planNodeId is null");
             requireNonNull(tableFunctionProvider, "tableFunctionProvider is null");
-            requireNonNull(catalogHandle, "catalogHandle is null");
             requireNonNull(functionHandle, "functionHandle is null");
             requireNonNull(requiredChannels, "requiredChannels is null");
             requireNonNull(markerChannels, "markerChannels is null");
@@ -272,6 +271,7 @@ public class TableFunctionOperator
 
         this.operatorContext = operatorContext;
         this.session = operatorContext.getSession().toConnectorSession(catalogHandle);
+
         this.processEmptyInput = !pruneWhenEmpty;
 
         PagesIndex pagesIndex = pagesIndexFactory.newPagesIndex(sourceTypes, expectedPositions);

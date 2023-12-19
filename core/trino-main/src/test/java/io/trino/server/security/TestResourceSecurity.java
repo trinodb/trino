@@ -58,9 +58,10 @@ import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import javax.crypto.SecretKey;
 
@@ -122,7 +123,11 @@ import static java.time.Instant.now;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestResourceSecurity
 {
     private static final String LOCALHOST_KEYSTORE = Resources.getResource("cert/localhost.pem").getPath();
@@ -164,7 +169,7 @@ public class TestResourceSecurity
     private OkHttpClient client;
     private Path passwordConfigDummy;
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
             throws IOException
     {
@@ -784,8 +789,16 @@ public class TestResourceSecurity
         }
     }
 
-    @Test(dataProvider = "groups")
-    public void testOAuth2Groups(Optional<Set<String>> groups)
+    @Test
+    public void testOAuth2Groups()
+            throws Exception
+    {
+        testOAuth2Groups(Optional.empty());
+        testOAuth2Groups(Optional.of(ImmutableSet.of()));
+        testOAuth2Groups(Optional.of(ImmutableSet.of("admin", "public")));
+    }
+
+    private void testOAuth2Groups(Optional<Set<String>> groups)
             throws Exception
     {
         try (TokenServer tokenServer = new TokenServer(Optional.empty());
@@ -855,18 +868,15 @@ public class TestResourceSecurity
         }
     }
 
-    @DataProvider(name = "groups")
-    public static Object[][] groups()
+    @Test
+    public void testJwtAndOAuth2AuthenticatorsSeparation()
+            throws Exception
     {
-        return new Object[][] {
-                {Optional.empty()},
-                {Optional.of(ImmutableSet.of())},
-                {Optional.of(ImmutableSet.of("admin", "public"))}
-        };
+        testJwtAndOAuth2AuthenticatorsSeparation("jwt,oauth2");
+        testJwtAndOAuth2AuthenticatorsSeparation("oauth2,jwt");
     }
 
-    @Test(dataProvider = "authenticators")
-    public void testJwtAndOAuth2AuthenticatorsSeparation(String authenticators)
+    private void testJwtAndOAuth2AuthenticatorsSeparation(String authenticators)
             throws Exception
     {
         TestingHttpServer jwkServer = createTestingJwkServer();
@@ -912,15 +922,6 @@ public class TestResourceSecurity
                     .build();
             assertAuthenticationAutomatic(httpServerInfo.getHttpsUri(), clientWithJwt);
         }
-    }
-
-    @DataProvider(name = "authenticators")
-    public static Object[][] authenticators()
-    {
-        return new Object[][] {
-                {"jwt,oauth2"},
-                {"oauth2,jwt"}
-        };
     }
 
     @Test
@@ -1185,7 +1186,8 @@ public class TestResourceSecurity
                     new PreparedStatementEncoder(new ProtocolConfig()),
                     createTestMetadataManager(),
                     user -> ImmutableSet.of(),
-                    accessControl);
+                    accessControl,
+                    new ProtocolConfig());
         }
 
         @ResourceSecurity(AUTHENTICATED_USER)
@@ -1206,7 +1208,7 @@ public class TestResourceSecurity
 
         public jakarta.ws.rs.core.Response echoIdentity(HttpServletRequest servletRequest, HttpHeaders httpHeaders)
         {
-            Identity identity = sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders, Optional.empty());
+            Identity identity = sessionContextFactory.extractAuthorizedIdentity(servletRequest, httpHeaders);
             return jakarta.ws.rs.core.Response.ok()
                     .header("user", identity.getUser())
                     .header("principal", identity.getPrincipal().map(Principal::getName).orElse(null))

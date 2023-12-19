@@ -25,7 +25,6 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.hive.HiveSchemaProperties;
-import io.trino.plugin.hive.TableAlreadyExistsException;
 import io.trino.plugin.hive.TrinoViewHiveMetastore;
 import io.trino.plugin.hive.metastore.Column;
 import io.trino.plugin.hive.metastore.Database;
@@ -341,34 +340,12 @@ public class TrinoHiveCatalog
                 .withStorage(storage -> storage.setStorageFormat(ICEBERG_METASTORE_STORAGE_FORMAT))
                 // This is a must-have property for the EXTERNAL_TABLE table type
                 .setParameter("EXTERNAL", "TRUE")
-                .setParameter(PRESTO_QUERY_ID_NAME, session.getQueryId())
+                .setParameter(TRINO_QUERY_ID_NAME, session.getQueryId())
                 .setParameter(TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE.toUpperCase(ENGLISH))
                 .setParameter(METADATA_LOCATION_PROP, tableMetadata.metadataFileLocation());
 
         PrincipalPrivileges privileges = owner.map(MetastoreUtil::buildInitialPrivilegeSet).orElse(NO_PRIVILEGES);
-        try {
-            metastore.createTable(builder.build(), privileges);
-        }
-        catch (TableAlreadyExistsException e) {
-            // Ignore TableAlreadyExistsException when table looks like created by us.
-            // This may happen when an actually successful metastore create call is retried
-            // e.g. because of a timeout on our side.
-            Optional<io.trino.plugin.hive.metastore.Table> existingTable = metastore.getTable(schemaTableName.getSchemaName(), schemaTableName.getTableName());
-            if (existingTable.isEmpty() || !isCreatedBy(existingTable.get(), session.getQueryId())) {
-                throw e;
-            }
-        }
-    }
-
-    public static boolean isCreatedBy(io.trino.plugin.hive.metastore.Table table, String queryId)
-    {
-        Optional<String> tableQueryId = getQueryId(table);
-        return tableQueryId.isPresent() && tableQueryId.get().equals(queryId);
-    }
-
-    private static Optional<String> getQueryId(io.trino.plugin.hive.metastore.Table table)
-    {
-        return Optional.ofNullable(table.getParameters().get(PRESTO_QUERY_ID_NAME));
+        metastore.createTable(builder.build(), privileges);
     }
 
     @Override
@@ -383,7 +360,7 @@ public class TrinoHiveCatalog
     {
         ImmutableSet.Builder<SchemaTableName> tablesListBuilder = ImmutableSet.builder();
         for (String schemaName : listNamespaces(session, namespace)) {
-            metastore.getAllTables(schemaName).forEach(tableName -> tablesListBuilder.add(new SchemaTableName(schemaName, tableName)));
+            metastore.getTables(schemaName).forEach(tableName -> tablesListBuilder.add(new SchemaTableName(schemaName, tableName)));
         }
         return tablesListBuilder.build().asList();
     }
@@ -591,6 +568,7 @@ public class TrinoHiveCatalog
             ConnectorSession session,
             SchemaTableName viewName,
             ConnectorMaterializedViewDefinition definition,
+            Map<String, Object> materializedViewProperties,
             boolean replace,
             boolean ignoreExisting)
     {
@@ -609,7 +587,7 @@ public class TrinoHiveCatalog
         }
 
         if (hideMaterializedViewStorageTable) {
-            Location storageMetadataLocation = createMaterializedViewStorage(session, viewName, definition);
+            Location storageMetadataLocation = createMaterializedViewStorage(session, viewName, definition, materializedViewProperties);
 
             Map<String, String> viewProperties = createMaterializedViewProperties(session, storageMetadataLocation);
             Column dummyColumn = new Column("dummy", HIVE_STRING, Optional.empty(), ImmutableMap.of());
@@ -637,7 +615,7 @@ public class TrinoHiveCatalog
             }
         }
         else {
-            createMaterializedViewWithStorageTable(session, viewName, definition, existing);
+            createMaterializedViewWithStorageTable(session, viewName, definition, materializedViewProperties, existing);
         }
     }
 
@@ -645,9 +623,10 @@ public class TrinoHiveCatalog
             ConnectorSession session,
             SchemaTableName viewName,
             ConnectorMaterializedViewDefinition definition,
+            Map<String, Object> materializedViewProperties,
             Optional<io.trino.plugin.hive.metastore.Table> existing)
     {
-        SchemaTableName storageTable = createMaterializedViewStorageTable(session, viewName, definition);
+        SchemaTableName storageTable = createMaterializedViewStorageTable(session, viewName, definition, materializedViewProperties);
 
         // Create a view indicating the storage table
         Map<String, String> viewProperties = createMaterializedViewProperties(session, storageTable);
@@ -709,8 +688,7 @@ public class TrinoHiveCatalog
                 definition.getGracePeriod(),
                 definition.getComment(),
                 definition.getOwner(),
-                definition.getPath(),
-                definition.getProperties());
+                definition.getPath());
 
         replaceMaterializedView(session, viewName, existing, newDefinition);
     }
@@ -789,23 +767,7 @@ public class TrinoHiveCatalog
             String storageSchema = Optional.ofNullable(materializedView.getParameters().get(STORAGE_SCHEMA))
                     .orElse(viewName.getSchemaName());
             SchemaTableName storageTableName = new SchemaTableName(storageSchema, storageTable);
-
-            Table icebergTable;
-            try {
-                icebergTable = loadTable(session, storageTableName);
-            }
-            catch (RuntimeException e) {
-                // The materialized view could be removed concurrently. This may manifest in a number of ways, e.g.
-                // - io.trino.spi.connector.TableNotFoundException
-                // - org.apache.iceberg.exceptions.NotFoundException when accessing manifest file
-                // - other failures when reading storage table's metadata files
-                // Retry, as we're catching broadly.
-                metastore.invalidateTable(viewName.getSchemaName(), viewName.getTableName());
-                metastore.invalidateTable(storageSchema, storageTable);
-                throw new MaterializedViewMayBeBeingRemovedException(e);
-            }
             return Optional.of(getMaterializedViewDefinition(
-                    icebergTable,
                     materializedView.getOwner(),
                     materializedView.getViewOriginalText()
                             .orElseThrow(() -> new TrinoException(HIVE_INVALID_METADATA, "No view original text: " + viewName)),
@@ -813,33 +775,11 @@ public class TrinoHiveCatalog
         }
 
         SchemaTableName storageTableName = new SchemaTableName(viewName.getSchemaName(), IcebergTableName.tableNameWithType(viewName.getTableName(), MATERIALIZED_VIEW_STORAGE));
-        IcebergTableOperations operations = tableOperationsProvider.createTableOperations(
-                this,
-                session,
-                storageTableName.getSchemaName(),
-                storageTableName.getTableName(),
-                Optional.empty(),
-                Optional.empty());
-        try {
-            TableMetadata metadata = getMaterializedViewTableMetadata(session, storageTableName, materializedView);
-            operations.initializeFromMetadata(metadata);
-            Table icebergTable = new BaseTable(operations, quotedTableName(storageTableName), TRINO_METRICS_REPORTER);
-
-            return Optional.of(getMaterializedViewDefinition(
-                    icebergTable,
-                    materializedView.getOwner(),
-                    materializedView.getViewOriginalText()
-                            .orElseThrow(() -> new TrinoException(HIVE_INVALID_METADATA, "No view original text: " + viewName)),
-                    storageTableName));
-        }
-        catch (RuntimeException e) {
-            // The materialized view could be removed concurrently. This may manifest in a number of ways, e.g.
-            // - org.apache.iceberg.exceptions.NotFoundException when accessing manifest file
-            // - other failures when reading storage table's metadata files
-            // Retry, as we're catching broadly.
-            metastore.invalidateTable(viewName.getSchemaName(), viewName.getTableName());
-            throw new MaterializedViewMayBeBeingRemovedException(e);
-        }
+        return Optional.of(getMaterializedViewDefinition(
+                materializedView.getOwner(),
+                materializedView.getViewOriginalText()
+                        .orElseThrow(() -> new TrinoException(HIVE_INVALID_METADATA, "No view original text: " + viewName)),
+                storageTableName));
     }
 
     @Override

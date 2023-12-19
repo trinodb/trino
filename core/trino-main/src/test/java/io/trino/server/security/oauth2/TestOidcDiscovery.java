@@ -29,8 +29,7 @@ import io.trino.server.ui.WebUiAuthenticationFilter;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.net.URI;
@@ -49,8 +48,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestOidcDiscovery
 {
-    @Test(dataProvider = "staticConfiguration")
-    public void testStaticConfiguration(Optional<String> accessTokenPath, Optional<String> userinfoPath)
+    @Test
+    public void testStaticConfiguration()
+            throws Exception
+    {
+        testStaticConfiguration(Optional.empty(), Optional.empty());
+        testStaticConfiguration(Optional.of("/access-token-issuer"), Optional.of("/userinfo"));
+    }
+
+    private void testStaticConfiguration(Optional<String> accessTokenPath, Optional<String> userinfoPath)
             throws Exception
     {
         try (MetadataServer metadataServer = new MetadataServer(ImmutableMap.of("/jwks.json", "jwk/jwk-public.json"))) {
@@ -72,17 +78,16 @@ public class TestOidcDiscovery
         }
     }
 
-    @DataProvider(name = "staticConfiguration")
-    public static Object[][] staticConfiguration()
+    @Test
+    public void testOidcDiscovery()
+            throws Exception
     {
-        return new Object[][] {
-                {Optional.empty(), Optional.empty()},
-                {Optional.of("/access-token-issuer"), Optional.of("/userinfo")},
-        };
+        testOidcDiscovery("openid-configuration.json", Optional.empty(), Optional.of("/connect/userinfo"));
+        testOidcDiscovery("openid-configuration-without-userinfo.json", Optional.empty(), Optional.empty());
+        testOidcDiscovery("openid-configuration-with-access-token-issuer.json", Optional.of("http://access-token-issuer.com/adfs/services/trust"), Optional.of("/connect/userinfo"));
     }
 
-    @Test(dataProvider = "oidcDiscovery")
-    public void testOidcDiscovery(String configuration, Optional<String> accessTokenIssuer, Optional<String> userinfoUrl)
+    private void testOidcDiscovery(String configuration, Optional<String> accessTokenIssuer, Optional<String> userinfoUrl)
             throws Exception
     {
         try (MetadataServer metadataServer = new MetadataServer(
@@ -98,16 +103,6 @@ public class TestOidcDiscovery
             URI issuer = metadataServer.getBaseUrl();
             assertConfiguration(server, issuer, accessTokenIssuer.map(issuer::resolve), userinfoUrl.map(issuer::resolve));
         }
-    }
-
-    @DataProvider(name = "oidcDiscovery")
-    public static Object[][] oidcDiscovery()
-    {
-        return new Object[][] {
-                {"openid-configuration.json", Optional.empty(), Optional.of("/connect/userinfo")},
-                {"openid-configuration-without-userinfo.json", Optional.empty(), Optional.empty()},
-                {"openid-configuration-with-access-token-issuer.json", Optional.of("http://access-token-issuer.com/adfs/services/trust"), Optional.of("/connect/userinfo")},
-        };
     }
 
     @Test

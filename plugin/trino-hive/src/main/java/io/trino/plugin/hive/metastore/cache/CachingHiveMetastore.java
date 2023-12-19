@@ -59,6 +59,7 @@ import io.trino.spi.type.Type;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -473,7 +474,9 @@ public final class CachingHiveMetastore
                     Table tableWithOnlyMissingColumns = table.withSelectedDataColumnsOnly(missingColumns);
                     return delegate.getTableStatistics(tableWithOnlyMissingColumns);
                 },
-                CachingHiveMetastore::mergePartitionColumnStatistics);
+                (currentStats, newStats) -> mergePartitionColumnStatistics(currentStats, newStats, dataColumns))
+                // HiveColumnStatistics.empty() are removed to make output consistent with non-cached metastore which simplifies testing
+                .withEmptyColumnStatisticsRemoved();
     }
 
     /**
@@ -494,23 +497,31 @@ public final class CachingHiveMetastore
                 partitionsByName.keySet(),
                 missingPartitions -> loadPartitionsColumnStatistics(table, partitionsByName, missingPartitions),
                 currentStats -> currentStats.getColumnStatistics().keySet().containsAll(dataColumns),
-                CachingHiveMetastore::mergePartitionColumnStatistics);
+                (currentStats, newStats) -> mergePartitionColumnStatistics(currentStats, newStats, dataColumns));
         return statistics.entrySet().stream()
-                .collect(toImmutableMap(entry -> entry.getKey().getPartitionName().orElseThrow(), Entry::getValue));
+                .collect(toImmutableMap(
+                        entry -> entry.getKey().getPartitionName().orElseThrow(),
+                        // HiveColumnStatistics.empty() are removed to make output consistent with non-cached metastore which simplifies testing
+                        entry -> entry.getValue().withEmptyColumnStatisticsRemoved()));
     }
 
-    private static PartitionStatistics mergePartitionColumnStatistics(PartitionStatistics currentStats, PartitionStatistics newStats)
+    private PartitionStatistics mergePartitionColumnStatistics(PartitionStatistics currentStats, PartitionStatistics newStats, Set<String> dataColumns)
     {
         requireNonNull(newStats, "newStats is null");
-        if (currentStats == null) {
-            return newStats;
+        ImmutableMap.Builder<String, HiveColumnStatistics> columnStatisticsBuilder = ImmutableMap.builder();
+        // Populate empty statistics for all requested columns to cache absence of column statistics for future requests.
+        if (cacheMissing) {
+            columnStatisticsBuilder.putAll(Iterables.transform(
+                    dataColumns,
+                    column -> new AbstractMap.SimpleEntry<>(column, HiveColumnStatistics.empty())));
         }
+        if (currentStats != null) {
+            columnStatisticsBuilder.putAll(currentStats.getColumnStatistics());
+        }
+        columnStatisticsBuilder.putAll(newStats.getColumnStatistics());
         return new PartitionStatistics(
                 newStats.getBasicStatistics(),
-                ImmutableMap.<String, HiveColumnStatistics>builder()
-                        .putAll(currentStats.getColumnStatistics())
-                        .putAll(newStats.getColumnStatistics())
-                        .buildKeepingLast());
+                columnStatisticsBuilder.buildKeepingLast());
     }
 
     private Map<HivePartitionName, PartitionStatistics> loadPartitionsColumnStatistics(Table table, Map<HivePartitionName, Partition> partitionsByName, Collection<HivePartitionName> partitionNamesToLoad)
@@ -548,10 +559,10 @@ public final class CachingHiveMetastore
     }
 
     @Override
-    public void updatePartitionStatistics(Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updatePartitionsStatistics(Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
     {
         try {
-            delegate.updatePartitionStatistics(table, partitionName, update);
+            delegate.updatePartitionsStatistics(table, partitionName, update);
         }
         finally {
             HivePartitionName hivePartitionName = hivePartitionName(hiveTableName(table.getDatabaseName(), table.getTableName()), partitionName);
@@ -578,7 +589,7 @@ public final class CachingHiveMetastore
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
+    public List<String> getTables(String databaseName)
     {
         Map<String, RelationType> relationTypes = relationTypesCache.getIfPresent(databaseName);
         if (relationTypes != null) {
@@ -589,7 +600,7 @@ public final class CachingHiveMetastore
 
     private List<String> loadAllTables(String databaseName)
     {
-        return delegate.getAllTables(databaseName);
+        return delegate.getTables(databaseName);
     }
 
     @Override
@@ -619,14 +630,14 @@ public final class CachingHiveMetastore
     }
 
     @Override
-    public Optional<Map<SchemaTableName, RelationType>> getRelationTypes()
+    public Optional<Map<SchemaTableName, RelationType>> getAllRelationTypes()
     {
         return getOptional(allRelationTypesCache, SingletonCacheKey.INSTANCE);
     }
 
     private Optional<Map<SchemaTableName, RelationType>> loadRelationTypes()
     {
-        return delegate.getRelationTypes();
+        return delegate.getAllRelationTypes();
     }
 
     @Override
@@ -642,14 +653,14 @@ public final class CachingHiveMetastore
     }
 
     @Override
-    public List<String> getAllViews(String databaseName)
+    public List<String> getViews(String databaseName)
     {
         return get(viewNamesCache, databaseName);
     }
 
     private List<String> loadAllViews(String databaseName)
     {
-        return delegate.getAllViews(databaseName);
+        return delegate.getViews(databaseName);
     }
 
     @Override
@@ -1193,9 +1204,9 @@ public final class CachingHiveMetastore
     }
 
     @Override
-    public Collection<LanguageFunction> getFunctions(String databaseName)
+    public Collection<LanguageFunction> getAllFunctions(String databaseName)
     {
-        return delegate.getFunctions(databaseName);
+        return delegate.getAllFunctions(databaseName);
     }
 
     @Override

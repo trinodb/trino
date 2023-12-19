@@ -60,6 +60,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.net.HttpHeaders.USER_AGENT;
 import static io.trino.client.ProtocolHeaders.detectProtocol;
+import static io.trino.server.ServletSecurityUtils.authenticatedIdentity;
 import static io.trino.spi.security.AccessDeniedException.denySetRole;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -69,16 +70,22 @@ import static java.util.Objects.requireNonNull;
 public class HttpRequestSessionContextFactory
 {
     private static final Splitter DOT_SPLITTER = Splitter.on('.');
-    public static final String AUTHENTICATED_IDENTITY = "trino.authenticated-identity";
 
     private final PreparedStatementEncoder preparedStatementEncoder;
     private final Metadata metadata;
     private final GroupProvider groupProvider;
     private final AccessControl accessControl;
+    private final Optional<String> alternateHeaderName;
 
     @Inject
-    public HttpRequestSessionContextFactory(PreparedStatementEncoder preparedStatementEncoder, Metadata metadata, GroupProvider groupProvider, AccessControl accessControl)
+    public HttpRequestSessionContextFactory(
+            PreparedStatementEncoder preparedStatementEncoder,
+            Metadata metadata,
+            GroupProvider groupProvider,
+            AccessControl accessControl,
+            ProtocolConfig protocolConfig)
     {
+        this.alternateHeaderName = protocolConfig.getAlternateHeaderName();
         this.preparedStatementEncoder = requireNonNull(preparedStatementEncoder, "preparedStatementEncoder is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
@@ -87,7 +94,6 @@ public class HttpRequestSessionContextFactory
 
     public SessionContext createSessionContext(
             MultivaluedMap<String, String> headers,
-            Optional<String> alternateHeaderName,
             Optional<String> remoteAddress,
             Optional<Identity> authenticatedIdentity)
             throws WebApplicationException
@@ -184,21 +190,12 @@ public class HttpRequestSessionContextFactory
                 clientInfo);
     }
 
-    public Identity extractAuthorizedIdentity(
-            HttpServletRequest servletRequest,
-            HttpHeaders httpHeaders,
-            Optional<String> alternateHeaderName)
+    public Identity extractAuthorizedIdentity(HttpServletRequest servletRequest, HttpHeaders httpHeaders)
     {
-        return extractAuthorizedIdentity(
-                Optional.ofNullable((Identity) servletRequest.getAttribute(AUTHENTICATED_IDENTITY)),
-                httpHeaders.getRequestHeaders(),
-                alternateHeaderName);
+        return extractAuthorizedIdentity(authenticatedIdentity(servletRequest), httpHeaders.getRequestHeaders());
     }
 
-    public Identity extractAuthorizedIdentity(
-            Optional<Identity> optionalAuthenticatedIdentity,
-            MultivaluedMap<String, String> headers,
-            Optional<String> alternateHeaderName)
+    public Identity extractAuthorizedIdentity(Optional<Identity> optionalAuthenticatedIdentity, MultivaluedMap<String, String> headers)
             throws AccessDeniedException
     {
         ProtocolHeaders protocolHeaders;

@@ -29,6 +29,7 @@ import io.trino.spi.type.TimestampType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.spi.type.VarcharType;
+import org.apache.pinot.common.datatable.DataTable;
 import org.apache.pinot.common.utils.DataSchema;
 import org.apache.pinot.common.utils.DataSchema.ColumnDataType;
 
@@ -342,15 +343,31 @@ public class PinotSegmentPageSource
     private Slice getSlice(int rowIndex, int columnIndex)
     {
         Type trinoType = getType(columnIndex);
+        DataTable dataTable = currentDataTable.getDataTable();
+
         if (trinoType instanceof VarcharType) {
-            String field = currentDataTable.getDataTable().getString(rowIndex, columnIndex);
+            String field = dataTable.getString(rowIndex, columnIndex);
             return getUtf8Slice(field);
         }
         if (trinoType instanceof VarbinaryType) {
-            return Slices.wrappedBuffer(toBytes(currentDataTable.getDataTable().getString(rowIndex, columnIndex)));
+            // Pinot 0.11.0 and 0.12.1 default to use V3 data table for server response.
+            // Pinot 1.0.0 and above default to use V4 data table.
+            // Pinot v4 data table uses variable length encoding for bytes instead of hex string representation in v3.
+            // In order to change the data table version, users need to explicitly set:
+            // `pinot.server.instance.currentDataTableVersion=3` in pinot server config.
+            if (dataTable.getVersion() >= 4) {
+                try {
+                    return Slices.wrappedBuffer(dataTable.getBytes(rowIndex, columnIndex).getBytes());
+                }
+                catch (NullPointerException e) {
+                    // Pinot throws NPE when the entry is null.
+                    return Slices.wrappedBuffer();
+                }
+            }
+            return Slices.wrappedBuffer(toBytes(dataTable.getString(rowIndex, columnIndex)));
         }
-        if (trinoType.getTypeSignature().getBase() == StandardTypes.JSON) {
-            String field = currentDataTable.getDataTable().getString(rowIndex, columnIndex);
+        if (trinoType.getTypeSignature().getBase().equalsIgnoreCase(StandardTypes.JSON)) {
+            String field = dataTable.getString(rowIndex, columnIndex);
             return jsonParse(getUtf8Slice(field));
         }
         return Slices.EMPTY_SLICE;

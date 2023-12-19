@@ -89,7 +89,8 @@ public class TestCheckpointWriter
                                 "formatOptionX", "blah",
                                 "fomatOptionY", "plah")),
                 "{\"type\":\"struct\",\"fields\":" +
-                        "[{\"name\":\"ts\",\"type\":\"timestamp\",\"nullable\":true,\"metadata\":{}}," +
+                        "[{\"name\":\"part_key\",\"type\":\"double\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"ts\",\"type\":\"timestamp\",\"nullable\":true,\"metadata\":{}}," +
                         "{\"name\":\"str\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}," +
                         "{\"name\":\"dec_short\",\"type\":\"decimal(5,1)\",\"nullable\":true,\"metadata\":{}}," +
                         "{\"name\":\"dec_long\",\"type\":\"decimal(25,3)\",\"nullable\":true,\"metadata\":{}}," +
@@ -215,7 +216,8 @@ public class TestCheckpointWriter
                                 "formatOptionX", "blah",
                                 "fomatOptionY", "plah")),
                 "{\"type\":\"struct\",\"fields\":" +
-                        "[{\"name\":\"ts\",\"type\":\"timestamp\",\"nullable\":true,\"metadata\":{}}," +
+                        "[{\"name\":\"part_key\",\"type\":\"double\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"ts\",\"type\":\"timestamp\",\"nullable\":true,\"metadata\":{}}," +
                         "{\"name\":\"str\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}," +
                         "{\"name\":\"dec_short\",\"type\":\"decimal(5,1)\",\"nullable\":true,\"metadata\":{}}," +
                         "{\"name\":\"dec_long\",\"type\":\"decimal(25,3)\",\"nullable\":true,\"metadata\":{}}," +
@@ -350,9 +352,10 @@ public class TestCheckpointWriter
                                 "formatOptionX", "blah",
                                 "fomatOptionY", "plah")),
                 "{\"type\":\"struct\",\"fields\":" +
-                        "[{\"name\":\"row\",\"type\":{\"type\":\"struct\",\"fields\":[{\"name\":\"s1\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}," +
+                        "[{\"name\":\"part_key\",\"type\":\"double\",\"nullable\":true,\"metadata\":{}}," +
+                        "{\"name\":\"row\",\"type\":{\"type\":\"struct\",\"fields\":[{\"name\":\"s1\",\"type\":\"integer\",\"nullable\":true,\"metadata\":{}}," +
                         "{\"name\":\"s2\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}}]},\"nullable\":true,\"metadata\":{}}]}",
-                ImmutableList.of(),
+                ImmutableList.of("part_key"),
                 ImmutableMap.of(),
                 1000);
         ProtocolEntry protocolEntry = new ProtocolEntry(10, 20, Optional.empty(), Optional.empty());

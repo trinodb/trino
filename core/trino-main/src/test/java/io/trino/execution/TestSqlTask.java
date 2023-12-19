@@ -92,6 +92,7 @@ public class TestSqlTask
     private TaskExecutor taskExecutor;
     private ScheduledExecutorService taskNotificationExecutor;
     private ScheduledExecutorService driverYieldExecutor;
+    private ScheduledExecutorService driverTimeoutExecutor;
     private SqlTaskExecutionFactory sqlTaskExecutionFactory;
 
     private final AtomicInteger nextTaskId = new AtomicInteger();
@@ -104,7 +105,7 @@ public class TestSqlTask
 
         taskNotificationExecutor = newScheduledThreadPool(10, threadsNamed("task-notification-%s"));
         driverYieldExecutor = newScheduledThreadPool(2, threadsNamed("driver-yield-%s"));
-
+        driverTimeoutExecutor = newScheduledThreadPool(2, threadsNamed("driver-timeout-%s"));
         LocalExecutionPlanner planner = createTestingPlanner();
 
         sqlTaskExecutionFactory = new SqlTaskExecutionFactory(
@@ -123,6 +124,7 @@ public class TestSqlTask
         taskExecutor = null;
         taskNotificationExecutor.shutdownNow();
         driverYieldExecutor.shutdown();
+        driverTimeoutExecutor.shutdown();
         sqlTaskExecutionFactory = null;
     }
 
@@ -435,6 +437,7 @@ public class TestSqlTask
                 new TestingGcMonitor(),
                 taskNotificationExecutor,
                 driverYieldExecutor,
+                driverTimeoutExecutor,
                 DataSize.of(1, MEGABYTE),
                 new SpillSpaceTracker(DataSize.of(1, GIGABYTE)));
 

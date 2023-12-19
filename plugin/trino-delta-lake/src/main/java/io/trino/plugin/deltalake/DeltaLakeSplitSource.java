@@ -123,8 +123,8 @@ public class DeltaLakeSplitSource
                             .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
                     List<ConnectorSplit> filteredSplits = splits.stream()
                             .map(DeltaLakeSplit.class::cast)
-                            .filter(split -> split.getStatisticsPredicate().overlaps(dynamicFilterPredicate) &&
-                                    partitionMatchesPredicate(split.getPartitionKeys(), partitionColumnDomains))
+                            .filter(split -> partitionMatchesPredicate(split.getPartitionKeys(), partitionColumnDomains) &&
+                                    split.getStatisticsPredicate().overlaps(dynamicFilterPredicate))
                             .collect(toImmutableList());
                     if (recordScannedFiles) {
                         filteredSplits.forEach(split -> scannedFilePaths.add(((DeltaLakeSplit) split).getPath()));

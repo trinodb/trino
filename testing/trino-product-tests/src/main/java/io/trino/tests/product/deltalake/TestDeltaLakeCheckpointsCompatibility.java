@@ -20,13 +20,15 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import com.google.inject.name.Named;
 import io.trino.tempto.BeforeMethodWithContext;
-import io.trino.tempto.assertions.QueryAssert;
+import io.trino.tempto.assertions.QueryAssert.Row;
+import io.trino.tempto.query.QueryResult;
 import io.trino.testng.services.Flaky;
 import io.trino.tests.product.deltalake.util.DatabricksVersion;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -95,7 +97,7 @@ public class TestDeltaLakeCheckpointsCompatibility
             onDelta().executeQuery("DELETE FROM default." + tableName + " WHERE a_string = 'jeza'");
             onTrino().executeQuery("DELETE FROM delta.default." + tableName + " WHERE a_string = 'bobra'");
 
-            List<QueryAssert.Row> expectedRows = ImmutableList.of(
+            List<Row> expectedRows = ImmutableList.of(
                     row(1, "ala"),
                     row(2, "kota"),
                     row(3, "osla"),
@@ -129,6 +131,91 @@ public class TestDeltaLakeCheckpointsCompatibility
         }
         finally {
             // cleanup
+            dropDeltaTableWithRetry("default." + tableName);
+        }
+    }
+
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    public void testSparkCanReadTrinoCheckpointWithMultiplePartitionColumns()
+    {
+        String tableName = "test_dl_checkpoints_multi_part_compat_" + randomNameSuffix();
+        try {
+            onTrino().executeQuery(format(
+                    "CREATE TABLE delta.default.%1$s (" +
+                            "    data INT," +
+                            "    part_boolean BOOLEAN," +
+                            "    part_tinyint TINYINT," +
+                            "    part_smallint SMALLINT," +
+                            "    part_int INT," +
+                            "    part_bigint BIGINT," +
+                            "    part_decimal_5_2 DECIMAL(5,2)," +
+                            "    part_decimal_21_3 DECIMAL(21,3)," +
+                            "    part_double DOUBLE," +
+                            "    part_float REAL," +
+                            "    part_varchar VARCHAR," +
+                            "    part_date DATE," +
+                            "    part_timestamp TIMESTAMP(3) WITH TIME ZONE" +
+                            ") " +
+                            "WITH (" +
+                            "    location = 's3://%2$s/databricks-compatibility-test-%1$s'," +
+                            "    partitioned_by = ARRAY['part_boolean', 'part_tinyint', 'part_smallint', 'part_int', 'part_bigint', 'part_decimal_5_2', 'part_decimal_21_3', 'part_double', 'part_float', 'part_varchar', 'part_date', 'part_timestamp']," +
+                            "    checkpoint_interval = 2" +
+                            ")", tableName, bucketName));
+
+            onTrino().executeQuery("" +
+                    "INSERT INTO " + tableName +
+                    " VALUES " +
+                    "(" +
+                    "   1, " +
+                    "   true, " +
+                    "   1, " +
+                    "   10," +
+                    "   100, " +
+                    "   1000, " +
+                    "   CAST('123.12' AS DECIMAL(5,2)), " +
+                    "   CAST('123456789012345678.123' AS DECIMAL(21,3)), " +
+                    "   DOUBLE '0', " +
+                    "   REAL '0', " +
+                    "   'a', " +
+                    "   DATE '2020-08-21', " +
+                    "   TIMESTAMP '2020-10-21 01:00:00.123 UTC'" +
+                    ")");
+            onTrino().executeQuery("" +
+                    "INSERT INTO " + tableName +
+                    " VALUES " +
+                    "(" +
+                    "   2, " +
+                    "   true, " +
+                    "   2, " +
+                    "   20," +
+                    "   200, " +
+                    "   2000, " +
+                    "   CAST('223.12' AS DECIMAL(5,2)), " +
+                    "   CAST('223456789012345678.123' AS DECIMAL(21,3)), " +
+                    "   DOUBLE '0', " +
+                    "   REAL '0', " +
+                    "   'b', " +
+                    "   DATE '2020-08-22', " +
+                    "   TIMESTAMP '2020-10-22 02:00:00.456 UTC'" +
+                    ")");
+
+            String selectValues = "SELECT " +
+                    "data, part_boolean, part_tinyint, part_smallint, part_int, part_bigint, part_decimal_5_2, part_decimal_21_3, part_double , part_float, part_varchar, part_date " +
+                    "FROM " + tableName;
+            Row firstRow = row(1, true, 1, 10, 100, 1000L, new BigDecimal("123.12"), new BigDecimal("123456789012345678.123"), 0d, 0f, "a", java.sql.Date.valueOf("2020-08-21"));
+            Row secondRow = row(2, true, 2, 20, 200, 2000L, new BigDecimal("223.12"), new BigDecimal("223456789012345678.123"), 0d, 0f, "b", java.sql.Date.valueOf("2020-08-22"));
+            List<Row> expectedRows = ImmutableList.of(firstRow, secondRow);
+            assertThat(onDelta().executeQuery(selectValues)).containsOnly(expectedRows);
+            // Make sure that the checkpoint is being processed
+            onTrino().executeQuery("CALL delta.system.flush_metadata_cache(schema_name => 'default', table_name => '" + tableName + "')");
+            assertThat(onTrino().executeQuery(selectValues)).containsOnly(expectedRows);
+            QueryResult selectSparkTimestamps = onDelta().executeQuery("SELECT date_format(part_timestamp, \"yyyy-MM-dd HH:mm:ss.SSS\") FROM default." + tableName);
+            QueryResult selectTrinoTimestamps = onTrino().executeQuery("SELECT format_datetime(part_timestamp, 'yyyy-MM-dd HH:mm:ss.SSS') FROM delta.default." + tableName);
+            assertThat(selectSparkTimestamps).containsOnly(selectTrinoTimestamps.rows().stream()
+                    .map(Row::new)
+                    .collect(toImmutableList()));
+        }
+        finally {
             dropDeltaTableWithRetry("default." + tableName);
         }
     }
@@ -250,7 +337,7 @@ public class TestDeltaLakeCheckpointsCompatibility
 
     private void testCheckpointMinMaxStatisticsForRowType(Consumer<String> sqlExecutor, String tableName, String qualifiedTableName)
     {
-        List<QueryAssert.Row> expectedRows = ImmutableList.of(
+        List<Row> expectedRows = ImmutableList.of(
                 row(1, "ala"),
                 row(2, "kota"),
                 row(3, "osla"),
@@ -287,7 +374,7 @@ public class TestDeltaLakeCheckpointsCompatibility
             assertThat(explainSelectMax).matches("== Physical Plan ==\\s*LocalTableScan \\[max\\(" + column + "\\).*]\\s*");
 
             // check both engines can read both tables
-            List<QueryAssert.Row> maxMin = ImmutableList.of(row(3, "ala"));
+            List<Row> maxMin = ImmutableList.of(row(3, "ala"));
             assertThat(onDelta().executeQuery("SELECT max(root.entry_one), min(root.entry_two) FROM default." + tableName))
                     .containsOnly(maxMin);
             assertThat(onTrino().executeQuery("SELECT max(root.entry_one), min(root.entry_two) FROM delta.default." + tableName))
@@ -317,7 +404,7 @@ public class TestDeltaLakeCheckpointsCompatibility
 
     private void testCheckpointNullStatisticsForRowType(Consumer<String> sqlExecutor, String tableName, String qualifiedTableName)
     {
-        List<QueryAssert.Row> expectedRows = ImmutableList.of(
+        List<Row> expectedRows = ImmutableList.of(
                 row(1, "ala"),
                 row(2, "kota"),
                 row(null, null),

@@ -70,6 +70,14 @@ public class ClassLoaderSafeConnectorPageSink
     }
 
     @Override
+    public void closeIdleWriters()
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.closeIdleWriters();
+        }
+    }
+
+    @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

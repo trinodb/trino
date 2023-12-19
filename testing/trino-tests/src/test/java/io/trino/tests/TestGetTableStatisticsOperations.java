@@ -14,50 +14,45 @@
 package io.trino.tests;
 
 import com.google.common.collect.ImmutableMap;
-import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
-import io.opentelemetry.sdk.trace.SdkTracerProvider;
+import io.opentelemetry.sdk.testing.junit5.OpenTelemetryExtension;
 import io.opentelemetry.sdk.trace.data.SpanData;
-import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.QueryRunner;
-import io.trino.testng.services.ManageTestResources;
 import io.trino.tracing.TracingMetadata;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.testing.TestingSession.testSessionBuilder;
-import static io.trino.transaction.TransactionBuilder.transaction;
+import static io.trino.testing.TransactionBuilder.transaction;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 @TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public class TestGetTableStatisticsOperations
         extends AbstractTestQueryFramework
 {
-    @ManageTestResources.Suppress(because = "Not a TestNG test class")
+    @RegisterExtension
+    static final OpenTelemetryExtension TELEMETRY = OpenTelemetryExtension.create();
+
     private LocalQueryRunner localQueryRunner;
-    @ManageTestResources.Suppress(because = "Not a TestNG test class")
-    private InMemorySpanExporter spanExporter;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        spanExporter = closeAfterClass(InMemorySpanExporter.create());
-
-        SdkTracerProvider tracerProvider = SdkTracerProvider.builder()
-                .addSpanProcessor(SimpleSpanProcessor.create(spanExporter))
-                .build();
-
         localQueryRunner = LocalQueryRunner.builder(testSessionBuilder().build())
-                .withMetadataDecorator(metadata -> new TracingMetadata(tracerProvider.get("test"), metadata))
+                .withMetadataDecorator(metadata -> new TracingMetadata(TELEMETRY.getOpenTelemetry().getTracer("test"), metadata))
                 .build();
         localQueryRunner.installPlugin(new TpchPlugin());
         localQueryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
@@ -69,19 +64,11 @@ public class TestGetTableStatisticsOperations
     {
         localQueryRunner.close();
         localQueryRunner = null;
-        spanExporter = null;
-    }
-
-    private void resetCounters()
-    {
-        spanExporter.reset();
     }
 
     @Test
     public void testTwoWayJoin()
     {
-        resetCounters();
-
         planDistributedQuery("SELECT * " +
                 "FROM tpch.tiny.orders o, tpch.tiny.lineitem l " +
                 "WHERE o.orderkey = l.orderkey");
@@ -91,8 +78,6 @@ public class TestGetTableStatisticsOperations
     @Test
     public void testThreeWayJoin()
     {
-        resetCounters();
-
         planDistributedQuery("SELECT * " +
                 "FROM tpch.tiny.customer c, tpch.tiny.orders o, tpch.tiny.lineitem l " +
                 "WHERE o.orderkey = l.orderkey AND c.custkey = o.custkey");
@@ -107,9 +92,9 @@ public class TestGetTableStatisticsOperations
                 });
     }
 
-    private long getTableStatisticsMethodInvocations()
+    private static long getTableStatisticsMethodInvocations()
     {
-        return spanExporter.getFinishedSpanItems().stream()
+        return TELEMETRY.getSpans().stream()
                 .map(SpanData::getName)
                 .filter(name -> name.equals("Metadata.getTableStatistics"))
                 .count();

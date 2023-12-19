@@ -55,10 +55,8 @@ public final class S3FileSystemFactory
                         .build().newExecutionInterceptor())
                 .build());
 
-        if ((config.getAwsAccessKey() != null) && (config.getAwsSecretKey() != null)) {
-            s3.credentialsProvider(StaticCredentialsProvider.create(
-                    AwsBasicCredentials.create(config.getAwsAccessKey(), config.getAwsSecretKey())));
-        }
+        Optional<StaticCredentialsProvider> staticCredentialsProvider = getStaticCredentialsProvider(config);
+        staticCredentialsProvider.ifPresent(s3::credentialsProvider);
 
         Optional.ofNullable(config.getRegion()).map(Region::of).ifPresent(s3::region);
         Optional.ofNullable(config.getEndpoint()).map(URI::create).ifPresent(s3::endpointOverride);
@@ -70,6 +68,7 @@ public final class S3FileSystemFactory
             Optional.ofNullable(config.getStsRegion())
                     .or(() -> Optional.ofNullable(config.getRegion()))
                     .map(Region::of).ifPresent(sts::region);
+            staticCredentialsProvider.ifPresent(sts::credentialsProvider);
 
             s3.credentialsProvider(StsAssumeRoleCredentialsProvider.builder()
                     .refreshRequest(request -> request
@@ -114,5 +113,14 @@ public final class S3FileSystemFactory
     public TrinoFileSystem create(ConnectorIdentity identity)
     {
         return new S3FileSystem(client, context);
+    }
+
+    private static Optional<StaticCredentialsProvider> getStaticCredentialsProvider(S3FileSystemConfig config)
+    {
+        if ((config.getAwsAccessKey() != null) || (config.getAwsSecretKey() != null)) {
+            return Optional.of(StaticCredentialsProvider.create(
+                    AwsBasicCredentials.create(config.getAwsAccessKey(), config.getAwsSecretKey())));
+        }
+        return Optional.empty();
     }
 }

@@ -87,6 +87,7 @@ public final class GroupByHashYieldAssertion
                 new TestingGcMonitor(),
                 EXECUTOR,
                 SCHEDULED_EXECUTOR,
+                SCHEDULED_EXECUTOR,
                 DataSize.of(512, MEGABYTE),
                 new SpillSpaceTracker(DataSize.of(512, MEGABYTE)));
 

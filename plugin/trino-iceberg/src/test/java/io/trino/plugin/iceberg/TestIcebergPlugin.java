@@ -25,7 +25,6 @@ import java.nio.file.Files;
 import java.util.Map;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.plugin.hive.HiveConfig.HIVE_VIEWS_ENABLED;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIcebergPlugin
@@ -214,7 +213,7 @@ public class TestIcebergPlugin
                         "test",
                         Map.of(
                                 "iceberg.catalog.type", "HIVE_METASTORE",
-                                HIVE_VIEWS_ENABLED, "true",
+                                "hive.hive-views.enabled", "true",
                                 "hive.metastore.uri", "thrift://foo:1234",
                                 "bootstrap.quiet", "true"),
                         new TestingConnectorContext())

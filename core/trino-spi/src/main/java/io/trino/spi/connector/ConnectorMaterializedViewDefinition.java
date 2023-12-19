@@ -17,7 +17,6 @@ import io.trino.spi.type.TypeId;
 
 import java.time.Duration;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.StringJoiner;
@@ -37,7 +36,6 @@ public class ConnectorMaterializedViewDefinition
     private final Optional<String> comment;
     private final Optional<String> owner;
     private final List<CatalogSchemaName> path;
-    private final Map<String, Object> properties;
 
     public ConnectorMaterializedViewDefinition(
             String originalSql,
@@ -48,8 +46,7 @@ public class ConnectorMaterializedViewDefinition
             Optional<Duration> gracePeriod,
             Optional<String> comment,
             Optional<String> owner,
-            List<CatalogSchemaName> path,
-            Map<String, Object> properties)
+            List<CatalogSchemaName> path)
     {
         this.originalSql = requireNonNull(originalSql, "originalSql is null");
         this.storageTable = requireNonNull(storageTable, "storageTable is null");
@@ -61,7 +58,6 @@ public class ConnectorMaterializedViewDefinition
         this.comment = requireNonNull(comment, "comment is null");
         this.owner = requireNonNull(owner, "owner is null");
         this.path = List.copyOf(path);
-        this.properties = requireNonNull(properties, "properties are null");
 
         if (catalog.isEmpty() && schema.isPresent()) {
             throw new IllegalArgumentException("catalog must be present if schema is present");
@@ -116,11 +112,6 @@ public class ConnectorMaterializedViewDefinition
         return path;
     }
 
-    public Map<String, Object> getProperties()
-    {
-        return properties;
-    }
-
     @Override
     public String toString()
     {
@@ -133,9 +124,8 @@ public class ConnectorMaterializedViewDefinition
         gracePeriod.ifPresent(value -> joiner.add("gracePeriod=" + gracePeriod));
         comment.ifPresent(value -> joiner.add("comment=" + value));
         joiner.add("owner=" + owner);
-        joiner.add("properties=" + properties);
         joiner.add(path.stream().map(CatalogSchemaName::toString).collect(joining(", ", "path=(", ")")));
-        return getClass().getSimpleName() + joiner.toString();
+        return getClass().getSimpleName() + joiner;
     }
 
     @Override
@@ -156,14 +146,13 @@ public class ConnectorMaterializedViewDefinition
                 Objects.equals(gracePeriod, that.gracePeriod) &&
                 Objects.equals(comment, that.comment) &&
                 Objects.equals(owner, that.owner) &&
-                Objects.equals(path, that.path) &&
-                Objects.equals(properties, that.properties);
+                Objects.equals(path, that.path);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(originalSql, storageTable, catalog, schema, columns, gracePeriod, comment, owner, path, properties);
+        return Objects.hash(originalSql, storageTable, catalog, schema, columns, gracePeriod, comment, owner, path);
     }
 
     public static final class Column

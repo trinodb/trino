@@ -16,17 +16,13 @@ package io.trino.parquet.reader.flat;
 import io.airlift.slice.Slices;
 import org.apache.parquet.bytes.HeapByteBufferAllocator;
 import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridEncoder;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Random;
-import java.util.stream.Stream;
 
 import static io.trino.parquet.reader.TestData.generateMixedData;
-import static io.trino.testing.DataProviders.cartesianProduct;
-import static io.trino.testing.DataProviders.toDataProvider;
 import static java.lang.Math.min;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -48,69 +44,69 @@ public class TestNullsDecoder
         MIXED_RANDOM_AND_GROUPED_ARRAY = generateMixedData(r, N, MAX_MIXED_GROUP_SIZE);
     }
 
-    @Test(dataProvider = "dataSets")
-    public void testDecoding(NullValuesProvider nullValuesProvider, int batchSize)
+    @Test
+    public void testDecoding()
             throws IOException
     {
-        boolean[] values = nullValuesProvider.getPositions();
-        byte[] encoded = encode(values);
-        NullsDecoder decoder = new NullsDecoder();
-        decoder.init(Slices.wrappedBuffer(encoded));
-        boolean[] result = new boolean[N];
-        int nonNullCount = 0;
-        for (int i = 0; i < N; i += batchSize) {
-            nonNullCount += decoder.readNext(result, i, min(batchSize, N - i));
-        }
-        // Parquet encodes whether value exists, Trino whether value is null
-        boolean[] byteResult = flip(result);
-        assertThat(byteResult).containsExactly(values);
+        for (NullValuesProvider nullValuesProvider : NullValuesProvider.values()) {
+            for (int batchSize : Arrays.asList(1, 3, 16, 100, 1000)) {
+                boolean[] values = nullValuesProvider.getPositions();
+                byte[] encoded = encode(values);
+                NullsDecoder decoder = new NullsDecoder();
+                decoder.init(Slices.wrappedBuffer(encoded));
+                boolean[] result = new boolean[N];
+                int nonNullCount = 0;
+                for (int i = 0; i < N; i += batchSize) {
+                    nonNullCount += decoder.readNext(result, i, min(batchSize, N - i));
+                }
+                // Parquet encodes whether value exists, Trino whether value is null
+                boolean[] byteResult = flip(result);
+                assertThat(byteResult).containsExactly(values);
 
-        int expectedNonNull = nonNullCount(values);
-        assertThat(nonNullCount).isEqualTo(expectedNonNull);
+                int expectedNonNull = nonNullCount(values);
+                assertThat(nonNullCount).isEqualTo(expectedNonNull);
+            }
+        }
     }
 
-    @Test(dataProvider = "dataSets")
-    public void testSkippedDecoding(NullValuesProvider nullValuesProvider, int batchSize)
+    @Test
+    public void testSkippedDecoding()
             throws IOException
     {
-        boolean[] values = nullValuesProvider.getPositions();
-        byte[] encoded = encode(values);
-        NullsDecoder decoder = new NullsDecoder();
-        decoder.init(Slices.wrappedBuffer(encoded));
-        int nonNullCount = 0;
-        int numberOfBatches = (N + batchSize - 1) / batchSize;
-        Random random = new Random(batchSize * 0xFFFFFFFFL * N);
-        int skippedBatches = random.nextInt(numberOfBatches);
-        int alreadyRead = 0;
-        for (int i = 0; i < skippedBatches; i++) {
-            int chunkSize = min(batchSize, N - alreadyRead);
-            nonNullCount += decoder.skip(chunkSize);
-            alreadyRead += chunkSize;
+        for (NullValuesProvider nullValuesProvider : NullValuesProvider.values()) {
+            for (int batchSize : Arrays.asList(1, 3, 16, 100, 1000)) {
+                boolean[] values = nullValuesProvider.getPositions();
+                byte[] encoded = encode(values);
+                NullsDecoder decoder = new NullsDecoder();
+                decoder.init(Slices.wrappedBuffer(encoded));
+                int nonNullCount = 0;
+                int numberOfBatches = (N + batchSize - 1) / batchSize;
+                Random random = new Random(batchSize * 0xFFFFFFFFL * N);
+                int skippedBatches = random.nextInt(numberOfBatches);
+                int alreadyRead = 0;
+                for (int i = 0; i < skippedBatches; i++) {
+                    int chunkSize = min(batchSize, N - alreadyRead);
+                    nonNullCount += decoder.skip(chunkSize);
+                    alreadyRead += chunkSize;
+                }
+                assertThat(nonNullCount).isEqualTo(nonNullCount(values, alreadyRead));
+
+                boolean[] result = new boolean[N - alreadyRead];
+                boolean[] expected = Arrays.copyOfRange(values, alreadyRead, values.length);
+                int offset = 0;
+                while (alreadyRead < N) {
+                    int chunkSize = min(batchSize, N - alreadyRead);
+                    nonNullCount += decoder.readNext(result, offset, chunkSize);
+                    alreadyRead += chunkSize;
+                    offset += chunkSize;
+                }
+                // Parquet encodes whether value exists, Trino whether value is null
+                boolean[] byteResult = flip(result);
+                assertThat(byteResult).containsExactly(expected);
+
+                assertThat(nonNullCount).isEqualTo(nonNullCount(values));
+            }
         }
-        assertThat(nonNullCount).isEqualTo(nonNullCount(values, alreadyRead));
-
-        boolean[] result = new boolean[N - alreadyRead];
-        boolean[] expected = Arrays.copyOfRange(values, alreadyRead, values.length);
-        int offset = 0;
-        while (alreadyRead < N) {
-            int chunkSize = min(batchSize, N - alreadyRead);
-            nonNullCount += decoder.readNext(result, offset, chunkSize);
-            alreadyRead += chunkSize;
-            offset += chunkSize;
-        }
-        // Parquet encodes whether value exists, Trino whether value is null
-        boolean[] byteResult = flip(result);
-        assertThat(byteResult).containsExactly(expected);
-
-        assertThat(nonNullCount).isEqualTo(nonNullCount(values));
-    }
-
-    @DataProvider(name = "dataSets")
-    public static Object[][] dataSets()
-    {
-        return cartesianProduct(
-                Arrays.stream(NullValuesProvider.values()).collect(toDataProvider()),
-                Stream.of(1, 3, 16, 100, 1000).collect(toDataProvider()));
     }
 
     private enum NullValuesProvider

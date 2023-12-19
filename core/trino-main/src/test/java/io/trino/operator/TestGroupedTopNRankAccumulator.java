@@ -15,14 +15,12 @@ package io.trino.operator;
 
 import io.trino.array.LongBigArray;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import static com.google.common.collect.Lists.cartesianProduct;
 import static java.lang.Math.min;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -43,27 +41,20 @@ public class TestGroupedTopNRankAccumulator
         }
     };
 
-    @DataProvider
-    public static Object[][] parameters()
+    @Test
+    public void testSinglePeerGroupInsert()
     {
-        List<Integer> topNs = Arrays.asList(1, 2, 3);
-        List<Integer> valueCounts = Arrays.asList(0, 1, 2, 4, 8);
-        List<Integer> groupCounts = Arrays.asList(1, 2, 3);
-        List<Boolean> drainWithRankings = Arrays.asList(true, false);
-        return to2DArray(cartesianProduct(topNs, valueCounts, groupCounts, drainWithRankings));
-    }
-
-    private static Object[][] to2DArray(List<List<Object>> nestedList)
-    {
-        Object[][] array = new Object[nestedList.size()][];
-        for (int i = 0; i < nestedList.size(); i++) {
-            array[i] = nestedList.get(i).toArray();
+        for (int topN : Arrays.asList(1, 2, 3)) {
+            for (int valueCount : Arrays.asList(0, 1, 2, 4, 8)) {
+                for (int groupCount : Arrays.asList(1, 2, 3)) {
+                    testSinglePeerGroupInsert(topN, valueCount, groupCount, true);
+                    testSinglePeerGroupInsert(topN, valueCount, groupCount, false);
+                }
+            }
         }
-        return array;
     }
 
-    @Test(dataProvider = "parameters")
-    public void testSinglePeerGroupInsert(int topN, long valueCount, long groupCount, boolean drainWithRanking)
+    private void testSinglePeerGroupInsert(int topN, long valueCount, long groupCount, boolean drainWithRanking)
     {
         List<Long> evicted = new LongArrayList();
         GroupedTopNRankAccumulator accumulator = new GroupedTopNRankAccumulator(STRATEGY, topN, evicted::add);
@@ -103,8 +94,20 @@ public class TestGroupedTopNRankAccumulator
         }
     }
 
-    @Test(dataProvider = "parameters")
-    public void testIncreasingAllUniqueValues(int topN, long valueCount, long groupCount, boolean drainWithRanking)
+    @Test
+    public void testIncreasingAllUniqueValues()
+    {
+        for (int topN : Arrays.asList(1, 2, 3)) {
+            for (int valueCount : Arrays.asList(0, 1, 2, 4, 8)) {
+                for (int groupCount : Arrays.asList(1, 2, 3)) {
+                    testIncreasingAllUniqueValues(topN, valueCount, groupCount, true);
+                    testIncreasingAllUniqueValues(topN, valueCount, groupCount, false);
+                }
+            }
+        }
+    }
+
+    private void testIncreasingAllUniqueValues(int topN, long valueCount, long groupCount, boolean drainWithRanking)
     {
         List<Long> evicted = new LongArrayList();
         GroupedTopNRankAccumulator accumulator = new GroupedTopNRankAccumulator(STRATEGY, topN, evicted::add);
@@ -144,8 +147,20 @@ public class TestGroupedTopNRankAccumulator
         }
     }
 
-    @Test(dataProvider = "parameters")
-    public void testDecreasingAllUniqueValues(int topN, long valueCount, long groupCount, boolean drainWithRanking)
+    @Test
+    public void testDecreasingAllUniqueValues()
+    {
+        for (int topN : Arrays.asList(1, 2, 3)) {
+            for (int valueCount : Arrays.asList(0, 1, 2, 4, 8)) {
+                for (int groupCount : Arrays.asList(1, 2, 3)) {
+                    testDecreasingAllUniqueValues(topN, valueCount, groupCount, true);
+                    testDecreasingAllUniqueValues(topN, valueCount, groupCount, false);
+                }
+            }
+        }
+    }
+
+    private void testDecreasingAllUniqueValues(int topN, long valueCount, long groupCount, boolean drainWithRanking)
     {
         List<Long> evicted = new LongArrayList();
         GroupedTopNRankAccumulator accumulator = new GroupedTopNRankAccumulator(STRATEGY, topN, evicted::add);

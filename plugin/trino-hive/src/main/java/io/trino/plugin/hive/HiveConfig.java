@@ -68,7 +68,6 @@ public class HiveConfig
     public static final String CONFIGURATION_HIVE_PARTITION_PROJECTION_ENABLED = "hive.partition-projection-enabled";
 
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
-    public static final String HIVE_VIEWS_ENABLED = "hive.hive-views.enabled";
 
     private boolean singleStatementWritesOnly;
 
@@ -168,6 +167,7 @@ public class HiveConfig
     private Optional<String> hudiCatalogName = Optional.empty();
 
     private DataSize targetMaxFileSize = DataSize.of(1, GIGABYTE);
+    private DataSize idleWriterMinFileSize = DataSize.of(16, MEGABYTE);
 
     private boolean sizeBasedSplitWeightsEnabled = true;
     private double minimumAssignedSplitWeight = 0.05;
@@ -267,6 +267,19 @@ public class HiveConfig
     public HiveConfig setTargetMaxFileSize(DataSize targetMaxFileSize)
     {
         this.targetMaxFileSize = targetMaxFileSize;
+        return this;
+    }
+
+    public DataSize getIdleWriterMinFileSize()
+    {
+        return idleWriterMinFileSize;
+    }
+
+    @Config("hive.idle-writer-min-file-size")
+    @ConfigDescription("Minimum data written by a single partition writer before it can be consider as 'idle' and could be closed by the engine")
+    public HiveConfig setIdleWriterMinFileSize(DataSize idleWriterMinFileSize)
+    {
+        this.idleWriterMinFileSize = idleWriterMinFileSize;
         return this;
     }
 
@@ -785,7 +798,7 @@ public class HiveConfig
     }
 
     @LegacyConfig({"hive.views-execution.enabled", "hive.translate-hive-views"})
-    @Config(HIVE_VIEWS_ENABLED)
+    @Config("hive.hive-views.enabled")
     @ConfigDescription("Experimental: Allow translation of Hive views into Trino views")
     public HiveConfig setTranslateHiveViews(boolean translateHiveViews)
     {

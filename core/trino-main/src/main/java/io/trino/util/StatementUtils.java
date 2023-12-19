@@ -317,10 +317,10 @@ public final class StatementUtils
             this.queryType = requireNonNull(queryType, "queryType is null");
             this.taskType = requireNonNull(taskType, "taskType is null");
             if (queryType == DATA_DEFINITION) {
-                checkArgument(taskType.isPresent(), "taskType is required for " + DATA_DEFINITION);
+                checkArgument(taskType.isPresent(), "taskType is required for %s", DATA_DEFINITION);
             }
             else {
-                checkArgument(taskType.isEmpty(), "taskType is not allowed for " + queryType);
+                checkArgument(taskType.isEmpty(), "taskType is not allowed for %s", queryType);
             }
         }
 

@@ -15,6 +15,7 @@ package io.trino.server;
 
 import io.trino.spi.security.BasicPrincipal;
 import io.trino.spi.security.Identity;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.ResponseBuilder;
@@ -23,14 +24,16 @@ import jakarta.ws.rs.core.SecurityContext;
 
 import java.security.Principal;
 import java.util.Collection;
+import java.util.Optional;
 
 import static com.google.common.net.MediaType.PLAIN_TEXT_UTF_8;
-import static io.trino.server.HttpRequestSessionContextFactory.AUTHENTICATED_IDENTITY;
 import static jakarta.ws.rs.core.HttpHeaders.WWW_AUTHENTICATE;
 import static jakarta.ws.rs.core.Response.Status.UNAUTHORIZED;
 
 public final class ServletSecurityUtils
 {
+    private static final String AUTHENTICATED_IDENTITY = "trino.authenticated-identity";
+
     private ServletSecurityUtils() {}
 
     public static void sendErrorMessage(ContainerRequestContext request, Status errorCode, String errorMessage)
@@ -60,6 +63,21 @@ public final class ServletSecurityUtils
         return Response.status(errorCode.getStatusCode(), errorMessage)
                 .type(PLAIN_TEXT_UTF_8.toString())
                 .entity(errorMessage);
+    }
+
+    public static Optional<Identity> authenticatedIdentity(ContainerRequestContext request)
+    {
+        return Optional.ofNullable((Identity) request.getProperty(AUTHENTICATED_IDENTITY));
+    }
+
+    public static Optional<Identity> authenticatedIdentity(HttpServletRequest request)
+    {
+        return Optional.ofNullable((Identity) request.getAttribute(AUTHENTICATED_IDENTITY));
+    }
+
+    public static void clearAuthenticatedIdentity(HttpServletRequest request)
+    {
+        request.setAttribute(AUTHENTICATED_IDENTITY, null);
     }
 
     public static void setAuthenticatedIdentity(ContainerRequestContext request, String username)

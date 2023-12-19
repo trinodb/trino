@@ -21,9 +21,7 @@ import io.trino.spi.block.Int128ArrayBlock;
 import io.trino.spi.type.DecimalType;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -38,7 +36,6 @@ import static java.math.BigInteger.ZERO;
 import static java.math.RoundingMode.HALF_UP;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Test(singleThreaded = true)
 public class TestDecimalAverageAggregation
 {
     private static final BigInteger TWO = new BigInteger("2");
@@ -46,17 +43,11 @@ public class TestDecimalAverageAggregation
     private static final BigInteger TWO_HUNDRED = new BigInteger("200");
     private static final DecimalType TYPE = createDecimalType(38, 0);
 
-    private LongDecimalWithOverflowAndLongState state;
-
-    @BeforeMethod
-    public void setUp()
-    {
-        state = new LongDecimalWithOverflowAndLongStateFactory().createSingleState();
-    }
-
     @Test
     public void testOverflow()
     {
+        LongDecimalWithOverflowAndLongState state = new LongDecimalWithOverflowAndLongStateFactory().createSingleState();
+
         addToState(state, TWO.pow(126));
 
         assertThat(state.getLong()).isEqualTo(1);
@@ -69,12 +60,14 @@ public class TestDecimalAverageAggregation
         assertThat(state.getOverflow()).isEqualTo(1);
         assertThat(getDecimal(state)).isEqualTo(Int128.valueOf(1L << 63, 0));
 
-        assertAverageEquals(TWO.pow(126));
+        assertAverageEquals(state, TWO.pow(126));
     }
 
     @Test
     public void testUnderflow()
     {
+        LongDecimalWithOverflowAndLongState state = new LongDecimalWithOverflowAndLongStateFactory().createSingleState();
+
         addToState(state, Decimals.MIN_UNSCALED_DECIMAL.toBigInteger());
 
         assertThat(state.getLong()).isEqualTo(1);
@@ -87,12 +80,14 @@ public class TestDecimalAverageAggregation
         assertThat(state.getOverflow()).isEqualTo(-1);
         assertThat(getDecimal(state)).isEqualTo(Int128.valueOf(0x698966AF4AF2770BL, 0xECEBBB8000000002L));
 
-        assertAverageEquals(Decimals.MIN_UNSCALED_DECIMAL.toBigInteger());
+        assertAverageEquals(state, Decimals.MIN_UNSCALED_DECIMAL.toBigInteger());
     }
 
     @Test
     public void testUnderflowAfterOverflow()
     {
+        LongDecimalWithOverflowAndLongState state = new LongDecimalWithOverflowAndLongStateFactory().createSingleState();
+
         addToState(state, TWO.pow(126));
         addToState(state, TWO.pow(126));
         addToState(state, TWO.pow(125));
@@ -107,12 +102,14 @@ public class TestDecimalAverageAggregation
         assertThat(state.getOverflow()).isEqualTo(0);
         assertThat(getDecimal(state)).isEqualTo(Int128.valueOf(TWO.pow(125).negate()));
 
-        assertAverageEquals(TWO.pow(125).negate().divide(BigInteger.valueOf(6)));
+        assertAverageEquals(state, TWO.pow(125).negate().divide(BigInteger.valueOf(6)));
     }
 
     @Test
     public void testCombineOverflow()
     {
+        LongDecimalWithOverflowAndLongState state = new LongDecimalWithOverflowAndLongStateFactory().createSingleState();
+
         addToState(state, TWO.pow(126));
         addToState(state, TWO.pow(126));
 
@@ -133,12 +130,14 @@ public class TestDecimalAverageAggregation
                 .add(TWO.pow(126))
                 .divide(BigInteger.valueOf(4));
 
-        assertAverageEquals(expectedAverage);
+        assertAverageEquals(state, expectedAverage);
     }
 
     @Test
     public void testCombineUnderflow()
     {
+        LongDecimalWithOverflowAndLongState state = new LongDecimalWithOverflowAndLongStateFactory().createSingleState();
+
         addToState(state, TWO.pow(125).negate());
         addToState(state, TWO.pow(126).negate());
 
@@ -160,14 +159,39 @@ public class TestDecimalAverageAggregation
                 .negate()
                 .divide(BigInteger.valueOf(4));
 
-        assertAverageEquals(expectedAverage);
+        assertAverageEquals(state, expectedAverage);
     }
 
-    @Test(dataProvider = "testNoOverflowDataProvider")
-    public void testNoOverflow(List<BigInteger> numbers)
+    @Test
+    public void testNoOverflow()
     {
-        testNoOverflow(createDecimalType(38, 0), numbers);
-        testNoOverflow(createDecimalType(38, 2), numbers);
+        testNoOverflow(createDecimalType(38, 0), ImmutableList.of(TEN.pow(37), ZERO));
+        testNoOverflow(createDecimalType(38, 0), ImmutableList.of(TEN.pow(37).negate(), ZERO));
+        testNoOverflow(createDecimalType(38, 0), ImmutableList.of(TWO, ONE));
+        testNoOverflow(createDecimalType(38, 0), ImmutableList.of(ZERO, ONE));
+        testNoOverflow(createDecimalType(38, 0), ImmutableList.of(TWO.negate(), ONE.negate()));
+        testNoOverflow(createDecimalType(38, 0), ImmutableList.of(ONE.negate(), ZERO));
+        testNoOverflow(createDecimalType(38, 0), ImmutableList.of(ONE.negate(), ZERO, ZERO));
+        testNoOverflow(createDecimalType(38, 0), ImmutableList.of(TWO.negate(), ZERO, ZERO));
+        testNoOverflow(createDecimalType(38, 0), ImmutableList.of(TWO.negate(), ZERO));
+        testNoOverflow(createDecimalType(38, 0), ImmutableList.of(TWO_HUNDRED, ONE_HUNDRED));
+        testNoOverflow(createDecimalType(38, 0), ImmutableList.of(ZERO, ONE_HUNDRED));
+        testNoOverflow(createDecimalType(38, 0), ImmutableList.of(TWO_HUNDRED.negate(), ONE_HUNDRED.negate()));
+        testNoOverflow(createDecimalType(38, 0), ImmutableList.of(ONE_HUNDRED.negate(), ZERO));
+
+        testNoOverflow(createDecimalType(38, 2), ImmutableList.of(TEN.pow(37), ZERO));
+        testNoOverflow(createDecimalType(38, 2), ImmutableList.of(TEN.pow(37).negate(), ZERO));
+        testNoOverflow(createDecimalType(38, 2), ImmutableList.of(TWO, ONE));
+        testNoOverflow(createDecimalType(38, 2), ImmutableList.of(ZERO, ONE));
+        testNoOverflow(createDecimalType(38, 2), ImmutableList.of(TWO.negate(), ONE.negate()));
+        testNoOverflow(createDecimalType(38, 2), ImmutableList.of(ONE.negate(), ZERO));
+        testNoOverflow(createDecimalType(38, 2), ImmutableList.of(ONE.negate(), ZERO, ZERO));
+        testNoOverflow(createDecimalType(38, 2), ImmutableList.of(TWO.negate(), ZERO, ZERO));
+        testNoOverflow(createDecimalType(38, 2), ImmutableList.of(TWO.negate(), ZERO));
+        testNoOverflow(createDecimalType(38, 2), ImmutableList.of(TWO_HUNDRED, ONE_HUNDRED));
+        testNoOverflow(createDecimalType(38, 2), ImmutableList.of(ZERO, ONE_HUNDRED));
+        testNoOverflow(createDecimalType(38, 2), ImmutableList.of(TWO_HUNDRED.negate(), ONE_HUNDRED.negate()));
+        testNoOverflow(createDecimalType(38, 2), ImmutableList.of(ONE_HUNDRED.negate(), ZERO));
     }
 
     private void testNoOverflow(DecimalType type, List<BigInteger> numbers)
@@ -185,40 +209,15 @@ public class TestDecimalAverageAggregation
         assertThat(decodeBigDecimal(type, average(state, type))).isEqualTo(expectedAverage);
     }
 
-    @DataProvider
-    public static Object[][] testNoOverflowDataProvider()
-    {
-        return new Object[][] {
-                {ImmutableList.of(TEN.pow(37), ZERO)},
-                {ImmutableList.of(TEN.pow(37).negate(), ZERO)},
-                {ImmutableList.of(TWO, ONE)},
-                {ImmutableList.of(ZERO, ONE)},
-                {ImmutableList.of(TWO.negate(), ONE.negate())},
-                {ImmutableList.of(ONE.negate(), ZERO)},
-                {ImmutableList.of(ONE.negate(), ZERO, ZERO)},
-                {ImmutableList.of(TWO.negate(), ZERO, ZERO)},
-                {ImmutableList.of(TWO.negate(), ZERO)},
-                {ImmutableList.of(TWO_HUNDRED, ONE_HUNDRED)},
-                {ImmutableList.of(ZERO, ONE_HUNDRED)},
-                {ImmutableList.of(TWO_HUNDRED.negate(), ONE_HUNDRED.negate())},
-                {ImmutableList.of(ONE_HUNDRED.negate(), ZERO)}
-        };
-    }
-
     private static BigDecimal decodeBigDecimal(DecimalType type, Int128 average)
     {
         BigInteger unscaledVal = average.toBigInteger();
         return new BigDecimal(unscaledVal, type.getScale(), new MathContext(type.getPrecision()));
     }
 
-    private void assertAverageEquals(BigInteger expectedAverage)
+    private void assertAverageEquals(LongDecimalWithOverflowAndLongState state, BigInteger expectedAverage)
     {
-        assertAverageEquals(expectedAverage, TYPE);
-    }
-
-    private void assertAverageEquals(BigInteger expectedAverage, DecimalType type)
-    {
-        assertThat(average(state, type).toBigInteger()).isEqualTo(expectedAverage);
+        assertThat(average(state, TYPE).toBigInteger()).isEqualTo(expectedAverage);
     }
 
     private static void addToState(LongDecimalWithOverflowAndLongState state, BigInteger value)

@@ -288,6 +288,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 import static org.apache.iceberg.ReachableFileUtil.metadataFileLocations;
+import static org.apache.iceberg.ReachableFileUtil.statisticsFilesLocations;
 import static org.apache.iceberg.SnapshotSummary.DELETED_RECORDS_PROP;
 import static org.apache.iceberg.SnapshotSummary.REMOVED_EQ_DELETES_PROP;
 import static org.apache.iceberg.SnapshotSummary.REMOVED_POS_DELETES_PROP;
@@ -1650,6 +1651,10 @@ public class IcebergMetadata
                 .map(IcebergUtil::fileName)
                 .forEach(validMetadataFileNames::add);
 
+        statisticsFilesLocations(table).stream()
+                .map(IcebergUtil::fileName)
+                .forEach(validMetadataFileNames::add);
+
         validMetadataFileNames.add("version-hint.text");
 
         scanAndDeleteInvalidFiles(table, session, schemaTableName, expiration, validDataFileNames.build(), "data");
@@ -2538,16 +2543,15 @@ public class IcebergMetadata
             remainingConstraint = TupleDomain.withColumnDomains(newUnenforced).intersect(TupleDomain.withColumnDomains(unsupported));
         }
 
-        Set<IcebergColumnHandle> newConstraintColumns = constraint.getPredicateColumns()
-                .map(columnHandles -> columnHandles.stream()
-                        .map(columnHandle -> (IcebergColumnHandle) columnHandle)
-                        .collect(toImmutableSet()))
-                .orElse(ImmutableSet.of());
+        Set<IcebergColumnHandle> newConstraintColumns = Streams.concat(
+                        table.getConstraintColumns().stream(),
+                        constraint.getPredicateColumns().orElseGet(ImmutableSet::of).stream()
+                                .map(columnHandle -> (IcebergColumnHandle) columnHandle))
+                .collect(toImmutableSet());
 
         if (newEnforcedConstraint.equals(table.getEnforcedPredicate())
                 && newUnenforcedConstraint.equals(table.getUnenforcedPredicate())
-                && newConstraintColumns.equals(table.getConstraintColumns())
-                && constraint.getPredicateColumns().isEmpty()) {
+                && newConstraintColumns.equals(table.getConstraintColumns())) {
             return Optional.empty();
         }
 
@@ -2570,7 +2574,7 @@ public class IcebergMetadata
                         table.getStorageProperties(),
                         table.isRecordScannedFiles(),
                         table.getMaxScannedFileSize(),
-                        Sets.union(table.getConstraintColumns(), newConstraintColumns),
+                        newConstraintColumns,
                         table.getForAnalyze()),
                 remainingConstraint.transformKeys(ColumnHandle.class::cast),
                 extractionResult.remainingExpression(),
@@ -2745,9 +2749,15 @@ public class IcebergMetadata
     }
 
     @Override
-    public void createMaterializedView(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition, boolean replace, boolean ignoreExisting)
+    public void createMaterializedView(
+            ConnectorSession session,
+            SchemaTableName viewName,
+            ConnectorMaterializedViewDefinition definition,
+            Map<String, Object> properties,
+            boolean replace,
+            boolean ignoreExisting)
     {
-        catalog.createMaterializedView(session, viewName, definition, replace, ignoreExisting);
+        catalog.createMaterializedView(session, viewName, definition, properties, replace, ignoreExisting);
     }
 
     @Override
@@ -2875,6 +2885,12 @@ public class IcebergMetadata
     public Optional<ConnectorMaterializedViewDefinition> getMaterializedView(ConnectorSession session, SchemaTableName viewName)
     {
         return catalog.getMaterializedView(session, viewName);
+    }
+
+    @Override
+    public Map<String, Object> getMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition)
+    {
+        return catalog.getMaterializedViewProperties(session, viewName, definition);
     }
 
     @Override

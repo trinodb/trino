@@ -29,8 +29,7 @@ import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.PrimitiveType;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
@@ -53,8 +52,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestParquetPredicateUtils
 {
-    @Test(dataProvider = "useColumnNames")
-    public void testParquetTupleDomainPrimitiveArray(boolean useColumnNames)
+    @Test
+    public void testParquetTupleDomainPrimitiveArray()
     {
         HiveColumnHandle columnHandle = createBaseColumn("my_array", 0, HiveType.valueOf("array<int>"), new ArrayType(INTEGER), REGULAR, Optional.empty());
         TupleDomain<HiveColumnHandle> domain = withColumnDomains(ImmutableMap.of(columnHandle, Domain.notNull(new ArrayType(INTEGER))));
@@ -64,12 +63,13 @@ public class TestParquetPredicateUtils
                         new GroupType(REPEATED, "bag", new PrimitiveType(OPTIONAL, INT32, "array_element"))));
 
         Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
-        TupleDomain<ColumnDescriptor> tupleDomain = getParquetTupleDomain(descriptorsByPath, domain, fileSchema, useColumnNames);
-        assertThat(tupleDomain.isAll()).isTrue();
+
+        assertThat(getParquetTupleDomain(descriptorsByPath, domain, fileSchema, true).isAll()).isTrue();
+        assertThat(getParquetTupleDomain(descriptorsByPath, domain, fileSchema, false).isAll()).isTrue();
     }
 
-    @Test(dataProvider = "useColumnNames")
-    public void testParquetTupleDomainStructArray(boolean useColumnNames)
+    @Test
+    public void testParquetTupleDomainStructArray()
     {
         RowType.Field rowField = new RowType.Field(Optional.of("a"), INTEGER);
         RowType rowType = RowType.from(ImmutableList.of(rowField));
@@ -84,12 +84,19 @@ public class TestParquetPredicateUtils
                                 new GroupType(OPTIONAL, "array_element", new PrimitiveType(OPTIONAL, INT32, "a")))));
 
         Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
-        TupleDomain<ColumnDescriptor> tupleDomain = getParquetTupleDomain(descriptorsByPath, domain, fileSchema, useColumnNames);
-        assertThat(tupleDomain.isAll()).isTrue();
+
+        assertThat(getParquetTupleDomain(descriptorsByPath, domain, fileSchema, true).isAll()).isTrue();
+        assertThat(getParquetTupleDomain(descriptorsByPath, domain, fileSchema, false).isAll()).isTrue();
     }
 
-    @Test(dataProvider = "useColumnNames")
-    public void testParquetTupleDomainPrimitive(boolean useColumnNames)
+    @Test
+    public void testParquetTupleDomainPrimitive()
+    {
+        testParquetTupleDomainPrimitive(true);
+        testParquetTupleDomainPrimitive(false);
+    }
+
+    private void testParquetTupleDomainPrimitive(boolean useColumnNames)
     {
         HiveColumnHandle columnHandle = createBaseColumn("my_primitive", 0, HiveType.valueOf("bigint"), BIGINT, REGULAR, Optional.empty());
         Domain singleValueDomain = Domain.singleValue(BIGINT, 123L);
@@ -109,8 +116,8 @@ public class TestParquetPredicateUtils
         assertThat(predicateDomain).isEqualTo(singleValueDomain);
     }
 
-    @Test(dataProvider = "useColumnNames")
-    public void testParquetTupleDomainStruct(boolean useColumnNames)
+    @Test
+    public void testParquetTupleDomainStruct()
     {
         RowType rowType = rowType(
                 RowType.field("a", INTEGER),
@@ -125,12 +132,19 @@ public class TestParquetPredicateUtils
                         new PrimitiveType(OPTIONAL, INT32, "b"),
                         new PrimitiveType(OPTIONAL, INT32, "c")));
         Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
-        TupleDomain<ColumnDescriptor> tupleDomain = getParquetTupleDomain(descriptorsByPath, domain, fileSchema, useColumnNames);
-        assertThat(tupleDomain.isAll()).isTrue();
+
+        assertThat(getParquetTupleDomain(descriptorsByPath, domain, fileSchema, true).isAll()).isTrue();
+        assertThat(getParquetTupleDomain(descriptorsByPath, domain, fileSchema, false).isAll()).isTrue();
     }
 
-    @Test(dataProvider = "useColumnNames")
-    public void testParquetTupleDomainStructWithPrimitiveColumnPredicate(boolean useColumNames)
+    @Test
+    public void testParquetTupleDomainStructWithPrimitiveColumnPredicate()
+    {
+        testParquetTupleDomainStructWithPrimitiveColumnPredicate(true);
+        testParquetTupleDomainStructWithPrimitiveColumnPredicate(false);
+    }
+
+    private void testParquetTupleDomainStructWithPrimitiveColumnPredicate(boolean useColumNames)
     {
         RowType baseType = rowType(
                 RowType.field("a", INTEGER),
@@ -167,8 +181,8 @@ public class TestParquetPredicateUtils
         assertThat(calculatedTupleDomain.getDomains().get()).containsEntry(selectedColumnDescriptor, predicateDomain);
     }
 
-    @Test(dataProvider = "useColumnNames")
-    public void testParquetTupleDomainStructWithComplexColumnPredicate(boolean useColumNames)
+    @Test
+    public void testParquetTupleDomainStructWithComplexColumnPredicate()
     {
         RowType c1Type = rowType(
                 RowType.field("c1", INTEGER),
@@ -206,12 +220,12 @@ public class TestParquetPredicateUtils
                                 new PrimitiveType(OPTIONAL, INT32, "c2"))));
         Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
         // skip looking up predicates for complex types as Parquet only stores stats for primitives
-        TupleDomain<ColumnDescriptor> calculatedTupleDomain = getParquetTupleDomain(descriptorsByPath, tupleDomain, fileSchema, useColumNames);
-        assertThat(calculatedTupleDomain.isAll()).isTrue();
+        assertThat(getParquetTupleDomain(descriptorsByPath, tupleDomain, fileSchema, true).isAll()).isTrue();
+        assertThat(getParquetTupleDomain(descriptorsByPath, tupleDomain, fileSchema, false).isAll()).isTrue();
     }
 
-    @Test(dataProvider = "useColumnNames")
-    public void testParquetTupleDomainStructWithMissingPrimitiveColumn(boolean useColumnNames)
+    @Test
+    public void testParquetTupleDomainStructWithMissingPrimitiveColumn()
     {
         RowType baseType = rowType(
                 RowType.field("a", INTEGER),
@@ -241,12 +255,12 @@ public class TestParquetPredicateUtils
                         new PrimitiveType(OPTIONAL, INT32, "a"),
                         new PrimitiveType(OPTIONAL, INT32, "b")));
         Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
-        TupleDomain<ColumnDescriptor> calculatedTupleDomain = getParquetTupleDomain(descriptorsByPath, tupleDomain, fileSchema, useColumnNames);
-        assertThat(calculatedTupleDomain.isAll()).isTrue();
+        assertThat(getParquetTupleDomain(descriptorsByPath, tupleDomain, fileSchema, true).isAll()).isTrue();
+        assertThat(getParquetTupleDomain(descriptorsByPath, tupleDomain, fileSchema, false).isAll()).isTrue();
     }
 
-    @Test(dataProvider = "useColumnNames")
-    public void testParquetTupleDomainMap(boolean useColumnNames)
+    @Test
+    public void testParquetTupleDomainMap()
     {
         MapType mapType = new MapType(INTEGER, INTEGER, new TypeOperators());
 
@@ -261,16 +275,7 @@ public class TestParquetPredicateUtils
                                 new PrimitiveType(OPTIONAL, INT32, "value"))));
 
         Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, fileSchema);
-        TupleDomain<ColumnDescriptor> tupleDomain = getParquetTupleDomain(descriptorsByPath, domain, fileSchema, useColumnNames);
-        assertThat(tupleDomain.isAll()).isTrue();
-    }
-
-    @DataProvider
-    public Object[][] useColumnNames()
-    {
-        return new Object[][] {
-                {true}, // use column name
-                {false} // use column index
-        };
+        assertThat(getParquetTupleDomain(descriptorsByPath, domain, fileSchema, true).isAll()).isTrue();
+        assertThat(getParquetTupleDomain(descriptorsByPath, domain, fileSchema, false).isAll()).isTrue();
     }
 }

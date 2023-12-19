@@ -100,11 +100,11 @@ import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
+import static io.trino.SystemSessionProperties.DETERMINE_PARTITION_COUNT_FOR_WRITE_ENABLED;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
 import static io.trino.SystemSessionProperties.TASK_MAX_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.TASK_MIN_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.USE_PREFERRED_WRITE_PARTITIONING;
-import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
@@ -132,8 +132,8 @@ import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static io.trino.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -305,7 +305,7 @@ public abstract class BaseIcebergConnectorTest
                 .matches("CREATE SCHEMA iceberg.tpch\n" +
                         "AUTHORIZATION USER user\n" +
                         "WITH \\(\n" +
-                        "\\s+location = '.*/iceberg_data/tpch'\n" +
+                        "\\s+location = '.*/tpch'\n" +
                         "\\)");
     }
 
@@ -344,7 +344,7 @@ public abstract class BaseIcebergConnectorTest
                         "WITH (\n" +
                         "   format = '" + format.name() + "',\n" +
                         "   format_version = 2,\n" +
-                        "   location = '\\E.*/iceberg_data/tpch/orders-.*\\Q'\n" +
+                        "   location = '\\E.*/tpch/orders-.*\\Q'\n" +
                         ")\\E");
     }
 
@@ -4194,7 +4194,7 @@ public abstract class BaseIcebergConnectorTest
         // Using Iceberg provided file size fails the query
         assertQueryFails(
                 "SELECT * FROM test_iceberg_file_size",
-                "(Malformed ORC file\\. Invalid file metadata.*)|(.*Error opening Iceberg split.* Incorrect file size \\(%s\\) for file .*)".formatted(alteredValue));
+                "(Malformed ORC file\\. Invalid file metadata.*)|(.*Malformed Parquet file.*)");
 
         dropTable("test_iceberg_file_size");
     }
@@ -5744,7 +5744,7 @@ public abstract class BaseIcebergConnectorTest
         List<String> prunedMetadataFiles = getAllMetadataFilesFromTableDirectory(tableDirectory);
         List<Long> prunedSnapshots = getSnapshotIds(tableName);
         assertThat(prunedMetadataFiles).as("prunedMetadataFiles")
-                .hasSize(initialMetadataFiles.size() - 3);
+                .hasSize(initialMetadataFiles.size() - 2);
         assertThat(prunedSnapshots).as("prunedSnapshots")
                 .hasSizeLessThan(initialSnapshots.size())
                 .hasSize(1);
@@ -6428,23 +6428,28 @@ public abstract class BaseIcebergConnectorTest
     @Override
     public void testMergeMultipleOperations()
     {
-        testMergeMultipleOperations(1, "");
-        testMergeMultipleOperations(4, "");
-        testMergeMultipleOperations(1, "WITH (partitioning = ARRAY['customer'])");
-        testMergeMultipleOperations(4, "WITH (partitioning = ARRAY['customer'])");
-        testMergeMultipleOperations(1, "WITH (partitioning = ARRAY['purchase'])");
-        testMergeMultipleOperations(4, "WITH (partitioning = ARRAY['purchase'])");
-        testMergeMultipleOperations(1, "WITH (partitioning = ARRAY['bucket(customer, 3)'])");
-        testMergeMultipleOperations(4, "WITH (partitioning = ARRAY['bucket(customer, 3)'])");
-        testMergeMultipleOperations(1, "WITH (partitioning = ARRAY['bucket(purchase, 4)'])");
-        testMergeMultipleOperations(4, "WITH (partitioning = ARRAY['bucket(purchase, 4)'])");
+        testMergeMultipleOperations(1, "", false);
+        testMergeMultipleOperations(4, "", false);
+        testMergeMultipleOperations(1, "WITH (partitioning = ARRAY['customer'])", false);
+        testMergeMultipleOperations(4, "WITH (partitioning = ARRAY['customer'])", false);
+        testMergeMultipleOperations(1, "WITH (partitioning = ARRAY['purchase'])", false);
+        testMergeMultipleOperations(4, "WITH (partitioning = ARRAY['purchase'])", false);
+        testMergeMultipleOperations(1, "WITH (partitioning = ARRAY['bucket(customer, 3)'])", false);
+        testMergeMultipleOperations(4, "WITH (partitioning = ARRAY['bucket(customer, 3)'])", false);
+        testMergeMultipleOperations(1, "WITH (partitioning = ARRAY['bucket(purchase, 4)'])", false);
+        testMergeMultipleOperations(4, "WITH (partitioning = ARRAY['bucket(purchase, 4)'])", false);
+        testMergeMultipleOperations(1, "", true);
+        testMergeMultipleOperations(4, "WITH (partitioning = ARRAY['customer'])", true);
+        testMergeMultipleOperations(1, "WITH (partitioning = ARRAY['bucket(customer, 3)'])", true);
+        testMergeMultipleOperations(4, "WITH (partitioning = ARRAY['bucket(purchase, 4)'])", true);
     }
 
-    public void testMergeMultipleOperations(int writers, String partitioning)
+    private void testMergeMultipleOperations(int writers, String partitioning, boolean determinePartitionCountForWrite)
     {
         Session session = Session.builder(getSession())
                 .setSystemProperty(TASK_MIN_WRITER_COUNT, String.valueOf(writers))
                 .setSystemProperty(TASK_MAX_WRITER_COUNT, String.valueOf(writers))
+                .setSystemProperty(DETERMINE_PARTITION_COUNT_FOR_WRITE_ENABLED, Boolean.toString(determinePartitionCountForWrite))
                 .build();
 
         int targetCustomerCount = 32;
@@ -6955,7 +6960,7 @@ public abstract class BaseIcebergConnectorTest
                         "iceberg.catalog.type", "TESTING_FILE_METASTORE",
                         "hive.metastore.catalog.dir", dataDirectory.getPath()));
 
-        queryRunner.installPlugin(new TestingHivePlugin(createTestingFileHiveMetastore(dataDirectory)));
+        queryRunner.installPlugin(new TestingHivePlugin(dataDirectory.toPath()));
         queryRunner.createCatalog(
                 hiveRedirectionCatalog,
                 "hive",

@@ -22,6 +22,7 @@ import io.trino.Session;
 import io.trino.execution.QueryInfo;
 import io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.ColumnMappingMode;
 import io.trino.plugin.hive.metastore.HiveMetastore;
+import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.TableDeleteNode;
@@ -41,7 +42,6 @@ import io.trino.testing.sql.TrinoSqlExecutor;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import java.nio.file.Path;
 import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
@@ -60,7 +60,6 @@ import static io.trino.plugin.deltalake.DeltaLakeCdfPageSink.CHANGE_DATA_FOLDER_
 import static io.trino.plugin.deltalake.DeltaLakeMetadata.CHANGE_DATA_FEED_COLUMN_NAMES;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.transactionlog.TransactionLogUtil.TRANSACTION_LOG_DIRECTORY;
-import static io.trino.plugin.hive.metastore.file.TestingFileHiveMetastore.createTestingFileHiveMetastore;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -89,7 +88,6 @@ public class TestDeltaLakeConnectorTest
 
     protected final String bucketName = "test-bucket-" + randomNameSuffix();
     protected MinioClient minioClient;
-    protected HiveMetastore metastore;
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -105,8 +103,6 @@ public class TestDeltaLakeConnectorTest
                         .setSchema(SCHEMA)
                         .build())
                 .build();
-        Path metastoreDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("file-metastore");
-        metastore = createTestingFileHiveMetastore(metastoreDirectory.toFile());
         try {
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.createCatalog("tpch", "tpch");
@@ -114,7 +110,7 @@ public class TestDeltaLakeConnectorTest
             queryRunner.installPlugin(new DeltaLakePlugin());
             queryRunner.createCatalog(DELTA_CATALOG, DeltaLakeConnectorFactory.CONNECTOR_NAME, ImmutableMap.<String, String>builder()
                     .put("hive.metastore", "file")
-                    .put("hive.metastore.catalog.dir", metastoreDirectory.toString())
+                    .put("hive.metastore.catalog.dir", queryRunner.getCoordinator().getBaseDataDir().resolve("file-metastore").toString())
                     .put("hive.metastore.disable-location-checks", "true")
                     .put("hive.s3.aws-access-key", MINIO_ACCESS_KEY)
                     .put("hive.s3.aws-secret-key", MINIO_SECRET_KEY)
@@ -1877,6 +1873,104 @@ public class TestDeltaLakeConnectorTest
     }
 
     @Test
+    public void testDeltaColumnMappingModeAllPartitionTypesCheckpointing()
+    {
+        testDeltaColumnMappingModeAllPartitionTypesCheckpointing(ColumnMappingMode.NONE);
+        testDeltaColumnMappingModeAllPartitionTypesCheckpointing(ColumnMappingMode.ID);
+        testDeltaColumnMappingModeAllPartitionTypesCheckpointing(ColumnMappingMode.NAME);
+    }
+
+    private void testDeltaColumnMappingModeAllPartitionTypesCheckpointing(ColumnMappingMode mode)
+    {
+        String tableName = "test_column_mapping_mode_name_all_types_" + randomNameSuffix();
+
+        assertUpdate("""
+                CREATE TABLE %s (
+                    data INT,
+                    part_boolean BOOLEAN,
+                    part_tinyint TINYINT,
+                    part_smallint SMALLINT,
+                    part_int INT,
+                    part_bigint BIGINT,
+                    part_decimal_5_2 DECIMAL(5,2),
+                    part_decimal_21_3 DECIMAL(21,3),
+                    part_double DOUBLE,
+                    part_float REAL,
+                    part_varchar VARCHAR,
+                    part_date DATE,
+                    part_timestamp TIMESTAMP(3) WITH TIME ZONE
+                )
+                WITH (
+                    partitioned_by = ARRAY['part_boolean', 'part_tinyint', 'part_smallint', 'part_int', 'part_bigint', 'part_decimal_5_2', 'part_decimal_21_3', 'part_double', 'part_float', 'part_varchar', 'part_date', 'part_timestamp'],
+                    column_mapping_mode = '%s',
+                    checkpoint_interval = 3
+                )""".formatted(tableName, mode));
+
+        assertUpdate("""
+                INSERT INTO %s
+                    VALUES (
+                   1,
+                   true,
+                   1,
+                   10,
+                   100,
+                   1000,
+                   CAST('123.12' AS DECIMAL(5,2)),
+                   CAST('123456789012345678.123' AS DECIMAL(21,3)),
+                   DOUBLE '0',
+                   REAL '0',
+                   'a',
+                   DATE '2020-08-21',
+                   TIMESTAMP '2020-10-21 01:00:00.123 UTC')""".formatted(tableName), 1);
+        assertUpdate("""
+                INSERT INTO %s
+                    VALUES (
+                        2,
+                        true,
+                        2,
+                        20,
+                        200,
+                        2000,
+                        CAST('223.12' AS DECIMAL(5,2)),
+                        CAST('223456789012345678.123' AS DECIMAL(21,3)),
+                        DOUBLE '0',
+                        REAL '0',
+                        'b',
+                        DATE '2020-08-22',
+                        TIMESTAMP '2020-10-22 02:00:00.456 UTC')""".formatted(tableName), 1);
+        assertUpdate("""
+                INSERT INTO %s
+                    VALUES (
+                        3,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL,
+                        NULL)""".formatted(tableName), 1);
+
+        // Make sure that the checkpoint is being processed
+        assertUpdate("CALL system.flush_metadata_cache(schema_name => CURRENT_SCHEMA, table_name => '" + tableName + "')");
+        assertThat(query("""
+                SELECT data, part_boolean, part_tinyint, part_smallint, part_int, part_bigint, part_decimal_5_2, part_decimal_21_3, part_double , part_float, part_varchar, part_date, part_timestamp
+                FROM %s""".formatted(tableName)))
+                .skippingTypesCheck()
+                .matches("""
+                        VALUES
+                            (1, true, tinyint '1', smallint '10', integer '100', bigint '1000', decimal '123.12', decimal '123456789012345678.123', double '0', real '0', 'a', date '2020-08-21', TIMESTAMP '2020-10-21 01:00:00.123 UTC'),
+                            (2, true, tinyint '2', smallint '20', integer '200', bigint '2000', decimal '223.12', decimal '223456789012345678.123', double '0.0', real '0.0', 'b', date '2020-08-22', TIMESTAMP '2020-10-22 02:00:00.456 UTC'),
+                            (3, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)""");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testCreateTableUnsupportedColumnMappingMode()
     {
         String tableName = "test_unsupported_column_mapping_mode_" + randomNameSuffix();
@@ -1930,6 +2024,21 @@ public class TestDeltaLakeConnectorTest
         assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES change_data_feed_enabled = true");
         assertThat((String) computeScalar("SHOW CREATE TABLE " + tableName))
                 .contains("change_data_feed_enabled = true");
+    }
+
+    @Test
+    public void testCreateTableWithExistingLocation()
+    {
+        String tableName = "test_legacy_create_table_" + randomNameSuffix();
+
+        assertQuerySucceeds("CREATE TABLE " + tableName + " AS SELECT 1 as a, 'INDIA' as b, true as c");
+        assertQuery("SELECT * FROM " + tableName, "VALUES (1, 'INDIA', true)");
+
+        String tableLocation = (String) computeScalar("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM " + tableName);
+        assertUpdate("CALL system.unregister_table(CURRENT_SCHEMA, '" + tableName + "')");
+
+        assertQueryFails(format("CREATE TABLE %s (dummy int) with (location = '%s')", tableName, tableLocation),
+                ".*Using CREATE TABLE with an existing table content is disallowed.*");
     }
 
     @Test
@@ -3276,6 +3385,10 @@ public class TestDeltaLakeConnectorTest
                 ",(5, BOOLEAN 'true', TINYINT '37')";
         assertUpdate("CREATE TABLE " + tableName + "(id, boolean, tinyint) WITH (location = '" + tableLocation + "') AS " + initialValues, 5);
         assertThat(query("SELECT * FROM " + tableName)).matches(initialValues);
+
+        DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
+        HiveMetastore metastore = TestingDeltaLakeUtils.getConnectorService(queryRunner, HiveMetastoreFactory.class)
+                .createMetastore(Optional.empty());
 
         metastore.dropTable(SCHEMA, tableName, false);
         for (String file : minioClient.listObjects(bucketName, SCHEMA + "/" + tableName)) {
