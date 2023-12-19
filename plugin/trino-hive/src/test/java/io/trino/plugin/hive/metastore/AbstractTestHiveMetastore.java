@@ -45,6 +45,11 @@ abstract class AbstractTestHiveMetastore
         this.metastore = metastore;
     }
 
+    protected HiveMetastore getMetastore()
+    {
+        return metastore;
+    }
+
     @Test
     void testCreateDatabase()
     {
