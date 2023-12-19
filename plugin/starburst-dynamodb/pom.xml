@@ -3,9 +3,9 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.starburstdata.trino.plugin</groupId>
-        <artifactId>starburst-trino-plugins</artifactId>
-        <version>435-SNAPSHOT</version>
+        <groupId>io.trino</groupId>
+        <artifactId>trino-root</artifactId>
+        <version>434-cork-1-SNAPSHOT</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -45,18 +45,19 @@
         </dependency>
 
         <dependency>
-            <groupId>com.starburstdata.trino.plugin</groupId>
-            <artifactId>starburst-license</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>commons-net</groupId>
             <artifactId>commons-net</artifactId>
+            <version>3.9.0</version>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>configuration</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>starburst-license</artifactId>
         </dependency>
 
         <dependency>
@@ -186,13 +187,6 @@
         </dependency>
 
         <dependency>
-            <groupId>com.starburstdata.trino.plugin</groupId>
-            <artifactId>starburst-base-jdbc</artifactId>
-            <type>test-jar</type>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
             <version>2.11.0</version>
@@ -208,6 +202,13 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>starburst-base-jdbc</artifactId>
+            <type>test-jar</type>
             <scope>test</scope>
         </dependency>
 
@@ -313,6 +314,17 @@
                         <!-- TODO: https://issues.apache.org/jira/browse/MDEP-791 -->
                         <ignoredNonTestScopedDependency>software.amazon.awssdk:sdk-core</ignoredNonTestScopedDependency>
                     </ignoredNonTestScopedDependencies>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>com.mycila</groupId>
+                <artifactId>license-maven-plugin</artifactId>
+                <configuration>
+                    <licenseSets>
+                        <licenseSet>
+                            <header>${starburst-license.header-file}</header>
+                        </licenseSet>
+                    </licenseSets>
                 </configuration>
             </plugin>
         </plugins>
