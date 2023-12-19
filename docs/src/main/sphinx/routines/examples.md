@@ -370,6 +370,58 @@ BEGIN
 END
 ```
 
+## Optional parameter example
+
+Routines can invoke other routines and other functions. The full signature of a
+routine is composed of routine name and parameters, and determines the exact
+routine to use. You can declare multiple routines with the same name, but with
+different number of arguments or different argument types. One example use case
+is to implement an optional parameter.
+
+The following routine truncates a string to the specified length including three
+dots at the end of the output:
+
+```sql
+FUNCTION dots(input varchar, length integer)
+RETURNS varchar
+BEGIN
+  IF length(input) > length THEN
+    RETURN substring(input, 1, length-3) || '...';
+  END IF;
+  RETURN input;
+END;
+```
+
+Following are example invocations and output:
+
+```sql
+SELECT dots('A long string that will be shortened',15);
+-- A long strin...
+SELECT	dots('A short string',15);
+-- A short string
+```
+
+If you want to provide a routine with the same name, but without the parameter
+for length, you can create another routine that invokes the preceding routine:
+
+```sql
+FUNCTION dots(input varchar)
+RETURNS varchar
+RETURN dots(input, 15);
+```
+
+You can now use both routines. When the length parameter is omitted the default
+value from the second declaration is used.
+
+```sql
+SELECT dots('A long string that will be shortened',15);
+-- A long strin...
+SELECT dots('A long string that will be shortened');
+-- A long strin...
+SELECT dots('A long string that will be shortened',20);
+-- A long string tha...
+```
+
 ## Date string parsing example
 
 This example routine parses a date string of type `VARCHAR` into `TIMESTAMP WITH
