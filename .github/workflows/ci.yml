@@ -10,6 +10,9 @@ on:
   repository_dispatch:
     types: [test-with-secrets-command]
   workflow_dispatch:
+  schedule:
+    # Used to schedule Salesforce tests
+    - cron: "0 0 * * *"
 
 defaults:
   run:
@@ -459,6 +462,103 @@ jobs:
           conclusion: ${{ job.status }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
+  # ----------------------------------------------------------------------------
+  # Only run salesforce tests on a schedule, labeled PRs, or workflow_dispatch to avoid salesforce rate limits
+  # ----------------------------------------------------------------------------
+  salesforce-tests:
+    name: salesforce-tests (${{ matrix.modules }})
+    runs-on: [sep-cicd, gha-fleet-small]
+    strategy:
+      fail-fast: false
+      matrix:
+        modules:
+          - plugin/starburst-salesforce
+    timeout-minutes: 30
+    if: "(github.event_name == 'schedule') || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'salesforce')) || (github.event_name == 'workflow_dispatch')"
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # checkout all commits, as the build result depends on `git describe` equivalent
+      - name: Set up AWS code-artifacts login
+        uses: ./.github/actions/starburst-setup
+        with:
+          aws-access-key-id: ${{ secrets.ENG_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.ENG_AWS_SECRET_ACCESS_KEY }}
+          secret-id: ${{ secrets.SEP_SECRETS_AWS_ID }}
+      - uses: ./.github/actions/setup
+        with:
+          java-version: 17
+      - name: Maven install
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          ./mvnw clean install ${MAVEN_FAST_INSTALL} -am -pl ${{ matrix.modules }}
+      - name: Run Salesforce tests
+        if: contains(matrix.modules, 'starburst-salesforce')
+        env:
+          SALESFORCE_BASIC_AUTH_USER_USERNAME: ${{ secrets.SALESFORCE_BASIC_AUTH_USER_USERNAME }}
+          SALESFORCE_BASIC_AUTH_USER_PASSWORD: ${{ secrets.SALESFORCE_BASIC_AUTH_USER_PASSWORD }}
+          SALESFORCE_BASIC_AUTH_USER_SECURITY_TOKEN: ${{ secrets.SALESFORCE_BASIC_AUTH_USER_SECURITY_TOKEN }}
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          ./mvnw test ${MAVEN_TEST} -pl ${{ matrix.modules }} \
+            -Dsalesforce.test.basic.auth.user="${SALESFORCE_BASIC_AUTH_USER_USERNAME}" \
+            -Dsalesforce.test.basic.auth.password="${SALESFORCE_BASIC_AUTH_USER_PASSWORD}" \
+            -Dsalesforce.test.basic.auth.security-token="${SALESFORCE_BASIC_AUTH_USER_SECURITY_TOKEN}"
+      - name: Sanitize artifact name
+        if: always()
+        run: |
+          # Generate a valid artifact name and make it available to next steps as
+          # an environment variable ARTIFACT_NAME
+          # ", :, <, >, |, *, ?, \, / are not allowed in artifact names, replace it with an underscore
+          name=$(echo -n "${{ matrix.modules }}" | sed -e 's/[":<>|\*\?\\\/]/_/g')
+          echo "ARTIFACT_NAME=$name" >> $GITHUB_ENV
+      - name: Upload test results
+        uses: actions/upload-artifact@v2
+        if: failure()
+        with:
+          name: results ${{ env.ARTIFACT_NAME }}
+          path: |
+            **/target/surefire-reports
+            **/target/checkstyle-*
+            **/*.hprof
+          retention-days: 30
+      - name: Annotate with test report
+        uses: starburstdata/action-surefire-report@v1
+        if: failure()
+        with:
+          create_check: false
+          fail_if_no_tests: false
+          check_name: tests (${{ matrix.modules }})
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Should notify on failure
+        if: always() && steps.tests.outcome == 'failure'
+        run: |
+          # GITHUB_HEAD_REF is only populated for pull requests runs, for scheduled runs extract the name from GITHUB_REF
+          branch_name="${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
+          echo "branch=$branch_name" >> "${GITHUB_OUTPUT}"
+          if [[ $branch_name == "master" || $branch_name =~ ^release-.*-e$ ]]; then
+            echo "result=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "result=false" >> "${GITHUB_OUTPUT}"
+          fi
+        id: should_notify
+      - name: Slack notify failed tests to SEP team
+        if: always() && steps.tests.outcome == 'failure' && steps.should_notify.outputs.result == 'true'
+        uses: archive/github-actions-slack@v2.6.0
+        with:
+          slack-bot-user-oauth-access-token: ${{ env.SLACK_TOKEN }}
+          slack-channel: C025B1USH89 # team-sep-connectors channel ID
+          slack-text: |
+            :boom: Salesforce connector tests failed on branch: ${{ steps.should_notify.outputs.branch }} (<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|see CI job for details>) (:thumbsup: this message if you take care of this)
+      - name: Slack notify failed tests to Galaxy team
+        if: always() && steps.tests.outcome == 'failure' && steps.should_notify.outputs.result == 'true'
+        uses: archive/github-actions-slack@v2.6.0
+        with:
+          slack-bot-user-oauth-access-token: ${{ env.SLACK_TOKEN }}
+          slack-channel: C04QTKJFWKT # galaxy-data-management channel ID
+          slack-text: |
+            :boom: Salesforce connector tests failed on branch: ${{ steps.should_notify.outputs.branch }} (<https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}|see CI job for details>) (:thumbsup: this message if you take care of this)
+
   test-other-modules:
     runs-on: [self-hosted, sep-cicd, gha-fleet-large]
     timeout-minutes: 60
@@ -495,6 +595,7 @@ jobs:
             !:starburst-license,
             !:starburst-oracle,
             !:starburst-plugin-toolkit,
+            !:starburst-salesforce,
             !:starburst-snowflake,
             !:trino-accumulo,
             !:trino-base-jdbc,
