@@ -55,8 +55,13 @@ SELECT abs(-10); -- -20, not 10!
 ## Catalog routines
 
 You can store a routine in the context of a catalog, if the connector used in
-the catalog supports routine storage. In this scenario, the following commands
-can be used:
+the catalog supports routine storage. The following connectors support catalog
+routine storage:
+
+* [](/connector/hive)
+* [](/connector/memory)
+
+In this scenario, the following commands can be used:
 
 * [](/sql/create-function) to create and store a routine.
 * [](/sql/drop-function) to remove a routine.
