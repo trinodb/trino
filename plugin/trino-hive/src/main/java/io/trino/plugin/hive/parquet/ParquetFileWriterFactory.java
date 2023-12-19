@@ -103,6 +103,7 @@ public class ParquetFileWriterFactory
 
         ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
                 .setMaxPageSize(HiveSessionProperties.getParquetWriterPageSize(session))
+                .setMaxPageValueCount(HiveSessionProperties.getParquetWriterPageValueCount(session))
                 .setMaxBlockSize(HiveSessionProperties.getParquetWriterBlockSize(session))
                 .setBatchSize(HiveSessionProperties.getParquetBatchSize(session))
                 .build();
