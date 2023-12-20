@@ -14,6 +14,7 @@
 package io.trino.filesystem.hdfs;
 
 import com.google.cloud.hadoop.fs.gcs.GoogleHadoopFileSystem;
+import io.airlift.slice.Slice;
 import io.airlift.stats.TimeStat;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoOutputFile;
@@ -22,8 +23,7 @@ import io.trino.hdfs.HdfsContext;
 import io.trino.hdfs.HdfsEnvironment;
 import io.trino.hdfs.MemoryAwareFileSystem;
 import io.trino.hdfs.authentication.GenericExceptionAction;
-import io.trino.hdfs.gcs.GcsExclusiveOutputStream;
-import io.trino.hdfs.s3.TrinoS3FileSystem;
+import io.trino.hdfs.gcs.GcsAtomicOutputStream;
 import io.trino.memory.context.AggregatedMemoryContext;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -70,18 +70,18 @@ class HdfsOutputFile
     }
 
     @Override
-    public OutputStream createExclusive(AggregatedMemoryContext memoryContext)
+    public void createExclusive(Slice content, AggregatedMemoryContext memoryContext)
             throws IOException
     {
         Path file = hadoopPath(location);
         FileSystem fileSystem = getRawFileSystem(environment.getFileSystem(context, file));
-        if (fileSystem instanceof TrinoS3FileSystem) {
-            throw new IOException("S3 does not support exclusive create");
-        }
         if (fileSystem instanceof GoogleHadoopFileSystem) {
-            return new GcsExclusiveOutputStream(environment, context, file);
+            GcsAtomicOutputStream atomicOutputStream = new GcsAtomicOutputStream(environment, context, file);
+            atomicOutputStream.write(content.getBytes());
+            atomicOutputStream.close();
+            return;
         }
-        return create(memoryContext);
+        throw new UnsupportedOperationException("createExclusive not supported for " + fileSystem);
     }
 
     private OutputStream create(boolean overwrite, AggregatedMemoryContext memoryContext)
