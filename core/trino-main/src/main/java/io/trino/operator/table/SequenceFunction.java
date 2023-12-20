@@ -17,8 +17,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.Provider;
-import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorTableFunction;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.TrinoException;
@@ -31,7 +29,6 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.function.table.AbstractConnectorTableFunction;
 import io.trino.spi.function.table.Argument;
-import io.trino.spi.function.table.ConnectorTableFunction;
 import io.trino.spi.function.table.ConnectorTableFunctionHandle;
 import io.trino.spi.function.table.ReturnTypeSpecification.DescribedTable;
 import io.trino.spi.function.table.ScalarArgument;
@@ -48,7 +45,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.metadata.GlobalFunctionCatalog.BUILTIN_SCHEMA;
-import static io.trino.operator.table.Sequence.SequenceFunctionSplit.MAX_SPLIT_SIZE;
+import static io.trino.operator.table.SequenceFunction.SequenceFunctionSplit.MAX_SPLIT_SIZE;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.table.Descriptor.descriptor;
 import static io.trino.spi.function.table.TableFunctionProcessorState.Finished.FINISHED;
@@ -56,85 +53,75 @@ import static io.trino.spi.function.table.TableFunctionProcessorState.Processed.
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
 
-public class Sequence
-        implements Provider<ConnectorTableFunction>
+public class SequenceFunction
+        extends AbstractConnectorTableFunction
 {
     public static final String NAME = "sequence";
 
-    @Override
-    public ConnectorTableFunction get()
+    private static final String START_ARGUMENT_NAME = "START";
+    private static final String STOP_ARGUMENT_NAME = "STOP";
+    private static final String STEP_ARGUMENT_NAME = "STEP";
+
+    public SequenceFunction()
     {
-        return new ClassLoaderSafeConnectorTableFunction(new SequenceFunction(), getClass().getClassLoader());
+        super(
+                BUILTIN_SCHEMA,
+                NAME,
+                ImmutableList.of(
+                        ScalarArgumentSpecification.builder()
+                                .name(START_ARGUMENT_NAME)
+                                .type(BIGINT)
+                                .defaultValue(0L)
+                                .build(),
+                        ScalarArgumentSpecification.builder()
+                                .name(STOP_ARGUMENT_NAME)
+                                .type(BIGINT)
+                                .build(),
+                        ScalarArgumentSpecification.builder()
+                                .name(STEP_ARGUMENT_NAME)
+                                .type(BIGINT)
+                                .defaultValue(1L)
+                                .build()),
+                new DescribedTable(descriptor(ImmutableList.of("sequential_number"), ImmutableList.of(BIGINT))));
     }
 
-    public static class SequenceFunction
-            extends AbstractConnectorTableFunction
+    @Override
+    public TableFunctionAnalysis analyze(
+            ConnectorSession session,
+            ConnectorTransactionHandle transaction,
+            Map<String, Argument> arguments,
+            ConnectorAccessControl accessControl)
     {
-        private static final String START_ARGUMENT_NAME = "START";
-        private static final String STOP_ARGUMENT_NAME = "STOP";
-        private static final String STEP_ARGUMENT_NAME = "STEP";
-
-        public SequenceFunction()
-        {
-            super(
-                    BUILTIN_SCHEMA,
-                    NAME,
-                    ImmutableList.of(
-                            ScalarArgumentSpecification.builder()
-                                    .name(START_ARGUMENT_NAME)
-                                    .type(BIGINT)
-                                    .defaultValue(0L)
-                                    .build(),
-                            ScalarArgumentSpecification.builder()
-                                    .name(STOP_ARGUMENT_NAME)
-                                    .type(BIGINT)
-                                    .build(),
-                            ScalarArgumentSpecification.builder()
-                                    .name(STEP_ARGUMENT_NAME)
-                                    .type(BIGINT)
-                                    .defaultValue(1L)
-                                    .build()),
-                    new DescribedTable(descriptor(ImmutableList.of("sequential_number"), ImmutableList.of(BIGINT))));
+        Object startValue = ((ScalarArgument) arguments.get(START_ARGUMENT_NAME)).getValue();
+        if (startValue == null) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Start is null");
         }
 
-        @Override
-        public TableFunctionAnalysis analyze(
-                ConnectorSession session,
-                ConnectorTransactionHandle transaction,
-                Map<String, Argument> arguments,
-                ConnectorAccessControl accessControl)
-        {
-            Object startValue = ((ScalarArgument) arguments.get(START_ARGUMENT_NAME)).getValue();
-            if (startValue == null) {
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Start is null");
-            }
-
-            Object stopValue = ((ScalarArgument) arguments.get(STOP_ARGUMENT_NAME)).getValue();
-            if (stopValue == null) {
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Stop is null");
-            }
-
-            Object stepValue = ((ScalarArgument) arguments.get(STEP_ARGUMENT_NAME)).getValue();
-            if (stepValue == null) {
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Step is null");
-            }
-
-            long start = (long) startValue;
-            long stop = (long) stopValue;
-            long step = (long) stepValue;
-
-            if (start < stop && step <= 0) {
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Step must be positive for sequence [%s, %s]", start, stop));
-            }
-
-            if (start > stop && step >= 0) {
-                throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Step must be negative for sequence [%s, %s]", start, stop));
-            }
-
-            return TableFunctionAnalysis.builder()
-                    .handle(new SequenceFunctionHandle(start, stop, start == stop ? 0 : step))
-                    .build();
+        Object stopValue = ((ScalarArgument) arguments.get(STOP_ARGUMENT_NAME)).getValue();
+        if (stopValue == null) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Stop is null");
         }
+
+        Object stepValue = ((ScalarArgument) arguments.get(STEP_ARGUMENT_NAME)).getValue();
+        if (stepValue == null) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Step is null");
+        }
+
+        long start = (long) startValue;
+        long stop = (long) stopValue;
+        long step = (long) stepValue;
+
+        if (start < stop && step <= 0) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Step must be positive for sequence [%s, %s]", start, stop));
+        }
+
+        if (start > stop && step >= 0) {
+            throw new TrinoException(INVALID_FUNCTION_ARGUMENT, format("Step must be negative for sequence [%s, %s]", start, stop));
+        }
+
+        return TableFunctionAnalysis.builder()
+                .handle(new SequenceFunctionHandle(start, stop, start == stop ? 0 : step))
+                .build();
     }
 
     public record SequenceFunctionHandle(long start, long stop, long step)
