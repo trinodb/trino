@@ -169,11 +169,16 @@ public class PagePartitioner
         // adjust the amount to eagerly report as output by the amount already eagerly reported if the new value
         // is larger, since this indicates that no data was flushed and only the delta between the two values should
         // be reported eagerly
-        if (outputSizeReportedBeforeRelease > 0 && bufferedBytesOnRelease >= outputSizeReportedBeforeRelease) {
-            bufferedBytesOnRelease -= outputSizeReportedBeforeRelease;
-            outputSizeReportedBeforeRelease += bufferedBytesOnRelease;
+        if (bufferedBytesOnRelease > outputSizeReportedBeforeRelease) {
+            long additionalBufferedBytes = bufferedBytesOnRelease - outputSizeReportedBeforeRelease;
+            outputSizeReportedBeforeRelease = bufferedBytesOnRelease;
+            return additionalBufferedBytes;
         }
-        return bufferedBytesOnRelease;
+        else {
+            // buffered size is unchanged or reduced (as a result of flushing) since last release, so
+            // do not report any additional bytes as output eagerly
+            return 0;
+        }
     }
 
     /**
