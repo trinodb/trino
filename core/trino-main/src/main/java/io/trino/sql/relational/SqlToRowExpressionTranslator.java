@@ -702,7 +702,7 @@ public final class SqlToRowExpressionTranslator
 
             if (getType(node.getBase()) instanceof RowType) {
                 long value = (Long) ((ConstantExpression) index).getValue();
-                return new SpecialForm(DEREFERENCE, getType(node), base, constant((int) value - 1, INTEGER));
+                return new SpecialForm(DEREFERENCE, getType(node), base, constant(value - 1, INTEGER));
             }
 
             return call(
