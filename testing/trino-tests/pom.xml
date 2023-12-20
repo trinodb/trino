@@ -179,6 +179,12 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-benchmark-queries</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-blackhole</artifactId>
             <scope>test</scope>
         </dependency>
@@ -186,6 +192,56 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-client</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-exchange-filesystem</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-filesystem</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-filesystem-s3</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-hdfs</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-hive</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-hive</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-iceberg</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-iceberg</artifactId>
+            <type>test-jar</type>
             <scope>test</scope>
         </dependency>
 
@@ -211,6 +267,19 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-memory</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-parser</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
+            <artifactId>trino-parser</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
@@ -255,6 +324,12 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-testing-containers</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-testing-services</artifactId>
             <scope>test</scope>
         </dependency>
@@ -268,6 +343,12 @@
         <dependency>
             <groupId>io.trino</groupId>
             <artifactId>trino-tpch</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino.hive</groupId>
+            <artifactId>hive-apache</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -290,6 +371,12 @@
         </dependency>
 
         <dependency>
+            <groupId>org.apache.iceberg</groupId>
+            <artifactId>iceberg-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
             <scope>test</scope>
@@ -298,6 +385,12 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -322,6 +415,16 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.basepom.maven</groupId>
+                <artifactId>duplicate-finder-maven-plugin</artifactId>
+                <configuration>
+                    <ignoredResourcePatterns>
+                        <ignoredResourcePattern>iceberg-build.properties</ignoredResourcePattern>
+                        <ignoredResourcePattern>mozilla/public-suffix-list.txt</ignoredResourcePattern>
+                    </ignoredResourcePatterns>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
