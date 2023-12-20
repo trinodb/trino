@@ -524,6 +524,33 @@ public class TestPagePartitioner
     }
 
     @Test
+    public void testOutputBytesWhenReused()
+    {
+        TestOutputBuffer outputBuffer = new TestOutputBuffer();
+        PagePartitioner pagePartitioner = pagePartitioner(outputBuffer, BIGINT).build();
+        OperatorContext operatorContext = operatorContext();
+
+        Page page = new Page(createLongsBlock(1, 1, 1, 1, 1, 1));
+
+        pagePartitioner.partitionPage(page, operatorContext);
+        assertThat(operatorContext.getOutputDataSize().getTotalCount()).isEqualTo(0);
+        pagePartitioner.prepareForRelease(operatorContext);
+        assertThat(operatorContext.getOutputDataSize().getTotalCount()).isEqualTo(page.getSizeInBytes());
+        // release again with no additional input, size should not change
+        pagePartitioner.prepareForRelease(operatorContext);
+        assertThat(operatorContext.getOutputDataSize().getTotalCount()).isEqualTo(page.getSizeInBytes());
+
+        pagePartitioner.partitionPage(page, operatorContext);
+        pagePartitioner.prepareForRelease(operatorContext);
+        assertThat(operatorContext.getOutputDataSize().getTotalCount()).isEqualTo(page.getSizeInBytes() * 2);
+
+        pagePartitioner.close();
+        List<Slice> output = outputBuffer.getEnqueued();
+        // only a single page was flushed after the partitioner is closed, all output bytes were reported eagerly on release
+        assertThat(output.size()).isEqualTo(1);
+    }
+
+    @Test
     public void testMemoryReleased()
     {
         testMemoryReleased(PartitioningMode.ROW_WISE);
