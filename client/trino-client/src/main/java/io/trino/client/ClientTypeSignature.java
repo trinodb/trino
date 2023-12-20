@@ -102,9 +102,7 @@ public class ClientTypeSignature
         }
 
         if (rawType.equals(TIMESTAMP_WITH_TIME_ZONE)) {
-            return "timestamp" + arguments.stream()
-                    .map(ClientTypeSignatureParameter::toString)
-                    .collect(joining(",", "(", ")")) + " with time zone";
+            return "timestamp(" + arguments.get(0) + ") with time zone";
         }
 
         return rawType + arguments.stream()
