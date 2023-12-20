@@ -98,9 +98,7 @@ public class ClientTypeSignature
         }
 
         if (rawType.equals(TIME_WITH_TIME_ZONE)) {
-            return "time" + arguments.stream()
-                    .map(ClientTypeSignatureParameter::toString)
-                    .collect(joining(",", "(", ")")) + " with time zone";
+            return "time(" + arguments.get(0) + ") with time zone";
         }
 
         if (rawType.equals(TIMESTAMP_WITH_TIME_ZONE)) {
