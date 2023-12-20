@@ -24,14 +24,14 @@ import org.apache.hadoop.fs.Path;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
-public class GcsExclusiveOutputStream
+public class GcsAtomicOutputStream
         extends ByteArrayOutputStream
 {
     private final Storage storage;
     private final Path path;
     private boolean closed;
 
-    public GcsExclusiveOutputStream(HdfsEnvironment environment, HdfsContext context, Path path)
+    public GcsAtomicOutputStream(HdfsEnvironment environment, HdfsContext context, Path path)
     {
         this.storage = environment.createGcsStorage(context, path);
         this.path = path;
