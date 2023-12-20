@@ -622,3 +622,152 @@ The preceding query produces the following output:
    100000000000000000 | 88.8PB
   1000000000000000000 | 888PB
 ```
+
+
+## Charts
+
+Trino already has a built-in `bar()` [color function](/functions/color), but
+it's using ANSI escape codes to output colors, and thus is only usable for
+displaying results in a terminal. The following example shows a similar
+function, that only uses ASCII characters.
+
+```sql
+FUNCTION ascii_bar(value DOUBLE)
+RETURNS VARCHAR
+BEGIN
+  DECLARE max_width DOUBLE DEFAULT 40.0;
+  RETURN array_join(
+    repeat('█',
+        greatest(0, CAST(floor(max_width * value) AS integer) - 1)), '')
+        || ARRAY[' ', '▏', '▎', '▍', '▌', '▋', '▊', '▉', '█'][cast((value % (cast(1 as double) / max_width)) * max_width * 8 + 1 as int)];
+END;
+```
+
+It can be used to visualize a value.
+
+```sql
+WITH
+data AS (
+    SELECT
+        cast(s.num as double) / 100.0 AS x,
+        sin(cast(s.num as double) / 100.0) AS y
+    FROM table(sequence(start=>0, stop=>314, step=>10)) AS s(num)
+)
+SELECT
+    data.x,
+    round(data.y, 4) AS y,
+    ascii_bar(data.y) AS chart
+FROM data
+ORDER BY data.x;
+```
+
+The preceding query produces the following output:
+
+```text
+  x  |   y    |                  chart
+-----+--------+-----------------------------------------
+ 0.0 |    0.0 |
+ 0.1 | 0.0998 | ███
+ 0.2 | 0.1987 | ███████
+ 0.3 | 0.2955 | ██████████▉
+ 0.4 | 0.3894 | ██████████████▋
+ 0.5 | 0.4794 | ██████████████████▏
+ 0.6 | 0.5646 | █████████████████████▋
+ 0.7 | 0.6442 | ████████████████████████▊
+ 0.8 | 0.7174 | ███████████████████████████▊
+ 0.9 | 0.7833 | ██████████████████████████████▍
+ 1.0 | 0.8415 | ████████████████████████████████▋
+ 1.1 | 0.8912 | ██████████████████████████████████▋
+ 1.2 |  0.932 | ████████████████████████████████████▎
+ 1.3 | 0.9636 | █████████████████████████████████████▌
+ 1.4 | 0.9854 | ██████████████████████████████████████▍
+ 1.5 | 0.9975 | ██████████████████████████████████████▉
+ 1.6 | 0.9996 | ███████████████████████████████████████
+ 1.7 | 0.9917 | ██████████████████████████████████████▋
+ 1.8 | 0.9738 | ██████████████████████████████████████
+ 1.9 | 0.9463 | ████████████████████████████████████▉
+ 2.0 | 0.9093 | ███████████████████████████████████▍
+ 2.1 | 0.8632 | █████████████████████████████████▌
+ 2.2 | 0.8085 | ███████████████████████████████▍
+ 2.3 | 0.7457 | ████████████████████████████▉
+ 2.4 | 0.6755 | ██████████████████████████
+ 2.5 | 0.5985 | ███████████████████████
+ 2.6 | 0.5155 | ███████████████████▋
+ 2.7 | 0.4274 | ████████████████▏
+ 2.8 |  0.335 | ████████████▍
+ 2.9 | 0.2392 | ████████▋
+ 3.0 | 0.1411 | ████▋
+ 3.1 | 0.0416 | ▋
+```
+
+It's also possible to draw more compacted charts. Following is a function
+drawing vertical bars:
+
+```sql
+FUNCTION vertical_bar(value DOUBLE)
+RETURNS VARCHAR
+RETURN ARRAY[' ', '▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'][cast(value * 8 + 1 as int)];
+```
+
+It can be used to draw a distribution of values, in a single column.
+
+```sql
+WITH
+measurements(sensor_id, recorded_at, value) AS (
+    VALUES
+        ('A', date '2023-01-01', 5.0)
+      , ('A', date '2023-01-03', 7.0)
+      , ('A', date '2023-01-04', 15.0)
+      , ('A', date '2023-01-05', 14.0)
+      , ('A', date '2023-01-08', 10.0)
+      , ('A', date '2023-01-09', 1.0)
+      , ('A', date '2023-01-10', 7.0)
+      , ('A', date '2023-01-11', 8.0)
+      , ('B', date '2023-01-03', 2.0)
+      , ('B', date '2023-01-04', 3.0)
+      , ('B', date '2023-01-05', 2.5)
+      , ('B', date '2023-01-07', 2.75)
+      , ('B', date '2023-01-09', 4.0)
+      , ('B', date '2023-01-10', 1.5)
+      , ('B', date '2023-01-11', 1.0)
+),
+days AS (
+    SELECT date_add('day', s.num, date '2023-01-01') AS day
+    -- table function arguments need to be constant but range could be calculated
+    -- using: SELECT date_diff('day', max(recorded_at), min(recorded_at)) FROM measurements
+    FROM table(sequence(start=>0, stop=>10)) AS s(num)
+),
+sensors(id) AS (VALUES ('A'), ('B')),
+normalized AS (
+    SELECT
+        sensors.id AS sensor_id,
+        days.day,
+        value,
+        value / max(value) OVER (PARTITION BY sensor_id) AS normalized
+    FROM days
+    CROSS JOIN sensors
+    LEFT JOIN measurements m ON day = recorded_at AND m.sensor_id = sensors.id
+)
+SELECT
+    sensor_id,
+    min(day) AS start,
+    max(day) AS stop,
+    count(value) AS num_values,
+    min(value) AS min_value,
+    max(value) AS max_value,
+    avg(value) AS avg_value,
+    array_join(array_agg(coalesce(vertical_bar(normalized), ' ') ORDER BY day), '') AS distribution
+FROM normalized
+WHERE sensor_id IS NOT NULL
+GROUP BY sensor_id
+ORDER BY sensor_id;
+```
+
+The preceding query produces the following output:
+
+```text
+ sensor_id |   start    |    stop    | num_values | min_value | max_value | avg_value | distribution
+-----------+------------+------------+------------+-----------+-----------+-----------+--------------
+ A         | 2023-01-01 | 2023-01-11 |          8 |      1.00 |     15.00 |      8.38 | ▃ ▄█▇  ▅▁▄▄
+ B         | 2023-01-01 | 2023-01-11 |          7 |      1.00 |      4.00 |      2.39 |   ▄▆▅ ▆ █▃▂
+```
