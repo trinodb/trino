@@ -18,7 +18,7 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
-import static io.trino.operator.table.Sequence.SequenceFunctionSplit.DEFAULT_SPLIT_SIZE;
+import static io.trino.operator.table.SequenceFunction.SequenceFunctionSplit.DEFAULT_SPLIT_SIZE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
