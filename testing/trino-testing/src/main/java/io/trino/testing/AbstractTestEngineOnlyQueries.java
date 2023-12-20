@@ -6642,6 +6642,15 @@ public abstract class AbstractTestEngineOnlyQueries
                 """))
                 .matches("VALUES 256");
 
+        // function with dereference
+        assertThat(query("""
+                WITH FUNCTION get(input row(varchar))
+                    RETURNS varchar
+                    RETURN input[1]
+                SELECT get(ROW('abc'))
+                """))
+                .matches("VALUES VARCHAR 'abc'");
+
         // validations for inline functions
         assertQueryFails("WITH FUNCTION a.b() RETURNS int RETURN 42 SELECT a.b()",
                 "line 1:6: Inline function names cannot be qualified: a.b");
