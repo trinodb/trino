@@ -31,6 +31,7 @@ import static java.lang.Runtime.getRuntime;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+// TestTaskSplitting is memory hunger and can cause other tests to fail with "Cannot allocate enough memory for task" error
 @Isolated
 public class TestTaskSplitting
         extends AbstractTestQueryFramework
