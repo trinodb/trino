@@ -18,6 +18,7 @@ import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.BlobInfo;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.Storage.BlobTargetOption;
+import io.airlift.slice.Slice;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoOutputFile;
 import io.trino.memory.context.AggregatedMemoryContext;
@@ -64,10 +65,24 @@ public class GcsOutputFile
     }
 
     @Override
-    public OutputStream createExclusive(AggregatedMemoryContext memoryContext)
+    public void createExclusive(Slice content, AggregatedMemoryContext memoryContext)
             throws IOException
     {
-        return create(memoryContext);
+        try {
+            if (getBlob(storage, location).isPresent()) {
+                throw new FileAlreadyExistsException("File %s already exists".formatted(location));
+            }
+            storage.create(
+                    BlobInfo.newBuilder(BlobId.of(location.bucket(), location.path())).build(),
+                    content.getBytes(),
+                    DOES_NOT_EXIST_TARGET_OPTION);
+        }
+        catch (FileAlreadyExistsException e) {
+            throw e;
+        }
+        catch (RuntimeException e) {
+            throw handleGcsException(e, "writing file", location);
+        }
     }
 
     private OutputStream createOutputStream(AggregatedMemoryContext memoryContext, boolean overwrite)
