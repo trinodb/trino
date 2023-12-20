@@ -26,6 +26,7 @@ import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.RemoteSourceNode;
+import io.trino.sql.planner.plan.TableScanNode;
 
 import java.util.List;
 import java.util.Map;
@@ -55,6 +56,7 @@ public class PlanFragment
     private final List<CatalogProperties> activeCatalogs;
     private final List<LanguageScalarFunctionData> languageFunctions;
     private final Optional<String> jsonRepresentation;
+    private final boolean containsTableScanNode;
 
     // Only for creating instances without the JSON representation embedded
     private PlanFragment(
@@ -88,6 +90,7 @@ public class PlanFragment
         this.activeCatalogs = requireNonNull(activeCatalogs, "activeCatalogs is null");
         this.languageFunctions = requireNonNull(languageFunctions, "languageFunctions is null");
         this.jsonRepresentation = Optional.empty();
+        this.containsTableScanNode = partitionedSourceNodes.stream().anyMatch(TableScanNode.class::isInstance);
     }
 
     @JsonCreator
@@ -135,6 +138,7 @@ public class PlanFragment
         this.remoteSourceNodes = remoteSourceNodes.build();
 
         this.outputPartitioningScheme = requireNonNull(outputPartitioningScheme, "partitioningScheme is null");
+        this.containsTableScanNode = partitionedSourceNodes.stream().anyMatch(TableScanNode.class::isInstance);
     }
 
     @JsonProperty
@@ -371,5 +375,10 @@ public class PlanFragment
                 activeCatalogs,
                 this.languageFunctions,
                 this.jsonRepresentation);
+    }
+
+    public boolean containsTableScanNode()
+    {
+        return containsTableScanNode;
     }
 }
