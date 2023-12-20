@@ -621,10 +621,9 @@ public final class HttpRemoteTask
     private synchronized void processTaskUpdate(TaskInfo newValue, List<SplitAssignment> splitAssignments)
     {
         updateTaskInfo(newValue);
-        if (taskStatusFetcher.getTaskStatus().getState() == INITIALIZING) {
-            pendingRequestsCounter.incrementAndGet();
-            return;
-        }
+//        if (taskStatusFetcher.getTaskStatus().getState() == INITIALIZING) {
+//            pendingRequestsCounter.incrementAndGet();
+//        }
 
         // remove acknowledged splits, which frees memory
         for (SplitAssignment assignment : splitAssignments) {

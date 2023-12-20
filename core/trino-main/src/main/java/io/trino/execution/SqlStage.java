@@ -44,6 +44,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.isEnableCoordinatorDynamicFiltersDistribution;
+import static io.trino.execution.TaskState.INITIALIZING;
 import static io.trino.server.DynamicFilterService.getOutboundDynamicFilters;
 import static java.util.Objects.requireNonNull;
 
@@ -74,6 +75,8 @@ public final class SqlStage
     private final Set<TaskId> finishedTasks = new HashSet<>();
     @GuardedBy("this")
     private final Set<TaskId> tasksWithFinalInfo = new HashSet<>();
+    @GuardedBy("this")
+    private final Set<TaskId> tasksInitialized = new HashSet<>();
 
     public static SqlStage createSqlStage(
             StageId stageId,
@@ -292,6 +295,7 @@ public final class SqlStage
     private void updateTaskStatus(TaskStatus status)
     {
         boolean isDone = status.getState().isDone();
+        boolean taskInitialized = status.getState() != INITIALIZING;
         if (!isDone && stateMachine.getState() == StageState.RUNNING) {
             return;
         }
@@ -299,9 +303,13 @@ public final class SqlStage
             if (isDone) {
                 finishedTasks.add(status.getTaskId());
             }
+            if (taskInitialized) {
+                tasksInitialized.add(status.getTaskId());
+            }
             if (finishedTasks.size() == allTasks.size()) {
                 stateMachine.transitionToPending();
             }
+//            else if (tasksInitialized.size() == allTasks.size()) {
             else {
                 stateMachine.transitionToRunning();
             }
@@ -341,6 +349,7 @@ public final class SqlStage
                 .add("allTasks", allTasks)
                 .add("finishedTasks", finishedTasks)
                 .add("tasksWithFinalInfo", tasksWithFinalInfo)
+                .add("tasksInitialized", tasksInitialized)
                 .toString();
     }
 

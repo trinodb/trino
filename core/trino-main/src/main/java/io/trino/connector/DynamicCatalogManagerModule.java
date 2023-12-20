@@ -13,15 +13,33 @@
  */
 package io.trino.connector;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Binder;
+import com.google.inject.BindingAnnotation;
 import com.google.inject.Inject;
+import com.google.inject.Key;
 import com.google.inject.Scopes;
+import com.google.inject.multibindings.OptionalBinder;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.units.Duration;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.CatalogManager;
 import io.trino.server.ServerConfig;
+import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorFactory;
+
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
+import java.util.Optional;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.PARAMETER;
+import static java.lang.annotation.ElementType.TYPE_PARAMETER;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 public class DynamicCatalogManagerModule
         extends AbstractConfigurationAwareModule
@@ -51,6 +69,7 @@ public class DynamicCatalogManagerModule
             binder.bind(ConnectorServicesProvider.class).to(WorkerDynamicCatalogManager.class).in(Scopes.SINGLETON);
             // catalog manager is not registered on worker
             binder.bind(WorkerLazyRegister.class).asEagerSingleton();
+            OptionalBinder.newOptionalBinder(binder, Key.get(Duration.class, ForCatalogBuildDelay.class));
         }
     }
 
@@ -75,10 +94,62 @@ public class DynamicCatalogManagerModule
                 DefaultCatalogFactory defaultCatalogFactory,
                 LazyCatalogFactory lazyCatalogFactory,
                 WorkerDynamicCatalogManager catalogManager,
-                GlobalSystemConnector globalSystemConnector)
+                GlobalSystemConnector globalSystemConnector,
+                @ForCatalogBuildDelay Optional<Duration> buildDelay)
         {
-            lazyCatalogFactory.setCatalogFactory(defaultCatalogFactory);
+            buildDelay.ifPresentOrElse(
+                    delay -> lazyCatalogFactory.setCatalogFactory(new DelayingCatalogFactory(delay, defaultCatalogFactory)),
+                    () -> lazyCatalogFactory.setCatalogFactory(defaultCatalogFactory));
             catalogManager.registerGlobalSystemConnector(globalSystemConnector);
+        }
+    }
+
+    @VisibleForTesting
+    @Retention(RUNTIME)
+    @Target({ElementType.TYPE_USE, FIELD, PARAMETER, METHOD, TYPE_PARAMETER})
+    @BindingAnnotation
+    public @interface ForCatalogBuildDelay {}
+
+    private static class DelayingCatalogFactory
+            implements CatalogFactory
+    {
+        private final Duration delay;
+        private final CatalogFactory delegate;
+
+        public DelayingCatalogFactory(Duration delay, CatalogFactory delegate)
+        {
+            this.delay = delay;
+            this.delegate = delegate;
+        }
+
+        @Override
+        public void addConnectorFactory(ConnectorFactory connectorFactory)
+        {
+            delegate.addConnectorFactory(connectorFactory);
+        }
+
+        @Override
+        public CatalogConnector createCatalog(CatalogProperties catalogProperties)
+        {
+            try {
+                Thread.sleep(delay.toMillis());
+            }
+            catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            return delegate.createCatalog(catalogProperties);
+        }
+
+        @Override
+        public CatalogConnector createCatalog(CatalogHandle catalogHandle, ConnectorName connectorName, Connector connector)
+        {
+            try {
+                Thread.sleep(delay.toMillis());
+            }
+            catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+            return delegate.createCatalog(catalogHandle, connectorName, connector);
         }
     }
 }

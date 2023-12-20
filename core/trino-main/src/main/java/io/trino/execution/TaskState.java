@@ -27,7 +27,7 @@ public enum TaskState
      */
     PLANNED(false, false),
     /**
-     * Task is running.
+     * Task is initializing and not ready to run
      */
     INITIALIZING(false, false),
     /**
