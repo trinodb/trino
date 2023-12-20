@@ -84,6 +84,7 @@ public class CacheManagerRegistry
     private final CacheStats cacheStats;
 
     private volatile CacheManager cacheManager;
+    private volatile LocalMemoryContext revocableMemoryContext;
 
     @Inject
     public CacheManagerRegistry(CacheConfig cacheConfig, LocalMemoryManager localMemoryManager, BlockEncodingSerde blockEncodingSerde, CacheStats cacheStats)
@@ -148,7 +149,7 @@ public class CacheManagerRegistry
 
         checkState(cacheManager == null, "cacheManager is already loaded");
 
-        LocalMemoryContext revocableMemoryContext = newRootAggregatedMemoryContext(
+        revocableMemoryContext = newRootAggregatedMemoryContext(
                 createReservationHandler(bytes -> {
                     // do not allocate more memory if it would exceed revoking threshold
                     if (memoryRevokingNeeded(bytes)) {
@@ -212,10 +213,10 @@ public class CacheManagerRegistry
     @Managed
     public long getRevocableBytes()
     {
-        if (cacheManager == null) {
+        if (revocableMemoryContext == null) {
             return 0;
         }
-        return cacheManager.getRevocableBytes();
+        return revocableMemoryContext.getBytes();
     }
 
     @Managed

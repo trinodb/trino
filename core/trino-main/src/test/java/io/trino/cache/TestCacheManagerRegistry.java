@@ -144,12 +144,6 @@ public class TestCacheManagerRegistry
             return bytesToRevoke;
         }
 
-        @Override
-        public long getRevocableBytes()
-        {
-            return 0;
-        }
-
         private boolean tryAllocateMemory(long bytes)
         {
             return allocator.trySetBytes(bytes);

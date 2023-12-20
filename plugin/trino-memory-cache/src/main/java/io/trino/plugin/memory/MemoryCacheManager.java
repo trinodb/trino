@@ -164,7 +164,6 @@ public class MemoryCacheManager
         });
     }
 
-    @Override
     public long getRevocableBytes()
     {
         return runWithLock(lock.readLock(), () -> cacheRevocableBytes + signatureToId.getRevocableBytes() + columnToId.getRevocableBytes());

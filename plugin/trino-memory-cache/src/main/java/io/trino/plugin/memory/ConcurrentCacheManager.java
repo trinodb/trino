@@ -87,14 +87,6 @@ public class ConcurrentCacheManager
         return distribution.getPercentiles();
     }
 
-    @Override
-    public long getRevocableBytes()
-    {
-        return Arrays.stream(cacheManagers)
-                .mapToLong(MemoryCacheManager::getRevocableBytes)
-                .sum();
-    }
-
     @Managed
     public int getCachedPlanSignaturesCount()
     {
