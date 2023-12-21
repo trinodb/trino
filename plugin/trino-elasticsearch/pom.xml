@@ -16,7 +16,6 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.elasticsearch.version>6.8.23</dep.elasticsearch.version>
-        <air.test.parallel>instances</air.test.parallel>
     </properties>
 
     <dependencies>
