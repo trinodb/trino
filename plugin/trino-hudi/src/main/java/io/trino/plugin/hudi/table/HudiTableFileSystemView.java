@@ -297,9 +297,7 @@ public class HudiTableFileSystemView
         if (fileIterator.hasNext()) {
             return fileIterator;
         }
-        try (OutputStream ignored = metaClient.getFileSystem().newOutputFile(partitionLocation).create()) {
-            return FileIterator.empty();
-        }
+        return FileIterator.empty();
     }
 
     public List<HudiFileGroup> addFilesToView(FileIterator partitionFiles)
