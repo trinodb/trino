@@ -149,10 +149,10 @@ public class SplitManager
         return splitManagerProvider.getService(tableHandle.getCatalogHandle());
     }
 
-    private Span splitSourceSpan(Span querySpan, CatalogHandle catalogHandle)
+    private Span splitSourceSpan(Span parentSpan, CatalogHandle catalogHandle)
     {
         return tracer.spanBuilder("split-source")
-                .setParent(Context.current().with(querySpan))
+                .setParent(Context.current().with(parentSpan))
                 .setAttribute(TrinoAttributes.CATALOG, catalogHandle.getCatalogName())
                 .startSpan();
     }
