@@ -49,10 +49,10 @@ import static java.util.Arrays.stream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Fail.fail;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 @TestInstance(PER_CLASS)
-@Execution(CONCURRENT)
+@Execution(SAME_THREAD) // run single threaded to avoid creating multiple query runners at once
 public class TestQueryManager
 {
     private DistributedQueryRunner queryRunner;
