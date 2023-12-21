@@ -79,17 +79,6 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-oracle</artifactId>
             <version>${project.version}</version>
-            <!-- TODO: remove when Trino is updated to contain https://github.com/trinodb/trino/commit/0fa001b58cb99e67c08d89775ba94f250476a68d -->
-            <exclusions>
-                <exclusion>
-                    <groupId>com.oracle.database.jdbc</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.oracle.database.nls</groupId>
-                    <artifactId>orai18n</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -214,17 +203,6 @@
             <version>${project.version}</version>
             <type>test-jar</type>
             <scope>test</scope>
-            <!-- TODO: remove when Trino is updated to contain https://github.com/trinodb/trino/commit/0fa001b58cb99e67c08d89775ba94f250476a68d -->
-            <exclusions>
-                <exclusion>
-                    <groupId>com.oracle.database.jdbc</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.oracle.database.nls</groupId>
-                    <artifactId>orai18n</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
