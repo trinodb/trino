@@ -250,9 +250,18 @@ public class TaskInfoFetcher
         TaskStatus localTaskStatus = taskStatusFetcher.getTaskStatus();
         TaskStatus newRemoteTaskStatus = newTaskInfo.getTaskStatus();
 
+        if (!newRemoteTaskStatus.getTaskId().equals(taskId)) {
+            log.warn("Task ID mismatch on remote task status.  Member task ID is %s, but remote task ID is %s.  This will confuse finalTaskInfo listeners.",
+                    taskId.toString(), newRemoteTaskStatus.getTaskId().toString());
+        }
+
         if (localTaskStatus.getState().isDone() && newRemoteTaskStatus.getState().isDone() && localTaskStatus.getState() != newRemoteTaskStatus.getState()) {
             // prefer local
             newTaskInfo = newTaskInfo.withTaskStatus(localTaskStatus);
+            if (!localTaskStatus.getTaskId().equals(taskId)) {
+                log.warn("Task ID mismatch on local task status.  Member task ID is %s, but status-fetcher ID is %s.  This will confuse finalTaskInfo listeners.",
+                        taskId.toString(), newRemoteTaskStatus.getTaskId().toString());
+            }
         }
 
         if (estimatedMemory.isPresent()) {
@@ -260,7 +269,10 @@ public class TaskInfoFetcher
         }
 
         if (newTaskInfo.getTaskStatus().getState().isDone()) {
-            spoolingOutputStats.compareAndSet(null, newTaskInfo.getOutputBuffers().getSpoolingOutputStats().orElse(null));
+            boolean wasSet = spoolingOutputStats.compareAndSet(null, newTaskInfo.getOutputBuffers().getSpoolingOutputStats().orElse(null));
+            if (wasSet && spoolingOutputStats.get() == null) {
+                log.warn("Task %s was updated to null spoolingOutputStats.  Future calls to retrieveAndDropSpoolingOutputStats will fail.", taskId.toString());
+            }
             newTaskInfo = newTaskInfo.pruneSpoolingOutputStats();
         }
 
