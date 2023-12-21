@@ -23,7 +23,6 @@ import io.trino.testng.services.ManageTestResources;
 import io.trino.testng.services.ReportOrphanedExecutors;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
 
 import java.util.Optional;
@@ -44,9 +43,7 @@ import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
-@TestInstance(PER_CLASS)
 public class TestKillQuery
         extends AbstractTestQueryFramework
 {
