@@ -24,7 +24,6 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
 
 import java.util.concurrent.CountDownLatch;
@@ -33,11 +32,9 @@ import static io.trino.SystemSessionProperties.QUERY_MAX_PLANNING_TIME;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 // Tests need to finish before strict timeouts. Any background work
 // may make them flaky
-@TestInstance(PER_CLASS)
 public class TestQueryTracker
         extends AbstractTestQueryFramework
 {
