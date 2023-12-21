@@ -783,6 +783,43 @@ public abstract class BaseIcebergConnectorSmokeTest
         }
     }
 
+    @Test
+    public void testCreateOrReplaceWithTableChangesFunction()
+    {
+        DateTimeFormatter instantMillisFormatter = DateTimeFormatter.ofPattern("uuuu-MM-dd'T'HH:mm:ss.SSSVV").withZone(UTC);
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_table_changes_function_",
+                "AS SELECT nationkey, name FROM tpch.tiny.nation WITH NO DATA")) {
+            long initialSnapshot = getMostRecentSnapshotId(table.getName());
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT nationkey, name FROM nation", 25);
+            long snapshotAfterInsert = getMostRecentSnapshotId(table.getName());
+            String snapshotAfterInsertTime = getSnapshotTime(table.getName(), snapshotAfterInsert).format(instantMillisFormatter);
+
+            assertQuery(
+                    "SELECT nationkey, name, _change_type, _change_version_id, to_iso8601(_change_timestamp), _change_ordinal " +
+                            "FROM TABLE(system.table_changes(CURRENT_SCHEMA, '%s', %s, %s))".formatted(table.getName(), initialSnapshot, snapshotAfterInsert),
+                    "SELECT nationkey, name, 'insert', %s, '%s', 0 FROM nation".formatted(snapshotAfterInsert, snapshotAfterInsertTime));
+
+            assertUpdate("CREATE OR REPLACE TABLE " + table.getName() + " AS SELECT nationkey, name FROM nation LIMIT 0", 0);
+            long snapshotAfterCreateOrReplace = getMostRecentSnapshotId(table.getName());
+
+            assertQueryFails(
+                    "SELECT * FROM TABLE(system.table_changes(CURRENT_SCHEMA, '%s', %s, %s))".formatted(table.getName(), initialSnapshot, snapshotAfterCreateOrReplace),
+                    "Starting snapshot \\(exclusive\\) %s is not a parent ancestor of end snapshot %s".formatted(initialSnapshot, snapshotAfterCreateOrReplace));
+
+            assertUpdate("INSERT INTO " + table.getName() + " SELECT nationkey, name FROM nation", 25);
+            long snapshotAfterInsertIntoCreateOrReplace = getMostRecentSnapshotId(table.getName());
+            String snapshotAfterInsertTimeIntoCreateOrReplace = getSnapshotTime(table.getName(), snapshotAfterInsertIntoCreateOrReplace).format(instantMillisFormatter);
+
+            assertQuery(
+                    "SELECT nationkey, name, _change_type, _change_version_id, to_iso8601(_change_timestamp), _change_ordinal " +
+                            "FROM TABLE(system.table_changes(CURRENT_SCHEMA, '%s', %s, %s))".formatted(table.getName(), snapshotAfterCreateOrReplace, snapshotAfterInsertIntoCreateOrReplace),
+                    "SELECT nationkey, name, 'insert', %s, '%s', 0 FROM nation".formatted(snapshotAfterInsertIntoCreateOrReplace, snapshotAfterInsertTimeIntoCreateOrReplace));
+        }
+    }
+
     private long getMostRecentSnapshotId(String tableName)
     {
         return (long) Iterables.getOnlyElement(getQueryRunner().execute(format("SELECT snapshot_id FROM \"%s$snapshots\" ORDER BY committed_at DESC LIMIT 1", tableName))
