@@ -26,7 +26,7 @@ public class TestRewriteComparison
     public void testOperatorEnumsInSync()
     {
         assertThat(
-                Stream.of(RewriteComparison.ComparisonOperator.values())
+                Stream.of(ComparisonOperator.values())
                         .map(Enum::name))
                 .containsExactlyInAnyOrder(
                         Stream.of(ComparisonExpression.Operator.values())
