@@ -14,6 +14,7 @@
 package io.trino.filesystem;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.spi.security.ConnectorIdentity;
 
@@ -306,11 +307,11 @@ public class TrackingFileSystemFactory
         }
 
         @Override
-        public OutputStream createExclusive(AggregatedMemoryContext memoryContext)
+        public void createExclusive(Slice content, AggregatedMemoryContext memoryContext)
                 throws IOException
         {
             tracker.accept(OUTPUT_FILE_CREATE_EXCLUSIVE);
-            return delegate.createExclusive(memoryContext);
+            delegate.createExclusive(content, memoryContext);
         }
 
         @Override

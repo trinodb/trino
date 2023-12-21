@@ -14,6 +14,7 @@
 
 package io.trino.filesystem;
 
+import io.airlift.slice.Slice;
 import io.trino.memory.context.AggregatedMemoryContext;
 
 import java.io.IOException;
@@ -35,10 +36,13 @@ public interface TrinoOutputFile
         return createOrOverwrite(newSimpleAggregatedMemoryContext());
     }
 
-    default OutputStream createExclusive()
+    /**
+     * Create file exclusively and atomically with specified contents.
+     */
+    default void createExclusive(Slice content)
             throws IOException
     {
-        return createExclusive(newSimpleAggregatedMemoryContext());
+        createExclusive(content, newSimpleAggregatedMemoryContext());
     }
 
     OutputStream create(AggregatedMemoryContext memoryContext)
@@ -47,8 +51,14 @@ public interface TrinoOutputFile
     OutputStream createOrOverwrite(AggregatedMemoryContext memoryContext)
             throws IOException;
 
-    OutputStream createExclusive(AggregatedMemoryContext memoryContext)
-            throws IOException;
+    /**
+     * Create file exclusively and atomically with specified contents.
+     */
+    default void createExclusive(Slice content, AggregatedMemoryContext memoryContext)
+            throws IOException
+    {
+        throw new UnsupportedOperationException("createExclusive not supported by " + getClass());
+    }
 
     Location location();
 }
