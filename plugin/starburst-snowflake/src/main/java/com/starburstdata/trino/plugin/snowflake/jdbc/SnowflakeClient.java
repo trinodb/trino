@@ -57,6 +57,7 @@ import io.trino.plugin.jdbc.aggregation.ImplementStddevSamp;
 import io.trino.plugin.jdbc.aggregation.ImplementSum;
 import io.trino.plugin.jdbc.aggregation.ImplementVariancePop;
 import io.trino.plugin.jdbc.aggregation.ImplementVarianceSamp;
+import io.trino.plugin.jdbc.expression.ComparisonOperator;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.expression.RewriteComparison;
@@ -246,7 +247,7 @@ public class SnowflakeClient
         this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
                 // TODO allow all comparison operators for numeric types
-                .add(new RewriteComparison(ImmutableSet.of(RewriteComparison.ComparisonOperator.EQUAL, RewriteComparison.ComparisonOperator.NOT_EQUAL)))
+                .add(new RewriteComparison(ImmutableSet.of(ComparisonOperator.EQUAL, ComparisonOperator.NOT_EQUAL)))
                 .add(new RewriteJsonConstant(jsonType))
                 .add(new RewriteJsonPath(jsonPathType))
                 .add(new RewriteJsonExtract(jsonType))
