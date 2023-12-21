@@ -38,6 +38,7 @@ import java.util.concurrent.ExecutorService;
 
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.SystemSessionProperties.isAllowPushdownIntoConnectors;
+import static io.trino.tracing.ScopedSpan.scopedSpan;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
@@ -91,13 +92,19 @@ public class SplitManager
 
         ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
 
-        ConnectorSplitSource source = splitManager.getSplits(
-                table.getTransaction(),
-                connectorSession,
-                table.getConnectorHandle(),
-                dynamicFilter,
-                preferDeterministicSplits,
-                constraint);
+        ConnectorSplitSource source;
+        try (var ignore = scopedSpan(tracer.spanBuilder("SplitManager.getSplits")
+                .setParent(Context.current().with(parentSpan))
+                .setAttribute(TrinoAttributes.TABLE, table.getConnectorHandle().toString())
+                .startSpan())) {
+            source = splitManager.getSplits(
+                    table.getTransaction(),
+                    connectorSession,
+                    table.getConnectorHandle(),
+                    dynamicFilter,
+                    preferDeterministicSplits,
+                    constraint);
+        }
 
         SplitSource splitSource = new ConnectorAwareSplitSource(catalogHandle, source);
 
@@ -120,10 +127,16 @@ public class SplitManager
         CatalogHandle catalogHandle = function.getCatalogHandle();
         ConnectorSplitManager splitManager = splitManagerProvider.getService(catalogHandle);
 
-        ConnectorSplitSource source = splitManager.getSplits(
-                function.getTransactionHandle(),
-                session.toConnectorSession(catalogHandle),
-                function.getFunctionHandle());
+        ConnectorSplitSource source;
+        try (var ignore = scopedSpan(tracer.spanBuilder("SplitManager.getSplits")
+                .setParent(Context.current().with(parentSpan))
+                .setAttribute(TrinoAttributes.FUNCTION, function.getFunctionHandle().toString())
+                .startSpan())) {
+            source = splitManager.getSplits(
+                    function.getTransactionHandle(),
+                    session.toConnectorSession(catalogHandle),
+                    function.getFunctionHandle());
+        }
 
         SplitSource splitSource = new ConnectorAwareSplitSource(catalogHandle, source);
 
