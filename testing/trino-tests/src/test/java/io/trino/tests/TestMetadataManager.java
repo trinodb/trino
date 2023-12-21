@@ -50,7 +50,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 /**
  * This is integration / unit test suite.
@@ -59,7 +59,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
  * This mapping has to be manually cleaned when query finishes execution (Metadata#cleanupQuery method).
  */
 @TestInstance(PER_CLASS)
-@Execution(CONCURRENT)
+@Execution(SAME_THREAD) // metadataManager.getActiveQueryIds() is shared mutable state that affects the test outcome
 public class TestMetadataManager
 {
     private DistributedQueryRunner queryRunner;

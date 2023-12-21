@@ -18,6 +18,7 @@ import io.trino.spi.QueryId;
 import io.trino.testing.DistributedQueryRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.execution.QueryRunnerUtil.createQuery;
 import static io.trino.execution.QueryRunnerUtil.waitForQueryState;
@@ -29,7 +30,9 @@ import static io.trino.execution.resourcegroups.db.H2TestUtil.adhocSession;
 import static io.trino.execution.resourcegroups.db.H2TestUtil.createQueryRunner;
 import static io.trino.execution.resourcegroups.db.H2TestUtil.getDao;
 import static io.trino.execution.resourcegroups.db.H2TestUtil.getDbConfigUrl;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
+@Execution(SAME_THREAD) // run single threaded to avoid creating multiple query runners at once
 public class TestEnvironments
 {
     private static final String LONG_LASTING_QUERY = "SELECT COUNT(*) FROM lineitem";
