@@ -28,6 +28,7 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
@@ -39,8 +40,10 @@ import static io.trino.spi.security.SelectedRole.Type.ROLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Collections.nCopies;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
+@TestInstance(PER_CLASS)
 @Execution(SAME_THREAD)
 public class TestCachingHiveMetastoreWithQueryRunner
         extends AbstractTestQueryFramework

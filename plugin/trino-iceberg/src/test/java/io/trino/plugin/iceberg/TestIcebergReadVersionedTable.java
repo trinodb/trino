@@ -17,6 +17,7 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.time.Instant;
 import java.time.ZonedDateTime;
@@ -25,7 +26,9 @@ import java.time.format.DateTimeFormatter;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static java.lang.String.format;
 import static java.time.ZoneOffset.UTC;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestIcebergReadVersionedTable
         extends AbstractTestQueryFramework
 {
