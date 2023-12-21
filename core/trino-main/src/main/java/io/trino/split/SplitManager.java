@@ -132,10 +132,10 @@ public class SplitManager
         return new TracingSplitSource(splitSource, tracer, Optional.of(span), "split-buffer");
     }
 
-    private Span splitSourceSpan(Span querySpan, CatalogHandle catalogHandle)
+    private Span splitSourceSpan(Span parentSpan, CatalogHandle catalogHandle)
     {
         return tracer.spanBuilder("split-source")
-                .setParent(Context.current().with(querySpan))
+                .setParent(Context.current().with(parentSpan))
                 .setAttribute(TrinoAttributes.CATALOG, catalogHandle.getCatalogName())
                 .startSpan();
     }
