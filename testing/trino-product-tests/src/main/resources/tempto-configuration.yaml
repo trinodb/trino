@@ -149,6 +149,7 @@ databases:
   spark:
     host: spark
     jdbc_driver_class: org.apache.hive.jdbc.HiveDriver
+    jdbc_jar: /docker/jdbc/hive-jdbc.jar
     jdbc_url: jdbc:hive2://${databases.spark.host}:10213
     jdbc_user: hive
     jdbc_password: na
