@@ -27,6 +27,7 @@ import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -34,7 +35,9 @@ import java.util.stream.Stream;
 import static io.trino.testing.MultisetAssertions.assertMultisetsEqual;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.stream.Collectors.joining;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
+@Execution(SAME_THREAD) // countingMockConnector is shared mutable state
 public class TestInformationSchemaConnector
         extends AbstractTestQueryFramework
 {

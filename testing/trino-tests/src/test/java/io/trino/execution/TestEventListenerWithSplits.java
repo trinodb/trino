@@ -36,6 +36,7 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Optional;
@@ -48,7 +49,9 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
+@Execution(SAME_THREAD) // EventsAwaitingQueries is shared mutable state
 public class TestEventListenerWithSplits
         extends AbstractTestQueryFramework
 {
