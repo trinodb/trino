@@ -185,6 +185,9 @@ public class GlueHiveMetastore
     private static final int BATCH_CREATE_PARTITION_MAX_PAGE_SIZE = 100;
     private static final int BATCH_UPDATE_PARTITION_MAX_PAGE_SIZE = 100;
     private static final int AWS_GLUE_GET_PARTITIONS_MAX_RESULTS = 1000;
+    private static final int AWS_GLUE_GET_DATABASES_MAX_RESULTS = 100;
+    private static final int AWS_GLUE_GET_FUNCTIONS_MAX_RESULTS = 100;
+    private static final int AWS_GLUE_GET_TABLES_MAX_RESULTS = 100;
     private static final Comparator<Iterable<String>> PARTITION_VALUE_COMPARATOR = lexicographical(String.CASE_INSENSITIVE_ORDER);
     private static final Predicate<com.amazonaws.services.glue.model.Table> SOME_KIND_OF_VIEW_FILTER = table -> VIRTUAL_VIEW.name().equals(getTableTypeNullable(table));
     private static final RetryPolicy<?> CONCURRENT_MODIFICATION_EXCEPTION_RETRY_POLICY = RetryPolicy.builder()
@@ -253,7 +256,8 @@ public class GlueHiveMetastore
         try {
             List<String> databaseNames = getPaginatedResults(
                     glueClient::getDatabases,
-                    new GetDatabasesRequest(),
+                    new GetDatabasesRequest()
+                            .withMaxResults(AWS_GLUE_GET_DATABASES_MAX_RESULTS),
                     GetDatabasesRequest::setNextToken,
                     GetDatabasesResult::getNextToken,
                     stats.getGetDatabases())
@@ -1291,7 +1295,8 @@ public class GlueHiveMetastore
                     glueClient::getUserDefinedFunctions,
                     new GetUserDefinedFunctionsRequest()
                             .withDatabaseName(databaseName)
-                            .withPattern(functionNamePattern),
+                            .withPattern(functionNamePattern)
+                            .withMaxResults(AWS_GLUE_GET_FUNCTIONS_MAX_RESULTS),
                     GetUserDefinedFunctionsRequest::setNextToken,
                     GetUserDefinedFunctionsResult::getNextToken,
                     stats.getGetUserDefinedFunctions())
@@ -1370,7 +1375,8 @@ public class GlueHiveMetastore
         return getPaginatedResults(
                 glueClient::getTables,
                 new GetTablesRequest()
-                        .withDatabaseName(databaseName),
+                        .withDatabaseName(databaseName)
+                        .withMaxResults(AWS_GLUE_GET_TABLES_MAX_RESULTS),
                 GetTablesRequest::setNextToken,
                 GetTablesResult::getNextToken,
                 stats.getGetTables())
