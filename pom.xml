@@ -183,7 +183,7 @@
         <dep.aws-sdk.version>1.12.657</dep.aws-sdk.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
         <dep.confluent.version>7.5.1</dep.confluent.version>
-        <dep.docker.images.version>87</dep.docker.images.version>
+        <dep.docker.images.version>89</dep.docker.images.version>
         <dep.drift.version>1.21</dep.drift.version>
         <dep.duct-tape.version>1.0.8</dep.duct-tape.version>
         <dep.errorprone.version>2.24.1</dep.errorprone.version>
