@@ -28,6 +28,7 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
@@ -46,7 +47,9 @@ import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.creat
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
+@TestInstance(PER_CLASS)
 public class TestDeltaLakeConcurrentModificationGlueMetastore
         extends AbstractTestQueryFramework
 {
