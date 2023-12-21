@@ -39,10 +39,10 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static org.assertj.core.api.Fail.fail;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
 @TestInstance(PER_CLASS)
-@Execution(CONCURRENT)
+@Execution(SAME_THREAD) // EventsAwaitingQueries is shared mutable state
 public class TestCompletedEventWarnings
 {
     private static final int TEST_WARNINGS = 5;
