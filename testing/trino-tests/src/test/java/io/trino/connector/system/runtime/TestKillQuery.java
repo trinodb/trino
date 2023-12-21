@@ -23,6 +23,7 @@ import io.trino.testng.services.ManageTestResources;
 import io.trino.testng.services.ReportOrphanedExecutors;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
 
@@ -44,8 +45,10 @@ import static java.lang.String.format;
 import static java.util.UUID.randomUUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
+@TestInstance(PER_CLASS)
 @Execution(SAME_THREAD) // e.g. some tests methods modify AC configuration
 public class TestKillQuery
         extends AbstractTestQueryFramework
