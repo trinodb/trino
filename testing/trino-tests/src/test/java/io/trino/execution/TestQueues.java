@@ -28,6 +28,7 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.tests.tpch.TpchQueryRunnerBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Optional;
 import java.util.Set;
@@ -49,8 +50,9 @@ import static java.lang.String.format;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-// run single threaded to avoid creating multiple query runners at once
+@Execution(SAME_THREAD) // run single threaded to avoid creating multiple query runners at once
 public class TestQueues
 {
     private static final String LONG_LASTING_QUERY = "SELECT COUNT(*) FROM lineitem";
