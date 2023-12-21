@@ -15,7 +15,6 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.native-protocol.version>1.5.1</dep.native-protocol.version>
-        <air.test.parallel>instances</air.test.parallel>
     </properties>
 
     <dependencies>
