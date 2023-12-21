@@ -65,6 +65,7 @@ import io.trino.testing.TestingAccessControlManager.TestingPrivilege;
 import io.trino.testing.TestingGroupProvider;
 import io.trino.testing.TestingSession;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.lang.invoke.MethodHandles;
 import java.time.Duration;
@@ -118,7 +119,9 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
+@Execution(SAME_THREAD)
 public class TestAccessControl
         extends AbstractTestQueryFramework
 {
