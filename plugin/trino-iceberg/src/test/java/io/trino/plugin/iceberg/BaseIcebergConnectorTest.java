@@ -31,6 +31,7 @@ import io.trino.metadata.TableHandle;
 import io.trino.operator.OperatorStats;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
+import io.trino.server.DynamicFilterService;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Constraint;
@@ -101,6 +102,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.util.concurrent.Uninterruptibles.sleepUninterruptibly;
 import static io.trino.SystemSessionProperties.DETERMINE_PARTITION_COUNT_FOR_WRITE_ENABLED;
+import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.SCALE_WRITERS;
 import static io.trino.SystemSessionProperties.TASK_MAX_WRITER_COUNT;
 import static io.trino.SystemSessionProperties.TASK_MIN_WRITER_COUNT;
@@ -7350,6 +7352,65 @@ public abstract class BaseIcebergConnectorTest
                             .build(),
                     "SELECT value FROM " + dataTable.getName() + " WHERE EXISTS (SELECT 1 FROM " + filteringTable.getName() + " WHERE filtering_value = value)"))
                     .matches("VALUES UUID 'f73894f0-5447-41c5-a727-436d04c7f8ab'");
+        }
+    }
+
+    @Test
+    public void testDynamicFilterWithExplicitPartitionFilter()
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+        try (TestTable salesTable = new TestTable(getQueryRunner()::execute, "sales_table", "(date date, receipt_id varchar, amount decimal(10,2)) with (partitioning=array['date'])");
+                TestTable dimensionTable = new TestTable(getQueryRunner()::execute, "dimension_table", "(date date, following_holiday boolean, year int)")) {
+            assertUpdate("""
+                    INSERT INTO %s
+                    VALUES
+                        (DATE '2023-01-01' , false, 2023),
+                        (DATE '2023-01-02' , true, 2023),
+                        (DATE '2023-01-03' , false, 2023)""".formatted(dimensionTable.getName()), 3);
+            assertUpdate("""
+                    INSERT INTO %s
+                    VALUES
+                        (DATE '2023-01-02' , '#2023#1', DECIMAL '122.12'),
+                        (DATE '2023-01-02' , '#2023#2', DECIMAL '124.12'),
+                        (DATE '2023-01-02' , '#2023#3', DECIMAL '99.99'),
+                        (DATE '2023-01-02' , '#2023#4', DECIMAL '95.12'),
+                        (DATE '2023-01-03' , '#2023#5', DECIMAL '199.12'),
+                        (DATE '2023-01-04' , '#2023#6', DECIMAL '99.55'),
+                        (DATE '2023-01-05' , '#2023#7', DECIMAL '50.11'),
+                        (DATE '2023-01-05' , '#2023#8', DECIMAL '60.20'),
+                        (DATE '2023-01-05' , '#2023#9', DECIMAL '70.75'),
+                        (DATE '2023-01-05' , '#2023#10', DECIMAL '80.12')""".formatted(salesTable.getName()), 10);
+
+            String selectQuery = """
+                    SELECT receipt_id
+                    FROM %s s
+                    JOIN %s d
+                        ON  s.date = d.date
+                    WHERE
+                        d.following_holiday = true AND
+                        d.date BETWEEN DATE '2023-01-01' AND DATE '2024-01-01'""".formatted(salesTable.getName(), dimensionTable.getName());
+            MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
+                    Session.builder(getSession())
+                            .setCatalogSessionProperty(catalog, DYNAMIC_FILTERING_WAIT_TIMEOUT, "10s")
+                            .build(),
+                    selectQuery);
+            MaterializedResult expected = computeActual(
+                    Session.builder(getSession())
+                            .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
+                            .build(),
+                    selectQuery);
+            assertEqualsIgnoreOrder(result.getResult(), expected);
+
+            DynamicFilterService.DynamicFiltersStats dynamicFiltersStats = getDistributedQueryRunner().getCoordinator()
+                    .getQueryManager()
+                    .getFullQueryInfo(result.getQueryId())
+                    .getQueryStats()
+                    .getDynamicFiltersStats();
+            // The dynamic filter reduces the range specified for the partition column `date` from `date :: [[2023-01-01, 2024-01-01]]` to `date :: {[2023-01-02]}`
+            assertThat(dynamicFiltersStats.getTotalDynamicFilters()).isEqualTo(1L);
+            assertThat(dynamicFiltersStats.getLazyDynamicFilters()).isEqualTo(1L);
+            assertThat(dynamicFiltersStats.getReplicatedDynamicFilters()).isEqualTo(0L);
+            assertThat(dynamicFiltersStats.getDynamicFiltersCompleted()).isEqualTo(1L);
         }
     }
 

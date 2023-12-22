@@ -43,7 +43,11 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.SqlDecimal;
 import io.trino.spi.type.Type;
 import io.trino.testing.TestingConnectorSession;
 import org.apache.iceberg.PartitionSpec;
@@ -54,7 +58,9 @@ import org.apache.iceberg.types.Types;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.file.Files;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -68,6 +74,8 @@ import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.iceberg.ColumnIdentity.TypeCategory.PRIMITIVE;
 import static io.trino.plugin.iceberg.IcebergFileFormat.ORC;
 import static io.trino.plugin.iceberg.util.OrcTypeConverter.toOrcType;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.Decimals.writeShortDecimal;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
@@ -184,6 +192,150 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                 assertThat(page.getPositionCount()).isEqualTo(1);
                 assertThat(page.getBlock(0).getInt(0, 0)).isEqualTo(keyColumnValue);
                 assertThat(page.getBlock(1).getSlice(0, 0, page.getBlock(1).getSliceLength(0)).toStringUtf8()).isEqualTo(dataColumnValue);
+            }
+        }
+    }
+
+    @Test
+    public void testDynamicSplitPruningWithExplicitPartitionFilter()
+            throws IOException
+    {
+        String tableName = "sales_table";
+        String dateColumnName = "date";
+        ColumnIdentity dateColumnIdentity = new ColumnIdentity(1, dateColumnName, PRIMITIVE, ImmutableList.of());
+        IcebergColumnHandle dateColumnHandle = new IcebergColumnHandle(dateColumnIdentity, DATE, ImmutableList.of(), DATE, Optional.empty());
+        long dateColumnValue = LocalDate.of(2023, 1, 10).toEpochDay();
+        String receiptColumnName = "receipt";
+        ColumnIdentity receiptColumnIdentity = new ColumnIdentity(2, receiptColumnName, PRIMITIVE, ImmutableList.of());
+        IcebergColumnHandle receiptColumnHandle = new IcebergColumnHandle(receiptColumnIdentity, VARCHAR, ImmutableList.of(), VARCHAR, Optional.empty());
+        String receiptColumnValue = "#12345";
+        String amountColumnName = "amount";
+        ColumnIdentity amountColumnIdentity = new ColumnIdentity(3, amountColumnName, PRIMITIVE, ImmutableList.of());
+        DecimalType amountColumnType = DecimalType.createDecimalType(10, 2);
+        IcebergColumnHandle amountColumnHandle = new IcebergColumnHandle(amountColumnIdentity, amountColumnType, ImmutableList.of(), amountColumnType, Optional.empty());
+        BigDecimal amountColumnValue = new BigDecimal("1234567.65");
+        Schema tableSchema = new Schema(
+                optional(dateColumnIdentity.getId(), dateColumnName, Types.DateType.get()),
+                optional(receiptColumnIdentity.getId(), receiptColumnName, Types.StringType.get()),
+                optional(amountColumnIdentity.getId(), amountColumnName, Types.DecimalType.of(10, 2)));
+        PartitionSpec partitionSpec = PartitionSpec.builderFor(tableSchema)
+                .identity(dateColumnName)
+                .build();
+
+        IcebergConfig icebergConfig = new IcebergConfig();
+        HiveTransactionHandle transaction = new HiveTransactionHandle(false);
+        try (TempFile file = new TempFile()) {
+            Files.delete(file.path());
+
+            TrinoOutputFile outputFile = new LocalOutputFile(file.file());
+            TrinoInputFile inputFile = new LocalInputFile(file.file());
+            List<String> columnNames = ImmutableList.of(dateColumnName, receiptColumnName, amountColumnName);
+            List<Type> types = ImmutableList.of(DATE, VARCHAR, amountColumnType);
+
+            try (OrcWriter writer = new OrcWriter(
+                    OutputStreamOrcDataSink.create(outputFile),
+                    columnNames,
+                    types,
+                    toOrcType(tableSchema),
+                    NONE,
+                    new OrcWriterOptions(),
+                    ImmutableMap.of(),
+                    true,
+                    OrcWriteValidation.OrcWriteValidationMode.BOTH,
+                    new OrcWriterStats())) {
+                BlockBuilder dateBuilder = DATE.createBlockBuilder(null, 1);
+                DATE.writeLong(dateBuilder, dateColumnValue);
+                BlockBuilder receiptBuilder = VARCHAR.createBlockBuilder(null, 1);
+                VARCHAR.writeString(receiptBuilder, receiptColumnValue);
+                BlockBuilder amountBuilder = amountColumnType.createBlockBuilder(null, 1);
+                writeShortDecimal(amountBuilder, amountColumnValue.unscaledValue().longValueExact());
+                writer.write(new Page(dateBuilder.build(), receiptBuilder.build(), amountBuilder.build()));
+            }
+
+            IcebergSplit split = new IcebergSplit(
+                    inputFile.toString(),
+                    0,
+                    inputFile.length(),
+                    inputFile.length(),
+                    -1, // invalid; normally known
+                    ORC,
+                    PartitionSpecParser.toJson(partitionSpec),
+                    PartitionData.toJson(new PartitionData(new Object[] {dateColumnValue})),
+                    ImmutableList.of(),
+                    SplitWeight.standard(),
+                    ImmutableMap.of());
+
+            String tablePath = inputFile.location().fileName();
+            TableHandle tableHandle = new TableHandle(
+                    TEST_CATALOG_HANDLE,
+                    new IcebergTableHandle(
+                            CatalogHandle.fromId("iceberg:NORMAL:v12345"),
+                            "test_schema",
+                            tableName,
+                            TableType.DATA,
+                            Optional.empty(),
+                            SchemaParser.toJson(tableSchema),
+                            Optional.of(PartitionSpecParser.toJson(partitionSpec)),
+                            2,
+                            TupleDomain.all(),
+                            TupleDomain.all(),
+                            OptionalLong.empty(),
+                            ImmutableSet.of(dateColumnHandle),
+                            Optional.empty(),
+                            tablePath,
+                            ImmutableMap.of(),
+                            false,
+                            Optional.empty(),
+                            ImmutableSet.of(),
+                            Optional.of(false)),
+                    transaction);
+
+            // Simulate situations where the dynamic filter (e.g.: while performing a JOIN with another table) reduces considerably
+            // the amount of data to be processed from the current table
+
+            TupleDomain<ColumnHandle> differentDatePredicate = TupleDomain.withColumnDomains(
+                    ImmutableMap.of(
+                            dateColumnHandle,
+                            Domain.singleValue(DATE, LocalDate.of(2023, 2, 2).toEpochDay())));
+            TupleDomain<ColumnHandle> nonOverlappingDatePredicate = TupleDomain.withColumnDomains(
+                    ImmutableMap.of(
+                            dateColumnHandle,
+                            Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(DATE, LocalDate.of(2023, 2, 2).toEpochDay())), true)));
+            for (TupleDomain<ColumnHandle> partitionPredicate : List.of(differentDatePredicate, nonOverlappingDatePredicate)) {
+                try (ConnectorPageSource emptyPageSource = createTestingPageSource(
+                        transaction,
+                        icebergConfig,
+                        split,
+                        tableHandle,
+                        ImmutableList.of(dateColumnHandle, receiptColumnHandle, amountColumnHandle),
+                        getDynamicFilter(partitionPredicate))) {
+                    assertThat(emptyPageSource.getNextPage()).isNull();
+                }
+            }
+
+            TupleDomain<ColumnHandle> sameDatePredicate = TupleDomain.withColumnDomains(
+                    ImmutableMap.of(
+                            dateColumnHandle,
+                            Domain.singleValue(DATE, dateColumnValue)));
+            TupleDomain<ColumnHandle> overlappingDatePredicate = TupleDomain.withColumnDomains(
+                    ImmutableMap.of(
+                            dateColumnHandle,
+                            Domain.create(ValueSet.ofRanges(Range.range(DATE, LocalDate.of(2023, 1, 1).toEpochDay(), true, LocalDate.of(2023, 2, 1).toEpochDay(), false)), true)));
+            for (TupleDomain<ColumnHandle> partitionPredicate : List.of(sameDatePredicate, overlappingDatePredicate)) {
+                try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(
+                        transaction,
+                        icebergConfig,
+                        split,
+                        tableHandle,
+                        ImmutableList.of(dateColumnHandle, receiptColumnHandle, amountColumnHandle),
+                        getDynamicFilter(partitionPredicate))) {
+                    Page page = nonEmptyPageSource.getNextPage();
+                    assertThat(page).isNotNull();
+                    assertThat(page.getPositionCount()).isEqualTo(1);
+                    assertThat(page.getBlock(0).getInt(0, 0)).isEqualTo(dateColumnValue);
+                    assertThat(page.getBlock(1).getSlice(0, 0, page.getBlock(1).getSliceLength(0)).toStringUtf8()).isEqualTo(receiptColumnValue);
+                    assertThat(((SqlDecimal) amountColumnType.getObjectValue(null, page.getBlock(2), 0)).toBigDecimal()).isEqualTo(amountColumnValue);
+                }
             }
         }
     }
