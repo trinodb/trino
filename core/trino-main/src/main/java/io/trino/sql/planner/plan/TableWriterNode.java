@@ -478,12 +478,18 @@ public class TableWriterNode
         private final String table;
         private final TableHandle storageTableHandle;
         private final List<TableHandle> sourceTableHandles;
+        private final List<String> sourceTableFunctions;
 
-        public RefreshMaterializedViewReference(String table, TableHandle storageTableHandle, List<TableHandle> sourceTableHandles)
+        public RefreshMaterializedViewReference(
+                String table,
+                TableHandle storageTableHandle,
+                List<TableHandle> sourceTableHandles,
+                List<String> sourceTableFunctions)
         {
             this.table = requireNonNull(table, "table is null");
             this.storageTableHandle = requireNonNull(storageTableHandle, "storageTableHandle is null");
             this.sourceTableHandles = ImmutableList.copyOf(sourceTableHandles);
+            this.sourceTableFunctions = ImmutableList.copyOf(sourceTableFunctions);
         }
 
         public TableHandle getStorageTableHandle()
@@ -516,6 +522,11 @@ public class TableWriterNode
             return metadata.getMaxWriterTasks(session, storageTableHandle.getCatalogHandle().getCatalogName());
         }
 
+        public List<String> getSourceTableFunctions()
+        {
+            return sourceTableFunctions;
+        }
+
         @Override
         public WriterScalingOptions getWriterScalingOptions(Metadata metadata, Session session)
         {
@@ -530,6 +541,7 @@ public class TableWriterNode
         private final InsertTableHandle insertHandle;
         private final SchemaTableName schemaTableName;
         private final List<TableHandle> sourceTableHandles;
+        private final List<String> sourceTableFunctions;
         private final WriterScalingOptions writerScalingOptions;
 
         @JsonCreator
@@ -538,12 +550,14 @@ public class TableWriterNode
                 @JsonProperty("insertHandle") InsertTableHandle insertHandle,
                 @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
                 @JsonProperty("sourceTableHandles") List<TableHandle> sourceTableHandles,
+                @JsonProperty("sourceTableFunctions") List<String> sourceTableFunctions,
                 @JsonProperty("writerScalingOptions") WriterScalingOptions writerScalingOptions)
         {
             this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
             this.insertHandle = requireNonNull(insertHandle, "insertHandle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
             this.sourceTableHandles = ImmutableList.copyOf(sourceTableHandles);
+            this.sourceTableFunctions = ImmutableList.copyOf(sourceTableFunctions);
             this.writerScalingOptions = requireNonNull(writerScalingOptions, "writerScalingOptions is null");
         }
 
@@ -569,6 +583,12 @@ public class TableWriterNode
         public List<TableHandle> getSourceTableHandles()
         {
             return sourceTableHandles;
+        }
+
+        @JsonProperty
+        public List<String> getSourceTableFunctions()
+        {
+            return sourceTableFunctions;
         }
 
         @JsonProperty

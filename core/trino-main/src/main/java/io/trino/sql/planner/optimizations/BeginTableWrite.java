@@ -271,6 +271,7 @@ public class BeginTableWrite
                         metadata.beginRefreshMaterializedView(session, refreshMV.getStorageTableHandle(), refreshMV.getSourceTableHandles()),
                         metadata.getTableName(session, refreshMV.getStorageTableHandle()).getSchemaTableName(),
                         refreshMV.getSourceTableHandles(),
+                        refreshMV.getSourceTableFunctions(),
                         refreshMV.getWriterScalingOptions(metadata, session));
             }
             if (target instanceof TableExecuteTarget tableExecute) {
