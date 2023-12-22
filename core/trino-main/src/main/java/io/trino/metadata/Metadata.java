@@ -402,7 +402,8 @@ public interface Metadata
             InsertTableHandle insertTableHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
-            List<TableHandle> sourceTableHandles);
+            List<TableHandle> sourceTableHandles,
+            List<String> sourceTableFunctions);
 
     /**
      * Push update into connector
