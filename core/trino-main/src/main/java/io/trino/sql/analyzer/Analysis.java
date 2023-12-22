@@ -1269,6 +1269,11 @@ public class Analysis
         return tableFunctionAnalyses.get(NodeRef.of(node));
     }
 
+    public Set<NodeRef<TableFunctionInvocation>> getPolymorphicTableFunctions()
+    {
+        return ImmutableSet.copyOf(polymorphicTableFunctions);
+    }
+
     public void setRelationName(Relation relation, QualifiedName name)
     {
         relationNames.put(NodeRef.of(relation), name);
