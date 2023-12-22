@@ -18,6 +18,8 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.opentelemetry.context.Context;
+import io.opentelemetry.context.Scope;
 import io.trino.Session;
 import io.trino.event.QueryMonitor;
 import io.trino.execution.ClusterSizeMonitor;
@@ -126,7 +128,12 @@ public class LocalDispatchQuery
             }
             ListenableFuture<Void> minimumWorkerFuture = clusterSizeMonitor.waitForMinimumWorkers(executionMinCount, getRequiredWorkersMaxWait(session));
             // when worker requirement is met, start the execution
-            addSuccessCallback(minimumWorkerFuture, () -> startExecution(queryExecution), queryExecutor);
+            Context context = Context.current();
+            addSuccessCallback(minimumWorkerFuture, () -> {
+                try(Scope ignored = context.makeCurrent()) {
+                    startExecution(queryExecution);
+                }
+            }, queryExecutor);
             addExceptionCallback(minimumWorkerFuture, throwable -> stateMachine.transitionToFailed(throwable), queryExecutor);
 
             // cancel minimumWorkerFuture if query fails for some reason or is cancelled by user
