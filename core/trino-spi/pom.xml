@@ -241,6 +241,11 @@
                                     <old>method void io.trino.spi.connector.ConnectorMetadata::createMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.SchemaTableName, io.trino.spi.connector.ConnectorMaterializedViewDefinition, boolean, boolean)</old>
                                     <new>method void io.trino.spi.connector.ConnectorMetadata::createMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.SchemaTableName, io.trino.spi.connector.ConnectorMaterializedViewDefinition, java.util.Map&lt;java.lang.String, java.lang.Object&gt;, boolean, boolean)</new>
                                 </item>
+                                <item>
+                                    <code>java.method.numberOfParametersChanged</code>
+                                    <old>method java.util.Optional&lt;io.trino.spi.connector.ConnectorOutputMetadata&gt; io.trino.spi.connector.ConnectorMetadata::finishRefreshMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, io.trino.spi.connector.ConnectorInsertTableHandle, java.util.Collection&lt;io.airlift.slice.Slice&gt;, java.util.Collection&lt;io.trino.spi.statistics.ComputedStatistics&gt;, java.util.List&lt;io.trino.spi.connector.ConnectorTableHandle&gt;)</old>
+                                    <new>method java.util.Optional&lt;io.trino.spi.connector.ConnectorOutputMetadata&gt; io.trino.spi.connector.ConnectorMetadata::finishRefreshMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.ConnectorTableHandle, io.trino.spi.connector.ConnectorInsertTableHandle, java.util.Collection&lt;io.airlift.slice.Slice&gt;, java.util.Collection&lt;io.trino.spi.statistics.ComputedStatistics&gt;, java.util.List&lt;io.trino.spi.connector.ConnectorTableHandle&gt;, java.util.List&lt;java.lang.String&gt;)</new>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>

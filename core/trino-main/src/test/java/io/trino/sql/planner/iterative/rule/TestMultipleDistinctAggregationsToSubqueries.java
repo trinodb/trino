@@ -1558,9 +1558,9 @@ public class TestMultipleDistinctAggregationsToSubqueries
         }
 
         @Override
-        public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(Session session, TableHandle tableHandle, InsertTableHandle insertTableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics, List<TableHandle> sourceTableHandles)
+        public Optional<ConnectorOutputMetadata> finishRefreshMaterializedView(Session session, TableHandle tableHandle, InsertTableHandle insertTableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics, List<TableHandle> sourceTableHandles, List<String> sourceTableFunctions)
         {
-            return metadata.finishRefreshMaterializedView(session, tableHandle, insertTableHandle, fragments, computedStatistics, sourceTableHandles);
+            return metadata.finishRefreshMaterializedView(session, tableHandle, insertTableHandle, fragments, computedStatistics, sourceTableHandles, sourceTableFunctions);
         }
 
         @Override

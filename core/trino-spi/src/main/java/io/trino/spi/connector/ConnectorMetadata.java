@@ -888,7 +888,8 @@ public interface ConnectorMetadata
             ConnectorInsertTableHandle insertHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
-            List<ConnectorTableHandle> sourceTableHandles)
+            List<ConnectorTableHandle> sourceTableHandles,
+            List<String> sourceTableFunctions)
     {
         throw new TrinoException(GENERIC_INTERNAL_ERROR, "ConnectorMetadata beginRefreshMaterializedView() is implemented without finishRefreshMaterializedView()");
     }

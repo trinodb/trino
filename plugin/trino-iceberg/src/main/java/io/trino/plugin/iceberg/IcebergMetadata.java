@@ -261,6 +261,7 @@ import static io.trino.plugin.iceberg.TableStatisticsWriter.StatsUpdateMode.REPL
 import static io.trino.plugin.iceberg.TableType.DATA;
 import static io.trino.plugin.iceberg.TypeConverter.toIcebergTypeForNewColumn;
 import static io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog.DEPENDS_ON_TABLES;
+import static io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog.DEPENDS_ON_TABLE_FUNCTIONS;
 import static io.trino.plugin.iceberg.catalog.hms.TrinoHiveCatalog.TRINO_QUERY_START_TIME;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.DROP_EXTENDED_STATS;
 import static io.trino.plugin.iceberg.procedure.IcebergTableProcedureId.EXPIRE_SNAPSHOTS;
@@ -2815,7 +2816,8 @@ public class IcebergMetadata
             ConnectorInsertTableHandle insertHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
-            List<ConnectorTableHandle> sourceTableHandles)
+            List<ConnectorTableHandle> sourceTableHandles,
+            List<String> sourceTableFunctions)
     {
         IcebergWritableTableHandle table = (IcebergWritableTableHandle) insertHandle;
 
@@ -2853,7 +2855,7 @@ public class IcebergMetadata
             writtenFiles.add(task.getPath());
         }
 
-        String dependencies = sourceTableHandles.stream()
+        String tableDependencies = sourceTableHandles.stream()
                 .map(handle -> {
                     if (!(handle instanceof IcebergTableHandle icebergHandle)) {
                         return UNKNOWN_SNAPSHOT_TOKEN;
@@ -2874,7 +2876,8 @@ public class IcebergMetadata
         }
 
         // Update the 'dependsOnTables' property that tracks tables on which the materialized view depends and the corresponding snapshot ids of the tables
-        appendFiles.set(DEPENDS_ON_TABLES, dependencies);
+        appendFiles.set(DEPENDS_ON_TABLES, tableDependencies);
+        appendFiles.set(DEPENDS_ON_TABLE_FUNCTIONS, Boolean.toString(!sourceTableFunctions.isEmpty()));
         appendFiles.set(TRINO_QUERY_START_TIME, session.getStart().toString());
         commit(appendFiles, session);
 
@@ -2947,17 +2950,25 @@ public class IcebergMetadata
         String dependsOnTables = currentSnapshot
                 .map(snapshot -> snapshot.summary().getOrDefault(DEPENDS_ON_TABLES, ""))
                 .orElse("");
+        boolean dependsOnTableFunctions = currentSnapshot
+                .map(snapshot -> Boolean.valueOf(snapshot.summary().getOrDefault(DEPENDS_ON_TABLE_FUNCTIONS, "false")))
+                .orElse(false);
+
+        Optional<Instant> refreshTime = currentSnapshot.map(snapshot -> snapshot.summary().get(TRINO_QUERY_START_TIME))
+                .map(Instant::parse)
+                .or(() -> currentSnapshot.map(snapshot -> Instant.ofEpochMilli(snapshot.timestampMillis())));
+
+        if (dependsOnTableFunctions) {
+            // It can't be determined whether a value returned by table function is STALE or not
+            return new MaterializedViewFreshness(UNKNOWN, refreshTime);
+        }
+
         if (dependsOnTables.isEmpty()) {
             // Information missing. While it's "unknown" whether storage is stale, we return "stale".
             // Normally dependsOnTables may be missing only when there was no refresh yet.
             return new MaterializedViewFreshness(STALE, Optional.empty());
         }
-        Instant refreshTime = currentSnapshot.map(snapshot -> snapshot.summary().get(TRINO_QUERY_START_TIME))
-                .map(Instant::parse)
-                .or(() -> currentSnapshot.map(snapshot -> Instant.ofEpochMilli(snapshot.timestampMillis())))
-                // this will never fail because if dependsOnTables is not empty it means there is a table and
-                // thus currentSnapshot is not null so code in or branch will return a result
-                .orElseThrow();
+
         boolean hasUnknownTables = false;
         boolean hasStaleIcebergTables = false;
         Optional<Long> firstTableChange = Optional.of(Long.MAX_VALUE);
@@ -3015,14 +3026,14 @@ public class IcebergMetadata
             }
         }
 
-        Instant lastFreshTime = firstTableChange
+        Optional<Instant> lastFreshTime = firstTableChange
                 .map(Instant::ofEpochMilli)
-                .orElse(refreshTime);
+                .or(() -> refreshTime);
         if (hasStaleIcebergTables) {
-            return new MaterializedViewFreshness(STALE, Optional.of(lastFreshTime));
+            return new MaterializedViewFreshness(STALE, lastFreshTime);
         }
         if (hasUnknownTables) {
-            return new MaterializedViewFreshness(UNKNOWN, Optional.of(lastFreshTime));
+            return new MaterializedViewFreshness(UNKNOWN, lastFreshTime);
         }
         return new MaterializedViewFreshness(FRESH, Optional.empty());
     }

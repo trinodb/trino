@@ -649,10 +649,18 @@ public class ClassLoaderSafeConnectorMetadata
             ConnectorInsertTableHandle insertHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
-            List<ConnectorTableHandle> sourceTableHandles)
+            List<ConnectorTableHandle> sourceTableHandles,
+            List<String> sourceTableFunctions)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.finishRefreshMaterializedView(session, tableHandle, insertHandle, fragments, computedStatistics, sourceTableHandles);
+            return delegate.finishRefreshMaterializedView(
+                    session,
+                    tableHandle,
+                    insertHandle,
+                    fragments,
+                    computedStatistics,
+                    sourceTableHandles,
+                    sourceTableFunctions);
         }
     }
 

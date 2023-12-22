@@ -746,7 +746,8 @@ public class MockConnector
                 ConnectorInsertTableHandle insertHandle,
                 Collection<Slice> fragments,
                 Collection<ComputedStatistics> computedStatistics,
-                List<ConnectorTableHandle> sourceTableHandles)
+                List<ConnectorTableHandle> sourceTableHandles,
+                List<String> sourceTableFunctions)
         {
             return Optional.empty();
         }

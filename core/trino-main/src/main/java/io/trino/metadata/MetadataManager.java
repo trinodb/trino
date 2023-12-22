@@ -1189,7 +1189,8 @@ public final class MetadataManager
             InsertTableHandle insertHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
-            List<TableHandle> sourceTableHandles)
+            List<TableHandle> sourceTableHandles,
+            List<String> sourceTableFunctions)
     {
         CatalogHandle catalogHandle = insertHandle.getCatalogHandle();
         ConnectorMetadata metadata = getMetadata(session, catalogHandle);
@@ -1197,8 +1198,14 @@ public final class MetadataManager
         List<ConnectorTableHandle> sourceConnectorHandles = sourceTableHandles.stream()
                 .map(TableHandle::getConnectorHandle)
                 .collect(toImmutableList());
-        return metadata.finishRefreshMaterializedView(session.toConnectorSession(catalogHandle), tableHandle.getConnectorHandle(), insertHandle.getConnectorHandle(),
-                fragments, computedStatistics, sourceConnectorHandles);
+        return metadata.finishRefreshMaterializedView(
+                session.toConnectorSession(catalogHandle),
+                tableHandle.getConnectorHandle(),
+                insertHandle.getConnectorHandle(),
+                fragments,
+                computedStatistics,
+                sourceConnectorHandles,
+                sourceTableFunctions);
     }
 
     @Override

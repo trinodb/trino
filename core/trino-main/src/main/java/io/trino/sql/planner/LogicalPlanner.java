@@ -719,10 +719,14 @@ public class LogicalPlanner
         TableHandle tableHandle = viewAnalysis.getTarget();
         Query query = viewAnalysis.getQuery();
         Optional<TableLayout> newTableLayout = metadata.getInsertLayout(session, viewAnalysis.getTarget());
+        List<String> tableFunctions = analysis.getPolymorphicTableFunctions().stream()
+                .map(polymorphicTableFunction -> polymorphicTableFunction.getNode().getName().toString())
+                .collect(toImmutableList());
         TableWriterNode.RefreshMaterializedViewReference writerTarget = new TableWriterNode.RefreshMaterializedViewReference(
                 viewAnalysis.getTable().toString(),
                 tableHandle,
-                new ArrayList<>(analysis.getTables()));
+                ImmutableList.copyOf(analysis.getTables()),
+                tableFunctions);
         return getInsertPlan(analysis, viewAnalysis.getTable(), query, tableHandle, viewAnalysis.getColumns(), newTableLayout, Optional.of(writerTarget));
     }
 
