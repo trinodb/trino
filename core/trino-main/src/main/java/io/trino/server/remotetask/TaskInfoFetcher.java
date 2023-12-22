@@ -251,7 +251,7 @@ public class TaskInfoFetcher
         TaskStatus newRemoteTaskStatus = newTaskInfo.getTaskStatus();
 
         if (!newRemoteTaskStatus.getTaskId().equals(taskId)) {
-            log.warn("Task ID mismatch on remote task status.  Member task ID is %s, but remote task ID is %s.  This will confuse finalTaskInfo listeners.",
+            log.debug("Task ID mismatch on remote task status.  Member task ID is %s, but remote task ID is %s.  This will confuse finalTaskInfo listeners.",
                     taskId.toString(), newRemoteTaskStatus.getTaskId().toString());
         }
 
@@ -259,7 +259,7 @@ public class TaskInfoFetcher
             // prefer local
             newTaskInfo = newTaskInfo.withTaskStatus(localTaskStatus);
             if (!localTaskStatus.getTaskId().equals(taskId)) {
-                log.warn("Task ID mismatch on local task status.  Member task ID is %s, but status-fetcher ID is %s.  This will confuse finalTaskInfo listeners.",
+                log.debug("Task ID mismatch on local task status.  Member task ID is %s, but status-fetcher ID is %s.  This will confuse finalTaskInfo listeners.",
                         taskId.toString(), newRemoteTaskStatus.getTaskId().toString());
             }
         }
@@ -271,7 +271,7 @@ public class TaskInfoFetcher
         if (newTaskInfo.getTaskStatus().getState().isDone()) {
             boolean wasSet = spoolingOutputStats.compareAndSet(null, newTaskInfo.getOutputBuffers().getSpoolingOutputStats().orElse(null));
             if (wasSet && spoolingOutputStats.get() == null) {
-                log.warn("Task %s was updated to null spoolingOutputStats.  Future calls to retrieveAndDropSpoolingOutputStats will fail.", taskId.toString());
+                log.debug("Task %s was updated to null spoolingOutputStats.  Future calls to retrieveAndDropSpoolingOutputStats will fail.", taskId.toString());
             }
             newTaskInfo = newTaskInfo.pruneSpoolingOutputStats();
         }
