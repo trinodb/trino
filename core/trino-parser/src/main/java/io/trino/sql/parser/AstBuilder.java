@@ -21,6 +21,7 @@ import io.trino.grammar.sql.SqlBaseLexer;
 import io.trino.grammar.sql.SqlBaseParser;
 import io.trino.grammar.sql.SqlBaseParser.CreateCatalogContext;
 import io.trino.grammar.sql.SqlBaseParser.DropCatalogContext;
+import io.trino.grammar.sql.SqlBaseParser.RenameCatalogContext;
 import io.trino.sql.tree.AddColumn;
 import io.trino.sql.tree.AliasedRelation;
 import io.trino.sql.tree.AllColumns;
@@ -216,6 +217,7 @@ import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.RangeQuantifier;
 import io.trino.sql.tree.RefreshMaterializedView;
 import io.trino.sql.tree.Relation;
+import io.trino.sql.tree.RenameCatalog;
 import io.trino.sql.tree.RenameColumn;
 import io.trino.sql.tree.RenameMaterializedView;
 import io.trino.sql.tree.RenameSchema;
@@ -239,6 +241,7 @@ import io.trino.sql.tree.SearchedCaseExpression;
 import io.trino.sql.tree.SecurityCharacteristic;
 import io.trino.sql.tree.Select;
 import io.trino.sql.tree.SelectItem;
+import io.trino.sql.tree.SetCatalogProperties;
 import io.trino.sql.tree.SetColumnType;
 import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetProperties;
@@ -461,6 +464,21 @@ class AstBuilder
                 (Identifier) visit(context.catalog),
                 context.EXISTS() != null,
                 context.CASCADE() != null);
+    }
+
+    @Override
+    public Node visitRenameCatalog(RenameCatalogContext context)
+    {
+        return new RenameCatalog(getLocation(context), (Identifier) visit(context.from), (Identifier) visit(context.to));
+    }
+
+    @Override
+    public Node visitSetCatalogProperties(SqlBaseParser.SetCatalogPropertiesContext context)
+    {
+        List<Property> properties = Optional.ofNullable(context.propertyAssignments())
+                .map(props -> visit(props.property(), Property.class))
+                .orElse(ImmutableList.of());
+        return new SetCatalogProperties(getLocation(context), (Identifier) visit(context.catalog), properties);
     }
 
     @Override

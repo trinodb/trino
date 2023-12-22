@@ -118,6 +118,7 @@ import io.trino.sql.tree.QueryPeriod;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.RefreshMaterializedView;
 import io.trino.sql.tree.Relation;
+import io.trino.sql.tree.RenameCatalog;
 import io.trino.sql.tree.RenameColumn;
 import io.trino.sql.tree.RenameMaterializedView;
 import io.trino.sql.tree.RenameSchema;
@@ -138,6 +139,7 @@ import io.trino.sql.tree.SampledRelation;
 import io.trino.sql.tree.SecurityCharacteristic;
 import io.trino.sql.tree.Select;
 import io.trino.sql.tree.SelectItem;
+import io.trino.sql.tree.SetCatalogProperties;
 import io.trino.sql.tree.SetColumnType;
 import io.trino.sql.tree.SetPath;
 import io.trino.sql.tree.SetProperties;
@@ -1488,6 +1490,28 @@ public final class SqlFormatter
             builder.append(formatName(node.getCatalogName()))
                     .append(" ")
                     .append(node.isCascade() ? "CASCADE" : "RESTRICT");
+
+            return null;
+        }
+
+        @Override
+        protected Void visitRenameCatalog(RenameCatalog node, Integer indent)
+        {
+            builder.append("ALTER CATALOG ")
+                    .append(formatName(node.getSource()))
+                    .append(" RENAME TO ")
+                    .append(formatName(node.getTarget()));
+
+            return null;
+        }
+
+        @Override
+        protected Void visitSetCatalogProperties(SetCatalogProperties node, Integer context)
+        {
+            builder.append("ALTER CATALOG ")
+                    .append(formatName(node.getName()))
+                    .append(" SET PROPERTIES ")
+                    .append(joinProperties(node.getProperties()));
 
             return null;
         }
