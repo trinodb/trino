@@ -29,6 +29,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.client.ClientStandardTypes.ROW;
+import static io.trino.client.ClientStandardTypes.TIMESTAMP_WITH_TIME_ZONE;
+import static io.trino.client.ClientStandardTypes.TIME_WITH_TIME_ZONE;
 import static io.trino.client.ClientStandardTypes.VARCHAR;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
@@ -94,6 +96,15 @@ public class ClientTypeSignature
         if (arguments.isEmpty()) {
             return rawType;
         }
+
+        if (rawType.equals(TIME_WITH_TIME_ZONE)) {
+            return "time(" + arguments.get(0) + ") with time zone";
+        }
+
+        if (rawType.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+            return "timestamp(" + arguments.get(0) + ") with time zone";
+        }
+
         return rawType + arguments.stream()
                 .map(ClientTypeSignatureParameter::toString)
                 .collect(joining(",", "(", ")"));
