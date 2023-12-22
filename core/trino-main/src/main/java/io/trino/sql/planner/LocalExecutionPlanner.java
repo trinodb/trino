@@ -4165,7 +4165,8 @@ public class LocalExecutionPlanner
                         refreshTarget.getInsertHandle(),
                         fragments,
                         statistics,
-                        refreshTarget.getSourceTableHandles());
+                        refreshTarget.getSourceTableHandles(),
+                        refreshTarget.getSourceTableFunctions());
             }
             if (target instanceof TableExecuteTarget) {
                 TableExecuteHandle tableExecuteHandle = ((TableExecuteTarget) target).getExecuteHandle();

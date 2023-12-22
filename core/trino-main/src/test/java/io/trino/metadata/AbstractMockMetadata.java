@@ -498,7 +498,8 @@ public abstract class AbstractMockMetadata
             InsertTableHandle insertHandle,
             Collection<Slice> fragments,
             Collection<ComputedStatistics> computedStatistics,
-            List<TableHandle> sourceTableHandles)
+            List<TableHandle> sourceTableHandles,
+            List<String> sourceTableFunctions)
     {
         throw new UnsupportedOperationException();
     }
