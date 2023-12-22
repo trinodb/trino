@@ -265,6 +265,11 @@ public class TestExpressionInterpreter
         assertOptimizedEquals("9876543210.9874561203 IS NULL", "false");
         assertOptimizedEquals("bound_decimal_short IS NULL", "false");
         assertOptimizedEquals("bound_decimal_long IS NULL", "false");
+
+        assertOptimizedEquals("(null, 1) is null", "false");
+        assertOptimizedEquals("(1) is null", "false");
+        assertOptimizedEquals("(null, null) is null", "true");
+        assertOptimizedEquals("(null) is null", "true");
     }
 
     @Test

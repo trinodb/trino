@@ -439,6 +439,15 @@ public class ExpressionInterpreter
                 return new IsNullPredicate(toExpression(value, type(node.getValue())));
             }
 
+            if (value instanceof SqlRow sqlRow) {
+                for (int i = 0; i < sqlRow.getRawFieldBlocks().size(); i++) {
+                    if (!sqlRow.getRawFieldBlock(i).isNull(0)) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+
             return value == null;
         }
 
