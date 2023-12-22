@@ -14,7 +14,9 @@
 package io.trino.connector;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
@@ -56,6 +58,7 @@ import static io.trino.metadata.Catalog.failedCatalog;
 import static io.trino.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_AVAILABLE;
 import static io.trino.spi.StandardErrorCode.CATALOG_NOT_FOUND;
+import static io.trino.spi.StandardErrorCode.NOT_FOUND;
 import static io.trino.spi.connector.CatalogHandle.createRootCatalogHandle;
 import static io.trino.util.Executors.executeUntilFailure;
 import static java.lang.String.format;
@@ -284,6 +287,93 @@ public class CoordinatorDynamicCatalogManager
         finally {
             catalogsUpdateLock.unlock();
         }
+    }
+
+    @Override
+    public void renameCatalog(CatalogName catalogName, CatalogName newCatalogName)
+    {
+        requireNonNull(catalogName, "catalogName is null");
+
+        catalogsUpdateLock.lock();
+        try {
+            checkState(state != State.STOPPED, "ConnectorManager is stopped");
+
+            if (!activeCatalogs.containsKey(catalogName)) {
+                throw new TrinoException(NOT_FOUND, format("Catalog '%s' does not exist", catalogName));
+            }
+            if (activeCatalogs.containsKey(newCatalogName)) {
+                throw new TrinoException(ALREADY_EXISTS, format("Catalog '%s' already exists", newCatalogName));
+            }
+
+            createCatalogLikeInternal(catalogName, newCatalogName, ImmutableMap.of());
+            catalogStore.removeCatalog(catalogName);
+            activeCatalogs.remove(catalogName);
+
+            log.info("Renamed catalog from: '%s' to: '%s'", catalogName, newCatalogName);
+        }
+        finally {
+            catalogsUpdateLock.unlock();
+        }
+    }
+
+    @Override
+    public void alterCatalog(CatalogName catalogName, Map<String, Optional<String>> properties)
+    {
+        requireNonNull(catalogName, "catalogName is null");
+
+        catalogsUpdateLock.lock();
+        try {
+            checkState(state != State.STOPPED, "ConnectorManager is stopped");
+
+            if (!activeCatalogs.containsKey(catalogName)) {
+                throw new TrinoException(NOT_FOUND, format("Catalog '%s' does not exist", catalogName));
+            }
+
+            createCatalogLikeInternal(catalogName, catalogName, properties);
+            log.info("Updated catalog: " + catalogName);
+        }
+        finally {
+            catalogsUpdateLock.unlock();
+        }
+    }
+
+    private CatalogConnector createCatalogLikeInternal(CatalogName oldCatalogName, CatalogName catalogName, Map<String, Optional<String>> properties)
+    {
+        CatalogHandle catalogHandle = activeCatalogs.get(oldCatalogName).getCatalogHandle();
+        CatalogProperties oldCatalogProperties = allCatalogs.get(catalogHandle).getCatalogProperties().orElseThrow();
+        Map<String, String> newProperties = updateProperties(oldCatalogProperties, properties);
+        CatalogProperties catalogProperties = catalogStore.createCatalogProperties(catalogName, oldCatalogProperties.connectorName(), newProperties);
+
+        // get or create catalog for the handle
+        CatalogConnector catalog = allCatalogs.computeIfAbsent(
+                catalogProperties.catalogHandle(),
+                handle -> catalogFactory.createCatalog(catalogProperties));
+        activeCatalogs.put(catalogName, catalog.getCatalog());
+        catalogStore.addOrReplaceCatalog(catalogProperties);
+        return catalog;
+    }
+
+    private static Map<String, String> updateProperties(CatalogProperties existingProperties, Map<String, Optional<String>> changedProperties)
+    {
+        ImmutableSet.Builder<String> removedPropertiesBuilder = ImmutableSet.builder();
+        ImmutableMap.Builder<String, String> updatedPropertiesBuilder = ImmutableMap.builder();
+        for (Map.Entry<String, Optional<String>> property : changedProperties.entrySet()) {
+            if (property.getValue().isEmpty()) {
+                removedPropertiesBuilder.add(property.getKey());
+            }
+            else {
+                updatedPropertiesBuilder.put(property.getKey(), property.getValue().get());
+            }
+        }
+        Set<String> removedProperties = removedPropertiesBuilder.build();
+        Map<String, String> updatedProperties = updatedPropertiesBuilder.buildOrThrow();
+
+        Map<String, String> oldProperties = Maps.filterKeys(existingProperties.properties(), key -> !removedProperties.contains(key));
+
+        return ImmutableMap.<String, String>builder()
+                .putAll(oldProperties)
+                .putAll(updatedProperties)
+                .buildKeepingLast();
     }
 
     public void registerGlobalSystemConnector(GlobalSystemConnector connector)
