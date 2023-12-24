@@ -88,6 +88,7 @@ import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.type.JoniRegexpType.JONI_REGEXP;
+import static io.trino.type.JsonPathType.JSON_PATH;
 import static io.trino.type.LikeFunctions.likePattern;
 import static io.trino.type.LikePatternType.LIKE_PATTERN;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -453,6 +454,24 @@ public class TestConnectorExpressionTranslator
                     assertTranslationToConnectorExpression(transactionSession, input, translated);
                     assertTranslationFromConnectorExpression(transactionSession, translated, translatedBack);
                 });
+    }
+
+    @Test
+    void testTranslateJsonPath()
+    {
+        // JSON path type is considered implementation detail of the engine and is not exposed to connectors
+        // within ConnectorExpression. Instead, it is replaced with a varchar pattern.
+        assertTranslationRoundTrips(
+                BuiltinFunctionCallBuilder.resolve(PLANNER_CONTEXT.getMetadata())
+                        .setName("json_extract_scalar")
+                        .addArgument(VARCHAR_TYPE, new SymbolReference("varchar_symbol_1"))
+                        .addArgument(JSON_PATH, new Cast(new StringLiteral("$.path"), toSqlType(JSON_PATH)))
+                        .build(),
+                new Call(
+                        VARCHAR_TYPE,
+                        new FunctionName("json_extract_scalar"),
+                        List.of(new Variable("varchar_symbol_1", VARCHAR_TYPE),
+                                new Constant(utf8Slice("$.path"), createVarcharType(6)))));
     }
 
     @Test

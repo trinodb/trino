@@ -21,6 +21,7 @@ import io.airlift.slice.Slices;
 import io.trino.Session;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.operator.scalar.JsonPath;
 import io.trino.plugin.base.expression.ConnectorExpressions;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.connector.CatalogSchemaName;
@@ -62,6 +63,7 @@ import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.type.JoniRegexp;
+import io.trino.type.JsonPathType;
 import io.trino.type.LikePattern;
 import io.trino.type.Re2JRegexp;
 import io.trino.type.Re2JRegexpType;
@@ -333,7 +335,8 @@ public final class ConnectorExpressionTranslator
                     return Optional.empty();
                 }
                 Expression expression = translated.get();
-                if ((formalType == JONI_REGEXP || formalType instanceof Re2JRegexpType) && argumentType instanceof VarcharType) {
+                if ((formalType == JONI_REGEXP || formalType instanceof Re2JRegexpType || formalType instanceof JsonPathType)
+                        && argumentType instanceof VarcharType) {
                     // These types are not used in connector expressions, so require special handling when translating back to expressions.
                     expression = new Cast(expression, toSqlType(formalType));
                 }
@@ -812,6 +815,10 @@ public final class ConnectorExpressionTranslator
             }
             if (type instanceof Re2JRegexpType) {
                 Slice pattern = Slices.utf8Slice(((Re2JRegexp) value).pattern());
+                return new Constant(pattern, createVarcharType(countCodePoints(pattern)));
+            }
+            if (type instanceof JsonPathType) {
+                Slice pattern = Slices.utf8Slice(((JsonPath) value).pattern());
                 return new Constant(pattern, createVarcharType(countCodePoints(pattern)));
             }
             return new Constant(value, type);

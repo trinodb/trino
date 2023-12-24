@@ -255,7 +255,6 @@ public class SnowflakeClient
                 .map("$greater_than(left, right)").to("left > right")
                 .map("$greater_than_or_equal(left, right)").to("left >= right")
                 .add(new RewriteJsonConstant(jsonType))
-                .add(new RewriteJsonPath(jsonPathType))
                 .add(new RewriteJsonExtract(jsonType))
                 .add(new RewriteJsonExtractScalar())
                 .map("$not($is_null(value))").to("value IS NOT NULL")
