@@ -46,15 +46,29 @@ class LocalFileIterator
             this.iterator = emptyIterator();
         }
         else {
-            try (Stream<Path> stream = (isRecursive ? Files.walk(path) : Files.list(path))) {
-                this.iterator = stream
-                        .filter(Files::isRegularFile)
-                        // materialize full list so stream can be closed
-                        .collect(toImmutableList())
-                        .iterator();
+            if (isRecursive) {
+                try (Stream<Path> stream = Files.walk(path)) {
+                    this.iterator = stream
+                            .filter(Files::isRegularFile)
+                            // materialize full list so stream can be closed
+                            .collect(toImmutableList())
+                            .iterator();
+                }
+                catch (IOException e) {
+                    throw handleException(location, e);
+                }
             }
-            catch (IOException e) {
-                throw handleException(location, e);
+            else {
+                try (Stream<Path> stream = Files.list(path)) {
+                    this.iterator = stream
+                            .filter(Files::isRegularFile)
+                            // materialize full list so stream can be closed
+                            .collect(toImmutableList())
+                            .iterator();
+                }
+                catch (IOException e) {
+                    throw handleException(location, e);
+                }
             }
         }
     }
