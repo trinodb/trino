@@ -191,7 +191,7 @@ public class SyncPartitionMetadataProcedure
     private static String listedDirectoryName(Location directory, Location location)
     {
         String prefix = directory.path();
-        if (!prefix.endsWith("/")) {
+        if (!prefix.isEmpty() && !prefix.endsWith("/")) {
             prefix += "/";
         }
         String path = location.path();
