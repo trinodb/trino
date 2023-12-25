@@ -33,6 +33,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import org.joda.time.DateTimeZone;
 
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -646,7 +647,8 @@ public class HiveConfig
 
     public DateTimeZone getRcfileDateTimeZone()
     {
-        return DateTimeZone.forID(rcfileTimeZone);
+        TimeZone timeZone = TimeZone.getTimeZone(ZoneId.of(rcfileTimeZone));
+        return DateTimeZone.forTimeZone(timeZone);
     }
 
     @NotNull
@@ -694,7 +696,8 @@ public class HiveConfig
 
     public DateTimeZone getOrcLegacyDateTimeZone()
     {
-        return DateTimeZone.forID(orcLegacyTimeZone);
+        TimeZone timeZone = TimeZone.getTimeZone(ZoneId.of(orcLegacyTimeZone));
+        return DateTimeZone.forTimeZone(timeZone);
     }
 
     @NotNull
@@ -713,7 +716,8 @@ public class HiveConfig
 
     public DateTimeZone getParquetDateTimeZone()
     {
-        return DateTimeZone.forID(parquetTimeZone);
+        TimeZone timeZone = TimeZone.getTimeZone(ZoneId.of(parquetTimeZone));
+        return DateTimeZone.forTimeZone(timeZone);
     }
 
     @NotNull
