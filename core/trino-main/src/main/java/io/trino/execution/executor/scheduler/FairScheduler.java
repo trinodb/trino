@@ -128,10 +128,12 @@ public final class FairScheduler
     {
         checkArgument(!closed, "Already closed");
 
-        Group group = new Group(name);
-        queue.startGroup(group);
+        return new Group(name);
+    }
 
-        return group;
+    public synchronized void startGroup(Group group)
+    {
+        queue.startGroup(group);
     }
 
     public synchronized void removeGroup(Group group)

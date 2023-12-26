@@ -68,6 +68,7 @@ import java.util.function.Predicate;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static io.airlift.concurrent.Threads.threadsNamed;
@@ -102,6 +103,9 @@ public class TimeSharingTaskExecutor
 
     private final Duration stuckSplitsWarningThreshold;
     private final SortedSet<RunningSplitInfo> runningSplitInfos = new ConcurrentSkipListSet<>();
+
+    @GuardedBy("this")
+    private final List<TimeSharingTaskHandle> waitingTasks;
 
     @GuardedBy("this")
     private final List<TimeSharingTaskHandle> tasks;
@@ -225,6 +229,7 @@ public class TimeSharingTaskExecutor
         this.maximumNumberOfDriversPerTask = maximumNumberOfDriversPerTask;
         this.waitingSplits = requireNonNull(splitQueue, "splitQueue is null");
         this.tasks = new LinkedList<>();
+        this.waitingTasks = new LinkedList<>();
         this.lastLeafSplitsSizeRecordTime = ticker.read();
     }
 
@@ -281,12 +286,21 @@ public class TimeSharingTaskExecutor
         checkArgument(maxDriversPerTask.isEmpty() || maxDriversPerTask.getAsInt() <= maximumNumberOfDriversPerTask,
                 "maxDriversPerTask cannot be greater than the configured value");
 
-        log.debug("Task scheduled %s", taskId);
+        log.debug("Task added %s", taskId);
 
         TimeSharingTaskHandle taskHandle = new TimeSharingTaskHandle(taskId, waitingSplits, utilizationSupplier, initialSplitConcurrency, splitConcurrencyAdjustFrequency, maxDriversPerTask);
 
-        tasks.add(taskHandle);
+        waitingTasks.add(taskHandle);
         return taskHandle;
+    }
+
+    @Override
+    public synchronized void startTask(TaskHandle taskHandle)
+    {
+        checkArgument(taskHandle instanceof TimeSharingTaskHandle, "taskHandle from other task executor not accepted");
+        log.debug("Task started %s", ((TimeSharingTaskHandle) taskHandle).getTaskId());
+        verify(waitingTasks.remove(taskHandle), "waiting task not found");
+        tasks.add((TimeSharingTaskHandle) taskHandle);
     }
 
     @Override
@@ -317,6 +331,7 @@ public class TimeSharingTaskExecutor
         List<PrioritizedSplitRunner> splits;
         synchronized (this) {
             tasks.remove(taskHandle);
+            waitingTasks.remove(taskHandle);
 
             // Task is already destroyed
             if (taskHandle.isDestroyed()) {

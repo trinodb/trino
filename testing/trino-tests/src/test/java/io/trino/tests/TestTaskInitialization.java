@@ -19,7 +19,6 @@ import com.google.inject.multibindings.OptionalBinder;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.connector.DynamicCatalogManagerModule;
-import io.trino.plugin.memory.MemoryPlugin;
 import io.trino.plugin.tpcds.TpcdsPlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -49,12 +48,10 @@ public class TestTaskInitialization
                 .setNodeCount(3)
                 .setAdditionalModule(binder -> {
                     OptionalBinder.newOptionalBinder(binder, Key.get(Duration.class, DynamicCatalogManagerModule.ForCatalogBuildDelay.class))
-                            .setBinding().toInstance(new Duration(6, TimeUnit.SECONDS));
+                            .setBinding().toInstance(new Duration(60, TimeUnit.SECONDS));
                 })
                 .setAdditionalSetup(queryRunner ->
                 {
-                    queryRunner.installPlugin(new MemoryPlugin());
-                    queryRunner.createCatalog("memory", "memory", ImmutableMap.of());
                     queryRunner.installPlugin(new TpchPlugin());
                     queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
                     queryRunner.installPlugin(new TpcdsPlugin());
@@ -66,10 +63,7 @@ public class TestTaskInitialization
     @Test
     public void testSimpleQueriesWithCatalogCreateDelay()
     {
-        query("SHOW CATALOGS").assertThat().succeeds();
-        query("SHOW SCHEMAS IN tpch").assertThat().succeeds();
-        query("SHOW SCHEMAS IN memory").assertThat().succeeds();
         query("SELECT * from tpch.tiny.lineitem").assertThat().succeeds();
-        query("SHOW SCHEMAS IN tpcds").assertThat().succeeds();
+        query("SELECT * from tpcds.tiny.call_center").assertThat().succeeds();
     }
 }

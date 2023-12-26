@@ -102,6 +102,13 @@ public class ThreadPerDriverTaskExecutor
     }
 
     @Override
+    public void startTask(TaskHandle taskHandle)
+    {
+        checkArgument(taskHandle instanceof TaskEntry, "TaskHandle from different task executor not accepted");
+        scheduler.startGroup(((TaskEntry) taskHandle).group());
+    }
+
+    @Override
     public synchronized void removeTask(TaskHandle handle)
     {
         TaskEntry entry = (TaskEntry) handle;

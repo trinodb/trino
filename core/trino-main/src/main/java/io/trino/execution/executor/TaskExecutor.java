@@ -33,6 +33,8 @@ public interface TaskExecutor
             Duration splitConcurrencyAdjustFrequency,
             OptionalInt maxDriversPerTask);
 
+    void startTask(TaskHandle taskHandle);
+
     void removeTask(TaskHandle taskHandle);
 
     List<ListenableFuture<Void>> enqueueSplits(TaskHandle taskHandle, boolean intermediate, List<? extends SplitRunner> taskSplits);

@@ -150,6 +150,9 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
         }
 
         @Override
+        public void startTask(TaskHandle taskHandle) {}
+
+        @Override
         public void removeTask(TaskHandle taskHandle) {}
 
         @Override

@@ -114,6 +114,7 @@ public class SqlTaskExecution
 
     // number of created PrioritizedSplitRunners that haven't yet finished
     private final AtomicLong remainingSplitRunners = new AtomicLong();
+    private final AtomicBoolean taskStarted = new AtomicBoolean(false);
 
     public SqlTaskExecution(
             TaskStateMachine taskStateMachine,
@@ -177,7 +178,7 @@ public class SqlTaskExecution
                 driverFactories.forEach(DriverFactory::noMoreDrivers);
             }
             else {
-                taskHandle = createTaskHandle(taskStateMachine, taskContext, outputBuffer, driverFactories, taskExecutor, driverAndTaskTerminationTracker);
+                taskHandle = createTaskHandle(taskStateMachine, taskContext, outputBuffer, driverFactories, taskExecutor, driverAndTaskTerminationTracker, taskStarted);
             }
 
             taskStateMachine.addStateChangeListener(state -> {
@@ -216,7 +217,8 @@ public class SqlTaskExecution
             OutputBuffer outputBuffer,
             List<DriverFactory> driverFactories,
             TaskExecutor taskExecutor,
-            DriverAndTaskTerminationTracker driverAndTaskTerminationTracker)
+            DriverAndTaskTerminationTracker driverAndTaskTerminationTracker,
+            AtomicBoolean taskStarted)
     {
         TaskHandle taskHandle = taskExecutor.addTask(
                 taskStateMachine.getTaskId(),
@@ -225,6 +227,10 @@ public class SqlTaskExecution
                 getSplitConcurrencyAdjustmentInterval(taskContext.getSession()),
                 getMaxDriversPerTask(taskContext.getSession()));
         taskStateMachine.addStateChangeListener(state -> {
+            // start task if state changed beyond INITIALIZING
+            if (state != TaskState.INITIALIZING && taskStarted.compareAndSet(false, true)) {
+                taskExecutor.startTask(taskHandle);
+            }
             if (state.isTerminatingOrDone()) {
                 if (!taskHandle.isDestroyed()) {
                     taskExecutor.removeTask(taskHandle);
@@ -647,7 +653,7 @@ public class SqlTaskExecution
             // create driver context immediately so the driver existence is recorded in the stats
             // the number of drivers is used to balance work across nodes
             DriverContext driverContext = pipelineContext.addDriverContext(splitWeight);
-            return new DriverSplitRunner(this, driverContext, partitionedSplit);
+            return new DriverSplitRunner(this, driverContext, partitionedSplit, taskStarted);
         }
 
         /**
@@ -815,6 +821,7 @@ public class SqlTaskExecution
     {
         private final DriverSplitRunnerFactory driverSplitRunnerFactory;
         private final DriverContext driverContext;
+        private final AtomicBoolean taskStarted;
 
         @GuardedBy("this")
         private boolean closed;
@@ -825,11 +832,12 @@ public class SqlTaskExecution
         @GuardedBy("this")
         private Driver driver;
 
-        private DriverSplitRunner(DriverSplitRunnerFactory driverSplitRunnerFactory, DriverContext driverContext, @Nullable ScheduledSplit partitionedSplit)
+        private DriverSplitRunner(DriverSplitRunnerFactory driverSplitRunnerFactory, DriverContext driverContext, @Nullable ScheduledSplit partitionedSplit, AtomicBoolean taskStarted)
         {
             this.driverSplitRunnerFactory = requireNonNull(driverSplitRunnerFactory, "driverSplitRunnerFactory is null");
             this.driverContext = requireNonNull(driverContext, "driverContext is null");
             this.partitionedSplit = partitionedSplit;
+            this.taskStarted = taskStarted;
         }
 
         public synchronized DriverContext getDriverContext()
@@ -869,6 +877,9 @@ public class SqlTaskExecution
             synchronized (this) {
                 // if close() was called before we get here, there's not point in even creating the driver
                 if (closed) {
+                    return immediateVoidFuture();
+                }
+                if (!taskStarted.get()) {
                     return immediateVoidFuture();
                 }
 
