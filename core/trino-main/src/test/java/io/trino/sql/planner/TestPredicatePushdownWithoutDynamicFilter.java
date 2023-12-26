@@ -13,7 +13,6 @@
  */
 package io.trino.sql.planner;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.sql.planner.plan.ExchangeNode;
@@ -24,7 +23,6 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
-import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
@@ -174,32 +172,5 @@ public class TestPredicatePushdownWithoutDynamicFilter
                                 .right(
                                         anyTree(
                                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))))));
-    }
-
-    @Override
-    @Test
-    public void testDoesNotCreatePredicateFromInferredPredicate()
-    {
-        assertPlan("SELECT * FROM (SELECT *, nationkey + 1 as nationkey2 FROM nation) a JOIN nation b ON a.nationkey = b.nationkey",
-                output(
-                        join(INNER, builder -> builder
-                                .equiCriteria("L_NATIONKEY", "R_NATIONKEY")
-                                .left(
-                                        tableScan("nation", ImmutableMap.of("L_NATIONKEY", "nationkey")))
-                                .right(
-                                        anyTree(
-                                                tableScan("nation", ImmutableMap.of("R_NATIONKEY", "nationkey")))))));
-
-        assertPlan("SELECT * FROM (SELECT * FROM nation WHERE nationkey = 5) a JOIN (SELECT * FROM nation WHERE nationkey = 5) b ON a.nationkey = b.nationkey",
-                output(
-                        join(INNER, builder -> builder
-                                .equiCriteria(ImmutableList.of())
-                                .left(
-                                        filter("L_NATIONKEY = BIGINT '5'",
-                                                tableScan("nation", ImmutableMap.of("L_NATIONKEY", "nationkey"))))
-                                .right(
-                                        anyTree(
-                                                filter("R_NATIONKEY = BIGINT '5'",
-                                                        tableScan("nation", ImmutableMap.of("R_NATIONKEY", "nationkey"))))))));
     }
 }
