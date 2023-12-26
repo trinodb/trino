@@ -603,12 +603,12 @@ public abstract class AbstractPredicatePushdownTest
     @Test
     public void testDoesNotCreatePredicateFromInferredPredicate()
     {
-        assertPlan("SELECT * FROM (SELECT *, nationkey + 1 as nationkey2 FROM nation) a JOIN nation b ON a.nationkey = b.nationkey",
+        assertPlan("SELECT * FROM (SELECT *, nationkey + 1 as nationkey2 FROM nation) a JOIN nation b ON a.nationkey2 = b.nationkey",
                 output(
                         join(INNER, builder -> builder
-                                .equiCriteria("L_NATIONKEY", "R_NATIONKEY")
+                                .equiCriteria("L_NATIONKEY2", "R_NATIONKEY")
                                 .left(
-                                        filter("true", // DF filter
+                                        project(ImmutableMap.of("L_NATIONKEY2", expression("L_NATIONKEY + BIGINT '1'")),
                                                 tableScan("nation", ImmutableMap.of("L_NATIONKEY", "nationkey"))))
                                 .right(
                                         anyTree(
