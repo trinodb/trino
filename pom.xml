@@ -199,6 +199,8 @@
         <dep.tcnative.version>2.0.62.Final</dep.tcnative.version>
         <dep.tempto.version>201</dep.tempto.version>
         <dep.wire.version>4.8.1</dep.wire.version>
+        <!-- TODO remove - this is only to test if this version works, before upgrading it in Airbase -->
+        <dep.logback.version>1.3.14</dep.logback.version>
     </properties>
 
     <dependencyManagement>
