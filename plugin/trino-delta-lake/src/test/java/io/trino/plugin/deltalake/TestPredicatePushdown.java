@@ -15,21 +15,27 @@ package io.trino.plugin.deltalake;
 
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.ImmutableMap;
+import io.trino.Session;
+import io.trino.operator.OperatorStats;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.spi.QueryId;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
 import java.util.OptionalLong;
 import java.util.Set;
 
+import static com.google.common.collect.MoreCollectors.onlyElement;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.DELTA_CATALOG;
 import static io.trino.plugin.deltalake.DeltaLakeQueryRunner.createS3DeltaLakeQueryRunner;
+import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -128,6 +134,42 @@ public class TestPredicatePushdown
         assertQueryReturnsEmptyResult(format(
                 "SELECT * FROM %s WHERE mktsegment = phone AND NOT (1000 < custkey AND custkey <= 1200)",
                 table));
+    }
+
+    @Test
+    public void testIgnoreParquetStatistics()
+    {
+        String table = testTable.register("ignore_parquet_statistics");
+        @Language("SQL") String query = "SELECT * FROM " + table + " WHERE custkey = 1450";
+
+        DistributedQueryRunner queryRunner = getDistributedQueryRunner();
+        MaterializedResultWithQueryId resultWithoutParquetStatistics = queryRunner.executeWithQueryId(
+                Session.builder(getSession())
+                        .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "parquet_ignore_statistics", "true")
+                        .build(),
+                query);
+        OperatorStats queryStatsWithoutParquetStatistics = getOperatorStats(resultWithoutParquetStatistics.getQueryId());
+        assertThat(queryStatsWithoutParquetStatistics.getPhysicalInputPositions()).isGreaterThan(0);
+
+        MaterializedResultWithQueryId resultWithParquetStatistics = queryRunner.executeWithQueryId(getSession(), query);
+        OperatorStats queryStatsWithParquetStatistics = getOperatorStats(resultWithParquetStatistics.getQueryId());
+        assertThat(queryStatsWithParquetStatistics.getPhysicalInputPositions()).isGreaterThan(0);
+        assertThat(queryStatsWithParquetStatistics.getPhysicalInputPositions())
+                .isLessThan(queryStatsWithoutParquetStatistics.getPhysicalInputPositions());
+
+        assertEqualsIgnoreOrder(resultWithParquetStatistics.getResult(), resultWithoutParquetStatistics.getResult());
+    }
+
+    private OperatorStats getOperatorStats(QueryId queryId)
+    {
+        return getDistributedQueryRunner().getCoordinator()
+                .getQueryManager()
+                .getFullQueryInfo(queryId)
+                .getQueryStats()
+                .getOperatorSummaries()
+                .stream()
+                .filter(summary -> summary.getOperatorType().startsWith("TableScan") || summary.getOperatorType().startsWith("Scan"))
+                .collect(onlyElement());
     }
 
     /**
