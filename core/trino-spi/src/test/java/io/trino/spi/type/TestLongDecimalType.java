@@ -14,9 +14,11 @@
 package io.trino.spi.type;
 
 import com.google.common.base.Throwables;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.Int128ArrayBlockBuilder;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.lang.invoke.MethodHandle;
@@ -27,6 +29,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static java.lang.Math.signum;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.fail;
 
 public class TestLongDecimalType
 {
@@ -55,7 +58,20 @@ public class TestLongDecimalType
         testCompare("-1234567890.1234567890", "1234567890.1234567890", -1);
         testCompare("1234567890.1234567890", "-1234567890.1234567890", 1);
     }
+    @Test
+    public void testOverflowThrowsTrinoException() {
+        String overflowDecimal = "99999999999999999999999999999999999999.0";
+        try {
+            Decimals.valueOf(new BigDecimal(overflowDecimal));
+            Assertions.fail("%s should throw a TrinoException".formatted(overflowDecimal));
+        } catch (ArithmeticException e) {
+            Assertions.fail(("%s should throw a TrinoException and not an IllegalArgumentException because this " +
+                    "shows user input error").formatted(overflowDecimal));
+        } catch (TrinoException e) {
+        }
 
+
+    }
     private void testCompare(String decimalA, String decimalB, int expected)
     {
         try {
