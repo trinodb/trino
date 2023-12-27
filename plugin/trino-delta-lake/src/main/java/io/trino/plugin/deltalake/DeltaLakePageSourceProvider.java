@@ -87,6 +87,7 @@ import static io.trino.plugin.deltalake.DeltaLakeErrorCode.DELTA_LAKE_INVALID_SC
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetMaxReadBlockRowCount;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetMaxReadBlockSize;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetSmallFileThreshold;
+import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isParquetIgnoreStatistics;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isParquetNativeSnappyDecompressorEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isParquetNativeZstdDecompressorEnabled;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isParquetUseColumnIndex;
@@ -211,6 +212,7 @@ public class DeltaLakePageSourceProvider
                 .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
                 .withSmallFileThreshold(getParquetSmallFileThreshold(session))
                 .withUseColumnIndex(isParquetUseColumnIndex(session))
+                .withIgnoreStatistics(isParquetIgnoreStatistics(session))
                 .withNativeZstdDecompressorEnabled(isParquetNativeZstdDecompressorEnabled(session))
                 .withNativeSnappyDecompressorEnabled(isParquetNativeSnappyDecompressorEnabled(session));
 
