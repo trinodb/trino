@@ -59,6 +59,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -77,6 +78,7 @@ import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Arrays.asList;
 import static java.util.Locale.ENGLISH;
+import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestPushProjectionIntoTableScan
@@ -159,8 +161,9 @@ public class TestPushProjectionIntoTableScan
             ImmutableMap<Symbol, String> newNames = ImmutableMap.of(
                     identity, "projected_variable_" + connectorNames.get(identity),
                     dereference, "projected_dereference_" + connectorNames.get(dereference),
-                    constant, "projected_constant_" + connectorNames.get(constant),
                     call, "projected_call_" + connectorNames.get(call));
+            ImmutableMap<Symbol, Expression> constants = ImmutableMap.of(
+                    constant, requireNonNull(inputProjections.get(constant)));
             Map<String, ColumnHandle> expectedColumns = newNames.entrySet().stream()
                     .collect(toImmutableMap(
                             Map.Entry::getValue,
@@ -185,10 +188,18 @@ public class TestPushProjectionIntoTableScan
                                                 .build()))));
                     })
                     .matches(project(
-                            newNames.entrySet().stream()
+                            Stream.concat(newNames.entrySet().stream(), constants.entrySet().stream())
                                     .collect(toImmutableMap(
                                             e -> e.getKey().getName(),
-                                            e -> expression(symbolReference(e.getValue())))),
+                                            e -> {
+                                                if (e.getValue() instanceof String value) {
+                                                    return expression(symbolReference(value));
+                                                }
+                                                if (e.getValue() instanceof Expression value) {
+                                                    return expression(value);
+                                                }
+                                                throw new IllegalArgumentException("Unexpected value type: " + e.getValue().getClass().getName());
+                                            })),
                             tableScan(
                                     new MockConnectorTableHandle(
                                             new SchemaTableName(TEST_SCHEMA, "projected_" + TEST_TABLE),
@@ -199,12 +210,6 @@ public class TestPushProjectionIntoTableScan
                                             .collect(toImmutableMap(Map.Entry::getKey, e -> e.getValue()::equals)),
                                     Optional.of(PlanNodeStatsEstimate.builder()
                                             .setOutputRowCount(42)
-                                            .addSymbolStatistics(new Symbol(newNames.get(constant)), SymbolStatsEstimate.builder()
-                                                    .setDistinctValuesCount(1)
-                                                    .setNullsFraction(0)
-                                                    .setLowValue(5)
-                                                    .setHighValue(5)
-                                                    .build())
                                             .addSymbolStatistics(new Symbol(newNames.get(call).toLowerCase(ENGLISH)), SymbolStatsEstimate.builder()
                                                     .setDistinctValuesCount(1)
                                                     .setNullsFraction(0)
@@ -297,11 +302,11 @@ public class TestPushProjectionIntoTableScan
             else if (projection instanceof FieldDereference) {
                 variablePrefix = "projected_dereference_";
             }
-            else if (projection instanceof Constant) {
-                variablePrefix = "projected_constant_";
-            }
             else if (projection instanceof Call) {
                 variablePrefix = "projected_call_";
+            }
+            else if (projection instanceof Constant) {
+                throw new UnsupportedOperationException("constant expression should not be pushed to the connector");
             }
             else {
                 throw new UnsupportedOperationException();
