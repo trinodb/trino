@@ -239,50 +239,10 @@ public class IcebergSplitSource
                 FileScanTask wholeFileTask = fileScanIterator.next();
                 boolean fileHasNoDeletions = wholeFileTask.deletes().isEmpty();
 
-                if (fileHasNoDeletions &&
-                        maxScannedFileSizeInBytes.isPresent() &&
-                        wholeFileTask.file().fileSizeInBytes() > maxScannedFileSizeInBytes.get()) {
+                if (pruneFileScanTask(wholeFileTask, fileHasNoDeletions, dynamicFilterPredicate)) {
                     continue;
                 }
 
-                if (!pathDomain.includesNullableValue(utf8Slice(wholeFileTask.file().path().toString()))) {
-                    continue;
-                }
-                if (!fileModifiedTimeDomain.isAll()) {
-                    long fileModifiedTime = getModificationTime(wholeFileTask.file().path().toString());
-                    if (!fileModifiedTimeDomain.includesNullableValue(packDateTimeWithZone(fileModifiedTime, UTC_KEY))) {
-                        continue;
-                    }
-                }
-
-                Schema fileSchema = wholeFileTask.spec().schema();
-                Map<Integer, Optional<String>> partitionKeys = getPartitionKeys(wholeFileTask);
-
-                Set<IcebergColumnHandle> identityPartitionColumns = partitionKeys.keySet().stream()
-                        .map(fieldId -> getColumnHandle(fileSchema.findField(fieldId), typeManager))
-                        .collect(toImmutableSet());
-
-                Supplier<Map<ColumnHandle, NullableValue>> partitionValues = memoize(() -> getPartitionValues(identityPartitionColumns, partitionKeys));
-
-                if (!dynamicFilterPredicate.isAll() && !dynamicFilterPredicate.equals(pushedDownDynamicFilterPredicate)) {
-                    if (!partitionMatchesPredicate(
-                            identityPartitionColumns,
-                            partitionValues,
-                            dynamicFilterPredicate)) {
-                        continue;
-                    }
-                    if (!fileMatchesPredicate(
-                            fieldIdToType,
-                            dynamicFilterPredicate,
-                            wholeFileTask.file().lowerBounds(),
-                            wholeFileTask.file().upperBounds(),
-                            wholeFileTask.file().nullValueCounts())) {
-                        continue;
-                    }
-                }
-                if (!partitionMatchesConstraint(identityPartitionColumns, partitionValues, constraint)) {
-                    continue;
-                }
                 if (recordScannedFiles) {
                     // Positional and Equality deletes can only be cleaned up if the whole table has been optimized.
                     // Equality deletes may apply to many files, and position deletes may be grouped together. This makes it difficult to know if they are obsolete.
@@ -307,6 +267,53 @@ public class IcebergSplitSource
             splits.add(toIcebergSplit(fileTasksIterator.next()));
         }
         return completedFuture(new ConnectorSplitBatch(splits, isFinished()));
+    }
+
+    private boolean pruneFileScanTask(FileScanTask fileScanTask, boolean fileHasNoDeletions, TupleDomain<IcebergColumnHandle> dynamicFilterPredicate)
+    {
+        if (fileHasNoDeletions &&
+                maxScannedFileSizeInBytes.isPresent() &&
+                fileScanTask.file().fileSizeInBytes() > maxScannedFileSizeInBytes.get()) {
+            return true;
+        }
+
+        if (!pathDomain.includesNullableValue(utf8Slice(fileScanTask.file().path().toString()))) {
+            return true;
+        }
+        if (!fileModifiedTimeDomain.isAll()) {
+            long fileModifiedTime = getModificationTime(fileScanTask.file().path().toString());
+            if (!fileModifiedTimeDomain.includesNullableValue(packDateTimeWithZone(fileModifiedTime, UTC_KEY))) {
+                return true;
+            }
+        }
+
+        Schema fileSchema = fileScanTask.spec().schema();
+        Map<Integer, Optional<String>> partitionKeys = getPartitionKeys(fileScanTask);
+
+        Set<IcebergColumnHandle> identityPartitionColumns = partitionKeys.keySet().stream()
+                .map(fieldId -> getColumnHandle(fileSchema.findField(fieldId), typeManager))
+                .collect(toImmutableSet());
+
+        Supplier<Map<ColumnHandle, NullableValue>> partitionValues = memoize(() -> getPartitionValues(identityPartitionColumns, partitionKeys));
+
+        if (!dynamicFilterPredicate.isAll() && !dynamicFilterPredicate.equals(pushedDownDynamicFilterPredicate)) {
+            if (!partitionMatchesPredicate(
+                    identityPartitionColumns,
+                    partitionValues,
+                    dynamicFilterPredicate)) {
+                return true;
+            }
+            if (!fileMatchesPredicate(
+                    fieldIdToType,
+                    dynamicFilterPredicate,
+                    fileScanTask.file().lowerBounds(),
+                    fileScanTask.file().upperBounds(),
+                    fileScanTask.file().nullValueCounts())) {
+                return true;
+            }
+        }
+
+        return !partitionMatchesConstraint(identityPartitionColumns, partitionValues, constraint);
     }
 
     private boolean noDataColumnsProjected(FileScanTask fileScanTask)
