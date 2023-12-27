@@ -13,9 +13,14 @@
  */
 package io.trino.plugin.iceberg;
 
+import io.trino.Session;
 import io.trino.filesystem.Location;
+import io.trino.operator.OperatorStats;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.sql.TestTable;
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -25,6 +30,7 @@ import java.util.stream.IntStream;
 import static io.trino.plugin.iceberg.IcebergFileFormat.PARQUET;
 import static io.trino.plugin.iceberg.IcebergTestUtils.checkParquetFileSorting;
 import static io.trino.plugin.iceberg.IcebergTestUtils.withSmallRowGroups;
+import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -89,6 +95,39 @@ public class TestIcebergParquetConnectorTest
         assertThatThrownBy(super::testDropAmbiguousRowFieldCaseSensitivity)
                 .hasMessageContaining("Error opening Iceberg split")
                 .hasStackTraceContaining("Multiple entries with same key");
+    }
+
+    @Test
+    public void testIgnoreParquetStatistics()
+    {
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_ignore_parquet_statistics",
+                "WITH (sorted_by = ARRAY['custkey']) AS TABLE tpch.tiny.customer WITH NO DATA")) {
+            assertUpdate(
+                    withSmallRowGroups(getSession()),
+                    "INSERT INTO " + table.getName() + " TABLE tpch.tiny.customer",
+                    "VALUES 1500");
+
+            @Language("SQL") String query = "SELECT * FROM " + table.getName() + " WHERE custkey = 100";
+
+            DistributedQueryRunner queryRunner = getDistributedQueryRunner();
+            MaterializedResultWithQueryId resultWithoutParquetStatistics = queryRunner.executeWithQueryId(
+                    Session.builder(getSession())
+                            .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "parquet_ignore_statistics", "true")
+                            .build(),
+                    query);
+            OperatorStats queryStatsWithoutParquetStatistics = getOperatorStats(resultWithoutParquetStatistics.getQueryId());
+            assertThat(queryStatsWithoutParquetStatistics.getPhysicalInputPositions()).isGreaterThan(0);
+
+            MaterializedResultWithQueryId resultWithParquetStatistics = queryRunner.executeWithQueryId(getSession(), query);
+            OperatorStats queryStatsWithParquetStatistics = getOperatorStats(resultWithParquetStatistics.getQueryId());
+            assertThat(queryStatsWithParquetStatistics.getPhysicalInputPositions()).isGreaterThan(0);
+            assertThat(queryStatsWithParquetStatistics.getPhysicalInputPositions())
+                    .isLessThan(queryStatsWithoutParquetStatistics.getPhysicalInputPositions());
+
+            assertEqualsIgnoreOrder(resultWithParquetStatistics.getResult(), resultWithoutParquetStatistics.getResult());
+        }
     }
 
     @Override
