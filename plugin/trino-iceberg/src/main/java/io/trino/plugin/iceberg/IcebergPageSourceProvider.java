@@ -429,7 +429,9 @@ public class IcebergPageSourceProvider
         if (!partitionMatchesPredicate(partitionColumns, partitionValues, dynamicFilterPredicate)) {
             return TupleDomain.none();
         }
-
+        // Filter out partition columns domains from the dynamic filter because they should be irrelevant at data file level
+        dynamicFilterPredicate = dynamicFilterPredicate
+                .filter((columnHandle, domain) -> !partitionKeys.containsKey(columnHandle.getId()));
         return unenforcedPredicate.intersect(dynamicFilterPredicate);
     }
 
