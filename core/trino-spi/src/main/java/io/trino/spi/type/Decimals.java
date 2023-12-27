@@ -290,7 +290,7 @@ public final class Decimals
             result = Int128.valueOf(value);
         }
         catch (Exception e) {
-            throw new TrinoException(STACK_OVERFLOW, "%s caused an overflow".formatted(value));
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "%s caused an overflow".formatted(value));
         }
         throwIfOverflows(result.getHigh(), result.getLow());
         return result;

@@ -68,6 +68,10 @@ public class TestLongDecimalType
             Assertions.fail(("%s should throw a TrinoException and not an IllegalArgumentException because this " +
                     "shows user input error").formatted(overflowDecimal));
         } catch (TrinoException e) {
+            if (!e.getErrorCode().equals(io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE.toErrorCode())) {
+                Assertions.fail("the error code should be a " +
+                        "NUMERIC_VALUE_OUT_OF_RANGE, but was %s".formatted(e));
+            }
         }
 
 
