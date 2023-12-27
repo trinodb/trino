@@ -208,9 +208,27 @@ public class AvroPageDataReader
                     yield new ReaderUnionCoercedIntoRowBlockBuildingDecoder((Resolver.ReaderUnion) action, typeManager);
                 }
             }
-            case ERROR -> throw new AvroTypeException("Resolution action returned with error " + action);
+            case ERROR -> new TypeErrorThrower((Resolver.ErrorAction) action);
             case SKIP -> throw new IllegalStateException("Skips filtered by row step");
         };
+    }
+
+    private static class TypeErrorThrower
+            extends BlockBuildingDecoder
+    {
+        private final Resolver.ErrorAction action;
+
+        public TypeErrorThrower(Resolver.ErrorAction action)
+        {
+            this.action = requireNonNull(action, "action is null");
+        }
+
+        @Override
+        protected void decodeIntoBlock(Decoder decoder, BlockBuilder builder)
+                throws IOException
+        {
+            throw new IOException(new AvroTypeException("Resolution action returned with error " + action));
+        }
     }
 
     // Different plugins may have different Avro Schema to Type mappings
