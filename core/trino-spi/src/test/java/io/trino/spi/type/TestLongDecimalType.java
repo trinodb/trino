@@ -65,7 +65,7 @@ public class TestLongDecimalType
             Decimals.valueOf(new BigDecimal(overflowDecimal));
             Assertions.fail("%s should throw a TrinoException".formatted(overflowDecimal));
         } catch (ArithmeticException e) {
-            Assertions.fail(("%s should throw a TrinoException and not an IllegalArgumentException because this " +
+            Assertions.fail(("%s should throw a TrinoException and not an ArithmeticException because this " +
                     "shows user input error").formatted(overflowDecimal));
         } catch (TrinoException e) {
             if (!e.getErrorCode().equals(io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE.toErrorCode())) {
