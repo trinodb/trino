@@ -28,6 +28,7 @@ import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
@@ -115,6 +116,8 @@ public class PushProjectionIntoTableScan
                                 typeAnalyzer,
                                 context.getSymbolAllocator().getTypes(),
                                 plannerContext).entrySet().stream())
+                // Filter out constant expressions. Constant expressions should not be pushed to the connector.
+                .filter(entry -> !(entry.getValue() instanceof Constant))
                 // Avoid duplicates
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue, (first, ignore) -> first));
 
