@@ -273,7 +273,7 @@ public class IcebergSplitSource
             return true;
         }
 
-        if (!pathDomain.includesNullableValue(utf8Slice(fileScanTask.file().path().toString()))) {
+        if (!pathDomain.isAll() && !pathDomain.includesNullableValue(utf8Slice(fileScanTask.file().path().toString()))) {
             return true;
         }
         if (!fileModifiedTimeDomain.isAll()) {
