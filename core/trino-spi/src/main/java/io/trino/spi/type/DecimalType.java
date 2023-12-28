@@ -51,11 +51,13 @@ public abstract sealed class DecimalType
 
     public static DecimalType createDecimalType(int precision)
     {
+
         return createDecimalType(precision, DEFAULT_SCALE);
     }
 
     public static DecimalType createDecimalType()
     {
+
         return createDecimalType(DEFAULT_PRECISION, DEFAULT_SCALE);
     }
 

@@ -23,13 +23,13 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION_NOT_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static java.lang.Math.signum;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.fail;
+import static org.assertj.core.api.Assertions.*;
 
 public class TestLongDecimalType
 {
@@ -59,22 +59,13 @@ public class TestLongDecimalType
         testCompare("1234567890.1234567890", "-1234567890.1234567890", 1);
     }
     @Test
-    public void testOverflowThrowsTrinoException() {
-        String overflowDecimal = "99999999999999999999999999999999999999.0";
-        try {
+    public void testOverflowThrowsTrinoException()
+    {
+        String overflowDecimal = "99999999999999999999999999999999999999";
+        assertThatExceptionOfType(TrinoException.class).isThrownBy(() ->
+        {
             Decimals.valueOf(new BigDecimal(overflowDecimal));
-            Assertions.fail("%s should throw a TrinoException".formatted(overflowDecimal));
-        } catch (ArithmeticException e) {
-            Assertions.fail(("%s should throw a TrinoException and not an ArithmeticException because this " +
-                    "shows user input error").formatted(overflowDecimal));
-        } catch (TrinoException e) {
-            if (!e.getErrorCode().equals(io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE.toErrorCode())) {
-                Assertions.fail("the error code should be a " +
-                        "NUMERIC_VALUE_OUT_OF_RANGE, but was %s".formatted(e));
-            }
-        }
-
-
+        }).withMessageMatching("%s caused an overflow".formatted(overflowDecimal));
     }
     private void testCompare(String decimalA, String decimalB, int expected)
     {
