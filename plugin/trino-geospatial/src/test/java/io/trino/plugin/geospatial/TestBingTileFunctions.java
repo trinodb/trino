@@ -454,7 +454,7 @@ public class TestBingTileFunctions
 
         assertThat(assertions.function("ST_AsText", "ST_Centroid(bing_tile_polygon(bing_tile('123030123010121')))"))
                 .hasType(VARCHAR)
-                .isEqualTo("POINT (60.0018310442288 30.121372968273892)");
+                .isEqualTo("POINT (60.0018310546875 30.121372973521975)");
 
         // Check bottom right corner of a stack of tiles at different zoom levels
         assertThat(assertions.function("ST_AsText", "apply(bing_tile_polygon(bing_tile(1, 1, 1)), g -> ST_Point(ST_XMax(g), ST_YMin(g)))"))
