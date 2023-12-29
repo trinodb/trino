@@ -2362,8 +2362,9 @@ public class DeltaLakeMetadata
     @Override
     public Optional<Object> getInfo(ConnectorTableHandle table)
     {
-        boolean isPartitioned = !((DeltaLakeTableHandle) table).getMetadataEntry().getLowercasePartitionColumns().isEmpty();
-        return Optional.of(new DeltaLakeInputInfo(isPartitioned));
+        DeltaLakeTableHandle handle = (DeltaLakeTableHandle) table;
+        boolean isPartitioned = !handle.getMetadataEntry().getLowercasePartitionColumns().isEmpty();
+        return Optional.of(new DeltaLakeInputInfo(isPartitioned, handle.getReadVersion()));
     }
 
     @Override
