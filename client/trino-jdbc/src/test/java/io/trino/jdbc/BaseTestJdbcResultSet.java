@@ -58,8 +58,6 @@ public abstract class BaseTestJdbcResultSet
     protected abstract Connection createConnection()
             throws SQLException;
 
-    protected abstract int getTestedServerVersion();
-
     @Test
     public void testDuplicateColumnLabels()
             throws Exception
