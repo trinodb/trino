@@ -119,9 +119,8 @@ public class TestIcebergNodeLocalDynamicSplitPruning
             try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(transaction, icebergConfig, inputFile, getDynamicFilter(getNonSelectiveTupleDomain()))) {
                 Page page = nonEmptyPageSource.getNextPage();
                 assertThat(page).isNotNull();
-                assertThat(page.getBlock(0).getPositionCount()).isEqualTo(1);
+                assertThat(page.getPositionCount()).isEqualTo(1);
                 assertThat(page.getBlock(0).getInt(0, 0)).isEqualTo(KEY_COLUMN_VALUE);
-                assertThat(page.getBlock(1).getPositionCount()).isEqualTo(1);
                 assertThat(page.getBlock(1).getSlice(0, 0, page.getBlock(1).getSliceLength(0)).toStringUtf8()).isEqualTo(DATA_COLUMN_VALUE);
             }
         }
