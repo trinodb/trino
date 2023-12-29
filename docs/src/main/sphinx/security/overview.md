@@ -119,6 +119,8 @@ To implement access control, use:
 - {doc}`File-based system access control <file-system-access-control>`, where
   you configure JSON files that specify fine-grained user access restrictions at
   the catalog, schema, or table level.
+- [](opa-access-control), where you use Open Policy Agent to make access control
+  decisions on a fined-grained level.
 
 In addition, Trino {doc}`provides an API </develop/system-access-control>` that
 allows you to create a custom access control method, or to extend an existing
