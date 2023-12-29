@@ -59,11 +59,4 @@ public class TestJdbcResultSet
         String url = format("jdbc:trino://%s", server.getAddress());
         return DriverManager.getConnection(url, "test", null);
     }
-
-    @Override
-    protected int getTestedServerVersion()
-    {
-        // Latest version
-        return Integer.MAX_VALUE;
-    }
 }
