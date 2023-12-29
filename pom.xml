@@ -1720,30 +1720,6 @@
             </dependency>
 
             <dependency>
-                <groupId>org.alluxio</groupId>
-                <artifactId>alluxio-shaded-client</artifactId>
-                <version>2.9.3</version>
-                <exclusions>
-                    <exclusion>
-                        <groupId>commons-logging</groupId>
-                        <artifactId>commons-logging</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>log4j</groupId>
-                        <artifactId>log4j</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.slf4j</groupId>
-                        <artifactId>slf4j-api</artifactId>
-                    </exclusion>
-                    <exclusion>
-                        <groupId>org.slf4j</groupId>
-                        <artifactId>slf4j-log4j12</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
                 <groupId>org.antlr</groupId>
                 <artifactId>antlr4-runtime</artifactId>
                 <version>${dep.antlr.version}</version>
@@ -2508,65 +2484,6 @@
                                     <resource>opencensus/proto/stats/v1/stats.proto</resource>
                                     <resource>opencensus/proto/trace/v1/trace.proto</resource>
                                     <resource>opencensus/proto/trace/v1/trace_config.proto</resource>
-                                </resources>
-                            </exception>
-                            <exception>
-                                <conflictingDependencies>
-                                    <dependency>
-                                        <groupId>io.grpc</groupId>
-                                        <artifactId>grpc-services</artifactId>
-                                    </dependency>
-                                    <dependency>
-                                        <groupId>org.alluxio</groupId>
-                                        <artifactId>alluxio-shaded-client</artifactId>
-                                    </dependency>
-                                </conflictingDependencies>
-                                <resources>
-                                    <resource>grpc/binlog/v1/binarylog.proto</resource>
-                                    <resource>grpc/health/v1/health.proto</resource>
-                                    <resource>grpc/reflection/v1alpha/reflection.proto</resource>
-                                    <resource>grpc/channelz/v1/channelz.proto</resource>
-                                </resources>
-                            </exception>
-                            <exception>
-                                <conflictingDependencies>
-                                    <dependency>
-                                        <groupId>com.google.android</groupId>
-                                        <artifactId>annotations</artifactId>
-                                    </dependency>
-                                    <dependency>
-                                        <groupId>org.alluxio</groupId>
-                                        <artifactId>alluxio-shaded-client</artifactId>
-                                    </dependency>
-                                </conflictingDependencies>
-                                <classes>
-                                    <class>android.annotation.SuppressLint</class>
-                                    <class>android.annotation.TargetApi</class>
-                                </classes>
-                            </exception>
-                            <exception>
-                                <conflictingDependencies>
-                                    <dependency>
-                                        <groupId>org.alluxio</groupId>
-                                        <artifactId>alluxio-shaded-client</artifactId>
-                                    </dependency>
-                                    <dependency>
-                                        <groupId>com.google.protobuf</groupId>
-                                        <artifactId>protobuf-java</artifactId>
-                                    </dependency>
-                                </conflictingDependencies>
-                                <resources>
-                                    <resource>google/protobuf/any.proto</resource>
-                                    <resource>google/protobuf/api.proto</resource>
-                                    <resource>google/protobuf/descriptor.proto</resource>
-                                    <resource>google/protobuf/duration.proto</resource>
-                                    <resource>google/protobuf/empty.proto</resource>
-                                    <resource>google/protobuf/field_mask.proto</resource>
-                                    <resource>google/protobuf/source_context.proto</resource>
-                                    <resource>google/protobuf/struct.proto</resource>
-                                    <resource>google/protobuf/timestamp.proto</resource>
-                                    <resource>google/protobuf/type.proto</resource>
-                                    <resource>google/protobuf/wrappers.proto</resource>
                                 </resources>
                             </exception>
                         </exceptions>
