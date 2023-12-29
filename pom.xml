@@ -2547,21 +2547,6 @@
                             <exception>
                                 <conflictingDependencies>
                                     <dependency>
-                                        <groupId>com.google.re2j</groupId>
-                                        <artifactId>re2j</artifactId>
-                                    </dependency>
-                                    <dependency>
-                                        <groupId>io.trino</groupId>
-                                        <artifactId>re2j</artifactId>
-                                    </dependency>
-                                </conflictingDependencies>
-                                <packages>
-                                    <package>com.google.re2j</package>
-                                </packages>
-                            </exception>
-                            <exception>
-                                <conflictingDependencies>
-                                    <dependency>
                                         <groupId>org.alluxio</groupId>
                                         <artifactId>alluxio-shaded-client</artifactId>
                                     </dependency>
