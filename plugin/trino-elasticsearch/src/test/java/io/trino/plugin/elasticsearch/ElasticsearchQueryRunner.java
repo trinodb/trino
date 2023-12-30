@@ -52,6 +52,10 @@ public final class ElasticsearchQueryRunner
     private static final Logger LOG = Logger.get(ElasticsearchQueryRunner.class);
     private static final String TPCH_SCHEMA = "tpch";
 
+    /**
+     * Installs Elasticsearch plugin and loads data to elasticsearch catalog.
+     * Connects to Elasticsearch via http to the given address.
+     * */
     public static DistributedQueryRunner createElasticsearchQueryRunner(
             HostAndPort address,
             Iterable<TpchTable<?>> tables,
@@ -63,16 +67,36 @@ public final class ElasticsearchQueryRunner
         return createElasticsearchQueryRunner(address, tables, extraProperties, extraConnectorProperties, nodeCount, "elasticsearch");
     }
 
+    /**
+     * Installs Elasticsearch plugin and loads data.
+     * Connects to Elasticsearch via http to the given address.
+     * */
+    public static DistributedQueryRunner createElasticsearchQueryRunner(
+            HostAndPort address,
+            Iterable<TpchTable<?>> tables,
+            Map<String, String> extraProperties,
+            Map<String, String> extraConnectorProperties,
+            int nodeCount, String catalogName)
+            throws Exception
+    {
+        try (RestHighLevelClient client = new RestHighLevelClient(RestClient.builder(HttpHost.create(address.toString())))) {
+            return createElasticsearchQueryRunner(address, tables, extraProperties, extraConnectorProperties, nodeCount, catalogName, client);
+        }
+    }
+
+    /**
+     * Installs Elasticsearch plugin and loads data.
+     * Connects to Elasticsearch by the given client.
+     * */
     public static DistributedQueryRunner createElasticsearchQueryRunner(
             HostAndPort address,
             Iterable<TpchTable<?>> tables,
             Map<String, String> extraProperties,
             Map<String, String> extraConnectorProperties,
             int nodeCount,
-            String catalogName)
+            String catalogName, RestHighLevelClient client)
             throws Exception
     {
-        RestHighLevelClient client = null;
         DistributedQueryRunner queryRunner = null;
         try {
             queryRunner = DistributedQueryRunner.builder(testSessionBuilder()
@@ -97,7 +121,6 @@ public final class ElasticsearchQueryRunner
 
             LOG.info("Loading data...");
 
-            client = new RestHighLevelClient(RestClient.builder(HttpHost.create(address.toString())));
             long startTime = System.nanoTime();
             for (TpchTable<?> table : tables) {
                 loadTpchTopic(client, trinoClient, table);
@@ -107,7 +130,7 @@ public final class ElasticsearchQueryRunner
             return queryRunner;
         }
         catch (Exception e) {
-            closeAllSuppress(e, queryRunner, client);
+            closeAllSuppress(e, queryRunner);
             throw e;
         }
     }
@@ -130,6 +153,9 @@ public final class ElasticsearchQueryRunner
                 .put("elasticsearch.scroll-size", "1000")
                 .put("elasticsearch.scroll-timeout", "1m")
                 .put("elasticsearch.request-timeout", "2m")
+                // TODO pass ssl context here
+                // schema, user, password, cert (it should be publickey)
+                // propagate trino -> ES commn error
                 .putAll(extraConnectorProperties)
                 .buildOrThrow();
 

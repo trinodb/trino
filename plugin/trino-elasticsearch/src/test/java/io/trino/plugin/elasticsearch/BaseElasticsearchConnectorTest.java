@@ -75,15 +75,21 @@ public abstract class BaseElasticsearchConnectorTest
         elasticsearch = new ElasticsearchServer(image, ImmutableMap.of());
 
         HostAndPort address = elasticsearch.getAddress();
-        client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort())));
+        client = createElasticsearchClient(elasticsearch);
 
         return createElasticsearchQueryRunner(
-                elasticsearch.getAddress(),
+                address,
                 TpchTable.getTables(),
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 3,
-                catalogName);
+                catalogName, client);
+    }
+
+    protected RestHighLevelClient createElasticsearchClient(ElasticsearchServer esServer)
+    {
+        HostAndPort address = esServer.getAddress();
+        return new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort())));
     }
 
     @AfterAll
@@ -92,7 +98,9 @@ public abstract class BaseElasticsearchConnectorTest
     {
         elasticsearch.stop();
         elasticsearch = null;
-        client.close();
+        if (client != null) {
+            client.close();
+        }
         client = null;
     }
 

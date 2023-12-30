@@ -19,9 +19,12 @@ import org.testcontainers.containers.Network;
 import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testcontainers.utility.DockerImageName;
 
+import javax.net.ssl.SSLContext;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.Map;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
@@ -51,7 +54,7 @@ public class ElasticsearchServer
         container.withNetwork(network);
         container.withNetworkAliases("elasticsearch-server");
         container.withEnv("DISABLE_SECURITY_PLUGIN", "true"); // Required for OpenSearch container
-
+        container.withStartupTimeout(Duration.ofSeconds(300));
         configurationPath = createTempDirectory(null);
         for (Map.Entry<String, String> entry : configurationFiles.entrySet()) {
             String name = entry.getKey();
@@ -81,5 +84,10 @@ public class ElasticsearchServer
     public HostAndPort getAddress()
     {
         return HostAndPort.fromString(container.getHttpHostAddress());
+    }
+
+    public SSLContext createSslContextFromCa()
+    {
+        return container.createSslContextFromCa();
     }
 }
