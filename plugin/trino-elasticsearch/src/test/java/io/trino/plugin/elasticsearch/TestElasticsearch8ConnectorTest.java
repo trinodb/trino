@@ -13,26 +13,16 @@
  */
 package io.trino.plugin.elasticsearch;
 
-import static java.lang.String.format;
+import java.io.IOException;
 
-public class TestElasticsearchOpenSearchConnectorTest
+import static io.trino.plugin.elasticsearch.ElasticsearchServer.ELASTICSEARCH_8_IMAGE;
+
+public class TestElasticsearch8ConnectorTest
         extends BaseElasticsearchConnectorTest
 {
-    public TestElasticsearchOpenSearchConnectorTest()
+    public TestElasticsearch8ConnectorTest()
+            throws IOException
     {
-        // 1.0.0 and 1.0.1 causes NotSslRecordException during the initialization
-        super("opensearchproject/opensearch:1.1.0", "opensearch");
-    }
-
-    @Override
-    protected String indexEndpoint(String index, String docId)
-    {
-        return format("/%s/_doc/%s", index, docId);
-    }
-
-    @Override
-    protected String indexMapping(String properties)
-    {
-        return "{\"mappings\": " + properties + "}";
+        super(new ElasticsearchServer(ELASTICSEARCH_8_IMAGE), "elasticsearch8");
     }
 }
