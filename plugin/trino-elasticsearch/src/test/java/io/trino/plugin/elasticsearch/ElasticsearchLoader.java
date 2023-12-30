@@ -25,8 +25,9 @@ import io.trino.testing.ResultsSession;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.support.WriteRequest;
+import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.elasticsearch.xcontent.XContentBuilder;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -42,7 +43,7 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.util.Objects.requireNonNull;
-import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
+import static org.elasticsearch.xcontent.XContentFactory.jsonBuilder;
 
 public class ElasticsearchLoader
         extends AbstractTestingTrinoClient<Void>
@@ -109,7 +110,7 @@ public class ElasticsearchLoader
 
             request.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
             try {
-                client.bulk(request);
+                client.bulk(request, RequestOptions.DEFAULT);
             }
             catch (IOException e) {
                 throw new RuntimeException(e);
