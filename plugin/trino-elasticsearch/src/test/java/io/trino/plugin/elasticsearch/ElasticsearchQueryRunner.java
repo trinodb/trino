@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.elasticsearch;
 
+import com.amazonaws.util.Base64;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import io.airlift.log.Level;
@@ -25,14 +26,25 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingTrinoClient;
 import io.trino.tpch.TpchTable;
+import org.apache.http.Header;
 import org.apache.http.HttpHost;
+import org.apache.http.message.BasicHeader;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
+import org.elasticsearch.client.RestHighLevelClientBuilder;
 
+import javax.net.ssl.SSLContext;
+
+import java.io.File;
+import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
+import java.util.Optional;
 
+import static com.google.common.io.Resources.getResource;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.airlift.units.Duration.nanosSince;
+import static io.trino.plugin.base.ssl.SslUtils.createSSLContext;
 import static io.trino.plugin.elasticsearch.ElasticsearchServer.ELASTICSEARCH_7_IMAGE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -42,6 +54,9 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 public final class ElasticsearchQueryRunner
 {
+    public static final String USER = "elastic_user";
+    public static final String PASSWORD = "123456";
+
     static {
         Logging logging = Logging.initialize();
         logging.setLevel("org.elasticsearch.client.RestClient", Level.OFF);
@@ -97,7 +112,14 @@ public final class ElasticsearchQueryRunner
 
             LOG.info("Loading data...");
 
-            client = new RestHighLevelClient(RestClient.builder(HttpHost.create(address.toString())));
+            client = new RestHighLevelClientBuilder(RestClient.builder(HttpHost.create("https://" + address))
+                    .setDefaultHeaders(new Header[]{new BasicHeader("Authorization", format("Basic %s", Base64.encodeAsString(format("%s:%s", USER, PASSWORD).getBytes(StandardCharsets.UTF_8))))})
+                    .setHttpClientConfigCallback(callback -> callback
+                            .setSSLContext(getSSLContext()))
+                    .build())
+                    .setApiCompatibilityMode(true)
+                    .build();
+
             long startTime = System.nanoTime();
             for (TpchTable<?> table : tables) {
                 loadTpchTopic(client, trinoClient, table);
@@ -112,12 +134,27 @@ public final class ElasticsearchQueryRunner
         }
     }
 
+    public static SSLContext getSSLContext()
+    {
+        try {
+            return createSSLContext(
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.of(new File(getResource("truststore.jks").toURI())),
+                    Optional.of("123456"));
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private static void installElasticsearchPlugin(
             HostAndPort address,
             QueryRunner queryRunner,
             String catalogName,
             ElasticsearchConnectorFactory factory,
             Map<String, String> extraConnectorProperties)
+            throws URISyntaxException
     {
         queryRunner.installPlugin(new ElasticsearchPlugin(factory));
         Map<String, String> config = ImmutableMap.<String, String>builder()
@@ -130,6 +167,13 @@ public final class ElasticsearchQueryRunner
                 .put("elasticsearch.scroll-size", "1000")
                 .put("elasticsearch.scroll-timeout", "1m")
                 .put("elasticsearch.request-timeout", "2m")
+                .put("elasticsearch.tls.enabled", "true")
+                .put("elasticsearch.tls.truststore-path", new File(getResource("truststore.jks").toURI()).getPath())
+                .put("elasticsearch.tls.truststore-password", "123456")
+                .put("elasticsearch.tls.verify-hostnames", "false")
+                .put("elasticsearch.security", "PASSWORD")
+                .put("elasticsearch.auth.user", USER)
+                .put("elasticsearch.auth.password", PASSWORD)
                 .putAll(extraConnectorProperties)
                 .buildOrThrow();
 
@@ -149,7 +193,7 @@ public final class ElasticsearchQueryRunner
             throws Exception
     {
         DistributedQueryRunner queryRunner = createElasticsearchQueryRunner(
-                new ElasticsearchServer(ELASTICSEARCH_7_IMAGE, ImmutableMap.of()).getAddress(),
+                new ElasticsearchServer(ELASTICSEARCH_7_IMAGE).getAddress(),
                 TpchTable.getTables(),
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),

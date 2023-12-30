@@ -43,7 +43,7 @@ public class TestElasticsearchBackpressure
             throws Exception
     {
         network = Network.newNetwork();
-        elasticsearch = new ElasticsearchServer(network, image, ImmutableMap.of());
+        elasticsearch = new ElasticsearchServer(network, image);
         elasticsearchNginxProxy = new ElasticsearchNginxProxy(network, 1);
 
         return createElasticsearchQueryRunner(

@@ -13,12 +13,13 @@
  */
 package io.trino.plugin.elasticsearch;
 
-public class TestElasticsearchOpenSearchConnectorTest
+import static io.trino.plugin.elasticsearch.ElasticsearchServer.ELASTICSEARCH_8_IMAGE;
+
+public class TestElasticsearch8ConnectorTest
         extends BaseElasticsearchConnectorTest
 {
-    public TestElasticsearchOpenSearchConnectorTest()
+    public TestElasticsearch8ConnectorTest()
     {
-        // 1.0.0 and 1.0.1 causes NotSslRecordException during the initialization
-        super("opensearchproject/opensearch:1.1.0", "opensearch");
+        super(ELASTICSEARCH_8_IMAGE, "elasticsearch8");
     }
 }

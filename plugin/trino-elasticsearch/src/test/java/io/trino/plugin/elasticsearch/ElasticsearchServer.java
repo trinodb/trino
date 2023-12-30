@@ -13,6 +13,8 @@
  */
 package io.trino.plugin.elasticsearch;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Resources;
 import com.google.common.net.HostAndPort;
 import io.trino.testing.ResourcePresence;
 import org.testcontainers.containers.Network;
@@ -26,24 +28,26 @@ import java.util.Map;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static com.google.common.io.Resources.getResource;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createTempDirectory;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
 public class ElasticsearchServer
 {
-    public static final String ELASTICSEARCH_7_IMAGE = "elasticsearch:7.0.0";
+    public static final String ELASTICSEARCH_7_IMAGE = "elasticsearch:7.16.2";
+    public static final String ELASTICSEARCH_8_IMAGE = "elasticsearch:8.11.3";
 
     private final Path configurationPath;
     private final ElasticsearchContainer container;
 
-    public ElasticsearchServer(String image, Map<String, String> configurationFiles)
+    public ElasticsearchServer(String image)
             throws IOException
     {
-        this(Network.SHARED, image, configurationFiles);
+        this(Network.SHARED, image);
     }
 
-    public ElasticsearchServer(Network network, String image, Map<String, String> configurationFiles)
+    public ElasticsearchServer(Network network, String image)
             throws IOException
     {
         DockerImageName dockerImageName = DockerImageName.parse(image).asCompatibleSubstituteFor("docker.elastic.co/elasticsearch/elasticsearch");
@@ -53,6 +57,17 @@ public class ElasticsearchServer
         container.withEnv("DISABLE_SECURITY_PLUGIN", "true"); // Required for OpenSearch container
 
         configurationPath = createTempDirectory(null);
+
+        Map<String, String> configurationFiles = ImmutableMap.<String, String>builder()
+                .put("elasticsearch.yml", loadResource("elasticsearch.yml"))
+                .put("users", loadResource("users"))
+                .put("users_roles", loadResource("users_roles"))
+                .put("roles.yml", loadResource("roles.yml"))
+                .put("ca.crt", loadResource("ca.crt"))
+                .put("server.crt", loadResource("server.crt"))
+                .put("server.key", loadResource("server.key"))
+                .buildOrThrow();
+
         for (Map.Entry<String, String> entry : configurationFiles.entrySet()) {
             String name = entry.getKey();
             String contents = entry.getValue();
@@ -81,5 +96,11 @@ public class ElasticsearchServer
     public HostAndPort getAddress()
     {
         return HostAndPort.fromString(container.getHttpHostAddress());
+    }
+
+    private static String loadResource(String file)
+            throws IOException
+    {
+        return Resources.toString(getResource(file), UTF_8);
     }
 }

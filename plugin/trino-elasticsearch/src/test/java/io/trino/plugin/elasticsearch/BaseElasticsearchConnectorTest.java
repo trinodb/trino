@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.elasticsearch;
 
+import com.amazonaws.util.Base64;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -27,8 +28,8 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.tpch.TpchTable;
 import org.apache.http.HttpHost;
-import org.apache.http.entity.ContentType;
-import org.apache.http.nio.entity.NStringEntity;
+import org.apache.http.message.BasicHeader;
+import org.elasticsearch.client.Request;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.intellij.lang.annotations.Language;
@@ -38,11 +39,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
+import static io.trino.plugin.elasticsearch.ElasticsearchQueryRunner.PASSWORD;
+import static io.trino.plugin.elasticsearch.ElasticsearchQueryRunner.USER;
 import static io.trino.plugin.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
+import static io.trino.plugin.elasticsearch.ElasticsearchQueryRunner.getSSLContext;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
@@ -72,10 +77,13 @@ public abstract class BaseElasticsearchConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        elasticsearch = new ElasticsearchServer(image, ImmutableMap.of());
+        elasticsearch = new ElasticsearchServer(image);
 
         HostAndPort address = elasticsearch.getAddress();
-        client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort())));
+        client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort(), "https")).setHttpClientConfigCallback(
+                callback -> callback
+                        .setSSLContext(getSSLContext())
+                        .setDefaultHeaders(ImmutableList.of(new BasicHeader("Authorization", format("Basic %s", Base64.encodeAsString(format("%s:%s", USER, PASSWORD).getBytes(StandardCharsets.UTF_8))))))));
 
         return createElasticsearchQueryRunner(
                 elasticsearch.getAddress(),
@@ -123,7 +131,7 @@ public abstract class BaseElasticsearchConnectorTest
 
     /**
      * This method overrides the default values used for the data provider
-     * of the test {@link AbstractTestQueries#testLargeIn(int)} by taking
+     * of the test {@link AbstractTestQueries#testLargeIn()} by taking
      * into account that by default Elasticsearch supports only up to `1024`
      * clauses in query.
      * <p>
@@ -1910,53 +1918,63 @@ public abstract class BaseElasticsearchConnectorTest
         assertQueryFails("SELECT * FROM " + name, ".*Table '" + catalogName + ".tpch." + name + "' does not exist");
     }
 
-    protected abstract String indexEndpoint(String index, String docId);
+    protected String indexEndpoint(String index, String docId)
+    {
+        return format("/%s/_doc/%s", index, docId);
+    }
 
     private void index(String index, Map<String, Object> document)
             throws IOException
     {
         String json = new ObjectMapper().writeValueAsString(document);
         String endpoint = format("%s?refresh", indexEndpoint(index, String.valueOf(System.nanoTime())));
-        client.getLowLevelClient()
-                .performRequest("PUT", endpoint, ImmutableMap.of(), new NStringEntity(json, ContentType.APPLICATION_JSON));
+
+        Request request = new Request("PUT", endpoint);
+        request.setJsonEntity(json);
+
+        client.getLowLevelClient().performRequest(request);
     }
 
     private void addAlias(String index, String alias)
             throws IOException
     {
         client.getLowLevelClient()
-                .performRequest("PUT", format("/%s/_alias/%s", index, alias));
+                .performRequest(new Request("PUT", format("/%s/_alias/%s", index, alias)));
 
         refreshIndex(alias);
     }
 
-    protected abstract String indexMapping(@Language("JSON") String properties);
+    protected String indexMapping(@Language("JSON") String properties)
+    {
+        return "{\"mappings\": " + properties + "}";
+    }
 
     private void createIndex(String indexName)
             throws IOException
     {
-        client.getLowLevelClient().performRequest("PUT", "/" + indexName);
+        client.getLowLevelClient().performRequest(new Request("PUT", "/" + indexName));
     }
 
     private void createIndex(String indexName, @Language("JSON") String properties)
             throws IOException
     {
         String mappings = indexMapping(properties);
-        client.getLowLevelClient()
-                .performRequest("PUT", "/" + indexName, ImmutableMap.of(), new NStringEntity(mappings, ContentType.APPLICATION_JSON));
+
+        Request request = new Request("PUT", "/" + indexName);
+        request.setJsonEntity(mappings);
+
+        client.getLowLevelClient().performRequest(request);
     }
 
     private void refreshIndex(String index)
             throws IOException
     {
-        client.getLowLevelClient()
-                .performRequest("GET", format("/%s/_refresh", index));
+        client.getLowLevelClient().performRequest(new Request("GET", format("/%s/_refresh", index)));
     }
 
     private void deleteIndex(String indexName)
             throws IOException
     {
-        client.getLowLevelClient()
-                .performRequest("DELETE", "/" + indexName);
+        client.getLowLevelClient().performRequest(new Request("DELETE", "/" + indexName));
     }
 }

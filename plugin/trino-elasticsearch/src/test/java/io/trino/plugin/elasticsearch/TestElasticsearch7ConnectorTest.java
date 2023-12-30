@@ -14,7 +14,6 @@
 package io.trino.plugin.elasticsearch;
 
 import static io.trino.plugin.elasticsearch.ElasticsearchServer.ELASTICSEARCH_7_IMAGE;
-import static java.lang.String.format;
 
 public class TestElasticsearch7ConnectorTest
         extends BaseElasticsearchConnectorTest
@@ -22,17 +21,5 @@ public class TestElasticsearch7ConnectorTest
     public TestElasticsearch7ConnectorTest()
     {
         super(ELASTICSEARCH_7_IMAGE, "elasticsearch7");
-    }
-
-    @Override
-    protected String indexEndpoint(String index, String docId)
-    {
-        return format("/%s/_doc/%s", index, docId);
-    }
-
-    @Override
-    protected String indexMapping(String properties)
-    {
-        return "{\"mappings\": " + properties + "}";
     }
 }
