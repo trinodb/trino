@@ -8,7 +8,7 @@ The Elasticsearch Connector allows access to [Elasticsearch](https://www.elastic
 This document describes how to setup the Elasticsearch Connector to run SQL queries against Elasticsearch.
 
 :::{note}
-Elasticsearch (6.6.0 or later) or OpenSearch (1.1.0 or later) is required.
+Elasticsearch (7.x or 8.x) is required. OpenSearch is supported through the dedicated [OpenSearch](/connector/opensearch) connector.
 :::
 
 ## Configuration
