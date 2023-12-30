@@ -1306,7 +1306,7 @@ public class TestBackgroundHiveSplitLoader
                 }
 
                 @Override
-                public FileIterator listFiles(Location location, boolean isRecursive)
+                public FileIterator listFilesNonRecursively(Location location)
                 {
                     Iterator<FileEntry> iterator = List.of(fileEntry).iterator();
                     return new FileIterator()

@@ -158,7 +158,7 @@ public class MemoryFileSystem
 
     // implementing same as recursive true
     @Override
-    public FileIterator listFiles(Location location, boolean isRecursive)
+    public FileIterator listFilesNonRecursively(Location location)
             throws IOException
     {
         return listFiles(location);

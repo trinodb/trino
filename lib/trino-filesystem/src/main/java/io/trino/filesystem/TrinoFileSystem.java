@@ -171,7 +171,7 @@ public interface TrinoFileSystem
      * @param location the directory to list
      * @throws IllegalArgumentException if location is not valid for this file system
      */
-    FileIterator listFiles(Location location, boolean isRecursive)
+    FileIterator listFilesNonRecursively(Location location)
             throws IOException;
 
     /**

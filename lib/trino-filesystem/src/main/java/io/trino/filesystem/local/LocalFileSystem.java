@@ -156,11 +156,17 @@ public class LocalFileSystem
         return listFiles(location, true);
     }
 
-    @Override
     public FileIterator listFiles(Location location, boolean isRecursive)
             throws IOException
     {
         return new LocalFileIterator(location, rootPath, toDirectoryPath(location), isRecursive);
+    }
+
+    @Override
+    public FileIterator listFilesNonRecursively(Location location)
+            throws IOException
+    {
+        return listFiles(location, false);
     }
 
     @Override

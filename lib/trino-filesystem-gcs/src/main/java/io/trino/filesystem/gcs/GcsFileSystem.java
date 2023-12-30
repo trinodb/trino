@@ -160,7 +160,13 @@ public class GcsFileSystem
     }
 
     @Override
-    public FileIterator listFiles(Location location, boolean isRecursive)
+    public FileIterator listFilesNonRecursively(Location location)
+            throws IOException
+    {
+        return listFiles(location, true);
+    }
+
+    private FileIterator listFiles(Location location, boolean isRecursive)
             throws IOException
     {
         GcsLocation gcsLocation = new GcsLocation(normalizeToDirectory(location));

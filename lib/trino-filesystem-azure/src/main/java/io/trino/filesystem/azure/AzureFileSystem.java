@@ -237,7 +237,13 @@ public class AzureFileSystem
     }
 
     @Override
-    public FileIterator listFiles(Location location, boolean isRecursive)
+    public FileIterator listFilesNonRecursively(Location location)
+            throws IOException
+    {
+        return listFiles(location, false);
+    }
+
+    private FileIterator listFiles(Location location, boolean isRecursive)
             throws IOException
     {
         AzureLocation azureLocation = new AzureLocation(location);

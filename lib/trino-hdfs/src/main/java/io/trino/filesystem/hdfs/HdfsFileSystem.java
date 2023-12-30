@@ -233,6 +233,13 @@ class HdfsFileSystem
     }
 
     @Override
+    public FileIterator listFilesNonRecursively(Location location)
+            throws IOException
+    {
+        return listFiles(location, false);
+    }
+
+
     public FileIterator listFiles(Location location, boolean isRecursive)
             throws IOException
     {

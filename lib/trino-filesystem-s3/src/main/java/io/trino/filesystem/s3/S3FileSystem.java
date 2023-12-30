@@ -173,7 +173,13 @@ final class S3FileSystem
     }
 
     @Override
-    public FileIterator listFiles(Location location, boolean isRecursive)
+    public FileIterator listFilesNonRecursively(Location location)
+            throws IOException
+    {
+        return listFiles(location, false);
+    }
+
+    private FileIterator listFiles(Location location, boolean isRecursive)
             throws IOException
     {
         S3Location s3Location = new S3Location(location);

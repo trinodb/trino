@@ -110,13 +110,13 @@ final class TracingFileSystem
     }
 
     @Override
-    public FileIterator listFiles(Location location, boolean isRecursive)
+    public FileIterator listFilesNonRecursively(Location location)
             throws IOException
     {
         Span span = tracer.spanBuilder("FileSystem.listFiles")
                 .setAttribute(FileSystemAttributes.FILE_LOCATION, location.toString())
                 .startSpan();
-        return withTracing(span, () -> delegate.listFiles(location, isRecursive));
+        return withTracing(span, () -> delegate.listFilesNonRecursively(location));
     }
 
     @Override

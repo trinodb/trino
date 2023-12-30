@@ -49,7 +49,6 @@ import static io.trino.plugin.hudi.HudiSessionProperties.getSplitGeneratorParall
 import static io.trino.plugin.hudi.HudiSessionProperties.getStandardSplitWeightSize;
 import static io.trino.plugin.hudi.HudiSessionProperties.isSizeBasedSplitWeightsEnabled;
 import static io.trino.plugin.hudi.HudiUtil.buildTableMetaClient;
-import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.stream.Collectors.toList;
 
 public class HudiSplitSource
@@ -92,12 +91,7 @@ public class HudiSplitSource
                 queue,
                 new BoundedExecutor(executor, getSplitGeneratorParallelism(session)),
                 createSplitWeightProvider(session),
-                partitions,
-                throwable -> {
-                    trinoException.compareAndSet(null, new TrinoException(GENERIC_INTERNAL_ERROR,
-                            "Failed to generate splits for " + table.getTableName(), throwable));
-                    queue.finish();
-                });
+                partitions);
         this.splitLoaderFuture = splitLoaderExecutorService.schedule(splitLoader, 0, TimeUnit.MILLISECONDS);
     }
 

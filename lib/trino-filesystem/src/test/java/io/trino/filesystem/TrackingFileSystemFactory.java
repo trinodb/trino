@@ -168,10 +168,10 @@ public class TrackingFileSystemFactory
         }
 
         @Override
-        public FileIterator listFiles(Location location, boolean isRecursive)
+        public FileIterator listFilesNonRecursively(Location location)
                 throws IOException
         {
-            return delegate.listFiles(location, isRecursive);
+            return delegate.listFilesNonRecursively(location);
         }
 
         @Override
