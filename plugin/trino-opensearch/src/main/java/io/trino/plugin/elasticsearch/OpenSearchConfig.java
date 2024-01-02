@@ -137,7 +137,7 @@ public class OpenSearchConfig
     }
 
     @Config("opensearch.request-timeout")
-    @ConfigDescription("Elasticsearch request timeout")
+    @ConfigDescription("OpenSearch request timeout")
     public OpenSearchConfig setRequestTimeout(Duration requestTimeout)
     {
         this.requestTimeout = requestTimeout;
@@ -151,7 +151,7 @@ public class OpenSearchConfig
     }
 
     @Config("opensearch.connect-timeout")
-    @ConfigDescription("Elasticsearch connect timeout")
+    @ConfigDescription("OpenSearch connect timeout")
     public OpenSearchConfig setConnectTimeout(Duration timeout)
     {
         this.connectTimeout = timeout;
@@ -208,7 +208,7 @@ public class OpenSearchConfig
     }
 
     @Config("opensearch.node-refresh-interval")
-    @ConfigDescription("How often to refresh the list of available Elasticsearch nodes")
+    @ConfigDescription("How often to refresh the list of available nodes in the OpenSearch cluster")
     public OpenSearchConfig setNodeRefreshInterval(Duration nodeRefreshInterval)
     {
         this.nodeRefreshInterval = nodeRefreshInterval;
@@ -216,7 +216,7 @@ public class OpenSearchConfig
     }
 
     @Config("opensearch.max-http-connections")
-    @ConfigDescription("Maximum number of persistent HTTP connections to Elasticsearch")
+    @ConfigDescription("Maximum number of persistent HTTP connections to OpenSearch cluster")
     public OpenSearchConfig setMaxHttpConnections(int size)
     {
         this.maxHttpConnections = size;
@@ -230,7 +230,7 @@ public class OpenSearchConfig
     }
 
     @Config("opensearch.http-thread-count")
-    @ConfigDescription("Number of threads handling HTTP connections to Elasticsearch")
+    @ConfigDescription("Number of threads handling HTTP connections to OpenSearch cluster")
     public OpenSearchConfig setHttpThreadCount(int count)
     {
         this.httpThreadCount = count;
