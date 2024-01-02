@@ -52,8 +52,8 @@ import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.testing.TestingPageSinkProvider;
 import io.trino.testing.TestingTransactionHandle;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
@@ -93,7 +93,7 @@ public class TestCacheDynamicFiltering
                 .build();
     }
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
     {
         getQueryRunner().installPlugin(new TestingPlugin());

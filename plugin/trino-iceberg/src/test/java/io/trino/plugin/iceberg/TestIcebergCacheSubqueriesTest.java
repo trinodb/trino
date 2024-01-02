@@ -21,7 +21,8 @@ import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Optional;
@@ -30,8 +31,9 @@ import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@Execution(SAME_THREAD)
 public class TestIcebergCacheSubqueriesTest
         extends BaseCacheSubqueriesTest
 {

@@ -23,8 +23,10 @@ import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -42,8 +44,11 @@ import static java.lang.String.format;
 import static java.nio.file.StandardCopyOption.REPLACE_EXISTING;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public class TestDeltaLakeCacheSubqueriesTest
         extends BaseCacheSubqueriesTest
 {
@@ -60,7 +65,7 @@ public class TestDeltaLakeCacheSubqueriesTest
         return queryRunner;
     }
 
-    @BeforeClass
+    @BeforeAll
     public void registerTables()
             throws IOException
     {

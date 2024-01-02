@@ -44,9 +44,11 @@ import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.Type;
 import io.trino.version.EmbedVersion;
 import org.apache.hadoop.conf.Configuration;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Map;
@@ -67,14 +69,18 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestHiveCacheIds
 {
     private ScheduledExecutorService executorService;
     private HiveCacheMetadata metadata;
     private HiveSplitManager splitManager;
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
     {
         executorService = newScheduledThreadPool(1);
@@ -122,7 +128,7 @@ public class TestHiveCacheIds
                 createJsonCodec(HiveCacheSplitId.class));
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         if (executorService != null) {

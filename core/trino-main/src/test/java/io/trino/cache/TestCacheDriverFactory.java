@@ -45,9 +45,11 @@ import io.trino.split.PageSourceProvider;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.testing.TestingSplit;
 import io.trino.testing.TestingTaskContext;
-import org.testng.annotations.AfterMethod;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Map;
@@ -73,9 +75,12 @@ import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public class TestCacheDriverFactory
 {
     private static final Session TEST_SESSION = testSessionBuilder().build();
@@ -83,7 +88,7 @@ public class TestCacheDriverFactory
     private CacheManagerRegistry registry;
     private ScheduledExecutorService scheduledExecutor;
 
-    @BeforeMethod
+    @BeforeEach
     public void setUp()
     {
         NodeMemoryConfig config = new NodeMemoryConfig()
@@ -96,7 +101,7 @@ public class TestCacheDriverFactory
         scheduledExecutor = Executors.newScheduledThreadPool(1);
     }
 
-    @AfterMethod(alwaysRun = true)
+    @AfterEach
     public void tearDown()
     {
         scheduledExecutor.shutdownNow();

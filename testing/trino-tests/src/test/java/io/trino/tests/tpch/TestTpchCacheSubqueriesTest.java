@@ -15,12 +15,17 @@ package io.trino.tests.tpch;
 
 import io.trino.testing.BaseCacheSubqueriesTest;
 import io.trino.testing.QueryRunner;
-import org.testng.SkipException;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.List;
 
-@Test(singleThreaded = true)
+import static org.junit.jupiter.api.Assumptions.abort;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
+
+@Execution(SAME_THREAD)
 public class TestTpchCacheSubqueriesTest
         extends BaseCacheSubqueriesTest
 {
@@ -37,38 +42,41 @@ public class TestTpchCacheSubqueriesTest
                 .build();
     }
 
+    @Test
     @Override
     public void testCacheWhenProjectionsWerePushedDown()
     {
-        throw new SkipException("tpch does not support for pushing down projections");
+        abort("tpch does not support for pushing down projections");
     }
 
     @Override
-    @Test(dataProvider = "isDynamicRowFilteringEnabled")
+    @ParameterizedTest
+    @MethodSource("isDynamicRowFilteringEnabled")
     public void testDynamicFilterCache(boolean isDynamicRowFilteringEnabled)
     {
-        throw new SkipException("tpch does not support for partitioned tables");
+        abort("tpch does not support for partitioned tables");
     }
 
     @Override
     @Test
     public void testPredicateOnPartitioningColumnThatWasNotFullyPushed()
     {
-        throw new SkipException("tpch does not support for partitioned tables");
+        abort("tpch does not support for partitioned tables");
     }
 
     @Override
     @Test
     public void testPartitionedQueryCache()
     {
-        throw new SkipException("tpch does not support for partitioned tables");
+        abort("tpch does not support for partitioned tables");
     }
 
     @Override
-    @Test(dataProvider = "isDynamicRowFilteringEnabled")
+    @ParameterizedTest
+    @MethodSource("isDynamicRowFilteringEnabled")
     public void testSimplifyAndPrunePredicate(boolean isDynamicRowFilteringEnabled)
     {
-        throw new SkipException("tpch does not support for partitioned tables");
+        abort("tpch does not support for partitioned tables");
     }
 
     @Override

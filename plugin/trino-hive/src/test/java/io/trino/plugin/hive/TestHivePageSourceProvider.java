@@ -22,8 +22,10 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -41,7 +43,11 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestHivePageSourceProvider
 {
     private static final HiveColumnHandle PARTITION_COLUMN = createBaseColumn("partition_col", 0, HIVE_STRING, VARCHAR, PARTITION_KEY, Optional.empty());
@@ -89,7 +95,7 @@ public class TestHivePageSourceProvider
             SplitWeight.standard());
     private HivePageSourceProvider pageSourceProvider;
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
     {
         HiveConfig config = new HiveConfig()

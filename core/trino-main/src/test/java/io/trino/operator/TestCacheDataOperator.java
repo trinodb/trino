@@ -47,8 +47,10 @@ import io.trino.split.PageSourceProvider;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.testing.TestingSplit;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Optional;
@@ -75,16 +77,19 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 import static org.testng.Assert.assertTrue;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public class TestCacheDataOperator
 {
     private static final Session TEST_SESSION = testSessionBuilder().build();
     private final PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
     private CacheManagerRegistry registry;
 
-    @BeforeMethod
+    @BeforeEach
     public void setUp()
     {
         NodeMemoryConfig config = new NodeMemoryConfig()

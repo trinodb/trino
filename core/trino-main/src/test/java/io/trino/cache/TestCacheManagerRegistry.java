@@ -27,8 +27,10 @@ import io.trino.spi.cache.CacheManagerContext;
 import io.trino.spi.cache.CacheManagerFactory;
 import io.trino.spi.cache.MemoryAllocator;
 import io.trino.spi.cache.PlanSignature;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Map;
 import java.util.OptionalLong;
@@ -37,8 +39,11 @@ import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorS
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@TestInstance(PER_CLASS)
+@Execution(SAME_THREAD)
 public class TestCacheManagerRegistry
 {
     private static final TaskId TASK_ID = new TaskId(new StageId("id", 0), 1, 2);
@@ -48,7 +53,7 @@ public class TestCacheManagerRegistry
     private TestCacheManager cacheManager;
     private CacheManagerRegistry registry;
 
-    @BeforeMethod
+    @BeforeEach
     public void setup()
     {
         NodeMemoryConfig config = new NodeMemoryConfig()

@@ -46,9 +46,11 @@ import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.types.Types;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.File;
 import java.io.IOException;
@@ -75,7 +77,11 @@ import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Map.entry;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestIcebergCacheIds
 {
     private static final String DATABASE_NAME = "iceberg_cache";
@@ -84,7 +90,7 @@ public class TestIcebergCacheIds
     private File tempDir;
     private static final AtomicInteger nextColumnId = new AtomicInteger(1);
 
-    @BeforeClass
+    @BeforeAll
     public void setup()
             throws IOException
     {
@@ -124,7 +130,7 @@ public class TestIcebergCacheIds
                 createJsonCodec(IcebergCacheSplitId.class));
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
             throws IOException
     {

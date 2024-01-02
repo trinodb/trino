@@ -58,9 +58,10 @@ import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.LoadCachedDataPlanNode;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.List;
 import java.util.Map;
@@ -101,13 +102,12 @@ public abstract class BaseCacheSubqueriesTest
     protected static final Set<TpchTable<?>> REQUIRED_TABLES = ImmutableSet.of(NATION, LINE_ITEM, ORDERS, CUSTOMER);
     protected static final Map<String, String> EXTRA_PROPERTIES = ImmutableMap.of("cache.enabled", "true");
 
-    @BeforeMethod
+    @BeforeEach
     public void flushCache()
     {
         getDistributedQueryRunner().getServers().forEach(server -> server.getCacheManagerRegistry().flushCache());
     }
 
-    @DataProvider(name = "isDynamicRowFilteringEnabled")
     public static Object[][] isDynamicRowFilteringEnabled()
     {
         return new Object[][] {{true}, {false}};
@@ -201,7 +201,8 @@ public abstract class BaseCacheSubqueriesTest
         assertThat(getScanOperatorInputPositions(resultWithCache.getQueryId())).isZero();
     }
 
-    @Test(dataProvider = "isDynamicRowFilteringEnabled")
+    @ParameterizedTest
+    @MethodSource("isDynamicRowFilteringEnabled")
     public void testDynamicFilterCache(boolean isDynamicRowFilteringEnabled)
     {
         createPartitionedTableAsSelect("orders_part", ImmutableList.of("custkey"), "select orderkey, orderdate, orderpriority, mod(custkey, 10) as custkey from orders");
@@ -389,7 +390,8 @@ public abstract class BaseCacheSubqueriesTest
         assertUpdate("drop table orders_part");
     }
 
-    @Test(dataProvider = "isDynamicRowFilteringEnabled")
+    @ParameterizedTest
+    @MethodSource("isDynamicRowFilteringEnabled")
     public void testSimplifyAndPrunePredicate(boolean isDynamicRowFilteringEnabled)
     {
         String tableName = "simplify_and_prune_orders_part_" + isDynamicRowFilteringEnabled;

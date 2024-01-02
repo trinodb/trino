@@ -36,9 +36,9 @@ import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 import org.apache.kudu.client.KuduClient;
 import org.assertj.core.api.Assertions;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.testng.annotations.AfterClass;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -85,7 +85,7 @@ public class TestKuduScannerKeepAlive
         return queryRunner;
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         getQueryRunner().execute("DROP TABLE test_scanner_keep_alive");

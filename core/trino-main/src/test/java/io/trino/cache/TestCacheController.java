@@ -29,7 +29,7 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.tree.Expression;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
