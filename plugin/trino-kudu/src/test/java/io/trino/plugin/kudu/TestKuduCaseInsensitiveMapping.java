@@ -93,9 +93,7 @@ public class TestKuduCaseInsensitiveMapping
                 .add(new KuduTestColumn(VARCHAR, "Mixed_Case_Name", "b"))
                 .add(new KuduTestColumn(VARCHAR, "UPPER_CASE_NAME", "c"))
                 .build();
-        try (AutoCloseable ignoreTable = withTable(
-                        tableName,
-                        kuduTableColumns)) {
+        try (AutoCloseable ignoreTable = withTable(tableName, kuduTableColumns)) {
             assertQuery(
                     format("SELECT column_name FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s'", schemaName, tableNameLowerCase),
                     "VALUES 'id', 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
