@@ -305,10 +305,13 @@ public final class Decimals
         catch (Exception e) {
             throw new ArithmeticException("Decimal overflow");
         }
-        throwIfOverflows(result.getHigh(), result.getLow());
+        if (overflows(result.getHigh(), result.getLow())) {
+            throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow");
+        }
         return result;
     }
 
+    @Deprecated(forRemoval = true)
     public static void throwIfOverflows(long high, long low)
     {
         if (overflows(high, low)) {
