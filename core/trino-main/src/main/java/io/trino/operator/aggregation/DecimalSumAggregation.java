@@ -14,6 +14,7 @@
 package io.trino.operator.aggregation;
 
 import io.trino.operator.aggregation.state.LongDecimalWithOverflowState;
+import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.Int128ArrayBlock;
 import io.trino.spi.block.Int128ArrayBlockBuilder;
@@ -31,6 +32,7 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Int128;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.type.Int128Math.addWithOverflow;
 
 @AggregationFunction("sum")
@@ -120,7 +122,7 @@ public final class DecimalSumAggregation
     {
         if (state.isNotNull()) {
             if (state.getOverflow() != 0) {
-                throw new ArithmeticException("Decimal overflow");
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow");
             }
 
             long[] decimal = state.getDecimalArray();
@@ -128,8 +130,12 @@ public final class DecimalSumAggregation
 
             long rawHigh = decimal[offset];
             long rawLow = decimal[offset + 1];
-
-            Decimals.throwIfOverflows(rawHigh, rawLow);
+            try {
+                Decimals.throwIfOverflows(rawHigh, rawLow);
+            }
+            catch (ArithmeticException e) {
+                throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
+            }
             ((Int128ArrayBlockBuilder) out).writeInt128(rawHigh, rawLow);
         }
         else {
