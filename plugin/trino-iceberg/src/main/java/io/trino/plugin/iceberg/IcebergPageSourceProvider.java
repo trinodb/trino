@@ -13,7 +13,6 @@
  */
 package io.trino.plugin.iceberg;
 
-import com.google.common.base.Suppliers;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.BiMap;
@@ -133,6 +132,7 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -170,9 +170,11 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcNestedLazy;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.useParquetBloomFilter;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
+import static io.trino.plugin.iceberg.IcebergSplitSource.partitionMatchesPredicate;
 import static io.trino.plugin.iceberg.IcebergUtil.deserializePartitionValue;
 import static io.trino.plugin.iceberg.IcebergUtil.getColumnHandle;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
+import static io.trino.plugin.iceberg.IcebergUtil.getPartitionValues;
 import static io.trino.plugin.iceberg.IcebergUtil.schemaFromHandles;
 import static io.trino.plugin.iceberg.delete.EqualityDeleteFilter.readEqualityDeletes;
 import static io.trino.plugin.iceberg.delete.PositionDeleteFilter.readPositionDeletes;
@@ -332,8 +334,11 @@ public class IcebergPageSourceProvider
                     }
                 });
 
-        TupleDomain<IcebergColumnHandle> effectivePredicate = unenforcedPredicate
-                .intersect(dynamicFilter.getCurrentPredicate().transformKeys(IcebergColumnHandle.class::cast))
+        TupleDomain<IcebergColumnHandle> effectivePredicate = getEffectivePredicate(
+                tableSchema,
+                partitionKeys,
+                dynamicFilter.getCurrentPredicate().transformKeys(IcebergColumnHandle.class::cast),
+                unenforcedPredicate)
                 .simplify(ICEBERG_DOMAIN_COMPACTION_THRESHOLD);
         if (effectivePredicate.isNone()) {
             return new EmptyPageSource();
@@ -386,7 +391,7 @@ public class IcebergPageSourceProvider
                 .map(readerColumns -> readerColumns.get().stream().map(IcebergColumnHandle.class::cast).collect(toList()))
                 .orElse(requiredColumns);
 
-        Supplier<Optional<RowPredicate>> deletePredicate = Suppliers.memoize(() -> {
+        Supplier<Optional<RowPredicate>> deletePredicate = memoize(() -> {
             List<DeleteFilter> deleteFilters = readDeletes(
                     session,
                     tableSchema,
@@ -406,6 +411,28 @@ public class IcebergPageSourceProvider
                 dataPageSource.get(),
                 projectionsAdapter,
                 deletePredicate);
+    }
+
+    private TupleDomain<IcebergColumnHandle> getEffectivePredicate(
+            Schema tableSchema,
+            Map<Integer, Optional<String>> partitionKeys,
+            TupleDomain<IcebergColumnHandle> dynamicFilterPredicate,
+            TupleDomain<IcebergColumnHandle> unenforcedPredicate)
+    {
+        if (dynamicFilterPredicate.isAll() || dynamicFilterPredicate.isNone() || partitionKeys.isEmpty()) {
+            return unenforcedPredicate.intersect(dynamicFilterPredicate);
+        }
+        Set<IcebergColumnHandle> partitionColumns = partitionKeys.keySet().stream()
+                .map(fieldId -> getColumnHandle(tableSchema.findField(fieldId), typeManager))
+                .collect(toImmutableSet());
+        Supplier<Map<ColumnHandle, NullableValue>> partitionValues = memoize(() -> getPartitionValues(partitionColumns, partitionKeys));
+        if (!partitionMatchesPredicate(partitionColumns, partitionValues, dynamicFilterPredicate)) {
+            return TupleDomain.none();
+        }
+        // Filter out partition columns domains from the dynamic filter because they should be irrelevant at data file level
+        dynamicFilterPredicate = dynamicFilterPredicate
+                .filter((columnHandle, domain) -> !partitionKeys.containsKey(columnHandle.getId()));
+        return unenforcedPredicate.intersect(dynamicFilterPredicate);
     }
 
     private Set<IcebergColumnHandle> requiredColumnsForDeletes(Schema schema, List<DeleteFile> deletes)
