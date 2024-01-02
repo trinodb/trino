@@ -92,6 +92,7 @@ import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntr
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.PROTOCOL;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.REMOVE;
 import static io.trino.plugin.deltalake.transactionlog.checkpoint.CheckpointEntryIterator.EntryType.TRANSACTION;
+import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.trino.spi.type.TimeZoneKey.UTC_KEY;
@@ -225,22 +226,32 @@ public class CheckpointEntryIterator
                 domainCompactionThreshold,
                 OptionalLong.empty());
 
-        verify(pageSource.getReaderColumns().isEmpty(), "All columns expected to be base columns");
-
         this.pageSource = (ParquetPageSource) pageSource.get();
-        this.nextEntries = new ArrayDeque<>();
-        this.extractors = fields.stream()
-                .map(this::createCheckpointFieldExtractor)
-                .collect(toImmutableList());
-        txnType = getParquetType(fields, TRANSACTION);
-        addType = getAddParquetTypeContainingField(fields, "path");
-        addPartitionValuesType = getAddParquetTypeContainingField(fields, "partitionValues");
-        addDeletionVectorType = addType.flatMap(type -> getOptionalFieldType(type, "deletionVector"));
-        addParsedStatsFieldType = addType.flatMap(type -> getOptionalFieldType(type, "stats_parsed"));
-        removeType = getParquetType(fields, REMOVE);
-        metadataType = getParquetType(fields, METADATA);
-        protocolType = getParquetType(fields, PROTOCOL);
-        commitType = getParquetType(fields, COMMIT);
+        try {
+            verify(pageSource.getReaderColumns().isEmpty(), "All columns expected to be base columns");
+
+            this.nextEntries = new ArrayDeque<>();
+            this.extractors = fields.stream()
+                    .map(this::createCheckpointFieldExtractor)
+                    .collect(toImmutableList());
+            txnType = getParquetType(fields, TRANSACTION);
+            addType = getAddParquetTypeContainingField(fields, "path");
+            addPartitionValuesType = getAddParquetTypeContainingField(fields, "partitionValues");
+            addDeletionVectorType = addType.flatMap(type -> getOptionalFieldType(type, "deletionVector"));
+            addParsedStatsFieldType = addType.flatMap(type -> getOptionalFieldType(type, "stats_parsed"));
+            removeType = getParquetType(fields, REMOVE);
+            metadataType = getParquetType(fields, METADATA);
+            protocolType = getParquetType(fields, PROTOCOL);
+            commitType = getParquetType(fields, COMMIT);
+        }
+        catch (Exception e) {
+            try {
+                this.pageSource.close();
+            }
+            catch (Exception ignored) {
+            }
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Error while initilizing the checkpoint entry iterator for the file %s".formatted(checkpoint.location()));
+        }
     }
 
     private static Optional<RowType> getOptionalFieldType(RowType type, String fieldName)
