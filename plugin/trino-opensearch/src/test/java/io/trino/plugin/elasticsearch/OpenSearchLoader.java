@@ -22,11 +22,12 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.testing.AbstractTestingTrinoClient;
 import io.trino.testing.ResultsSession;
-import org.elasticsearch.action.bulk.BulkRequest;
-import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.support.WriteRequest;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.common.xcontent.XContentBuilder;
+import org.opensearch.action.bulk.BulkRequest;
+import org.opensearch.action.index.IndexRequest;
+import org.opensearch.action.support.WriteRequest;
+import org.opensearch.client.RequestOptions;
+import org.opensearch.client.RestHighLevelClient;
+import org.opensearch.core.xcontent.XContentBuilder;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -42,7 +43,7 @@ import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.util.Objects.requireNonNull;
-import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
+import static org.opensearch.common.xcontent.XContentFactory.jsonBuilder;
 
 public class OpenSearchLoader
         extends AbstractTestingTrinoClient<Void>
@@ -66,15 +67,15 @@ public class OpenSearchLoader
     public ResultsSession<Void> getResultSession(Session session)
     {
         requireNonNull(session, "session is null");
-        return new ElasticsearchLoadingSession();
+        return new OpenSearchLoadingSession();
     }
 
-    private class ElasticsearchLoadingSession
+    private class OpenSearchLoadingSession
             implements ResultsSession<Void>
     {
         private final AtomicReference<List<Type>> types = new AtomicReference<>();
 
-        private ElasticsearchLoadingSession() {}
+        private OpenSearchLoadingSession() {}
 
         @Override
         public void addResults(QueryStatusInfo statusInfo, QueryData data)
@@ -100,7 +101,7 @@ public class OpenSearchLoader
                     }
                     dataBuilder.endObject();
 
-                    request.add(new IndexRequest(tableName, "doc").source(dataBuilder));
+                    request.add(new IndexRequest(tableName).source(dataBuilder));
                 }
                 catch (IOException e) {
                     throw new UncheckedIOException("Error loading data into Elasticsearch index: " + tableName, e);
@@ -109,7 +110,7 @@ public class OpenSearchLoader
 
             request.setRefreshPolicy(WriteRequest.RefreshPolicy.IMMEDIATE);
             try {
-                client.bulk(request);
+                client.bulk(request, RequestOptions.DEFAULT);
             }
             catch (IOException e) {
                 throw new RuntimeException(e);

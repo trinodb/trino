@@ -15,7 +15,7 @@ package io.trino.plugin.elasticsearch.decoders;
 
 import io.trino.plugin.elasticsearch.DecoderDescriptor;
 import io.trino.spi.block.BlockBuilder;
-import org.elasticsearch.search.SearchHit;
+import org.opensearch.search.SearchHit;
 
 import java.util.function.Supplier;
 

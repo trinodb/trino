@@ -22,37 +22,42 @@ import com.google.common.net.HostAndPort;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.DistributedQueryRunner;
 import org.apache.http.HttpHost;
-import org.apache.http.entity.ContentType;
-import org.apache.http.message.BasicHeader;
-import org.apache.http.nio.entity.NStringEntity;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestHighLevelClient;
+import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.Isolated;
+import org.opensearch.client.Request;
+import org.opensearch.client.RequestOptions;
+import org.opensearch.client.RestClient;
+import org.opensearch.client.RestHighLevelClient;
 
+import java.io.File;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
+import java.util.Optional;
 
 import static com.google.common.io.Resources.getResource;
 import static io.airlift.testing.Closeables.closeAll;
-import static io.trino.plugin.elasticsearch.OpenSearchQueryRunner.createElasticsearchQueryRunner;
+import static io.trino.plugin.base.ssl.SslUtils.createSSLContext;
+import static io.trino.plugin.elasticsearch.OpenSearchQueryRunner.createOpenSearchQueryRunner;
+import static io.trino.plugin.elasticsearch.OpenSearchServer.OPENSEARCH_IMAGE;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
+@Isolated
 @TestInstance(PER_CLASS)
-@Execution(CONCURRENT)
 public class TestPasswordAuthentication
 {
-    private static final String USER = "elastic_user";
-    private static final String PASSWORD = "123456";
+    private static final String USER = "admin";
+    private static final String PASSWORD = "admin";
 
-    private OpenSearchServer elasticsearch;
+    private OpenSearchServer opensearch;
     private RestHighLevelClient client;
     private QueryAssertions assertions;
 
@@ -60,29 +65,47 @@ public class TestPasswordAuthentication
     public void setUp()
             throws Exception
     {
-        // We use 7.8.0 because security became a non-commercial feature in recent versions
-        elasticsearch = new OpenSearchServer("elasticsearch:7.8.0", ImmutableMap.<String, String>builder()
-                .put("elasticsearch.yml", loadResource("elasticsearch.yml"))
-                .put("users", loadResource("users"))
-                .put("users_roles", loadResource("users_roles"))
-                .put("roles.yml", loadResource("roles.yml"))
+        opensearch = new OpenSearchServer(OPENSEARCH_IMAGE, true, ImmutableMap.<String, String>builder()
+                .put("opensearch.yml", loadResource("opensearch.yml"))
+                .put("esnode.pem", loadResource("esnode.pem"))
+                .put("esnode-key.pem", loadResource("esnode-key.pem"))
+                .put("root-ca.pem", loadResource("root-ca.pem"))
                 .buildOrThrow());
 
-        HostAndPort address = elasticsearch.getAddress();
-        client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort())));
+        HostAndPort address = opensearch.getAddress();
+        client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort(), "https"))
+                .setHttpClientConfigCallback(this::setupSslContext));
 
-        DistributedQueryRunner runner = createElasticsearchQueryRunner(
-                elasticsearch.getAddress(),
+        DistributedQueryRunner runner = createOpenSearchQueryRunner(
+                opensearch.getAddress(),
                 ImmutableList.of(),
                 ImmutableMap.of(),
                 ImmutableMap.<String, String>builder()
-                        .put("elasticsearch.security", "PASSWORD")
-                        .put("elasticsearch.auth.user", USER)
-                        .put("elasticsearch.auth.password", PASSWORD)
+                        .put("opensearch.security", "PASSWORD")
+                        .put("opensearch.auth.user", USER)
+                        .put("opensearch.auth.password", PASSWORD)
+                        .put("opensearch.tls.enabled", "true")
+                        .put("opensearch.tls.verify-hostnames", "false")
+                        .put("opensearch.tls.truststore-path", new File(getResource("truststore.jks").toURI()).getPath())
+                        .put("opensearch.tls.truststore-password", "123456")
                         .buildOrThrow(),
                 3);
 
         assertions = new QueryAssertions(runner);
+    }
+
+    private HttpAsyncClientBuilder setupSslContext(HttpAsyncClientBuilder clientBuilder)
+    {
+        try {
+            return clientBuilder.setSSLContext(createSSLContext(
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.of(new File(Resources.getResource("truststore.jks").toURI())),
+                    Optional.of("123456")));
+        }
+        catch (GeneralSecurityException | IOException | URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @AfterAll
@@ -91,11 +114,11 @@ public class TestPasswordAuthentication
     {
         closeAll(
                 () -> assertions.close(),
-                () -> elasticsearch.stop(),
+                () -> opensearch.stop(),
                 () -> client.close());
 
         assertions = null;
-        elasticsearch = null;
+        opensearch = null;
         client = null;
     }
 
@@ -105,13 +128,11 @@ public class TestPasswordAuthentication
     {
         String json = new ObjectMapper().writeValueAsString(ImmutableMap.of("value", 42L));
 
-        client.getLowLevelClient()
-                .performRequest(
-                        "POST",
-                        "/test/_doc?refresh",
-                        ImmutableMap.of(),
-                        new NStringEntity(json, ContentType.APPLICATION_JSON),
-                        new BasicHeader("Authorization", format("Basic %s", Base64.encodeAsString(format("%s:%s", USER, PASSWORD).getBytes(StandardCharsets.UTF_8)))));
+        Request request = new Request("POST", "/test/_doc?refresh");
+        request.setJsonEntity(json);
+        request.setOptions(RequestOptions.DEFAULT.toBuilder()
+                .addHeader("Authorization", format("Basic %s", Base64.encodeAsString(format("%s:%s", USER, PASSWORD).getBytes(StandardCharsets.UTF_8)))));
+        client.getLowLevelClient().performRequest(request);
 
         assertThat(assertions.query("SELECT * FROM test"))
                 .matches("VALUES BIGINT '42'");
