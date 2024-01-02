@@ -23,17 +23,17 @@ import dev.failsafe.function.CheckedSupplier;
 import io.airlift.log.Logger;
 import io.airlift.stats.TimeStat;
 import io.trino.plugin.elasticsearch.OpenSearchConfig;
-import org.elasticsearch.ElasticsearchStatusException;
-import org.elasticsearch.action.ActionResponse;
-import org.elasticsearch.action.search.ClearScrollRequest;
-import org.elasticsearch.action.search.ClearScrollResponse;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.action.search.SearchScrollRequest;
-import org.elasticsearch.client.RequestOptions;
-import org.elasticsearch.client.RestClientBuilder;
-import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.rest.RestStatus;
+import org.opensearch.OpenSearchStatusException;
+import org.opensearch.action.search.ClearScrollRequest;
+import org.opensearch.action.search.ClearScrollResponse;
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.search.SearchScrollRequest;
+import org.opensearch.client.RequestOptions;
+import org.opensearch.client.RestClientBuilder;
+import org.opensearch.client.RestHighLevelClient;
+import org.opensearch.core.action.ActionResponse;
+import org.opensearch.core.rest.RestStatus;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -104,8 +104,8 @@ public class BackpressureRestHighLevelClient
 
     private static boolean isBackpressure(Throwable throwable)
     {
-        return (throwable instanceof ElasticsearchStatusException) &&
-                (((ElasticsearchStatusException) throwable).status() == RestStatus.TOO_MANY_REQUESTS);
+        return (throwable instanceof OpenSearchStatusException) &&
+                (((OpenSearchStatusException) throwable).status() == RestStatus.TOO_MANY_REQUESTS);
     }
 
     private void onComplete(ExecutionCompletedEvent<ActionResponse> executionCompletedEvent)

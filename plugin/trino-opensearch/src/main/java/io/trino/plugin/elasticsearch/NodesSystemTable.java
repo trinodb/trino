@@ -45,8 +45,8 @@ public class NodesSystemTable
             ImmutableList.<ColumnMetadata>builder()
                     .add(new ColumnMetadata("trino_node_id", createUnboundedVarcharType()))
                     .add(new ColumnMetadata("trino_node_address", createUnboundedVarcharType()))
-                    .add(new ColumnMetadata("elasticsearch_node_id", createUnboundedVarcharType()))
-                    .add(new ColumnMetadata("elasticsearch_node_address", createUnboundedVarcharType()))
+                    .add(new ColumnMetadata("opensearch_node_id", createUnboundedVarcharType()))
+                    .add(new ColumnMetadata("opensearch_node_address", createUnboundedVarcharType()))
                     .build());
 
     private final OpenSearchClient client;
@@ -80,26 +80,26 @@ public class NodesSystemTable
 
         BlockBuilder nodeId = VARCHAR.createBlockBuilder(null, nodes.size());
         BlockBuilder trinoAddress = VARCHAR.createBlockBuilder(null, nodes.size());
-        BlockBuilder elasticsearchNodeId = VARCHAR.createBlockBuilder(null, nodes.size());
-        BlockBuilder elasticsearchAddress = VARCHAR.createBlockBuilder(null, nodes.size());
+        BlockBuilder opensearchNodeId = VARCHAR.createBlockBuilder(null, nodes.size());
+        BlockBuilder opensearchAddress = VARCHAR.createBlockBuilder(null, nodes.size());
 
         for (OpenSearchNode node : nodes) {
             VARCHAR.writeString(nodeId, currentNode.getNodeIdentifier());
             VARCHAR.writeString(trinoAddress, currentNode.getHostAndPort().toString());
-            VARCHAR.writeString(elasticsearchNodeId, node.getId());
+            VARCHAR.writeString(opensearchNodeId, node.getId());
 
             if (node.getAddress().isPresent()) {
-                VARCHAR.writeString(elasticsearchAddress, node.getAddress().get());
+                VARCHAR.writeString(opensearchAddress, node.getAddress().get());
             }
             else {
-                elasticsearchAddress.appendNull();
+                opensearchAddress.appendNull();
             }
         }
 
         return new FixedPageSource(ImmutableList.of(new Page(
                 nodeId.build(),
                 trinoAddress.build(),
-                elasticsearchNodeId.build(),
-                elasticsearchAddress.build())));
+                opensearchNodeId.build(),
+                opensearchAddress.build())));
     }
 }

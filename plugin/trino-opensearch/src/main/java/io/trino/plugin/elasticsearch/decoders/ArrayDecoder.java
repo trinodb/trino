@@ -18,7 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.plugin.elasticsearch.DecoderDescriptor;
 import io.trino.spi.block.ArrayBlockBuilder;
 import io.trino.spi.block.BlockBuilder;
-import org.elasticsearch.search.SearchHit;
+import org.opensearch.search.SearchHit;
 
 import java.util.List;
 import java.util.function.Supplier;

@@ -32,25 +32,26 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 
 public class OpenSearchServer
 {
-    public static final String ELASTICSEARCH_7_IMAGE = "elasticsearch:7.0.0";
+    public static final String OPENSEARCH_IMAGE = "opensearchproject/opensearch:2.11.0";
 
     private final Path configurationPath;
     private final ElasticsearchContainer container;
 
-    public OpenSearchServer(String image, Map<String, String> configurationFiles)
+    public OpenSearchServer(String image, boolean secured, Map<String, String> configurationFiles)
             throws IOException
     {
-        this(Network.SHARED, image, configurationFiles);
+        this(Network.SHARED, image, secured, configurationFiles);
     }
 
-    public OpenSearchServer(Network network, String image, Map<String, String> configurationFiles)
+    public OpenSearchServer(Network network, String image, boolean secured, Map<String, String> configurationFiles)
             throws IOException
     {
         DockerImageName dockerImageName = DockerImageName.parse(image).asCompatibleSubstituteFor("docker.elastic.co/elasticsearch/elasticsearch");
         container = new ElasticsearchContainer(dockerImageName);
         container.withNetwork(network);
-        container.withNetworkAliases("elasticsearch-server");
-        container.withEnv("DISABLE_SECURITY_PLUGIN", "true"); // Required for OpenSearch container
+        container.withReuse(false);
+        container.withNetworkAliases("opensearch-server");
+        container.withEnv("DISABLE_SECURITY_PLUGIN", Boolean.toString(!secured));
 
         configurationPath = createTempDirectory(null);
         for (Map.Entry<String, String> entry : configurationFiles.entrySet()) {
@@ -59,7 +60,7 @@ public class OpenSearchServer
 
             Path path = configurationPath.resolve(name);
             Files.writeString(path, contents, UTF_8);
-            container.withCopyFileToContainer(forHostPath(path), "/usr/share/elasticsearch/config/" + name);
+            container.withCopyFileToContainer(forHostPath(path, 0777), "/usr/share/opensearch/config/" + name);
         }
 
         container.start();

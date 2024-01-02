@@ -15,20 +15,13 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.elasticsearch.version>6.8.23</dep.elasticsearch.version>
+        <dep.opensearch.version>2.11.1</dep.opensearch.version>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-core</artifactId>
-            <exclusions>
-                <!-- org.elasticsearch:elasticsearch:6.8.23 brings in version 4.5.13 (vs 4.5.2)  -->
-                <exclusion>
-                    <groupId>org.apache.httpcomponents</groupId>
-                    <artifactId>httpclient</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
 
         <dependency>
@@ -114,9 +107,8 @@
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpasyncclient</artifactId>
-            <version>4.1.2</version>
+            <version>4.1.5</version>
             <exclusions>
-                <!-- Brings in duplicate classes already in org.slf4j:jcl-over-slf4j (from io.airlift:log-manager) -->
                 <exclusion>
                     <groupId>commons-logging</groupId>
                     <artifactId>commons-logging</artifactId>
@@ -129,7 +121,6 @@
             <artifactId>httpclient</artifactId>
             <version>4.5.14</version>
             <exclusions>
-                <!-- Brings in duplicate classes already in org.slf4j:jcl-over-slf4j (from io.airlift:log-manager) -->
                 <exclusion>
                     <groupId>commons-logging</groupId>
                     <artifactId>commons-logging</artifactId>
@@ -150,51 +141,46 @@
         </dependency>
 
         <dependency>
-            <groupId>org.elasticsearch</groupId>
-            <artifactId>elasticsearch</artifactId>
-            <version>${dep.elasticsearch.version}</version>
+            <groupId>org.opensearch</groupId>
+            <artifactId>opensearch</artifactId>
+            <version>${dep.opensearch.version}</version>
             <exclusions>
                 <exclusion>
-                    <groupId>org.apache.logging.log4j</groupId>
-                    <artifactId>log4j-api</artifactId>
-                </exclusion>
-                <!-- trino-main brings in 8.4.1 (vs 7.7.3) -->
-                <exclusion>
-                    <groupId>org.apache.lucene</groupId>
-                    <artifactId>lucene-analyzers-common</artifactId>
-                </exclusion>
-                <!-- Brings in duplicate classes already in net.java.dev.jna:jna -->
-                <exclusion>
-                    <groupId>org.elasticsearch</groupId>
-                    <artifactId>jna</artifactId>
+                    <groupId>org.hdrhistogram</groupId>
+                    <artifactId>HdrHistogram</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
 
         <dependency>
-            <groupId>org.elasticsearch</groupId>
-            <artifactId>elasticsearch-core</artifactId>
-            <version>${dep.elasticsearch.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.elasticsearch</groupId>
-            <artifactId>elasticsearch-x-content</artifactId>
-            <version>${dep.elasticsearch.version}</version>
+            <groupId>org.opensearch</groupId>
+            <artifactId>opensearch-common</artifactId>
+            <version>${dep.opensearch.version}</version>
             <exclusions>
                 <exclusion>
-                    <groupId>org.yaml</groupId>
-                    <artifactId>snakeyaml</artifactId>
+                    <groupId>org.hdrhistogram</groupId>
+                    <artifactId>HdrHistogram</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
 
         <dependency>
-            <groupId>org.elasticsearch.client</groupId>
-            <artifactId>elasticsearch-rest-client</artifactId>
-            <version>${dep.elasticsearch.version}</version>
+            <groupId>org.opensearch</groupId>
+            <artifactId>opensearch-core</artifactId>
+            <version>${dep.opensearch.version}</version>
             <exclusions>
-                <!-- Brings in duplicate classes already in org.slf4j:jcl-over-slf4j (from io.airlift:log-manager) -->
+                <exclusion>
+                    <groupId>org.hdrhistogram</groupId>
+                    <artifactId>HdrHistogram</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.opensearch.client</groupId>
+            <artifactId>opensearch-rest-client</artifactId>
+            <version>${dep.opensearch.version}</version>
+            <exclusions>
                 <exclusion>
                     <groupId>commons-logging</groupId>
                     <artifactId>commons-logging</artifactId>
@@ -203,13 +189,13 @@
         </dependency>
 
         <dependency>
-            <groupId>org.elasticsearch.client</groupId>
-            <artifactId>elasticsearch-rest-high-level-client</artifactId>
-            <version>${dep.elasticsearch.version}</version>
+            <groupId>org.opensearch.client</groupId>
+            <artifactId>opensearch-rest-high-level-client</artifactId>
+            <version>${dep.opensearch.version}</version>
             <exclusions>
                 <exclusion>
-                    <groupId>org.apache.logging.log4j</groupId>
-                    <artifactId>log4j-api</artifactId>
+                    <groupId>org.hdrhistogram</groupId>
+                    <artifactId>HdrHistogram</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -264,6 +250,13 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>node</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.opensearch</groupId>
+            <artifactId>opensearch-x-content</artifactId>
+            <version>${dep.opensearch.version}</version>
             <scope>runtime</scope>
         </dependency>
 
@@ -391,12 +384,6 @@
 
         <dependency>
             <groupId>org.testcontainers</groupId>
-            <artifactId>nginx</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
             <scope>test</scope>
         </dependency>
@@ -417,17 +404,6 @@
                                 </excludes>
                             </requireUpperBoundDeps>
                         </rules>
-                    </configuration>
-                </plugin>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-dependency-plugin</artifactId>
-                    <configuration>
-                        <ignoredNonTestScopedDependencies>
-                            <!-- TODO: https://issues.apache.org/jira/browse/MDEP-791 -->
-                            <!-- elasticsearch-x-content is required in compile scope by org.elasticsearch:elasticsearch -->
-                            <ignoredNonTestScopedDependency>org.elasticsearch:elasticsearch-x-content</ignoredNonTestScopedDependency>
-                        </ignoredNonTestScopedDependencies>
                     </configuration>
                 </plugin>
             </plugins>
