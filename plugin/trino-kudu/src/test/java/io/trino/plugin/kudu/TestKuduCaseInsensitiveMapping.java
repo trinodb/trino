@@ -84,7 +84,6 @@ public class TestKuduCaseInsensitiveMapping
 
     @Test
     public void testNonLowerCaseTableName()
-            throws Exception
     {
         String schemaName = "default";
         String schemaNameLowerCase = schemaName.toLowerCase(ENGLISH);
@@ -98,42 +97,40 @@ public class TestKuduCaseInsensitiveMapping
                 .add(new KuduTestColumn(VARCHAR, "Mixed_Case_Name", "b"))
                 .add(new KuduTestColumn(VARCHAR, "UPPER_CASE_NAME", "c"))
                 .build();
-        try (AutoCloseable ignoreTable = withTable(tableName, kuduTableColumns)) {
-            assertQuery(
-                    format("SELECT column_name FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s'", schemaName, tableNameLowerCase),
-                    "VALUES 'id', 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
-            assertQuery(
-                    format("SELECT column_name FROM information_schema.columns WHERE table_name = '%s'", tableNameLowerCase),
-                    "VALUES 'id', 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
-            assertThat(query(format("SHOW COLUMNS FROM %s.%s", schemaName, tableNameLowerCase)))
-                    .projected("Column")
-                    .skippingTypesCheck()
-                    .matches("VALUES 'id', 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
+        KuduTestTable.create(kuduClient, tableName, kuduTableColumns);
+        assertQuery(
+                format("SELECT column_name FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s'", schemaName, tableNameLowerCase),
+                "VALUES 'id', 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
+        assertQuery(
+                format("SELECT column_name FROM information_schema.columns WHERE table_name = '%s'", tableNameLowerCase),
+                "VALUES 'id', 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
+        assertThat(query(format("SHOW COLUMNS FROM %s.%s", schemaName, tableNameLowerCase)))
+                .projected("Column")
+                .skippingTypesCheck()
+                .matches("VALUES 'id', 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
 
-            assertQuery(format("SELECT lower_case_name FROM %s.%s", schemaNameLowerCase, tableNameLowerCase), "VALUES 'a'");
-            assertQuery(format("SELECT mixed_case_name FROM %s.%s", schemaNameLowerCase, tableNameLowerCase), "VALUES 'b'");
-            assertQuery(format("SELECT upper_case_name FROM %s.%s", schemaNameLowerCase, tableNameLowerCase), "VALUES 'c'");
-            assertQuery(format("SELECT upper_case_name FROM %s.%s", schemaNameUpperCase, tableName), "VALUES 'c'");
-            assertQuery(format("SELECT upper_case_name FROM \"%s\".\"%s\"", schemaNameUpperCase, tableName), "VALUES 'c'");
-        }
+        assertQuery(format("SELECT lower_case_name FROM %s.%s", schemaNameLowerCase, tableNameLowerCase), "VALUES 'a'");
+        assertQuery(format("SELECT mixed_case_name FROM %s.%s", schemaNameLowerCase, tableNameLowerCase), "VALUES 'b'");
+        assertQuery(format("SELECT upper_case_name FROM %s.%s", schemaNameLowerCase, tableNameLowerCase), "VALUES 'c'");
+        assertQuery(format("SELECT upper_case_name FROM %s.%s", schemaNameUpperCase, tableName), "VALUES 'c'");
+        assertQuery(format("SELECT upper_case_name FROM \"%s\".\"%s\"", schemaNameUpperCase, tableName), "VALUES 'c'");
     }
 
     @Test
     public void testTableNameClash()
-            throws Exception
+
     {
         String schemaName = "default";
         ImmutableList.Builder<KuduTestColumn> builder = ImmutableList.builder();
         ImmutableList<KuduTestColumn> kuduTableColumns = builder
                 .add(new KuduTestColumn(BIGINT, "id", "1", true))
                 .build();
-        try (AutoCloseable ignoreTable = withTable("test_name_clash", kuduTableColumns);
-                AutoCloseable ignoreOtherTable = withTable("test_NAME_Clash", kuduTableColumns);
-                AutoCloseable ignoreSomeable = withTable("some_table", kuduTableColumns)) {
-            assertThat(computeActual("SHOW TABLES FROM " + schemaName).getOnlyColumn()).filteredOn("test_name_clash"::equals).hasSize(1);
-            assertQueryFails(format("SELECT * FROM %s.test_name_clash", schemaName), "Failed to find remote table name: Ambiguous name: test_name_clash");
-            assertQuery(format("SELECT * FROM %s.some_table", schemaName), "VALUES '1'");
-        }
+        KuduTestTable.create(kuduClient, "test_name_clash", kuduTableColumns);
+        KuduTestTable.create(kuduClient, "test_NAME_Clash", kuduTableColumns);
+        KuduTestTable.create(kuduClient, "some_table", kuduTableColumns);
+        assertThat(computeActual("SHOW TABLES FROM " + schemaName).getOnlyColumn()).filteredOn("test_name_clash"::equals).hasSize(1);
+        assertQueryFails(format("SELECT * FROM %s.test_name_clash", schemaName), "Failed to find remote table name: Ambiguous name: test_name_clash");
+        assertQuery(format("SELECT * FROM %s.some_table", schemaName), "VALUES '1'");
     }
 
     @Test
@@ -150,11 +147,10 @@ public class TestKuduCaseInsensitiveMapping
                 .add(new KuduTestColumn(BIGINT, "id", "1", true))
                 .build();
 
-        try (AutoCloseable ignoreTable = withTable("remote_table", kuduTableColumns)) {
-            assertThat(computeActual("SHOW TABLES FROM " + schema).getOnlyColumn())
-                    .contains("trino_table");
-            assertQuery("SELECT * FROM " + schema + ".trino_table", "VALUES '1'");
-        }
+        KuduTestTable.create(kuduClient, "remote_table", kuduTableColumns);
+        assertThat(computeActual("SHOW TABLES FROM " + schema).getOnlyColumn())
+                .contains("trino_table");
+        assertQuery("SELECT * FROM " + schema + ".trino_table", "VALUES '1'");
     }
 
     @Test
@@ -174,44 +170,42 @@ public class TestKuduCaseInsensitiveMapping
 
         String remoteTable = "test_clash_with_rule_mapping";
         String otherRemoteTable = "test_CLASH_with_RULE_mapping";
-        try (AutoCloseable ignoreTable = withTable(remoteTable, kuduTableColumns);
-                AutoCloseable ignoreOtherTable = withTable(otherRemoteTable, kuduTableColumns)) {
-            String table = tableMappingRules.stream()
-                    .filter(rule -> rule.getRemoteTable().equals(remoteTable))
-                    .map(TableMappingRule::getMapping)
-                    .collect(onlyElement());
+        KuduTestTable.create(kuduClient, remoteTable, kuduTableColumns);
+        KuduTestTable.create(kuduClient, otherRemoteTable, kuduTableColumns);
+        String table = tableMappingRules.stream()
+                .filter(rule -> rule.getRemoteTable().equals(remoteTable))
+                .map(TableMappingRule::getMapping)
+                .collect(onlyElement());
 
-            assertThat(computeActual("SHOW TABLES FROM " + schema).getOnlyColumn())
-                    .map(String.class::cast)
-                    .filteredOn(anObject -> anObject.startsWith("test_clash_with_rule_mapping_"))
-                    .hasSize(2);
-            assertQuery("SELECT * FROM " + schema + "." + table, "VALUES '1'");
-        }
+        assertThat(computeActual("SHOW TABLES FROM " + schema).getOnlyColumn())
+                .map(String.class::cast)
+                .filteredOn(anObject -> anObject.startsWith("test_clash_with_rule_mapping_"))
+                .hasSize(2);
+        assertQuery("SELECT * FROM " + schema + "." + table, "VALUES '1'");
     }
 
     @Test
     public void testCaseInsensitiveRenameTable()
-            throws Exception
+
     {
         String schemaName = "default";
         ImmutableList.Builder<KuduTestColumn> builder = ImmutableList.builder();
         ImmutableList<KuduTestColumn> kuduTableColumns = builder
                 .add(new KuduTestColumn(BIGINT, "id", "1", true))
                 .build();
-        try (AutoCloseable ignoreTableLoweCase = withTable("testInsensitive_RenameTable", kuduTableColumns)) {
-            assertQuery(format("SHOW TABLES FROM %s", schemaName), "VALUES 'testinsensitive_renametable'");
-            assertQuery(format("SELECT * FROM %s.testinsensitive_renametable", schemaName), "VALUES '1'");
+        KuduTestTable.create(kuduClient, "testInsensitive_RenameTable", kuduTableColumns);
+        assertQuery(format("SHOW TABLES FROM %s", schemaName), "VALUES 'testinsensitive_renametable'");
+        assertQuery(format("SELECT * FROM %s.testinsensitive_renametable", schemaName), "VALUES '1'");
 
-            assertUpdate(format("ALTER TABLE %s.testinsensitive_renametable RENAME TO %s.testinsensitive_renamed_table", schemaName, schemaName));
+        assertUpdate(format("ALTER TABLE %s.testinsensitive_renametable RENAME TO %s.testinsensitive_renamed_table", schemaName, schemaName));
 
-            assertQuery(format("SHOW TABLES IN %s", schemaName), "SELECT 'testinsensitive_renamed_table'");
-            assertQuery(format("SELECT * FROM %s.testinsensitive_renamed_table", schemaName), "VALUES '1'");
-        }
+        assertQuery(format("SHOW TABLES IN %s", schemaName), "SELECT 'testinsensitive_renamed_table'");
+        assertQuery(format("SELECT * FROM %s.testinsensitive_renamed_table", schemaName), "VALUES '1'");
     }
 
     @Test
     public void testDropAndAddRangePartition()
-            throws Exception
+
     {
         String schemaName = "default";
         ImmutableList.Builder<KuduTestColumn> builder = ImmutableList.builder();
@@ -219,17 +213,8 @@ public class TestKuduCaseInsensitiveMapping
                 .add(new KuduTestColumn(BIGINT, "id", "1", true))
                 .add(new KuduTestColumn(BIGINT, "key", "1"))
                 .build();
-        try (AutoCloseable ignoreTableLowerCase = withTable("Test_DRop_AND_Add_Range_Partition", kuduTableColumns)) {
-            assertUpdate(format("CALL kudu.system.drop_range_partition('%s', '%s', '%s')", schemaName, "test_drop_and_add_range_partition", "{\"lower\": null, \"upper\": null}"));
-            assertUpdate(format("CALL kudu.system.add_range_partition('%s', '%s', '%s')", schemaName, "test_drop_and_add_range_partition", "{\"lower\": 0, \"upper\": 1000}"));
-        }
-    }
-
-    private AutoCloseable withTable(String remoteTableName, List<KuduTestColumn> items)
-    {
-        return new KuduTestTable(
-                remoteTableName,
-                items,
-                kuduClient);
+        KuduTestTable.create(kuduClient, "Test_DRop_AND_Add_Range_Partition", kuduTableColumns);
+        assertUpdate(format("CALL kudu.system.drop_range_partition('%s', '%s', '%s')", schemaName, "test_drop_and_add_range_partition", "{\"lower\": null, \"upper\": null}"));
+        assertUpdate(format("CALL kudu.system.add_range_partition('%s', '%s', '%s')", schemaName, "test_drop_and_add_range_partition", "{\"lower\": 0, \"upper\": 1000}"));
     }
 }

@@ -22,7 +22,6 @@ import io.trino.plugin.kudu.properties.PartitionDesign;
 import io.trino.plugin.kudu.properties.RangePartition;
 import io.trino.plugin.kudu.properties.RangePartitionDefinition;
 import io.trino.spi.connector.ColumnMetadata;
-import io.trino.testing.sql.TemporaryRelation;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.Schema;
 import org.apache.kudu.Type;
@@ -46,23 +45,18 @@ import static io.trino.plugin.kudu.properties.KuduTableProperties.PARTITION_BY_R
 import static io.trino.plugin.kudu.properties.KuduTableProperties.PRIMARY_KEY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static java.util.Objects.requireNonNull;
 
-public class KuduTestTable
-        implements TemporaryRelation
+public abstract class KuduTestTable
 {
-    private final String tableName;
-    private final KuduClient kuduClient;
+    private KuduTestTable() {}
 
-    public KuduTestTable(String tableName, List<KuduTestColumn> rows, KuduClient client)
+    public static void create(KuduClient kuduClient, String tableName, List<KuduTestColumn> rows)
     {
-        this.tableName = requireNonNull(tableName, "tableName is null");
-        this.kuduClient = requireNonNull(client, "kuduClient is null");
-        createTestTable(tableName, rows);
-        addRows(rows);
+        createTestTable(kuduClient, tableName, rows);
+        addRows(kuduClient, tableName, rows);
     }
 
-    public void addRows(List<KuduTestColumn> rows)
+    private static void addRows(KuduClient kuduClient, String tableName, List<KuduTestColumn> rows)
     {
         try {
             KuduTable kuduTable = kuduClient.openTable(tableName);
@@ -87,19 +81,7 @@ public class KuduTestTable
         }
     }
 
-    @Override
-    public String getName()
-    {
-        return tableName;
-    }
-
-    @Override
-    public void close()
-    {
-        // no-op
-    }
-
-    private void createTestTable(String name, List<KuduTestColumn> kuduTestColumns)
+    private static void createTestTable(KuduClient kuduClient, String tableName, List<KuduTestColumn> kuduTestColumns)
     {
         try {
             ImmutableList.Builder<ColumnMetadata> trinoColumns = ImmutableList.builder();
@@ -121,21 +103,21 @@ public class KuduTestTable
                     .put(PARTITION_BY_RANGE_COLUMNS, ImmutableList.of())
                     .buildOrThrow();
             CreateTableOptions options = buildCreateTableOptions(schema, kuduTableProperties);
-            kuduClient.createTable(name, schema, options);
+            kuduClient.createTable(tableName, schema, options);
         }
         catch (KuduException ignore) {
         }
     }
 
-    private Schema buildSchema(List<ColumnMetadata> columns)
+    private static Schema buildSchema(List<ColumnMetadata> columns)
     {
         List<ColumnSchema> kuduColumns = columns.stream()
-                .map(this::toColumnSchema)
+                .map(KuduTestTable::toColumnSchema)
                 .collect(toImmutableList());
         return new Schema(kuduColumns);
     }
 
-    private ColumnSchema toColumnSchema(ColumnMetadata columnMetadata)
+    private static ColumnSchema toColumnSchema(ColumnMetadata columnMetadata)
     {
         String name = columnMetadata.getName();
         ColumnDesign design = KuduTableProperties.getColumnDesign(columnMetadata.getProperties());
@@ -145,7 +127,7 @@ public class KuduTestTable
         return builder.build();
     }
 
-    private CreateTableOptions buildCreateTableOptions(Schema schema, Map<String, Object> properties)
+    private static CreateTableOptions buildCreateTableOptions(Schema schema, Map<String, Object> properties)
     {
         CreateTableOptions options = new CreateTableOptions();
 
