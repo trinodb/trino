@@ -27,22 +27,21 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.tpch.TpchTable;
 import org.apache.http.HttpHost;
-import org.apache.http.entity.ContentType;
-import org.apache.http.nio.entity.NStringEntity;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestHighLevelClient;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.opensearch.client.Request;
+import org.opensearch.client.RestClient;
+import org.opensearch.client.RestHighLevelClient;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
-import static io.trino.plugin.elasticsearch.OpenSearchQueryRunner.createElasticsearchQueryRunner;
+import static io.trino.plugin.elasticsearch.OpenSearchQueryRunner.createOpenSearchQueryRunner;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
@@ -59,7 +58,7 @@ public abstract class BaseOpenSearchConnectorTest
 {
     private final String image;
     private final String catalogName;
-    private OpenSearchServer elasticsearch;
+    private OpenSearchServer opensearch;
     protected RestHighLevelClient client;
 
     BaseOpenSearchConnectorTest(String image, String catalogName)
@@ -72,13 +71,12 @@ public abstract class BaseOpenSearchConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        elasticsearch = new OpenSearchServer(image, ImmutableMap.of());
-
-        HostAndPort address = elasticsearch.getAddress();
+        opensearch = new OpenSearchServer(image, false, ImmutableMap.of());
+        HostAndPort address = opensearch.getAddress();
         client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort())));
 
-        return createElasticsearchQueryRunner(
-                elasticsearch.getAddress(),
+        return createOpenSearchQueryRunner(
+                opensearch.getAddress(),
                 TpchTable.getTables(),
                 ImmutableMap.of(),
                 ImmutableMap.of(),
@@ -90,8 +88,8 @@ public abstract class BaseOpenSearchConnectorTest
     public final void destroy()
             throws IOException
     {
-        elasticsearch.stop();
-        elasticsearch = null;
+        opensearch.stop();
+        opensearch = null;
         client.close();
         client = null;
     }
@@ -124,10 +122,10 @@ public abstract class BaseOpenSearchConnectorTest
     /**
      * This method overrides the default values used for the data provider
      * of the test {@link AbstractTestQueries#testLargeIn(int)} by taking
-     * into account that by default Elasticsearch supports only up to `1024`
+     * into account that by default Opensearch 2.x supports only up to `1024`
      * clauses in query.
      * <p>
-     * Consult `index.query.bool.max_clause_count` elasticsearch.yml setting
+     * Consult `index.query.bool.max_clause_count` opensearch.yml setting
      * for more details.
      *
      * @return the amount of clauses to be used in large queries
@@ -1910,53 +1908,63 @@ public abstract class BaseOpenSearchConnectorTest
         assertQueryFails("SELECT * FROM " + name, ".*Table '" + catalogName + ".tpch." + name + "' does not exist");
     }
 
-    protected abstract String indexEndpoint(String index, String docId);
+    protected String indexEndpoint(String index, String docId)
+    {
+        return format("/%s/_doc/%s", index, docId);
+    }
 
     private void index(String index, Map<String, Object> document)
             throws IOException
     {
         String json = new ObjectMapper().writeValueAsString(document);
         String endpoint = format("%s?refresh", indexEndpoint(index, String.valueOf(System.nanoTime())));
-        client.getLowLevelClient()
-                .performRequest("PUT", endpoint, ImmutableMap.of(), new NStringEntity(json, ContentType.APPLICATION_JSON));
+
+        Request request = new Request("PUT", endpoint);
+        request.setJsonEntity(json);
+        client.getLowLevelClient().performRequest(request);
     }
 
     private void addAlias(String index, String alias)
             throws IOException
     {
-        client.getLowLevelClient()
-                .performRequest("PUT", format("/%s/_alias/%s", index, alias));
+        Request request = new Request("PUT", format("/%s/_alias/%s", index, alias));
+        client.getLowLevelClient().performRequest(request);
 
         refreshIndex(alias);
     }
 
-    protected abstract String indexMapping(@Language("JSON") String properties);
+    protected String indexMapping(@Language("JSON") String properties)
+    {
+        return "{\"mappings\": " + properties + "}";
+    }
 
     private void createIndex(String indexName)
             throws IOException
     {
-        client.getLowLevelClient().performRequest("PUT", "/" + indexName);
+        Request request = new Request("PUT", "/" + indexName);
+        client.getLowLevelClient().performRequest(request);
     }
 
     private void createIndex(String indexName, @Language("JSON") String properties)
             throws IOException
     {
         String mappings = indexMapping(properties);
-        client.getLowLevelClient()
-                .performRequest("PUT", "/" + indexName, ImmutableMap.of(), new NStringEntity(mappings, ContentType.APPLICATION_JSON));
+        Request request = new Request("PUT", "/" + indexName);
+        request.setJsonEntity(mappings);
+        client.getLowLevelClient().performRequest(request);
     }
 
     private void refreshIndex(String index)
             throws IOException
     {
-        client.getLowLevelClient()
-                .performRequest("GET", format("/%s/_refresh", index));
+        Request request = new Request("GET", format("/%s/_refresh", index));
+        client.getLowLevelClient().performRequest(request);
     }
 
     private void deleteIndex(String indexName)
             throws IOException
     {
-        client.getLowLevelClient()
-                .performRequest("DELETE", "/" + indexName);
+        Request request = new Request("DELETE",  "/" + indexName);
+        client.getLowLevelClient().performRequest(request);
     }
 }

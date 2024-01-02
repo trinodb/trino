@@ -45,7 +45,7 @@ import static org.apache.http.protocol.HttpCoreContext.HTTP_TARGET_HOST;
 class AwsRequestSigner
         implements HttpRequestInterceptor
 {
-    private static final String SERVICE_NAME = "es";
+    private static final String SERVICE_NAME = "aoss";
     private final AWSCredentialsProvider credentialsProvider;
     private final AWS4Signer signer;
 

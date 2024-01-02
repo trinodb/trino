@@ -26,9 +26,9 @@ import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.search.SearchHit;
-import org.elasticsearch.search.SearchHits;
+import org.opensearch.action.search.SearchResponse;
+import org.opensearch.search.SearchHit;
+import org.opensearch.search.SearchHits;
 
 import java.util.Arrays;
 import java.util.HashMap;

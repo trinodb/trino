@@ -53,18 +53,18 @@ import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 import org.apache.http.impl.nio.reactor.IOReactorConfig;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.util.EntityUtils;
-import org.elasticsearch.ElasticsearchStatusException;
-import org.elasticsearch.action.search.ClearScrollRequest;
-import org.elasticsearch.action.search.SearchRequest;
-import org.elasticsearch.action.search.SearchResponse;
-import org.elasticsearch.action.search.SearchScrollRequest;
-import org.elasticsearch.client.Response;
-import org.elasticsearch.client.ResponseException;
-import org.elasticsearch.client.RestClient;
-import org.elasticsearch.client.RestClientBuilder;
-import org.elasticsearch.common.unit.TimeValue;
-import org.elasticsearch.index.query.QueryBuilder;
-import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.opensearch.OpenSearchStatusException;
+import org.opensearch.action.search.ClearScrollRequest;
+import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.search.SearchScrollRequest;
+import org.opensearch.client.Response;
+import org.opensearch.client.ResponseException;
+import org.opensearch.client.RestClient;
+import org.opensearch.client.RestClientBuilder;
+import org.opensearch.common.unit.TimeValue;
+import org.opensearch.index.query.QueryBuilder;
+import org.opensearch.search.builder.SearchSourceBuilder;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -92,17 +92,17 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.plugin.base.ssl.SslUtils.createSSLContext;
-import static io.trino.plugin.elasticsearch.OpenSearchErrorCode.ELASTICSEARCH_CONNECTION_ERROR;
-import static io.trino.plugin.elasticsearch.OpenSearchErrorCode.ELASTICSEARCH_INVALID_METADATA;
-import static io.trino.plugin.elasticsearch.OpenSearchErrorCode.ELASTICSEARCH_INVALID_RESPONSE;
-import static io.trino.plugin.elasticsearch.OpenSearchErrorCode.ELASTICSEARCH_QUERY_FAILURE;
-import static io.trino.plugin.elasticsearch.OpenSearchErrorCode.ELASTICSEARCH_SSL_INITIALIZATION_FAILURE;
+import static io.trino.plugin.elasticsearch.OpenSearchErrorCode.OPENSEARCH_CONNECTION_ERROR;
+import static io.trino.plugin.elasticsearch.OpenSearchErrorCode.OPENSEARCH_INVALID_METADATA;
+import static io.trino.plugin.elasticsearch.OpenSearchErrorCode.OPENSEARCH_INVALID_RESPONSE;
+import static io.trino.plugin.elasticsearch.OpenSearchErrorCode.OPENSEARCH_QUERY_FAILURE;
+import static io.trino.plugin.elasticsearch.OpenSearchErrorCode.OPENSEARCH_SSL_INITIALIZATION_FAILURE;
 import static java.lang.StrictMath.toIntExact;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.elasticsearch.action.search.SearchType.QUERY_THEN_FETCH;
+import static org.opensearch.action.search.SearchType.QUERY_THEN_FETCH;
 
 public class OpenSearchClient
 {
@@ -201,8 +201,7 @@ public class OpenSearchClient
         RestClientBuilder builder = RestClient.builder(
                 config.getHosts().stream()
                         .map(httpHost -> new HttpHost(httpHost, config.getPort(), config.isTlsEnabled() ? "https" : "http"))
-                        .toArray(HttpHost[]::new))
-                .setMaxRetryTimeoutMillis(toIntExact(config.getMaxRetryTime().toMillis()));
+                        .toArray(HttpHost[]::new));
 
         builder.setHttpClientConfigCallback(ignored -> {
             RequestConfig requestConfig = RequestConfig.custom()
@@ -283,7 +282,7 @@ public class OpenSearchClient
             return Optional.of(createSSLContext(keyStorePath, keyStorePassword, trustStorePath, trustStorePassword));
         }
         catch (GeneralSecurityException | IOException e) {
-            throw new TrinoException(ELASTICSEARCH_SSL_INITIALIZATION_FAILURE, e);
+            throw new TrinoException(OPENSEARCH_SSL_INITIALIZATION_FAILURE, e);
         }
     }
 
@@ -371,10 +370,10 @@ public class OpenSearchClient
             if (e.getResponse().getStatusLine().getStatusCode() == 404) {
                 return false;
             }
-            throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+            throw new TrinoException(OPENSEARCH_CONNECTION_ERROR, e);
         }
         catch (IOException e) {
-            throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+            throw new TrinoException(OPENSEARCH_CONNECTION_ERROR, e);
         }
     }
 
@@ -400,7 +399,7 @@ public class OpenSearchClient
                 return result.build();
             }
             catch (IOException e) {
-                throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
+                throw new TrinoException(OPENSEARCH_INVALID_RESPONSE, e);
             }
         });
     }
@@ -424,7 +423,7 @@ public class OpenSearchClient
                 return result.buildOrThrow();
             }
             catch (IOException e) {
-                throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
+                throw new TrinoException(OPENSEARCH_INVALID_RESPONSE, e);
             }
         });
     }
@@ -465,7 +464,7 @@ public class OpenSearchClient
                 return new IndexMetadata(parseType(mappings.get("properties"), metaProperties));
             }
             catch (IOException e) {
-                throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
+                throw new TrinoException(OPENSEARCH_INVALID_RESPONSE, e);
             }
         });
     }
@@ -494,7 +493,7 @@ public class OpenSearchClient
             // this route, as it will likely lead to confusion in dealing with array syntax in Trino and potentially nested array and other
             // syntax when parsing the raw json.
             if (isArray && asRawJson) {
-                throw new TrinoException(ELASTICSEARCH_INVALID_METADATA,
+                throw new TrinoException(OPENSEARCH_INVALID_METADATA,
                         format("A column, (%s) cannot be declared as a Trino array and also be rendered as json.", name));
             }
 
@@ -551,7 +550,7 @@ public class OpenSearchClient
                             new BasicHeader("Accept-Encoding", "application/json"));
         }
         catch (IOException e) {
-            throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+            throw new TrinoException(OPENSEARCH_CONNECTION_ERROR, e);
         }
 
         String body;
@@ -559,7 +558,7 @@ public class OpenSearchClient
             body = EntityUtils.toString(response.getEntity());
         }
         catch (IOException e) {
-            throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
+            throw new TrinoException(OPENSEARCH_INVALID_RESPONSE, e);
         }
 
         return body;
@@ -603,9 +602,9 @@ public class OpenSearchClient
             return client.search(request);
         }
         catch (IOException e) {
-            throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+            throw new TrinoException(OPENSEARCH_CONNECTION_ERROR, e);
         }
-        catch (ElasticsearchStatusException e) {
+        catch (OpenSearchStatusException e) {
             Throwable[] suppressed = e.getSuppressed();
             if (suppressed.length > 0) {
                 Throwable cause = suppressed[0];
@@ -614,7 +613,7 @@ public class OpenSearchClient
                 }
             }
 
-            throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+            throw new TrinoException(OPENSEARCH_CONNECTION_ERROR, e);
         }
         finally {
             searchStats.add(Duration.nanosSince(start));
@@ -633,7 +632,7 @@ public class OpenSearchClient
             return client.searchScroll(request);
         }
         catch (IOException e) {
-            throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+            throw new TrinoException(OPENSEARCH_CONNECTION_ERROR, e);
         }
         finally {
             nextPageStats.add(Duration.nanosSince(start));
@@ -663,7 +662,7 @@ public class OpenSearchClient
                 throw propagate(e);
             }
             catch (IOException e) {
-                throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+                throw new TrinoException(OPENSEARCH_CONNECTION_ERROR, e);
             }
 
             try {
@@ -671,7 +670,7 @@ public class OpenSearchClient
                         .getCount();
             }
             catch (IOException e) {
-                throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
+                throw new TrinoException(OPENSEARCH_INVALID_RESPONSE, e);
             }
         }
         finally {
@@ -687,7 +686,7 @@ public class OpenSearchClient
             client.clearScroll(request);
         }
         catch (IOException e) {
-            throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+            throw new TrinoException(OPENSEARCH_CONNECTION_ERROR, e);
         }
     }
 
@@ -729,7 +728,7 @@ public class OpenSearchClient
                     .performRequest("GET", path);
         }
         catch (IOException e) {
-            throw new TrinoException(ELASTICSEARCH_CONNECTION_ERROR, e);
+            throw new TrinoException(OPENSEARCH_CONNECTION_ERROR, e);
         }
 
         String body;
@@ -737,7 +736,7 @@ public class OpenSearchClient
             body = EntityUtils.toString(response.getEntity());
         }
         catch (IOException e) {
-            throw new TrinoException(ELASTICSEARCH_INVALID_RESPONSE, e);
+            throw new TrinoException(OPENSEARCH_INVALID_RESPONSE, e);
         }
 
         return handler.process(body);
@@ -755,17 +754,17 @@ public class OpenSearchClient
                         .path("reason");
 
                 if (!reason.isMissingNode()) {
-                    throw new TrinoException(ELASTICSEARCH_QUERY_FAILURE, reason.asText(), exception);
+                    throw new TrinoException(OPENSEARCH_QUERY_FAILURE, reason.asText(), exception);
                 }
             }
             catch (IOException e) {
-                TrinoException result = new TrinoException(ELASTICSEARCH_QUERY_FAILURE, exception);
+                TrinoException result = new TrinoException(OPENSEARCH_QUERY_FAILURE, exception);
                 result.addSuppressed(e);
                 throw result;
             }
         }
 
-        throw new TrinoException(ELASTICSEARCH_QUERY_FAILURE, exception);
+        throw new TrinoException(OPENSEARCH_QUERY_FAILURE, exception);
     }
 
     @VisibleForTesting

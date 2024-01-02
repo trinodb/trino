@@ -19,8 +19,8 @@ import com.google.common.primitives.Longs;
 import io.trino.plugin.elasticsearch.DecoderDescriptor;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
-import org.elasticsearch.common.document.DocumentField;
-import org.elasticsearch.search.SearchHit;
+import org.opensearch.common.document.DocumentField;
+import org.opensearch.search.SearchHit;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
