@@ -63,7 +63,7 @@ public final class DataSizeFunctions
         try {
             return Decimals.valueOf(bytes);
         }
-        catch (ArithmeticException e) {
+        catch (TrinoException e) {
             throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, format("Value out of range: '%s' ('%sB')", dataSize, bytes));
         }
     }
