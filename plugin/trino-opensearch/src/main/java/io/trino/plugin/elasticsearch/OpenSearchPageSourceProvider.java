@@ -56,22 +56,22 @@ public class OpenSearchPageSourceProvider
         requireNonNull(split, "split is null");
         requireNonNull(table, "table is null");
 
-        OpenSearchTableHandle elasticsearchTable = (OpenSearchTableHandle) table;
-        OpenSearchSplit elasticsearchSplit = (OpenSearchSplit) split;
+        OpenSearchTableHandle opensearchTable = (OpenSearchTableHandle) table;
+        OpenSearchSplit opensearchSplit = (OpenSearchSplit) split;
 
-        if (elasticsearchTable.getType().equals(QUERY)) {
-            return new PassthroughQueryPageSource(client, elasticsearchTable);
+        if (opensearchTable.getType().equals(QUERY)) {
+            return new PassthroughQueryPageSource(client, opensearchTable);
         }
 
         if (columns.isEmpty()) {
-            return new CountQueryPageSource(client, elasticsearchTable, elasticsearchSplit);
+            return new CountQueryPageSource(client, opensearchTable, opensearchSplit);
         }
 
         return new ScanQueryPageSource(
                 client,
                 typeManager,
-                elasticsearchTable,
-                elasticsearchSplit,
+                opensearchTable,
+                opensearchSplit,
                 columns.stream()
                         .map(OpenSearchColumnHandle.class::cast)
                         .collect(toImmutableList()));
