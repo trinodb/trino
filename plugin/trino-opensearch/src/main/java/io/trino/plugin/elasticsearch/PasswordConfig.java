@@ -28,7 +28,7 @@ public class PasswordConfig
         return user;
     }
 
-    @Config("elasticsearch.auth.user")
+    @Config("opensearch.auth.user")
     public PasswordConfig setUser(String user)
     {
         this.user = user;
@@ -41,7 +41,7 @@ public class PasswordConfig
         return password;
     }
 
-    @Config("elasticsearch.auth.password")
+    @Config("opensearch.auth.password")
     @ConfigSecuritySensitive
     public PasswordConfig setPassword(String password)
     {

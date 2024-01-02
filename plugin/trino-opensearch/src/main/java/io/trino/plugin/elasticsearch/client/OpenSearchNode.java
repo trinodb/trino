@@ -11,28 +11,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.elasticsearch;
+package io.trino.plugin.elasticsearch.client;
 
-import static java.lang.String.format;
+import java.util.Optional;
 
-public class TestElasticsearchOpenSearchConnectorTest
-        extends BaseElasticsearchConnectorTest
+import static java.util.Objects.requireNonNull;
+
+public class OpenSearchNode
 {
-    public TestElasticsearchOpenSearchConnectorTest()
+    private final String id;
+    private final Optional<String> address;
+
+    public OpenSearchNode(String id, Optional<String> address)
     {
-        // 1.0.0 and 1.0.1 causes NotSslRecordException during the initialization
-        super("opensearchproject/opensearch:1.1.0", "opensearch");
+        this.id = requireNonNull(id, "id is null");
+        this.address = requireNonNull(address, "address is null");
+    }
+
+    public String getId()
+    {
+        return id;
+    }
+
+    public Optional<String> getAddress()
+    {
+        return address;
     }
 
     @Override
-    protected String indexEndpoint(String index, String docId)
+    public String toString()
     {
-        return format("/%s/_doc/%s", index, docId);
-    }
-
-    @Override
-    protected String indexMapping(String properties)
-    {
-        return "{\"mappings\": " + properties + "}";
+        return id + "@" + address.orElse("<unknown>");
     }
 }

@@ -33,18 +33,18 @@ import org.junit.jupiter.api.Test;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.trino.plugin.elasticsearch.ElasticsearchQueryBuilder.buildSearchQuery;
+import static io.trino.plugin.elasticsearch.OpenSearchQueryBuilder.buildSearchQuery;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestElasticsearchQueryBuilder
+public class TestOpenSearchQueryBuilder
 {
-    private static final ElasticsearchColumnHandle NAME = new ElasticsearchColumnHandle("name", VARCHAR, new VarcharDecoder.Descriptor("name"), true);
-    private static final ElasticsearchColumnHandle AGE = new ElasticsearchColumnHandle("age", INTEGER, new IntegerDecoder.Descriptor("age"), true);
-    private static final ElasticsearchColumnHandle SCORE = new ElasticsearchColumnHandle("score", DOUBLE, new DoubleDecoder.Descriptor("score"), true);
-    private static final ElasticsearchColumnHandle LENGTH = new ElasticsearchColumnHandle("length", DOUBLE, new DoubleDecoder.Descriptor("length"), true);
+    private static final OpenSearchColumnHandle NAME = new OpenSearchColumnHandle("name", VARCHAR, new VarcharDecoder.Descriptor("name"), true);
+    private static final OpenSearchColumnHandle AGE = new OpenSearchColumnHandle("age", INTEGER, new IntegerDecoder.Descriptor("age"), true);
+    private static final OpenSearchColumnHandle SCORE = new OpenSearchColumnHandle("score", DOUBLE, new DoubleDecoder.Descriptor("score"), true);
+    private static final OpenSearchColumnHandle LENGTH = new OpenSearchColumnHandle("length", DOUBLE, new DoubleDecoder.Descriptor("length"), true);
 
     @Test
     public void testMatchAll()
@@ -130,7 +130,7 @@ public class TestElasticsearchQueryBuilder
                         .mustNot(new ExistsQueryBuilder(SCORE.getName())));
     }
 
-    private static void assertQueryBuilder(Map<ElasticsearchColumnHandle, Domain> domains, QueryBuilder expected)
+    private static void assertQueryBuilder(Map<OpenSearchColumnHandle, Domain> domains, QueryBuilder expected)
     {
         QueryBuilder actual = buildSearchQuery(TupleDomain.withColumnDomains(domains), Optional.empty(), Map.of());
         assertThat(actual).isEqualTo(expected);

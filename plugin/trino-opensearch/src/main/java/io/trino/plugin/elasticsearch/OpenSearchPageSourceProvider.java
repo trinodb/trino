@@ -14,7 +14,7 @@
 package io.trino.plugin.elasticsearch;
 
 import com.google.inject.Inject;
-import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
+import io.trino.plugin.elasticsearch.client.OpenSearchClient;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -28,17 +28,17 @@ import io.trino.spi.type.TypeManager;
 import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
+import static io.trino.plugin.elasticsearch.OpenSearchTableHandle.Type.QUERY;
 import static java.util.Objects.requireNonNull;
 
-public class ElasticsearchPageSourceProvider
+public class OpenSearchPageSourceProvider
         implements ConnectorPageSourceProvider
 {
-    private final ElasticsearchClient client;
+    private final OpenSearchClient client;
     private final TypeManager typeManager;
 
     @Inject
-    public ElasticsearchPageSourceProvider(ElasticsearchClient client, TypeManager typeManager)
+    public OpenSearchPageSourceProvider(OpenSearchClient client, TypeManager typeManager)
     {
         this.client = requireNonNull(client, "client is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -56,8 +56,8 @@ public class ElasticsearchPageSourceProvider
         requireNonNull(split, "split is null");
         requireNonNull(table, "table is null");
 
-        ElasticsearchTableHandle elasticsearchTable = (ElasticsearchTableHandle) table;
-        ElasticsearchSplit elasticsearchSplit = (ElasticsearchSplit) split;
+        OpenSearchTableHandle elasticsearchTable = (OpenSearchTableHandle) table;
+        OpenSearchSplit elasticsearchSplit = (OpenSearchSplit) split;
 
         if (elasticsearchTable.getType().equals(QUERY)) {
             return new PassthroughQueryPageSource(client, elasticsearchTable);
@@ -73,7 +73,7 @@ public class ElasticsearchPageSourceProvider
                 elasticsearchTable,
                 elasticsearchSplit,
                 columns.stream()
-                        .map(ElasticsearchColumnHandle.class::cast)
+                        .map(OpenSearchColumnHandle.class::cast)
                         .collect(toImmutableList()));
     }
 }

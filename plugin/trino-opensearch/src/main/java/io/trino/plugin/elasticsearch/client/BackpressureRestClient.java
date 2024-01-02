@@ -22,7 +22,7 @@ import dev.failsafe.event.ExecutionCompletedEvent;
 import dev.failsafe.function.CheckedSupplier;
 import io.airlift.log.Logger;
 import io.airlift.stats.TimeStat;
-import io.trino.plugin.elasticsearch.ElasticsearchConfig;
+import io.trino.plugin.elasticsearch.OpenSearchConfig;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
@@ -54,7 +54,7 @@ public class BackpressureRestClient
     private final TimeStat backpressureStats;
     private final ThreadLocal<Stopwatch> stopwatch = ThreadLocal.withInitial(Stopwatch::createUnstarted);
 
-    public BackpressureRestClient(RestClient delegate, ElasticsearchConfig config, TimeStat backpressureStats)
+    public BackpressureRestClient(RestClient delegate, OpenSearchConfig config, TimeStat backpressureStats)
     {
         this.delegate = requireNonNull(delegate, "restClient is null");
         this.backpressureStats = requireNonNull(backpressureStats, "backpressureStats is null");
