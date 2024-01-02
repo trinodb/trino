@@ -187,6 +187,12 @@ public class DeltaLakePageSourceProvider
         if (filteredSplitPredicate.isNone()) {
             return new EmptyPageSource();
         }
+        Map<DeltaLakeColumnHandle, Domain> partitionColumnDomains = filteredSplitPredicate.getDomains().orElseThrow().entrySet().stream()
+                .filter(entry -> entry.getKey().getColumnType() == DeltaLakeColumnType.PARTITION_KEY)
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+        if (!partitionMatchesPredicate(split.getPartitionKeys(), partitionColumnDomains)) {
+            return new EmptyPageSource();
+        }
         if (filteredSplitPredicate.isAll() &&
                 split.getStart() == 0 && split.getLength() == split.getFileSize() &&
                 split.getFileRowCount().isPresent() &&

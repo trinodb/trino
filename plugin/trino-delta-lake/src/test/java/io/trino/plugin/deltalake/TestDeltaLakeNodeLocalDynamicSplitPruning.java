@@ -39,14 +39,20 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.DecimalType;
+import io.trino.spi.type.SqlDecimal;
 import io.trino.testing.TestingConnectorSession;
 import org.apache.parquet.format.CompressionCodec;
 import org.joda.time.DateTimeZone;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.file.Files;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -55,9 +61,12 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
+import static io.trino.plugin.deltalake.DeltaLakeColumnType.PARTITION_KEY;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
+import static io.trino.spi.type.DateType.DATE;
+import static io.trino.spi.type.Decimals.writeShortDecimal;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
@@ -160,6 +169,133 @@ public class TestDeltaLakeNodeLocalDynamicSplitPruning
                 assertThat(page.getPositionCount()).isEqualTo(1);
                 assertThat(page.getBlock(0).getInt(0, 0)).isEqualTo(keyColumnValue);
                 assertThat(page.getBlock(1).getSlice(0, 0, page.getBlock(1).getSliceLength(0)).toStringUtf8()).isEqualTo(dataColumnValue);
+            }
+        }
+    }
+
+    @Test
+    public void testDynamicSplitPruningWithExplicitPartitionFilter()
+            throws IOException
+    {
+        String dateColumnName = "date";
+        DeltaLakeColumnHandle dateColumnHandle = new DeltaLakeColumnHandle(dateColumnName, DATE, OptionalInt.empty(), dateColumnName, DATE, PARTITION_KEY, Optional.empty());
+        long dateColumnValue = LocalDate.of(2023, 1, 10).toEpochDay();
+        String receiptColumnName = "receipt";
+        DeltaLakeColumnHandle receiptColumnHandle = new DeltaLakeColumnHandle(receiptColumnName, VARCHAR, OptionalInt.empty(), receiptColumnName, VARCHAR, REGULAR, Optional.empty());
+        String receiptColumnValue = "#12345";
+        String amountColumnName = "amount";
+        DecimalType amountColumnType = DecimalType.createDecimalType(10, 2);
+        DeltaLakeColumnHandle amountColumnHandle = new DeltaLakeColumnHandle(amountColumnName, amountColumnType, OptionalInt.empty(), amountColumnName, amountColumnType, REGULAR, Optional.empty());
+        BigDecimal amountColumnValue = new BigDecimal("1234567.65");
+        ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(
+                ImmutableList.of(VARCHAR, amountColumnType),
+                ImmutableList.of(receiptColumnName, amountColumnName),
+                false,
+                false);
+
+        DeltaLakeConfig icebergConfig = new DeltaLakeConfig();
+        HiveTransactionHandle transaction = new HiveTransactionHandle(false);
+        try (TempFile file = new TempFile()) {
+            Files.delete(file.path());
+
+            TrinoOutputFile outputFile = new LocalOutputFile(file.file());
+            TrinoInputFile inputFile = new LocalInputFile(file.file());
+
+            try (ParquetWriter writer = createParquetWriter(outputFile, schemaConverter)) {
+                BlockBuilder receiptBuilder = VARCHAR.createBlockBuilder(null, 1);
+                VARCHAR.writeString(receiptBuilder, receiptColumnValue);
+                BlockBuilder amountBuilder = amountColumnType.createBlockBuilder(null, 1);
+                writeShortDecimal(amountBuilder, amountColumnValue.unscaledValue().longValueExact());
+                writer.write(new Page(receiptBuilder.build(), amountBuilder.build()));
+            }
+
+            DeltaLakeSplit split = new DeltaLakeSplit(
+                    inputFile.location().toString(),
+                    0,
+                    inputFile.length(),
+                    inputFile.length(),
+                    Optional.empty(),
+                    0,
+                    Optional.empty(),
+                    SplitWeight.standard(),
+                    TupleDomain.all(),
+                    ImmutableMap.of(dateColumnName, Optional.of("2023-01-10")));
+
+            MetadataEntry metadataEntry = new MetadataEntry(
+                    "id",
+                    "name",
+                    "description",
+                    new MetadataEntry.Format("provider", ImmutableMap.of()),
+                    "{\"type\":\"struct\",\"fields\":[{\"name\":\"date\",\"type\":\"date\",\"nullable\":true,\"metadata\":{}},{\"name\":\"receipt\",\"type\":\"string\",\"nullable\":true,\"metadata\":{}},{\"name\":\"amount\",\"type\":\"decimal(10,2)\",\"nullable\":true,\"metadata\":{}}]}",
+                    ImmutableList.of(dateColumnName),
+                    ImmutableMap.of(),
+                    0);
+
+            TableHandle tableHandle = new TableHandle(
+                    TEST_CATALOG_HANDLE,
+                    new DeltaLakeTableHandle(
+                            "test_schema_name",
+                            "unpartitioned_table",
+                            true,
+                            "test_location",
+                            metadataEntry,
+                            new ProtocolEntry(1, 2, Optional.empty(), Optional.empty()),
+                            TupleDomain.all(),
+                            TupleDomain.all(),
+                            Optional.empty(),
+                            Optional.of(Set.of(dateColumnHandle, receiptColumnHandle, amountColumnHandle)),
+                            Optional.empty(),
+                            Optional.empty(),
+                            Optional.empty(),
+                            0),
+                    transaction);
+
+            // Simulate situations where the dynamic filter (e.g.: while performing a JOIN with another table) reduces considerably
+            // the amount of data to be processed from the current table
+
+            TupleDomain<ColumnHandle> differentDatePredicate = TupleDomain.withColumnDomains(
+                    ImmutableMap.of(
+                            dateColumnHandle,
+                            Domain.singleValue(DATE, LocalDate.of(2023, 2, 2).toEpochDay())));
+            TupleDomain<ColumnHandle> nonOverlappingDatePredicate = TupleDomain.withColumnDomains(
+                    ImmutableMap.of(
+                            dateColumnHandle,
+                            Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(DATE, LocalDate.of(2023, 2, 2).toEpochDay())), true)));
+            for (TupleDomain<ColumnHandle> partitionPredicate : List.of(differentDatePredicate, nonOverlappingDatePredicate)) {
+                try (ConnectorPageSource emptyPageSource = createTestingPageSource(
+                        transaction,
+                        icebergConfig,
+                        split,
+                        tableHandle,
+                        ImmutableList.of(dateColumnHandle, receiptColumnHandle, amountColumnHandle),
+                        getDynamicFilter(partitionPredicate))) {
+                    assertThat(emptyPageSource.getNextPage()).isNull();
+                }
+            }
+
+            TupleDomain<ColumnHandle> sameDatePredicate = TupleDomain.withColumnDomains(
+                    ImmutableMap.of(
+                            dateColumnHandle,
+                            Domain.singleValue(DATE, dateColumnValue)));
+            TupleDomain<ColumnHandle> overlappingDatePredicate = TupleDomain.withColumnDomains(
+                    ImmutableMap.of(
+                            dateColumnHandle,
+                            Domain.create(ValueSet.ofRanges(Range.range(DATE, LocalDate.of(2023, 1, 1).toEpochDay(), true, LocalDate.of(2023, 2, 1).toEpochDay(), false)), true)));
+            for (TupleDomain<ColumnHandle> partitionPredicate : List.of(sameDatePredicate, overlappingDatePredicate)) {
+                try (ConnectorPageSource nonEmptyPageSource = createTestingPageSource(
+                        transaction,
+                        icebergConfig,
+                        split,
+                        tableHandle,
+                        ImmutableList.of(dateColumnHandle, receiptColumnHandle, amountColumnHandle),
+                        getDynamicFilter(partitionPredicate))) {
+                    Page page = nonEmptyPageSource.getNextPage();
+                    assertThat(page).isNotNull();
+                    assertThat(page.getPositionCount()).isEqualTo(1);
+                    assertThat(page.getBlock(0).getInt(0, 0)).isEqualTo(dateColumnValue);
+                    assertThat(page.getBlock(1).getSlice(0, 0, page.getBlock(1).getSliceLength(0)).toStringUtf8()).isEqualTo(receiptColumnValue);
+                    assertThat(((SqlDecimal) amountColumnType.getObjectValue(null, page.getBlock(2), 0)).toBigDecimal()).isEqualTo(amountColumnValue);
+                }
             }
         }
     }
