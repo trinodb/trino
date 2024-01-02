@@ -741,12 +741,12 @@ jobs:
             - { modules: lib/trino-filesystem-gcs, profile: cloud-tests }
             - { modules: plugin/starburst-dynamodb }
             - { modules: plugin/starburst-oracle }
-            - { modules: plugin/starburst-snowflake, profile: default, cloud: aws }
+            - { modules: plugin/starburst-snowflake, profile: default, cloud: amazon-web-service }
             - { modules: plugin/starburst-snowflake, profile: default, cloud: azure }
-            - { modules: plugin/starburst-snowflake, profile: distributed-integration-tests, cloud: aws }
+            - { modules: plugin/starburst-snowflake, profile: distributed-integration-tests, cloud: amazon-web-service }
             - { modules: plugin/starburst-snowflake, profile: distributed-integration-tests, cloud: azure }
-            - { modules: plugin/starburst-snowflake, profile: jdbc-integration-tests, cloud: aws }
-            - { modules: plugin/starburst-snowflake, profile: parallel-integration-tests, cloud: aws }
+            - { modules: plugin/starburst-snowflake, profile: jdbc-integration-tests, cloud: amazon-web-service }
+            - { modules: plugin/starburst-snowflake, profile: parallel-integration-tests, cloud: amazon-web-service }
             - { modules: plugin/starburst-stargate }
             - { modules: plugin/starburst-synapse }
             - { modules: plugin/starburst-synapse, profile: fault-tolerant-tests }
@@ -863,7 +863,7 @@ jobs:
           SNOWFLAKE_PASSWORD: ${{ secrets.SNOWFLAKE_PASSWORD }}
         if: >-
           contains(matrix.modules, 'starburst-snowflake') &&
-          contains(matrix.cloud, 'aws') &&
+          contains(matrix.cloud, 'amazon-web-service') &&
           (env.SNOWFLAKE_ACCOUNT_NAME != '' || env.SNOWFLAKE_PASSWORD != '')
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
