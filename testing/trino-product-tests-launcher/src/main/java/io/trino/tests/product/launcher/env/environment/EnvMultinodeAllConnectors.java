@@ -69,6 +69,7 @@ public final class EnvMultinodeAllConnectors
                         "singlestore",
                         "mongodb",
                         "mysql",
+                        "opensearch",
                         "oracle",
                         "phoenix5",
                         "pinot",
