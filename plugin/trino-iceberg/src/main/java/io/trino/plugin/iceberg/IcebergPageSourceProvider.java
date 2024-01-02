@@ -427,20 +427,20 @@ public class IcebergPageSourceProvider
             TupleDomain<IcebergColumnHandle> dynamicFilterPredicate,
             TupleDomain<IcebergColumnHandle> unenforcedPredicate)
     {
+        TupleDomain<IcebergColumnHandle> effectivePredicate = unenforcedPredicate.intersect(dynamicFilterPredicate);
         if (dynamicFilterPredicate.isAll() || dynamicFilterPredicate.isNone() || partitionKeys.isEmpty()) {
-            return unenforcedPredicate.intersect(dynamicFilterPredicate);
+            return effectivePredicate;
         }
         Set<IcebergColumnHandle> partitionColumns = partitionKeys.keySet().stream()
                 .map(fieldId -> getColumnHandle(tableSchema.findField(fieldId), typeManager))
                 .collect(toImmutableSet());
         Supplier<Map<ColumnHandle, NullableValue>> partitionValues = memoize(() -> getPartitionValues(partitionColumns, partitionKeys));
-        if (!partitionMatchesPredicate(partitionColumns, partitionValues, dynamicFilterPredicate)) {
+        if (!partitionMatchesPredicate(partitionColumns, partitionValues, effectivePredicate)) {
             return TupleDomain.none();
         }
         // Filter out partition columns domains from the dynamic filter because they should be irrelevant at data file level
-        dynamicFilterPredicate = dynamicFilterPredicate
+        return effectivePredicate
                 .filter((columnHandle, domain) -> !partitionKeys.containsKey(columnHandle.getId()));
-        return unenforcedPredicate.intersect(dynamicFilterPredicate);
     }
 
     private Set<IcebergColumnHandle> requiredColumnsForDeletes(Schema schema, List<DeleteFile> deletes)
