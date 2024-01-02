@@ -31,10 +31,10 @@ import java.util.Map;
 import static io.trino.plugin.base.Versions.checkStrictSpiVersionMatch;
 import static java.util.Objects.requireNonNull;
 
-public class ElasticsearchConnectorFactory
+public class OpenSearchConnectorFactory
         implements ConnectorFactory
 {
-    ElasticsearchConnectorFactory() {}
+    OpenSearchConnectorFactory() {}
 
     @Override
     public String getName()
@@ -55,7 +55,7 @@ public class ElasticsearchConnectorFactory
                 new ConnectorObjectNameGeneratorModule("io.trino.plugin.elasticsearch", "trino.plugin.elasticsearch"),
                 new JsonModule(),
                 new TypeDeserializerModule(context.getTypeManager()),
-                new ElasticsearchConnectorModule(),
+                new OpenSearchConnectorModule(),
                 binder -> {
                     binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                     binder.bind(CatalogName.class).toInstance(new CatalogName(catalogName));
@@ -66,6 +66,6 @@ public class ElasticsearchConnectorFactory
                 .setRequiredConfigurationProperties(config)
                 .initialize();
 
-        return injector.getInstance(ElasticsearchConnector.class);
+        return injector.getInstance(OpenSearchConnector.class);
     }
 }

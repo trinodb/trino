@@ -34,7 +34,7 @@ import io.airlift.log.Logger;
 import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
 import io.trino.plugin.elasticsearch.AwsSecurityConfig;
-import io.trino.plugin.elasticsearch.ElasticsearchConfig;
+import io.trino.plugin.elasticsearch.OpenSearchConfig;
 import io.trino.plugin.elasticsearch.PasswordConfig;
 import io.trino.spi.TrinoException;
 import jakarta.annotation.PostConstruct;
@@ -92,11 +92,11 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.trino.plugin.base.ssl.SslUtils.createSSLContext;
-import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_CONNECTION_ERROR;
-import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_INVALID_METADATA;
-import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_INVALID_RESPONSE;
-import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_QUERY_FAILURE;
-import static io.trino.plugin.elasticsearch.ElasticsearchErrorCode.ELASTICSEARCH_SSL_INITIALIZATION_FAILURE;
+import static io.trino.plugin.elasticsearch.OpenSearchErrorCode.ELASTICSEARCH_CONNECTION_ERROR;
+import static io.trino.plugin.elasticsearch.OpenSearchErrorCode.ELASTICSEARCH_INVALID_METADATA;
+import static io.trino.plugin.elasticsearch.OpenSearchErrorCode.ELASTICSEARCH_INVALID_RESPONSE;
+import static io.trino.plugin.elasticsearch.OpenSearchErrorCode.ELASTICSEARCH_QUERY_FAILURE;
+import static io.trino.plugin.elasticsearch.OpenSearchErrorCode.ELASTICSEARCH_SSL_INITIALIZATION_FAILURE;
 import static java.lang.StrictMath.toIntExact;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -104,9 +104,9 @@ import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.elasticsearch.action.search.SearchType.QUERY_THEN_FETCH;
 
-public class ElasticsearchClient
+public class OpenSearchClient
 {
-    private static final Logger LOG = Logger.get(ElasticsearchClient.class);
+    private static final Logger LOG = Logger.get(OpenSearchClient.class);
 
     private static final JsonCodec<SearchShardsResponse> SEARCH_SHARDS_RESPONSE_CODEC = jsonCodec(SearchShardsResponse.class);
     private static final JsonCodec<NodesResponse> NODES_RESPONSE_CODEC = jsonCodec(NodesResponse.class);
@@ -120,7 +120,7 @@ public class ElasticsearchClient
     private final int scrollSize;
     private final Duration scrollTimeout;
 
-    private final AtomicReference<Set<ElasticsearchNode>> nodes = new AtomicReference<>(ImmutableSet.of());
+    private final AtomicReference<Set<OpenSearchNode>> nodes = new AtomicReference<>(ImmutableSet.of());
     private final ScheduledExecutorService executor = newSingleThreadScheduledExecutor(daemonThreadsNamed("NodeRefresher"));
     private final AtomicBoolean started = new AtomicBoolean();
     private final Duration refreshInterval;
@@ -133,8 +133,8 @@ public class ElasticsearchClient
     private final TimeStat backpressureStats = new TimeStat(MILLISECONDS);
 
     @Inject
-    public ElasticsearchClient(
-            ElasticsearchConfig config,
+    public OpenSearchClient(
+            OpenSearchConfig config,
             Optional<AwsSecurityConfig> awsSecurityConfig,
             Optional<PasswordConfig> passwordConfig)
     {
@@ -170,10 +170,10 @@ public class ElasticsearchClient
     {
         // discover other nodes in the cluster and add them to the client
         try {
-            Set<ElasticsearchNode> nodes = fetchNodes();
+            Set<OpenSearchNode> nodes = fetchNodes();
 
             HttpHost[] hosts = nodes.stream()
-                    .map(ElasticsearchNode::getAddress)
+                    .map(OpenSearchNode::getAddress)
                     .filter(Optional::isPresent)
                     .map(Optional::get)
                     .map(address -> HttpHost.create(format("%s://%s", tlsEnabled ? "https" : "http", address)))
@@ -193,7 +193,7 @@ public class ElasticsearchClient
     }
 
     private static BackpressureRestHighLevelClient createClient(
-            ElasticsearchConfig config,
+            OpenSearchConfig config,
             Optional<AwsSecurityConfig> awsSecurityConfig,
             Optional<PasswordConfig> passwordConfig,
             TimeStat backpressureStats)
@@ -287,40 +287,40 @@ public class ElasticsearchClient
         }
     }
 
-    private Set<ElasticsearchNode> fetchNodes()
+    private Set<OpenSearchNode> fetchNodes()
     {
         NodesResponse nodesResponse = doRequest("/_nodes/http", NODES_RESPONSE_CODEC::fromJson);
 
-        ImmutableSet.Builder<ElasticsearchNode> result = ImmutableSet.builder();
+        ImmutableSet.Builder<OpenSearchNode> result = ImmutableSet.builder();
         for (Map.Entry<String, NodesResponse.Node> entry : nodesResponse.getNodes().entrySet()) {
             String nodeId = entry.getKey();
             NodesResponse.Node node = entry.getValue();
 
             if (!Sets.intersection(node.getRoles(), NODE_ROLES).isEmpty()) {
                 Optional<String> address = node.getAddress()
-                        .flatMap(ElasticsearchClient::extractAddress);
+                        .flatMap(OpenSearchClient::extractAddress);
 
-                result.add(new ElasticsearchNode(nodeId, address));
+                result.add(new OpenSearchNode(nodeId, address));
             }
         }
 
         return result.build();
     }
 
-    public Set<ElasticsearchNode> getNodes()
+    public Set<OpenSearchNode> getNodes()
     {
         return nodes.get();
     }
 
     public List<Shard> getSearchShards(String index)
     {
-        Map<String, ElasticsearchNode> nodeById = getNodes().stream()
-                .collect(toImmutableMap(ElasticsearchNode::getId, Function.identity()));
+        Map<String, OpenSearchNode> nodeById = getNodes().stream()
+                .collect(toImmutableMap(OpenSearchNode::getId, Function.identity()));
 
         SearchShardsResponse shardsResponse = doRequest(format("/%s/_search_shards", index), SEARCH_SHARDS_RESPONSE_CODEC::fromJson);
 
         ImmutableList.Builder<Shard> shards = ImmutableList.builder();
-        List<ElasticsearchNode> nodes = ImmutableList.copyOf(nodeById.values());
+        List<OpenSearchNode> nodes = ImmutableList.copyOf(nodeById.values());
 
         for (List<SearchShardsResponse.Shard> shardGroup : shardsResponse.getShardGroups()) {
             Optional<SearchShardsResponse.Shard> candidate = shardGroup.stream()
@@ -328,7 +328,7 @@ public class ElasticsearchClient
                     .min(this::shardPreference);
 
             SearchShardsResponse.Shard chosen;
-            ElasticsearchNode node;
+            OpenSearchNode node;
             if (candidate.isEmpty()) {
                 // pick an arbitrary shard with and assign to an arbitrary node
                 chosen = shardGroup.stream()

@@ -16,12 +16,10 @@ package io.trino.plugin.elasticsearch;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.ConfigSecuritySensitive;
-import io.airlift.configuration.DefunctConfig;
 import jakarta.validation.constraints.NotNull;
 
 import java.util.Optional;
 
-@DefunctConfig("elasticsearch.aws.use-instance-credentials")
 public class AwsSecurityConfig
 {
     private String accessKey;
@@ -36,7 +34,7 @@ public class AwsSecurityConfig
         return Optional.ofNullable(accessKey);
     }
 
-    @Config("elasticsearch.aws.access-key")
+    @Config("opensearch.aws.access-key")
     public AwsSecurityConfig setAccessKey(String key)
     {
         this.accessKey = key;
@@ -49,7 +47,7 @@ public class AwsSecurityConfig
         return Optional.ofNullable(secretKey);
     }
 
-    @Config("elasticsearch.aws.secret-key")
+    @Config("opensearch.aws.secret-key")
     @ConfigSecuritySensitive
     public AwsSecurityConfig setSecretKey(String key)
     {
@@ -62,7 +60,7 @@ public class AwsSecurityConfig
         return region;
     }
 
-    @Config("elasticsearch.aws.region")
+    @Config("opensearch.aws.region")
     public AwsSecurityConfig setRegion(String region)
     {
         this.region = region;
@@ -75,7 +73,7 @@ public class AwsSecurityConfig
         return Optional.ofNullable(iamRole);
     }
 
-    @Config("elasticsearch.aws.iam-role")
+    @Config("opensearch.aws.iam-role")
     @ConfigDescription("Optional AWS IAM role to assume for authenticating. If set, this role will be used to get credentials to sign requests to ES.")
     public AwsSecurityConfig setIamRole(String iamRole)
     {
@@ -89,7 +87,7 @@ public class AwsSecurityConfig
         return Optional.ofNullable(externalId);
     }
 
-    @Config("elasticsearch.aws.external-id")
+    @Config("opensearch.aws.external-id")
     @ConfigDescription("Optional external id to pass to AWS STS while assuming a role")
     public AwsSecurityConfig setExternalId(String externalId)
     {

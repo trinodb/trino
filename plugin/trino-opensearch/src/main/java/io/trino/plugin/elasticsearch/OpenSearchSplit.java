@@ -29,17 +29,17 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static java.util.Objects.requireNonNull;
 
-public class ElasticsearchSplit
+public class OpenSearchSplit
         implements ConnectorSplit
 {
-    private static final int INSTANCE_SIZE = instanceSize(ElasticsearchSplit.class);
+    private static final int INSTANCE_SIZE = instanceSize(OpenSearchSplit.class);
 
     private final String index;
     private final int shard;
     private final Optional<String> address;
 
     @JsonCreator
-    public ElasticsearchSplit(
+    public OpenSearchSplit(
             @JsonProperty("index") String index,
             @JsonProperty("shard") int shard,
             @JsonProperty("address") Optional<String> address)

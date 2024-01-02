@@ -15,8 +15,8 @@ package io.trino.plugin.elasticsearch;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
-import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
-import io.trino.plugin.elasticsearch.client.ElasticsearchNode;
+import io.trino.plugin.elasticsearch.client.OpenSearchClient;
+import io.trino.plugin.elasticsearch.client.OpenSearchNode;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
 import io.trino.spi.Page;
@@ -49,11 +49,11 @@ public class NodesSystemTable
                     .add(new ColumnMetadata("elasticsearch_node_address", createUnboundedVarcharType()))
                     .build());
 
-    private final ElasticsearchClient client;
+    private final OpenSearchClient client;
     private final Node currentNode;
 
     @Inject
-    public NodesSystemTable(NodeManager nodeManager, ElasticsearchClient client)
+    public NodesSystemTable(NodeManager nodeManager, OpenSearchClient client)
     {
         requireNonNull(nodeManager, "nodeManager is null");
 
@@ -76,14 +76,14 @@ public class NodesSystemTable
     @Override
     public ConnectorPageSource pageSource(ConnectorTransactionHandle transaction, ConnectorSession session, TupleDomain<Integer> constraint)
     {
-        Set<ElasticsearchNode> nodes = client.getNodes();
+        Set<OpenSearchNode> nodes = client.getNodes();
 
         BlockBuilder nodeId = VARCHAR.createBlockBuilder(null, nodes.size());
         BlockBuilder trinoAddress = VARCHAR.createBlockBuilder(null, nodes.size());
         BlockBuilder elasticsearchNodeId = VARCHAR.createBlockBuilder(null, nodes.size());
         BlockBuilder elasticsearchAddress = VARCHAR.createBlockBuilder(null, nodes.size());
 
-        for (ElasticsearchNode node : nodes) {
+        for (OpenSearchNode node : nodes) {
             VARCHAR.writeString(nodeId, currentNode.getNodeIdentifier());
             VARCHAR.writeString(trinoAddress, currentNode.getHostAndPort().toString());
             VARCHAR.writeString(elasticsearchNodeId, node.getId());

@@ -32,22 +32,22 @@ import static io.trino.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static io.trino.spi.transaction.IsolationLevel.checkConnectorSupports;
 import static java.util.Objects.requireNonNull;
 
-public class ElasticsearchConnector
+public class OpenSearchConnector
         implements Connector
 {
     private final LifeCycleManager lifeCycleManager;
-    private final ElasticsearchMetadata metadata;
-    private final ElasticsearchSplitManager splitManager;
-    private final ElasticsearchPageSourceProvider pageSourceProvider;
+    private final OpenSearchMetadata metadata;
+    private final OpenSearchSplitManager splitManager;
+    private final OpenSearchPageSourceProvider pageSourceProvider;
     private final NodesSystemTable nodesSystemTable;
     private final Set<ConnectorTableFunction> connectorTableFunctions;
 
     @Inject
-    public ElasticsearchConnector(
+    public OpenSearchConnector(
             LifeCycleManager lifeCycleManager,
-            ElasticsearchMetadata metadata,
-            ElasticsearchSplitManager splitManager,
-            ElasticsearchPageSourceProvider pageSourceProvider,
+            OpenSearchMetadata metadata,
+            OpenSearchSplitManager splitManager,
+            OpenSearchPageSourceProvider pageSourceProvider,
             NodesSystemTable nodesSystemTable,
             Set<ConnectorTableFunction> connectorTableFunctions)
     {
@@ -63,7 +63,7 @@ public class ElasticsearchConnector
     public ConnectorTransactionHandle beginTransaction(IsolationLevel isolationLevel, boolean readOnly, boolean autoCommit)
     {
         checkConnectorSupports(READ_COMMITTED, isolationLevel);
-        return ElasticsearchTransactionHandle.INSTANCE;
+        return OpenSearchTransactionHandle.INSTANCE;
     }
 
     @Override
