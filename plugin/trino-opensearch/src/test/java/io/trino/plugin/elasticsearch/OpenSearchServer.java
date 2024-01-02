@@ -30,20 +30,20 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.Files.createTempDirectory;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
-public class ElasticsearchServer
+public class OpenSearchServer
 {
     public static final String ELASTICSEARCH_7_IMAGE = "elasticsearch:7.0.0";
 
     private final Path configurationPath;
     private final ElasticsearchContainer container;
 
-    public ElasticsearchServer(String image, Map<String, String> configurationFiles)
+    public OpenSearchServer(String image, Map<String, String> configurationFiles)
             throws IOException
     {
         this(Network.SHARED, image, configurationFiles);
     }
 
-    public ElasticsearchServer(Network network, String image, Map<String, String> configurationFiles)
+    public OpenSearchServer(Network network, String image, Map<String, String> configurationFiles)
             throws IOException
     {
         DockerImageName dockerImageName = DockerImageName.parse(image).asCompatibleSubstituteFor("docker.elastic.co/elasticsearch/elasticsearch");

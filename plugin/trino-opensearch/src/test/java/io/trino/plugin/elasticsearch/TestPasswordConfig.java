@@ -36,8 +36,8 @@ public class TestPasswordConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("elasticsearch.auth.user", "user")
-                .put("elasticsearch.auth.password", "password")
+                .put("opensearch.auth.user", "user")
+                .put("opensearch.auth.password", "password")
                 .buildOrThrow();
 
         PasswordConfig expected = new PasswordConfig()

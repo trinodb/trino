@@ -38,7 +38,7 @@ import java.nio.charset.StandardCharsets;
 
 import static com.google.common.io.Resources.getResource;
 import static io.airlift.testing.Closeables.closeAll;
-import static io.trino.plugin.elasticsearch.ElasticsearchQueryRunner.createElasticsearchQueryRunner;
+import static io.trino.plugin.elasticsearch.OpenSearchQueryRunner.createElasticsearchQueryRunner;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -52,7 +52,7 @@ public class TestPasswordAuthentication
     private static final String USER = "elastic_user";
     private static final String PASSWORD = "123456";
 
-    private ElasticsearchServer elasticsearch;
+    private OpenSearchServer elasticsearch;
     private RestHighLevelClient client;
     private QueryAssertions assertions;
 
@@ -61,7 +61,7 @@ public class TestPasswordAuthentication
             throws Exception
     {
         // We use 7.8.0 because security became a non-commercial feature in recent versions
-        elasticsearch = new ElasticsearchServer("elasticsearch:7.8.0", ImmutableMap.<String, String>builder()
+        elasticsearch = new OpenSearchServer("elasticsearch:7.8.0", ImmutableMap.<String, String>builder()
                 .put("elasticsearch.yml", loadResource("elasticsearch.yml"))
                 .put("users", loadResource("users"))
                 .put("users_roles", loadResource("users_roles"))

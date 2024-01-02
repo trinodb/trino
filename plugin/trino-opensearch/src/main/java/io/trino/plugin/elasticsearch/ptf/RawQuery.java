@@ -18,9 +18,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import io.airlift.slice.Slice;
-import io.trino.plugin.elasticsearch.ElasticsearchColumnHandle;
-import io.trino.plugin.elasticsearch.ElasticsearchMetadata;
-import io.trino.plugin.elasticsearch.ElasticsearchTableHandle;
+import io.trino.plugin.elasticsearch.OpenSearchColumnHandle;
+import io.trino.plugin.elasticsearch.OpenSearchMetadata;
+import io.trino.plugin.elasticsearch.OpenSearchTableHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnSchema;
 import io.trino.spi.connector.ConnectorAccessControl;
@@ -42,7 +42,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
+import static io.trino.plugin.elasticsearch.OpenSearchTableHandle.Type.QUERY;
 import static io.trino.spi.function.table.ReturnTypeSpecification.GenericTable.GENERIC_TABLE;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
@@ -54,10 +54,10 @@ public class RawQuery
     public static final String SCHEMA_NAME = "system";
     public static final String NAME = "raw_query";
 
-    private final ElasticsearchMetadata metadata;
+    private final OpenSearchMetadata metadata;
 
     @Inject
-    public RawQuery(ElasticsearchMetadata metadata)
+    public RawQuery(OpenSearchMetadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
     }
@@ -71,9 +71,9 @@ public class RawQuery
     public static class RawQueryFunction
             extends AbstractConnectorTableFunction
     {
-        private final ElasticsearchMetadata metadata;
+        private final OpenSearchMetadata metadata;
 
-        public RawQueryFunction(ElasticsearchMetadata metadata)
+        public RawQueryFunction(OpenSearchMetadata metadata)
         {
             super(
                     SCHEMA_NAME,
@@ -106,7 +106,7 @@ public class RawQuery
             String index = ((Slice) ((ScalarArgument) arguments.get("INDEX")).getValue()).toStringUtf8();
             String query = ((Slice) ((ScalarArgument) arguments.get("QUERY")).getValue()).toStringUtf8();
 
-            ElasticsearchTableHandle tableHandle = new ElasticsearchTableHandle(QUERY, schema, index, Optional.of(query));
+            OpenSearchTableHandle tableHandle = new OpenSearchTableHandle(QUERY, schema, index, Optional.of(query));
             ConnectorTableSchema tableSchema = metadata.getTableSchema(session, tableHandle);
             Map<String, ColumnHandle> columnsByName = metadata.getColumnHandles(session, tableHandle);
             List<ColumnHandle> columns = tableSchema.getColumns().stream()
@@ -115,7 +115,7 @@ public class RawQuery
                     .collect(toImmutableList());
 
             Descriptor returnedType = new Descriptor(columns.stream()
-                    .map(ElasticsearchColumnHandle.class::cast)
+                    .map(OpenSearchColumnHandle.class::cast)
                     .map(column -> new Descriptor.Field(column.getName(), Optional.of(column.getType())))
                     .collect(toList()));
 
@@ -131,10 +131,10 @@ public class RawQuery
     public static class RawQueryFunctionHandle
             implements ConnectorTableFunctionHandle
     {
-        private final ElasticsearchTableHandle tableHandle;
+        private final OpenSearchTableHandle tableHandle;
 
         @JsonCreator
-        public RawQueryFunctionHandle(@JsonProperty("tableHandle") ElasticsearchTableHandle tableHandle)
+        public RawQueryFunctionHandle(@JsonProperty("tableHandle") OpenSearchTableHandle tableHandle)
         {
             this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         }

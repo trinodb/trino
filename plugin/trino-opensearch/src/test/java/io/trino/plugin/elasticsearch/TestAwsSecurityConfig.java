@@ -39,11 +39,11 @@ public class TestAwsSecurityConfig
     public void testExplicitPropertyMappings()
     {
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("elasticsearch.aws.access-key", "access")
-                .put("elasticsearch.aws.secret-key", "secret")
-                .put("elasticsearch.aws.region", "region")
-                .put("elasticsearch.aws.iam-role", "iamRole")
-                .put("elasticsearch.aws.external-id", "externalId")
+                .put("opensearch.aws.access-key", "access")
+                .put("opensearch.aws.secret-key", "secret")
+                .put("opensearch.aws.region", "region")
+                .put("opensearch.aws.iam-role", "iamRole")
+                .put("opensearch.aws.external-id", "externalId")
                 .buildOrThrow();
 
         AwsSecurityConfig expected = new AwsSecurityConfig()

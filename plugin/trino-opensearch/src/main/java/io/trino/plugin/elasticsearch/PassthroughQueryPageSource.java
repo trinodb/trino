@@ -15,7 +15,7 @@ package io.trino.plugin.elasticsearch;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
-import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
+import io.trino.plugin.elasticsearch.client.OpenSearchClient;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
 import io.trino.spi.block.BlockBuilder;
@@ -33,7 +33,7 @@ public class PassthroughQueryPageSource
     private final String result;
     private boolean done;
 
-    public PassthroughQueryPageSource(ElasticsearchClient client, ElasticsearchTableHandle table)
+    public PassthroughQueryPageSource(OpenSearchClient client, OpenSearchTableHandle table)
     {
         requireNonNull(client, "client is null");
         requireNonNull(table, "table is null");
