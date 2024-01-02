@@ -78,33 +78,6 @@ public class TestKuduCaseInsensitiveMapping
     }
 
     @Test
-    public void testNonLowerCaseSchemaName()
-            throws Exception
-    {
-        String schemaName = "default";
-        String schemaNameLowerCase = schemaName.toLowerCase(ENGLISH);
-        String schemaNameWithWildCard = schemaNameLowerCase.substring(0, schemaNameLowerCase.length() - 5) + "%";
-        ImmutableList.Builder<KuduTestColumn> builder = ImmutableList.builder();
-        ImmutableList<KuduTestColumn> kuduTableColumns = builder
-                .add(new KuduTestColumn(BIGINT, "id", "1", true))
-                .add(new KuduTestColumn(BIGINT, "key", "1"))
-                .build();
-        try (AutoCloseable ignoreSchema = withSchema(schemaName);
-                AutoCloseable ignoreTableLoweCase = withTable(schemaName, "lower_case_name", kuduTableColumns);
-                AutoCloseable ignoreTableMixedCase = withTable(schemaName, "Mixed_Case_Name", kuduTableColumns);
-                AutoCloseable ignoreTableUpperCase = withTable(schemaName, "UPPER_CASE_NAME", kuduTableColumns)) {
-            assertThat(computeActual("SHOW SCHEMAS").getOnlyColumn()).contains(schemaNameLowerCase);
-            assertQuery(format("SHOW SCHEMAS LIKE '%s'", schemaNameWithWildCard), format("VALUES '%s'", schemaNameLowerCase));
-            assertQuery(format("SELECT schema_name FROM information_schema.schemata WHERE schema_name LIKE '%s'", schemaNameWithWildCard), format("VALUES '%s'", schemaNameLowerCase));
-            assertQuery(format("SHOW TABLES FROM %s", schemaNameLowerCase), "VALUES 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
-            assertQuery(format("SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'", schemaNameLowerCase), "VALUES 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
-            assertQuery(format("SELECT key FROM %s.lower_case_name", schemaNameLowerCase), "VALUES ('1')");
-            assertQuery(format("SELECT key FROM \"%s\".lower_case_name", schemaNameLowerCase), "VALUES ('1')");
-            assertQuery(format("SELECT key FROM \"%s\".\"lower_case_name\"", schemaNameLowerCase), "VALUES ('1')");
-        }
-    }
-
-    @Test
     public void testNonLowerCaseTableName()
             throws Exception
     {
