@@ -122,11 +122,11 @@ public class TestKuduCaseInsensitiveMapping
         ImmutableList<KuduTestColumn> kuduTableColumns = builder
                 .add(new KuduTestColumn(BIGINT, "id", "1", true))
                 .build();
-        try (AutoCloseable ignoreTable = withTable("casesensitivename", kuduTableColumns);
-                AutoCloseable ignoreOtherTable = withTable("CaseSensitiveName", kuduTableColumns);
+        try (AutoCloseable ignoreTable = withTable("test_name_clash", kuduTableColumns);
+                AutoCloseable ignoreOtherTable = withTable("test_NAME_Clash", kuduTableColumns);
                 AutoCloseable ignoreSomeable = withTable("some_table", kuduTableColumns)) {
-            assertThat(computeActual("SHOW TABLES FROM " + schemaName).getOnlyColumn()).filteredOn("casesensitivename"::equals).hasSize(1);
-            assertQueryFails(format("SELECT * FROM %s.casesensitivename", schemaName), "Failed to find remote table name: Ambiguous name: casesensitivename");
+            assertThat(computeActual("SHOW TABLES FROM " + schemaName).getOnlyColumn()).filteredOn("test_name_clash"::equals).hasSize(1);
+            assertQueryFails(format("SELECT * FROM %s.test_name_clash", schemaName), "Failed to find remote table name: Ambiguous name: test_name_clash");
             assertQuery(format("SELECT * FROM %s.some_table", schemaName), "VALUES '1'");
         }
     }
@@ -158,8 +158,8 @@ public class TestKuduCaseInsensitiveMapping
     {
         String schema = "default";
         List<TableMappingRule> tableMappingRules = ImmutableList.of(
-                new TableMappingRule("", "casesensitivename", "casesensitivename_a"),
-                new TableMappingRule("", "CaseSensitiveName", "casesensitivename_b"));
+                new TableMappingRule("", "test_clash_with_rule_mapping", "test_clash_with_rule_mapping_a"),
+                new TableMappingRule("", "test_CLASH_with_RULE_mapping", "test_clash_with_rule_mapping_b"));
         updateRuleBasedIdentifierMappingFile(mappingFile, ImmutableList.of(), tableMappingRules);
 
         ImmutableList.Builder<KuduTestColumn> builder = ImmutableList.builder();
@@ -167,8 +167,8 @@ public class TestKuduCaseInsensitiveMapping
                 .add(new KuduTestColumn(BIGINT, "id", "1", true))
                 .build();
 
-        String remoteTable = "casesensitivename";
-        String otherRemoteTable = "CaseSensitiveName";
+        String remoteTable = "test_clash_with_rule_mapping";
+        String otherRemoteTable = "test_CLASH_with_RULE_mapping";
         try (AutoCloseable ignoreTable = withTable(remoteTable, kuduTableColumns);
                 AutoCloseable ignoreOtherTable = withTable(otherRemoteTable, kuduTableColumns)) {
             String table = tableMappingRules.stream()
@@ -178,7 +178,7 @@ public class TestKuduCaseInsensitiveMapping
 
             assertThat(computeActual("SHOW TABLES FROM " + schema).getOnlyColumn())
                     .map(String.class::cast)
-                    .filteredOn(anObject -> anObject.startsWith("casesensitivename_"))
+                    .filteredOn(anObject -> anObject.startsWith("test_clash_with_rule_mapping_"))
                     .hasSize(2);
             assertQuery("SELECT * FROM " + schema + "." + table, "VALUES '1'");
         }
