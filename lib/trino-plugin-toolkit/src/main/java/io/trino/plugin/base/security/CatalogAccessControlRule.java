@@ -19,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 
+import java.util.Collection;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -52,10 +53,10 @@ public class CatalogAccessControlRule
             @JsonProperty("catalog") Optional<Pattern> catalogRegex)
     {
         this.accessMode = requireNonNull(accessMode, "accessMode is null");
-        this.userRegex = requireNonNull(userRegex, "userRegex is null");
-        this.roleRegex = requireNonNull(roleRegex, "roleRegex is null");
-        this.groupRegex = requireNonNull(groupRegex, "groupRegex is null");
-        this.catalogRegex = requireNonNull(catalogRegex, "catalogRegex is null");
+        this.userRegex = regexConvert(requireNonNull(userRegex, "userRegex is null"));
+        this.roleRegex = regexConvert(requireNonNull(roleRegex, "roleRegex is null"));
+        this.groupRegex = regexConvert(requireNonNull(groupRegex, "groupRegex is null"));
+        this.catalogRegex = regexConvert(requireNonNull(catalogRegex, "catalogRegex is null"));
     }
 
     public Optional<AccessMode> match(String user, Set<String> roles, Set<String> groups, String catalog)
@@ -121,5 +122,10 @@ public class CatalogAccessControlRule
             }
             return this == other;
         }
+    }
+
+    private Optional<Pattern> regexConvert(Optional<Pattern> regex) {
+        return regex.map(pattern ->
+                Pattern.compile(pattern.pattern().replaceAll("\\s", "")));
     }
 }
