@@ -239,7 +239,6 @@ class HdfsFileSystem
         return listFiles(location, false);
     }
 
-
     public FileIterator listFiles(Location location, boolean isRecursive)
             throws IOException
     {
