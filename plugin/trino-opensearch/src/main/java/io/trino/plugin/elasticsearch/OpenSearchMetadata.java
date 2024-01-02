@@ -19,12 +19,12 @@ import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
 import io.trino.plugin.base.expression.ConnectorExpressions;
-import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
 import io.trino.plugin.elasticsearch.client.IndexMetadata;
 import io.trino.plugin.elasticsearch.client.IndexMetadata.DateTimeType;
 import io.trino.plugin.elasticsearch.client.IndexMetadata.ObjectType;
 import io.trino.plugin.elasticsearch.client.IndexMetadata.PrimitiveType;
 import io.trino.plugin.elasticsearch.client.IndexMetadata.ScaledFloatType;
+import io.trino.plugin.elasticsearch.client.OpenSearchClient;
 import io.trino.plugin.elasticsearch.decoders.ArrayDecoder;
 import io.trino.plugin.elasticsearch.decoders.BigintDecoder;
 import io.trino.plugin.elasticsearch.decoders.BooleanDecoder;
@@ -87,8 +87,8 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterators.singletonIterator;
 import static io.airlift.slice.SliceUtf8.getCodePointAt;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
-import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.QUERY;
-import static io.trino.plugin.elasticsearch.ElasticsearchTableHandle.Type.SCAN;
+import static io.trino.plugin.elasticsearch.OpenSearchTableHandle.Type.QUERY;
+import static io.trino.plugin.elasticsearch.OpenSearchTableHandle.Type.SCAN;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.expression.StandardFunctions.LIKE_FUNCTION_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -106,7 +106,7 @@ import static java.util.Collections.emptyIterator;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
-public class ElasticsearchMetadata
+public class OpenSearchMetadata
         implements ConnectorMetadata
 {
     private static final String PASSTHROUGH_QUERY_RESULT_COLUMN_NAME = "result";
@@ -119,7 +119,7 @@ public class ElasticsearchMetadata
 
     private static final Map<String, ColumnHandle> PASSTHROUGH_QUERY_COLUMNS = ImmutableMap.of(
             PASSTHROUGH_QUERY_RESULT_COLUMN_NAME,
-            new ElasticsearchColumnHandle(
+            new OpenSearchColumnHandle(
                     PASSTHROUGH_QUERY_RESULT_COLUMN_NAME,
                     VARCHAR,
                     new VarcharDecoder.Descriptor(PASSTHROUGH_QUERY_RESULT_COLUMN_NAME),
@@ -131,11 +131,11 @@ public class ElasticsearchMetadata
             .collect(toImmutableSet());
 
     private final Type ipAddressType;
-    private final ElasticsearchClient client;
+    private final OpenSearchClient client;
     private final String schemaName;
 
     @Inject
-    public ElasticsearchMetadata(TypeManager typeManager, ElasticsearchClient client, ElasticsearchConfig config)
+    public OpenSearchMetadata(TypeManager typeManager, OpenSearchClient client, OpenSearchConfig config)
     {
         this.ipAddressType = typeManager.getType(new TypeSignature(StandardTypes.IPADDRESS));
         this.client = requireNonNull(client, "client is null");
@@ -149,7 +149,7 @@ public class ElasticsearchMetadata
     }
 
     @Override
-    public ElasticsearchTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
+    public OpenSearchTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
         requireNonNull(tableName, "tableName is null");
 
@@ -162,7 +162,7 @@ public class ElasticsearchMetadata
             }
 
             if (client.indexExists(table) && !client.getIndexMetadata(table).getSchema().getFields().isEmpty()) {
-                return new ElasticsearchTableHandle(SCAN, schemaName, table, query);
+                return new OpenSearchTableHandle(SCAN, schemaName, table, query);
             }
         }
 
@@ -172,7 +172,7 @@ public class ElasticsearchMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
-        ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
+        OpenSearchTableHandle handle = (OpenSearchTableHandle) table;
 
         if (isPassthroughQuery(handle)) {
             return new ConnectorTableMetadata(
@@ -190,7 +190,7 @@ public class ElasticsearchMetadata
 
     private InternalTableMetadata makeInternalTableMetadata(ConnectorTableHandle table)
     {
-        ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
+        OpenSearchTableHandle handle = (OpenSearchTableHandle) table;
         return makeInternalTableMetadata(handle.getSchema(), handle.getIndex());
     }
 
@@ -239,7 +239,7 @@ public class ElasticsearchMetadata
 
         for (IndexMetadata.Field field : fields) {
             TypeAndDecoder converted = toTrino(field);
-            result.put(field.getName(), new ElasticsearchColumnHandle(
+            result.put(field.getName(), new OpenSearchColumnHandle(
                     field.getName(),
                     converted.getType(),
                     converted.getDecoderDescriptor(),
@@ -393,7 +393,7 @@ public class ElasticsearchMetadata
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        ElasticsearchTableHandle table = (ElasticsearchTableHandle) tableHandle;
+        OpenSearchTableHandle table = (OpenSearchTableHandle) tableHandle;
 
         if (isPassthroughQuery(table)) {
             return PASSTHROUGH_QUERY_COLUMNS;
@@ -406,8 +406,8 @@ public class ElasticsearchMetadata
     @Override
     public ColumnMetadata getColumnMetadata(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
     {
-        ElasticsearchTableHandle table = (ElasticsearchTableHandle) tableHandle;
-        ElasticsearchColumnHandle column = (ElasticsearchColumnHandle) columnHandle;
+        OpenSearchTableHandle table = (OpenSearchTableHandle) tableHandle;
+        OpenSearchColumnHandle column = (OpenSearchColumnHandle) columnHandle;
 
         if (isPassthroughQuery(table)) {
             if (column.getName().equals(PASSTHROUGH_QUERY_RESULT_COLUMN_METADATA.getName())) {
@@ -452,7 +452,7 @@ public class ElasticsearchMetadata
     @Override
     public ConnectorTableProperties getTableProperties(ConnectorSession session, ConnectorTableHandle table)
     {
-        ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
+        OpenSearchTableHandle handle = (OpenSearchTableHandle) table;
 
         return new ConnectorTableProperties(
                 handle.getConstraint(),
@@ -464,7 +464,7 @@ public class ElasticsearchMetadata
     @Override
     public Optional<LimitApplicationResult<ConnectorTableHandle>> applyLimit(ConnectorSession session, ConnectorTableHandle table, long limit)
     {
-        ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
+        OpenSearchTableHandle handle = (OpenSearchTableHandle) table;
 
         if (isPassthroughQuery(handle)) {
             // limit pushdown currently not supported passthrough query
@@ -475,7 +475,7 @@ public class ElasticsearchMetadata
             return Optional.empty();
         }
 
-        handle = new ElasticsearchTableHandle(
+        handle = new OpenSearchTableHandle(
                 handle.getType(),
                 handle.getSchema(),
                 handle.getIndex(),
@@ -490,7 +490,7 @@ public class ElasticsearchMetadata
     @Override
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
     {
-        ElasticsearchTableHandle handle = (ElasticsearchTableHandle) table;
+        OpenSearchTableHandle handle = (OpenSearchTableHandle) table;
 
         if (isPassthroughQuery(handle)) {
             // filter pushdown currently not supported for passthrough query
@@ -501,7 +501,7 @@ public class ElasticsearchMetadata
         Map<ColumnHandle, Domain> unsupported = new HashMap<>();
         Map<ColumnHandle, Domain> domains = constraint.getSummary().getDomains().orElseThrow(() -> new IllegalArgumentException("constraint summary is NONE"));
         for (Map.Entry<ColumnHandle, Domain> entry : domains.entrySet()) {
-            ElasticsearchColumnHandle column = (ElasticsearchColumnHandle) entry.getKey();
+            OpenSearchColumnHandle column = (OpenSearchColumnHandle) entry.getKey();
 
             if (column.isSupportsPredicates()) {
                 supported.put(column, entry.getValue());
@@ -523,7 +523,7 @@ public class ElasticsearchMetadata
                 if (isSupportedLikeCall(call)) {
                     List<ConnectorExpression> arguments = call.getArguments();
                     String variableName = ((Variable) arguments.get(0)).getName();
-                    ElasticsearchColumnHandle column = (ElasticsearchColumnHandle) constraint.getAssignments().get(variableName);
+                    OpenSearchColumnHandle column = (OpenSearchColumnHandle) constraint.getAssignments().get(variableName);
                     verifyNotNull(column, "No assignment for %s", variableName);
                     String columnName = column.getName();
                     Object pattern = ((Constant) arguments.get(1)).getValue();
@@ -551,7 +551,7 @@ public class ElasticsearchMetadata
             return Optional.empty();
         }
 
-        handle = new ElasticsearchTableHandle(
+        handle = new OpenSearchTableHandle(
                 handle.getType(),
                 handle.getSchema(),
                 handle.getIndex(),
@@ -587,7 +587,7 @@ public class ElasticsearchMetadata
 
     protected static String likeToRegexp(Slice pattern, Optional<Slice> escape)
     {
-        Optional<Character> escapeChar = escape.map(ElasticsearchMetadata::getEscapeChar);
+        Optional<Character> escapeChar = escape.map(OpenSearchMetadata::getEscapeChar);
         StringBuilder regex = new StringBuilder();
         boolean escaped = false;
         int position = 0;
@@ -643,7 +643,7 @@ public class ElasticsearchMetadata
         throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "Escape string must be a single character");
     }
 
-    private static boolean isPassthroughQuery(ElasticsearchTableHandle table)
+    private static boolean isPassthroughQuery(OpenSearchTableHandle table)
     {
         return table.getType().equals(QUERY);
     }

@@ -16,7 +16,7 @@ package io.trino.plugin.elasticsearch;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
-import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
+import io.trino.plugin.elasticsearch.client.OpenSearchClient;
 import io.trino.plugin.elasticsearch.decoders.Decoder;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -41,7 +41,7 @@ import java.util.function.Supplier;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.plugin.elasticsearch.BuiltinColumns.SOURCE;
 import static io.trino.plugin.elasticsearch.BuiltinColumns.isBuiltinColumn;
-import static io.trino.plugin.elasticsearch.ElasticsearchQueryBuilder.buildSearchQuery;
+import static io.trino.plugin.elasticsearch.OpenSearchQueryBuilder.buildSearchQuery;
 import static io.trino.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Predicate.isEqual;
@@ -56,16 +56,16 @@ public class ScanQueryPageSource
 
     private final SearchHitIterator iterator;
     private final BlockBuilder[] columnBuilders;
-    private final List<ElasticsearchColumnHandle> columns;
+    private final List<OpenSearchColumnHandle> columns;
     private long totalBytes;
     private long readTimeNanos;
 
     public ScanQueryPageSource(
-            ElasticsearchClient client,
+            OpenSearchClient client,
             TypeManager typeManager,
-            ElasticsearchTableHandle table,
-            ElasticsearchSplit split,
-            List<ElasticsearchColumnHandle> columns)
+            OpenSearchTableHandle table,
+            OpenSearchSplit split,
+            List<OpenSearchColumnHandle> columns)
     {
         requireNonNull(client, "client is null");
         requireNonNull(typeManager, "typeManager is null");
@@ -77,7 +77,7 @@ public class ScanQueryPageSource
 
         // When the _source field is requested, we need to bypass column pruning when fetching the document
         boolean needAllFields = columns.stream()
-                .map(ElasticsearchColumnHandle::getName)
+                .map(OpenSearchColumnHandle::getName)
                 .anyMatch(isEqual(SOURCE.getName()));
 
         // Columns to fetch as doc_fields instead of pulling them out of the JSON source
@@ -89,12 +89,12 @@ public class ScanQueryPageSource
                 .collect(toImmutableList());
 
         columnBuilders = columns.stream()
-                .map(ElasticsearchColumnHandle::getType)
+                .map(OpenSearchColumnHandle::getType)
                 .map(type -> type.createBlockBuilder(null, 1))
                 .toArray(BlockBuilder[]::new);
 
         List<String> requiredFields = columns.stream()
-                .map(ElasticsearchColumnHandle::getName)
+                .map(OpenSearchColumnHandle::getName)
                 .filter(name -> !isBuiltinColumn(name))
                 .collect(toList());
 
@@ -111,7 +111,7 @@ public class ScanQueryPageSource
         SearchResponse searchResponse = client.beginSearch(
                 split.getIndex(),
                 split.getShard(),
-                buildSearchQuery(table.getConstraint().transformKeys(ElasticsearchColumnHandle.class::cast), table.getQuery(), table.getRegexes()),
+                buildSearchQuery(table.getConstraint().transformKeys(OpenSearchColumnHandle.class::cast), table.getQuery(), table.getRegexes()),
                 needAllFields ? Optional.empty() : Optional.of(requiredFields),
                 documentFields,
                 sort,
@@ -202,11 +202,11 @@ public class ScanQueryPageSource
         return value;
     }
 
-    private Map<String, Type> flattenFields(List<ElasticsearchColumnHandle> columns)
+    private Map<String, Type> flattenFields(List<OpenSearchColumnHandle> columns)
     {
         Map<String, Type> result = new HashMap<>();
 
-        for (ElasticsearchColumnHandle column : columns) {
+        for (OpenSearchColumnHandle column : columns) {
             flattenFields(result, column.getName(), column.getType());
         }
 
@@ -225,10 +225,10 @@ public class ScanQueryPageSource
         }
     }
 
-    private List<Decoder> createDecoders(List<ElasticsearchColumnHandle> columns)
+    private List<Decoder> createDecoders(List<OpenSearchColumnHandle> columns)
     {
         return columns.stream()
-                .map(ElasticsearchColumnHandle::getDecoderDescriptor)
+                .map(OpenSearchColumnHandle::getDecoderDescriptor)
                 .map(DecoderDescriptor::createDecoder)
                 .collect(toImmutableList());
     }
@@ -245,7 +245,7 @@ public class ScanQueryPageSource
     private static class SearchHitIterator
             extends AbstractIterator<SearchHit>
     {
-        private final ElasticsearchClient client;
+        private final OpenSearchClient client;
         private final Supplier<SearchResponse> first;
         private final OptionalLong limit;
 
@@ -256,7 +256,7 @@ public class ScanQueryPageSource
         private long readTimeNanos;
         private long totalRecordCount;
 
-        public SearchHitIterator(ElasticsearchClient client, Supplier<SearchResponse> first, OptionalLong limit)
+        public SearchHitIterator(OpenSearchClient client, Supplier<SearchResponse> first, OptionalLong limit)
         {
             this.client = client;
             this.first = first;

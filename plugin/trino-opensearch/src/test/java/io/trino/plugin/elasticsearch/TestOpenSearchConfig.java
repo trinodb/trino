@@ -26,17 +26,17 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.trino.plugin.elasticsearch.ElasticsearchConfig.Security.AWS;
+import static io.trino.plugin.elasticsearch.OpenSearchConfig.Security.AWS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-public class TestElasticsearchConfig
+public class TestOpenSearchConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(ElasticsearchConfig.class)
+        assertRecordedDefaults(recordDefaults(OpenSearchConfig.class)
                 .setHosts(null)
                 .setPort(9200)
                 .setDefaultSchema("default")
@@ -68,30 +68,30 @@ public class TestElasticsearchConfig
         Path truststoreFile = Files.createTempFile(null, null);
 
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("elasticsearch.host", "example.com")
-                .put("elasticsearch.port", "9999")
-                .put("elasticsearch.default-schema-name", "test")
-                .put("elasticsearch.scroll-size", "4000")
-                .put("elasticsearch.scroll-timeout", "20s")
-                .put("elasticsearch.request-timeout", "1s")
-                .put("elasticsearch.connect-timeout", "10s")
-                .put("elasticsearch.backoff-init-delay", "100ms")
-                .put("elasticsearch.backoff-max-delay", "15s")
-                .put("elasticsearch.max-retry-time", "10s")
-                .put("elasticsearch.node-refresh-interval", "10m")
-                .put("elasticsearch.max-http-connections", "100")
-                .put("elasticsearch.http-thread-count", "30")
-                .put("elasticsearch.tls.enabled", "true")
-                .put("elasticsearch.tls.keystore-path", keystoreFile.toString())
-                .put("elasticsearch.tls.keystore-password", "keystore-password")
-                .put("elasticsearch.tls.truststore-path", truststoreFile.toString())
-                .put("elasticsearch.tls.truststore-password", "truststore-password")
-                .put("elasticsearch.tls.verify-hostnames", "false")
-                .put("elasticsearch.ignore-publish-address", "true")
-                .put("elasticsearch.security", "AWS")
+                .put("opensearch.host", "example.com")
+                .put("opensearch.port", "9999")
+                .put("opensearch.default-schema-name", "test")
+                .put("opensearch.scroll-size", "4000")
+                .put("opensearch.scroll-timeout", "20s")
+                .put("opensearch.request-timeout", "1s")
+                .put("opensearch.connect-timeout", "10s")
+                .put("opensearch.backoff-init-delay", "100ms")
+                .put("opensearch.backoff-max-delay", "15s")
+                .put("opensearch.max-retry-time", "10s")
+                .put("opensearch.node-refresh-interval", "10m")
+                .put("opensearch.max-http-connections", "100")
+                .put("opensearch.http-thread-count", "30")
+                .put("opensearch.tls.enabled", "true")
+                .put("opensearch.tls.keystore-path", keystoreFile.toString())
+                .put("opensearch.tls.keystore-password", "keystore-password")
+                .put("opensearch.tls.truststore-path", truststoreFile.toString())
+                .put("opensearch.tls.truststore-password", "truststore-password")
+                .put("opensearch.tls.verify-hostnames", "false")
+                .put("opensearch.ignore-publish-address", "true")
+                .put("opensearch.security", "AWS")
                 .buildOrThrow();
 
-        ElasticsearchConfig expected = new ElasticsearchConfig()
+        OpenSearchConfig expected = new OpenSearchConfig()
                 .setHosts(Arrays.asList("example.com"))
                 .setPort(9999)
                 .setDefaultSchema("test")

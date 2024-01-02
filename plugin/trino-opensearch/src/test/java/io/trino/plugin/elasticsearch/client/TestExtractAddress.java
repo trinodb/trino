@@ -17,7 +17,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
-import static io.trino.plugin.elasticsearch.client.ElasticsearchClient.extractAddress;
+import static io.trino.plugin.elasticsearch.client.OpenSearchClient.extractAddress;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestExtractAddress

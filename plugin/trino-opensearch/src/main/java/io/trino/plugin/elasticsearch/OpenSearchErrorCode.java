@@ -20,7 +20,7 @@ import io.trino.spi.ErrorType;
 import static io.trino.spi.ErrorType.EXTERNAL;
 import static io.trino.spi.ErrorType.USER_ERROR;
 
-public enum ElasticsearchErrorCode
+public enum OpenSearchErrorCode
         implements ErrorCodeSupplier
 {
     ELASTICSEARCH_CONNECTION_ERROR(0, EXTERNAL),
@@ -31,7 +31,7 @@ public enum ElasticsearchErrorCode
 
     private final ErrorCode errorCode;
 
-    ElasticsearchErrorCode(int code, ErrorType type)
+    OpenSearchErrorCode(int code, ErrorType type)
     {
         errorCode = new ErrorCode(code + 0x0503_0000, name(), type);
     }

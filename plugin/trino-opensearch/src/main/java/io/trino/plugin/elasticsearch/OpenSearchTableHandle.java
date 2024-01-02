@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
-public final class ElasticsearchTableHandle
+public final class OpenSearchTableHandle
         implements ConnectorTableHandle
 {
     public enum Type
@@ -44,7 +44,7 @@ public final class ElasticsearchTableHandle
     private final Optional<String> query;
     private final OptionalLong limit;
 
-    public ElasticsearchTableHandle(Type type, String schema, String index, Optional<String> query)
+    public OpenSearchTableHandle(Type type, String schema, String index, Optional<String> query)
     {
         this.type = requireNonNull(type, "type is null");
         this.schema = requireNonNull(schema, "schema is null");
@@ -57,7 +57,7 @@ public final class ElasticsearchTableHandle
     }
 
     @JsonCreator
-    public ElasticsearchTableHandle(
+    public OpenSearchTableHandle(
             @JsonProperty("type") Type type,
             @JsonProperty("schema") String schema,
             @JsonProperty("index") String index,
@@ -126,7 +126,7 @@ public final class ElasticsearchTableHandle
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        ElasticsearchTableHandle that = (ElasticsearchTableHandle) o;
+        OpenSearchTableHandle that = (OpenSearchTableHandle) o;
         return type == that.type &&
                 schema.equals(that.schema) &&
                 index.equals(that.index) &&
