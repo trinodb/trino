@@ -39,8 +39,8 @@ import io.trino.sql.planner.CompilerConfig;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SpecialForm;
 import io.trino.type.LikePattern;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.Arrays;
 import java.util.List;
@@ -95,7 +95,8 @@ public class TestColumnarFilters
     private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
     private static final ColumnarFilterCompiler COMPILER = new ColumnarFilterCompiler(createTestingFunctionManager(), new CompilerConfig());
 
-    @Test(dataProvider = "inputProviders")
+    @ParameterizedTest
+    @MethodSource("inputProviders")
     public void testIsDistinctFrom(NullsProvider nullsProvider, boolean dictionaryEncoded)
     {
         List<Page> inputPages = createInputPages(nullsProvider, dictionaryEncoded);
@@ -116,7 +117,8 @@ public class TestColumnarFilters
         assertFilter(inputPages, isDistinctFromFilter);
     }
 
-    @Test(dataProvider = "inputProviders")
+    @ParameterizedTest
+    @MethodSource("inputProviders")
     public void testIsNotDistinctFrom(NullsProvider nullsProvider, boolean dictionaryEncoded)
     {
         List<Page> inputPages = createInputPages(nullsProvider, dictionaryEncoded);
@@ -139,7 +141,8 @@ public class TestColumnarFilters
         assertFilter(inputPages, isNotDistinctFromFilter);
     }
 
-    @Test(dataProvider = "inputProviders")
+    @ParameterizedTest
+    @MethodSource("inputProviders")
     public void testIsNull(NullsProvider nullsProvider, boolean dictionaryEncoded)
     {
         List<Page> inputPages = createInputPages(nullsProvider, dictionaryEncoded);
@@ -148,7 +151,8 @@ public class TestColumnarFilters
         assertFilter(inputPages, isNullFilter);
     }
 
-    @Test(dataProvider = "inputProviders")
+    @ParameterizedTest
+    @MethodSource("inputProviders")
     public void testIsNotNull(NullsProvider nullsProvider, boolean dictionaryEncoded)
     {
         List<Page> inputPages = createInputPages(nullsProvider, dictionaryEncoded);
@@ -157,7 +161,8 @@ public class TestColumnarFilters
         assertFilter(inputPages, isNotNullFilter);
     }
 
-    @Test(dataProvider = "inputProviders")
+    @ParameterizedTest
+    @MethodSource("inputProviders")
     public void testNot(NullsProvider nullsProvider, boolean dictionaryEncoded)
     {
         List<Page> inputPages = createInputPages(nullsProvider, dictionaryEncoded);
@@ -170,7 +175,8 @@ public class TestColumnarFilters
         assertFilter(inputPages, notNullFilter);
     }
 
-    @Test(dataProvider = "inputProviders")
+    @ParameterizedTest
+    @MethodSource("inputProviders")
     public void testLike(NullsProvider nullsProvider, boolean dictionaryEncoded)
     {
         List<Page> inputPages = createInputPages(nullsProvider, dictionaryEncoded);
@@ -182,7 +188,8 @@ public class TestColumnarFilters
         assertFilter(inputPages, likeFilter);
     }
 
-    @Test(dataProvider = "inputProviders")
+    @ParameterizedTest
+    @MethodSource("inputProviders")
     public void testLessThan(NullsProvider nullsProvider, boolean dictionaryEncoded)
     {
         List<Page> inputPages = createInputPages(nullsProvider, dictionaryEncoded);
@@ -211,7 +218,8 @@ public class TestColumnarFilters
         assertFilter(inputPages, lessThanFilter);
     }
 
-    @Test(dataProvider = "inputProviders")
+    @ParameterizedTest
+    @MethodSource("inputProviders")
     public void testBetween(NullsProvider nullsProvider, boolean dictionaryEncoded)
     {
         List<Page> inputPages = createInputPages(nullsProvider, dictionaryEncoded);
@@ -243,7 +251,8 @@ public class TestColumnarFilters
         assertFilter(inputPages, betweenFilter);
     }
 
-    @Test(dataProvider = "inputProviders")
+    @ParameterizedTest
+    @MethodSource("inputProviders")
     public void testOr(NullsProvider nullsProvider, boolean dictionaryEncoded)
     {
         List<Page> inputPages = createInputPages(nullsProvider, dictionaryEncoded);
@@ -266,7 +275,8 @@ public class TestColumnarFilters
         assertFilter(inputPages, orFilter);
     }
 
-    @Test(dataProvider = "inputProviders")
+    @ParameterizedTest
+    @MethodSource("inputProviders")
     public void testAnd(NullsProvider nullsProvider, boolean dictionaryEncoded)
     {
         List<Page> inputPages = createInputPages(nullsProvider, dictionaryEncoded);
@@ -289,7 +299,8 @@ public class TestColumnarFilters
         assertFilter(inputPages, andFilter);
     }
 
-    @Test(dataProvider = "inputProviders")
+    @ParameterizedTest
+    @MethodSource("inputProviders")
     public void testIn(NullsProvider nullsProvider, boolean dictionaryEncoded)
     {
         List<Page> inputPages = createInputPages(nullsProvider, dictionaryEncoded);
@@ -336,7 +347,8 @@ public class TestColumnarFilters
         assertFilter(inputPages, inFilter);
     }
 
-    @Test(dataProvider = "nullsProviders")
+    @ParameterizedTest
+    @MethodSource("nullsProviders")
     public void testInStructuralType(NullsProvider nullsProvider)
     {
         List<Page> inputPages = createInputPages(nullsProvider, false);
@@ -430,13 +442,11 @@ public class TestColumnarFilters
         abstract Optional<boolean[]> getNulls(int positionCount);
     }
 
-    @DataProvider
     public static Object[][] inputProviders()
     {
         return cartesianProduct(nullsProviders(), trueFalse());
     }
 
-    @DataProvider
     public static Object[][] nullsProviders()
     {
         return Stream.of(NullsProvider.values()).collect(toDataProvider());

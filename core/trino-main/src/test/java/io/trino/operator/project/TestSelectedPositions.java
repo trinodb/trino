@@ -16,8 +16,9 @@ package io.trino.operator.project;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.Random;
 import java.util.Set;
@@ -58,7 +59,8 @@ public class TestSelectedPositions
         assertThat(NON_EMPTY_RANGE.difference(EMPTY_RANGE)).isEqualTo(NON_EMPTY_RANGE);
     }
 
-    @Test(dataProvider = "inputSizes")
+    @ParameterizedTest
+    @MethodSource("inputSizes")
     public void testListsUnionAndDifference(int size, int maxGroupSize)
     {
         int[] positions = generateList(size, maxGroupSize);
@@ -81,7 +83,8 @@ public class TestSelectedPositions
         assertUnionAndDifference(listA, listB);
     }
 
-    @Test(dataProvider = "inputSizes")
+    @ParameterizedTest
+    @MethodSource("inputSizes")
     public void testListRangeUnionAndDifference(int size, int maxGroupSize)
     {
         int[] positions = generateList(size, maxGroupSize);
@@ -138,7 +141,6 @@ public class TestSelectedPositions
         assertUnionAndDifference(rangeA, rangeB);
     }
 
-    @DataProvider
     public static Object[][] inputSizes()
     {
         return cartesianProduct(

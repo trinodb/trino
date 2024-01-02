@@ -40,9 +40,9 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.LocalQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.List;
 import java.util.Map;
@@ -65,10 +65,14 @@ import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestDistinctAggregationController
 {
     private static final int NODE_COUNT = 6;
@@ -77,7 +81,6 @@ public class TestDistinctAggregationController
     private LocalQueryRunner queryRunner;
 
     @BeforeAll
-    @BeforeClass
     public final void setUp()
     {
         LocalQueryRunner queryRunner = LocalQueryRunner.builder(TEST_SESSION)
@@ -94,7 +97,6 @@ public class TestDistinctAggregationController
     }
 
     @AfterAll
-    @AfterClass(alwaysRun = true)
     public final void tearDown()
     {
         closeAllRuntimeException(queryRunner);

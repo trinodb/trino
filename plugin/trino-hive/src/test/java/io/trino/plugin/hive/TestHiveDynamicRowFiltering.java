@@ -18,8 +18,10 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.testing.AbstractTestDynamicRowFiltering;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 public class TestHiveDynamicRowFiltering
         extends AbstractTestDynamicRowFiltering
@@ -33,7 +35,7 @@ public class TestHiveDynamicRowFiltering
                 .build();
     }
 
-    @BeforeClass
+    @BeforeAll
     public void createTestData()
     {
         assertUpdate(
@@ -44,7 +46,9 @@ public class TestHiveDynamicRowFiltering
                 15000);
     }
 
-    @Test(timeOut = 30_000, dataProvider = "joinDistributionTypes")
+    @ParameterizedTest
+    @MethodSource("joinDistributionTypes")
+    @Timeout(30)
     public void testRowFilteringWithCharStrings(JoinDistributionType joinDistributionType)
     {
         assertRowFiltering(

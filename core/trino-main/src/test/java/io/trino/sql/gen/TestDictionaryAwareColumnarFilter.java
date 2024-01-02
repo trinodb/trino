@@ -22,10 +22,11 @@ import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.sql.gen.columnar.ColumnarFilter;
 import io.trino.sql.gen.columnar.DictionaryAwareColumnarFilter;
-import io.trino.testing.DataProviders;
 import it.unimi.dsi.fastutil.ints.IntArraySet;
 import it.unimi.dsi.fastutil.ints.IntSet;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.Arrays;
 
@@ -70,7 +71,8 @@ public class TestDictionaryAwareColumnarFilter
         testFilter(block, LongArrayBlock.class);
     }
 
-    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
     public void testRleBlock(boolean usePositionsList)
     {
         testRleBlock(true, usePositionsList);
@@ -86,7 +88,8 @@ public class TestDictionaryAwareColumnarFilter
         testFilter(filter, noMatch, filterRange, usePositionsList);
     }
 
-    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
     public void testRleBlockWithFailure(boolean usePositionsList)
     {
         DictionaryAwareColumnarFilter filter = createDictionaryAwareColumnarFilter(true, LongArrayBlock.class);

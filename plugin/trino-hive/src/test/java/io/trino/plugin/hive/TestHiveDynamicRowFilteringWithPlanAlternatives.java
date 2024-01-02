@@ -42,7 +42,9 @@ import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -74,7 +76,9 @@ public class TestHiveDynamicRowFilteringWithPlanAlternatives
     }
 
     @Override
-    @Test(timeOut = 30_000, dataProvider = "joinDistributionTypes")
+    @ParameterizedTest
+    @MethodSource("joinDistributionTypes")
+    @Timeout(30)
     public void testRowFilteringWithCharStrings(JoinDistributionType joinDistributionType)
     {
         assertRowFiltering(
@@ -95,7 +99,9 @@ public class TestHiveDynamicRowFilteringWithPlanAlternatives
         return ((HiveTableHandle) table).getSchemaTableName();
     }
 
-    @Test(timeOut = 30_000, dataProvider = "joinDistributionTypes")
+    @ParameterizedTest
+    @MethodSource("joinDistributionTypes")
+    @Timeout(30)
     public void testRowFilteringWithStringsAndPlanAlternativesOnBothSides(JoinDistributionType joinDistributionType)
     {
         assertRowFiltering(
@@ -105,7 +111,9 @@ public class TestHiveDynamicRowFilteringWithPlanAlternatives
     }
 
     @Override
-    @Test(timeOut = 30000L, dataProvider = "joinDistributionTypes")
+    @ParameterizedTest
+    @MethodSource("joinDistributionTypes")
+    @Timeout(30)
     public void testRowFilteringWithStrings(JoinDistributionType joinDistributionType)
     {
         assertRowFiltering("SELECT * FROM customer c1, customer c2 WHERE c1.name = c2.name AND c2.acctbal > 9000", joinDistributionType);

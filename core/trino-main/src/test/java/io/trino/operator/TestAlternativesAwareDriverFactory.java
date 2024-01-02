@@ -27,9 +27,11 @@ import io.trino.testing.NullOutputOperator.NullOutputOperatorFactory;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
 import io.trino.testing.TestingSplit;
 import io.trino.testing.TestingTransactionHandle;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.util.Map;
 import java.util.Optional;
@@ -43,21 +45,25 @@ import static io.trino.operator.TestingOperatorContext.createDriverContext;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
+import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
+@TestInstance(PER_CLASS)
+@Execution(CONCURRENT)
 public class TestAlternativesAwareDriverFactory
 {
     public static final PlanNodeId CHOOSE_ALTERNATIVE_NODE_ID = new PlanNodeId("chooseAlternative");
     private ScheduledExecutorService scheduledExecutor;
 
-    @BeforeClass
+    @BeforeAll
     public void setUp()
     {
         scheduledExecutor = newSingleThreadScheduledExecutor();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void tearDown()
     {
         scheduledExecutor.shutdownNow();

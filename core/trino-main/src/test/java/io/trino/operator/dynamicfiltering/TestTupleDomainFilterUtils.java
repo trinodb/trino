@@ -32,8 +32,9 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeUtils;
 import org.assertj.core.api.Assertions;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -85,7 +86,8 @@ public class TestTupleDomainFilterUtils
 {
     private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
 
-    @Test(dataProvider = "testTupleDomainDiscreteValues")
+    @ParameterizedTest
+    @MethodSource("testTupleDomainDiscreteValues")
     public void testCreateTupleDomainFilters(Type type, List<Long> values)
     {
         ColumnHandle column = new TestingColumnHandle("column");
@@ -122,8 +124,7 @@ public class TestTupleDomainFilterUtils
         assertThat(testContains(filter, max - 1, type)).isFalse();
     }
 
-    @DataProvider
-    public Object[][] testTupleDomainDiscreteValues()
+    public static Object[][] testTupleDomainDiscreteValues()
     {
         return new Object[][] {
                 {INTEGER, ImmutableList.of(0L, 3L, 500L, 7000L)},

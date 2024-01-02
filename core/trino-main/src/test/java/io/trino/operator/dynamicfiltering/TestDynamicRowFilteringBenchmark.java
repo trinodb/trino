@@ -13,7 +13,7 @@
  */
 package io.trino.operator.dynamicfiltering;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.trino.operator.dynamicfiltering.BenchmarkDynamicPageFilter.DataSet;
 

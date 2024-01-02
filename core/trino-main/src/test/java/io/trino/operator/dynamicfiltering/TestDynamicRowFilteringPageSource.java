@@ -32,7 +32,8 @@ import io.trino.spi.predicate.Range;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.TypeOperators;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -313,7 +314,8 @@ public class TestDynamicRowFilteringPageSource
         }
     }
 
-    @Test(timeOut = 10_000)
+    @Test
+    @Timeout(10)
     public void testDynamicFilterBlockingTimeout()
     {
         ColumnHandle column = new TestingColumnHandle("column");
