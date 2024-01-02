@@ -27,6 +27,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static io.trino.spi.StandardErrorCode.STACK_OVERFLOW;
 import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.Int128Math.absExact;
 import static io.trino.spi.type.Int128Math.powerOfTen;
@@ -287,10 +288,11 @@ public final class Decimals
         Int128 result;
         try {
             result = Int128.valueOf(value);
-            throwIfOverflows(result.getHigh(), result.getLow());
-        } catch(ArithmeticException e) {
+        }
+        catch (Exception e) {
             throw new TrinoException(NUMERIC_VALUE_OUT_OF_RANGE, "%s caused an overflow".formatted(value));
         }
+        throwIfOverflows(result.getHigh(), result.getLow());
         return result;
     }
 
