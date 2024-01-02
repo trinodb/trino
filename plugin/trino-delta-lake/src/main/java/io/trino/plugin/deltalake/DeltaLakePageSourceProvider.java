@@ -88,6 +88,7 @@ import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetMax
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.getParquetSmallFileThreshold;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isParquetIgnoreStatistics;
 import static io.trino.plugin.deltalake.DeltaLakeSessionProperties.isParquetUseColumnIndex;
+import static io.trino.plugin.deltalake.DeltaLakeSplitManager.partitionMatchesPredicate;
 import static io.trino.plugin.deltalake.delete.DeletionVectors.readDeletionVectors;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.extractSchema;
 import static io.trino.plugin.deltalake.transactionlog.DeltaLakeSchemaSupport.getColumnMappingMode;
@@ -179,6 +180,12 @@ public class DeltaLakePageSourceProvider
                 split.getStatisticsPredicate(),
                 dynamicFilter.getCurrentPredicate().transformKeys(DeltaLakeColumnHandle.class::cast)));
         if (filteredSplitPredicate.isNone()) {
+            return new EmptyPageSource();
+        }
+        Map<DeltaLakeColumnHandle, Domain> partitionColumnDomains = filteredSplitPredicate.getDomains().orElseThrow().entrySet().stream()
+                .filter(entry -> entry.getKey().getColumnType() == DeltaLakeColumnType.PARTITION_KEY)
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+        if (!partitionMatchesPredicate(split.getPartitionKeys(), partitionColumnDomains)) {
             return new EmptyPageSource();
         }
         if (filteredSplitPredicate.isAll() &&
