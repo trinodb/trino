@@ -91,7 +91,7 @@ public final class OpenSearchQueryRunner
 
             OpenSearchConnectorFactory testFactory = new OpenSearchConnectorFactory();
 
-            installElasticsearchPlugin(address, queryRunner, catalogName, testFactory, extraConnectorProperties);
+            installOpenSearchPlugin(address, queryRunner, catalogName, testFactory, extraConnectorProperties);
 
             TestingTrinoClient trinoClient = queryRunner.getClient();
 
@@ -112,7 +112,7 @@ public final class OpenSearchQueryRunner
         }
     }
 
-    private static void installElasticsearchPlugin(
+    private static void installOpenSearchPlugin(
             HostAndPort address,
             QueryRunner queryRunner,
             String catalogName,
@@ -133,7 +133,7 @@ public final class OpenSearchQueryRunner
                 .putAll(extraConnectorProperties)
                 .buildOrThrow();
 
-        queryRunner.createCatalog(catalogName, "elasticsearch", config);
+        queryRunner.createCatalog(catalogName, "opensearch", config);
     }
 
     private static void loadTpchTopic(RestHighLevelClient client, TestingTrinoClient trinoClient, TpchTable<?> table)
