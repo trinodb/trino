@@ -94,7 +94,7 @@ public class TestKuduCaseInsensitiveMapping
                 .add(new KuduTestColumn(VARCHAR, "UPPER_CASE_NAME", "c"))
                 .build();
         try (AutoCloseable ignoreSchema = withSchema(schemaName);
-                AutoCloseable ignoreTable = withTable(schemaName,
+                AutoCloseable ignoreTable = withTable(
                         tableName,
                         kuduTableColumns)) {
             assertQuery(
@@ -126,9 +126,9 @@ public class TestKuduCaseInsensitiveMapping
                 .add(new KuduTestColumn(BIGINT, "id", "1", true))
                 .build();
         try (AutoCloseable ignoreSchema = withSchema(schemaName);
-                AutoCloseable ignoreTable = withTable(schemaName, "casesensitivename", kuduTableColumns);
-                AutoCloseable ignoreOtherTable = withTable(schemaName, "CaseSensitiveName", kuduTableColumns);
-                AutoCloseable ignoreSomeable = withTable(schemaName, "some_table", kuduTableColumns)) {
+                AutoCloseable ignoreTable = withTable("casesensitivename", kuduTableColumns);
+                AutoCloseable ignoreOtherTable = withTable("CaseSensitiveName", kuduTableColumns);
+                AutoCloseable ignoreSomeable = withTable("some_table", kuduTableColumns)) {
             assertThat(computeActual("SHOW TABLES FROM " + schemaName).getOnlyColumn()).filteredOn("casesensitivename"::equals).hasSize(1);
             assertQueryFails(format("SELECT * FROM %s.casesensitivename", schemaName), "Failed to find remote table name: Ambiguous name: casesensitivename");
             assertQuery(format("SELECT * FROM %s.some_table", schemaName), "VALUES '1'");
@@ -150,7 +150,7 @@ public class TestKuduCaseInsensitiveMapping
                 .build();
 
         try (AutoCloseable ignoreSchema = withSchema(schema);
-                AutoCloseable ignoreTable = withTable(schema, "remote_table", kuduTableColumns)) {
+                AutoCloseable ignoreTable = withTable("remote_table", kuduTableColumns)) {
             assertThat(computeActual("SHOW TABLES FROM " + schema).getOnlyColumn())
                     .contains("trino_table");
             assertQuery("SELECT * FROM " + schema + ".trino_table", "VALUES '1'");
@@ -175,8 +175,8 @@ public class TestKuduCaseInsensitiveMapping
         String remoteTable = "casesensitivename";
         String otherRemoteTable = "CaseSensitiveName";
         try (AutoCloseable ignoreSchema = withSchema(schema);
-                AutoCloseable ignoreTable = withTable(schema, remoteTable, kuduTableColumns);
-                AutoCloseable ignoreOtherTable = withTable(schema, otherRemoteTable, kuduTableColumns)) {
+                AutoCloseable ignoreTable = withTable(remoteTable, kuduTableColumns);
+                AutoCloseable ignoreOtherTable = withTable(otherRemoteTable, kuduTableColumns)) {
             String table = tableMappingRules.stream()
                     .filter(rule -> rule.getRemoteTable().equals(remoteTable))
                     .map(TableMappingRule::getMapping)
@@ -200,7 +200,7 @@ public class TestKuduCaseInsensitiveMapping
                 .add(new KuduTestColumn(BIGINT, "id", "1", true))
                 .build();
         try (AutoCloseable ignoreSchema = withSchema(schemaName);
-                AutoCloseable ignoreTableLoweCase = withTable(schemaName, "testInsensitive_RenameTable", kuduTableColumns)) {
+                AutoCloseable ignoreTableLoweCase = withTable("testInsensitive_RenameTable", kuduTableColumns)) {
             assertQuery(format("SHOW TABLES FROM %s", schemaName), "VALUES 'testinsensitive_renametable'");
             assertQuery(format("SELECT * FROM %s.testinsensitive_renametable", schemaName), "VALUES '1'");
 
@@ -222,7 +222,7 @@ public class TestKuduCaseInsensitiveMapping
                 .add(new KuduTestColumn(BIGINT, "key", "1"))
                 .build();
         try (AutoCloseable ignoreSchema = withSchema(schemaName);
-                AutoCloseable ignoreTableLowerCase = withTable(schemaName, "Some_Table", kuduTableColumns)) {
+                AutoCloseable ignoreTableLowerCase = withTable("Some_Table", kuduTableColumns)) {
             assertUpdate(format("CALL kudu.system.drop_range_partition('%s', '%s', '%s')", schemaName, "some_table", "{\"lower\": null, \"upper\": null}"));
             assertUpdate(format("CALL kudu.system.add_range_partition('%s', '%s', '%s')", schemaName, "some_table", "{\"lower\": 0, \"upper\": 1000}"));
         }
@@ -235,7 +235,7 @@ public class TestKuduCaseInsensitiveMapping
         };
     }
 
-    private AutoCloseable withTable(String remoteSchemaName, String remoteTableName, List<KuduTestColumn> items)
+    private AutoCloseable withTable(String remoteTableName, List<KuduTestColumn> items)
     {
         return new KuduTestTable(
                 remoteTableName,
