@@ -214,9 +214,9 @@ public class TestKuduCaseInsensitiveMapping
                 .add(new KuduTestColumn(BIGINT, "id", "1", true))
                 .add(new KuduTestColumn(BIGINT, "key", "1"))
                 .build();
-        try (AutoCloseable ignoreTableLowerCase = withTable("Some_Table", kuduTableColumns)) {
-            assertUpdate(format("CALL kudu.system.drop_range_partition('%s', '%s', '%s')", schemaName, "some_table", "{\"lower\": null, \"upper\": null}"));
-            assertUpdate(format("CALL kudu.system.add_range_partition('%s', '%s', '%s')", schemaName, "some_table", "{\"lower\": 0, \"upper\": 1000}"));
+        try (AutoCloseable ignoreTableLowerCase = withTable("Test_DRop_AND_Add_Range_Partition", kuduTableColumns)) {
+            assertUpdate(format("CALL kudu.system.drop_range_partition('%s', '%s', '%s')", schemaName, "test_drop_and_add_range_partition", "{\"lower\": null, \"upper\": null}"));
+            assertUpdate(format("CALL kudu.system.add_range_partition('%s', '%s', '%s')", schemaName, "test_drop_and_add_range_partition", "{\"lower\": 0, \"upper\": 1000}"));
         }
     }
 
