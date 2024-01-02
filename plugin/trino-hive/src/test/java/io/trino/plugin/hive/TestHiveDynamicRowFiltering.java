@@ -34,11 +34,8 @@ public class TestHiveDynamicRowFiltering
     }
 
     @BeforeClass
-    @Override
-    public void init()
-            throws Exception
+    public void createTestData()
     {
-        super.init();
         assertUpdate(
                 "CREATE TABLE orders AS SELECT " +
                         "CAST(clerk AS CHAR(15)) clerk, " +
