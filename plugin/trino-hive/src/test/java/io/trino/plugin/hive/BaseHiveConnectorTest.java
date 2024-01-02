@@ -9091,6 +9091,50 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
+    public void testCommentWithPartitionedTable()
+    {
+        String table = "test_comment_with_partitioned_table_" + randomNameSuffix();
+
+        assertUpdate("""
+                CREATE TABLE hive.tpch.%s (
+                   regular_column date COMMENT 'regular column comment',
+                   partition_column date COMMENT 'partition column comment'
+                )
+                COMMENT 'table comment'
+                WITH (
+                   partitioned_by = ARRAY['partition_column']
+                )
+                """.formatted(table));
+
+        assertThat(getColumnComment(table, "regular_column")).isEqualTo("regular column comment");
+        assertThat(getColumnComment(table, "partition_column")).isEqualTo("partition column comment");
+        assertThat(getTableComment("hive", "tpch", table)).isEqualTo("table comment");
+
+        assertUpdate("COMMENT ON COLUMN %s.regular_column IS 'new regular column comment'".formatted(table));
+        assertThat(getColumnComment(table, "regular_column")).isEqualTo("new regular column comment");
+        assertUpdate("COMMENT ON COLUMN %s.partition_column IS 'new partition column comment'".formatted(table));
+        assertThat(getColumnComment(table, "partition_column")).isEqualTo("new partition column comment");
+        assertUpdate("COMMENT ON TABLE %s IS 'new table comment'".formatted(table));
+        assertThat(getTableComment("hive", "tpch", table)).isEqualTo("new table comment");
+
+        assertUpdate("COMMENT ON COLUMN %s.regular_column IS ''".formatted(table));
+        assertThat(getColumnComment(table, "regular_column")).isEmpty();
+        assertUpdate("COMMENT ON COLUMN %s.partition_column IS ''".formatted(table));
+        assertThat(getColumnComment(table, "partition_column")).isEmpty();
+        assertUpdate("COMMENT ON TABLE %s IS ''".formatted(table));
+        assertThat(getTableComment("hive", "tpch", table)).isEmpty();
+
+        assertUpdate("COMMENT ON COLUMN %s.regular_column IS NULL".formatted(table));
+        assertThat(getColumnComment(table, "regular_column")).isNull();
+        assertUpdate("COMMENT ON COLUMN %s.partition_column IS NULL".formatted(table));
+        assertThat(getColumnComment(table, "partition_column")).isNull();
+        assertUpdate("COMMENT ON TABLE %s IS NULL".formatted(table));
+        assertThat(getTableComment("hive", "tpch", table)).isNull();
+
+        assertUpdate("DROP TABLE " + table);
+    }
+
+    @Test
     public void testSelectWithShortZoneId()
             throws IOException
     {
