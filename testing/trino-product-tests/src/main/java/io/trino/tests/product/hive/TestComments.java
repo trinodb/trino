@@ -142,20 +142,35 @@ public class TestComments
                 CREATE TABLE hive.default.%s (
                    c1 bigint COMMENT 'test comment',
                    c2 bigint COMMENT '',
-                   c3 bigint
+                   c3 bigint,
+                   c4 bigint COMMENT 'test partition comment',
+                   c5 bigint COMMENT '',
+                   c6 bigint
+                )
+                WITH (
+                   partitioned_by = ARRAY['c4', 'c5', 'c6']
                 )
                 """.formatted(COMMENT_COLUMN_NAME));
         assertThat(getColumnComment("default", COMMENT_COLUMN_NAME, "c1")).isEqualTo("test comment");
         assertThat(getColumnComment("default", COMMENT_COLUMN_NAME, "c2")).isEmpty();
         assertThat(getColumnComment("default", COMMENT_COLUMN_NAME, "c3")).isNull();
+        assertThat(getColumnComment("default", COMMENT_COLUMN_NAME, "c4")).isEqualTo("test partition comment");
+        assertThat(getColumnComment("default", COMMENT_COLUMN_NAME, "c5")).isEmpty();
+        assertThat(getColumnComment("default", COMMENT_COLUMN_NAME, "c6")).isNull();
 
         onTrino().executeQuery(format("COMMENT ON COLUMN %s.c1 IS 'new comment'", COMMENT_COLUMN_NAME));
         assertThat(getColumnComment("default", COMMENT_COLUMN_NAME, "c1")).isEqualTo("new comment");
+        onTrino().executeQuery(format("COMMENT ON COLUMN %s.c4 IS 'new partition comment'", COMMENT_COLUMN_NAME));
+        assertThat(getColumnComment("default", COMMENT_COLUMN_NAME, "c4")).isEqualTo("new partition comment");
 
         onTrino().executeQuery(format("COMMENT ON COLUMN %s.c1 IS ''", COMMENT_COLUMN_NAME));
         assertThat(getColumnComment("default", COMMENT_COLUMN_NAME, "c1")).isEmpty();
+        onTrino().executeQuery(format("COMMENT ON COLUMN %s.c4 IS ''", COMMENT_COLUMN_NAME));
+        assertThat(getColumnComment("default", COMMENT_COLUMN_NAME, "c4")).isEmpty();
 
         onTrino().executeQuery(format("COMMENT ON COLUMN %s.c1 IS NULL", COMMENT_COLUMN_NAME));
         assertThat(getColumnComment("default", COMMENT_COLUMN_NAME, "c1")).isNull();
+        onTrino().executeQuery(format("COMMENT ON COLUMN %s.c4 IS NULL", COMMENT_COLUMN_NAME));
+        assertThat(getColumnComment("default", COMMENT_COLUMN_NAME, "c4")).isNull();
     }
 }
