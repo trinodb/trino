@@ -576,16 +576,15 @@ public class IcebergMetadata
         if (tableType.isEmpty()) {
             return Optional.empty();
         }
-        SchemaTableName systemTableName = new SchemaTableName(tableName.getSchemaName(), IcebergTableName.tableNameWithType(name, tableType.get()));
         return switch (tableType.get()) {
             case DATA -> throw new VerifyException("Unexpected DATA table type"); // Handled above.
-            case HISTORY -> Optional.of(new HistoryTable(systemTableName, table));
-            case SNAPSHOTS -> Optional.of(new SnapshotsTable(systemTableName, typeManager, table));
-            case PARTITIONS -> Optional.of(new PartitionTable(systemTableName, typeManager, table, getCurrentSnapshotId(table)));
-            case MANIFESTS -> Optional.of(new ManifestsTable(systemTableName, table, getCurrentSnapshotId(table)));
-            case FILES -> Optional.of(new FilesTable(systemTableName, typeManager, table, getCurrentSnapshotId(table)));
-            case PROPERTIES -> Optional.of(new PropertiesTable(systemTableName, table));
-            case REFS -> Optional.of(new RefsTable(systemTableName, table));
+            case HISTORY -> Optional.of(new HistoryTable(tableName, table));
+            case SNAPSHOTS -> Optional.of(new SnapshotsTable(tableName, typeManager, table));
+            case PARTITIONS -> Optional.of(new PartitionTable(tableName, typeManager, table, getCurrentSnapshotId(table)));
+            case MANIFESTS -> Optional.of(new ManifestsTable(tableName, table, getCurrentSnapshotId(table)));
+            case FILES -> Optional.of(new FilesTable(tableName, typeManager, table, getCurrentSnapshotId(table)));
+            case PROPERTIES -> Optional.of(new PropertiesTable(tableName, table));
+            case REFS -> Optional.of(new RefsTable(tableName, table));
             case MATERIALIZED_VIEW_STORAGE -> throw new VerifyException("Unexpected MATERIALIZED_VIEW_STORAGE table type");
         };
     }
