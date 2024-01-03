@@ -7616,6 +7616,11 @@ public abstract class BaseIcebergConnectorTest
                         "\\Qline 1:1: Table '%s.%s.\"$%s\"' does not exist".formatted(catalog, schema, tableType.name().toLowerCase(ENGLISH)));
             }
         }
+
+        // given the base table exists
+        assertQuerySucceeds("TABLE nation");
+        // verify that <base>$<invalid-suffix> results in table not found
+        assertQueryFails("TABLE \"nation$foo\"", "\\Qline 1:1: Table '%s.%s.\"nation$foo\"' does not exist".formatted(catalog, schema));
     }
 
     @Override
