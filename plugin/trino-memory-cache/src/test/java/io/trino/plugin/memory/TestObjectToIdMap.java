@@ -13,7 +13,7 @@
  */
 package io.trino.plugin.memory;
 
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static io.airlift.slice.SizeOf.LONG_INSTANCE_SIZE;
 import static io.trino.plugin.memory.MemoryCacheManager.MAP_ENTRY_SIZE;

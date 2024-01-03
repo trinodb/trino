@@ -32,8 +32,9 @@ import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSource;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.net.URI;
@@ -55,8 +56,9 @@ import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@Execution(SAME_THREAD)
 public class TestMemoryCacheManager
 {
     private static final CacheColumnId COLUMN1 = new CacheColumnId("col1");
@@ -70,7 +72,7 @@ public class TestMemoryCacheManager
     private long allocatedRevocableMemory;
     private long memoryLimit;
 
-    @BeforeMethod
+    @BeforeEach
     public void setup()
     {
         oneMegabytePage = createOneMegaBytePage();

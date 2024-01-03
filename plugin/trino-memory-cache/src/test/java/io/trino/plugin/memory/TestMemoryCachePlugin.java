@@ -20,7 +20,7 @@ import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.cache.CacheManagerContext;
 import io.trino.spi.cache.CacheManagerFactory;
 import io.trino.spi.cache.MemoryAllocator;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 

@@ -22,8 +22,9 @@ import io.trino.spi.cache.CacheSplitId;
 import io.trino.spi.cache.MemoryAllocator;
 import io.trino.spi.cache.PlanSignature;
 import io.trino.spi.connector.ConnectorPageSink;
-import org.testng.annotations.BeforeMethod;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.Execution;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -34,8 +35,9 @@ import static io.trino.plugin.memory.TestMemoryCacheManager.createOneMegaBytePag
 import static io.trino.plugin.memory.TestMemoryCacheManager.createPlanSignature;
 import static io.trino.plugin.memory.TestMemoryCacheManager.getChannelRetainedSizeInBytes;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
-@Test(singleThreaded = true)
+@Execution(SAME_THREAD)
 public class TestConcurrentCacheManager
 {
     private static final PlanSignature SIGNATURE_1 = createPlanSignature("sig1");
@@ -49,7 +51,7 @@ public class TestConcurrentCacheManager
     private ConcurrentCacheManager cacheManager;
     private long allocatedRevocableMemory;
 
-    @BeforeMethod
+    @BeforeEach
     public void setup()
     {
         oneMegabytePage = createOneMegaBytePage();
