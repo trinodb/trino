@@ -544,7 +544,7 @@ public class TestCommonSubqueriesExtractor
         assertThat(aggregationB.adaptCommonSubplan(aggregationB.getCommonSubplan(), idAllocator)).isEqualTo(aggregationB.getCommonSubplan());
 
         // make sure plan signatures are same
-        CacheColumnId groupByColumn = new CacheColumnId("((\"[regionkey:bigint]\" * BIGINT '2'))");
+        CacheColumnId groupByColumn = canonicalExpressionToColumnId(expression("\"[regionkey:bigint]\" * BIGINT '2'"));
         Expression sum = getFunctionCallBuilder("sum", NATIONKEY_EXPRESSION).build();
         assertThat(aggregationA.getCommonSubplanSignature()).isEqualTo(aggregationA.getCommonSubplanSignature());
         List<CacheColumnId> cacheColumnIds = ImmutableList.of(groupByColumn, canonicalExpressionToColumnId(sum));
@@ -874,7 +874,7 @@ public class TestCommonSubqueriesExtractor
 
         // make sure plan signatures are same
         assertThat(subqueryA.getCommonSubplanSignature()).isEqualTo(subqueryB.getCommonSubplanSignature());
-        List<CacheColumnId> cacheColumnIds = ImmutableList.of(new CacheColumnId("((\"[cache_column1]\" * 10))"), new CacheColumnId("[cache_column1]"));
+        List<CacheColumnId> cacheColumnIds = ImmutableList.of(canonicalExpressionToColumnId(expression("\"[cache_column1]\" * 10")), new CacheColumnId("[cache_column1]"));
         List<Type> cacheColumnsTypes = ImmutableList.of(BIGINT, BIGINT);
         assertThat(subqueryA.getCommonSubplanSignature()).isEqualTo(new PlanSignature(
                 new SignatureKey(testTableHandle.getCatalogHandle().getId() + ":cache_table_id:(((\"[cache_column1]\" % 4) = BIGINT '0') OR ((\"[cache_column2]\" % 2) = BIGINT '0'))"),
