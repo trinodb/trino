@@ -573,12 +573,9 @@ public class IcebergMetadata
             return Optional.empty();
         }
 
-        Optional<TableType> tableType = IcebergTableName.tableTypeFrom(tableName.getTableName());
-        if (tableType.isEmpty()) {
-            return Optional.empty();
-        }
-        return switch (tableType.get()) {
-            case DATA, MATERIALIZED_VIEW_STORAGE -> throw new VerifyException("Unexpected table type: " + tableType.get()); // Handled above.
+        TableType tableType = IcebergTableName.tableTypeFrom(tableName.getTableName());
+        return switch (tableType) {
+            case DATA, MATERIALIZED_VIEW_STORAGE -> throw new VerifyException("Unexpected table type: " + tableType); // Handled above.
             case HISTORY -> Optional.of(new HistoryTable(tableName, table));
             case SNAPSHOTS -> Optional.of(new SnapshotsTable(tableName, typeManager, table));
             case PARTITIONS -> Optional.of(new PartitionTable(tableName, typeManager, table, getCurrentSnapshotId(table)));
