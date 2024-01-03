@@ -454,26 +454,26 @@ public class TestTupleDomainFilterUtils
 
         // empty range with null allowed
         Assertions.assertThat(TupleDomainFilterUtils.createTupleDomainFilters(
-                TupleDomain.withColumnDomains(ImmutableMap.of(
-                        column,
-                        Domain.create(ValueSet.ofRanges(range(INTEGER, 1L, false, 2L, false)), true))),
-                TYPE_OPERATORS))
+                        TupleDomain.withColumnDomains(ImmutableMap.of(
+                                column,
+                                Domain.create(ValueSet.ofRanges(range(INTEGER, 1L, false, 2L, false)), true))),
+                        TYPE_OPERATORS))
                 .isEqualTo(ImmutableMap.of(column, new TupleDomainFilter.IsNullFilter(INTEGER)));
 
         // empty range with null not allowed
         Assertions.assertThat(TupleDomainFilterUtils.createTupleDomainFilters(
-                TupleDomain.withColumnDomains(ImmutableMap.of(
-                        column,
-                        Domain.create(ValueSet.ofRanges(range(INTEGER, 1L, false, 2L, false)), false))),
-                TYPE_OPERATORS))
+                        TupleDomain.withColumnDomains(ImmutableMap.of(
+                                column,
+                                Domain.create(ValueSet.ofRanges(range(INTEGER, 1L, false, 2L, false)), false))),
+                        TYPE_OPERATORS))
                 .isEqualTo(ImmutableMap.of(column, new TupleDomainFilter.AlwaysFalse(INTEGER)));
 
         // all without null
         Assertions.assertThat(TupleDomainFilterUtils.createTupleDomainFilters(
-                TupleDomain.withColumnDomains(ImmutableMap.of(
-                        column,
-                        Domain.create(ValueSet.ofRanges(Range.all(INTEGER)), false))),
-                TYPE_OPERATORS))
+                        TupleDomain.withColumnDomains(ImmutableMap.of(
+                                column,
+                                Domain.create(ValueSet.ofRanges(Range.all(INTEGER)), false))),
+                        TYPE_OPERATORS))
                 .isEqualTo(ImmutableMap.of(column, new TupleDomainFilter.IsNotNullFilter(INTEGER)));
 
         // all with null allowed
@@ -485,30 +485,30 @@ public class TestTupleDomainFilterUtils
 
         // greater than MAX
         Assertions.assertThat(TupleDomainFilterUtils.createTupleDomainFilters(
-                TupleDomain.withColumnDomains(ImmutableMap.of(
-                        column,
-                        Domain.create(ValueSet.ofRanges(greaterThan(BIGINT, Long.MAX_VALUE)), false))),
-                TYPE_OPERATORS))
+                        TupleDomain.withColumnDomains(ImmutableMap.of(
+                                column,
+                                Domain.create(ValueSet.ofRanges(greaterThan(BIGINT, Long.MAX_VALUE)), false))),
+                        TYPE_OPERATORS))
                 .isEqualTo(ImmutableMap.of(column, new TupleDomainFilter.AlwaysFalse(BIGINT)));
         Assertions.assertThat(TupleDomainFilterUtils.createTupleDomainFilters(
-                TupleDomain.withColumnDomains(ImmutableMap.of(
-                        column,
-                        Domain.create(ValueSet.ofRanges(greaterThan(BIGINT, Long.MAX_VALUE)), true))),
-                TYPE_OPERATORS))
+                        TupleDomain.withColumnDomains(ImmutableMap.of(
+                                column,
+                                Domain.create(ValueSet.ofRanges(greaterThan(BIGINT, Long.MAX_VALUE)), true))),
+                        TYPE_OPERATORS))
                 .isEqualTo(ImmutableMap.of(column, new TupleDomainFilter.IsNullFilter(BIGINT)));
 
         // less than MIN
         Assertions.assertThat(TupleDomainFilterUtils.createTupleDomainFilters(
-                TupleDomain.withColumnDomains(ImmutableMap.of(
-                        column,
-                        Domain.create(ValueSet.ofRanges(lessThan(BIGINT, Long.MIN_VALUE)), false))),
-                TYPE_OPERATORS))
+                        TupleDomain.withColumnDomains(ImmutableMap.of(
+                                column,
+                                Domain.create(ValueSet.ofRanges(lessThan(BIGINT, Long.MIN_VALUE)), false))),
+                        TYPE_OPERATORS))
                 .isEqualTo(ImmutableMap.of(column, new TupleDomainFilter.AlwaysFalse(BIGINT)));
         Assertions.assertThat(TupleDomainFilterUtils.createTupleDomainFilters(
-                TupleDomain.withColumnDomains(ImmutableMap.of(
-                        column,
-                        Domain.create(ValueSet.ofRanges(lessThan(BIGINT, Long.MIN_VALUE)), true))),
-                TYPE_OPERATORS))
+                        TupleDomain.withColumnDomains(ImmutableMap.of(
+                                column,
+                                Domain.create(ValueSet.ofRanges(lessThan(BIGINT, Long.MIN_VALUE)), true))),
+                        TYPE_OPERATORS))
                 .isEqualTo(ImmutableMap.of(column, new TupleDomainFilter.IsNullFilter(BIGINT)));
     }
 
@@ -530,19 +530,19 @@ public class TestTupleDomainFilterUtils
     {
         ColumnHandle column = new TestingColumnHandle("column");
         Assertions.assertThat(TupleDomainFilterUtils.createTupleDomainFilters(
-                TupleDomain.withColumnDomains(ImmutableMap.of(
-                        column, Domain.create(ValueSet.all(HYPER_LOG_LOG), true))),
-                TYPE_OPERATORS))
+                        TupleDomain.withColumnDomains(ImmutableMap.of(
+                                column, Domain.create(ValueSet.all(HYPER_LOG_LOG), true))),
+                        TYPE_OPERATORS))
                 .isEmpty();
         Assertions.assertThat(TupleDomainFilterUtils.createTupleDomainFilters(
-                TupleDomain.withColumnDomains(ImmutableMap.of(
-                        column, Domain.create(ValueSet.all(HYPER_LOG_LOG), false))),
-                TYPE_OPERATORS))
+                        TupleDomain.withColumnDomains(ImmutableMap.of(
+                                column, Domain.create(ValueSet.all(HYPER_LOG_LOG), false))),
+                        TYPE_OPERATORS))
                 .isEmpty();
         Assertions.assertThat(TupleDomainFilterUtils.createTupleDomainFilters(
-                TupleDomain.withColumnDomains(ImmutableMap.of(
-                        column, Domain.create(ValueSet.none(HYPER_LOG_LOG), true))),
-                TYPE_OPERATORS))
+                        TupleDomain.withColumnDomains(ImmutableMap.of(
+                                column, Domain.create(ValueSet.none(HYPER_LOG_LOG), true))),
+                        TYPE_OPERATORS))
                 .isEmpty();
     }
 
@@ -551,14 +551,14 @@ public class TestTupleDomainFilterUtils
     {
         ColumnHandle column = new TestingColumnHandle("column");
         Assertions.assertThat(TupleDomainFilterUtils.createTupleDomainFilters(
-                TupleDomain.withColumnDomains(ImmutableMap.of(
-                        column, Domain.create(ValueSet.of(ID, 1L, 2L, 3L), true))),
-                TYPE_OPERATORS))
+                        TupleDomain.withColumnDomains(ImmutableMap.of(
+                                column, Domain.create(ValueSet.of(ID, 1L, 2L, 3L), true))),
+                        TYPE_OPERATORS))
                 .isEmpty();
         Assertions.assertThat(TupleDomainFilterUtils.createTupleDomainFilters(
-                TupleDomain.withColumnDomains(ImmutableMap.of(
-                        column, Domain.create(ValueSet.of(ID, 1L, 2L, 3L), false))),
-                TYPE_OPERATORS))
+                        TupleDomain.withColumnDomains(ImmutableMap.of(
+                                column, Domain.create(ValueSet.of(ID, 1L, 2L, 3L), false))),
+                        TYPE_OPERATORS))
                 .isEmpty();
     }
 
