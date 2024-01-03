@@ -77,7 +77,6 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 @Execution(SAME_THREAD)
@@ -192,7 +191,7 @@ public class TestCacheDriverFactory
 
         // expect driver for original plan because cacheSplit is empty
         Driver driver = cacheDriverFactory.createDriver(createDriverContext(), new ScheduledSplit(0, planNodeIdAllocator.getNextId(), split), Optional.empty());
-        assertTrue(driver.getDriverContext().getCacheDriverContext().isEmpty());
+        assertThat(driver.getDriverContext().getCacheDriverContext().isEmpty()).isTrue();
 
         driverFactory = new DriverFactory(
                 operatorIdAllocator.incrementAndGet(),
@@ -217,7 +216,7 @@ public class TestCacheDriverFactory
 
         // expect driver for original plan because dynamic filter filters data completely
         driver = cacheDriverFactory.createDriver(createDriverContext(), new ScheduledSplit(0, planNodeIdAllocator.getNextId(), split), Optional.of(new CacheSplitId("split")));
-        assertTrue(driver.getDriverContext().getCacheDriverContext().isEmpty());
+        assertThat(driver.getDriverContext().getCacheDriverContext().isEmpty()).isTrue();
     }
 
     @Test

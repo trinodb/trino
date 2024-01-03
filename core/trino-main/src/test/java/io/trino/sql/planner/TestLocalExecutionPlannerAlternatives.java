@@ -68,7 +68,6 @@ import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -126,7 +125,7 @@ public class TestLocalExecutionPlannerAlternatives
                 ImmutableList.of(),
                 new TestOutputBuffer());
 
-        assertEquals(executionPlan.getDriverFactories().size(), 1);
+        assertThat(executionPlan.getDriverFactories()).hasSize(1);
         SplitDriverFactory driverFactory = executionPlan.getDriverFactories().get(0);
         assertThat(driverFactory).isInstanceOf(AlternativesAwareDriverFactory.class);
     }
@@ -168,11 +167,11 @@ public class TestLocalExecutionPlannerAlternatives
                 ImmutableList.of(),
                 new TestOutputBuffer());
 
-        assertEquals(executionPlan.getDriverFactories().size(), 2);
+        assertThat(executionPlan.getDriverFactories()).hasSize(2);
         SplitDriverFactory alternativesAwareDriverFactory = executionPlan.getDriverFactories().get(0);
         assertThat(alternativesAwareDriverFactory).isInstanceOf(AlternativesAwareDriverFactory.class);
-        assertEquals(alternativesAwareDriverFactory.getPipelineId(), 0);
-        assertEquals(executionPlan.getDriverFactories().get(1).getPipelineId(), 1);
+        assertThat(alternativesAwareDriverFactory.getPipelineId()).isEqualTo(0);
+        assertThat(executionPlan.getDriverFactories().get(1).getPipelineId()).isEqualTo(1);
     }
 
     private static TableHandle getTableHandle(String tableName)

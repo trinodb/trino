@@ -74,7 +74,7 @@ import static java.nio.file.Files.isDirectory;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public abstract class BaseCostBasedPlanTest
         extends BasePlanTest
@@ -144,7 +144,7 @@ public abstract class BaseCostBasedPlanTest
     @MethodSource("getQueryResourcePaths")
     public void test(String queryResourcePath)
     {
-        assertEquals(generateQueryPlan(readQuery(queryResourcePath)), read(getQueryPlanResourcePath(queryResourcePath)));
+        assertThat(generateQueryPlan(readQuery(queryResourcePath))).isEqualTo(read(getQueryPlanResourcePath(queryResourcePath)));
     }
 
     protected String getQueryPlanResourcePath(String queryResourcePath)

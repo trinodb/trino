@@ -79,7 +79,6 @@ import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 @Execution(SAME_THREAD)
@@ -207,7 +206,7 @@ public class TestCacheDataOperator
                 .addDriverContext();
 
         try (Driver driver = cacheDriverFactory.createDriver(driverContext, new ScheduledSplit(0, planNodeIdAllocator.getNextId(), split), Optional.of(splitId))) {
-            assertTrue(driver.getDriverContext().getCacheDriverContext().isEmpty());
+            assertThat(driver.getDriverContext().getCacheDriverContext()).isEmpty();
         }
         assertThat(cacheDriverFactory.getCacheMetrics().getSplitCachedCount()).isEqualTo(MIN_PROCESSED_SPLITS);
         assertThat(cacheDriverFactory.getCacheMetrics().getSplitNotCachedCount()).isEqualTo(splitToBeRejectedCount);
@@ -235,7 +234,7 @@ public class TestCacheDataOperator
                     .addDriverContext();
             try (Driver driver = cacheDriverFactory.createDriver(driverContext, new ScheduledSplit(0, planNodeIdAllocator.getNextId(), split), Optional.of(splitId))) {
                 driver.process(new Duration(10.0, TimeUnit.SECONDS), 100);
-                assertTrue(driver.getDriverContext().getCacheDriverContext().isPresent());
+                assertThat(driver.getDriverContext().getCacheDriverContext()).isPresent();
             }
         }
     }

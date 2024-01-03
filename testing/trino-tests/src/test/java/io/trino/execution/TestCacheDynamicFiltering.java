@@ -70,7 +70,6 @@ import static io.trino.testing.TestingSplit.createRemoteSplit;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertTrue;
 
 public class TestCacheDynamicFiltering
         extends AbstractTestQueryFramework
@@ -281,7 +280,7 @@ public class TestCacheDynamicFiltering
                         public boolean isFinished()
                         {
                             // cache DF on worker should not block
-                            assertTrue(dynamicFilter.isBlocked().isDone());
+                            assertThat(dynamicFilter.isBlocked()).isDone();
                             if (expectedTableScanDynamicFilter.test(dynamicFilter.getCurrentPredicate())) {
                                 finished = true;
                             }

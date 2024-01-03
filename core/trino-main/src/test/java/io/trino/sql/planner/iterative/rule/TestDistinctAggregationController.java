@@ -65,11 +65,9 @@ import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotNull;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -158,8 +156,8 @@ public class TestDistinctAggregationController
                                 Function.identity(),
                                 key -> SymbolStatsEstimate.builder().setDistinctValuesCount(10).build())))),
                 symbolAllocator);
-        assertTrue(controller.shouldUsePreAggregate(aggregationNode, context));
-        assertFalse(controller.shouldAddMarkDistinct(aggregationNode, context));
+        assertThat(controller.shouldUsePreAggregate(aggregationNode, context)).isTrue();
+        assertThat(controller.shouldAddMarkDistinct(aggregationNode, context)).isFalse();
     }
 
     @Test
@@ -174,8 +172,8 @@ public class TestDistinctAggregationController
         PlanNode source = tableScan();
         AggregationNode aggregationNode = aggregationWithTwoDistinctAggregations(groupingKeys, source, symbolAllocator);
         Rule.Context context = context(ImmutableMap.of(), symbolAllocator);
-        assertTrue(controller.shouldUsePreAggregate(aggregationNode, context));
-        assertFalse(controller.shouldAddMarkDistinct(aggregationNode, context));
+        assertThat(controller.shouldUsePreAggregate(aggregationNode, context)).isTrue();
+        assertThat(controller.shouldAddMarkDistinct(aggregationNode, context)).isFalse();
     }
 
     @Test
@@ -192,7 +190,7 @@ public class TestDistinctAggregationController
                         groupingKey, SymbolStatsEstimate.builder().setDistinctValuesCount(NODE_COUNT * getTaskConcurrency(TEST_SESSION) * 10).build()))),
                 symbolAllocator);
 
-        assertTrue(controller.shouldUsePreAggregate(aggregationNode, context));
+        assertThat(controller.shouldUsePreAggregate(aggregationNode, context)).isTrue();
     }
 
     @Test
@@ -226,10 +224,11 @@ public class TestDistinctAggregationController
         PlanNode source = tableScan();
         AggregationNode aggregationNode = aggregationWithTwoDistinctAggregations(ImmutableList.of(), source, symbolAllocator);
 
-        assertTrue(inTransaction(session -> controller.shouldSplitToSubqueries(aggregationNode, context(
+        assertThat((boolean) inTransaction(session -> controller.shouldSplitToSubqueries(aggregationNode, context(
                 ImmutableMap.of(source, new PlanNodeStatsEstimate(1_000_000, ImmutableMap.of())),
                 session,
-                symbolAllocator))));
+                symbolAllocator))))
+                .isTrue();
     }
 
     @Test
@@ -245,7 +244,7 @@ public class TestDistinctAggregationController
         PlanNode source = tableScan();
         AggregationNode aggregationNode = aggregationWithTwoDistinctAggregations(groupingKeys, source, symbolAllocator);
 
-        assertTrue(inTransaction(session -> controller.shouldAddMarkDistinct(aggregationNode,
+        assertThat((boolean) inTransaction(session -> controller.shouldAddMarkDistinct(aggregationNode,
                 context(
                         ImmutableMap.of(source, new PlanNodeStatsEstimate(
                                 1_000_000,
@@ -253,7 +252,8 @@ public class TestDistinctAggregationController
                                         Function.identity(),
                                         key -> SymbolStatsEstimate.builder().setDistinctValuesCount(10).build())))),
                         session,
-                        symbolAllocator))));
+                        symbolAllocator))))
+                .isTrue();
     }
 
     @Test
@@ -268,7 +268,7 @@ public class TestDistinctAggregationController
                 symbolAllocator.newSymbol("key3", BIGINT));
         PlanNode source = tableScan();
         AggregationNode aggregationNode = aggregationWithTwoDistinctAggregations(groupingKeys, source, symbolAllocator);
-        assertTrue(inTransaction(session -> controller.shouldAddMarkDistinct(aggregationNode, context(ImmutableMap.of(), session, symbolAllocator))));
+        assertThat((boolean) inTransaction(session -> controller.shouldAddMarkDistinct(aggregationNode, context(ImmutableMap.of(), session, symbolAllocator)))).isTrue();
     }
 
     @Test
@@ -283,22 +283,24 @@ public class TestDistinctAggregationController
         AggregationNode aggregationNode = aggregationWithTwoDistinctAggregations(ImmutableList.of(groupingKey), source, symbolAllocator);
 
         // big NDV, distinct_aggregations_strategy = mark_distinct
-        assertTrue(inTransaction(
+        assertThat((boolean) inTransaction(
                 testSessionBuilder().setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, MARK_DISTINCT.name()).build(),
-                session -> controller.shouldAddMarkDistinct(aggregationNode, context(
+                session2 -> controller.shouldAddMarkDistinct(aggregationNode, context(
                         ImmutableMap.of(source, new PlanNodeStatsEstimate(1000 * clusterThreadCount, ImmutableMap.of(
                                 groupingKey, SymbolStatsEstimate.builder().setDistinctValuesCount(1000 * clusterThreadCount).build()))),
-                        session,
-                        symbolAllocator))));
+                        session2,
+                        symbolAllocator))))
+                .isTrue();
 
         // big NDV, distinct_aggregations_strategy = pre-aggregate
-        assertTrue(inTransaction(
+        assertThat((boolean) inTransaction(
                 testSessionBuilder().setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, PRE_AGGREGATE.name()).build(),
-                session -> controller.shouldUsePreAggregate(aggregationNode, context(
+                session1 -> controller.shouldUsePreAggregate(aggregationNode, context(
                         ImmutableMap.of(source, new PlanNodeStatsEstimate(1000 * clusterThreadCount, ImmutableMap.of(
                                 groupingKey, SymbolStatsEstimate.builder().setDistinctValuesCount(1000 * clusterThreadCount).build()))),
-                        session,
-                        symbolAllocator))));
+                        session1,
+                        symbolAllocator))))
+                .isTrue();
 
         // small NDV, distinct_aggregations_strategy = single_step
         assertShouldUseSingleStep(controller, aggregationNode, context(
@@ -308,13 +310,14 @@ public class TestDistinctAggregationController
                 symbolAllocator));
 
         // big NDV, distinct_aggregations_strategy = split_to_subqueries
-        assertTrue(inTransaction(
+        assertThat((boolean) inTransaction(
                 testSessionBuilder().setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, SPLIT_TO_SUBQUERIES.name()).build(),
                 session -> controller.shouldSplitToSubqueries(aggregationNode, context(
                         ImmutableMap.of(source, new PlanNodeStatsEstimate(1000 * clusterThreadCount, ImmutableMap.of(
                                 groupingKey, SymbolStatsEstimate.builder().setDistinctValuesCount(1000 * clusterThreadCount).build()))),
                         session,
-                        symbolAllocator))));
+                        symbolAllocator))))
+                .isTrue();
     }
 
     private <T> T inTransaction(Function<Session, T> callback)
@@ -328,7 +331,7 @@ public class TestDistinctAggregationController
                 session,
                 transactionalSession -> {
                     // register catalog in transaction
-                    assertNotNull(queryRunner.getMetadata().getCatalogHandle(transactionalSession, TEST_CATALOG_NAME).orElseThrow());
+                    assertThat(queryRunner.getMetadata().getCatalogHandle(transactionalSession, TEST_CATALOG_NAME)).isPresent();
                     return callback.apply(transactionalSession);
                 });
     }
@@ -367,8 +370,8 @@ public class TestDistinctAggregationController
 
     private static void assertShouldUseSingleStep(DistinctAggregationController controller, AggregationNode aggregationNode, Rule.Context context)
     {
-        assertFalse(controller.shouldAddMarkDistinct(aggregationNode, context));
-        assertFalse(controller.shouldUsePreAggregate(aggregationNode, context));
+        assertThat(controller.shouldAddMarkDistinct(aggregationNode, context)).isFalse();
+        assertThat(controller.shouldUsePreAggregate(aggregationNode, context)).isFalse();
     }
 
     private static Rule.Context context(Map<PlanNode, PlanNodeStatsEstimate> stats, SymbolAllocator symbolAllocator)

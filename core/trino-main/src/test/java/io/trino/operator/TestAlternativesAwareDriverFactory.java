@@ -45,10 +45,9 @@ import static io.trino.operator.TestingOperatorContext.createDriverContext;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -94,21 +93,21 @@ public class TestAlternativesAwareDriverFactory
                 OptionalInt.empty());
 
         Driver driver0 = factory.createDriver(createDriverContext(scheduledExecutor), Optional.of(split(0)));
-        assertEquals(alternativeOperatorFactory0.createdOperators, 1);
-        assertTrue(driver0.getDriverContext().getConnectorAlternativePageSourceProvider().isPresent());
-        assertEquals(driver0.getDriverContext().getAlternativeId(), Optional.of(0));
+        assertThat(alternativeOperatorFactory0.createdOperators).isEqualTo(1);
+        assertThat(driver0.getDriverContext().getConnectorAlternativePageSourceProvider()).isPresent();
+        assertThat(driver0.getDriverContext().getAlternativeId()).hasValue(0);
 
         currentAlternative.set(1);
         Driver driver1 = factory.createDriver(createDriverContext(scheduledExecutor), Optional.of(split(1)));
-        assertEquals(alternativeOperatorFactory0.createdOperators, 1);
-        assertTrue(driver1.getDriverContext().getConnectorAlternativePageSourceProvider().isPresent());
-        assertEquals(driver1.getDriverContext().getAlternativeId(), Optional.of(1));
+        assertThat(alternativeOperatorFactory0.createdOperators).isEqualTo(1);
+        assertThat(driver1.getDriverContext().getConnectorAlternativePageSourceProvider()).isPresent();
+        assertThat(driver1.getDriverContext().getAlternativeId()).hasValue(1);
 
         currentAlternative.set(0);
         Driver driver2 = factory.createDriver(createDriverContext(scheduledExecutor), Optional.of(split(2)));
-        assertEquals(alternativeOperatorFactory0.createdOperators, 2);
-        assertTrue(driver2.getDriverContext().getConnectorAlternativePageSourceProvider().isPresent());
-        assertEquals(driver2.getDriverContext().getAlternativeId(), Optional.of(0));
+        assertThat(alternativeOperatorFactory0.createdOperators).isEqualTo(2);
+        assertThat(driver2.getDriverContext().getConnectorAlternativePageSourceProvider()).isPresent();
+        assertThat(driver2.getDriverContext().getAlternativeId()).hasValue(0);
     }
 
     private static ScheduledSplit split(int sequenceId)

@@ -29,7 +29,6 @@ import static io.trino.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.trino.plugin.hive.HiveType.HIVE_STRING;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 
 public class TestHiveTableHandle
 {
@@ -65,15 +64,15 @@ public class TestHiveTableHandle
 
         HiveTableHandle canonicalHandle = handle.toCanonical();
 
-        assertEquals(canonicalHandle.getSchemaName(), handle.getSchemaName());
-        assertEquals(canonicalHandle.getTableName(), handle.getTableName());
-        assertEquals(canonicalHandle.getPartitionColumns(), handle.getPartitionColumns());
-        assertEquals(canonicalHandle.getDataColumns(), handle.getDataColumns());
-        assertEquals(canonicalHandle.getCompactEffectivePredicate(), TupleDomain.all());
-        assertEquals(canonicalHandle.getEnforcedConstraint(), handle.getEnforcedConstraint());
-        assertEquals(canonicalHandle.getBucketHandle(), handle.getBucketHandle());
-        assertEquals(canonicalHandle.getBucketFilter(), handle.getBucketFilter());
-        assertEquals(canonicalHandle.getAnalyzePartitionValues(), handle.getAnalyzePartitionValues());
-        assertEquals(canonicalHandle.getTransaction(), handle.getTransaction());
+        assertThat(canonicalHandle.getSchemaName()).isEqualTo(handle.getSchemaName());
+        assertThat(canonicalHandle.getTableName()).isEqualTo(handle.getTableName());
+        assertThat(canonicalHandle.getPartitionColumns()).isEqualTo(handle.getPartitionColumns());
+        assertThat(canonicalHandle.getDataColumns()).isEqualTo(handle.getDataColumns());
+        assertThat(canonicalHandle.getCompactEffectivePredicate()).isEqualTo(TupleDomain.all());
+        assertThat(canonicalHandle.getEnforcedConstraint()).isEqualTo(handle.getEnforcedConstraint());
+        assertThat(canonicalHandle.getBucketHandle()).isEqualTo(handle.getBucketHandle());
+        assertThat(canonicalHandle.getBucketFilter()).isEqualTo(handle.getBucketFilter());
+        assertThat(canonicalHandle.getAnalyzePartitionValues()).isEqualTo(handle.getAnalyzePartitionValues());
+        assertThat(canonicalHandle.getTransaction()).isEqualTo(handle.getTransaction());
     }
 }

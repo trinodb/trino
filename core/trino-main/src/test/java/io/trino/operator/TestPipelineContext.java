@@ -23,8 +23,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPipelineContext
 {
@@ -45,10 +44,10 @@ public class TestPipelineContext
         PipelineStats pipelineStats = pipelineContext.getPipelineStats();
 
         List<OperatorStats> operatorSummaries = pipelineStats.getOperatorSummaries();
-        assertEquals(2, operatorSummaries.size());
-        assertEquals(operatorSummaries.get(0).getOperatorId(), 0);
-        assertEquals(operatorSummaries.get(1).getOperatorId(), 0);
-        assertNotEquals(operatorSummaries.get(0).getAlternativeId(), operatorSummaries.get(1).getAlternativeId());
+        assertThat(operatorSummaries).hasSize(2);
+        assertThat(operatorSummaries.get(0).getOperatorId()).isEqualTo(0);
+        assertThat(operatorSummaries.get(1).getOperatorId()).isEqualTo(0);
+        assertThat(operatorSummaries.get(0).getAlternativeId()).isNotEqualTo(operatorSummaries.get(1).getAlternativeId());
     }
 
     @Test
@@ -68,9 +67,9 @@ public class TestPipelineContext
         PipelineStats pipelineStats = pipelineContext.getPipelineStats();
 
         List<OperatorStats> operatorSummaries = pipelineStats.getOperatorSummaries();
-        assertEquals(1, operatorSummaries.size());
-        assertEquals(operatorSummaries.get(0).getOperatorId(), 0);
-        assertEquals(operatorSummaries.get(0).getAlternativeId(), 3);
+        assertThat(operatorSummaries).hasSize(1);
+        assertThat(operatorSummaries.get(0).getOperatorId()).isEqualTo(0);
+        assertThat(operatorSummaries.get(0).getAlternativeId()).isEqualTo(3);
     }
 
     private static class MockScheduledExecutorService

@@ -35,7 +35,6 @@ import static io.trino.block.BlockAssertions.createLongSequenceBlock;
 import static io.trino.block.BlockAssertions.createLongsBlock;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertEquals;
 
 public class TestDictionaryAwareColumnarFilter
 {
@@ -61,7 +60,7 @@ public class TestDictionaryAwareColumnarFilter
                 return new InputChannels(3);
             }
         });
-        assertEquals(filter.getInputChannels().getInputChannels(), ImmutableList.of(3));
+        assertThat(filter.getInputChannels().getInputChannels()).isEqualTo(ImmutableList.of(3));
     }
 
     @Test
@@ -252,7 +251,7 @@ public class TestDictionaryAwareColumnarFilter
         @Override
         public int filterPositionsRange(int[] outputPositions, int offset, int size, Page loadedPage)
         {
-            assertEquals(loadedPage.getChannelCount(), 1);
+            assertThat(loadedPage.getChannelCount()).isEqualTo(1);
             Block block = loadedPage.getBlock(0);
 
             int outputPositionsCount = 0;
@@ -278,7 +277,7 @@ public class TestDictionaryAwareColumnarFilter
         @Override
         public int filterPositionsList(int[] outputPositions, int[] activePositions, int offset, int size, Page loadedPage)
         {
-            assertEquals(loadedPage.getChannelCount(), 1);
+            assertThat(loadedPage.getChannelCount()).isEqualTo(1);
             Block block = loadedPage.getBlock(0);
 
             int outputPositionsCount = 0;

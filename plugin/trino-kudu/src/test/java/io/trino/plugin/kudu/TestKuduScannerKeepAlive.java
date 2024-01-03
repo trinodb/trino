@@ -55,8 +55,7 @@ import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.util.concurrent.Executors.newFixedThreadPool;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @ExtendWith(ProgressLoggingWatcher.class)
 public class TestKuduScannerKeepAlive
@@ -224,7 +223,7 @@ public class TestKuduScannerKeepAlive
 
         QualifiedObjectName qualifiedTableName = new QualifiedObjectName(session.getCatalog().orElseThrow(), session.getSchema().orElseThrow(), "test_scanner_keep_alive");
         Optional<TableHandle> tableHandle = queryRunner.getMetadata().getTableHandle(session, qualifiedTableName);
-        assertTrue(tableHandle.isPresent());
+        assertThat(tableHandle).isPresent();
         SplitSource splitSource = queryRunner.getSplitManager()
                 .getSplits(session, Span.getInvalid(), tableHandle.get(), DynamicFilter.EMPTY, alwaysTrue());
         List<Split> splits = new ArrayList<>();
@@ -262,7 +261,7 @@ public class TestKuduScannerKeepAlive
             TimeUnit.SECONDS.sleep(sleep);
 
             cursor.advanceNextPosition();
-            assertEquals(cursor.getObject(1), "a".repeat(65536));
+            assertThat(cursor.getObject(1)).isEqualTo("a".repeat(65536));
         }
     }
 

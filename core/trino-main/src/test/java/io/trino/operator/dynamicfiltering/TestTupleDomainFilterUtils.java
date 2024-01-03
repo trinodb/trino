@@ -79,8 +79,6 @@ import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 public class TestTupleDomainFilterUtils
 {
@@ -171,14 +169,14 @@ public class TestTupleDomainFilterUtils
                         utf8Slice("natura"),
                         utf8Slice("renovitur"),
                         utf8Slice("integra.")));
-        assertTrue(testContains(filter, utf8Slice("Igne")));
-        assertTrue(testContains(filter, utf8Slice("natura")));
-        assertTrue(testContains(filter, utf8Slice("renovitur")));
-        assertTrue(testContains(filter, utf8Slice("integra.")));
+        assertThat(testContains(filter, utf8Slice("Igne"))).isTrue();
+        assertThat(testContains(filter, utf8Slice("natura"))).isTrue();
+        assertThat(testContains(filter, utf8Slice("renovitur"))).isTrue();
+        assertThat(testContains(filter, utf8Slice("integra."))).isTrue();
 
-        assertFalse(filter.isNullAllowed());
-        assertFalse(testContains(filter, utf8Slice("natur")));
-        assertFalse(testContains(filter, utf8Slice("apple")));
+        assertThat(filter.isNullAllowed()).isFalse();
+        assertThat(testContains(filter, utf8Slice("natur"))).isFalse();
+        assertThat(testContains(filter, utf8Slice("apple"))).isFalse();
 
         int valuesCount = 10000;
         List<Slice> testValues = new ArrayList<>(valuesCount);
@@ -199,7 +197,7 @@ public class TestTupleDomainFilterUtils
             boolean contains = testContains(filter, testValues.get(i));
             if (i % 9 == 0) {
                 // No false negatives
-                assertTrue(contains);
+                assertThat(contains).isTrue();
             }
             hits += contains ? 1 : 0;
         }

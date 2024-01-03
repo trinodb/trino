@@ -60,8 +60,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertNotEquals;
 
 @TestInstance(PER_CLASS)
 @Execution(CONCURRENT)
@@ -240,10 +238,10 @@ public class TestStageStateMachine
         StageInfo stageInfo = stateMachine.getStageInfo(() -> taskInfoList);
 
         List<OperatorStats> operatorSummaries = stageInfo.getStageStats().getOperatorSummaries();
-        assertEquals(2, operatorSummaries.size());
-        assertEquals(operatorSummaries.get(0).getOperatorId(), 0);
-        assertEquals(operatorSummaries.get(1).getOperatorId(), 0);
-        assertNotEquals(operatorSummaries.get(0).getAlternativeId(), operatorSummaries.get(1).getAlternativeId());
+        assertThat(operatorSummaries.size()).isEqualTo(2);
+        assertThat(operatorSummaries.get(0).getOperatorId()).isEqualTo(0);
+        assertThat(operatorSummaries.get(1).getOperatorId()).isEqualTo(0);
+        assertThat(operatorSummaries.get(0).getAlternativeId()).isNotEqualTo(operatorSummaries.get(1).getAlternativeId());
     }
 
     @Test
@@ -282,9 +280,9 @@ public class TestStageStateMachine
         StageInfo stageInfo = stateMachine.getStageInfo(() -> taskInfoList);
 
         List<OperatorStats> operatorSummaries = stageInfo.getStageStats().getOperatorSummaries();
-        assertEquals(1, operatorSummaries.size());
-        assertEquals(operatorSummaries.get(0).getOperatorId(), 0);
-        assertEquals(operatorSummaries.get(0).getAlternativeId(), 2);
+        assertThat(operatorSummaries.size()).isEqualTo(1);
+        assertThat(operatorSummaries.get(0).getOperatorId()).isEqualTo(0);
+        assertThat(operatorSummaries.get(0).getAlternativeId()).isEqualTo(2);
     }
 
     private static TaskStats taskStats(List<PipelineContext> pipelineContexts)

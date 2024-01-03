@@ -65,7 +65,7 @@ import static io.trino.plugin.hive.HiveBasicStatistics.createEmptyStatistics;
 import static io.trino.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
-import static org.testng.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestRecordingHiveMetastore
 {
@@ -172,33 +172,33 @@ public class TestRecordingHiveMetastore
 
     private void validateMetadata(HiveMetastore hiveMetastore)
     {
-        assertEquals(hiveMetastore.getDatabase("database"), Optional.of(DATABASE));
-        assertEquals(hiveMetastore.getAllDatabases(), ImmutableList.of("database"));
-        assertEquals(hiveMetastore.getTable("database", "table"), Optional.of(TABLE));
-        assertEquals(hiveMetastore.getTableStatistics(TABLE), PARTITION_STATISTICS);
-        assertEquals(hiveMetastore.getPartitionStatistics(TABLE, ImmutableList.of(PARTITION, OTHER_PARTITION)), ImmutableMap.of(
+        assertThat(hiveMetastore.getDatabase("database")).isEqualTo(Optional.of(DATABASE));
+        assertThat(hiveMetastore.getAllDatabases()).isEqualTo(ImmutableList.of("database"));
+        assertThat(hiveMetastore.getTable("database", "table")).isEqualTo(Optional.of(TABLE));
+        assertThat(hiveMetastore.getTableStatistics(TABLE)).isEqualTo(PARTITION_STATISTICS);
+        assertThat(hiveMetastore.getPartitionStatistics(TABLE, ImmutableList.of(PARTITION, OTHER_PARTITION))).isEqualTo(ImmutableMap.of(
                 "column=value", PARTITION_STATISTICS,
                 "column=other_value", PARTITION_STATISTICS));
-        assertEquals(hiveMetastore.getAllTables("database"), ImmutableList.of("table"));
-        assertEquals(hiveMetastore.getTablesWithParameter("database", "param", "value3"), ImmutableList.of("table"));
-        assertEquals(hiveMetastore.getAllViews("database"), ImmutableList.of());
-        assertEquals(hiveMetastore.getPartition(TABLE, ImmutableList.of("value")), Optional.of(PARTITION));
-        assertEquals(hiveMetastore.getPartitionNamesByFilter("database", "table", PARTITION_COLUMN_NAMES, TupleDomain.all()), Optional.of(ImmutableList.of("value")));
-        assertEquals(hiveMetastore.getPartitionNamesByFilter("database", "table", PARTITION_COLUMN_NAMES, TUPLE_DOMAIN), Optional.of(ImmutableList.of("value")));
-        assertEquals(hiveMetastore.getPartitionsByNames(TABLE, ImmutableList.of("column=value", "column=other_value")), ImmutableMap.of(
+        assertThat(hiveMetastore.getAllTables("database")).isEqualTo(ImmutableList.of("table"));
+        assertThat(hiveMetastore.getTablesWithParameter("database", "param", "value3")).isEqualTo(ImmutableList.of("table"));
+        assertThat(hiveMetastore.getAllViews("database")).isEqualTo(ImmutableList.of());
+        assertThat(hiveMetastore.getPartition(TABLE, ImmutableList.of("value"))).isEqualTo(Optional.of(PARTITION));
+        assertThat(hiveMetastore.getPartitionNamesByFilter("database", "table", PARTITION_COLUMN_NAMES, TupleDomain.all())).isEqualTo(Optional.of(ImmutableList.of("value")));
+        assertThat(hiveMetastore.getPartitionNamesByFilter("database", "table", PARTITION_COLUMN_NAMES, TUPLE_DOMAIN)).isEqualTo(Optional.of(ImmutableList.of("value")));
+        assertThat(hiveMetastore.getPartitionsByNames(TABLE, ImmutableList.of("column=value", "column=other_value"))).isEqualTo(ImmutableMap.of(
                 "column=value", Optional.of(PARTITION),
                 "column=other_value", Optional.of(OTHER_PARTITION)));
-        assertEquals(hiveMetastore.listTablePrivileges("database", "table", Optional.of("owner"), Optional.of(new HivePrincipal(USER, "user"))), ImmutableSet.of(PRIVILEGE_INFO));
-        assertEquals(hiveMetastore.listRoles(), ImmutableSet.of("role"));
-        assertEquals(hiveMetastore.listRoleGrants(new HivePrincipal(USER, "user")), ImmutableSet.of(ROLE_GRANT));
+        assertThat(hiveMetastore.listTablePrivileges("database", "table", Optional.of("owner"), Optional.of(new HivePrincipal(USER, "user")))).isEqualTo(ImmutableSet.of(PRIVILEGE_INFO));
+        assertThat(hiveMetastore.listRoles()).isEqualTo(ImmutableSet.of("role"));
+        assertThat(hiveMetastore.listRoleGrants(new HivePrincipal(USER, "user"))).isEqualTo(ImmutableSet.of(ROLE_GRANT));
     }
 
     private void validatePartitionSubset(HiveMetastore hiveMetastore)
     {
-        assertEquals(hiveMetastore.getPartitionStatistics(TABLE, ImmutableList.of(PARTITION)), ImmutableMap.of("column=value", PARTITION_STATISTICS));
-        assertEquals(hiveMetastore.getPartitionStatistics(TABLE, ImmutableList.of(OTHER_PARTITION)), ImmutableMap.of("column=other_value", PARTITION_STATISTICS));
-        assertEquals(hiveMetastore.getPartitionsByNames(TABLE, ImmutableList.of("column=value")), ImmutableMap.of("column=value", Optional.of(PARTITION)));
-        assertEquals(hiveMetastore.getPartitionsByNames(TABLE, ImmutableList.of("column=other_value")), ImmutableMap.of("column=other_value", Optional.of(OTHER_PARTITION)));
+        assertThat(hiveMetastore.getPartitionStatistics(TABLE, ImmutableList.of(PARTITION))).isEqualTo(ImmutableMap.of("column=value", PARTITION_STATISTICS));
+        assertThat(hiveMetastore.getPartitionStatistics(TABLE, ImmutableList.of(OTHER_PARTITION))).isEqualTo(ImmutableMap.of("column=other_value", PARTITION_STATISTICS));
+        assertThat(hiveMetastore.getPartitionsByNames(TABLE, ImmutableList.of("column=value"))).isEqualTo(ImmutableMap.of("column=value", Optional.of(PARTITION)));
+        assertThat(hiveMetastore.getPartitionsByNames(TABLE, ImmutableList.of("column=other_value"))).isEqualTo(ImmutableMap.of("column=other_value", Optional.of(OTHER_PARTITION)));
     }
 
     private static class TestingHiveMetastore
