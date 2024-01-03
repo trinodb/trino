@@ -71,7 +71,7 @@ information about reporting vulnerabilities.
 ## Build requirements
 
 * Mac OS X or Linux
-* Java 17.0.4+, 64-bit
+* Java 17.0.5+, 64-bit
 * Docker
   * Turn SELinux or other systems disabling write access to the local checkout
     off, to allow containers to mount parts of the Trino source tree
