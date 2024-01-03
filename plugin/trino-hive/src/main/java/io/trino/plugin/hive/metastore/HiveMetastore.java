@@ -56,12 +56,12 @@ public interface HiveMetastore
 
     void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, Function<PartitionStatistics, PartitionStatistics> update);
 
-    default void updatePartitionsStatistics(Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    default void updatePartitionStatistics(Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
     {
-        updatePartitionStatistics(table, ImmutableMap.of(partitionName, update));
+        updatePartitionsStatistics(table, ImmutableMap.of(partitionName, update));
     }
 
-    void updatePartitionStatistics(Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates);
+    void updatePartitionsStatistics(Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates);
 
     List<String> getTables(String databaseName);
 

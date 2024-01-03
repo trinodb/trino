@@ -559,10 +559,10 @@ public final class CachingHiveMetastore
     }
 
     @Override
-    public void updatePartitionsStatistics(Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updatePartitionStatistics(Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
     {
         try {
-            delegate.updatePartitionsStatistics(table, partitionName, update);
+            delegate.updatePartitionStatistics(table, partitionName, update);
         }
         finally {
             HivePartitionName hivePartitionName = hivePartitionName(hiveTableName(table.getDatabaseName(), table.getTableName()), partitionName);
@@ -573,10 +573,10 @@ public final class CachingHiveMetastore
     }
 
     @Override
-    public void updatePartitionStatistics(Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
+    public void updatePartitionsStatistics(Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
     {
         try {
-            delegate.updatePartitionStatistics(table, updates);
+            delegate.updatePartitionsStatistics(table, updates);
         }
         finally {
             updates.forEach((partitionName, update) -> {

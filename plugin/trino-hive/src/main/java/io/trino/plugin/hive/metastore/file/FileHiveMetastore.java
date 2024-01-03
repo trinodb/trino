@@ -514,7 +514,7 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void updatePartitionStatistics(Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
+    public synchronized void updatePartitionsStatistics(Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
     {
         updates.forEach((partitionName, update) -> {
             PartitionStatistics originalStatistics = getPartitionStatisticsInternal(table, extractPartitionValues(partitionName));
