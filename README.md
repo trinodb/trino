@@ -10,21 +10,8 @@ It is a continues fork of Trino OSS that is used to based all Starburst propriet
 This is project is updated with changes from OSS Trino in continues manner so all changes in Trino lands in this repo 
 eventually. That way we maintain relationship with Trino codebase in order to avoid the hard fork.
 
-## Development model
-
-<img alt="Forks" src=".github/forks.png" />
-
-In the proposed model we have following components:
- * Trino OSS (trinodb/trino repository, airlift etc)
- * Starburst Trino Engine - a continuous fork of Trino OSS that also contains all shared
-   components like Warp Speed. The fork is continuous as periodically it gets updated with all new changes from Trino OSS.
- * Galaxy Trino fork (starburstdata/galaxy-trino repository) - a continuous fork of Starburst Common Trino Fork with Galaxy
-   specific changes. The fork is continuous as periodically it gets updated with all new changes from Common Trino
-   Fork. It is also using release artifacts of shared components.
- * Galaxy - product that consumes Galaxy Trino fork to provision query execution clusters (control plane). It is also
-   using release artifacts of shared components (consider Buffer Service or Schema Discovery).
- * Starburst Enterprise (SEP) (starburstdata/starburst-enterprise repository) a consumer of Starburst Common Trino fork.
-   Trino is used here as library and extension points are used to implement here SEP specific features.
+This is described in greater detail in
+[“Starburst Trino Fork improvements” document](https://docs.google.com/document/d/1ZovT1xEpsud7yuX_R16uf9E9suKpUTFe2dTaverZQjg).
 
 ## Development
 
