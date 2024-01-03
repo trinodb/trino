@@ -215,7 +215,7 @@ public class TestCacheCommonSubqueries
         List<CacheColumnId> cacheColumnIds = ImmutableList.of(NATIONKEY_COLUMN_ID, REGIONKEY_COLUMN_ID);
         List<Type> cacheColumnTypes = ImmutableList.of(BIGINT, BIGINT);
         PlanSignature signature = new PlanSignature(
-                new SignatureKey(testCatalogId + ":tiny:nation:0.01:((\"[nationkey:bigint]\" IN (BIGINT '0', BIGINT '1')) OR (\"[regionkey:bigint]\" IN (BIGINT '0', BIGINT '1')))"),
+                new SignatureKey(testCatalogId + ":tiny:nation:0.01:filters=((\"[nationkey:bigint]\" IN (BIGINT '0', BIGINT '1')) OR (\"[regionkey:bigint]\" IN (BIGINT '0', BIGINT '1')))"),
                 Optional.empty(),
                 cacheColumnIds,
                 cacheColumnTypes,

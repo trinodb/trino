@@ -301,7 +301,7 @@ public final class CommonSubqueriesExtractor
         TupleDomain<Symbol> prunedPredicate = extractionResult.getTupleDomain()
                 .filter((symbol, domain) -> !projectionSet.contains(canonicalSymbolToColumnId(symbol)));
         if (!prunedPredicate.isAll() || !extractionResult.getRemainingExpression().equals(TRUE_LITERAL)) {
-            signatureKey = new SignatureKey(signatureKey + ":" +
+            signatureKey = new SignatureKey(signatureKey + ":filters=" +
                     formatExpression(combineConjuncts(
                             plannerContext.getMetadata(),
                             new DomainTranslator(plannerContext).toPredicate(prunedPredicate),
