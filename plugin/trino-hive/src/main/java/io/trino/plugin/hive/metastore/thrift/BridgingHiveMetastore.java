@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.hive.metastore.thrift;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.hive.thrift.metastore.DataOperationType;
 import io.trino.hive.thrift.metastore.FieldSchema;
@@ -342,7 +343,12 @@ public class BridgingHiveMetastore
         io.trino.hive.thrift.metastore.Table table = delegate.getTable(databaseName, tableName)
                 .orElseThrow(() -> new TableNotFoundException(new SchemaTableName(databaseName, tableName)));
 
-        for (FieldSchema fieldSchema : table.getSd().getCols()) {
+        List<FieldSchema> fieldSchemas = ImmutableList.<FieldSchema>builder()
+                .addAll(table.getSd().getCols())
+                .addAll(table.getPartitionKeys())
+                .build();
+
+        for (FieldSchema fieldSchema : fieldSchemas) {
             if (fieldSchema.getName().equals(columnName)) {
                 if (comment.isPresent()) {
                     fieldSchema.setComment(comment.get());
