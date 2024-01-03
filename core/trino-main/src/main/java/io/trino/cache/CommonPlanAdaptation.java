@@ -13,10 +13,13 @@
  */
 package io.trino.cache;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.spi.cache.CacheColumnId;
 import io.trino.spi.cache.PlanSignature;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.sql.planner.PlanNodeIdAllocator;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ChooseAlternativeNode.FilteredTableScan;
 import io.trino.sql.planner.plan.FilterNode;
@@ -24,6 +27,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.tree.Expression;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -41,13 +45,13 @@ public class CommonPlanAdaptation
      */
     private final PlanNode commonSubplan;
     /**
-     * Common subplan {@link FilteredTableScan}.
-     */
-    private final FilteredTableScan commonSubplanFilteredTableScan;
-    /**
      * Signature of common subplan.
      */
     private final PlanSignature commonSubplanSignature;
+    /**
+     * Common subplan {@link FilteredTableScan}.
+     */
+    private final FilteredTableScan commonSubplanFilteredTableScan;
     /**
      * Dynamic filter disjuncts from all common subplans.
      */
@@ -66,23 +70,56 @@ public class CommonPlanAdaptation
      * to original plan.
      */
     private final Optional<Assignments> adaptationAssignments;
+    /**
+     * Mapping between {@link CacheColumnId} and symbols.
+     */
+    private final Map<CacheColumnId, Symbol> columnIdMapping;
+    /**
+     * Adaptation conjuncts with symbol names canonicalized as {@link CacheColumnId}.
+     */
+    private final List<Expression> canonicalAdaptationConjuncts;
 
     public CommonPlanAdaptation(
             PlanNode commonSubplan,
-            FilteredTableScan commonSubplanFilteredTableScan,
             PlanSignature commonSubplanSignature,
+            CommonPlanAdaptation childAdaptation,
+            Optional<Expression> adaptationPredicate,
+            Optional<Assignments> adaptationAssignments,
+            Map<CacheColumnId, Symbol> columnIdMapping,
+            List<Expression> canonicalAdaptationConjuncts)
+    {
+        this(
+                commonSubplan,
+                commonSubplanSignature,
+                childAdaptation.getCommonSubplanFilteredTableScan(),
+                childAdaptation.getCommonDynamicFilterDisjuncts(),
+                childAdaptation.getDynamicFilterColumnMapping(),
+                adaptationPredicate,
+                adaptationAssignments,
+                columnIdMapping,
+                canonicalAdaptationConjuncts);
+    }
+
+    public CommonPlanAdaptation(
+            PlanNode commonSubplan,
+            PlanSignature commonSubplanSignature,
+            FilteredTableScan commonSubplanFilteredTableScan,
             Expression commonDynamicFilterDisjuncts,
             Map<CacheColumnId, ColumnHandle> dynamicFilterColumnMapping,
             Optional<Expression> adaptationPredicate,
-            Optional<Assignments> adaptationAssignments)
+            Optional<Assignments> adaptationAssignments,
+            Map<CacheColumnId, Symbol> columnIdMapping,
+            List<Expression> canonicalAdaptationConjuncts)
     {
         this.commonSubplan = requireNonNull(commonSubplan, "commonSubplan is null");
-        this.commonSubplanFilteredTableScan = requireNonNull(commonSubplanFilteredTableScan, "commonSubplanFilteredTableScan is null");
         this.commonSubplanSignature = requireNonNull(commonSubplanSignature, "commonSubplanSignature is null");
+        this.commonSubplanFilteredTableScan = requireNonNull(commonSubplanFilteredTableScan, "commonSubplanFilteredTableScan is null");
         this.commonDynamicFilterDisjuncts = requireNonNull(commonDynamicFilterDisjuncts, "commonDynamicFilterDisjuncts is null");
         this.dynamicFilterColumnMapping = requireNonNull(dynamicFilterColumnMapping, "dynamicFilterColumnMapping is null");
         this.adaptationPredicate = requireNonNull(adaptationPredicate, "adaptationPredicate is null");
         this.adaptationAssignments = requireNonNull(adaptationAssignments, "adaptationAssignments is null");
+        this.columnIdMapping = ImmutableMap.copyOf(requireNonNull(columnIdMapping, "columnIdMapping is null"));
+        this.canonicalAdaptationConjuncts = ImmutableList.copyOf(requireNonNull(canonicalAdaptationConjuncts, "canonicalAdaptationConjuncts is null"));
     }
 
     public PlanNode adaptCommonSubplan(PlanNode commonSubplan, PlanNodeIdAllocator idAllocator)
@@ -109,14 +146,14 @@ public class CommonPlanAdaptation
         return commonSubplan;
     }
 
-    public FilteredTableScan getCommonSubplanFilteredTableScan()
-    {
-        return commonSubplanFilteredTableScan;
-    }
-
     public PlanSignature getCommonSubplanSignature()
     {
         return commonSubplanSignature;
+    }
+
+    public FilteredTableScan getCommonSubplanFilteredTableScan()
+    {
+        return commonSubplanFilteredTableScan;
     }
 
     public Expression getCommonDynamicFilterDisjuncts()
@@ -127,5 +164,15 @@ public class CommonPlanAdaptation
     public Map<CacheColumnId, ColumnHandle> getDynamicFilterColumnMapping()
     {
         return dynamicFilterColumnMapping;
+    }
+
+    public Map<CacheColumnId, Symbol> getColumnIdMapping()
+    {
+        return columnIdMapping;
+    }
+
+    public List<Expression> getCanonicalAdaptationConjuncts()
+    {
+        return canonicalAdaptationConjuncts;
     }
 }

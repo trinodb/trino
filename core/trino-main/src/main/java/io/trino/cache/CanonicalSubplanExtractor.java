@@ -18,12 +18,17 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.cache.CanonicalSubplan.AggregationKey;
+import io.trino.cache.CanonicalSubplan.CanonicalSubplanBuilder;
+import io.trino.cache.CanonicalSubplan.FilterProjectKey;
+import io.trino.cache.CanonicalSubplan.ScanFilterProjectKey;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.cache.CacheColumnId;
 import io.trino.spi.cache.CacheTableId;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.optimizations.SymbolMapper;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
@@ -41,10 +46,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
 import static io.trino.sql.ExpressionFormatter.formatExpression;
 import static io.trino.sql.ExpressionUtils.extractConjuncts;
@@ -52,6 +59,7 @@ import static io.trino.sql.planner.DeterminismEvaluator.isDeterministic;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.partitioningBy;
 
 public final class CanonicalSubplanExtractor
 {
@@ -126,11 +134,6 @@ public final class CanonicalSubplanExtractor
         public Optional<CanonicalSubplan> visitAggregation(AggregationNode node, Void context)
         {
             PlanNode source = node.getSource();
-            if (!(source instanceof ProjectNode || source instanceof FilterNode || source instanceof TableScanNode)) {
-                canonicalizeRecursively(source);
-                return Optional.empty();
-            }
-
             // only subset of aggregations is supported
             if (!(node.getGroupingSetCount() == 1
                     && node.getPreGroupedSymbols().isEmpty()
@@ -164,28 +167,24 @@ public final class CanonicalSubplanExtractor
 
             // evaluate mapping from subplan symbols to canonical expressions
             CanonicalSubplan subplan = subplanOptional.get();
+            SymbolMapper canonicalSymbolMapper = subplan.canonicalSymbolMapper();
             BiMap<CacheColumnId, Symbol> originalSymbolMapping = subplan.getOriginalSymbolMapping();
-            Map<Symbol, Expression> canonicalExpressionMap = originalSymbolMapping.entrySet().stream()
-                    .filter(entry -> subplan.getAssignments().containsKey(entry.getKey()))
-                    .collect(toImmutableMap(Map.Entry::getValue, entry -> subplan.getAssignments().get(entry.getKey())));
-
             Map<CacheColumnId, Expression> assignments = new LinkedHashMap<>();
-            ImmutableBiMap.Builder<CacheColumnId, Symbol> symbolMappingBuilder = ImmutableBiMap.<CacheColumnId, Symbol>builder()
-                    .putAll(originalSymbolMapping);
 
             // canonicalize grouping columns
-            ImmutableSet.Builder<CacheColumnId> groupByColumns = ImmutableSet.builder();
+            ImmutableSet.Builder<CacheColumnId> groupByColumnsBuilder = ImmutableSet.builder();
             for (Symbol groupingKey : node.getGroupingKeys()) {
-                Expression groupByExpression = requireNonNull(canonicalExpressionMap.get(groupingKey));
                 CacheColumnId columnId = requireNonNull(originalSymbolMapping.inverse().get(groupingKey));
-                groupByColumns.add(columnId);
-                if (assignments.put(columnId, groupByExpression) != null) {
+                groupByColumnsBuilder.add(columnId);
+                if (assignments.put(columnId, columnIdToSymbol(columnId).toSymbolReference()) != null) {
                     // duplicated column ids are not supported
                     return Optional.empty();
                 }
             }
 
             // canonicalize aggregation functions
+            ImmutableBiMap.Builder<CacheColumnId, Symbol> symbolMappingBuilder = ImmutableBiMap.<CacheColumnId, Symbol>builder()
+                    .putAll(originalSymbolMapping);
             for (Map.Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {
                 Symbol symbol = entry.getKey();
                 Aggregation aggregation = entry.getValue();
@@ -194,13 +193,13 @@ public final class CanonicalSubplanExtractor
                         aggregation.getResolvedFunction().toQualifiedName(),
                         Optional.empty(),
                         // represent aggregation mask as filter expression
-                        aggregation.getMask().map(mask -> requireNonNull(canonicalExpressionMap.get(mask))),
+                        aggregation.getMask().map(mask -> canonicalSymbolMapper.map(mask).toSymbolReference()),
                         Optional.empty(),
                         false,
                         Optional.empty(),
                         Optional.empty(),
                         aggregation.getArguments().stream()
-                                .map(argument -> canonicalExpressionMap.get(new Symbol(((SymbolReference) argument).getName())))
+                                .map(canonicalSymbolMapper::map)
                                 .collect(toImmutableList()));
                 CacheColumnId columnId = canonicalExpressionToColumnId(canonicalAggregation);
                 if (assignments.put(columnId, canonicalAggregation) != null) {
@@ -214,6 +213,16 @@ public final class CanonicalSubplanExtractor
                 symbolMappingBuilder.put(columnId, symbol);
             }
 
+            // conjuncts that only contain group by symbols are pullable
+            Set<CacheColumnId> groupByColumns = groupByColumnsBuilder.build();
+            Set<Symbol> groupBySymbols = groupByColumns.stream()
+                    .map(CanonicalSubplanExtractor::columnIdToSymbol)
+                    .collect(toImmutableSet());
+            Map<Boolean, List<Expression>> conjuncts = subplan.getPullableConjuncts().stream()
+                    .collect(partitioningBy(expression -> groupBySymbols.containsAll(SymbolsExtractor.extractAll(expression))));
+            Set<Expression> pullableConjuncts = ImmutableSet.copyOf(conjuncts.get(true));
+            Set<Expression> nonPullableConjuncts = ImmutableSet.copyOf(conjuncts.get(false));
+
             // validate order of assignments with aggregation output columns
             BiMap<CacheColumnId, Symbol> symbolMapping = symbolMappingBuilder.buildOrThrow();
             verify(ImmutableList.copyOf(assignments.keySet())
@@ -222,51 +231,55 @@ public final class CanonicalSubplanExtractor
                                     .collect(toImmutableList())),
                     "Assignments order doesn't match aggregation output symbols order");
 
-            return Optional.of(new CanonicalSubplan(
-                    node,
-                    symbolMapping,
-                    Optional.of(groupByColumns.build()),
-                    assignments,
-                    subplan.getConjuncts(),
-                    subplan.getDynamicConjuncts(),
-                    subplan.getColumnHandles(),
-                    subplan.getTable(),
-                    subplan.getTableId(),
-                    subplan.isUseConnectorNodePartitioning(),
-                    subplan.getTableScanId()));
+            return Optional.of(CanonicalSubplan.builderForChildSubplan(new AggregationKey(groupByColumns, nonPullableConjuncts), subplan)
+                    .originalPlanNode(node)
+                    .originalSymbolMapping(symbolMapping)
+                    .groupByColumns(groupByColumns)
+                    .assignments(assignments)
+                    .pullableConjuncts(pullableConjuncts)
+                    .build());
         }
 
         @Override
         public Optional<CanonicalSubplan> visitProject(ProjectNode node, Void context)
         {
             PlanNode source = node.getSource();
-            if (!(source instanceof FilterNode || source instanceof TableScanNode)) {
-                canonicalizeRecursively(source);
-                return Optional.empty();
-            }
-
             if (!node.getAssignments().getExpressions().stream().allMatch(expression -> isDeterministic(expression, metadata))) {
                 canonicalizeRecursively(source);
                 return Optional.empty();
             }
 
-            Optional<CanonicalSubplan> subplanOptional = node.getSource().accept(this, null);
+            Optional<CanonicalSubplan> subplanOptional;
+            boolean extendSubplan;
+            if (source instanceof FilterNode || source instanceof TableScanNode) {
+                // subplans consisting of scan <- filter <- project can be represented as one CanonicalSubplan object
+                subplanOptional = source.accept(this, null);
+                extendSubplan = true;
+            }
+            else {
+                subplanOptional = canonicalizeRecursively(source);
+                extendSubplan = false;
+            }
+
             if (subplanOptional.isEmpty()) {
                 return Optional.empty();
             }
 
             CanonicalSubplan subplan = subplanOptional.get();
+            SymbolMapper canonicalSymbolMapper = subplan.canonicalSymbolMapper();
             // canonicalize projection assignments
             Map<CacheColumnId, Expression> assignments = new LinkedHashMap<>();
             ImmutableBiMap.Builder<CacheColumnId, Symbol> symbolMappingBuilder = ImmutableBiMap.<CacheColumnId, Symbol>builder()
                     .putAll(subplan.getOriginalSymbolMapping());
             for (Symbol symbol : node.getOutputSymbols()) {
                 // use formatted canonical expression as column id for non-identity projections
-                Expression canonicalExpression = subplan.canonicalSymbolMapper().map(node.getAssignments().get(symbol));
+                Expression canonicalExpression = canonicalSymbolMapper.map(node.getAssignments().get(symbol));
                 CacheColumnId columnId = canonicalExpressionToColumnId(canonicalExpression);
                 if (assignments.put(columnId, canonicalExpression) != null) {
                     // duplicated column ids are not supported
-                    canonicalizeRecursively(source);
+                    if (extendSubplan) {
+                        canonicalSubplans.add(subplan);
+                    }
                     return Optional.empty();
                 }
                 // columnId -> symbol could be "identity" and already added by table scan canonicalization
@@ -276,41 +289,46 @@ public final class CanonicalSubplanExtractor
                 }
                 else if (!originalSymbol.equals(symbol)) {
                     // aliasing of column id to multiple symbols is not supported
-                    canonicalizeRecursively(source);
+                    if (extendSubplan) {
+                        canonicalSubplans.add(subplan);
+                    }
                     return Optional.empty();
                 }
             }
 
-            return Optional.of(new CanonicalSubplan(
-                    node,
-                    symbolMappingBuilder.buildOrThrow(),
-                    Optional.empty(),
-                    assignments,
-                    subplan.getConjuncts(),
-                    subplan.getDynamicConjuncts(),
-                    subplan.getColumnHandles(),
-                    subplan.getTable(),
-                    subplan.getTableId(),
-                    subplan.isUseConnectorNodePartitioning(),
-                    subplan.getTableScanId()));
+            CanonicalSubplanBuilder builder = extendSubplan ?
+                    CanonicalSubplan.builderExtending(subplan) :
+                    CanonicalSubplan.builderForChildSubplan(new FilterProjectKey(), subplan);
+            return Optional.of(builder
+                    .originalPlanNode(node)
+                    .originalSymbolMapping(symbolMappingBuilder.buildOrThrow())
+                    .assignments(assignments)
+                    // all symbols (and thus conjuncts) are pullable through projection
+                    .pullableConjuncts(subplan.getPullableConjuncts())
+                    .build());
         }
 
         @Override
         public Optional<CanonicalSubplan> visitFilter(FilterNode node, Void context)
         {
             PlanNode source = node.getSource();
-            if (!(source instanceof TableScanNode)) {
-                // only scan <- filter <- project or scan <- project plans are supported
-                canonicalizeRecursively(source);
-                return Optional.empty();
-            }
-
             if (!isDeterministic(node.getPredicate(), metadata)) {
                 canonicalizeRecursively(source);
                 return Optional.empty();
             }
 
-            Optional<CanonicalSubplan> subplanOptional = source.accept(this, null);
+            Optional<CanonicalSubplan> subplanOptional;
+            boolean extendSubplan;
+            if (source instanceof TableScanNode) {
+                // subplans consisting of scan <- filter <- project can be represented as one CanonicalSubplan object
+                subplanOptional = source.accept(this, null);
+                extendSubplan = true;
+            }
+            else {
+                subplanOptional = canonicalizeRecursively(source);
+                extendSubplan = false;
+            }
+
             if (subplanOptional.isEmpty()) {
                 return Optional.empty();
             }
@@ -330,18 +348,22 @@ public final class CanonicalSubplanExtractor
                 }
             }
 
-            return Optional.of(new CanonicalSubplan(
-                    node,
-                    subplan.getOriginalSymbolMapping(),
-                    Optional.empty(),
-                    subplan.getAssignments(),
-                    conjuncts.build(),
-                    dynamicConjuncts.build(),
-                    subplan.getColumnHandles(),
-                    subplan.getTable(),
-                    subplan.getTableId(),
-                    subplan.isUseConnectorNodePartitioning(),
-                    subplan.getTableScanId()));
+            CanonicalSubplanBuilder builder = extendSubplan ?
+                    CanonicalSubplan.builderExtending(subplan) :
+                    CanonicalSubplan.builderForChildSubplan(new FilterProjectKey(), subplan);
+            return Optional.of(builder
+                    .originalPlanNode(node)
+                    .originalSymbolMapping(subplan.getOriginalSymbolMapping())
+                    // assignments from subplan are preserved through filtering
+                    .assignments(subplan.getAssignments())
+                    .conjuncts(conjuncts.build())
+                    .dynamicConjuncts(dynamicConjuncts.build())
+                    // all symbols (and thus conjuncts) are projected through filter node
+                    .pullableConjuncts(ImmutableSet.<Expression>builder()
+                            .addAll(subplan.getPullableConjuncts())
+                            .addAll(conjuncts.build())
+                            .build())
+                    .build());
         }
 
         @Override
@@ -389,22 +411,18 @@ public final class CanonicalSubplanExtractor
             Map<CacheColumnId, Expression> assignments = columnHandles.keySet().stream()
                     .collect(toImmutableMap(identity(), id -> columnIdToSymbol(id).toSymbolReference()));
 
-            return Optional.of(new CanonicalSubplan(
-                    node,
-                    symbolMapping,
-                    Optional.empty(),
-                    assignments,
-                    // No filters in table scan. Relevant pushed predicates are
-                    // part of CacheTableId, so such subplans won't be considered
-                    // as similar.
-                    ImmutableList.of(),
-                    // no dynamic filters in table scan
-                    ImmutableList.of(),
-                    columnHandles,
-                    canonicalTableHandle,
-                    tableId.get(),
-                    node.isUseConnectorNodePartitioning(),
-                    node.getId()));
+            return Optional.of(CanonicalSubplan.builderForTableScan(
+                            new ScanFilterProjectKey(tableId.get()),
+                            columnHandles,
+                            canonicalTableHandle,
+                            tableId.get(),
+                            node.isUseConnectorNodePartitioning(),
+                            node.getId())
+                    .originalPlanNode(node)
+                    .originalSymbolMapping(symbolMapping)
+                    .assignments(assignments)
+                    .pullableConjuncts(ImmutableSet.of())
+                    .build());
         }
 
         private Optional<CanonicalSubplan> canonicalizeRecursively(PlanNode node)

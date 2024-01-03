@@ -11,14 +11,15 @@ remote exchange (GATHER, SINGLE, [])
                                         final aggregation over (partkey_21, suppkey_22)
                                             local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPARTITION, HASH, ["partkey_21", "suppkey_22"])
-                                                    partial aggregation over (partkey_21, suppkey_22)
-                                                        alternatives
+                                                    alternatives
+                                                        partial aggregation over (partkey_21, suppkey_22)
                                                             dynamic filter (["partkey_21", "suppkey_22", "suppkey_22"])
                                                                 scan lineitem
-                                                            cache data
+                                                        cache data
+                                                            partial aggregation over (partkey_21, suppkey_22)
                                                                 dynamic filter (["partkey_21", "suppkey_22", "suppkey_22"])
                                                                     scan lineitem
-                                                            load from cache
+                                                        load from cache
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPARTITION, HASH, ["partkey", "suppkey_6"])
                                                 join (INNER, PARTITIONED, can skip output duplicates):

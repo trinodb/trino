@@ -37,7 +37,6 @@ import io.trino.spi.QueryId;
 import io.trino.spi.cache.CacheColumnId;
 import io.trino.spi.cache.CacheTableId;
 import io.trino.spi.cache.PlanSignature;
-import io.trino.spi.cache.SignatureKey;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
@@ -76,6 +75,7 @@ import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.trino.SystemSessionProperties.CACHE_AGGREGATIONS_ENABLED;
 import static io.trino.SystemSessionProperties.CACHE_COMMON_SUBQUERIES_ENABLED;
 import static io.trino.SystemSessionProperties.CACHE_PROJECTIONS_ENABLED;
+import static io.trino.cache.CommonSubqueriesExtractor.scanFilterProjectKey;
 import static io.trino.cost.StatsCalculator.noopStatsCalculator;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
@@ -341,7 +341,7 @@ public abstract class BaseCacheSubqueriesTest
                 .getId());
 
         PlanSignature signature = new PlanSignature(
-                new SignatureKey(catalogId + ":" + getCacheTableId(getSession(), "orders_part")),
+                scanFilterProjectKey(new CacheTableId(catalogId + ":" + getCacheTableId(getSession(), "orders_part"))),
                 Optional.empty(),
                 ImmutableList.of(getCacheColumnId(getSession(), "orders_part", "orderkey")),
                 ImmutableList.of(BIGINT),

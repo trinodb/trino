@@ -19,8 +19,8 @@ import io.trino.Session;
 import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchConnectorFactory;
 import io.trino.spi.cache.CacheColumnId;
+import io.trino.spi.cache.CacheTableId;
 import io.trino.spi.cache.PlanSignature;
-import io.trino.spi.cache.SignatureKey;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
@@ -47,6 +47,9 @@ import java.util.function.Predicate;
 
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.cache.CanonicalSubplanExtractor.canonicalExpressionToColumnId;
+import static io.trino.cache.CommonSubqueriesExtractor.aggregationKey;
+import static io.trino.cache.CommonSubqueriesExtractor.combine;
+import static io.trino.cache.CommonSubqueriesExtractor.scanFilterProjectKey;
 import static io.trino.spi.predicate.Range.greaterThan;
 import static io.trino.spi.predicate.Range.lessThan;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -107,7 +110,7 @@ public class TestCacheCommonSubqueries
     public void testCacheCommonSubqueries()
     {
         PlanSignature signature = new PlanSignature(
-                new SignatureKey(testCatalogId + ":tiny:nation:0.01"),
+                scanFilterProjectKey(new CacheTableId(testCatalogId + ":tiny:nation:0.01")),
                 Optional.empty(),
                 ImmutableList.of(REGIONKEY_COLUMN_ID, NATIONKEY_COLUMN_ID),
                 ImmutableList.of(BIGINT, BIGINT),
@@ -161,7 +164,7 @@ public class TestCacheCommonSubqueries
         List<CacheColumnId> cacheColumnIds = ImmutableList.of(NATIONKEY_COLUMN_ID, REGIONKEY_COLUMN_ID);
         List<Type> cacheColumnTypes = ImmutableList.of(BIGINT, BIGINT);
         PlanSignature signature = new PlanSignature(
-                new SignatureKey(testCatalogId + ":tiny:nation:0.01"),
+                scanFilterProjectKey(new CacheTableId(testCatalogId + ":tiny:nation:0.01")),
                 Optional.empty(),
                 cacheColumnIds,
                 cacheColumnTypes,
@@ -215,7 +218,9 @@ public class TestCacheCommonSubqueries
         List<CacheColumnId> cacheColumnIds = ImmutableList.of(NATIONKEY_COLUMN_ID, REGIONKEY_COLUMN_ID);
         List<Type> cacheColumnTypes = ImmutableList.of(BIGINT, BIGINT);
         PlanSignature signature = new PlanSignature(
-                new SignatureKey(testCatalogId + ":tiny:nation:0.01:filters=((\"[nationkey:bigint]\" IN (BIGINT '0', BIGINT '1')) OR (\"[regionkey:bigint]\" IN (BIGINT '0', BIGINT '1')))"),
+                combine(
+                        scanFilterProjectKey(new CacheTableId(testCatalogId + ":tiny:nation:0.01")),
+                        "filters=((\"[nationkey:bigint]\" IN (BIGINT '0', BIGINT '1')) OR (\"[regionkey:bigint]\" IN (BIGINT '0', BIGINT '1')))"),
                 Optional.empty(),
                 cacheColumnIds,
                 cacheColumnTypes,
@@ -256,7 +261,7 @@ public class TestCacheCommonSubqueries
         List<CacheColumnId> cacheColumnIds = ImmutableList.of(REGIONKEY_COLUMN_ID, canonicalExpressionToColumnId(max), canonicalExpressionToColumnId(sum), canonicalExpressionToColumnId(avg));
         List<Type> cacheColumnTypes = ImmutableList.of(BIGINT, BIGINT, RowType.anonymousRow(BIGINT, BIGINT), RowType.anonymousRow(DOUBLE, BIGINT));
         PlanSignature signature = new PlanSignature(
-                new SignatureKey(testCatalogId + ":tiny:nation:0.01"),
+                aggregationKey(scanFilterProjectKey(new CacheTableId(testCatalogId + ":tiny:nation:0.01"))),
                 Optional.of(ImmutableList.of(REGIONKEY_COLUMN_ID)),
                 cacheColumnIds,
                 cacheColumnTypes,

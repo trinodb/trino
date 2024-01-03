@@ -30,7 +30,6 @@ import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.cache.CacheColumnId;
 import io.trino.spi.cache.CacheTableId;
 import io.trino.spi.cache.PlanSignature;
-import io.trino.spi.cache.SignatureKey;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorTableProperties;
@@ -44,7 +43,6 @@ import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.VarcharType;
 import io.trino.sql.DynamicFilters.Descriptor;
 import io.trino.sql.planner.BuiltinFunctionCallBuilder;
 import io.trino.sql.planner.Plan;
@@ -70,6 +68,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.SymbolReference;
 import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.TestingTransactionHandle;
 import org.intellij.lang.annotations.Language;
@@ -91,6 +90,11 @@ import static io.trino.SystemSessionProperties.CACHE_PROJECTIONS_ENABLED;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.SystemSessionProperties.SMALL_DYNAMIC_FILTER_MAX_ROW_COUNT;
 import static io.trino.cache.CanonicalSubplanExtractor.canonicalExpressionToColumnId;
+import static io.trino.cache.CanonicalSubplanExtractor.columnIdToSymbol;
+import static io.trino.cache.CommonSubqueriesExtractor.aggregationKey;
+import static io.trino.cache.CommonSubqueriesExtractor.combine;
+import static io.trino.cache.CommonSubqueriesExtractor.filterProjectKey;
+import static io.trino.cache.CommonSubqueriesExtractor.scanFilterProjectKey;
 import static io.trino.cost.StatsCalculator.noopStatsCalculator;
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
@@ -98,8 +102,10 @@ import static io.trino.spi.block.BlockTestUtils.assertBlockEquals;
 import static io.trino.spi.predicate.Range.greaterThan;
 import static io.trino.spi.predicate.Range.lessThan;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
+import static io.trino.sql.ExpressionFormatter.formatExpression;
 import static io.trino.sql.ExpressionUtils.and;
 import static io.trino.sql.ExpressionUtils.extractDisjuncts;
 import static io.trino.sql.planner.ExpressionExtractor.extractExpressions;
@@ -120,6 +126,7 @@ import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
+import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -325,8 +332,9 @@ public class TestCommonSubqueriesExtractor
                         Optional.of("SUM"), functionCall("sum", false, ImmutableList.of(symbol("NATIONKEY")))),
                 Optional.empty(),
                 PARTIAL,
-                filter("(REGIONKEY > BIGINT '10')",
-                        tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "NAME", "name", "REGIONKEY", "regionkey"))));
+                identityProject(
+                        filter("(REGIONKEY > BIGINT '10')",
+                                tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey", "NAME", "name", "REGIONKEY", "regionkey")))));
 
         // validate common subplan
         SymbolAllocator symbolAllocator = commonSubqueries.symbolAllocator();
@@ -340,9 +348,10 @@ public class TestCommonSubqueriesExtractor
         Expression sum = getFunctionCallBuilder("sum", NATIONKEY_EXPRESSION).build();
         List<CacheColumnId> cacheColumnIds = ImmutableList.of(NAME_ID, canonicalExpressionToColumnId(sum));
         RowType rowType = RowType.from(List.of(RowType.field(BIGINT), RowType.field(BIGINT)));
-        List<Type> cacheColumnsTypes = ImmutableList.of(VarcharType.createVarcharType(25), rowType);
+        List<Type> cacheColumnsTypes = ImmutableList.of(createVarcharType(25), rowType);
         assertThat(aggregation.getCommonSubplanSignature()).isEqualTo(new PlanSignature(
-                new SignatureKey(tpchCatalogId + ":tiny:nation:0.01:filters=(\"[regionkey:bigint]\" > BIGINT '10')"),
+                aggregationKey(
+                        combine(scanFilterProjectKey(new CacheTableId(tpchCatalogId + ":tiny:nation:0.01")), "filters=(\"[regionkey:bigint]\" > BIGINT '10')")),
                 Optional.of(ImmutableList.of(NAME_ID)),
                 cacheColumnIds,
                 cacheColumnsTypes,
@@ -379,9 +388,9 @@ public class TestCommonSubqueriesExtractor
 
         // validate signature
         List<CacheColumnId> cacheColumnIds = ImmutableList.of(NATIONKEY_ID, NAME_ID);
-        List<Type> cacheColumnsTypes = ImmutableList.of(BIGINT, VarcharType.createVarcharType(25));
+        List<Type> cacheColumnsTypes = ImmutableList.of(BIGINT, createVarcharType(25));
         assertThat(projection.getCommonSubplanSignature()).isEqualTo(new PlanSignature(
-                new SignatureKey(tpchCatalogId + ":tiny:nation:0.01:filters=(\"[regionkey:bigint]\" > BIGINT '10')"),
+                combine(scanFilterProjectKey(new CacheTableId(tpchCatalogId + ":tiny:nation:0.01")), "filters=(\"[regionkey:bigint]\" > BIGINT '10')"),
                 Optional.empty(),
                 cacheColumnIds,
                 cacheColumnsTypes,
@@ -426,7 +435,7 @@ public class TestCommonSubqueriesExtractor
         RowType rowType = RowType.from(List.of(RowType.field(BIGINT), RowType.field(BIGINT)));
         List<Type> cacheColumnsTypes = ImmutableList.of(rowType);
         assertThat(aggregationB.getCommonSubplanSignature()).isEqualTo(new PlanSignature(
-                new SignatureKey(tpchCatalogId + ":tiny:nation:0.01"),
+                aggregationKey(scanFilterProjectKey(new CacheTableId(tpchCatalogId + ":tiny:nation:0.01"))),
                 Optional.of(ImmutableList.of()),
                 cacheColumnIds,
                 cacheColumnsTypes,
@@ -487,12 +496,14 @@ public class TestCommonSubqueriesExtractor
                         commonSubplan));
 
         // make sure plan signatures are same
+        CacheColumnId nationKeyGreaterThan10 = canonicalExpressionToColumnId(expression("\"[nationkey:bigint]\" > BIGINT '10'"));
+        CacheColumnId nationKeyMultiplyBy2 = canonicalExpressionToColumnId(expression("\"[nationkey:bigint]\" * BIGINT '2'"));
         Expression max = getFunctionCallBuilder("max", new ExpressionWithType("\"[regionkey:bigint]\"", BIGINT))
-                .setFilter(expression("\"[nationkey:bigint]\" > BIGINT '10'"))
+                .setFilter(columnIdToSymbol(nationKeyGreaterThan10).toSymbolReference())
                 .build();
         Expression sum = getFunctionCallBuilder("sum", NATIONKEY_EXPRESSION).build();
-        Expression avg = getFunctionCallBuilder("avg", new ExpressionWithType("\"[nationkey:bigint]\" * BIGINT '2'", BIGINT))
-                .setFilter(expression("\"[nationkey:bigint]\" > BIGINT '10'"))
+        Expression avg = getFunctionCallBuilder("avg", new ExpressionWithType(nationKeyMultiplyBy2, BIGINT))
+                .setFilter(columnIdToSymbol(nationKeyGreaterThan10).toSymbolReference())
                 .build();
         assertThat(aggregationA.getCommonSubplanSignature()).isEqualTo(aggregationA.getCommonSubplanSignature());
         List<CacheColumnId> cacheColumnIds = ImmutableList.of(canonicalExpressionToColumnId(max), canonicalExpressionToColumnId(sum), canonicalExpressionToColumnId(avg));
@@ -501,7 +512,7 @@ public class TestCommonSubqueriesExtractor
                 RowType.from(List.of(RowType.field(DoubleType.DOUBLE), RowType.field(BIGINT))));
         //columnTypes=[bigint, row(bigint, bigint), row(double, bigint)],
         assertThat(aggregationB.getCommonSubplanSignature()).isEqualTo(new PlanSignature(
-                new SignatureKey(tpchCatalogId + ":tiny:nation:0.01"),
+                aggregationKey(scanFilterProjectKey(new CacheTableId(tpchCatalogId + ":tiny:nation:0.01"))),
                 Optional.of(ImmutableList.of()),
                 cacheColumnIds,
                 cacheColumnsTypes,
@@ -551,7 +562,7 @@ public class TestCommonSubqueriesExtractor
         RowType rowType = RowType.from(List.of(RowType.field(BIGINT), RowType.field(BIGINT)));
         List<Type> cacheColumnsTypes = ImmutableList.of(BIGINT, rowType);
         assertThat(aggregationB.getCommonSubplanSignature()).isEqualTo(new PlanSignature(
-                new SignatureKey(tpchCatalogId + ":tiny:nation:0.01"),
+                aggregationKey(scanFilterProjectKey(new CacheTableId(tpchCatalogId + ":tiny:nation:0.01"))),
                 Optional.of(ImmutableList.of(groupByColumn)),
                 cacheColumnIds,
                 cacheColumnsTypes,
@@ -576,6 +587,7 @@ public class TestCommonSubqueriesExtractor
                 WHERE regionkey > 10 AND nationkey > 11
                 GROUP BY regionkey, name""");
         Map<PlanNode, CommonPlanAdaptation> planAdaptations = commonSubqueries.planAdaptations();
+        // only aggregations with "nationkey > 10" predicate share common subqueries
         assertThat(planAdaptations).hasSize(2);
         assertThat(planAdaptations).allSatisfy((node, adaptation) ->
                 assertThat(node).isInstanceOf(AggregationNode.class));
@@ -617,9 +629,9 @@ public class TestCommonSubqueriesExtractor
         assertThat(aggregationA.getCommonSubplanSignature()).isEqualTo(aggregationA.getCommonSubplanSignature());
         List<CacheColumnId> cacheColumnIds = ImmutableList.of(REGIONKEY_ID, NAME_ID, canonicalExpressionToColumnId(sum), canonicalExpressionToColumnId(max));
         RowType rowType = RowType.from(List.of(RowType.field(BIGINT), RowType.field(BIGINT)));
-        List<Type> cacheColumnsTypes = ImmutableList.of(BIGINT, VarcharType.createVarcharType(25), rowType, BIGINT);
+        List<Type> cacheColumnsTypes = ImmutableList.of(BIGINT, createVarcharType(25), rowType, BIGINT);
         assertThat(aggregationB.getCommonSubplanSignature()).isEqualTo(new PlanSignature(
-                new SignatureKey(tpchCatalogId + ":tiny:nation:0.01:filters=(\"[nationkey:bigint]\" > BIGINT '10')"),
+                combine(aggregationKey(scanFilterProjectKey(new CacheTableId(tpchCatalogId + ":tiny:nation:0.01"))), "filters=(\"[nationkey:bigint]\" > BIGINT '10')"),
                 Optional.of(ImmutableList.of(NAME_ID, REGIONKEY_ID)),
                 cacheColumnIds,
                 cacheColumnsTypes,
@@ -671,16 +683,71 @@ public class TestCommonSubqueriesExtractor
                         commonSubplan));
 
         // make sure plan signatures are same
-        Expression sum = getFunctionCallBuilder("sum", new ExpressionWithType("\"[nationkey:bigint]\" + BIGINT '1'", BIGINT)).build();
-        assertThat(aggregationA.getCommonSubplanSignature()).isEqualTo(aggregationA.getCommonSubplanSignature());
+        CacheColumnId nationKeyPlusOne = canonicalExpressionToColumnId(expression("\"[nationkey:bigint]\" + BIGINT '1'"));
+        Expression sum = getFunctionCallBuilder("sum", new ExpressionWithType(nationKeyPlusOne, BIGINT)).build();
+        assertThat(aggregationA.getCommonSubplanSignature()).isEqualTo(aggregationB.getCommonSubplanSignature());
         List<CacheColumnId> cacheColumnIds = ImmutableList.of(NAME_ID, REGIONKEY_ID, canonicalExpressionToColumnId(sum));
         RowType rowType = RowType.from(List.of(RowType.field(BIGINT), RowType.field(BIGINT)));
-        List<Type> cacheColumnsTypes = ImmutableList.of(VarcharType.createVarcharType(25), BIGINT, rowType);
+        List<Type> cacheColumnsTypes = ImmutableList.of(createVarcharType(25), BIGINT, rowType);
         assertThat(aggregationB.getCommonSubplanSignature()).isEqualTo(new PlanSignature(
-                new SignatureKey(tpchCatalogId + ":tiny:nation:0.01"),
+                aggregationKey(scanFilterProjectKey(new CacheTableId(tpchCatalogId + ":tiny:nation:0.01"))),
                 Optional.of(ImmutableList.of(NAME_ID, REGIONKEY_ID)),
                 cacheColumnIds,
                 cacheColumnsTypes,
+                TupleDomain.all(),
+                TupleDomain.all()));
+    }
+
+    @Test
+    public void testNestedProjections()
+    {
+        CommonSubqueries commonSubqueries = extractTpchCommonSubqueries("""
+                SELECT nationkey_mul * nationkey_mul FROM (SELECT nationkey * 2 AS nationkey_mul FROM nation)
+                UNION ALL
+                SELECT nationkey_add + nationkey_add FROM (SELECT nationkey + 2 AS nationkey_add FROM nation)""");
+
+        Map<PlanNode, CommonPlanAdaptation> planAdaptations = commonSubqueries.planAdaptations();
+        assertThat(planAdaptations).hasSize(2);
+        assertThat(planAdaptations).allSatisfy((node, adaptation) ->
+                assertThat(node).isInstanceOf(ProjectNode.class));
+
+        CommonPlanAdaptation projectionA = Iterables.get(planAdaptations.values(), 0);
+        CommonPlanAdaptation projectionB = Iterables.get(planAdaptations.values(), 1);
+
+        PlanMatchPattern commonSubplan = strictProject(
+                ImmutableMap.of(
+                        "MUL", PlanMatchPattern.expression("NATIONKEY_MUL * NATIONKEY_MUL"),
+                        "ADD", PlanMatchPattern.expression("NATIONKEY_ADD + NATIONKEY_ADD")),
+                strictProject(
+                        ImmutableMap.of(
+                                "NATIONKEY_MUL", PlanMatchPattern.expression("NATIONKEY * BIGINT '2'"),
+                                "NATIONKEY_ADD", PlanMatchPattern.expression("NATIONKEY + BIGINT '2'")),
+                        tableScan("nation", ImmutableMap.of("NATIONKEY", "nationkey"))));
+
+        SymbolAllocator symbolAllocator = commonSubqueries.symbolAllocator();
+        assertTpchPlan(symbolAllocator, projectionA.getCommonSubplan(), commonSubplan);
+        assertTpchPlan(symbolAllocator, projectionB.getCommonSubplan(), commonSubplan);
+
+        // validate adaptations
+        PlanNodeIdAllocator idAllocator = commonSubqueries.idAllocator();
+        assertTpchPlan(symbolAllocator, projectionA.adaptCommonSubplan(projectionA.getCommonSubplan(), idAllocator),
+                strictProject(ImmutableMap.of("MUL", PlanMatchPattern.expression("MUL")),
+                        commonSubplan));
+        assertTpchPlan(symbolAllocator, projectionB.adaptCommonSubplan(projectionB.getCommonSubplan(), idAllocator),
+                strictProject(ImmutableMap.of("ADD", PlanMatchPattern.expression("ADD")),
+                        commonSubplan));
+
+        // make sure plan signatures are same
+        SymbolReference nationKeyMultiplyReference = columnIdToSymbol(canonicalExpressionToColumnId(expression("\"[nationkey:bigint]\" * BIGINT '2'"))).toSymbolReference();
+        SymbolReference nationKeyAddReference = columnIdToSymbol(canonicalExpressionToColumnId(expression("\"[nationkey:bigint]\" + BIGINT '2'"))).toSymbolReference();
+        Expression multiplyProjection = expression(format("%s * %s", formatExpression(nationKeyMultiplyReference), formatExpression(nationKeyMultiplyReference)));
+        Expression addProjection = expression(format("%s + %s", formatExpression(nationKeyAddReference), formatExpression(nationKeyAddReference)));
+        assertThat(projectionA.getCommonSubplanSignature()).isEqualTo(projectionB.getCommonSubplanSignature());
+        assertThat(projectionB.getCommonSubplanSignature()).isEqualTo(new PlanSignature(
+                filterProjectKey(scanFilterProjectKey(new CacheTableId(tpchCatalogId + ":tiny:nation:0.01"))),
+                Optional.empty(),
+                ImmutableList.of(canonicalExpressionToColumnId(multiplyProjection), canonicalExpressionToColumnId(addProjection)),
+                ImmutableList.of(BIGINT, BIGINT),
                 TupleDomain.all(),
                 TupleDomain.all()));
     }
@@ -709,11 +776,11 @@ public class TestCommonSubqueriesExtractor
         assertTpchPlan(symbolAllocator, aggregationB.getCommonSubplan(), commonSubplan);
 
         // make sure plan signatures are same
-        assertThat(aggregationA.getCommonSubplanSignature()).isEqualTo(aggregationA.getCommonSubplanSignature());
+        assertThat(aggregationA.getCommonSubplanSignature()).isEqualTo(aggregationB.getCommonSubplanSignature());
         List<CacheColumnId> cacheColumnIds = ImmutableList.of(NATIONKEY_ID, REGIONKEY_ID);
         List<Type> cacheColumnsTypes = ImmutableList.of(BIGINT, BIGINT);
         assertThat(aggregationB.getCommonSubplanSignature()).isEqualTo(new PlanSignature(
-                new SignatureKey(tpchCatalogId + ":tiny:nation:0.01"),
+                scanFilterProjectKey(new CacheTableId(tpchCatalogId + ":tiny:nation:0.01")),
                 Optional.empty(),
                 cacheColumnIds,
                 cacheColumnsTypes,
@@ -877,7 +944,7 @@ public class TestCommonSubqueriesExtractor
         List<CacheColumnId> cacheColumnIds = ImmutableList.of(canonicalExpressionToColumnId(expression("\"[cache_column1]\" * 10")), new CacheColumnId("[cache_column1]"));
         List<Type> cacheColumnsTypes = ImmutableList.of(BIGINT, BIGINT);
         assertThat(subqueryA.getCommonSubplanSignature()).isEqualTo(new PlanSignature(
-                new SignatureKey(testTableHandle.getCatalogHandle().getId() + ":cache_table_id:filters=(((\"[cache_column1]\" % 4) = BIGINT '0') OR ((\"[cache_column2]\" % 2) = BIGINT '0'))"),
+                combine(scanFilterProjectKey(new CacheTableId(testTableHandle.getCatalogHandle().getId() + ":cache_table_id")), "filters=(((\"[cache_column1]\" % 4) = BIGINT '0') OR ((\"[cache_column2]\" % 2) = BIGINT '0'))"),
                 Optional.empty(),
                 cacheColumnIds,
                 cacheColumnsTypes,
@@ -1177,7 +1244,7 @@ public class TestCommonSubqueriesExtractor
         List<CacheColumnId> cacheColumnIds = ImmutableList.of(new CacheColumnId("[cache_column1]"));
         List<Type> cacheColumnsTypes = ImmutableList.of(BIGINT);
         assertThat(subqueryA.getCommonSubplanSignature()).isEqualTo(new PlanSignature(
-                new SignatureKey(testTableHandle.getCatalogHandle().getId() + ":cache_table_id"),
+                scanFilterProjectKey(new CacheTableId(testTableHandle.getCatalogHandle().getId() + ":cache_table_id")),
                 Optional.empty(),
                 cacheColumnIds,
                 cacheColumnsTypes,
@@ -1268,7 +1335,7 @@ public class TestCommonSubqueriesExtractor
         List<CacheColumnId> cacheColumnIds = ImmutableList.of(new CacheColumnId("[cache_column1]"), new CacheColumnId("[cache_column2]"));
         List<Type> cacheColumnsTypes = ImmutableList.of(BIGINT, BIGINT);
         assertThat(subqueryA.getCommonSubplanSignature()).isEqualTo(new PlanSignature(
-                new SignatureKey(testTableHandle.getCatalogHandle().getId() + ":cache_table_id"),
+                scanFilterProjectKey(new CacheTableId(testTableHandle.getCatalogHandle().getId() + ":cache_table_id")),
                 Optional.empty(),
                 cacheColumnIds,
                 cacheColumnsTypes,
@@ -1436,7 +1503,7 @@ public class TestCommonSubqueriesExtractor
         List<CacheColumnId> cacheColumnIds = ImmutableList.of(new CacheColumnId("[cache_column2]"));
         List<Type> cacheColumnsTypes = ImmutableList.of(BIGINT);
         assertThat(subqueryA.getCommonSubplanSignature()).isEqualTo(new PlanSignature(
-                new SignatureKey(testTableHandle.getCatalogHandle().getId() + ":cache_table_id:filters=(\"[cache_column1]\" < BIGINT '42')"),
+                combine(scanFilterProjectKey(new CacheTableId(testTableHandle.getCatalogHandle().getId() + ":cache_table_id")), "filters=(\"[cache_column1]\" < BIGINT '42')"),
                 Optional.empty(),
                 cacheColumnIds,
                 cacheColumnsTypes,
@@ -1460,6 +1527,11 @@ public class TestCommonSubqueriesExtractor
     @SuppressWarnings("unused")
     private record ExpressionWithType(Expression expression, Type type)
     {
+        public ExpressionWithType(CacheColumnId columnId, Type type)
+        {
+            this(columnIdToSymbol(columnId).toSymbolReference(), type);
+        }
+
         public ExpressionWithType(@Language("SQL") String expression, Type type)
         {
             this(PlanBuilder.expression(expression), type);
