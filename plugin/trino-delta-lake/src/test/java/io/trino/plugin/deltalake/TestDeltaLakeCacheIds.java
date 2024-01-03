@@ -236,8 +236,6 @@ public class TestDeltaLakeCacheIds
     @Test
     public void testSplitId()
     {
-        DeltaLakeColumnHandle partitionColumn = new DeltaLakeColumnHandle("col1", BIGINT, OptionalInt.empty(), "base_col1", BIGINT, DeltaLakeColumnType.PARTITION_KEY, Optional.empty());
-        TupleDomain<DeltaLakeColumnHandle> statisticsPredicate = TupleDomain.withColumnDomains(ImmutableMap.of(partitionColumn, singleValue(INTEGER, 1L)));
         // different path should make ids different
         assertThat(splitManager.getCacheSplitId(createDeltaLakeSplit("path", 10, 0, 1024, 10)))
                 .isNotEqualTo(splitManager.getCacheSplitId(createDeltaLakeSplit("path2", 10, 0, 1024, 10)));
