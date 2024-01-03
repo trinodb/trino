@@ -37,7 +37,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class TestParquetReaderMemoryUsage
+public class TestParquetReader
 {
     @Test
     public void testColumnReaderMemoryUsage()
