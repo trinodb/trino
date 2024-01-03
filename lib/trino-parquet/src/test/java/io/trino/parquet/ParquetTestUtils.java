@@ -119,6 +119,18 @@ public class ParquetTestUtils
             AggregatedMemoryContext memoryContext,
             List<Type> types,
             List<String> columnNames,
+            TupleDomain<String> predicate)
+            throws IOException
+    {
+        return createParquetReader(input, parquetMetadata, memoryContext, types, columnNames, predicate, 0, input.getEstimatedSize());
+    }
+
+    public static ParquetReader createParquetReader(
+            ParquetDataSource input,
+            ParquetMetadata parquetMetadata,
+            AggregatedMemoryContext memoryContext,
+            List<Type> types,
+            List<String> columnNames,
             TupleDomain<String> predicate,
             long splitOffset,
             long splitLength)
