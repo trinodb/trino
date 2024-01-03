@@ -224,9 +224,6 @@ public class TestCacheCommonSubqueries
         Map<CacheColumnId, ColumnHandle> dynamicFilteringMapping = ImmutableMap.of(
                 NATIONKEY_COLUMN_ID, new TpchColumnHandle("nationkey", BIGINT),
                 REGIONKEY_COLUMN_ID, new TpchColumnHandle("regionkey", BIGINT));
-        Predicate<FilterNode> isNationKeyDynamicFilter = node -> DynamicFilters.getDescriptor(node.getPredicate())
-                .map(descriptor -> descriptor.getInput().equals(new SymbolReference("nationkey")))
-                .orElse(false);
         assertPlan("""
                         (SELECT nationkey FROM nation n JOIN (SELECT * FROM (VALUES 0, 1) t(a)) t ON n.nationkey = t.a)
                         UNION ALL
