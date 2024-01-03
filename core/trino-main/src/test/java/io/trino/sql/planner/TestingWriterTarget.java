@@ -14,11 +14,14 @@
 
 package io.trino.sql.planner;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.sql.planner.plan.TableWriterNode;
 
+import java.util.List;
 import java.util.OptionalInt;
 
 public class TestingWriterTarget
@@ -46,5 +49,11 @@ public class TestingWriterTarget
     public WriterScalingOptions getWriterScalingOptions(Metadata metadata, Session session)
     {
         return WriterScalingOptions.DISABLED;
+    }
+
+    @Override
+    public List<CatalogHandle> getPlanContingentCatalogs()
+    {
+        return ImmutableList.of();
     }
 }

@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.Immutable;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NullLiteral;
@@ -83,5 +84,11 @@ public class FilterNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         return new FilterNode(getId(), Iterables.getOnlyElement(newChildren), predicate);
+    }
+
+    @Override
+    public List<CatalogHandle> getPlanContingentCatalogs()
+    {
+        return source.getPlanContingentCatalogs();
     }
 }

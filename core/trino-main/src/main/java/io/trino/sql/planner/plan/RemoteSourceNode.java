@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.operator.RetryPolicy;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 
@@ -116,6 +117,13 @@ public class RemoteSourceNode
     {
         checkArgument(newChildren.isEmpty(), "newChildren is not empty");
         return this;
+    }
+
+    @Override
+    public List<CatalogHandle> getPlanContingentCatalogs()
+    {
+        //remote task responsible for loading in catalogs
+        return ImmutableList.of();
     }
 
     public RemoteSourceNode withSourceFragmentIds(List<PlanFragmentId> sourceFragmentIds)

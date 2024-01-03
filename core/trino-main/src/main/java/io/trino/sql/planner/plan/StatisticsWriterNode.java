@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.trino.metadata.AnalyzeTableHandle;
 import io.trino.metadata.TableHandle;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.planner.Symbol;
 
 import java.util.List;
@@ -108,6 +109,15 @@ public class StatisticsWriterNode
     }
 
     @Override
+    public List<CatalogHandle> getPlanContingentCatalogs()
+    {
+        return ImmutableList.<CatalogHandle>builder()
+                .addAll(source.getPlanContingentCatalogs())
+                .add(target.getPlanContigentCatalog())
+                .build();
+    }
+
+    @Override
     public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {
         return visitor.visitStatisticsWriterNode(this, context);
@@ -120,6 +130,8 @@ public class StatisticsWriterNode
     {
         @Override
         public abstract String toString();
+
+        public abstract CatalogHandle getPlanContigentCatalog();
     }
 
     public static class WriteStatisticsHandle
@@ -144,6 +156,12 @@ public class StatisticsWriterNode
         {
             return handle.toString();
         }
+
+        @Override
+        public CatalogHandle getPlanContigentCatalog()
+        {
+            return handle.getCatalogHandle();
+        }
     }
 
     // only used during planning -- will not be serialized
@@ -166,6 +184,12 @@ public class StatisticsWriterNode
         public String toString()
         {
             return handle.toString();
+        }
+
+        @Override
+        public CatalogHandle getPlanContigentCatalog()
+        {
+            return handle.getCatalogHandle();
         }
     }
 }

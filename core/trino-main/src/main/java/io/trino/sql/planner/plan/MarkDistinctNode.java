@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.Immutable;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.planner.Symbol;
 
 import java.util.List;
@@ -101,5 +102,11 @@ public class MarkDistinctNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         return new MarkDistinctNode(getId(), Iterables.getOnlyElement(newChildren), markerSymbol, distinctSymbols, hashSymbol);
+    }
+
+    @Override
+    public List<CatalogHandle> getPlanContingentCatalogs()
+    {
+        return source.getPlanContingentCatalogs();
     }
 }

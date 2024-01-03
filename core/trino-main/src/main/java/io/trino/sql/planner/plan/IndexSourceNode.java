@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.metadata.IndexHandle;
 import io.trino.metadata.TableHandle;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.sql.planner.Symbol;
 
@@ -108,5 +109,14 @@ public class IndexSourceNode
     {
         checkArgument(newChildren.isEmpty(), "newChildren is not empty");
         return this;
+    }
+
+    @Override
+    public List<CatalogHandle> getPlanContingentCatalogs()
+    {
+        return ImmutableList.<CatalogHandle>builder()
+                .add(indexHandle.getCatalogHandle())
+                .add(tableHandle.getCatalogHandle())
+                .build();
     }
 }

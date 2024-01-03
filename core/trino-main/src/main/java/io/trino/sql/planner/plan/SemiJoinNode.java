@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.Immutable;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.planner.Symbol;
 
 import java.util.List;
@@ -162,6 +163,15 @@ public class SemiJoinNode
                 filteringSourceHashSymbol,
                 distributionType,
                 dynamicFilterId);
+    }
+
+    @Override
+    public List<CatalogHandle> getPlanContingentCatalogs()
+    {
+        return ImmutableList.<CatalogHandle>builder()
+                .addAll(source.getPlanContingentCatalogs())
+                .addAll(filteringSource.getPlanContingentCatalogs())
+                .build();
     }
 
     public SemiJoinNode withDistributionType(DistributionType distributionType)

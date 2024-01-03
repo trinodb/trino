@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.Immutable;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
@@ -290,6 +291,12 @@ public class PatternRecognitionNode
                 pattern,
                 subsets,
                 variableDefinitions);
+    }
+
+    @Override
+    public List<CatalogHandle> getPlanContingentCatalogs()
+    {
+        return source.getPlanContingentCatalogs();
     }
 
     public static class Measure

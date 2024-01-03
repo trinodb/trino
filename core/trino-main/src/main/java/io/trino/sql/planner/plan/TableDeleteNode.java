@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.metadata.TableHandle;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.planner.Symbol;
 
 import java.util.List;
@@ -78,5 +79,11 @@ public class TableDeleteNode
     {
         checkArgument(newChildren.isEmpty(), "newChildren should be empty");
         return this;
+    }
+
+    @Override
+    public List<CatalogHandle> getPlanContingentCatalogs()
+    {
+        return ImmutableList.of(target.getCatalogHandle());
     }
 }

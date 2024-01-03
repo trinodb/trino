@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.Immutable;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.planner.Symbol;
 
 import java.util.List;
@@ -98,5 +99,11 @@ public class ExplainAnalyzeNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         return new ExplainAnalyzeNode(getId(), Iterables.getOnlyElement(newChildren), outputSymbol, actualOutputs, isVerbose());
+    }
+
+    @Override
+    public List<CatalogHandle> getPlanContingentCatalogs()
+    {
+        return source.getPlanContingentCatalogs();
     }
 }

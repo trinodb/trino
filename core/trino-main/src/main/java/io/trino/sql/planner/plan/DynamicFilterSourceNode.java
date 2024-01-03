@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.Immutable;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.planner.Symbol;
 
 import java.util.List;
@@ -85,5 +86,11 @@ public class DynamicFilterSourceNode
     {
         checkArgument(newChildren.size() == 1, "expected newChildren to contain 1 node");
         return new DynamicFilterSourceNode(getId(), newChildren.get(0), dynamicFilters);
+    }
+
+    @Override
+    public List<CatalogHandle> getPlanContingentCatalogs()
+    {
+        return source.getPlanContingentCatalogs();
     }
 }

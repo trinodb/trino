@@ -16,15 +16,18 @@ package io.trino.sql.planner.iterative;
 import com.google.common.collect.ImmutableList;
 import io.trino.cost.PlanCostEstimate;
 import io.trino.cost.PlanNodeStatsEstimate;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import org.junit.jupiter.api.Test;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -309,6 +312,15 @@ public class TestMemo
         public PlanNode replaceChildren(List<PlanNode> newChildren)
         {
             return new GenericNode(getId(), newChildren);
+        }
+
+        @Override
+        public List<CatalogHandle> getPlanContingentCatalogs()
+        {
+            return sources.stream()
+                    .map(PlanNode::getPlanContingentCatalogs)
+                    .flatMap(Collection::stream)
+                    .collect(toImmutableList());
         }
     }
 }

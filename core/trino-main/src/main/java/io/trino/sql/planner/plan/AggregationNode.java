@@ -23,6 +23,7 @@ import com.google.errorprone.annotations.Immutable;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.function.AggregationFunctionMetadata;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
@@ -227,6 +228,12 @@ public class AggregationNode
         return builderFrom(this)
                 .setSource(Iterables.getOnlyElement(newChildren))
                 .build();
+    }
+
+    @Override
+    public List<CatalogHandle> getPlanContingentCatalogs()
+    {
+        return source.getPlanContingentCatalogs();
     }
 
     public boolean producesDistinctRows()

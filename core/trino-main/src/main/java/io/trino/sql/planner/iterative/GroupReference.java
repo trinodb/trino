@@ -14,6 +14,7 @@
 package io.trino.sql.planner.iterative;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -61,5 +62,12 @@ public class GroupReference
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public List<CatalogHandle> getPlanContingentCatalogs()
+    {
+        //TODO check this
+        return ImmutableList.of();
     }
 }

@@ -158,6 +158,16 @@ public class TableFunctionNode
                 handle);
     }
 
+    @Override
+    public List<CatalogHandle> getPlanContingentCatalogs()
+    {
+        return ImmutableList.<CatalogHandle>builder()
+                .add(functionCatalog)
+                .addAll(sources.stream().map(PlanNode::getPlanContingentCatalogs).flatMap(Collection::stream).collect(toImmutableList()))
+                .add(handle.getCatalogHandle())
+                .build();
+    }
+
     public static class TableArgumentProperties
     {
         private final String argumentName;

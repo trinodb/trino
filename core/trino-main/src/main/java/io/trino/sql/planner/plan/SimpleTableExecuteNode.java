@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.TableExecuteHandle;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.planner.Symbol;
 
 import java.util.List;
@@ -65,6 +66,12 @@ public class SimpleTableExecuteNode
     {
         checkArgument(newChildren.isEmpty(), "newChildren should be empty");
         return this;
+    }
+
+    @Override
+    public List<CatalogHandle> getPlanContingentCatalogs()
+    {
+        return ImmutableList.of(executeHandle.getCatalogHandle());
     }
 
     @JsonProperty

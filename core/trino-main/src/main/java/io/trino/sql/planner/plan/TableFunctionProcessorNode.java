@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.metadata.TableFunctionHandle;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.TableFunctionNode.PassThroughSpecification;
@@ -235,5 +236,14 @@ public class TableFunctionProcessorNode
                 preSorted,
                 hashSymbol,
                 handle);
+    }
+
+    @Override
+    public List<CatalogHandle> getPlanContingentCatalogs()
+    {
+        return ImmutableList.<CatalogHandle>builder()
+                .add(handle.getCatalogHandle())
+                .addAll(source.stream().map(PlanNode::getPlanContingentCatalogs).flatMap(Collection::stream).iterator())
+                .build();
     }
 }

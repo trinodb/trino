@@ -25,6 +25,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Multimaps;
 import com.google.errorprone.annotations.Immutable;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.tree.SymbolReference;
 
@@ -92,6 +93,15 @@ public abstract class SetOperationNode
     public ListMultimap<Symbol, Symbol> getSymbolMapping()
     {
         return outputToInputs;
+    }
+
+    @Override
+    public List<CatalogHandle> getPlanContingentCatalogs()
+    {
+        return sources.stream()
+                .map(PlanNode::getPlanContingentCatalogs)
+                .flatMap(Collection::stream)
+                .collect(toImmutableList());
     }
 
     public List<Symbol> sourceOutputLayout(int sourceIndex)

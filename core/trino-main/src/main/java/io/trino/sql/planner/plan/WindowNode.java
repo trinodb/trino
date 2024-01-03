@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.tree.Expression;
@@ -166,6 +167,12 @@ public class WindowNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         return new WindowNode(getId(), Iterables.getOnlyElement(newChildren), specification, windowFunctions, hashSymbol, prePartitionedInputs, preSortedOrderPrefix);
+    }
+
+    @Override
+    public List<CatalogHandle> getPlanContingentCatalogs()
+    {
+        return source.getPlanContingentCatalogs();
     }
 
     @Immutable

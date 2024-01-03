@@ -18,6 +18,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.Immutable;
+import io.trino.metadata.TableHandle;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.TableWriterNode.TableExecuteTarget;
@@ -144,5 +146,15 @@ public class TableExecuteNode
                 columns,
                 columnNames,
                 partitioningScheme);
+    }
+
+    @Override
+    public List<CatalogHandle> getPlanContingentCatalogs()
+    {
+        return ImmutableList.<CatalogHandle>builder()
+                .addAll(source.getPlanContingentCatalogs())
+                .add(target.getExecuteHandle().getCatalogHandle())
+                .addAll(target.getSourceHandle().map(TableHandle::getCatalogHandle).stream().iterator())
+                .build();
     }
 }

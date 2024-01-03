@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.Immutable;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.planner.PartitioningScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
@@ -105,5 +106,14 @@ public class MergeWriterNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         return new MergeWriterNode(getId(), Iterables.getOnlyElement(newChildren), target, projectedSymbols, partitioningScheme, outputs);
+    }
+
+    @Override
+    public List<CatalogHandle> getPlanContingentCatalogs()
+    {
+        return ImmutableList.<CatalogHandle>builder()
+                .addAll(source.getPlanContingentCatalogs())
+                .add(target.getHandle().getCatalogHandle())
+                .build();
     }
 }

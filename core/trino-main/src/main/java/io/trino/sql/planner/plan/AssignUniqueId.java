@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.planner.Symbol;
 
 import java.util.List;
@@ -79,5 +80,11 @@ public class AssignUniqueId
     {
         checkArgument(newChildren.size() == 1, "expected newChildren to contain 1 node");
         return new AssignUniqueId(getId(), Iterables.getOnlyElement(newChildren), idColumn);
+    }
+
+    @Override
+    public List<CatalogHandle> getPlanContingentCatalogs()
+    {
+        return source.getPlanContingentCatalogs();
     }
 }

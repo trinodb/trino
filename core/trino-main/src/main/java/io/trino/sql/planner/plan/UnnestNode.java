@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.Immutable;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
 import io.trino.sql.planner.plan.JoinNode.Type;
@@ -136,6 +137,12 @@ public class UnnestNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         return new UnnestNode(getId(), Iterables.getOnlyElement(newChildren), replicateSymbols, mappings, ordinalitySymbol, joinType, filter);
+    }
+
+    @Override
+    public List<CatalogHandle> getPlanContingentCatalogs()
+    {
+        return source.getPlanContingentCatalogs();
     }
 
     public static class Mapping

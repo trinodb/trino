@@ -16,6 +16,7 @@ package io.trino.sql.planner.plan;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.planner.Symbol;
 
 import java.util.List;
@@ -93,6 +94,8 @@ public abstract class PlanNode
     public abstract List<Symbol> getOutputSymbols();
 
     public abstract PlanNode replaceChildren(List<PlanNode> newChildren);
+
+    public abstract List<CatalogHandle> getPlanContingentCatalogs();
 
     public <R, C> R accept(PlanVisitor<R, C> visitor, C context)
     {

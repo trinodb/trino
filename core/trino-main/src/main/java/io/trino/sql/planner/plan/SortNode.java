@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 
@@ -87,5 +88,11 @@ public class SortNode
     public PlanNode replaceChildren(List<PlanNode> newChildren)
     {
         return new SortNode(getId(), Iterables.getOnlyElement(newChildren), orderingScheme, partial);
+    }
+
+    @Override
+    public List<CatalogHandle> getPlanContingentCatalogs()
+    {
+        return source.getPlanContingentCatalogs();
     }
 }

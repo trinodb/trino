@@ -33,6 +33,7 @@ import io.trino.metadata.TableProperties.TablePartitioning;
 import io.trino.operator.RetryPolicy;
 import io.trino.spi.TrinoException;
 import io.trino.spi.TrinoWarning;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.ConnectorPartitioningHandle;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.plan.ExchangeNode;
@@ -257,6 +258,7 @@ public class PlanFragmenter
             checkArgument(equals, "Expected scheduling order (%s) to contain an entry for all partitioned sources (%s)", schedulingOrder, properties.getPartitionedSources());
 
             Map<Symbol, Type> symbols = Maps.filterKeys(types.allTypes(), in(dependencies));
+            Set<CatalogHandle> subPlanCatalogs = ImmutableSet.copyOf(root.getPlanContingentCatalogs());
 
             PlanFragment fragment = new PlanFragment(
                     fragmentId,
@@ -267,7 +269,9 @@ public class PlanFragmenter
                     schedulingOrder,
                     properties.getPartitioningScheme(),
                     statsAndCosts.getForSubplan(root),
-                    activeCatalogs,
+                    activeCatalogs.stream()
+                            .filter(props -> subPlanCatalogs.contains(props.getCatalogHandle()))
+                            .collect(toImmutableList()),
                     languageFunctions,
                     Optional.of(jsonFragmentPlan(root, symbols, metadata, functionManager, session)));
 

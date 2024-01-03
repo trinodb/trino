@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.planner.Symbol;
 
 import java.util.List;
@@ -63,6 +64,14 @@ public class RefreshMaterializedViewNode
     {
         checkArgument(newChildren.isEmpty(), "newChildren is not empty");
         return this;
+    }
+
+    @Override
+    public List<CatalogHandle> getPlanContingentCatalogs()
+    {
+        //TODO need to pass in a dependent catalog somehow?
+        // Is there a way to know at this point which catalog(s) the materialized view references?
+        return ImmutableList.of();
     }
 
     @Override
