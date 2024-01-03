@@ -188,6 +188,17 @@
                         <revapi.differences>
                             <ignore>true</ignore>
                             <differences>
+                                <!-- Cork internal changes -->
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.method.addedToInterface</code>
+                                    <new>method long io.trino.spi.connector.DynamicFilter::getPreferredDynamicFilterTimeout()</new>
+                                    <justification>Internal change</justification>
+                                </item>
+                                <!-- / Cork internal changes -->
+                                <!-- Cork backports, i.e. temporary exclusions -->
+                                <!-- / Cork backports, i.e. temporary exclusions -->
+
                                 <!-- Allow adding new annotations (such as @Nullable) -->
                                 <item>
                                     <code>java.annotation.added</code>
@@ -216,23 +227,6 @@
                                 </item>
                                 <!-- Backwards incompatible changes since the previous release -->
                                 <!-- Any exclusions below can be deleted after each release -->
-                                <item>
-                                    <ignore>true</ignore>
-                                    <code>java.method.addedToInterface</code>
-                                    <new>method long io.trino.spi.connector.DynamicFilter::getPreferredDynamicFilterTimeout()</new>
-                                    <justification>ADD YOUR EXPLANATION FOR THE NECESSITY OF THIS CHANGE</justification>
-                                    <!--
-                                    Additionally, the following attachments can be used to further identify the difference:
-
-                                    <package>io.trino.spi.connector</package>
-                                    <classQualifiedName>io.trino.spi.connector.DynamicFilter</classQualifiedName>
-                                    <classSimpleName>DynamicFilter</classSimpleName>
-                                    <methodName>getPreferredDynamicFilterTimeout</methodName>
-                                    <elementKind>method</elementKind>
-                                    <newArchive>io.trino:trino-spi:jar:434-cork-1-SNAPSHOT</newArchive>
-                                    <newArchiveRole>primary</newArchiveRole>
-                                    -->
-                                </item>
                                 <item>
                                     <code>java.method.numberOfParametersChanged</code>
                                     <old>method void io.trino.spi.connector.ConnectorMaterializedViewDefinition::&lt;init&gt;(java.lang.String, java.util.Optional&lt;io.trino.spi.connector.CatalogSchemaTableName&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.List&lt;io.trino.spi.connector.ConnectorMaterializedViewDefinition.Column&gt;, java.util.Optional&lt;java.time.Duration&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.Optional&lt;java.lang.String&gt;, java.util.List&lt;io.trino.spi.connector.CatalogSchemaName&gt;, java.util.Map&lt;java.lang.String, java.lang.Object&gt;)</old>
