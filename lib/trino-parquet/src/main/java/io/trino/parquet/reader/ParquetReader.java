@@ -306,7 +306,9 @@ public class ParquetReader
             long rowCount = currentGroupRowRanges.getRowCount();
             columnIndexRowsFiltered += currentGroupRowCount - rowCount;
             if (rowCount == 0) {
-                return false;
+                // Filters on multiple columns with page indexes may yield non-overlapping row ranges and eliminate the entire row group.
+                // Advance to next row group to ensure that we don't return a null Page and close the page source before all row groups are processed
+                return advanceToNextRowGroup();
             }
             currentGroupRowCount = rowCount;
         }
