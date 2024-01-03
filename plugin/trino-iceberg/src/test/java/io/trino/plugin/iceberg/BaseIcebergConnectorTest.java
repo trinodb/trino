@@ -79,7 +79,6 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
@@ -142,6 +141,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.ZoneOffset.UTC;
 import static java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 import static java.util.Collections.nCopies;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -3221,7 +3221,7 @@ public abstract class BaseIcebergConnectorTest
             String greaterValueInSameBucket,
             String valueInOtherBucket)
     {
-        String tableName = format("test_bucket_transform%s", type.toLowerCase(Locale.ENGLISH));
+        String tableName = format("test_bucket_transform%s", type.toLowerCase(ENGLISH));
 
         assertUpdate(format("CREATE TABLE %s (d %s) WITH (partitioning = ARRAY['bucket(d, 2)'])", tableName, type));
         assertUpdate(format("INSERT INTO %s VALUES (NULL), (%s), (%s), (%s)", tableName, value, greaterValueInSameBucket, valueInOtherBucket), 4);
@@ -5039,7 +5039,7 @@ public abstract class BaseIcebergConnectorTest
     private void testOptimizeTimePartitionedTable(String dataType, String partitioningFormat, int expectedFilesAfterOptimize)
     {
         String tableName = "test_optimize_time_partitioned_" +
-                (dataType + "_" + partitioningFormat).toLowerCase(Locale.ENGLISH).replaceAll("[^a-z0-9_]", "");
+                (dataType + "_" + partitioningFormat).toLowerCase(ENGLISH).replaceAll("[^a-z0-9_]", "");
         assertUpdate(format("CREATE TABLE %s(p %s, val varchar) WITH (partitioning = ARRAY['%s'])", tableName, dataType, format(partitioningFormat, "p")));
 
         // Do several inserts so ensure more than one input file
@@ -5201,7 +5201,7 @@ public abstract class BaseIcebergConnectorTest
         long snapshotId = getCurrentSnapshotId(tableName);
         assertUpdate("INSERT INTO " + tableName + " VALUES 22", 1);
         assertThatThrownBy(() -> query("ALTER TABLE \"%s@%d\" EXECUTE OPTIMIZE".formatted(tableName, snapshotId)))
-                .hasMessage(format("Invalid Iceberg table name: %s@%d", tableName, snapshotId));
+                .hasMessage(format("line 1:7: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, snapshotId));
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES 11, 22");
 
@@ -5613,7 +5613,7 @@ public abstract class BaseIcebergConnectorTest
         long snapshotId = getCurrentSnapshotId(tableName);
         assertUpdate("INSERT INTO " + tableName + " VALUES 22", 1);
         assertThatThrownBy(() -> query("ALTER TABLE \"%s@%d\" EXECUTE EXPIRE_SNAPSHOTS".formatted(tableName, snapshotId)))
-                .hasMessage(format("Invalid Iceberg table name: %s@%d", tableName, snapshotId));
+                .hasMessage(format("line 1:7: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, snapshotId));
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES 11, 22");
 
@@ -5805,7 +5805,7 @@ public abstract class BaseIcebergConnectorTest
         long snapshotId = getCurrentSnapshotId(tableName);
         assertUpdate("INSERT INTO " + tableName + " VALUES 22", 1);
         assertThatThrownBy(() -> query("ALTER TABLE \"%s@%d\" EXECUTE REMOVE_ORPHAN_FILES".formatted(tableName, snapshotId)))
-                .hasMessage(format("Invalid Iceberg table name: %s@%d", tableName, snapshotId));
+                .hasMessage(format("line 1:7: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, snapshotId));
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES 11, 22");
 
@@ -5948,19 +5948,19 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate(format("INSERT INTO %s VALUES 4,5,6", tableName), 3);
         assertQuery(format("SELECT * FROM %s FOR VERSION AS OF %d", tableName, oldSnapshotId), "VALUES 1,2,3");
         assertThatThrownBy(() -> query(format("INSERT INTO \"%s@%d\" VALUES 7,8,9", tableName, oldSnapshotId)))
-                .hasMessage(format("Invalid Iceberg table name: %s@%d", tableName, oldSnapshotId));
+                .hasMessage(format("Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, oldSnapshotId));
         assertThatThrownBy(() -> query(format("DELETE FROM \"%s@%d\" WHERE col = 5", tableName, oldSnapshotId)))
-                .hasMessage(format("Invalid Iceberg table name: %s@%d", tableName, oldSnapshotId));
+                .hasMessage(format("line 1:1: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, oldSnapshotId));
         assertThatThrownBy(() -> query(format("UPDATE \"%s@%d\" SET col = 50 WHERE col = 5", tableName, oldSnapshotId)))
-                .hasMessage(format("Invalid Iceberg table name: %s@%d", tableName, oldSnapshotId));
+                .hasMessage(format("line 1:1: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, oldSnapshotId));
         assertThatThrownBy(() -> query(format("INSERT INTO \"%s@%d\" VALUES 7,8,9", tableName, getCurrentSnapshotId(tableName))))
-                .hasMessage(format("Invalid Iceberg table name: %s@%d", tableName, getCurrentSnapshotId(tableName)));
+                .hasMessage(format("Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, getCurrentSnapshotId(tableName)));
         assertThatThrownBy(() -> query(format("DELETE FROM \"%s@%d\" WHERE col = 9", tableName, getCurrentSnapshotId(tableName))))
-                .hasMessage(format("Invalid Iceberg table name: %s@%d", tableName, getCurrentSnapshotId(tableName)));
+                .hasMessage(format("line 1:1: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, getCurrentSnapshotId(tableName)));
         assertThatThrownBy(() -> assertUpdate(format("UPDATE \"%s@%d\" set col = 50 WHERE col = 5", tableName, getCurrentSnapshotId(tableName))))
-                .hasMessage(format("Invalid Iceberg table name: %s@%d", tableName, getCurrentSnapshotId(tableName)));
+                .hasMessage(format("line 1:1: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, getCurrentSnapshotId(tableName)));
         assertThatThrownBy(() -> query(format("ALTER TABLE \"%s@%d\" EXECUTE OPTIMIZE", tableName, oldSnapshotId)))
-                .hasMessage(format("Invalid Iceberg table name: %s@%d", tableName, oldSnapshotId));
+                .hasMessage(format("line 1:7: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, oldSnapshotId));
         assertQuery(format("SELECT * FROM %s", tableName), "VALUES 1,2,3,4,5,6");
 
         assertUpdate("DROP TABLE " + tableName);
@@ -7600,6 +7600,21 @@ public abstract class BaseIcebergConnectorTest
                 "test_coercion_show_create_table",
                 format("AS SELECT %s a WITH NO DATA", inputType))) {
             assertThat(getColumnType(testTable.getName(), "a")).isEqualTo(tableType);
+        }
+    }
+
+    @Test
+    public void testSystemTables()
+    {
+        String catalog = getSession().getCatalog().orElseThrow();
+        String schema = getSession().getSchema().orElseThrow();
+        for (TableType tableType : TableType.values()) {
+            if (tableType != TableType.DATA) {
+                // Like a system table. Make sure this is "table not found".
+                assertQueryFails(
+                        "TABLE \"$%s\"".formatted(tableType.name().toLowerCase(ENGLISH)),
+                        "\\Qline 1:1: Table '%s.%s.\"$%s\"' does not exist".formatted(catalog, schema, tableType.name().toLowerCase(ENGLISH)));
+            }
         }
     }
 
