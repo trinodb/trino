@@ -573,7 +573,7 @@ public class IcebergMetadata
             return Optional.empty();
         }
         return switch (tableType.get()) {
-            case DATA -> throw new VerifyException("Unexpected DATA table type"); // Handled above.
+            case DATA, MATERIALIZED_VIEW_STORAGE -> throw new VerifyException("Unexpected table type: " + tableType.get()); // Handled above.
             case HISTORY -> Optional.of(new HistoryTable(tableName, table));
             case SNAPSHOTS -> Optional.of(new SnapshotsTable(tableName, typeManager, table));
             case PARTITIONS -> Optional.of(new PartitionTable(tableName, typeManager, table, getCurrentSnapshotId(table)));
@@ -581,7 +581,6 @@ public class IcebergMetadata
             case FILES -> Optional.of(new FilesTable(tableName, typeManager, table, getCurrentSnapshotId(table)));
             case PROPERTIES -> Optional.of(new PropertiesTable(tableName, table));
             case REFS -> Optional.of(new RefsTable(tableName, table));
-            case MATERIALIZED_VIEW_STORAGE -> throw new VerifyException("Unexpected MATERIALIZED_VIEW_STORAGE table type");
         };
     }
 
