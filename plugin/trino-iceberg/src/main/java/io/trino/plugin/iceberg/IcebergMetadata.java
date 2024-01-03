@@ -228,6 +228,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.isProjectionPushd
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isQueryPartitionFilterRequired;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isStatisticsEnabled;
 import static io.trino.plugin.iceberg.IcebergTableName.isDataTable;
+import static io.trino.plugin.iceberg.IcebergTableName.isIcebergTableName;
 import static io.trino.plugin.iceberg.IcebergTableName.isMaterializedViewStorage;
 import static io.trino.plugin.iceberg.IcebergTableName.tableNameFrom;
 import static io.trino.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
@@ -394,6 +395,10 @@ public class IcebergMetadata
             throw new TrinoException(NOT_SUPPORTED, "Read table with start version is not supported");
         }
 
+        if (!isIcebergTableName(tableName.getTableName())) {
+            return null;
+        }
+
         if (isMaterializedViewStorage(tableName.getTableName())) {
             verify(endVersion.isEmpty(), "Materialized views do not support versioned queries");
 
@@ -554,7 +559,7 @@ public class IcebergMetadata
 
     private Optional<SystemTable> getRawSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
-        if (isDataTable(tableName.getTableName()) || isMaterializedViewStorage(tableName.getTableName())) {
+        if (!isIcebergTableName(tableName.getTableName()) || isDataTable(tableName.getTableName()) || isMaterializedViewStorage(tableName.getTableName())) {
             return Optional.empty();
         }
 
