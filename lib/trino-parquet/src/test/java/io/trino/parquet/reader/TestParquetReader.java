@@ -14,6 +14,8 @@
 package io.trino.parquet.reader;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Resources;
 import io.airlift.units.DataSize;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.parquet.ParquetDataSource;
@@ -21,19 +23,31 @@ import io.trino.parquet.ParquetReaderOptions;
 import io.trino.parquet.writer.ParquetWriterOptions;
 import io.trino.spi.Page;
 import io.trino.spi.block.LazyBlock;
+import io.trino.spi.metrics.Count;
+import io.trino.spi.metrics.Metric;
+import io.trino.spi.predicate.Domain;
+import io.trino.spi.predicate.Range;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.Type;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
 import java.io.IOException;
+import java.net.URISyntaxException;
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.parquet.ParquetTestUtils.createParquetReader;
 import static io.trino.parquet.ParquetTestUtils.generateInputPages;
 import static io.trino.parquet.ParquetTestUtils.writeParquetFile;
+import static io.trino.parquet.reader.ParquetReader.COLUMN_INDEX_ROWS_FILTERED;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.DateType.DATE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -97,5 +111,40 @@ public class TestParquetReader
 
         reader.close();
         assertThat(memoryContext.getBytes()).isEqualTo(0);
+    }
+
+    @Test
+    public void testEmptyRowRangesWithColumnIndex()
+            throws URISyntaxException, IOException
+    {
+        List<String> columnNames = ImmutableList.of("l_shipdate", "l_commitdate");
+        List<Type> types = ImmutableList.of(DATE, DATE);
+
+        ParquetDataSource dataSource = new FileParquetDataSource(
+                new File(Resources.getResource("lineitem_sorted_by_shipdate/data.parquet").toURI()),
+                new ParquetReaderOptions());
+        ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource, Optional.empty());
+        assertThat(parquetMetadata.getBlocks().size()).isEqualTo(2);
+        // The predicate and the file are prepared so that page indexes will result in non-overlapping row ranges and eliminate the entire first row group
+        // while the second row group still has to be read
+        TupleDomain<String> predicate = TupleDomain.withColumnDomains(
+                ImmutableMap.of(
+                        "l_shipdate", Domain.multipleValues(DATE, ImmutableList.of(LocalDate.of(1993, 1, 1).toEpochDay(), LocalDate.of(1997, 1, 1).toEpochDay())),
+                        "l_commitdate", Domain.create(ValueSet.ofRanges(Range.greaterThan(DATE, LocalDate.of(1995, 1, 1).toEpochDay())), false)));
+
+        try (ParquetReader reader = createParquetReader(dataSource, parquetMetadata, newSimpleAggregatedMemoryContext(), types, columnNames, predicate)) {
+            Page page = reader.nextPage();
+            int rowsRead = 0;
+            while (page != null) {
+                rowsRead += page.getPositionCount();
+                page = reader.nextPage();
+            }
+            assertThat(rowsRead).isEqualTo(2387);
+            Map<String, Metric<?>> metrics = reader.getMetrics().getMetrics();
+            assertThat(metrics).containsKey(COLUMN_INDEX_ROWS_FILTERED);
+            // Column index should filter at least the first row group
+            assertThat(((Count<?>) metrics.get(COLUMN_INDEX_ROWS_FILTERED)).getTotal())
+                    .isGreaterThanOrEqualTo(parquetMetadata.getBlocks().get(0).getRowCount());
+        }
     }
 }
