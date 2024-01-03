@@ -35,7 +35,7 @@
 
 ### Java runtime environment
 
-Trino requires a 64-bit version of Java 17, with a minimum required version of 17.0.3.
+Trino requires a 64-bit version of Java 17, with a minimum required version of 17.0.5.
 Earlier major versions such as Java 8 or Java 11 do not work.
 Newer major versions such as Java 18 or 19, are not supported -- they may work, but are not tested.
 
