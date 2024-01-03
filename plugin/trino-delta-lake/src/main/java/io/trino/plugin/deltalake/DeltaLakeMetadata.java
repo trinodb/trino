@@ -965,13 +965,6 @@ public class DeltaLakeMetadata
 
         Table table = buildTable(session, schemaTableName, location, external);
 
-        // Ensure the table has queryId set. This is relied on for exception handling
-        String queryId = session.getQueryId();
-        verify(
-                getQueryId(table).orElseThrow(() -> new IllegalArgumentException("Query id is not present")).equals(queryId),
-                "Table '%s' does not have correct query id set",
-                table);
-
         PrincipalPrivileges principalPrivileges = buildInitialPrivilegeSet(table.getOwner().orElseThrow());
         // As a precaution, clear the caches
         statisticsAccess.invalidateCache(schemaTableName, Optional.of(location));
@@ -1232,12 +1225,6 @@ public class DeltaLakeMetadata
 
         SchemaTableName schemaTableName = schemaTableName(schemaName, tableName);
         Table table = buildTable(session, schemaTableName, location, handle.isExternal());
-        // Ensure the table has queryId set. This is relied on for exception handling
-        String queryId = session.getQueryId();
-        verify(
-                getQueryId(table).orElseThrow(() -> new IllegalArgumentException("Query id is not present")).equals(queryId),
-                "Table '%s' does not have correct query id set",
-                table);
 
         ColumnMappingMode columnMappingMode = handle.getColumnMappingMode();
         String schemaString = handle.getSchemaString();
