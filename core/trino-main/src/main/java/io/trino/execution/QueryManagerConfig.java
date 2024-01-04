@@ -145,6 +145,7 @@ public class QueryManagerConfig
     private double faultTolerantExecutionSmallStageSourceSizeMultiplier = 1.2;
     private boolean faultTolerantExecutionSmallStageRequireNoMorePartitions;
     private boolean faultTolerantExecutionStageEstimationForEagerParentEnabled = true;
+    private boolean faultTolerantExecutionAdaptiveQueryPlanningEnabled;
 
     @Min(1)
     public int getScheduleSplitBatchSize()
@@ -1102,6 +1103,19 @@ public class QueryManagerConfig
     public QueryManagerConfig setFaultTolerantExecutionStageEstimationForEagerParentEnabled(boolean faultTolerantExecutionStageEstimationForEagerParentEnabled)
     {
         this.faultTolerantExecutionStageEstimationForEagerParentEnabled = faultTolerantExecutionStageEstimationForEagerParentEnabled;
+        return this;
+    }
+
+    public boolean isFaultTolerantExecutionAdaptiveQueryPlanningEnabled()
+    {
+        return faultTolerantExecutionAdaptiveQueryPlanningEnabled;
+    }
+
+    @Config("fault-tolerant-execution-adaptive-query-planning-enabled")
+    @ConfigDescription("Enable adaptive query planning for the fault tolerant execution")
+    public QueryManagerConfig setFaultTolerantExecutionAdaptiveQueryPlanningEnabled(boolean faultTolerantExecutionSmallStageEstimationEnabled)
+    {
+        this.faultTolerantExecutionAdaptiveQueryPlanningEnabled = faultTolerantExecutionSmallStageEstimationEnabled;
         return this;
     }
 

@@ -16,6 +16,8 @@ package io.trino.cost;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanFragmentId;
 
+import java.util.List;
+
 import static io.trino.execution.scheduler.faulttolerant.OutputStatsEstimator.OutputStatsEstimateResult;
 
 /**
@@ -27,6 +29,8 @@ public interface RuntimeInfoProvider
     OutputStatsEstimateResult getRuntimeOutputStats(PlanFragmentId planFragmentId);
 
     PlanFragment getPlanFragment(PlanFragmentId planFragmentId);
+
+    List<PlanFragment> getAllPlanFragments();
 
     static RuntimeInfoProvider noImplementation()
     {
@@ -40,6 +44,12 @@ public interface RuntimeInfoProvider
 
             @Override
             public PlanFragment getPlanFragment(PlanFragmentId planFragmentId)
+            {
+                throw new UnsupportedOperationException("RuntimeInfoProvider is not implemented");
+            }
+
+            @Override
+            public List<PlanFragment> getAllPlanFragments()
             {
                 throw new UnsupportedOperationException("RuntimeInfoProvider is not implemented");
             }
