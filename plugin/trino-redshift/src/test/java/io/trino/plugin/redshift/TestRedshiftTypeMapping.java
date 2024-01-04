@@ -462,8 +462,7 @@ public class TestRedshiftTypeMapping
         testTimestamp(testZone);
     }
 
-    @Test
-    public void testTimestamp(ZoneId sessionZone)
+    private void testTimestamp(ZoneId sessionZone)
     {
         Session session = Session.builder(getSession())
                 .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
@@ -837,7 +836,7 @@ public class TestRedshiftTypeMapping
     }
 
     @Test
-    public static void checkIllegalRedshiftTimePrecision()
+    public void checkIllegalRedshiftTimePrecision()
     {
         assertRedshiftCreateFails(
                 "check_redshift_time_precision_error",
@@ -846,7 +845,7 @@ public class TestRedshiftTypeMapping
     }
 
     @Test
-    public static void checkIllegalRedshiftTimestampPrecision()
+    public void checkIllegalRedshiftTimestampPrecision()
     {
         assertRedshiftCreateFails(
                 "check_redshift_timestamp_precision_error",
