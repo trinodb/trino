@@ -48,7 +48,7 @@ public class LocalFileSystem
     public LocalFileSystem(Path rootPath)
     {
         this.rootPath = rootPath;
-        checkArgument(Files.isDirectory(rootPath), "root is not a directory");
+        checkArgument(Files.isDirectory(rootPath), "root is not a directory: %s", rootPath);
     }
 
     @Override
