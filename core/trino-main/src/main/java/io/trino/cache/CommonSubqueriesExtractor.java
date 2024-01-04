@@ -558,10 +558,10 @@ public final class CommonSubqueriesExtractor
     private PlanNode createSubplanProjection(
             PlanNode subplan,
             Map<CacheColumnId, Expression> projections,
-            Map<CacheColumnId, Symbol> subqueryColumnIdMapping)
+            Map<CacheColumnId, Symbol> columnIdMapping)
     {
-        SymbolMapper symbolMapper = new SymbolMapper(symbol -> requireNonNull(subqueryColumnIdMapping.get(canonicalSymbolToColumnId(symbol))));
-        return createSubplanAssignments(subplan, projections, subqueryColumnIdMapping, symbolMapper)
+        SymbolMapper symbolMapper = new SymbolMapper(symbol -> requireNonNull(columnIdMapping.get(canonicalSymbolToColumnId(symbol))));
+        return createSubplanAssignments(subplan, projections, columnIdMapping, symbolMapper)
                 .map(assignments -> (PlanNode) new ProjectNode(idAllocator.getNextId(), subplan, assignments))
                 .orElse(subplan);
     }
@@ -569,36 +569,33 @@ public final class CommonSubqueriesExtractor
     private static Optional<Assignments> createAdaptationAssignments(
             PlanNode subplan,
             CanonicalSubplan canonicalSubplan,
-            Map<CacheColumnId, Symbol> subqueryColumnIdMapping,
-            SymbolMapper subquerySymbolMapper)
+            Map<CacheColumnId, Symbol> columnIdMapping,
+            SymbolMapper symbolMapper)
     {
         // Prune and order common subquery output in order to match original subquery.
-        ImmutableMap.Builder<CacheColumnId, Expression> projections = ImmutableMap.builder();
-        for (Map.Entry<CacheColumnId, Expression> assignment : canonicalSubplan.getAssignments().entrySet()) {
-            CacheColumnId id = assignment.getKey();
-            checkState(subplan.getOutputSymbols().contains(requireNonNull(subqueryColumnIdMapping.get(id))), "No symbol for column id: %s", id);
-            projections.put(id, columnIdToSymbol(id).toSymbolReference());
-        }
+        Map<CacheColumnId, Expression> projections = canonicalSubplan.getAssignments().keySet().stream()
+                .peek(id -> checkState(subplan.getOutputSymbols().contains(requireNonNull(columnIdMapping.get(id))), "No symbol for column id: %s", id))
+                .collect(toImmutableMap(id -> id, id -> columnIdToSymbol(id).toSymbolReference()));
         return createSubplanAssignments(
                 subplan,
-                projections.buildOrThrow(),
-                subqueryColumnIdMapping,
-                subquerySymbolMapper);
+                projections,
+                columnIdMapping,
+                symbolMapper);
     }
 
     private static Optional<Assignments> createSubplanAssignments(
             PlanNode subplan,
             Map<CacheColumnId, Expression> projections,
-            Map<CacheColumnId, Symbol> subqueryColumnIdMapping,
-            SymbolMapper subquerySymbolMapper)
+            Map<CacheColumnId, Symbol> columnIdMapping,
+            SymbolMapper symbolMapper)
     {
         // Remap CacheColumnIds and symbols into specific subquery symbols
         Assignments assignments = Assignments.copyOf(projections.entrySet().stream()
                 .collect(toImmutableMap(
-                        entry -> subqueryColumnIdMapping.get(entry.getKey()),
-                        entry -> subquerySymbolMapper.map(entry.getValue()))));
+                        entry -> columnIdMapping.get(entry.getKey()),
+                        entry -> symbolMapper.map(entry.getValue()))));
 
-        // projection is sensitive to output symbols order
+        // cache is sensitive to output symbols order
         if (subplan.getOutputSymbols().equals(assignments.getOutputs())) {
             return Optional.empty();
         }
