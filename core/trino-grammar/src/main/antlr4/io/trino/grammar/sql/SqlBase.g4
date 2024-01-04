@@ -160,7 +160,7 @@ statement
         (LIKE pattern=string (ESCAPE escape=string)?)?                 #showSchemas
     | SHOW CATALOGS
         (LIKE pattern=string (ESCAPE escape=string)?)?                 #showCatalogs
-    | SHOW COLUMNS (FROM | IN) qualifiedName?
+    | SHOW COLUMNS (FROM | IN) qualifiedName
         (LIKE pattern=string (ESCAPE escape=string)?)?                 #showColumns
     | SHOW STATS FOR qualifiedName                                     #showStats
     | SHOW STATS FOR '(' rootQuery ')'                                 #showStatsForQuery
