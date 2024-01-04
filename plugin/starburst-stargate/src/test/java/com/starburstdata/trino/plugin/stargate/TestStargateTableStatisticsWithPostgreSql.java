@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
+import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.sql.TestTable.fromColumns;
 import static io.trino.tpch.TpchTable.NATION;
@@ -83,7 +84,7 @@ public class TestStargateTableStatisticsWithPostgreSql
     @RepeatedTest(value = 10, failureThreshold = 5) // PostgreSQL can auto-analyze data before we SHOW STATS
     public void testNotAnalyzed()
     {
-        String tableName = "test_stats_not_analyzed";
+        String tableName = "test_stats_not_analyzed_" + randomNameSuffix();
         assertUpdate("DROP TABLE IF EXISTS " + tableName);
         executeInRemoteStarburst(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders", tableName));
         try {
