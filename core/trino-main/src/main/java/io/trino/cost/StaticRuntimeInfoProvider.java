@@ -14,10 +14,12 @@
 
 package io.trino.cost;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanFragmentId;
 
+import java.util.List;
 import java.util.Map;
 
 import static io.trino.execution.scheduler.faulttolerant.OutputStatsEstimator.OutputStatsEstimateResult;
@@ -49,5 +51,11 @@ public class StaticRuntimeInfoProvider
         PlanFragment planFragment = planFragments.get(planFragmentId);
         requireNonNull(planFragment, "planFragment must not be null: %s".formatted(planFragmentId));
         return planFragment;
+    }
+
+    @Override
+    public List<PlanFragment> getAllPlanFragments()
+    {
+        return ImmutableList.copyOf(planFragments.values());
     }
 }
