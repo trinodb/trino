@@ -196,6 +196,7 @@ public final class SystemSessionProperties
     private static final String FAULT_TOLERANT_EXECUTION_SMALL_STAGE_SOURCE_SIZE_MULTIPLIER = "fault_tolerant_execution_small_stage_source_size_multiplier";
     private static final String FAULT_TOLERANT_EXECUTION_SMALL_STAGE_REQUIRE_NO_MORE_PARTITIONS = "fault_tolerant_execution_small_stage_require_no_more_partitions";
     private static final String FAULT_TOLERANT_EXECUTION_STAGE_ESTIMATION_FOR_EAGER_PARENT_ENABLED = "fault_tolerant_execution_stage_estimation_for_eager_parent_enabled";
+    public static final String FAULT_TOLERANT_EXECUTION_ADAPTIVE_QUERY_PLANNING_ENABLED = "fault_tolerant_execution_adaptive_query_planning_enabled";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_ENABLED = "adaptive_partial_aggregation_enabled";
     public static final String ADAPTIVE_PARTIAL_AGGREGATION_UNIQUE_ROWS_RATIO_THRESHOLD = "adaptive_partial_aggregation_unique_rows_ratio_threshold";
     public static final String REMOTE_TASK_ADAPTIVE_UPDATE_REQUEST_SIZE_ENABLED = "remote_task_adaptive_update_request_size_enabled";
@@ -999,6 +1000,11 @@ public final class SystemSessionProperties
                         "Enable aggressive stage output size estimation heuristic for children of stages to be executed eagerly",
                         queryManagerConfig.isFaultTolerantExecutionStageEstimationForEagerParentEnabled(),
                         true),
+                booleanProperty(
+                        FAULT_TOLERANT_EXECUTION_ADAPTIVE_QUERY_PLANNING_ENABLED,
+                        "Enable adaptive query planning for the fault tolerant execution",
+                        queryManagerConfig.isFaultTolerantExecutionAdaptiveQueryPlanningEnabled(),
+                        false),
                 booleanProperty(
                         ADAPTIVE_PARTIAL_AGGREGATION_ENABLED,
                         "When enabled, partial aggregation might be adaptively turned off when it does not provide any performance gain",
@@ -1844,6 +1850,11 @@ public final class SystemSessionProperties
     public static boolean isFaultTolerantExecutionStageEstimationForEagerParentEnabled(Session session)
     {
         return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_STAGE_ESTIMATION_FOR_EAGER_PARENT_ENABLED, Boolean.class);
+    }
+
+    public static boolean isFaultTolerantExecutionAdaptiveQueryPlanningEnabled(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_ADAPTIVE_QUERY_PLANNING_ENABLED, Boolean.class);
     }
 
     public static boolean isAdaptivePartialAggregationEnabled(Session session)

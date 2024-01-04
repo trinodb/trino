@@ -56,6 +56,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.Analysis;
 import io.trino.sql.analyzer.Analyzer;
 import io.trino.sql.analyzer.AnalyzerFactory;
+import io.trino.sql.planner.AdaptivePlanner;
 import io.trino.sql.planner.InputExtractor;
 import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.LogicalPlanner;
@@ -67,6 +68,7 @@ import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.PlanOptimizersFactory;
 import io.trino.sql.planner.SplitSourceFactory;
 import io.trino.sql.planner.SubPlan;
+import io.trino.sql.planner.optimizations.AdaptivePlanOptimizer;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.tree.ExplainAnalyze;
@@ -95,6 +97,7 @@ import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.PLANNING;
 import static io.trino.server.DynamicFilterService.DynamicFiltersStats;
 import static io.trino.spi.StandardErrorCode.STACK_OVERFLOW;
+import static io.trino.sql.planner.sanity.PlanSanityChecker.DISTRIBUTED_PLAN_SANITY_CHECKER;
 import static io.trino.tracing.ScopedSpan.scopedSpan;
 import static java.lang.Thread.currentThread;
 import static java.util.Objects.requireNonNull;
@@ -116,6 +119,7 @@ public class SqlQueryExecution
     private final OutputStatsEstimatorFactory outputStatsEstimatorFactory;
     private final TaskExecutionStats taskExecutionStats;
     private final List<PlanOptimizer> planOptimizers;
+    private final AdaptivePlanner adaptivePlanner;
     private final PlanFragmenter planFragmenter;
     private final RemoteTaskFactory remoteTaskFactory;
     private final int scheduleSplitBatchSize;
@@ -155,6 +159,7 @@ public class SqlQueryExecution
             OutputStatsEstimatorFactory outputStatsEstimatorFactory,
             TaskExecutionStats taskExecutionStats,
             List<PlanOptimizer> planOptimizers,
+            List<AdaptivePlanOptimizer> adaptivePlanOptimizers,
             PlanFragmenter planFragmenter,
             RemoteTaskFactory remoteTaskFactory,
             int scheduleSplitBatchSize,
@@ -207,6 +212,18 @@ public class SqlQueryExecution
 
             // analyze query
             this.analysis = analyze(preparedQuery, stateMachine, warningCollector, planOptimizersStatsCollector, analyzerFactory);
+
+            // create adaptive planner
+            requireNonNull(adaptivePlanOptimizers, "adaptivePlanOptimizers is null");
+            this.adaptivePlanner = new AdaptivePlanner(
+                    stateMachine.getSession(),
+                    plannerContext,
+                    adaptivePlanOptimizers,
+                    planFragmenter,
+                    DISTRIBUTED_PLAN_SANITY_CHECKER,
+                    typeAnalyzer,
+                    warningCollector,
+                    planOptimizersStatsCollector);
 
             stateMachine.addStateChangeListener(state -> {
                 if (!state.isDone()) {
@@ -563,6 +580,7 @@ public class SqlQueryExecution
                         failureDetector,
                         dynamicFilterService,
                         taskExecutionStats,
+                        adaptivePlanner,
                         plan.getRoot());
                 break;
             default:
@@ -755,6 +773,7 @@ public class SqlQueryExecution
         private final OutputStatsEstimatorFactory outputStatsEstimatorFactory;
         private final TaskExecutionStats taskExecutionStats;
         private final List<PlanOptimizer> planOptimizers;
+        private final List<AdaptivePlanOptimizer> adaptivePlanOptimizers;
         private final PlanFragmenter planFragmenter;
         private final RemoteTaskFactory remoteTaskFactory;
         private final ExecutorService queryExecutor;
@@ -823,7 +842,9 @@ public class SqlQueryExecution
             this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
             this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
             this.executionPolicies = requireNonNull(executionPolicies, "executionPolicies is null");
+            requireNonNull(planOptimizersFactory, "planOptimizersFactory is null");
             this.planOptimizers = planOptimizersFactory.getPlanOptimizers();
+            this.adaptivePlanOptimizers = planOptimizersFactory.getAdaptivePlanOptimizers();
             this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
             this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
             this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
@@ -862,6 +883,7 @@ public class SqlQueryExecution
                     outputStatsEstimatorFactory,
                     taskExecutionStats,
                     planOptimizers,
+                    adaptivePlanOptimizers,
                     planFragmenter,
                     remoteTaskFactory,
                     scheduleSplitBatchSize,
