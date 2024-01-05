@@ -1548,7 +1548,7 @@ public class TestHive3OnDataLake
         hiveMinioDataLake.getHiveHadoop().runOnHive(
                 "ALTER TABLE " + hiveTestTableName + " SET TBLPROPERTIES ( 'trino.partition_projection.ignore'='TRUE' )");
         // Flush cache to get new definition
-        computeActual("CALL system.flush_metadata_cache()");
+        computeActual("CALL system.flush_metadata_cache(schema_name => '" + HIVE_TEST_SCHEMA + "', table_name => '" + tableName + "')");
 
         // Verify query execution works
         computeActual(createInsertStatement(
