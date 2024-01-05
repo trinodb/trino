@@ -354,4 +354,24 @@ public class TestLikeFunctions
                 """))
                 .matches("VALUES 'a%b', 'c%'");
     }
+
+    @Test
+    public void testLikeWithNullPattern()
+    {
+        assertThat(assertions.query("""
+                SELECT value FROM (
+                    VALUES
+                        'a') t(value)
+                WHERE value LIKE NULL
+                """))
+                .returnsEmptyResult();
+
+        assertThat(assertions.query("""
+                SELECT value FROM (
+                    VALUES
+                        'a') t(value)
+                WHERE value LIKE TRY(NULL)
+                """))
+                .returnsEmptyResult();
+    }
 }

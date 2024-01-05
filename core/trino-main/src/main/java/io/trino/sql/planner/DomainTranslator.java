@@ -1062,6 +1062,10 @@ public final class DomainTranslator
             }
 
             LikePattern matcher = (LikePattern) evaluateConstantExpression(patternArgument, plannerContext, session);
+            if (matcher == null) {
+                // LIKE on null evaluated
+                return Optional.empty();
+            }
 
             Slice pattern = utf8Slice(matcher.getPattern());
             Optional<Slice> escape = matcher.getEscape()
