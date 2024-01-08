@@ -24,4 +24,4 @@ jobs:
           operations-per-run: 200
           # Avoid processing issues completely, see https://github.com/actions/stale/issues/1112
           days-before-issue-stale: -1
-          day-before-issue-closed: -1
+          days-before-issue-close: -1
