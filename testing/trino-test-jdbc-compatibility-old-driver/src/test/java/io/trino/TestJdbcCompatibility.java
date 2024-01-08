@@ -73,7 +73,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public class TestJdbcCompatibility
 {
     private static final Optional<Integer> VERSION_UNDER_TEST = testedVersion();
-    private static final int TIMESTAMP_DEFAULT_PRECISION = 3;
+    private static final int TIMESTAMP_DEFAULT_PRECISION = 6;
 
     private final TestingTrinoServer server;
     private final String serverUrl;

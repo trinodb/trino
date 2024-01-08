@@ -48,7 +48,7 @@ public final class TimeType
     private static final VarHandle LONG_HANDLE = MethodHandles.byteArrayViewVarHandle(long[].class, ByteOrder.LITTLE_ENDIAN);
 
     public static final int MAX_PRECISION = 12;
-    public static final int DEFAULT_PRECISION = 3; // TODO: should be 6 per SQL spec
+    public static final int DEFAULT_PRECISION = 6;
 
     private static final TimeType[] TYPES = new TimeType[MAX_PRECISION + 1];
 

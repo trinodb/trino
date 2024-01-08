@@ -226,6 +226,42 @@
                                     <old>method void io.trino.spi.connector.ConnectorMetadata::createMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.SchemaTableName, io.trino.spi.connector.ConnectorMaterializedViewDefinition, boolean, boolean)</old>
                                     <new>method void io.trino.spi.connector.ConnectorMetadata::createMaterializedView(io.trino.spi.connector.ConnectorSession, io.trino.spi.connector.SchemaTableName, io.trino.spi.connector.ConnectorMaterializedViewDefinition, java.util.Map&lt;java.lang.String, java.lang.Object&gt;, boolean, boolean)</new>
                                 </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.field.constantValueChanged</code>
+                                    <old>field io.trino.spi.type.TimeType.DEFAULT_PRECISION</old>
+                                    <new>field io.trino.spi.type.TimeType.DEFAULT_PRECISION</new>
+                                    <justification>Change the precision to 6 as specified by SQL Standard</justification>
+                                    <oldValue>3</oldValue>
+                                    <newValue>6</newValue>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.field.constantValueChanged</code>
+                                    <old>field io.trino.spi.type.TimeWithTimeZoneType.DEFAULT_PRECISION</old>
+                                    <new>field io.trino.spi.type.TimeWithTimeZoneType.DEFAULT_PRECISION</new>
+                                    <justification>Change the precision to 6 as specified by SQL Standard</justification>
+                                    <oldValue>3</oldValue>
+                                    <newValue>6</newValue>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.field.constantValueChanged</code>
+                                    <old>field io.trino.spi.type.TimestampType.DEFAULT_PRECISION</old>
+                                    <new>field io.trino.spi.type.TimestampType.DEFAULT_PRECISION</new>
+                                    <justification>Change the precision to 6 as specified by SQL Standard</justification>
+                                    <oldValue>3</oldValue>
+                                    <newValue>6</newValue>
+                                </item>
+                                <item>
+                                    <ignore>true</ignore>
+                                    <code>java.field.constantValueChanged</code>
+                                    <old>field io.trino.spi.type.TimestampWithTimeZoneType.DEFAULT_PRECISION</old>
+                                    <new>field io.trino.spi.type.TimestampWithTimeZoneType.DEFAULT_PRECISION</new>
+                                    <justification>Change the precision to 6 as specified by SQL Standard</justification>
+                                    <oldValue>3</oldValue>
+                                    <newValue>6</newValue>
+                                </item>
                             </differences>
                         </revapi.differences>
                     </analysisConfiguration>
