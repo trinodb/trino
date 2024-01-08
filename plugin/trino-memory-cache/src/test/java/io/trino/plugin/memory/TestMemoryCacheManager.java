@@ -14,7 +14,6 @@
 package io.trino.plugin.memory;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.stats.Distribution;
 import io.trino.client.NodeVersion;
 import io.trino.plugin.memory.MemoryCacheManager.Channel;
 import io.trino.plugin.memory.MemoryCacheManager.SplitKey;
@@ -471,27 +470,6 @@ public class TestMemoryCacheManager
         // make sure that columns don't affect preferred address
         assertThat(addressProvider1.getPreferredAddress(SPLIT1)).isEqualTo(addressProvider3.getPreferredAddress(SPLIT1));
         assertThat(addressProvider1.getPreferredAddress(SPLIT2)).isEqualTo(addressProvider3.getPreferredAddress(SPLIT2));
-    }
-
-    @Test
-    public void testSplitSizeDistributionMetric()
-    {
-        PlanSignature signature = createPlanSignature("sig");
-        SplitCache cache = cacheManager.getSplitCache(signature);
-        assertThat(cache.loadPages(SPLIT1)).isEmpty();
-
-        Optional<ConnectorPageSink> sink = cache.storePages(SPLIT1);
-        assertThat(sink).isPresent();
-
-        sink.get().appendPage(oneMegabytePage);
-        sink.get().finish();
-
-        Distribution splitSizeDistribution = new Distribution();
-        cacheManager.addCachedSplitSizeDistribution(splitSizeDistribution);
-        assertThat(splitSizeDistribution.getCount()).isEqualTo(1);
-
-        long channelSize = getChannelRetainedSizeInBytes(oneMegabytePage.getBlock(0));
-        assertThat(splitSizeDistribution.getAvg()).isEqualTo(channelSize);
     }
 
     static long getChannelRetainedSizeInBytes(Block block)

@@ -20,7 +20,6 @@ import com.google.common.collect.LinkedListMultimap;
 import com.google.common.hash.HashCode;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import io.airlift.slice.Slice;
-import io.airlift.stats.Distribution;
 import io.trino.spi.HostAddress;
 import io.trino.spi.Node;
 import io.trino.spi.NodeManager;
@@ -89,7 +88,6 @@ public class MemoryCacheManager
     static final int MAP_ENTRY_SIZE = instanceSize(AbstractMap.SimpleEntry.class);
 
     private static final long WORKER_NODES_CACHE_TIMEOUT_SECS = 10;
-    private static final int DISTRIBUTION_ENTRY_COUNT = 1_000_000;
     private static final int MAP_SIZE_LIMIT = 1_000_000_000;
     static final int MAX_CACHED_CHANNELS_PER_COLUMN = 20;
 
@@ -150,17 +148,6 @@ public class MemoryCacheManager
         return runWithLock(lock.writeLock(), () -> {
             long initialRevocableBytes = getRevocableBytes();
             return removeEldestSplits(() -> initialRevocableBytes - getRevocableBytes() >= bytesToRevoke, maxElementsToRevoke);
-        });
-    }
-
-    public void addCachedSplitSizeDistribution(Distribution distribution)
-    {
-        runWithLock(lock.readLock(), () -> {
-            int counter = 0;
-            for (Iterator<Map.Entry<SplitKey, Channel>> iterator = reverse(splitCache.entries()).iterator(); iterator.hasNext() && counter < DISTRIBUTION_ENTRY_COUNT; counter++) {
-                Map.Entry<SplitKey, Channel> entry = iterator.next();
-                distribution.add(entry.getValue().getRetainedSizeInBytes());
-            }
         });
     }
 

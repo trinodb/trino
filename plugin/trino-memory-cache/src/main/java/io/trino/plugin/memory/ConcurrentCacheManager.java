@@ -19,7 +19,6 @@ import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
-import io.airlift.stats.Distribution;
 import io.trino.memory.context.AggregatedMemoryContext;
 import io.trino.memory.context.MemoryReservationHandler;
 import io.trino.spi.NodeManager;
@@ -37,7 +36,6 @@ import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 
@@ -77,14 +75,6 @@ public class ConcurrentCacheManager
         for (int i = 0; i < CACHE_MANAGERS_COUNT; i++) {
             cacheManagers[i] = new MemoryCacheManager(memoryContext.newLocalMemoryContext("ignored")::trySetBytes, forceStore);
         }
-    }
-
-    @Managed
-    public Map<Double, Double> getCachedSplitSizeDistribution()
-    {
-        Distribution distribution = new Distribution();
-        Arrays.stream(cacheManagers).forEach(manager -> manager.addCachedSplitSizeDistribution(distribution));
-        return distribution.getPercentiles();
     }
 
     @Managed

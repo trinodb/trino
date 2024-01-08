@@ -33,7 +33,6 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.plugin.memory.TestMemoryCacheManager.createOneMegaBytePage;
 import static io.trino.plugin.memory.TestMemoryCacheManager.createPlanSignature;
-import static io.trino.plugin.memory.TestMemoryCacheManager.getChannelRetainedSizeInBytes;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -92,7 +91,6 @@ public class TestConcurrentCacheManager
         storePage(SIGNATURE_1, SPLIT2);
         storePage(SIGNATURE_2, SPLIT1);
         storePage(SIGNATURE_2, SPLIT2);
-        assertThat(cacheManager.getCachedSplitSizeDistribution().get(0.5)).isEqualTo(getChannelRetainedSizeInBytes(oneMegabytePage.getBlock(0)));
         assertThatMemoryMatches();
 
         // revoke ~1.5MBs, the oldest splits should be purged from both sub-managers
