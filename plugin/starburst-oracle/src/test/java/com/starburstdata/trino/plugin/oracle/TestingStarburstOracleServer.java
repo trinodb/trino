@@ -9,15 +9,18 @@
  */
 package com.starburstdata.trino.plugin.oracle;
 
+import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.model.Ulimit;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
 import io.trino.testing.SharedResource;
 import io.trino.testing.SharedResource.Lease;
+import io.trino.testing.containers.junit.ReportLeakedContainers;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
+import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.OracleContainer;
 import org.testcontainers.utility.DockerImageName;
 
@@ -36,6 +39,8 @@ import static java.util.Objects.requireNonNull;
 public class TestingStarburstOracleServer
         implements AutoCloseable
 {
+    // testcontainers starts this image when the `withAccessToHost` feature is enabled.
+    private static final String TEST_CONTAINERS_SSHD_IMAGE_NAME = "testcontainers/sshd";
     private static final SharedResource<TestingStarburstOracleServer> instance = new SharedResource<>(TestingStarburstOracleServer::new);
 
     private final Closer closer = Closer.create();
@@ -72,6 +77,16 @@ public class TestingStarburstOracleServer
 
         try {
             this.container.start();
+            // Ignore container "leaks" since we're using a shared singleton across several tests.
+            ReportLeakedContainers.ignoreContainerId(container.getContainerId());
+            // Containers using `withAccessToHost` cause testcontainers to start a sshd container. Testcontainers is responsible for cleaning it up.
+            @SuppressWarnings("resource")
+            DockerClient client = DockerClientFactory.lazyClient();
+            client.listContainersCmd()
+                    .exec()
+                    .stream()
+                    .filter(container -> container.getImage().contains(TEST_CONTAINERS_SSHD_IMAGE_NAME))
+                    .forEach(container -> ReportLeakedContainers.ignoreContainerId(container.getId()));
         }
         catch (Exception e) {
             closeAllSuppress(e, this);
