@@ -680,6 +680,7 @@ jobs:
             - { modules: plugin/starburst-snowflake, profile: distributed-integration-tests, cloud: azure }
             - { modules: plugin/starburst-snowflake, profile: jdbc-integration-tests, cloud: amazon-web-service }
             - { modules: plugin/starburst-snowflake, profile: parallel-integration-tests, cloud: amazon-web-service }
+            - { modules: plugin/starburst-snowflake, profile: fte-tests, cloud: amazon-web-service }
             - { modules: plugin/starburst-stargate }
             - { modules: plugin/starburst-synapse }
             - { modules: plugin/starburst-synapse, profile: fault-tolerant-tests }
