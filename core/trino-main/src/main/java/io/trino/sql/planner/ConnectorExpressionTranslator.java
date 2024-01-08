@@ -36,7 +36,6 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
-import io.trino.sql.DynamicFilters;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
@@ -104,6 +103,7 @@ import static io.trino.spi.expression.StandardFunctions.OR_FUNCTION_NAME;
 import static io.trino.spi.expression.StandardFunctions.SUBTRACT_FUNCTION_NAME;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.DynamicFilters.isDynamicFilterFunction;
 import static io.trino.sql.ExpressionUtils.combineConjuncts;
 import static io.trino.sql.ExpressionUtils.extractConjuncts;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
@@ -682,7 +682,7 @@ public final class ConnectorExpressionTranslator
             }
 
             CatalogSchemaFunctionName functionName = ResolvedFunction.extractFunctionName(node.getName());
-            checkArgument(!builtinFunctionName(DynamicFilters.Function.NAME).equals(functionName), "Dynamic filter has no meaning for a connector, it should not be translated into ConnectorExpression");
+            checkArgument(!isDynamicFilterFunction(functionName), "Dynamic filter has no meaning for a connector, it should not be translated into ConnectorExpression");
             // literals should be handled by isEffectivelyLiteral case above
             checkArgument(!builtinFunctionName(LITERAL_FUNCTION_NAME).equals(functionName), "Unexpected literal function");
 

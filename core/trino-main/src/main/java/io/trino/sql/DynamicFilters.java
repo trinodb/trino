@@ -257,7 +257,11 @@ public final class DynamicFilters
 
     private static boolean isDynamicFilterFunction(FunctionCall functionCall)
     {
-        CatalogSchemaFunctionName functionName = ResolvedFunction.extractFunctionName(functionCall.getName());
+        return isDynamicFilterFunction(ResolvedFunction.extractFunctionName(functionCall.getName()));
+    }
+
+    public static boolean isDynamicFilterFunction(CatalogSchemaFunctionName functionName)
+    {
         return functionName.equals(builtinFunctionName(Function.NAME)) || functionName.equals(builtinFunctionName(NullableFunction.NAME));
     }
 
