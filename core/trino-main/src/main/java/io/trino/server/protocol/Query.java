@@ -75,8 +75,8 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.addTimeout;
+import static io.trino.SystemSessionProperties.getExchangeCompressionCodec;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
-import static io.trino.SystemSessionProperties.isExchangeCompressionEnabled;
 import static io.trino.execution.QueryState.FAILED;
 import static io.trino.execution.QueryState.FINISHING;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -236,7 +236,7 @@ class Query
         this.resultsProcessorExecutor = resultsProcessorExecutor;
         this.timeoutExecutor = timeoutExecutor;
         this.supportsParametricDateTime = session.getClientCapabilities().contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
-        deserializer = new PagesSerdeFactory(blockEncodingSerde, isExchangeCompressionEnabled(session))
+        deserializer = new PagesSerdeFactory(blockEncodingSerde, getExchangeCompressionCodec(session))
                 .createDeserializer(session.getExchangeEncryptionKey().map(Ciphers::deserializeAesEncryptionKey));
     }
 

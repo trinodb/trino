@@ -55,6 +55,7 @@ import java.util.function.Function;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.execution.buffer.BenchmarkDataGenerator.createValues;
+import static io.trino.execution.buffer.CompressionCodec.NONE;
 import static io.trino.execution.buffer.PagesSerdeUtil.readPages;
 import static io.trino.execution.buffer.PagesSerdeUtil.writePages;
 import static io.trino.jmh.Benchmarks.benchmark;
@@ -206,7 +207,7 @@ public class BenchmarkBlockSerde
 
         public void setup(Type type, Function<Random, ?> valueGenerator)
         {
-            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new TestingBlockEncodingSerde(), false);
+            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new TestingBlockEncodingSerde(), NONE);
             PageSerializer serializer = serdeFactory.createSerializer(Optional.empty());
             PageDeserializer deserializer = serdeFactory.createDeserializer(Optional.empty());
             PageBuilder pageBuilder = new PageBuilder(ImmutableList.of(type));
@@ -403,7 +404,7 @@ public class BenchmarkBlockSerde
         @Setup
         public void setup()
         {
-            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new TestingBlockEncodingSerde(), false);
+            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new TestingBlockEncodingSerde(), NONE);
             PageSerializer serializer = serdeFactory.createSerializer(Optional.empty());
             PageDeserializer deserializer = serdeFactory.createDeserializer(Optional.empty());
 

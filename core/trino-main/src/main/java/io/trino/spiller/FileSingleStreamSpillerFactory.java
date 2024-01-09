@@ -45,6 +45,8 @@ import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.FeaturesConfig.SPILLER_SPILL_PATH;
 import static io.trino.cache.SafeCaches.buildNonEvictableCacheWithWeakInvalidateAll;
+import static io.trino.execution.buffer.CompressionCodec.LZ4;
+import static io.trino.execution.buffer.CompressionCodec.NONE;
 import static io.trino.spi.StandardErrorCode.OUT_OF_SPILL_SPACE;
 import static io.trino.util.Ciphers.createRandomAesEncryptionKey;
 import static java.lang.String.format;
@@ -106,7 +108,7 @@ public class FileSingleStreamSpillerFactory
             boolean spillCompressionEnabled,
             boolean spillEncryptionEnabled)
     {
-        this.serdeFactory = new PagesSerdeFactory(blockEncodingSerde, spillCompressionEnabled);
+        this.serdeFactory = new PagesSerdeFactory(blockEncodingSerde, spillCompressionEnabled ? LZ4 : NONE);
         this.executor = requireNonNull(executor, "executor is null");
         this.spillerStats = requireNonNull(spillerStats, "spillerStats cannot be null");
         requireNonNull(spillPaths, "spillPaths is null");
