@@ -60,7 +60,7 @@ public final class OpenSearchQueryRunner
             int nodeCount)
             throws Exception
     {
-        return createOpenSearchQueryRunner(address, tables, extraProperties, extraConnectorProperties, nodeCount, "elasticsearch");
+        return createOpenSearchQueryRunner(address, tables, extraProperties, extraConnectorProperties, nodeCount, "opensearch");
     }
 
     public static DistributedQueryRunner createOpenSearchQueryRunner(
@@ -123,8 +123,8 @@ public final class OpenSearchQueryRunner
         Map<String, String> config = ImmutableMap.<String, String>builder()
                 .put("opensearch.host", address.getHost())
                 .put("opensearch.port", Integer.toString(address.getPort()))
-                // Node discovery relies on the publish_address exposed via the Elasticseach API
-                // This doesn't work well within a docker environment that maps ES's port to a random public port
+                // Node discovery relies on the publish_address exposed via the OpenSearch API
+                // This doesn't work well within a docker environment that maps OpenSearch port to a random public port
                 .put("opensearch.ignore-publish-address", "true")
                 .put("opensearch.default-schema-name", TPCH_SCHEMA)
                 .put("opensearch.scroll-size", "1000")
