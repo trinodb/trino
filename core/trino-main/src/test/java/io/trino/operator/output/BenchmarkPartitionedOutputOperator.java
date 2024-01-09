@@ -18,6 +18,7 @@ import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
+import io.trino.execution.buffer.CompressionCodec;
 import io.trino.execution.buffer.OutputBufferStateMachine;
 import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.execution.buffer.PartitionedOutputBuffer;
@@ -90,6 +91,7 @@ import static io.trino.block.BlockAssertions.createLongsBlock;
 import static io.trino.block.BlockAssertions.createRandomBlockForType;
 import static io.trino.block.BlockAssertions.createRandomLongsBlock;
 import static io.trino.block.BlockAssertions.createRepeatedValuesBlock;
+import static io.trino.execution.buffer.CompressionCodec.NONE;
 import static io.trino.execution.buffer.PipelinedOutputBuffers.BufferType.PARTITIONED;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.operator.output.BenchmarkPartitionedOutputOperator.BenchmarkData.TestType;
@@ -143,8 +145,8 @@ public class BenchmarkPartitionedOutputOperator
         @Param({"2", "16", "256"})
         private int partitionCount = 256;
 
-        @Param({"true", "false"})
-        private boolean enableCompression;
+        @Param({"LZ4", "NONE"})
+        private CompressionCodec compressionCodec = NONE;
 
         @Param({"1", "2"})
         private int channelCount = 1;
@@ -449,7 +451,7 @@ public class BenchmarkPartitionedOutputOperator
             PartitionFunction partitionFunction = new BucketPartitionFunction(
                     new HashBucketFunction(new PrecomputedHashGenerator(0), partitionCount),
                     IntStream.range(0, partitionCount).toArray());
-            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new TestingBlockEncodingSerde(), enableCompression);
+            PagesSerdeFactory serdeFactory = new PagesSerdeFactory(new TestingBlockEncodingSerde(), compressionCodec);
 
             PartitionedOutputBuffer buffer = createPartitionedOutputBuffer();
 

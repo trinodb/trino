@@ -21,6 +21,7 @@ import io.trino.cache.CacheConfig;
 import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.TaskManagerConfig;
+import io.trino.execution.buffer.CompressionCodec;
 import io.trino.execution.scheduler.NodeSchedulerConfig;
 import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
@@ -110,7 +111,7 @@ public final class SystemSessionProperties
     public static final String ITERATIVE_OPTIMIZER_TIMEOUT = "iterative_optimizer_timeout";
     public static final String ENABLE_FORCED_EXCHANGE_BELOW_GROUP_ID = "enable_forced_exchange_below_group_id";
     public static final String USE_HIGHEST_CARDINALITY_COLUMN_FOR_REPARTITIONING_BELOW_GROUP_ID = "use_highest_cardinality_column_for_repartitioning_below_group_id";
-    public static final String EXCHANGE_COMPRESSION = "exchange_compression";
+    public static final String EXCHANGE_COMPRESSION_CODEC = "exchange_compression_codec";
     public static final String ENABLE_INTERMEDIATE_AGGREGATIONS = "enable_intermediate_aggregations";
     public static final String PUSH_AGGREGATION_THROUGH_OUTER_JOIN = "push_aggregation_through_outer_join";
     public static final String PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN = "push_partial_aggregation_through_join";
@@ -535,10 +536,11 @@ public final class SystemSessionProperties
                         "Use only highest cardinality column for partitioning when adding remote exchanges below GroupId",
                         optimizerConfig.isUseHighestCardinalityColumnForForcedExchangeBelowGroupId(),
                         true),
-                booleanProperty(
-                        EXCHANGE_COMPRESSION,
-                        "Enable compression in exchanges",
-                        featuresConfig.isExchangeCompressionEnabled(),
+                enumProperty(
+                        EXCHANGE_COMPRESSION_CODEC,
+                        "Compression codec used for data in exchanges, supports NONE, LZ4, ZSTD",
+                        CompressionCodec.class,
+                        featuresConfig.getExchangeCompressionCodec(),
                         false),
                 booleanProperty(
                         ENABLE_INTERMEDIATE_AGGREGATIONS,
@@ -1474,9 +1476,9 @@ public final class SystemSessionProperties
         return session.getSystemProperty(USE_HIGHEST_CARDINALITY_COLUMN_FOR_REPARTITIONING_BELOW_GROUP_ID, Boolean.class);
     }
 
-    public static boolean isExchangeCompressionEnabled(Session session)
+    public static CompressionCodec getExchangeCompressionCodec(Session session)
     {
-        return session.getSystemProperty(EXCHANGE_COMPRESSION, Boolean.class);
+        return session.getSystemProperty(EXCHANGE_COMPRESSION_CODEC, CompressionCodec.class);
     }
 
     public static boolean isEnableIntermediateAggregations(Session session)
