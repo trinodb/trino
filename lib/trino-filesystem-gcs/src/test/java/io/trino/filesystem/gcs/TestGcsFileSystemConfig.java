@@ -48,10 +48,10 @@ public class TestGcsFileSystemConfig
                 .setJsonKey(null)
                 .setJsonKeyFilePath(null)
                 .setMaxRetries(20)
-                .setBackoffScaleFactor(2.0)
-                .setMaxRetryTime(new Duration(20, SECONDS))
+                .setBackoffScaleFactor(3.0)
+                .setMaxRetryTime(new Duration(25, SECONDS))
                 .setMinBackoffDelay(new Duration(10, MILLISECONDS))
-                .setMaxBackoffDelay(new Duration(1100, MILLISECONDS)));
+                .setMaxBackoffDelay(new Duration(2000, MILLISECONDS)));
     }
 
     @Test
