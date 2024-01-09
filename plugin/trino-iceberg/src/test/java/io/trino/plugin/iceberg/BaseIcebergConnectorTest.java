@@ -4236,6 +4236,18 @@ public abstract class BaseIcebergConnectorTest
         verifySplitCount("SELECT * FROM " + tableName + " WHERE regionkey % 5 = 3", 1);
 
         assertUpdate("DROP TABLE " + tableName);
+
+        // Partition by multiple columns
+        assertUpdate(noRedistributeWrites, "CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey', 'nationkey']) AS SELECT * FROM nation", 25);
+        // Create 2 files per partition
+        assertUpdate(noRedistributeWrites, "INSERT INTO " + tableName + " SELECT * FROM nation", 25);
+        // sanity check that table contains exactly 50 files
+        assertThat(computeScalar("SELECT count(*) FROM \"" + tableName + "$files\"")).isEqualTo(50L);
+
+        verifySplitCount("SELECT * FROM " + tableName + " WHERE regionkey % 5 = 3", 10);
+        verifySplitCount("SELECT * FROM " + tableName + " WHERE (regionkey * 2) - nationkey = 0", 6);
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test

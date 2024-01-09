@@ -15,11 +15,15 @@ package io.trino.plugin.iceberg;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import com.google.common.io.Closer;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.trino.cache.NonEvictableCache;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.plugin.iceberg.delete.DeleteFile;
@@ -60,6 +64,7 @@ import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -71,6 +76,8 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
 import static com.google.common.math.LongMath.saturatedAdd;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.trino.cache.CacheUtils.uncheckedCacheGet;
+import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.plugin.iceberg.ExpressionConverter.isConvertableToIcebergExpression;
 import static io.trino.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.trino.plugin.iceberg.IcebergColumnHandle.fileModifiedTimeColumnHandle;
@@ -110,7 +117,7 @@ public class IcebergSplitSource
     private final DynamicFilter dynamicFilter;
     private final long dynamicFilteringWaitTimeoutMillis;
     private final Stopwatch dynamicFilterWaitStopwatch;
-    private final Constraint constraint;
+    private final PartitionConstraintMatcher partitionConstraintMatcher;
     private final TypeManager typeManager;
     private final Closer closer = Closer.create();
     private final double minimumAssignedSplitWeight;
@@ -154,7 +161,7 @@ public class IcebergSplitSource
         this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
         this.dynamicFilteringWaitTimeoutMillis = dynamicFilteringWaitTimeout.toMillis();
         this.dynamicFilterWaitStopwatch = Stopwatch.createStarted();
-        this.constraint = requireNonNull(constraint, "constraint is null");
+        this.partitionConstraintMatcher = new PartitionConstraintMatcher(constraint);
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.recordScannedFiles = recordScannedFiles;
         this.minimumAssignedSplitWeight = minimumAssignedSplitWeight;
@@ -313,7 +320,7 @@ public class IcebergSplitSource
             }
         }
 
-        return !partitionMatchesConstraint(identityPartitionColumns, partitionValues, constraint);
+        return !partitionConstraintMatcher.matches(identityPartitionColumns, partitionValues);
     }
 
     private boolean noDataColumnsProjected(FileScanTask fileScanTask)
@@ -440,19 +447,38 @@ public class IcebergSplitSource
         return Domain.create(ValueSet.ofRanges(statisticsRange), mayContainNulls);
     }
 
-    static boolean partitionMatchesConstraint(
-            Set<IcebergColumnHandle> identityPartitionColumns,
-            Supplier<Map<ColumnHandle, NullableValue>> partitionValues,
-            Constraint constraint)
+    private static class PartitionConstraintMatcher
     {
-        // We use Constraint just to pass functional predicate here from DistributedExecutionPlanner
-        verify(constraint.getSummary().isAll());
+        private final NonEvictableCache<Map<ColumnHandle, NullableValue>, Boolean> partitionConstraintResults;
+        private final Optional<Predicate<Map<ColumnHandle, NullableValue>>> predicate;
+        private final Optional<Set<ColumnHandle>> predicateColumns;
 
-        if (constraint.predicate().isEmpty() ||
-                intersection(constraint.getPredicateColumns().orElseThrow(), identityPartitionColumns).isEmpty()) {
-            return true;
+        private PartitionConstraintMatcher(Constraint constraint)
+        {
+            // We use Constraint just to pass functional predicate here from DistributedExecutionPlanner
+            verify(constraint.getSummary().isAll());
+            this.predicate = constraint.predicate();
+            this.predicateColumns = constraint.getPredicateColumns();
+            this.partitionConstraintResults = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
         }
-        return constraint.predicate().get().test(partitionValues.get());
+
+        boolean matches(
+                Set<IcebergColumnHandle> identityPartitionColumns,
+                Supplier<Map<ColumnHandle, NullableValue>> partitionValuesSupplier)
+        {
+            if (predicate.isEmpty()) {
+                return true;
+            }
+            Set<ColumnHandle> predicatePartitionColumns = intersection(predicateColumns.orElseThrow(), identityPartitionColumns);
+            if (predicatePartitionColumns.isEmpty()) {
+                return true;
+            }
+            Map<ColumnHandle, NullableValue> partitionValues = partitionValuesSupplier.get();
+            return uncheckedCacheGet(
+                    partitionConstraintResults,
+                    ImmutableMap.copyOf(Maps.filterKeys(partitionValues, predicatePartitionColumns::contains)),
+                    () -> predicate.orElseThrow().test(partitionValues));
+        }
     }
 
     @VisibleForTesting
