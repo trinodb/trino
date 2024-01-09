@@ -97,11 +97,11 @@ public class ScanQueryPageSource
                 .filter(name -> !isBuiltinColumn(name))
                 .collect(toList());
 
-        // sorting by _doc (index order) get special treatment in Elasticsearch and is more efficient
+        // sorting by _doc (index order) get special treatment in OpenSearch and is more efficient
         Optional<String> sort = Optional.of("_doc");
 
         if (table.getQuery().isPresent()) {
-            // However, if we're using a custom Elasticsearch query, use default sorting.
+            // However, if we're using a custom OpenSearch query, use default sorting.
             // Documents will be scored and returned based on relevance
             sort = Optional.empty();
         }
