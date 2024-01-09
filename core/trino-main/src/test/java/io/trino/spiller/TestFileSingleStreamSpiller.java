@@ -18,6 +18,7 @@ import com.google.common.collect.Iterators;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.trino.execution.buffer.CompressionCodec;
 import io.trino.execution.buffer.PagesSerdeUtil;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.operator.PageAssertions;
@@ -42,6 +43,8 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.MoreFiles.listFiles;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
+import static io.trino.execution.buffer.CompressionCodec.LZ4;
+import static io.trino.execution.buffer.CompressionCodec.NONE;
 import static io.trino.execution.buffer.PagesSerdeUtil.isSerializedPageCompressed;
 import static io.trino.execution.buffer.PagesSerdeUtil.isSerializedPageEncrypted;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
@@ -83,31 +86,31 @@ public class TestFileSingleStreamSpiller
     public void testSpill()
             throws Exception
     {
-        assertSpill(false, false);
+        assertSpill(NONE, false);
     }
 
     @Test
     public void testSpillCompression()
             throws Exception
     {
-        assertSpill(true, false);
+        assertSpill(LZ4, false);
     }
 
     @Test
     public void testSpillEncryption()
             throws Exception
     {
-        assertSpill(false, true);
+        assertSpill(NONE, true);
     }
 
     @Test
     public void testSpillEncryptionWithCompression()
             throws Exception
     {
-        assertSpill(true, true);
+        assertSpill(LZ4, true);
     }
 
-    private void assertSpill(boolean compression, boolean encryption)
+    private void assertSpill(CompressionCodec compressionCodec, boolean encryption)
             throws Exception
     {
         FileSingleStreamSpillerFactory spillerFactory = new FileSingleStreamSpillerFactory(
@@ -116,7 +119,7 @@ public class TestFileSingleStreamSpiller
                 new SpillerStats(),
                 ImmutableList.of(spillPath.toPath()),
                 1.0,
-                compression,
+                compressionCodec,
                 encryption);
         LocalMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newLocalMemoryContext("test");
         SingleStreamSpiller singleStreamSpiller = spillerFactory.create(TYPES, bytes -> {}, memoryContext);
@@ -138,7 +141,7 @@ public class TestFileSingleStreamSpiller
                     .describedAs("at least one page should be successfully read back")
                     .isTrue();
             Slice serializedPage = serializedPages.next();
-            assertThat(isSerializedPageCompressed(serializedPage)).isEqualTo(compression);
+            assertThat(isSerializedPageCompressed(serializedPage)).isEqualTo(compressionCodec == LZ4);
             assertThat(isSerializedPageEncrypted(serializedPage)).isEqualTo(encryption);
         }
 
