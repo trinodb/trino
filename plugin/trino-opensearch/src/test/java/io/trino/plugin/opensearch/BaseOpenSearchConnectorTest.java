@@ -1468,9 +1468,6 @@ public abstract class BaseOpenSearchConnectorTest
                 .put("ipv6_column", "2001:db8:0:0:1:0:0:1")
                 .buildOrThrow());
 
-        // _score column
-        assertQuery("SELECT count(*) FROM \"filter_pushdown: cool\" WHERE _score > 0", "VALUES 1");
-
         // boolean
         assertQuery("SELECT count(*) FROM filter_pushdown WHERE boolean_column = true", "VALUES 1");
         assertQuery("SELECT count(*) FROM filter_pushdown WHERE boolean_column = false", "VALUES 0");
@@ -1693,12 +1690,6 @@ public abstract class BaseOpenSearchConnectorTest
     }
 
     @Test
-    public void testQueryString()
-    {
-        assertQuery("SELECT count(*) FROM \"orders: +packages -slyly\"", "VALUES 1639");
-    }
-
-    @Test
     public void testMixedCase()
             throws IOException
     {
@@ -1738,13 +1729,6 @@ public abstract class BaseOpenSearchConnectorTest
         assertQuery(
                 "SELECT numeric_keyword FROM numeric_keyword where numeric_keyword = '20'",
                 "VALUES 20");
-    }
-
-    @Test
-    public void testQueryStringError()
-    {
-        assertQueryFails("SELECT orderkey FROM \"orders: ++foo AND\"", "\\QFailed to parse query [ ++foo and]\\E");
-        assertQueryFails("SELECT count(*) FROM \"orders: ++foo AND\"", "\\QFailed to parse query [ ++foo and]\\E");
     }
 
     @Test
