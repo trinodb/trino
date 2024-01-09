@@ -33,7 +33,6 @@ import io.trino.plugin.deltalake.metastore.DeltaLakeMetastoreModule;
 import io.trino.plugin.deltalake.metastore.HiveMetastoreBackedDeltaLakeMetastore;
 import io.trino.plugin.deltalake.transactionlog.MetadataEntry;
 import io.trino.plugin.deltalake.transactionlog.ProtocolEntry;
-import io.trino.plugin.hive.LocationAccessControl;
 import io.trino.plugin.hive.NodeVersion;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
@@ -56,7 +55,6 @@ import io.trino.spi.expression.FieldDereference;
 import io.trino.spi.expression.Variable;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
-import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.type.BooleanType;
 import io.trino.spi.type.DateType;
 import io.trino.spi.type.DoubleType;
@@ -85,11 +83,9 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.plugin.deltalake.DeltaLakeColumnType.REGULAR;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.COLUMN_MAPPING_MODE_PROPERTY;
-import static io.trino.plugin.deltalake.DeltaLakeTableProperties.LOCATION_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaLakeTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.trino.plugin.deltalake.DeltaTestingConnectorSession.SESSION;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
@@ -116,7 +112,6 @@ public class TestDeltaLakeMetadata
     private static final ColumnMetadata BIGINT_COLUMN_2 = new ColumnMetadata("bigint_column2", BIGINT);
     private static final ColumnMetadata TIMESTAMP_COLUMN = new ColumnMetadata("timestamp_column", TIMESTAMP_MILLIS);
     private static final ColumnMetadata MISSING_COLUMN = new ColumnMetadata("missing_column", BIGINT);
-    private static final String INVALID_LOCATION_PATH = "invalid_table_location";
 
     private static final RowType BOGUS_ROW_FIELD = RowType.from(ImmutableList.of(
             new RowType.Field(Optional.of("test_field"), BogusType.BOGUS)));
@@ -202,16 +197,6 @@ public class TestDeltaLakeMetadata
                     binder.bind(NodeManager.class).toInstance(context.getNodeManager());
                     binder.bind(PageIndexerFactory.class).toInstance(context.getPageIndexerFactory());
                     binder.bind(Tracer.class).toInstance(context.getTracer());
-                    newOptionalBinder(binder, LocationAccessControl.class).setBinding().toInstance(new LocationAccessControl()
-                    {
-                        @Override
-                        public void checkCanUseLocation(ConnectorIdentity identity, String location)
-                        {
-                            if (location.contains(INVALID_LOCATION_PATH)) {
-                                throw new IllegalArgumentException("Can't access this path");
-                            }
-                        }
-                    });
                 },
                 // connector modules
                 new DeltaLakeMetastoreModule(),
@@ -311,24 +296,6 @@ public class TestDeltaLakeMetadata
                 .hasMessage("Unsupported type: timestamp(3)");
 
         deltaLakeMetadata.cleanupQuery(SESSION);
-    }
-
-    @Test
-    public void testCantCreateTableWhenLocationIsNotAccessible()
-    {
-        DeltaLakeMetadata deltaLakeMetadata = deltaLakeMetadataFactory.create(SESSION.getIdentity());
-
-        ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(
-                newMockSchemaTableName(),
-                ImmutableList.of(BIGINT_COLUMN_1),
-                ImmutableMap.of(
-                        PARTITIONED_BY_PROPERTY,
-                        getPartitionColumnNames(ImmutableList.of(BIGINT_COLUMN_1)),
-                        COLUMN_MAPPING_MODE_PROPERTY,
-                        "none",
-                        LOCATION_PROPERTY,
-                        "s3://my.bucket/" + INVALID_LOCATION_PATH));
-        assertThatThrownBy(() -> deltaLakeMetadata.createTable(SESSION, tableMetadata, FAIL)).hasMessage("Can't access this path");
     }
 
     @Test

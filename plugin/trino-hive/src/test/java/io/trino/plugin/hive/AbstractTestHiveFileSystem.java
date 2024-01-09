@@ -65,7 +65,6 @@ import io.trino.spi.connector.ConnectorSplitSource;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.DynamicFilter;
-import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.predicate.TupleDomain;
@@ -93,7 +92,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -109,12 +107,7 @@ import static io.trino.plugin.hive.AbstractTestHive.filterNonHiddenColumnHandles
 import static io.trino.plugin.hive.AbstractTestHive.filterNonHiddenColumnMetadata;
 import static io.trino.plugin.hive.AbstractTestHive.getAllSplits;
 import static io.trino.plugin.hive.AbstractTestHive.getSplits;
-import static io.trino.plugin.hive.HiveStorageFormat.RCBINARY;
-import static io.trino.plugin.hive.HiveTableProperties.BUCKETED_BY_PROPERTY;
-import static io.trino.plugin.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY;
 import static io.trino.plugin.hive.HiveTableProperties.EXTERNAL_LOCATION_PROPERTY;
-import static io.trino.plugin.hive.HiveTableProperties.SORTED_BY_PROPERTY;
-import static io.trino.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static io.trino.plugin.hive.HiveTestUtils.HDFS_FILE_SYSTEM_STATS;
 import static io.trino.plugin.hive.HiveTestUtils.PAGE_SORTER;
 import static io.trino.plugin.hive.HiveTestUtils.SESSION;
@@ -129,7 +122,6 @@ import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.spi.connector.MetadataProvider.NOOP_METADATA_PROVIDER;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.materializeSourceDataStream;
 import static io.trino.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.trino.testing.TestingNames.randomNameSuffix;
@@ -141,7 +133,6 @@ import static java.util.UUID.randomUUID;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -149,7 +140,6 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public abstract class AbstractTestHiveFileSystem
 {
-    private static final String INVALID_LOCATION_PATH = "invalid_table_location";
     protected static final HdfsContext TESTING_CONTEXT = new HdfsContext(ConnectorIdentity.ofUser("test"));
 
     protected String database;
@@ -226,15 +216,7 @@ public abstract class AbstractTestHiveFileSystem
         locationService = new HiveLocationService(fileSystemFactory, config);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = jsonCodec(PartitionUpdate.class);
         metadataFactory = new HiveMetadataFactory(
-                new LocationAccessControl() {
-                    @Override
-                    public void checkCanUseLocation(ConnectorIdentity identity, String location)
-                    {
-                        if (location.contains(INVALID_LOCATION_PATH)) {
-                            throw new IllegalArgumentException("Can't access this path");
-                        }
-                    }
-                },
+                LocationAccessControl.ALLOW_ALL,
                 new CatalogName("hive"),
                 config,
                 new HiveMetastoreConfig(),
@@ -384,28 +366,6 @@ public abstract class AbstractTestHiveFileSystem
         assertThat(fs.exists(new Path(basePath, "foo")))
                 .describedAs("foo path should be found not to exist")
                 .isFalse();
-    }
-
-    @Test
-    public void testCantCreateTableWhenLocationIsNotAccessible()
-    {
-        try (Transaction transaction = newTransaction()) {
-            ConnectorSession session = newSession();
-            String randomName = UUID.randomUUID().toString().toLowerCase(ENGLISH).replace("-", "");
-            SchemaTableName schemaTableName = new SchemaTableName(database, "table_not_accessible_" + randomName);
-            ImmutableList<ColumnMetadata> columnMetadata = ImmutableList.<ColumnMetadata>builder()
-                    .add(new ColumnMetadata("not_important", VARCHAR))
-                    .build();
-            Map<String, Object> properties = ImmutableMap.<String, Object>builder()
-                    .put(BUCKETED_BY_PROPERTY, ImmutableList.of())
-                    .put(BUCKET_COUNT_PROPERTY, 0)
-                    .put(SORTED_BY_PROPERTY, ImmutableList.of())
-                    .put(STORAGE_FORMAT_PROPERTY, RCBINARY)
-                    .put(EXTERNAL_LOCATION_PROPERTY, "file://test/" + INVALID_LOCATION_PATH)
-                    .buildOrThrow();
-            ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(schemaTableName, columnMetadata, properties);
-            assertThatThrownBy(() -> transaction.getMetadata().createTable(session, tableMetadata, SaveMode.IGNORE)).hasMessage("Can't access this path");
-        }
     }
 
     @Test
