@@ -70,7 +70,15 @@ Limit for memory used for unspilling a single aggregation operator instance.
 - **Type:** {ref}`prop-type-boolean`
 - **Default value:** `false`
 
-Enables data compression for pages spilled to disk.
+Enables data compression for pages spilled to disk. It is replaced by `spill-compression-codec`.
+
+## `spill-compression-codec`
+
+- **Type:** {ref}`prop-type-string`
+- **Allowed values:** `NONE`, `LZ4`, `ZSTD`
+- **Default value:** `NONE`
+
+The compression codec to use when spilling pages to disk.
 
 ## `spill-encryption-enabled`
 
