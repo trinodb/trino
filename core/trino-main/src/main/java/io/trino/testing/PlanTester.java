@@ -54,6 +54,7 @@ import io.trino.connector.system.SchemaPropertiesSystemTable;
 import io.trino.connector.system.TableCommentSystemTable;
 import io.trino.connector.system.TablePropertiesSystemTable;
 import io.trino.connector.system.TransactionsSystemTable;
+import io.trino.cost.CachingTableStatsProvider;
 import io.trino.cost.ComposableStatsCalculator;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.CostCalculatorUsingExchanges;
@@ -954,7 +955,8 @@ public class PlanTester
                 statsCalculator,
                 costCalculator,
                 warningCollector,
-                planOptimizersStatsCollector);
+                planOptimizersStatsCollector,
+                new CachingTableStatsProvider(getPlannerContext().getMetadata(), session));
 
         Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
         // make PlanTester always compute plan statistics for test purposes
@@ -971,7 +973,8 @@ public class PlanTester
                 new PlanSanityChecker(false),
                 new IrTypeAnalyzer(plannerContext),
                 warningCollector,
-                planOptimizersStatsCollector);
+                planOptimizersStatsCollector,
+                new CachingTableStatsProvider(getPlannerContext().getMetadata(), session));
         return adaptivePlanner.optimize(subPlan, runtimeInfoProvider);
     }
 

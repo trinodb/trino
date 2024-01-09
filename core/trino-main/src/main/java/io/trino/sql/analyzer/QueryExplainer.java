@@ -15,6 +15,7 @@ package io.trino.sql.analyzer;
 
 import io.trino.Session;
 import io.trino.client.NodeVersion;
+import io.trino.cost.CachingTableStatsProvider;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
@@ -176,7 +177,8 @@ public class QueryExplainer
                 statsCalculator,
                 costCalculator,
                 warningCollector,
-                planOptimizersStatsCollector);
+                planOptimizersStatsCollector,
+                new CachingTableStatsProvider(plannerContext.getMetadata(), session));
         return logicalPlanner.plan(analysis, OPTIMIZED_AND_VALIDATED, true);
     }
 

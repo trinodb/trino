@@ -194,6 +194,7 @@ public class LogicalPlanner
     private final CacheCommonSubqueries cacheCommonSubqueries;
     private final WarningCollector warningCollector;
     private final PlanOptimizersStatsCollector planOptimizersStatsCollector;
+    private final CachingTableStatsProvider tableStatsProvider;
 
     public LogicalPlanner(
             Session session,
@@ -205,9 +206,10 @@ public class LogicalPlanner
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
             WarningCollector warningCollector,
-            PlanOptimizersStatsCollector planOptimizersStatsCollector)
+            PlanOptimizersStatsCollector planOptimizersStatsCollector,
+            CachingTableStatsProvider tableStatsProvider)
     {
-        this(session, planOptimizers, alternativeOptimizers, DISTRIBUTED_PLAN_SANITY_CHECKER, idAllocator, plannerContext, typeAnalyzer, statsCalculator, costCalculator, warningCollector, planOptimizersStatsCollector);
+        this(session, planOptimizers, alternativeOptimizers, DISTRIBUTED_PLAN_SANITY_CHECKER, idAllocator, plannerContext, typeAnalyzer, statsCalculator, costCalculator, warningCollector, planOptimizersStatsCollector, tableStatsProvider);
     }
 
     public LogicalPlanner(
@@ -221,7 +223,8 @@ public class LogicalPlanner
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
             WarningCollector warningCollector,
-            PlanOptimizersStatsCollector planOptimizersStatsCollector)
+            PlanOptimizersStatsCollector planOptimizersStatsCollector,
+            CachingTableStatsProvider tableStatsProvider)
     {
         this.session = requireNonNull(session, "session is null");
         this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
@@ -244,6 +247,7 @@ public class LogicalPlanner
                 typeAnalyzer);
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.planOptimizersStatsCollector = requireNonNull(planOptimizersStatsCollector, "planOptimizersStatsCollector is null");
+        this.tableStatsProvider = requireNonNull(tableStatsProvider, "tableStatsProvider is null");
     }
 
     public Plan plan(Analysis analysis)
@@ -278,8 +282,6 @@ public class LogicalPlanner
         try (var ignored = scopedSpan(plannerContext.getTracer(), "validate-intermediate")) {
             planSanityChecker.validateIntermediatePlan(root, session, plannerContext, typeAnalyzer, symbolAllocator.getTypes(), warningCollector);
         }
-
-        CachingTableStatsProvider tableStatsProvider = new CachingTableStatsProvider(metadata, session);
 
         if (stage.ordinal() >= OPTIMIZED.ordinal()) {
             try (var ignored = scopedSpan(plannerContext.getTracer(), "optimizer")) {

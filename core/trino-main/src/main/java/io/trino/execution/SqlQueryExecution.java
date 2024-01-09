@@ -13,6 +13,7 @@
  */
 package io.trino.execution;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
 import com.google.inject.Inject;
@@ -24,6 +25,7 @@ import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
+import io.trino.cost.CachingTableStatsProvider;
 import io.trino.cost.CostCalculator;
 import io.trino.cost.StatsCalculator;
 import io.trino.exchange.ExchangeManagerRegistry;
@@ -121,7 +123,7 @@ public class SqlQueryExecution
     private final TaskExecutionStats taskExecutionStats;
     private final List<PlanOptimizer> planOptimizers;
     private final List<PlanOptimizer> alternativeOptimizers;
-    private final AdaptivePlanner adaptivePlanner;
+    private final List<AdaptivePlanOptimizer> adaptivePlanOptimizers;
     private final PlanFragmenter planFragmenter;
     private final RemoteTaskFactory remoteTaskFactory;
     private final int scheduleSplitBatchSize;
@@ -217,17 +219,8 @@ public class SqlQueryExecution
             // analyze query
             this.analysis = analyze(preparedQuery, stateMachine, warningCollector, planOptimizersStatsCollector, analyzerFactory);
 
-            // create adaptive planner
-            requireNonNull(adaptivePlanOptimizers, "adaptivePlanOptimizers is null");
-            this.adaptivePlanner = new AdaptivePlanner(
-                    stateMachine.getSession(),
-                    plannerContext,
-                    adaptivePlanOptimizers,
-                    planFragmenter,
-                    DISTRIBUTED_PLAN_SANITY_CHECKER,
-                    typeAnalyzer,
-                    warningCollector,
-                    planOptimizersStatsCollector);
+            // for adaptive planner
+            this.adaptivePlanOptimizers = ImmutableList.copyOf(requireNonNull(adaptivePlanOptimizers, "adaptivePlanOptimizers is null"));
 
             stateMachine.addStateChangeListener(state -> {
                 if (!state.isDone()) {
@@ -422,11 +415,12 @@ public class SqlQueryExecution
                 }, directExecutor());
 
                 try {
-                    PlanRoot plan = planQuery();
+                    CachingTableStatsProvider tableStatsProvider = new CachingTableStatsProvider(plannerContext.getMetadata(), getSession());
+                    PlanRoot plan = planQuery(tableStatsProvider);
                     // DynamicFilterService needs plan for query to be registered.
                     // Query should be registered before dynamic filter suppliers are requested in distribution planning.
                     registerDynamicFilteringQuery(plan);
-                    planDistribution(plan);
+                    planDistribution(plan, tableStatsProvider);
                 }
                 finally {
                     synchronized (this) {
@@ -478,20 +472,20 @@ public class SqlQueryExecution
         stateMachine.addQueryInfoStateChangeListener(stateChangeListener);
     }
 
-    private PlanRoot planQuery()
+    private PlanRoot planQuery(CachingTableStatsProvider tableStatsProvider)
     {
         Span span = tracer.spanBuilder("planner")
                 .setParent(Context.current().with(getSession().getQuerySpan()))
                 .startSpan();
         try (var ignored = scopedSpan(span)) {
-            return doPlanQuery();
+            return doPlanQuery(tableStatsProvider);
         }
         catch (StackOverflowError e) {
             throw new TrinoException(STACK_OVERFLOW, "statement is too large (stack overflow during analysis)", e);
         }
     }
 
-    private PlanRoot doPlanQuery()
+    private PlanRoot doPlanQuery(CachingTableStatsProvider tableStatsProvider)
     {
         // plan query
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
@@ -505,7 +499,8 @@ public class SqlQueryExecution
                 statsCalculator,
                 costCalculator,
                 stateMachine.getWarningCollector(),
-                planOptimizersStatsCollector);
+                planOptimizersStatsCollector,
+                tableStatsProvider);
         Plan plan = logicalPlanner.plan(analysis);
         queryPlan.set(plan);
 
@@ -526,7 +521,7 @@ public class SqlQueryExecution
         return new PlanRoot(fragmentedPlan, !explainAnalyze);
     }
 
-    private void planDistribution(PlanRoot plan)
+    private void planDistribution(PlanRoot plan, CachingTableStatsProvider tableStatsProvider)
     {
         // if query was canceled, skip creating scheduler
         if (stateMachine.isDone()) {
@@ -586,7 +581,16 @@ public class SqlQueryExecution
                         failureDetector,
                         dynamicFilterService,
                         taskExecutionStats,
-                        adaptivePlanner,
+                        new AdaptivePlanner(
+                                stateMachine.getSession(),
+                                plannerContext,
+                                adaptivePlanOptimizers,
+                                planFragmenter,
+                                DISTRIBUTED_PLAN_SANITY_CHECKER,
+                                typeAnalyzer,
+                                stateMachine.getWarningCollector(),
+                                planOptimizersStatsCollector,
+                                tableStatsProvider),
                         plan.getRoot());
                 break;
             default:
