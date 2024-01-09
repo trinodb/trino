@@ -14,16 +14,23 @@
 package io.trino.spiller;
 
 import io.airlift.configuration.Config;
+import io.airlift.configuration.ConfigDescription;
+import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
+import io.trino.execution.buffer.CompressionCodec;
 import jakarta.validation.constraints.NotNull;
 
+import static io.trino.execution.buffer.CompressionCodec.LZ4;
+import static io.trino.execution.buffer.CompressionCodec.NONE;
+
+@DefunctConfig("experimental.spill-compression-enabled")
 public class NodeSpillConfig
 {
     private DataSize maxSpillPerNode = DataSize.of(100, DataSize.Unit.GIGABYTE);
     private DataSize queryMaxSpillPerNode = DataSize.of(100, DataSize.Unit.GIGABYTE);
 
-    private boolean spillCompressionEnabled;
+    private CompressionCodec spillCompressionCodec = NONE;
     private boolean spillEncryptionEnabled;
 
     @NotNull
@@ -54,16 +61,24 @@ public class NodeSpillConfig
         return this;
     }
 
-    public boolean isSpillCompressionEnabled()
-    {
-        return spillCompressionEnabled;
-    }
-
-    @Config("spill-compression-enabled")
-    @LegacyConfig("experimental.spill-compression-enabled")
+    @Deprecated
+    @LegacyConfig(value = "spill-compression-enabled", replacedBy = "spill-compression-codec")
     public NodeSpillConfig setSpillCompressionEnabled(boolean spillCompressionEnabled)
     {
-        this.spillCompressionEnabled = spillCompressionEnabled;
+        this.spillCompressionCodec = spillCompressionEnabled ? LZ4 : NONE;
+        return this;
+    }
+
+    public CompressionCodec getSpillCompressionCodec()
+    {
+        return spillCompressionCodec;
+    }
+
+    @Config("spill-compression-codec")
+    @ConfigDescription("Compression codec used for data in spills")
+    public NodeSpillConfig setSpillCompressionCodec(CompressionCodec spillCompressionCodec)
+    {
+        this.spillCompressionCodec = spillCompressionCodec;
         return this;
     }
 
