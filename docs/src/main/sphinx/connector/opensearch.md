@@ -317,16 +317,6 @@ The following hidden columns are available:
 | \_score  | The document score returned by the OpenSearch query |
 | \_source | The source of the original document                 |
 
-(opensearch-full-text-queries)=
-## Full text queries
-
-Trino SQL queries can be combined with OpenSearch queries by providing the [full text query]
-as part of the table name, separated by a colon. For example:
-
-```sql
-SELECT * FROM "tweets: +trino SQL^2"
-```
-
 ## Predicate push down
 
 The connector supports [predicate push down](predicate-pushdown) for the following data types:
