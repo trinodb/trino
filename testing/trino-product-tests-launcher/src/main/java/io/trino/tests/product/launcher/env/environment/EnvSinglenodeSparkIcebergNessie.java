@@ -43,7 +43,7 @@ public class EnvSinglenodeSparkIcebergNessie
 
     private static final int SPARK_THRIFT_PORT = 10213;
     private static final int NESSIE_PORT = 19120;
-    private static final String NESSIE_VERSION = "0.71.1";
+    private static final String NESSIE_VERSION = "0.77.1";
     private static final String SPARK = "spark";
 
     private final DockerFiles dockerFiles;
@@ -99,8 +99,8 @@ public class EnvSinglenodeSparkIcebergNessie
 
     private DockerContainer createNessieContainer()
     {
-        DockerContainer container = new DockerContainer("projectnessie/nessie:" + NESSIE_VERSION, "nessie-server")
-                .withEnv("NESSIE_VERSION_STORE_TYPE", "INMEMORY")
+        DockerContainer container = new DockerContainer("ghcr.io/projectnessie/nessie:" + NESSIE_VERSION, "nessie-server")
+                .withEnv("NESSIE_VERSION_STORE_TYPE", "IN_MEMORY")
                 .withEnv("QUARKUS_HTTP_PORT", Integer.valueOf(NESSIE_PORT).toString())
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingFor(forSelectedPorts(NESSIE_PORT));
