@@ -651,9 +651,11 @@ public class EventDrivenFaultTolerantQueryScheduler
         private static final int EVENT_BUFFER_CAPACITY = 100;
         private static final long EVENT_PROCESSING_ENFORCED_FREQUENCY_MILLIS = MINUTES.toMillis(1);
         // If scheduler is stalled for SCHEDULER_STALLED_DURATION_THRESHOLD debug log will be emitted.
-        // This value must be larger than EVENT_PROCESSING_ENFORCED_FREQUENCY as prerequiste for processing is
+        // If situation persists event logs will be emitted at SCHEDULER_MAX_DEBUG_INFO_FREQUENCY.
+        // SCHEDULER_STALLED_DURATION_THRESHOLD must be larger than EVENT_PROCESSING_ENFORCED_FREQUENCY as prerequiste for processing is
         // that there are no events in the event queue.
-        private static final long SCHEDULER_STALLED_DURATION_THRESHOLD_MILLIS = MINUTES.toMillis(5);
+        private static final long SCHEDULER_STALLED_DURATION_THRESHOLD_MILLIS = MINUTES.toMillis(10);
+        private static final long SCHEDULER_MAX_DEBUG_INFO_FREQUENCY_MILLIS = MINUTES.toMillis(10);
         private static final long SCHEDULER_STALLED_DURATION_ON_TIME_EXCEEDED_THRESHOLD_MILLIS = SECONDS.toMillis(30);
         private static final int EVENTS_DEBUG_INFOS_PER_BUCKET = 10;
 
@@ -688,7 +690,8 @@ public class EventDrivenFaultTolerantQueryScheduler
 
         private final BlockingQueue<Event> eventQueue = new LinkedBlockingQueue<>();
         private final List<Event> eventBuffer = new ArrayList<>(EVENT_BUFFER_CAPACITY);
-        private final Stopwatch eventDebugInfoStopwatch = Stopwatch.createUnstarted();
+        private final Stopwatch noEventsStopwatch = Stopwatch.createUnstarted();
+        private final Stopwatch debugInfoStopwatch = Stopwatch.createUnstarted();
         private final Optional<EventDebugInfos> eventDebugInfos;
 
         private boolean started;
@@ -781,7 +784,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             }
 
             planInTopologicalOrder = sortPlanInTopologicalOrder(plan);
-            eventDebugInfoStopwatch.start();
+            noEventsStopwatch.start();
         }
 
         public void run()
@@ -801,8 +804,8 @@ public class EventDrivenFaultTolerantQueryScheduler
                 }
                 if (queryInfo.getState() == QueryState.FAILED
                         && queryInfo.getErrorCode() == EXCEEDED_TIME_LIMIT.toErrorCode()
-                        && eventDebugInfoStopwatch.elapsed().toMillis() > SCHEDULER_STALLED_DURATION_ON_TIME_EXCEEDED_THRESHOLD_MILLIS) {
-                    logDebugInfoSafe(format("Scheduler stalled for %s on EXCEEDED_TIME_LIMIT", eventDebugInfoStopwatch.elapsed()));
+                        && noEventsStopwatch.elapsed().toMillis() > SCHEDULER_STALLED_DURATION_ON_TIME_EXCEEDED_THRESHOLD_MILLIS) {
+                    logDebugInfoSafe(format("Scheduler stalled for %s on EXCEEDED_TIME_LIMIT", noEventsStopwatch.elapsed()));
                 }
             });
 
@@ -896,13 +899,16 @@ public class EventDrivenFaultTolerantQueryScheduler
             if (eventDebugInfoRecorded) {
                 // mark that we processed some events; we filter out some no-op events.
                 // If only no-op events appear in event queue we still treat scheduler as stuck
-                eventDebugInfoStopwatch.reset().start();
+                noEventsStopwatch.reset().start();
+                debugInfoStopwatch.reset();
             }
             else {
                 // if no events were recorded there is a chance scheduler is stalled
-                if (log.isDebugEnabled() && eventDebugInfoStopwatch.elapsed().toMillis() > SCHEDULER_STALLED_DURATION_THRESHOLD_MILLIS) {
-                    logDebugInfoSafe("Scheduler stalled for %s".formatted(eventDebugInfoStopwatch.elapsed()));
-                    eventDebugInfoStopwatch.reset().start(); // reset to prevent extensive logging
+                if (log.isDebugEnabled()
+                        && (!debugInfoStopwatch.isRunning() || debugInfoStopwatch.elapsed().toMillis() > SCHEDULER_MAX_DEBUG_INFO_FREQUENCY_MILLIS)
+                        && noEventsStopwatch.elapsed().toMillis() > SCHEDULER_STALLED_DURATION_THRESHOLD_MILLIS) {
+                    logDebugInfoSafe("Scheduler stalled for %s".formatted(noEventsStopwatch.elapsed()));
+                    debugInfoStopwatch.reset().start(); // reset to prevent extensive logging
                 }
             }
 

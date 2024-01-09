@@ -174,7 +174,8 @@ Returns the closure of the combinatorial boundary of this geometry.
 
 :::{function} ST_Buffer(Geometry, distance) -> Geometry
 Returns the geometry that represents all points whose distance from the specified geometry
-is less than or equal to the specified distance.
+is less than or equal to the specified distance. If the points of the geometry are extremely
+close together (``delta < 1e-8``), this might return an empty geometry.
 :::
 
 :::{function} ST_Difference(Geometry, Geometry) -> Geometry

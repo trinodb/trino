@@ -4776,7 +4776,7 @@ public abstract class BaseIcebergConnectorTest
         }
     }
 
-    private OperatorStats getOperatorStats(QueryId queryId)
+    protected OperatorStats getOperatorStats(QueryId queryId)
     {
         try {
             return getDistributedQueryRunner().getCoordinator()

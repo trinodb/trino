@@ -91,6 +91,11 @@ with Parquet files performed by supported object storage connectors:
     catalog session property is `parquet_use_column_index`. Only supported by
     the Delta Lake and Hive connectors.
   - `true`
+* - `parquet.ignore-statistics`
+  - Ignore statistics from Parquet to allow querying files with corrupted or
+    incorrect statistics. The equivalent catalog session property is
+    `parquet_ignore_statistics`.
+  - `false`
 * - `parquet.max-read-block-row-count`
   - Sets the maximum number of rows read in a batch. The equivalent catalog
     session property is named `parquet_max_read_block_row_count` and supported

@@ -22,7 +22,7 @@ check_if_correct_java_version() {
     # candidate for JAVA_HOME).
     JAVA_VERSION=$(java_version "$1")
     JAVA_MAJOR=$(echo "$JAVA_VERSION" | cut -d'.' -f1)
-    if [ "$JAVA_MAJOR" -ge "17" ]; then
+    if [ "$JAVA_MAJOR" -ge "21" ]; then
         echo "$1" >/tmp/trino-rpm-install-java-home
         return 0
     else
@@ -34,10 +34,6 @@ check_if_correct_java_version() {
 if ! check_if_correct_java_version "$JAVA_HOME"; then
     java_found=false
     for candidate in \
-        /usr/lib/jvm/java-17-* \
-        /usr/lib/jvm/zulu-17 \
-        /usr/lib/jvm/temurin-17 \
-        /usr/lib/jvm/temurin-17-* \
         /usr/lib/jvm/java-21-* \
         /usr/lib/jvm/zulu-21 \
         /usr/lib/jvm/temurin-21 \
@@ -61,7 +57,7 @@ if [ "$java_found" = false ]; then
 +======================================================================+
 |            Error: Required Java version could not be found           |
 +----------------------------------------------------------------------+
-|                       JDK 17 was not detected.                       |
+|                       JDK 21 was not detected.                       |
 |           Recommended JDK distribution is Eclipse Temurin.           |
 |     Installation guide: https://adoptium.net/installation/linux/     |
 |                                                                      |

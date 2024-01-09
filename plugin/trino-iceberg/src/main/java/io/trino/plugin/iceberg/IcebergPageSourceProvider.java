@@ -167,6 +167,7 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetMaxRead
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetSmallFileThreshold;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcBloomFiltersEnabled;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcNestedLazy;
+import static io.trino.plugin.iceberg.IcebergSessionProperties.isParquetIgnoreStatistics;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isUseFileSizeFromMetadata;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.useParquetBloomFilter;
 import static io.trino.plugin.iceberg.IcebergSplitManager.ICEBERG_DOMAIN_COMPACTION_THRESHOLD;
@@ -419,20 +420,20 @@ public class IcebergPageSourceProvider
             TupleDomain<IcebergColumnHandle> dynamicFilterPredicate,
             TupleDomain<IcebergColumnHandle> unenforcedPredicate)
     {
+        TupleDomain<IcebergColumnHandle> effectivePredicate = unenforcedPredicate.intersect(dynamicFilterPredicate);
         if (dynamicFilterPredicate.isAll() || dynamicFilterPredicate.isNone() || partitionKeys.isEmpty()) {
-            return unenforcedPredicate.intersect(dynamicFilterPredicate);
+            return effectivePredicate;
         }
         Set<IcebergColumnHandle> partitionColumns = partitionKeys.keySet().stream()
                 .map(fieldId -> getColumnHandle(tableSchema.findField(fieldId), typeManager))
                 .collect(toImmutableSet());
         Supplier<Map<ColumnHandle, NullableValue>> partitionValues = memoize(() -> getPartitionValues(partitionColumns, partitionKeys));
-        if (!partitionMatchesPredicate(partitionColumns, partitionValues, dynamicFilterPredicate)) {
+        if (!partitionMatchesPredicate(partitionColumns, partitionValues, effectivePredicate)) {
             return TupleDomain.none();
         }
         // Filter out partition columns domains from the dynamic filter because they should be irrelevant at data file level
-        dynamicFilterPredicate = dynamicFilterPredicate
+        return effectivePredicate
                 .filter((columnHandle, domain) -> !partitionKeys.containsKey(columnHandle.getId()));
-        return unenforcedPredicate.intersect(dynamicFilterPredicate);
     }
 
     private Set<IcebergColumnHandle> requiredColumnsForDeletes(Schema schema, List<DeleteFile> deletes)
@@ -611,6 +612,7 @@ public class IcebergPageSourceProvider
                                 .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))
                                 .withMaxReadBlockRowCount(getParquetMaxReadBlockRowCount(session))
                                 .withSmallFileThreshold(getParquetSmallFileThreshold(session))
+                                .withIgnoreStatistics(isParquetIgnoreStatistics(session))
                                 .withBloomFilter(useParquetBloomFilter(session))
                                 // TODO https://github.com/trinodb/trino/issues/11000
                                 .withUseColumnIndex(false),
@@ -984,7 +986,7 @@ public class IcebergPageSourceProvider
 
             MessageType requestedSchema = getMessageType(regularColumns, fileSchema.getName(), parquetIdToField);
             Map<List<String>, ColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, requestedSchema);
-            TupleDomain<ColumnDescriptor> parquetTupleDomain = getParquetTupleDomain(descriptorsByPath, effectivePredicate);
+            TupleDomain<ColumnDescriptor> parquetTupleDomain = options.isIgnoreStatistics() ? TupleDomain.all() : getParquetTupleDomain(descriptorsByPath, effectivePredicate);
             TupleDomainParquetPredicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath, UTC);
 
             List<RowGroupInfo> rowGroups = getFilteredRowGroups(

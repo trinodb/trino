@@ -180,7 +180,7 @@
         <dependency>
             <groupId>org.apache.datasketches</groupId>
             <artifactId>datasketches-java</artifactId>
-            <version>4.2.0</version>
+            <version>5.0.1</version>
         </dependency>
 
         <dependency>
@@ -578,7 +578,7 @@
         <dependency>
             <groupId>org.keycloak</groupId>
             <artifactId>keycloak-core</artifactId>
-            <version>22.0.5</version>
+            <version>23.0.3</version>
             <scope>test</scope>
         </dependency>
 

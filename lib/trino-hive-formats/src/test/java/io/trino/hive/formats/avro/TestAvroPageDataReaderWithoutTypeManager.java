@@ -15,6 +15,7 @@ package io.trino.hive.formats.avro;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import io.airlift.slice.Slice;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.spi.Page;
@@ -333,6 +334,40 @@ public class TestAvroPageDataReaderWithoutTypeManager
                 totalRecords += p.getPositionCount();
             }
             assertThat(totalRecords).isEqualTo(3);
+        }
+    }
+
+    @Test
+    public void testRead3UnionWith2UnionDataWith2Union()
+            throws IOException, AvroTypeException
+    {
+        Schema twoUnion = Schema.createUnion(Schema.create(Schema.Type.NULL), Schema.create(Schema.Type.INT));
+        Schema threeUnion = Schema.createUnion(Schema.create(Schema.Type.NULL), Schema.create(Schema.Type.INT), Schema.create(Schema.Type.STRING));
+
+        Schema twoUnionRecord = SchemaBuilder.builder()
+                .record("aRecord")
+                .fields()
+                .name("aField")
+                .type(twoUnion)
+                .noDefault()
+                .endRecord();
+
+        Schema threeUnionRecord = SchemaBuilder.builder()
+                .record("aRecord")
+                .fields()
+                .name("aField")
+                .type(threeUnion)
+                .noDefault()
+                .endRecord();
+
+        // write a file with the 3 union schema, using 2 union data
+        TrinoInputFile inputFile = createWrittenFileWithData(threeUnionRecord, ImmutableList.copyOf(Iterables.transform(new RandomData(twoUnionRecord, 1000), object -> (GenericRecord) object)));
+
+        //read the file with the 2 union schema and ensure that no error thrown
+        try (AvroFileReader avroFileReader = new AvroFileReader(inputFile, twoUnionRecord, NoOpAvroTypeManager.INSTANCE)) {
+            while (avroFileReader.hasNext()) {
+                assertThat(avroFileReader.next()).isNotNull();
+            }
         }
     }
 }

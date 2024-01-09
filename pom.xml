@@ -137,12 +137,12 @@
     </scm>
 
     <properties>
-        <project.build.targetJdk>17</project.build.targetJdk>
+        <project.build.targetJdk>21</project.build.targetJdk>
 
         <air.check.skip-spotbugs>true</air.check.skip-spotbugs>
         <air.check.skip-pmd>true</air.check.skip-pmd>
         <air.check.skip-jacoco>true</air.check.skip-jacoco>
-        <air.java.version>17.0.5</air.java.version>
+        <air.java.version>21.0.1</air.java.version>
         <air.javadoc.lint>-missing</air.javadoc.lint>
         <air.main.basedir>${project.basedir}</air.main.basedir>
         <air.modernizer.java-version>8</air.modernizer.java-version>
@@ -174,19 +174,20 @@
         <dep.accumulo.version>1.10.2</dep.accumulo.version>
         <dep.airlift.version>239</dep.airlift.version>
         <dep.antlr.version>4.13.1</dep.antlr.version>
-        <dep.arrow.version>14.0.1</dep.arrow.version>
+        <dep.arrow.version>14.0.2</dep.arrow.version>
         <dep.avro.version>1.11.3</dep.avro.version>
-        <dep.aws-sdk.version>1.12.618</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.12.630</dep.aws-sdk.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
         <dep.confluent.version>7.5.1</dep.confluent.version>
         <dep.docker.images.version>87</dep.docker.images.version>
         <dep.drift.version>1.21</dep.drift.version>
         <dep.duct-tape.version>1.0.8</dep.duct-tape.version>
         <dep.errorprone.version>2.23.0</dep.errorprone.version>
-        <dep.flyway.version>10.3.0</dep.flyway.version>
+        <dep.flyway.version>10.4.1</dep.flyway.version>
         <dep.google.http.client.version>1.43.3</dep.google.http.client.version>
-        <dep.iceberg.version>1.4.2</dep.iceberg.version>
+        <dep.iceberg.version>1.4.3</dep.iceberg.version>
         <dep.jna.version>5.14.0</dep.jna.version>
+        <dep.joda.version>2.12.6</dep.joda.version>
         <dep.jsonwebtoken.version>0.12.3</dep.jsonwebtoken.version>
         <dep.kafka-clients.version>3.6.1</dep.kafka-clients.version>
         <dep.kotlin.version>1.9.20</dep.kotlin.version>
@@ -194,7 +195,7 @@
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.parquet.version>1.13.1</dep.parquet.version>
         <dep.protobuf.version>3.25.1</dep.protobuf.version>
-        <dep.swagger.version>2.2.19</dep.swagger.version>
+        <dep.swagger.version>2.2.20</dep.swagger.version>
         <dep.takari.version>2.1.2</dep.takari.version>
         <dep.tcnative.version>2.0.62.Final</dep.tcnative.version>
         <dep.tempto.version>201</dep.tempto.version>
@@ -247,7 +248,7 @@
             <dependency>
                 <groupId>io.grpc</groupId>
                 <artifactId>grpc-bom</artifactId>
-                <version>1.60.0</version>
+                <version>1.60.1</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -263,7 +264,7 @@
             <dependency>
                 <groupId>org.eclipse.jetty</groupId>
                 <artifactId>jetty-bom</artifactId>
-                <version>11.0.18</version>
+                <version>11.0.19</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -271,7 +272,7 @@
             <dependency>
                 <groupId>org.jdbi</groupId>
                 <artifactId>jdbi3-bom</artifactId>
-                <version>3.42.0</version>
+                <version>3.43.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -295,7 +296,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.21.45</version>
+                <version>2.22.10</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -303,7 +304,7 @@
             <dependency>
                 <groupId>com.adobe.testing</groupId>
                 <artifactId>s3mock-testcontainers</artifactId>
-                <version>3.2.0</version>
+                <version>3.3.0</version>
             </dependency>
 
             <dependency>
@@ -500,7 +501,7 @@
             <dependency>
                 <groupId>com.github.oshi</groupId>
                 <artifactId>oshi-core</artifactId>
-                <version>6.4.8</version>
+                <version>6.4.10</version>
             </dependency>
 
             <dependency>
@@ -592,7 +593,7 @@
             <dependency>
                 <groupId>com.nimbusds</groupId>
                 <artifactId>oauth2-oidc-sdk</artifactId>
-                <version>11.8</version>
+                <version>11.9</version>
                 <classifier>jdk11</classifier>
             </dependency>
 
@@ -1617,7 +1618,7 @@
             <dependency>
                 <groupId>net.bytebuddy</groupId>
                 <artifactId>byte-buddy</artifactId>
-                <version>1.14.10</version>
+                <version>1.14.11</version>
             </dependency>
 
             <dependency>
@@ -1915,7 +1916,7 @@
             <dependency>
                 <groupId>org.checkerframework</groupId>
                 <artifactId>checker-qual</artifactId>
-                <version>3.41.0</version>
+                <version>3.42.0</version>
             </dependency>
 
             <dependency>
@@ -1958,7 +1959,7 @@
             <dependency>
                 <groupId>org.javassist</groupId>
                 <artifactId>javassist</artifactId>
-                <version>3.29.2-GA</version>
+                <version>3.30.2-GA</version>
             </dependency>
 
             <dependency>
@@ -1988,7 +1989,7 @@
             <dependency>
                 <groupId>org.mariadb.jdbc</groupId>
                 <artifactId>mariadb-java-client</artifactId>
-                <version>3.3.1</version>
+                <version>3.3.2</version>
             </dependency>
 
             <dependency>
