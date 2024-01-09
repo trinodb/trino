@@ -61,7 +61,7 @@ public class ThreadPerDriverTaskExecutor
     @Inject
     public ThreadPerDriverTaskExecutor(TaskManagerConfig config, Tracer tracer, VersionEmbedder versionEmbedder)
     {
-        this(tracer, versionEmbedder, new FairScheduler(config.getMaxWorkerThreads(), "SplitRunner-%d", Ticker.systemTicker()));
+        this(tracer, versionEmbedder, new FairScheduler(config.getMaxWorkerThreads(), true, "SplitRunner-", Ticker.systemTicker()));
     }
 
     @VisibleForTesting

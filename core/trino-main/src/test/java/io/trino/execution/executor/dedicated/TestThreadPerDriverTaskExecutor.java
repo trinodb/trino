@@ -120,7 +120,7 @@ public class TestThreadPerDriverTaskExecutor
             throws ExecutionException, InterruptedException
     {
         TestingTicker ticker = new TestingTicker();
-        FairScheduler scheduler = new FairScheduler(1, "Runner-%d", ticker);
+        FairScheduler scheduler = new FairScheduler(1, false, "Runner-", ticker);
         ThreadPerDriverTaskExecutor executor = new ThreadPerDriverTaskExecutor(noopTracer(), testingVersionEmbedder(), scheduler);
         executor.start();
 

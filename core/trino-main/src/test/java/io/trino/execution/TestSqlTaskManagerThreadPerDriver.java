@@ -30,6 +30,6 @@ public class TestSqlTaskManagerThreadPerDriver
         return new ThreadPerDriverTaskExecutor(
                 Tracing.noopTracer(),
                 testingVersionEmbedder(),
-                new FairScheduler(8, "Runner-%d", Ticker.systemTicker()));
+                new FairScheduler(8, false, "Runner-", Ticker.systemTicker()));
     }
 }

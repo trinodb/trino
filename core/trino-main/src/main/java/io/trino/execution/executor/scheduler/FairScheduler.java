@@ -34,6 +34,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.util.LockUtils.closeable;
+import static java.lang.Thread.ofVirtual;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -66,7 +67,7 @@ public final class FairScheduler
     @GuardedBy("thisLock")
     private boolean closed;
 
-    public FairScheduler(int maxConcurrentTasks, String threadNameFormat, Ticker ticker)
+    public FairScheduler(int maxConcurrentTasks, boolean useVirtualThreads, String threadNameFormat, Ticker ticker)
     {
         this.ticker = requireNonNull(ticker, "ticker is null");
 
@@ -77,10 +78,17 @@ public final class FairScheduler
                 .setDaemon(true)
                 .build());
 
-        taskExecutor = MoreExecutors.listeningDecorator(Executors.newCachedThreadPool(new ThreadFactoryBuilder()
-                .setNameFormat(threadNameFormat)
-                .setDaemon(true)
-                .build()));
+        if (useVirtualThreads) {
+            taskExecutor = MoreExecutors.listeningDecorator(Executors.newThreadPerTaskExecutor(ofVirtual()
+                    .name(threadNameFormat)
+                    .factory()));
+        }
+        else {
+            taskExecutor = MoreExecutors.listeningDecorator(Executors.newCachedThreadPool(new ThreadFactoryBuilder()
+                    .setNameFormat(threadNameFormat)
+                    .setDaemon(true)
+                    .build()));
+        }
     }
 
     public static FairScheduler newInstance(int maxConcurrentTasks)
@@ -90,7 +98,7 @@ public final class FairScheduler
 
     public static FairScheduler newInstance(int maxConcurrentTasks, Ticker ticker)
     {
-        FairScheduler scheduler = new FairScheduler(maxConcurrentTasks, "fair-scheduler-runner-%d", ticker);
+        FairScheduler scheduler = new FairScheduler(maxConcurrentTasks, false, "fair-scheduler-runner-", ticker);
         scheduler.start();
         return scheduler;
     }
