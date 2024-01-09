@@ -43,11 +43,11 @@ public class GcsFileSystemConfig
     private String jsonKey;
     private String jsonKeyFilePath;
     private int maxRetries = 20;
-    private double backoffScaleFactor = 2.0;
-    private Duration maxRetryTime = new Duration(20, TimeUnit.SECONDS);
+    private double backoffScaleFactor = 3.0;
+    private Duration maxRetryTime = new Duration(25, TimeUnit.SECONDS);
     private Duration minBackoffDelay = new Duration(10, TimeUnit.MILLISECONDS);
     // Note: there is no benefit to setting this much higher as the rpc quota is 1x per second: https://cloud.google.com/storage/docs/retry-strategy#java
-    private Duration maxBackoffDelay = new Duration(1100, TimeUnit.MILLISECONDS);
+    private Duration maxBackoffDelay = new Duration(2000, TimeUnit.MILLISECONDS);
 
     @NotNull
     public DataSize getReadBlockSize()
