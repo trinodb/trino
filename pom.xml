@@ -189,7 +189,8 @@
         <dep.errorprone.version>2.25.0</dep.errorprone.version>
         <dep.flyway.version>10.8.1</dep.flyway.version>
         <dep.google.http.client.version>1.44.1</dep.google.http.client.version>
-        <dep.iceberg.version>1.4.3</dep.iceberg.version>
+        <!-- Uses the RC5 (1160) from the repository -->
+        <dep.iceberg.version>1.5.0</dep.iceberg.version>
         <dep.jna.version>5.14.0</dep.jna.version>
         <dep.joda.version>2.12.7</dep.joda.version>
         <dep.jsonwebtoken.version>0.12.5</dep.jsonwebtoken.version>
@@ -2260,6 +2261,14 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <repositories>
+        <repository>
+            <id>iceberg-release-candidate</id>
+            <name>Iceberg Release Candidate</name>
+            <url>https://repository.apache.org/content/repositories/orgapacheiceberg-1160/</url>
+        </repository>
+    </repositories>
 
     <build>
         <pluginManagement>
