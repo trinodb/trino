@@ -22,9 +22,9 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.iceberg.catalog.IcebergTableOperationsProvider;
 import io.trino.plugin.iceberg.catalog.TrinoCatalogFactory;
 import org.apache.iceberg.nessie.NessieIcebergClient;
+import org.projectnessie.client.NessieClientBuilder;
 import org.projectnessie.client.api.NessieApiV1;
 import org.projectnessie.client.auth.BearerAuthenticationProvider;
-import org.projectnessie.client.http.HttpClientBuilder;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static java.lang.Math.toIntExact;
@@ -47,7 +47,7 @@ public class IcebergNessieCatalogModule
     @Singleton
     public static NessieIcebergClient createNessieIcebergClient(IcebergNessieCatalogConfig icebergNessieCatalogConfig)
     {
-        HttpClientBuilder builder = HttpClientBuilder.builder()
+        NessieClientBuilder builder = NessieClientBuilder.createClientBuilderFromSystemSettings()
                 .withUri(icebergNessieCatalogConfig.getServerUri())
                 .withDisableCompression(!icebergNessieCatalogConfig.isCompressionEnabled())
                 .withReadTimeout(toIntExact(icebergNessieCatalogConfig.getReadTimeout().toMillis()))

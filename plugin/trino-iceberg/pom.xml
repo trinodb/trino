@@ -16,7 +16,7 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <!-- Nessie version (matching to Iceberg release) must be bumped along with Iceberg version bump to avoid compatibility issues -->
-        <dep.nessie.version>0.71.1</dep.nessie.version>
+        <dep.nessie.version>0.77.1</dep.nessie.version>
     </properties>
 
     <dependencies>
@@ -343,7 +343,7 @@
         <dependency>
             <groupId>org.apache.httpcomponents.client5</groupId>
             <artifactId>httpclient5</artifactId>
-            <version>5.2.3</version>
+            <version>5.3.1</version>
             <scope>runtime</scope>
         </dependency>
 
