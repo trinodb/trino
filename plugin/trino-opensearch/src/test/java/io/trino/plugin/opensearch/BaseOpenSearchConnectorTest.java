@@ -121,8 +121,8 @@ public abstract class BaseOpenSearchConnectorTest
 
     /**
      * This method overrides the default values used for the data provider
-     * of the test {@link AbstractTestQueries#testLargeIn(int)} by taking
-     * into account that by default Opensearch 2.x supports only up to `1024`
+     * of the test {@link AbstractTestQueries#testLargeIn()} by taking
+     * into account that by default OpenSearch 2.x supports only up to `1024`
      * clauses in query.
      * <p>
      * Consult `index.query.bool.max_clause_count` opensearch.yml setting
