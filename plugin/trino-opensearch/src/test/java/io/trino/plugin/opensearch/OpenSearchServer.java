@@ -15,9 +15,8 @@ package io.trino.plugin.opensearch;
 
 import com.google.common.net.HostAndPort;
 import io.trino.testing.ResourcePresence;
+import org.opensearch.testcontainers.OpensearchContainer;
 import org.testcontainers.containers.Network;
-import org.testcontainers.elasticsearch.ElasticsearchContainer;
-import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -35,7 +34,7 @@ public class OpenSearchServer
     public static final String OPENSEARCH_IMAGE = "opensearchproject/opensearch:2.11.0";
 
     private final Path configurationPath;
-    private final ElasticsearchContainer container;
+    private final OpensearchContainer container;
 
     public OpenSearchServer(String image, boolean secured, Map<String, String> configurationFiles)
             throws IOException
@@ -46,12 +45,11 @@ public class OpenSearchServer
     public OpenSearchServer(Network network, String image, boolean secured, Map<String, String> configurationFiles)
             throws IOException
     {
-        DockerImageName dockerImageName = DockerImageName.parse(image).asCompatibleSubstituteFor("docker.elastic.co/elasticsearch/elasticsearch");
-        container = new ElasticsearchContainer(dockerImageName);
+        container = new OpensearchContainer<>(image);
         container.withNetwork(network);
-        container.withReuse(false);
-        container.withNetworkAliases("opensearch-server");
-        container.withEnv("DISABLE_SECURITY_PLUGIN", Boolean.toString(!secured));
+        if (secured) {
+            container.withSecurityEnabled();
+        }
 
         configurationPath = createTempDirectory(null);
         for (Map.Entry<String, String> entry : configurationFiles.entrySet()) {
@@ -76,11 +74,11 @@ public class OpenSearchServer
     @ResourcePresence
     public boolean isRunning()
     {
-        return container.getContainerId() != null;
+        return container.isRunning();
     }
 
     public HostAndPort getAddress()
     {
-        return HostAndPort.fromString(container.getHttpHostAddress());
+        return HostAndPort.fromParts(container.getHost(), container.getMappedPort(9200));
     }
 }
