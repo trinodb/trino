@@ -65,7 +65,7 @@ public class PageSerializer
 
     public PageSerializer(
             BlockEncodingSerde blockEncodingSerde,
-            boolean compressionEnabled,
+            Optional<Compressor> compressor,
             Optional<SecretKey> encryptionKey,
             int blockSizeInBytes)
     {
@@ -73,7 +73,7 @@ public class PageSerializer
         requireNonNull(encryptionKey, "encryptionKey is null");
         encryptionKey.ifPresent(secretKey -> checkArgument(is256BitSecretKeySpec(secretKey), "encryptionKey is expected to be an instance of SecretKeySpec containing a 256bit key"));
         output = new SerializedPageOutput(
-                compressionEnabled ? Optional.of(new Lz4Compressor()) : Optional.empty(),
+                requireNonNull(compressor, "compressor is null"),
                 encryptionKey,
                 blockSizeInBytes);
     }
@@ -100,7 +100,7 @@ public class PageSerializer
 
         private static final double MINIMUM_COMPRESSION_RATIO = 0.8;
 
-        private final Optional<Lz4Compressor> compressor;
+        private final Optional<Compressor> compressor;
         private final Optional<SecretKey> encryptionKey;
         private final int markers;
         private final Optional<Cipher> cipher;
@@ -109,7 +109,7 @@ public class PageSerializer
         private int uncompressedSize;
 
         private SerializedPageOutput(
-                Optional<Lz4Compressor> compressor,
+                Optional<Compressor> compressor,
                 Optional<SecretKey> encryptionKey,
                 int blockSizeInBytes)
         {

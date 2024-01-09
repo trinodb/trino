@@ -44,6 +44,9 @@ import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.execution.buffer.CompressionCodec.NONE;
+import static io.trino.execution.buffer.PagesSerdeFactory.createCompressor;
+import static io.trino.execution.buffer.PagesSerdeFactory.createDecompressor;
 import static io.trino.execution.buffer.PagesSerdeUtil.readPages;
 import static io.trino.execution.buffer.PagesSerdeUtil.writePages;
 import static io.trino.operator.PageAssertions.assertPageEquals;
@@ -133,25 +136,23 @@ public class TestPagesSerde
 
     private void testRoundTrip(List<Type> types, List<Page> pages, int blockSizeInBytes)
     {
-        // without compression, encryption
-        testRoundTrip(types, pages, false, false, blockSizeInBytes);
-        // with compression, without encryption
-        testRoundTrip(types, pages, true, false, blockSizeInBytes);
-        // without compression, with encryption
-        testRoundTrip(types, pages, false, true, blockSizeInBytes);
-        // with compression, encryption
-        testRoundTrip(types, pages, true, true, blockSizeInBytes);
+        // without encryption
+        testRoundTrip(types, pages, false, blockSizeInBytes);
+        // with encryption
+        testRoundTrip(types, pages, true, blockSizeInBytes);
     }
 
-    private void testRoundTrip(List<Type> types, List<Page> pages, boolean compressionEnabled, boolean encryptionEnabled, int blockSizeInBytes)
+    private void testRoundTrip(List<Type> types, List<Page> pages, boolean encryptionEnabled, int blockSizeInBytes)
     {
         Optional<SecretKey> encryptionKey = encryptionEnabled ? Optional.of(createRandomAesEncryptionKey()) : Optional.empty();
-        PageSerializer serializer = new PageSerializer(blockEncodingSerde, compressionEnabled, encryptionKey, blockSizeInBytes);
-        PageDeserializer deserializer = new PageDeserializer(blockEncodingSerde, compressionEnabled, encryptionKey, blockSizeInBytes);
-        for (Page page : pages) {
-            Slice serialized = serializer.serialize(page);
-            Page deserialized = deserializer.deserialize(serialized);
-            assertPageEquals(types, deserialized, page);
+        for (CompressionCodec compressionCodec : CompressionCodec.values()) {
+            PageSerializer serializer = new PageSerializer(blockEncodingSerde, createCompressor(compressionCodec), encryptionKey, blockSizeInBytes);
+            PageDeserializer deserializer = new PageDeserializer(blockEncodingSerde, createDecompressor(compressionCodec), encryptionKey, blockSizeInBytes);
+            for (Page page : pages) {
+                Slice serialized = serializer.serialize(page);
+                Page deserialized = deserializer.deserialize(serialized);
+                assertPageEquals(types, deserialized, page);
+            }
         }
     }
 
@@ -228,7 +229,7 @@ public class TestPagesSerde
 
     private int serializedSize(List<? extends Type> types, Page expectedPage)
     {
-        PagesSerdeFactory serdeFactory = new PagesSerdeFactory(blockEncodingSerde, false);
+        PagesSerdeFactory serdeFactory = new PagesSerdeFactory(blockEncodingSerde, NONE);
         PageSerializer serializer = serdeFactory.createSerializer(Optional.empty());
         PageDeserializer deserializer = serdeFactory.createDeserializer(Optional.empty());
         DynamicSliceOutput sliceOutput = new DynamicSliceOutput(1024);
@@ -260,28 +261,28 @@ public class TestPagesSerde
 
     private void testDeserializationWithRollover(int blockSize, int numberOfEntries)
     {
-        testDeserializationWithRollover(false, false, numberOfEntries, blockSize);
-        testDeserializationWithRollover(false, true, numberOfEntries, blockSize);
-        testDeserializationWithRollover(true, false, numberOfEntries, blockSize);
-        testDeserializationWithRollover(true, true, numberOfEntries, blockSize);
+        testDeserializationWithRollover(false, numberOfEntries, blockSize);
+        testDeserializationWithRollover(true, numberOfEntries, blockSize);
     }
 
-    private void testDeserializationWithRollover(boolean encryptionEnabled, boolean compressionEnabled, int numberOfEntries, int blockSize)
+    private void testDeserializationWithRollover(boolean encryptionEnabled, int numberOfEntries, int blockSize)
     {
         RolloverBlockSerde blockSerde = new RolloverBlockSerde();
         Optional<SecretKey> encryptionKey = encryptionEnabled ? Optional.of(createRandomAesEncryptionKey()) : Optional.empty();
-        PageSerializer serializer = new PageSerializer(blockSerde, compressionEnabled, encryptionKey, blockSize);
-        PageDeserializer deserializer = new PageDeserializer(blockSerde, compressionEnabled, encryptionKey, blockSize);
+        for (CompressionCodec compressionCodec : CompressionCodec.values()) {
+            PageSerializer serializer = new PageSerializer(blockSerde, createCompressor(compressionCodec), encryptionKey, blockSize);
+            PageDeserializer deserializer = new PageDeserializer(blockSerde, createDecompressor(compressionCodec), encryptionKey, blockSize);
 
-        Page page = createTestPage(numberOfEntries);
-        Slice serialized = serializer.serialize(page);
-        Page deserialized = deserializer.deserialize(serialized);
-        assertThat(deserialized.getChannelCount()).isEqualTo(1);
+            Page page = createTestPage(numberOfEntries);
+            Slice serialized = serializer.serialize(page);
+            Page deserialized = deserializer.deserialize(serialized);
+            assertThat(deserialized.getChannelCount()).isEqualTo(1);
 
-        VariableWidthBlock expected = (VariableWidthBlock) page.getBlock(0);
-        VariableWidthBlock actual = (VariableWidthBlock) deserialized.getBlock(0);
+            VariableWidthBlock expected = (VariableWidthBlock) page.getBlock(0);
+            VariableWidthBlock actual = (VariableWidthBlock) deserialized.getBlock(0);
 
-        assertThat(actual.getRawSlice().getBytes()).isEqualTo(expected.getRawSlice().getBytes());
+            assertThat(actual.getRawSlice().getBytes()).isEqualTo(expected.getRawSlice().getBytes());
+        }
     }
 
     private static Page createTestPage(int numberOfEntries)
