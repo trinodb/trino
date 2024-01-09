@@ -32,6 +32,15 @@ the maximum number of clients is
 value adjusts the heuristic, which may increase concurrency and improve
 network utilization.
 
+## `exchange.compression-codec`
+
+- **Type:** {ref}`prop-type-string`
+- **Allowed values:** `NONE`, `LZ4`, `ZSTD`
+- **Default value:** `NONE`
+
+The compression codec to use when exchanging data between nodes.
+Use `LZ4` in `Fault Tolerant Execution` mode by default.
+
 ## `exchange.data-integrity-verification`
 
 - **Type:** {ref}`prop-type-string`
