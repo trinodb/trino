@@ -149,14 +149,14 @@ public abstract class BaseOpenSearchConnectorTest
     @Override
     public void testSelectAll()
     {
-        // List columns explicitly, as there's no defined order in Elasticsearch
+        // List columns explicitly, as there's no defined order in OpenSearch
         assertQuery("SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment  FROM orders");
     }
 
     @Override
     protected MaterializedResult getDescribeOrdersResult()
     {
-        // The column metadata for the Elasticsearch connector tables are provided
+        // The column metadata for the OpenSearch connector tables are provided
         // based on the column name in alphabetical order.
         return resultBuilder(getSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
                 .row("clerk", "varchar", "", "")

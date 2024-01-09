@@ -438,7 +438,7 @@ public class OpenSearchClient
                     return new IndexMetadata(new IndexMetadata.ObjectType(ImmutableList.of()));
                 }
                 if (!mappings.has("properties")) {
-                    // Older versions of ElasticSearch supported multiple "type" mappings
+                    // Older versions of OpenSearch supported multiple "type" mappings
                     // for a given index. Newer versions support only one and don't
                     // expose it in the document. Here we skip it if it's present.
                     mappings = mappings.elements().next();

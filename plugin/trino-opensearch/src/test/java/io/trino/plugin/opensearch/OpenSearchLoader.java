@@ -104,7 +104,7 @@ public class OpenSearchLoader
                     request.add(new IndexRequest(tableName).source(dataBuilder));
                 }
                 catch (IOException e) {
-                    throw new UncheckedIOException("Error loading data into Elasticsearch index: " + tableName, e);
+                    throw new UncheckedIOException("Error loading data into OpenSearch index: " + tableName, e);
                 }
             }
 

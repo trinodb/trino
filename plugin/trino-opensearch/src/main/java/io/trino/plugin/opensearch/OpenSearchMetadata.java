@@ -123,7 +123,7 @@ public class OpenSearchMetadata
                     new VarcharDecoder.Descriptor(PASSTHROUGH_QUERY_RESULT_COLUMN_NAME),
                     false));
 
-    // See https://www.elastic.co/guide/en/elasticsearch/reference/current/regexp-syntax.html
+    // See https://opensearch.org/docs/latest/query-dsl/term/regexp/
     private static final Set<Integer> REGEXP_RESERVED_CHARACTERS = IntStream.of('.', '?', '+', '*', '|', '{', '}', '[', ']', '(', ')', '"', '#', '@', '&', '<', '>', '~')
             .boxed()
             .collect(toImmutableSet());
