@@ -13,6 +13,8 @@
  */
 package io.trino.execution.scheduler.faulttolerant;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
@@ -223,12 +225,13 @@ public class TestTaskDescriptorStorage
         return DataSize.of(size, unit).toBytes();
     }
 
-    private static class TestingExchangeSourceHandle
+    public static class TestingExchangeSourceHandle
             implements ExchangeSourceHandle
     {
         private final long retainedSizeInBytes;
 
-        private TestingExchangeSourceHandle(long retainedSizeInBytes)
+        @JsonCreator
+        public TestingExchangeSourceHandle(@JsonProperty("retainedSizeInBytes") long retainedSizeInBytes)
         {
             this.retainedSizeInBytes = retainedSizeInBytes;
         }
@@ -246,6 +249,7 @@ public class TestTaskDescriptorStorage
         }
 
         @Override
+        @JsonProperty
         public long getRetainedSizeInBytes()
         {
             return retainedSizeInBytes;
