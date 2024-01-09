@@ -186,14 +186,6 @@ public class TestIcebergTrinoRestCatalogConnectorSmokeTest
 
     @Test
     @Override
-    public void testDropTableWithMissingDataFile()
-    {
-        assertThatThrownBy(super::testDropTableWithMissingDataFile)
-                .hasMessageContaining("Table location should not exist");
-    }
-
-    @Test
-    @Override
     public void testDropTableWithNonExistentTableLocation()
     {
         assertThatThrownBy(super::testDropTableWithNonExistentTableLocation)
