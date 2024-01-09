@@ -1080,3 +1080,8 @@ keep a backup of the original values if you change them.
     catalog specific use.
   - `false`
 :::
+
+### Filesystem cache
+
+The connector supports configuring and using [filesystem
+caching](/connector/filesystem-cache).
