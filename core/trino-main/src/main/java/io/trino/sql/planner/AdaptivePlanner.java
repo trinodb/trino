@@ -23,7 +23,6 @@ import io.trino.Session;
 import io.trino.cost.CachingTableStatsProvider;
 import io.trino.cost.RuntimeInfoProvider;
 import io.trino.cost.StatsAndCosts;
-import io.trino.cost.TableStatsProvider;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.type.Type;
@@ -94,6 +93,7 @@ public class AdaptivePlanner
     private final IrTypeAnalyzer typeAnalyzer;
     private final WarningCollector warningCollector;
     private final PlanOptimizersStatsCollector planOptimizersStatsCollector;
+    private final CachingTableStatsProvider tableStatsProvider;
 
     public AdaptivePlanner(
             Session session,
@@ -103,7 +103,8 @@ public class AdaptivePlanner
             PlanSanityChecker planSanityChecker,
             IrTypeAnalyzer typeAnalyzer,
             WarningCollector warningCollector,
-            PlanOptimizersStatsCollector planOptimizersStatsCollector)
+            PlanOptimizersStatsCollector planOptimizersStatsCollector,
+            CachingTableStatsProvider tableStatsProvider)
     {
         this.session = requireNonNull(session, "session is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
@@ -113,6 +114,7 @@ public class AdaptivePlanner
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         this.warningCollector = requireNonNull(warningCollector, "warningCollector is null");
         this.planOptimizersStatsCollector = requireNonNull(planOptimizersStatsCollector, "planOptimizersStatsCollector is null");
+        this.tableStatsProvider = requireNonNull(tableStatsProvider, "tableStatsProvider is null");
     }
 
     public SubPlan optimize(SubPlan root, RuntimeInfoProvider runtimeInfoProvider)
@@ -148,8 +150,7 @@ public class AdaptivePlanner
 
         // optimize the current plan
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator(getMaxPlanId(currentPlan) + 1);
-        TableStatsProvider tableStatsProvider = new CachingTableStatsProvider(plannerContext.getMetadata(), session);
-        AdaptivePlanOptimizer.Result optimizationResult = optimizePlan(currentPlan, symbolAllocator, tableStatsProvider, runtimeInfoProvider, idAllocator);
+        AdaptivePlanOptimizer.Result optimizationResult = optimizePlan(currentPlan, symbolAllocator, runtimeInfoProvider, idAllocator);
 
         // Check whether there are some changes in the plan after optimization
         if (optimizationResult.changedPlanNodes().isEmpty()) {
@@ -180,7 +181,6 @@ public class AdaptivePlanner
     private AdaptivePlanOptimizer.Result optimizePlan(
             PlanNode plan,
             SymbolAllocator symbolAllocator,
-            TableStatsProvider tableStatsProvider,
             RuntimeInfoProvider runtimeInfoProvider,
             PlanNodeIdAllocator idAllocator)
     {
