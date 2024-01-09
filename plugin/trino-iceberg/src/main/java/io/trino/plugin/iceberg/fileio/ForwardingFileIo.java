@@ -17,6 +17,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
+import org.apache.iceberg.DataFile;
+import org.apache.iceberg.DeleteFile;
+import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.io.BulkDeletionFailureException;
 import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.io.OutputFile;
@@ -28,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -86,6 +90,37 @@ public class ForwardingFileIo
     {
         Iterable<List<String>> partitions = Iterables.partition(pathsToDelete, DELETE_BATCH_SIZE);
         partitions.forEach(this::deleteBatch);
+    }
+
+    // TODO: remove below workarounds after https://github.com/apache/iceberg/pull/9953
+    @Override
+    public InputFile newInputFile(ManifestFile manifest)
+    {
+        checkArgument(
+                manifest.keyMetadata() == null,
+                "Cannot decrypt manifest: %s (use EncryptingFileIO)",
+                manifest.path());
+        return newInputFile(manifest.path(), manifest.length());
+    }
+
+    @Override
+    public InputFile newInputFile(DataFile file)
+    {
+        checkArgument(
+                file.keyMetadata() == null,
+                "Cannot decrypt data file: %s (use EncryptingFileIO)",
+                file.path());
+        return newInputFile(file.path().toString(), file.fileSizeInBytes());
+    }
+
+    @Override
+    public InputFile newInputFile(DeleteFile file)
+    {
+        checkArgument(
+                file.keyMetadata() == null,
+                "Cannot decrypt delete file: %s (use EncryptingFileIO)",
+                file.path());
+        return newInputFile(file.path().toString(), file.fileSizeInBytes());
     }
 
     private void deleteBatch(List<String> filesToDelete)
