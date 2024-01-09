@@ -827,7 +827,7 @@ public abstract class AbstractTestHive
                     public void checkCanUseLocation(ConnectorIdentity identity, String location)
                     {
                         if (location.contains(INVALID_LOCATION_PATH)) {
-                            throw new IllegalArgumentException("Can't access this path");
+                            throw new IllegalArgumentException("Cant access this path");
                         }
                     }
                 },
@@ -1250,7 +1250,7 @@ public abstract class AbstractTestHive
                     .put(EXTERNAL_LOCATION_PROPERTY, "file://test/" + INVALID_LOCATION_PATH)
                     .buildOrThrow();
             ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(schemaTableName, columnMetadata, properties);
-            assertThatThrownBy(() -> transaction.getMetadata().createTable(session, tableMetadata, SaveMode.IGNORE)).hasMessage("Can't access this path");
+            assertThatThrownBy(() -> transaction.getMetadata().createTable(session, tableMetadata, SaveMode.IGNORE)).hasMessage("Cant access this path");
         }
     }
 
