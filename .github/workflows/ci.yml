@@ -683,7 +683,7 @@ jobs:
             - { modules: plugin/starburst-snowflake, profile: fte-tests, cloud: amazon-web-service }
             - { modules: plugin/starburst-stargate }
             - { modules: plugin/starburst-synapse }
-            - { modules: plugin/starburst-synapse, profile: fault-tolerant-tests }
+            - { modules: plugin/starburst-synapse, profile: fte-tests }
             - { modules: plugin/starburst-synapse, profile: long-running-tests }
             - { modules: plugin/starburst-synapse, profile: type-mapping-tests }
             - { modules: plugin/trino-accumulo }

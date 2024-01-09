@@ -326,7 +326,7 @@
             </build>
         </profile>
         <profile>
-            <id>fault-tolerant-tests</id>
+            <id>fte-tests</id>
             <build>
                 <plugins>
                     <plugin>
