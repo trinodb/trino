@@ -180,10 +180,8 @@ public class TestIcebergOrcMetricsCollection
         assertThat(datafile.getRecordCount()).isEqualTo(1);
         assertThat(datafile.getValueCounts().size()).isEqualTo(1);
         assertThat(datafile.getNullValueCounts().size()).isEqualTo(1);
-        datafile.getUpperBounds().forEach((k, v) -> {
-            assertThat(v.length()).isEqualTo(10); });
-        datafile.getLowerBounds().forEach((k, v) -> {
-            assertThat(v.length()).isEqualTo(10); });
+        datafile.getUpperBounds().forEach((k, v) -> assertThat(v.length()).isEqualTo(10));
+        datafile.getLowerBounds().forEach((k, v) -> assertThat(v.length()).isEqualTo(10));
 
         // keep both c1 and c2 metrics
         assertUpdate("create table c_metrics (c1 varchar, c2 varchar)");
