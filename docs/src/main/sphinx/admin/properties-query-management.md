@@ -14,7 +14,7 @@ application, such as the CLI, before it abandons and cancels its work.
 - **Default value:** `phased`
 - **Session property:** `execution_policy`
 
-Configures the algorithm to organize the processing of all of the
+Configures the algorithm to organize the processing of all the
 stages of a query. You can use the following execution policies:
 
 - `phased` schedules stages in a sequence to avoid blockages because of
@@ -69,7 +69,7 @@ such as joins, aggregations, partitioned window functions and others.
 
 The maximum number of tasks that will take part in writing data during
 `INSERT`, `CREATE TABLE AS SELECT` and `EXECUTE` queries.
-The limit is only applicable when `redistribute-writes` or `scale-writers` is be enabled.
+The limit is only applicable when `redistribute-writes` or `scale-writers` is enabled.
 
 ## `query.low-memory-killer.policy`
 
@@ -97,11 +97,11 @@ Configures the behavior to handle killing running tasks in the event of low
 memory availability. Supports the following values:
 
 - `none` - Do not kill any tasks in the event of low memory.
-- `total-reservation-on-blocked-nodes` - Kill the tasks which are part of the queries
-  which has task retries enabled and are currently using the most memory specifically
+- `total-reservation-on-blocked-nodes` - Kill the tasks that are part of the queries
+  which have task retries enabled and are currently using the most memory specifically
   on nodes that are now out of memory.
-- `least-waste` - Kill the tasks which are part of the queries
-  which has task retries enabled and use significant amount of memory on nodes
+- `least-waste` - Kill the tasks that are part of the queries
+  which have task retries enabled and use significant amount of memory on nodes
   which are now out of memory. This policy avoids killing tasks which are already
   executing for a long time, so significant amount of work is not wasted.
 
@@ -116,7 +116,7 @@ Only applies for queries with task level retries enabled (`retry-policy=TASK`)
 
 The amount of time a query is allowed to recover between running out of memory
 and being killed, if `query.low-memory-killer.policy` or
-`task.low-memory-killer.policy` is set to value differnt than `none`.
+`task.low-memory-killer.policy` is set to value different from `none`.
 
 ## `query.max-execution-time`
 
@@ -156,7 +156,7 @@ and may not terminate immediately.
 
 The maximum allowed time for a query to be processed on the cluster, before
 it is terminated. The time includes time for analysis and planning, but also
-time spend in a queue waiting, so essentially this is the time allowed for a
+time spent in a queue waiting, so essentially this is the time allowed for a
 query to exist since creation.
 
 ## `query.max-scan-physical-bytes`
@@ -179,7 +179,7 @@ generates more stages than this it will get killed with error
 `QUERY_HAS_TOO_MANY_STAGES`.
 
 :::{warning}
-Setting this to a high value can cause queries with large number of
+Setting this to a high value can cause queries with a large number of
 stages to introduce instability in the cluster causing unrelated queries
 to get killed with `REMOTE_TASK_ERROR` and the message
 `Max requests queued per destination exceeded for HttpDestination ...`
