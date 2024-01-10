@@ -640,9 +640,7 @@ public final class TupleDomain<T>
         return toMap(
                 keyMapper,
                 valueMapper,
-                (u, v) -> {
-                    throw new IllegalStateException(format("Duplicate values for a key: %s and %s", u, v));
-                },
+                (u, v) -> { throw new IllegalStateException(format("Duplicate values for a key: %s and %s", u, v)); },
                 LinkedHashMap::new);
     }
 
