@@ -31,8 +31,11 @@ public final class TestGroups
     public static final String CONFIGURED_FEATURES = "configured_features";
     public static final String TPCH = "tpch";
     public static final String TPCDS = "tpcds";
+    // TODO some tests from this group are run in Suite1 and Suite3, probably not intentionally
     public static final String JOIN = "join";
+    // TODO some tests from this group are run in Suite1 and Suite3, probably not intentionally
     public static final String GROUP_BY = "group-by";
+    // TODO some tests from this group are run in Suite1 and Suite3, probably not intentionally
     public static final String SMOKE = "smoke";
     public static final String JDBC = "jdbc";
     public static final String JDBC_KERBEROS_CONSTRAINED_DELEGATION = "jdbc_kerberos_constrained_delegation";

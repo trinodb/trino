@@ -21,20 +21,7 @@ import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
 
-import static io.trino.tests.product.TestGroups.AZURE;
-import static io.trino.tests.product.TestGroups.CLI;
-import static io.trino.tests.product.TestGroups.FUNCTIONS;
-import static io.trino.tests.product.TestGroups.HIVE_CACHE_SUBQUERIES;
-import static io.trino.tests.product.TestGroups.HIVE_COMPRESSION;
-import static io.trino.tests.product.TestGroups.JDBC;
-import static io.trino.tests.product.TestGroups.JDBC_KERBEROS_CONSTRAINED_DELEGATION;
-import static io.trino.tests.product.TestGroups.LARGE_QUERY;
-import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
-import static io.trino.tests.product.TestGroups.STORAGE_FORMATS_DETAILED;
-import static io.trino.tests.product.TestGroups.TPCDS;
-import static io.trino.tests.product.TestGroups.TPCH;
-import static io.trino.tests.product.TestGroups.TRINO_JDBC;
+import static io.trino.tests.product.SuiteGroups.SUITE1_EXCLUSIONS;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class Suite1
@@ -45,21 +32,7 @@ public class Suite1
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinode.class)
-                        .withExcludedGroups(
-                                AZURE,
-                                CLI,
-                                JDBC,
-                                TRINO_JDBC,
-                                JDBC_KERBEROS_CONSTRAINED_DELEGATION,
-                                FUNCTIONS,
-                                HIVE_COMPRESSION,
-                                LARGE_QUERY,
-                                PROFILE_SPECIFIC_TESTS,
-                                STORAGE_FORMATS,
-                                STORAGE_FORMATS_DETAILED,
-                                HIVE_CACHE_SUBQUERIES,
-                                TPCH,
-                                TPCDS)
+                        .withExcludedGroups(SUITE1_EXCLUSIONS.toArray(new String[0]))
                         .build());
     }
 }
