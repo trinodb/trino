@@ -152,10 +152,10 @@ cluster that handles short queries.
 (fte-encryption)=
 ## Encryption
 
-Trino encrypts data before spooling it to storage. This prevents access to query data
-by anyone besides the Trino cluster that wrote it, including administrators of the
-storage system. A new encryption key is randomly generated for every query, and keys
-are discarded once a query is completed.
+Trino encrypts data before spooling it to storage. This prevents access to query
+data by anyone besides the Trino cluster that wrote it, including administrators
+of the storage system. A new encryption key is randomly generated for every
+exchange with every query, and keys are discarded once a query is completed.
 
 ## Advanced configuration
 
