@@ -1390,7 +1390,9 @@ public class PostgreSqlClient
         return ColumnMapping.sliceMapping(
                 jsonType,
                 arrayAsJsonReadFunction(session, baseElementMapping),
-                (statement, index, block) -> { throw new UnsupportedOperationException(); },
+                (statement, index, block) -> {
+                    throw new UnsupportedOperationException();
+                },
                 DISABLE_PUSHDOWN);
     }
 
@@ -1518,7 +1520,9 @@ public class PostgreSqlClient
                         return utf8Slice(resultSet.getString(columnIndex));
                     }
                 },
-                (statement, index, value) -> { throw new TrinoException(NOT_SUPPORTED, "Money type is not supported for INSERT"); },
+                (statement, index, value) -> {
+                    throw new TrinoException(NOT_SUPPORTED, "Money type is not supported for INSERT");
+                },
                 DISABLE_PUSHDOWN);
     }
 
