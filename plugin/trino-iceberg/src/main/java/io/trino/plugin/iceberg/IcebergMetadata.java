@@ -2932,7 +2932,8 @@ public class IcebergMetadata
                 .orElseThrow(() -> new IllegalStateException("Storage table missing in definition of materialized view " + materializedViewName));
 
         Table icebergTable = catalog.loadTable(session, storageTableName);
-        String dependsOnTables = Optional.ofNullable(icebergTable.currentSnapshot())
+        Optional<Snapshot> currentSnapshot = Optional.ofNullable(icebergTable.currentSnapshot());
+        String dependsOnTables = currentSnapshot
                 .map(snapshot -> snapshot.summary().getOrDefault(DEPENDS_ON_TABLES, ""))
                 .orElse("");
         if (dependsOnTables.isEmpty()) {
@@ -2940,9 +2941,12 @@ public class IcebergMetadata
             // Normally dependsOnTables may be missing only when there was no refresh yet.
             return new MaterializedViewFreshness(STALE, Optional.empty());
         }
-        Instant refreshTime = Optional.ofNullable(icebergTable.currentSnapshot().summary().get(TRINO_QUERY_START_TIME))
+        Instant refreshTime = currentSnapshot.map(snapshot -> snapshot.summary().get(TRINO_QUERY_START_TIME))
                 .map(Instant::parse)
-                .orElseGet(() -> Instant.ofEpochMilli(icebergTable.currentSnapshot().timestampMillis()));
+                .or(() -> currentSnapshot.map(snapshot -> Instant.ofEpochMilli(snapshot.timestampMillis())))
+                // this will never fail because if dependsOnTables is not empty it means there is a table and
+                // thus currentSnapshot is not null so code in or branch will return a result
+                .orElseThrow();
         boolean hasUnknownTables = false;
         boolean hasStaleIcebergTables = false;
         Optional<Long> firstTableChange = Optional.of(Long.MAX_VALUE);
