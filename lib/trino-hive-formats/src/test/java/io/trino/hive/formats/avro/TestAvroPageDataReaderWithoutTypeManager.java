@@ -370,4 +370,37 @@ public class TestAvroPageDataReaderWithoutTypeManager
             }
         }
     }
+
+    @Test
+    public void testReadUnionWithNonUnionAllCoercions()
+            throws IOException, AvroTypeException
+    {
+        Schema nonUnion = Schema.create(Schema.Type.STRING);
+        Schema union = Schema.createUnion(Schema.create(Schema.Type.STRING), Schema.create(Schema.Type.BYTES));
+
+        Schema nonUnionRecord = SchemaBuilder.builder()
+                .record("aRecord")
+                .fields()
+                .name("aField")
+                .type(nonUnion)
+                .noDefault()
+                .endRecord();
+
+        Schema unionRecord = SchemaBuilder.builder()
+                .record("aRecord")
+                .fields()
+                .name("aField")
+                .type(union)
+                .noDefault()
+                .endRecord();
+
+        TrinoInputFile inputFile = createWrittenFileWithSchema(1000, unionRecord);
+
+        //read the file with the non-union schema and ensure that no error thrown
+        try (AvroFileReader avroFileReader = new AvroFileReader(inputFile, nonUnionRecord, NoOpAvroTypeManager.INSTANCE)) {
+            while (avroFileReader.hasNext()) {
+                assertThat(avroFileReader.next()).isNotNull();
+            }
+        }
+    }
 }
