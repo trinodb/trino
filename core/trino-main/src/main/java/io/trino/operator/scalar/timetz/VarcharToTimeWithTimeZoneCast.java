@@ -51,11 +51,11 @@ public final class VarcharToTimeWithTimeZoneCast
     @SqlType("time(p) with time zone")
     public static long castToShort(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("varchar(x)") Slice value)
     {
-        checkArgument((int) precision <= MAX_SHORT_PRECISION, "precision must be less than max short timestamp precision");
+        checkArgument((int) precision <= MAX_SHORT_PRECISION, "precision must be less than max short time with time zone precision");
 
         Matcher matcher = DateTimes.TIME_PATTERN.matcher(trim(value).toStringUtf8());
         if (!matcher.matches()) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp: " + value.toStringUtf8());
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to time with time zone: " + value.toStringUtf8());
         }
 
         try {
@@ -67,7 +67,7 @@ public final class VarcharToTimeWithTimeZoneCast
             return packTimeWithTimeZone(nanos, offsetMinutes);
         }
         catch (IllegalArgumentException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp: " + value.toStringUtf8(), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to time with time zone: " + value.toStringUtf8(), e);
         }
     }
 
@@ -79,7 +79,7 @@ public final class VarcharToTimeWithTimeZoneCast
 
         Matcher matcher = DateTimes.TIME_PATTERN.matcher(trim(value).toStringUtf8());
         if (!matcher.matches()) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp: " + value.toStringUtf8());
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to time with time zone: " + value.toStringUtf8());
         }
 
         try {
@@ -91,7 +91,7 @@ public final class VarcharToTimeWithTimeZoneCast
             return new LongTimeWithTimeZone(picos, offsetMinutes);
         }
         catch (IllegalArgumentException e) {
-            throw new TrinoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp: " + value.toStringUtf8(), e);
+            throw new TrinoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to time with time zone: " + value.toStringUtf8(), e);
         }
     }
 
