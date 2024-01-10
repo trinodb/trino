@@ -1146,7 +1146,7 @@ jobs:
             - suite-5
             - suite-6-non-generic
             - suite-7-non-generic
-            - suite-8-non-generic
+            - suite-hive-transactional
             - suite-azure
             - suite-delta-lake-databricks91
             - suite-delta-lake-databricks104

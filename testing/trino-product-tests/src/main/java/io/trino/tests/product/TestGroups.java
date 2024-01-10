@@ -64,7 +64,6 @@ public final class TestGroups
     public static final String LDAP_CLI = "ldap_cli";
     public static final String LDAP_AND_FILE_CLI = "ldap_and_file_cli";
     public static final String LDAP_MULTIPLE_BINDS = "ldap_multiple_binds";
-    public static final String HDP3_ONLY = "hdp3_only";
     public static final String TLS = "tls";
     public static final String ROLES = "roles";
     public static final String CANCEL_QUERY = "cancel_query";
