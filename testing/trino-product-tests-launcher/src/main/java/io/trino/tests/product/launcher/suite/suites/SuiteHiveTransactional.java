@@ -25,7 +25,7 @@ import java.util.List;
 import static com.google.common.base.Verify.verify;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
-public class Suite8NonGeneric
+public class SuiteHiveTransactional
         extends Suite
 {
     @Override
@@ -35,7 +35,7 @@ public class Suite8NonGeneric
 
         return ImmutableList.of(
                 testOnEnvironment(EnvSinglenodeHiveAcid.class)
-                        .withGroups("configured_features", "hdp3_only", "hive_transactional")
+                        .withGroups("configured_features", "hive_transactional")
                         .build());
     }
 }
