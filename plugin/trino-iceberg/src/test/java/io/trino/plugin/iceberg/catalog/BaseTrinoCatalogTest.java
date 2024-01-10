@@ -30,6 +30,7 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.security.PrincipalType;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.type.VarcharType;
+import io.trino.util.AutoCloseableCloser;
 import org.apache.iceberg.NullOrder;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
@@ -393,39 +394,46 @@ public abstract class BaseTrinoCatalogTest
     {
         TrinoCatalog catalog = createTrinoCatalog(false);
         TrinoPrincipal principal = new TrinoPrincipal(PrincipalType.USER, SESSION.getUser());
-        String ns1 = "ns1";
-        String ns2 = "ns2";
 
-        catalog.createNamespace(SESSION, ns1, defaultNamespaceProperties(ns1), principal);
-        catalog.createNamespace(SESSION, ns2, defaultNamespaceProperties(ns2), principal);
-        SchemaTableName table1 = new SchemaTableName(ns1, "t1");
-        SchemaTableName table2 = new SchemaTableName(ns2, "t2");
-        catalog.newCreateTableTransaction(
-                        SESSION,
-                        table1,
-                        new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
-                        PartitionSpec.unpartitioned(),
-                        SortOrder.unsorted(),
-                        arbitraryTableLocation(catalog, SESSION, table1),
-                        ImmutableMap.of())
-                .commitTransaction();
+        try (AutoCloseableCloser closer = AutoCloseableCloser.create()) {
+            String ns1 = "ns1" + randomNameSuffix();
+            String ns2 = "ns2" + randomNameSuffix();
+            catalog.createNamespace(SESSION, ns1, defaultNamespaceProperties(ns1), principal);
+            closer.register(() -> catalog.dropNamespace(SESSION, ns1));
+            catalog.createNamespace(SESSION, ns2, defaultNamespaceProperties(ns2), principal);
+            closer.register(() -> catalog.dropNamespace(SESSION, ns2));
 
-        catalog.newCreateTableTransaction(
-                        SESSION,
-                        table2,
-                        new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
-                        PartitionSpec.unpartitioned(),
-                        SortOrder.unsorted(),
-                        arbitraryTableLocation(catalog, SESSION, table2),
-                        ImmutableMap.of())
-                .commitTransaction();
+            SchemaTableName table1 = new SchemaTableName(ns1, "t1");
+            SchemaTableName table2 = new SchemaTableName(ns2, "t2");
+            catalog.newCreateTableTransaction(
+                            SESSION,
+                            table1,
+                            new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
+                            PartitionSpec.unpartitioned(),
+                            SortOrder.unsorted(),
+                            arbitraryTableLocation(catalog, SESSION, table1),
+                            ImmutableMap.of())
+                    .commitTransaction();
+            closer.register(() -> catalog.dropTable(SESSION, table1));
 
-        // No namespace provided, all tables across all namespaces should be returned
-        assertThat(catalog.listTables(SESSION, Optional.empty())).containsAll(ImmutableList.of(table1, table2));
-        // Namespace is provided and exists
-        assertThat(catalog.listTables(SESSION, Optional.of(ns1))).isEqualTo(ImmutableList.of(table1));
-        // Namespace is provided and does not exist
-        assertThat(catalog.listTables(SESSION, Optional.of("non_existing"))).isEmpty();
+            catalog.newCreateTableTransaction(
+                            SESSION,
+                            table2,
+                            new Schema(Types.NestedField.of(1, true, "col1", Types.LongType.get())),
+                            PartitionSpec.unpartitioned(),
+                            SortOrder.unsorted(),
+                            arbitraryTableLocation(catalog, SESSION, table2),
+                            ImmutableMap.of())
+                    .commitTransaction();
+            closer.register(() -> catalog.dropTable(SESSION, table2));
+
+            // No namespace provided, all tables across all namespaces should be returned
+            assertThat(catalog.listTables(SESSION, Optional.empty())).containsAll(ImmutableList.of(table1, table2));
+            // Namespace is provided and exists
+            assertThat(catalog.listTables(SESSION, Optional.of(ns1))).isEqualTo(ImmutableList.of(table1));
+            // Namespace is provided and does not exist
+            assertThat(catalog.listTables(SESSION, Optional.of("non_existing"))).isEmpty();
+        }
     }
 
     private String arbitraryTableLocation(TrinoCatalog catalog, ConnectorSession session, SchemaTableName schemaTableName)
