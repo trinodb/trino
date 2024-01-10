@@ -173,9 +173,7 @@ public class ExchangeSourceOutputSelector
                         .collect(toMap(
                                 Entry::getKey,
                                 Entry::getValue,
-                                (a, b) -> {
-                                    throw new IllegalArgumentException("got duplicate key " + a + ", " + b);
-                                },
+                                (a, b) -> { throw new IllegalArgumentException("got duplicate key " + a + ", " + b); },
                                 TreeMap::new)))
                 .add("finalSelector=" + finalSelector)
                 .toString();

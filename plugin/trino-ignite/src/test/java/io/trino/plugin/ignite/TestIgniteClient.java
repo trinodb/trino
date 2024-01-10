@@ -79,9 +79,7 @@ public class TestIgniteClient
 
     public static final JdbcClient JDBC_CLIENT = new IgniteClient(
             new BaseJdbcConfig(),
-            session -> {
-                throw new UnsupportedOperationException();
-            },
+            session -> { throw new UnsupportedOperationException(); },
             new DefaultQueryBuilder(RemoteQueryModifier.NONE),
             new DefaultIdentifierMapping(),
             RemoteQueryModifier.NONE);
