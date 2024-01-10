@@ -101,15 +101,9 @@ public class TestGlobalFunctionCatalog
 
         TypeOperators typeOperators = new TypeOperators();
         GlobalFunctionCatalog globalFunctionCatalog = new GlobalFunctionCatalog(
-                () -> {
-                    throw new UnsupportedOperationException();
-                },
-                () -> {
-                    throw new UnsupportedOperationException();
-                },
-                () -> {
-                    throw new UnsupportedOperationException();
-                });
+                () -> { throw new UnsupportedOperationException(); },
+                () -> { throw new UnsupportedOperationException(); },
+                () -> { throw new UnsupportedOperationException(); });
         globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(new FeaturesConfig(), typeOperators, new BlockTypeOperators(typeOperators), NodeVersion.UNKNOWN));
         globalFunctionCatalog.addFunctions(functionBundle);
         assertThatThrownBy(() -> globalFunctionCatalog.addFunctions(functionBundle))
@@ -124,15 +118,9 @@ public class TestGlobalFunctionCatalog
 
         TypeOperators typeOperators = new TypeOperators();
         GlobalFunctionCatalog globalFunctionCatalog = new GlobalFunctionCatalog(
-                () -> {
-                    throw new UnsupportedOperationException();
-                },
-                () -> {
-                    throw new UnsupportedOperationException();
-                },
-                () -> {
-                    throw new UnsupportedOperationException();
-                });
+                () -> { throw new UnsupportedOperationException(); },
+                () -> { throw new UnsupportedOperationException(); },
+                () -> { throw new UnsupportedOperationException(); });
         globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(new FeaturesConfig(), typeOperators, new BlockTypeOperators(typeOperators), NodeVersion.UNKNOWN));
         assertThatThrownBy(() -> globalFunctionCatalog.addFunctions(functions))
                 .isInstanceOf(IllegalStateException.class)

@@ -86,9 +86,7 @@ public class DefaultQueryBuilder
                     .filter(domains::containsKey)
                     .filter(column -> columnExpressions.containsKey(column.getColumnName()))
                     .findFirst()
-                    .ifPresent(column -> {
-                        throw new IllegalArgumentException(format("Column %s has an expression and a constraint attached at the same time", column));
-                    });
+                    .ifPresent(column -> { throw new IllegalArgumentException(format("Column %s has an expression and a constraint attached at the same time", column)); });
         }
 
         ImmutableList.Builder<String> conjuncts = ImmutableList.builder();
