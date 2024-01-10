@@ -245,7 +245,8 @@ public class CoordinatorModule
         binder.bind(ByEagerParentOutputDataSizeEstimator.Factory.class).in(Scopes.SINGLETON);
         // use provider method returning list to ensure ordering
         // OutputDataSizeEstimator factories are ordered starting from most accurate
-        install(new AbstractConfigurationAwareModule() {
+        install(new AbstractConfigurationAwareModule()
+        {
             @Override
             protected void setup(Binder binder) {}
 
