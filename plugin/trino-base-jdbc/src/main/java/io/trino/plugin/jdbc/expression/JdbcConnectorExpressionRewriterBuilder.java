@@ -17,11 +17,13 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.base.expression.ConnectorExpressionRule;
+import io.trino.spi.connector.ConnectorSession;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -65,12 +67,16 @@ public class JdbcConnectorExpressionRewriterBuilder
         return this;
     }
 
+    public ExpectSourceExpression when(Predicate<ConnectorSession> condition)
+    {
+        return new GenericRewriteBuilder()
+                .when(condition);
+    }
+
     public ExpectRewriteTarget map(String expressionPattern)
     {
-        return rewritePattern -> {
-            rules.add(new GenericRewrite(ImmutableMap.copyOf(typeClasses), expressionPattern, rewritePattern));
-            return JdbcConnectorExpressionRewriterBuilder.this;
-        };
+        return new GenericRewriteBuilder()
+                .map(expressionPattern);
     }
 
     public ConnectorExpressionRewriter<ParameterizedExpression> build()
@@ -78,8 +84,40 @@ public class JdbcConnectorExpressionRewriterBuilder
         return new ConnectorExpressionRewriter<>(rules.build());
     }
 
+    public interface ExpectSourceExpression
+    {
+        ExpectRewriteTarget map(String expressionPattern);
+    }
+
     public interface ExpectRewriteTarget
     {
         JdbcConnectorExpressionRewriterBuilder to(String rewritePattern);
+    }
+
+    private class GenericRewriteBuilder
+            implements ExpectSourceExpression, ExpectRewriteTarget
+    {
+        private Predicate<ConnectorSession> condition = session -> true;
+        private String expressionPattern;
+
+        GenericRewriteBuilder when(Predicate<ConnectorSession> condition)
+        {
+            this.condition = requireNonNull(condition, "condition is null");
+            return this;
+        }
+
+        @Override
+        public ExpectRewriteTarget map(String expressionPattern)
+        {
+            this.expressionPattern = requireNonNull(expressionPattern, "expressionPattern is null");
+            return this;
+        }
+
+        @Override
+        public JdbcConnectorExpressionRewriterBuilder to(String rewritePattern)
+        {
+            rules.add(new GenericRewrite(ImmutableMap.copyOf(typeClasses), condition, expressionPattern, rewritePattern));
+            return JdbcConnectorExpressionRewriterBuilder.this;
+        }
     }
 }
