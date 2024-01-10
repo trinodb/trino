@@ -40,17 +40,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 @Execution(SAME_THREAD)
 abstract class AbstractTestHiveMetastore
 {
-    private HiveMetastore metastore;
-
-    public void setMetastore(HiveMetastore metastore)
-    {
-        this.metastore = metastore;
-    }
-
-    protected HiveMetastore getMetastore()
-    {
-        return metastore;
-    }
+    protected abstract HiveMetastore getMetastore();
 
     @Test
     void testCreateDatabase()
@@ -61,15 +51,15 @@ abstract class AbstractTestHiveMetastore
                 .setParameters(Map.of(TRINO_QUERY_ID_NAME, "query_id"))
                 .setOwnerName(Optional.empty())
                 .setOwnerType(Optional.empty());
-        metastore.createDatabase(database.build());
+        getMetastore().createDatabase(database.build());
         // second call with the same query ID succeeds
-        metastore.createDatabase(database.build());
+        getMetastore().createDatabase(database.build());
 
         database.setParameters(Map.of(TRINO_QUERY_ID_NAME, "another_query_id"));
-        assertThatThrownBy(() -> metastore.createDatabase(database.build()))
+        assertThatThrownBy(() -> getMetastore().createDatabase(database.build()))
                 .isInstanceOf(SchemaAlreadyExistsException.class);
 
-        metastore.dropDatabase(databaseName, false);
+        getMetastore().dropDatabase(databaseName, false);
     }
 
     @Test
@@ -80,7 +70,7 @@ abstract class AbstractTestHiveMetastore
                 .setDatabaseName(databaseName)
                 .setOwnerName(Optional.empty())
                 .setOwnerType(Optional.empty());
-        metastore.createDatabase(database.build());
+        getMetastore().createDatabase(database.build());
 
         String tableName = "test_table";
         Table.Builder table = Table.builder()
@@ -93,16 +83,16 @@ abstract class AbstractTestHiveMetastore
         table.getStorageBuilder()
                 .setLocation(Optional.of("/tmp/location"))
                 .setStorageFormat(fromHiveStorageFormat(PARQUET));
-        metastore.createTable(table.build(), NO_PRIVILEGES);
+        getMetastore().createTable(table.build(), NO_PRIVILEGES);
         // second call with the same query ID succeeds
-        metastore.createTable(table.build(), NO_PRIVILEGES);
+        getMetastore().createTable(table.build(), NO_PRIVILEGES);
 
         table.setParameters(Map.of(TRINO_QUERY_ID_NAME, "another_query_id"));
-        assertThatThrownBy(() -> metastore.createTable(table.build(), NO_PRIVILEGES))
+        assertThatThrownBy(() -> getMetastore().createTable(table.build(), NO_PRIVILEGES))
                 .isInstanceOf(TableAlreadyExistsException.class);
 
-        metastore.dropTable(databaseName, tableName, false);
-        metastore.dropDatabase(databaseName, false);
+        getMetastore().dropTable(databaseName, tableName, false);
+        getMetastore().dropDatabase(databaseName, false);
     }
 
     @Test
