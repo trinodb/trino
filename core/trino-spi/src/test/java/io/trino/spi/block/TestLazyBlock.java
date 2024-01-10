@@ -66,7 +66,7 @@ public class TestLazyBlock
         List<Block> actualNotifications = new ArrayList<>();
         Block arrayBlock = new IntArrayBlock(2, Optional.empty(), new int[] {0, 1});
         LazyBlock lazyArrayBlock = new LazyBlock(2, () -> arrayBlock);
-        Block rowBlock = RowBlock.fromFieldBlocks(2, new Block[]{lazyArrayBlock});
+        Block rowBlock = RowBlock.fromFieldBlocks(2, new Block[] {lazyArrayBlock});
         LazyBlock lazyBlock = new LazyBlock(2, () -> rowBlock);
         LazyBlock.listenForLoads(lazyBlock, actualNotifications::add);
 

@@ -160,15 +160,15 @@ public abstract class TestAvroBase
 
         ALL_TYPES_GENERIC_RECORD = new GenericData.Record(ALL_TYPES_RECORD_SCHEMA);
         ALL_TYPES_GENERIC_RECORD.put("aBoolean", true);
-        allTypeBlocks.add(new ByteArrayBlock(1, Optional.empty(), new byte[]{1}));
+        allTypeBlocks.add(new ByteArrayBlock(1, Optional.empty(), new byte[] {1}));
         ALL_TYPES_GENERIC_RECORD.put("aInt", 42);
-        allTypeBlocks.add(new IntArrayBlock(1, Optional.empty(), new int[]{42}));
+        allTypeBlocks.add(new IntArrayBlock(1, Optional.empty(), new int[] {42}));
         ALL_TYPES_GENERIC_RECORD.put("aLong", 3400L);
-        allTypeBlocks.add(new LongArrayBlock(1, Optional.empty(), new long[]{3400L}));
+        allTypeBlocks.add(new LongArrayBlock(1, Optional.empty(), new long[] {3400L}));
         ALL_TYPES_GENERIC_RECORD.put("aFloat", 3.14f);
-        allTypeBlocks.add(new IntArrayBlock(1, Optional.empty(), new int[]{floatToIntBits(3.14f)}));
+        allTypeBlocks.add(new IntArrayBlock(1, Optional.empty(), new int[] {floatToIntBits(3.14f)}));
         ALL_TYPES_GENERIC_RECORD.put("aDouble", 9.81);
-        allTypeBlocks.add(new LongArrayBlock(1, Optional.empty(), new long[]{doubleToLongBits(9.81)}));
+        allTypeBlocks.add(new LongArrayBlock(1, Optional.empty(), new long[] {doubleToLongBits(9.81)}));
         ALL_TYPES_GENERIC_RECORD.put("aString", A_STRING_VALUE);
         allTypeBlocks.add(new VariableWidthBlock(1, Slices.utf8Slice(A_STRING_VALUE), new int[] {0, Slices.utf8Slice(A_STRING_VALUE).length()}, Optional.empty()));
         ALL_TYPES_GENERIC_RECORD.put("aBytes", A_BYTES_VALUE);

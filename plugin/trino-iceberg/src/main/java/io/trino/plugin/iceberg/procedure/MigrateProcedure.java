@@ -232,7 +232,7 @@ public class MigrateProcedure
             ImmutableList.Builder<DataFile> dataFilesBuilder = ImmutableList.builder();
             if (hiveTable.getPartitionColumns().isEmpty()) {
                 log.debug("Building data files from %s", location);
-                dataFilesBuilder.addAll(buildDataFiles(session, recursive, storageFormat, location, partitionSpec, new PartitionData(new Object[]{}), schema));
+                dataFilesBuilder.addAll(buildDataFiles(session, recursive, storageFormat, location, partitionSpec, new PartitionData(new Object[0]), schema));
             }
             else {
                 Map<String, Optional<Partition>> partitions = listAllPartitions(metastore, hiveTable);
