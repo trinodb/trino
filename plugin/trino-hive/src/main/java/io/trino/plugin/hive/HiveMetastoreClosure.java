@@ -140,15 +140,6 @@ public class HiveMetastoreClosure
         delegate.updateTableStatistics(databaseName, tableName, transaction, update);
     }
 
-    public void updatePartitionsStatistics(String databaseName,
-            String tableName,
-            String partitionName,
-            Function<PartitionStatistics, PartitionStatistics> update)
-    {
-        Table table = getExistingTable(databaseName, tableName);
-        delegate.updatePartitionsStatistics(table, partitionName, update);
-    }
-
     public void updatePartitionStatistics(String databaseName, String tableName, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
     {
         Table table = getExistingTable(databaseName, tableName);

@@ -95,15 +95,6 @@ public abstract class ForwardingHiveMetastore
     }
 
     @Override
-    public void updatePartitionsStatistics(
-            Table table,
-            String partitionName,
-            Function<PartitionStatistics, PartitionStatistics> update)
-    {
-        delegate.updatePartitionsStatistics(table, partitionName, update);
-    }
-
-    @Override
     public void updatePartitionStatistics(
             Table table,
             Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
