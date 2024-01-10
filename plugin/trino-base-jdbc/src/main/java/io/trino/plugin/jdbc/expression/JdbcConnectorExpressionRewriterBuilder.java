@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.jdbc.expression;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.base.expression.ConnectorExpressionRule;
@@ -67,7 +68,7 @@ public class JdbcConnectorExpressionRewriterBuilder
     public ExpectRewriteTarget map(String expressionPattern)
     {
         return rewritePattern -> {
-            rules.add(new GenericRewrite(typeClasses, expressionPattern, rewritePattern));
+            rules.add(new GenericRewrite(ImmutableMap.copyOf(typeClasses), expressionPattern, rewritePattern));
             return JdbcConnectorExpressionRewriterBuilder.this;
         };
     }
