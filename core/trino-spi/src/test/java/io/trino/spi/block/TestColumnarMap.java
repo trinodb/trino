@@ -37,7 +37,7 @@ public class TestColumnarMap
 {
     private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
     private static final MapType MAP_TYPE = new MapType(VARCHAR, VARCHAR, TYPE_OPERATORS);
-    private static final int[] MAP_SIZES = new int[]{16, 0, 13, 1, 2, 11, 4, 7};
+    private static final int[] MAP_SIZES = new int[] {16, 0, 13, 1, 2, 11, 4, 7};
 
     @Test
     public void test()

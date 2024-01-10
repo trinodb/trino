@@ -50,7 +50,7 @@ public class TestPositionsAppenderPageBuilder
         Block rleBlock = RunLengthEncodedBlock.create(VARCHAR, Slices.utf8Slice("test"), 10);
         Page inputPage = new Page(rleBlock);
 
-        IntArrayList positions = IntArrayList.wrap(new int[]{0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
+        IntArrayList positions = IntArrayList.wrap(new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
         // Append 32760 positions, just less than MAX_POSITION_COUNT
         assertEquals(32768, PositionsAppenderPageBuilder.MAX_POSITION_COUNT, "expected MAX_POSITION_COUNT to be 32768");
         for (int i = 0; i < 3276; i++) {
@@ -85,7 +85,7 @@ public class TestPositionsAppenderPageBuilder
         Block rleBlock = RunLengthEncodedBlock.create(VARCHAR, Slices.utf8Slice("test"), 10);
         Page inputPage = new Page(rleBlock);
 
-        IntArrayList positions = IntArrayList.wrap(new int[]{0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
+        IntArrayList positions = IntArrayList.wrap(new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
         pageBuilder.appendToOutputPartition(inputPage, positions);
         // 10 positions inserted, size in bytes is still the same since we're in RLE mode but direct size is 10x
         sizeAccumulator = pageBuilder.computeAppenderSizes();
@@ -124,7 +124,7 @@ public class TestPositionsAppenderPageBuilder
         Block dictionaryBlock = DictionaryBlock.create(10, valueBlock, new int[10]);
         Page inputPage = new Page(dictionaryBlock);
 
-        pageBuilder.appendToOutputPartition(inputPage, IntArrayList.wrap(new int[]{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}));
+        pageBuilder.appendToOutputPartition(inputPage, IntArrayList.wrap(new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}));
         // Dictionary mode appender should report the size of the ID's, but doesn't currently track
         // the per-position size at all because it would be inefficient
         assertEquals(Integer.BYTES * 10, pageBuilder.getSizeInBytes());
@@ -140,7 +140,7 @@ public class TestPositionsAppenderPageBuilder
     {
         // Create unhelpful dictionary wrapping
         Block valueBlock = createRandomBlockForType(VARCHAR, 10, 0.25f);
-        Block dictionaryBlock = DictionaryBlock.create(10, valueBlock, new int[]{0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
+        Block dictionaryBlock = DictionaryBlock.create(10, valueBlock, new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9});
         Page inputPage = new Page(dictionaryBlock);
 
         // Ensure the builder allows the entire value block to be inserted without being full
@@ -152,7 +152,7 @@ public class TestPositionsAppenderPageBuilder
                 List.of(VARCHAR),
                 new PositionsAppenderFactory(new BlockTypeOperators()));
 
-        pageBuilder.appendToOutputPartition(inputPage, IntArrayList.wrap(new int[]{0, 1, 2, 3, 4, 5, 6, 7, 8, 9}));
+        pageBuilder.appendToOutputPartition(inputPage, IntArrayList.wrap(new int[] {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}));
         assertEquals(Integer.BYTES * 10, pageBuilder.getSizeInBytes());
         assertFalse(pageBuilder.isFull());
 

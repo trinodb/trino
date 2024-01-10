@@ -88,7 +88,7 @@ public final class DescribeInputRewrite
             extends AstVisitor<Node, Void>
     {
         private static final Query EMPTY_INPUT = createDesctibeInputQuery(
-                new Row[]{row(
+                new Row[] {row(
                         new Cast(new NullLiteral(), toSqlType(BIGINT)),
                         new Cast(new NullLiteral(), toSqlType(VARCHAR)))},
                 Optional.of(new Limit(new LongLiteral("0"))));
