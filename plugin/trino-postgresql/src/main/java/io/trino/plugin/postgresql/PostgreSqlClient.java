@@ -134,6 +134,7 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.UUID;
 import java.util.function.BiFunction;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -275,7 +276,6 @@ public class PostgreSqlClient
     private final List<String> tableTypes;
     private final boolean statisticsEnabled;
     private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
-    private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriterWithCollate;
     private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
 
     @Inject
@@ -303,7 +303,8 @@ public class PostgreSqlClient
 
         this.statisticsEnabled = statisticsConfig.isEnabled();
 
-        JdbcConnectorExpressionRewriterBuilder connectorExpressionRewriterBuilder = JdbcConnectorExpressionRewriterBuilder.newBuilder()
+        Predicate<ConnectorSession> pushdownWithCollateEnabled = PostgreSqlSessionProperties::isEnableStringPushdownWithCollate;
+        this.connectorExpressionRewriter = JdbcConnectorExpressionRewriterBuilder.newBuilder()
                 .addStandardRules(this::quoted)
                 .add(new RewriteIn())
                 .withTypeClass("integer_type", ImmutableSet.of("tinyint", "smallint", "integer", "bigint"))
@@ -326,14 +327,12 @@ public class PostgreSqlClient
                 .map("$not($is_null(value))").to("value IS NOT NULL")
                 .map("$not(value: boolean)").to("NOT value")
                 .map("$is_null(value)").to("value IS NULL")
-                .map("$nullif(first, second)").to("NULLIF(first, second)");
-        this.connectorExpressionRewriter = connectorExpressionRewriterBuilder.build();
-        this.connectorExpressionRewriterWithCollate = connectorExpressionRewriterBuilder
+                .map("$nullif(first, second)").to("NULLIF(first, second)")
                 .withTypeClass("collatable_type", ImmutableSet.of("char", "varchar"))
-                .map("$less_than(left: collatable_type, right: collatable_type)").to("left < right COLLATE \"C\"")
-                .map("$less_than_or_equal(left: collatable_type, right: collatable_type)").to("left <= right COLLATE \"C\"")
-                .map("$greater_than(left: collatable_type, right: collatable_type)").to("left > right COLLATE \"C\"")
-                .map("$greater_than_or_equal(left: collatable_type, right: collatable_type)").to("left >= right COLLATE \"C\"")
+                .when(pushdownWithCollateEnabled).map("$less_than(left: collatable_type, right: collatable_type)").to("left < right COLLATE \"C\"")
+                .when(pushdownWithCollateEnabled).map("$less_than_or_equal(left: collatable_type, right: collatable_type)").to("left <= right COLLATE \"C\"")
+                .when(pushdownWithCollateEnabled).map("$greater_than(left: collatable_type, right: collatable_type)").to("left > right COLLATE \"C\"")
+                .when(pushdownWithCollateEnabled).map("$greater_than_or_equal(left: collatable_type, right: collatable_type)").to("left >= right COLLATE \"C\"")
                 .build();
 
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
@@ -798,9 +797,6 @@ public class PostgreSqlClient
     @Override
     public Optional<ParameterizedExpression> convertPredicate(ConnectorSession session, ConnectorExpression expression, Map<String, ColumnHandle> assignments)
     {
-        if (isEnableStringPushdownWithCollate(session)) {
-            return connectorExpressionRewriterWithCollate.rewrite(session, expression, assignments);
-        }
         return connectorExpressionRewriter.rewrite(session, expression, assignments);
     }
 
