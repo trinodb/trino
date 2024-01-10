@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.procedure;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import io.trino.plugin.base.util.UncheckedCloseable;
@@ -125,11 +126,12 @@ public class DropStatsProcedure
                         .collect(toImmutableList());
                 validatePartitions(partitionStringValues, partitionColumns);
 
-                partitionStringValues.forEach(values -> metastore.updatePartitionsStatistics(
+                partitionStringValues.forEach(values -> metastore.updatePartitionStatistics(
                         schema,
                         table,
-                        makePartName(partitionColumns, values),
-                        stats -> PartitionStatistics.empty()));
+                        ImmutableMap.of(
+                                makePartName(partitionColumns, values),
+                                stats -> PartitionStatistics.empty())));
             }
             else {
                 // no partition specified, so drop stats for the entire table
@@ -144,11 +146,12 @@ public class DropStatsProcedure
                 else {
                     // the table is partitioned; remove stats for every partition
                     metastore.getPartitionNamesByFilter(handle.getSchemaName(), handle.getTableName(), partitionColumns, TupleDomain.all())
-                            .ifPresent(partitions -> partitions.forEach(partitionName -> metastore.updatePartitionsStatistics(
+                            .ifPresent(partitions -> partitions.forEach(partitionName -> metastore.updatePartitionStatistics(
                                     schema,
                                     table,
-                                    partitionName,
-                                    stats -> PartitionStatistics.empty())));
+                                    ImmutableMap.of(
+                                            partitionName,
+                                            stats -> PartitionStatistics.empty()))));
                 }
             }
 

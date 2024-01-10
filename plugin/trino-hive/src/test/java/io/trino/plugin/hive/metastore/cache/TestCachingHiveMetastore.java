@@ -929,7 +929,7 @@ public class TestCachingHiveMetastore
         Table table = hiveMetastoreClosure.getTable(TEST_DATABASE, TEST_TABLE).orElseThrow();
         assertThat(mockClient.getAccessCount()).isEqualTo(1);
 
-        hiveMetastoreClosure.updatePartitionsStatistics(table.getDatabaseName(), table.getTableName(), TEST_PARTITION1, identity());
+        hiveMetastoreClosure.updatePartitionStatistics(table.getDatabaseName(), table.getTableName(), Map.of(TEST_PARTITION1, identity()));
         assertThat(mockClient.getAccessCount()).isEqualTo(5);
     }
 

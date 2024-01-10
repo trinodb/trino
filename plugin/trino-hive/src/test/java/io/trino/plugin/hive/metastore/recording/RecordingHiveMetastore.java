@@ -115,13 +115,6 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public void updatePartitionsStatistics(Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
-    {
-        verifyRecordingMode();
-        delegate.updatePartitionsStatistics(table, partitionName, update);
-    }
-
-    @Override
     public void updatePartitionStatistics(Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
     {
         verifyRecordingMode();

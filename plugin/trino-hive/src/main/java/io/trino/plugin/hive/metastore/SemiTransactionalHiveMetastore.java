@@ -3365,7 +3365,7 @@ public class SemiTransactionalHiveMetastore
         public void run(HiveMetastoreClosure metastore, AcidTransaction transaction)
         {
             if (partitionName.isPresent()) {
-                metastore.updatePartitionsStatistics(tableName.getSchemaName(), tableName.getTableName(), partitionName.get(), this::updateStatistics);
+                metastore.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), ImmutableMap.of(partitionName.get(), this::updateStatistics));
             }
             else {
                 metastore.updateTableStatistics(tableName.getSchemaName(), tableName.getTableName(), transaction, this::updateStatistics);
@@ -3379,7 +3379,7 @@ public class SemiTransactionalHiveMetastore
                 return;
             }
             if (partitionName.isPresent()) {
-                metastore.updatePartitionsStatistics(tableName.getSchemaName(), tableName.getTableName(), partitionName.get(), this::resetStatistics);
+                metastore.updatePartitionStatistics(tableName.getSchemaName(), tableName.getTableName(), ImmutableMap.of(partitionName.get(), this::resetStatistics));
             }
             else {
                 metastore.updateTableStatistics(tableName.getSchemaName(), tableName.getTableName(), transaction, this::resetStatistics);

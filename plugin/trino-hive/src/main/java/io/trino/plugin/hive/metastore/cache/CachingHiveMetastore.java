@@ -559,20 +559,6 @@ public final class CachingHiveMetastore
     }
 
     @Override
-    public void updatePartitionsStatistics(Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
-    {
-        try {
-            delegate.updatePartitionsStatistics(table, partitionName, update);
-        }
-        finally {
-            HivePartitionName hivePartitionName = hivePartitionName(hiveTableName(table.getDatabaseName(), table.getTableName()), partitionName);
-            partitionStatisticsCache.invalidate(hivePartitionName);
-            // basic stats are stored as partition properties
-            partitionCache.invalidate(hivePartitionName);
-        }
-    }
-
-    @Override
     public void updatePartitionStatistics(Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
     {
         try {

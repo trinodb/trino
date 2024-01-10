@@ -31,7 +31,6 @@ import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_PARTITION_NAMES
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_PARTITION_STATISTICS;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLE;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLE_STATISTICS;
-import static io.trino.plugin.hive.metastore.MetastoreMethod.UPDATE_PARTITIONS_STATISTICS;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.UPDATE_PARTITION_STATISTICS;
 import static io.trino.plugin.hive.metastore.MetastoreMethod.UPDATE_TABLE_STATISTICS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
@@ -287,7 +286,7 @@ public class TestHiveMetastoreAccessOperations
                 ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_TABLE)
                         .add(GET_PARTITION_NAMES_BY_FILTER)
-                        .add(UPDATE_PARTITIONS_STATISTICS)
+                        .add(UPDATE_PARTITION_STATISTICS)
                         .build());
 
         assertUpdate("INSERT INTO drop_stats_partition SELECT 2 AS data, 20 AS part", 1);
@@ -296,7 +295,7 @@ public class TestHiveMetastoreAccessOperations
                 ImmutableMultiset.<MetastoreMethod>builder()
                         .add(GET_TABLE)
                         .add(GET_PARTITION_NAMES_BY_FILTER)
-                        .addCopies(UPDATE_PARTITIONS_STATISTICS, 2)
+                        .addCopies(UPDATE_PARTITION_STATISTICS, 2)
                         .build());
     }
 
