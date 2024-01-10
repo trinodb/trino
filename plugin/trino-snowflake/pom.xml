@@ -15,6 +15,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <air.test.jvm.additional-arguments>--add-opens=java.base/java.nio=ALL-UNNAMED</air.test.jvm.additional-arguments>
     </properties>
 
     <dependencies>
@@ -185,18 +186,6 @@
         </dependency>
     </dependencies>
 
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <configuration>
-                    <argLine>--add-opens=java.base/java.nio=ALL-UNNAMED</argLine>
-                </configuration>
-            </plugin>
-        </plugins>
-    </build>
-
     <profiles>
         <profile>
             <id>default</id>
@@ -210,8 +199,6 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <excludes>
-                                <exclude>**/TestSnowflakeClient.java</exclude>
-                                <exclude>**/TestSnowflakeConfig.java</exclude>
                                 <exclude>**/TestSnowflakeConnectorTest.java</exclude>
                                 <exclude>**/TestSnowflakePlugin.java</exclude>
                                 <exclude>**/TestSnowflakeTypeMapping.java</exclude>
@@ -225,6 +212,9 @@
         <profile>
             <!-- Tests which require third party cloud services are separated from the main test profile -->
             <id>cloud-tests</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
             <build>
                 <plugins>
                     <plugin>
@@ -232,11 +222,11 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <exclude>**/TestSnowflakeClient.java</exclude>
-                                <exclude>**/TestSnowflakeConfig.java</exclude>
-                                <exclude>**/TestSnowflakeConnectorTest.java</exclude>
-                                <exclude>**/TestSnowflakePlugin.java</exclude>
-                                <exclude>**/TestSnowflakeTypeMapping.java</exclude>
+                                <include>**/TestSnowflakeClient.java</include>
+                                <include>**/TestSnowflakeConfig.java</include>
+                                <include>**/TestSnowflakeConnectorTest.java</include>
+                                <include>**/TestSnowflakePlugin.java</include>
+                                <include>**/TestSnowflakeTypeMapping.java</include>
                             </includes>
                         </configuration>
                     </plugin>

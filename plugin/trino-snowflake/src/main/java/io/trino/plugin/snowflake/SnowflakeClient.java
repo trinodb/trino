@@ -244,17 +244,62 @@ public class SnowflakeClient
     @Override
     public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
+        Optional<ColumnMapping> mapping = getForcedMappingToVarchar(typeHandle);
+        if (mapping.isPresent()) {
+            return mapping;
+        }
+
         String jdbcTypeName = typeHandle.getJdbcTypeName()
                 .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
         jdbcTypeName = jdbcTypeName.toLowerCase(Locale.ENGLISH);
         int type = typeHandle.getJdbcType();
 
-        ColumnMapping columnMap = STANDARD_COLUMN_MAPPINGS.get(type);
+        // Mappings for JDBC column types to internal Trino types
+        final Map<Integer, ColumnMapping> standardColumnMappings = ImmutableMap.<Integer, ColumnMapping>builder()
+                .put(Types.BOOLEAN, StandardColumnMappings.booleanColumnMapping())
+                .put(Types.TINYINT, StandardColumnMappings.tinyintColumnMapping())
+                .put(Types.SMALLINT, StandardColumnMappings.smallintColumnMapping())
+                .put(Types.INTEGER, StandardColumnMappings.integerColumnMapping())
+                .put(Types.BIGINT, StandardColumnMappings.bigintColumnMapping())
+                .put(Types.REAL, StandardColumnMappings.realColumnMapping())
+                .put(Types.DOUBLE, StandardColumnMappings.doubleColumnMapping())
+                .put(Types.FLOAT, StandardColumnMappings.doubleColumnMapping())
+                .put(Types.BINARY, StandardColumnMappings.varbinaryColumnMapping())
+                .put(Types.VARBINARY, StandardColumnMappings.varbinaryColumnMapping())
+                .put(Types.LONGVARBINARY, StandardColumnMappings.varbinaryColumnMapping())
+                .buildOrThrow();
+
+        ColumnMapping columnMap = standardColumnMappings.get(type);
         if (columnMap != null) {
             return Optional.of(columnMap);
         }
 
-        ColumnMappingFunction columnMappingFunction = SHOWFLAKE_COLUMN_MAPPINGS.get(jdbcTypeName);
+        final Map<String, ColumnMappingFunction> snowflakeColumnMappings = ImmutableMap.<String, ColumnMappingFunction>builder()
+                .put("time", handle -> {
+                    return Optional.of(timeColumnMapping(handle));
+                })
+                .put("date", handle -> {
+                    return Optional.of(ColumnMapping.longMapping(
+                            DateType.DATE, (resultSet, columnIndex) ->
+                                    LocalDate.ofEpochDay(resultSet.getLong(columnIndex)).toEpochDay(),
+                            snowFlakeDateWriter()));
+                })
+                .put("varchar", handle -> {
+                    return Optional.of(varcharColumnMapping(handle.getRequiredColumnSize()));
+                })
+                .put("number", handle -> {
+                    int decimalDigits = handle.getRequiredDecimalDigits();
+                    int precision = handle.getRequiredColumnSize() + Math.max(-decimalDigits, 0);
+                    if (precision > 38) {
+                        return Optional.empty();
+                    }
+                    return Optional.of(columnMappingPushdown(
+                            StandardColumnMappings.decimalColumnMapping(DecimalType.createDecimalType(
+                                    precision, Math.max(decimalDigits, 0)), RoundingMode.UNNECESSARY)));
+                })
+                .buildOrThrow();
+
+        ColumnMappingFunction columnMappingFunction = snowflakeColumnMappings.get(jdbcTypeName);
         if (columnMappingFunction != null) {
             return columnMappingFunction.convert(typeHandle);
         }
@@ -269,17 +314,66 @@ public class SnowflakeClient
         Class<?> myClass = type.getClass();
         String simple = myClass.getSimpleName();
 
-        WriteMapping writeMapping = STANDARD_WRITE_MAPPINGS.get(simple);
+        // Mappings for internal Trino types to JDBC column types
+        final Map<String, WriteMapping> standardWriteMappings = ImmutableMap.<String, WriteMapping>builder()
+                .put("BooleanType", WriteMapping.booleanMapping("boolean", StandardColumnMappings.booleanWriteFunction()))
+                .put("BigintType", WriteMapping.longMapping("number(19)", StandardColumnMappings.bigintWriteFunction()))
+                .put("IntegerType", WriteMapping.longMapping("number(10)", StandardColumnMappings.integerWriteFunction()))
+                .put("SmallintType", WriteMapping.longMapping("number(5)", StandardColumnMappings.smallintWriteFunction()))
+                .put("TinyintType", WriteMapping.longMapping("number(3)", StandardColumnMappings.tinyintWriteFunction()))
+                .put("DoubleType", WriteMapping.doubleMapping("double precision", StandardColumnMappings.doubleWriteFunction()))
+                .put("RealType", WriteMapping.longMapping("real", StandardColumnMappings.realWriteFunction()))
+                .put("VarbinaryType", WriteMapping.sliceMapping("varbinary", StandardColumnMappings.varbinaryWriteFunction()))
+                .put("DateType", WriteMapping.longMapping("date", snowFlakeDateWriter()))
+                .buildOrThrow();
+
+        WriteMapping writeMapping = standardWriteMappings.get(simple);
         if (writeMapping != null) {
             return writeMapping;
         }
 
-        WriteMappingFunction writeMappingFunction = SNOWFLAKE_WRITE_MAPPINGS.get(simple);
+        final Map<String, WriteMappingFunction> snowflakeWriteMappings = ImmutableMap.<String, WriteMappingFunction>builder()
+                .put("TimeType", writeType -> {
+                    return WriteMapping.longMapping("time", SnowflakeClient.snowFlaketimeWriter(writeType));
+                })
+                .put("ShortTimestampType", writeType -> {
+                    WriteMapping myMap = SnowflakeClient.snowFlakeTimestampWriter(writeType);
+                    return myMap;
+                })
+                .put("ShortTimestampWithTimeZoneType", writeType -> {
+                    WriteMapping myMap = SnowflakeClient.snowFlakeTimestampWithTZWriter(writeType);
+                    return myMap;
+                })
+                .put("LongTimestampType", writeType -> {
+                    WriteMapping myMap = SnowflakeClient.snowFlakeTimestampWithTZWriter(writeType);
+                    return myMap;
+                })
+                .put("LongTimestampWithTimeZoneType", writeType -> {
+                    WriteMapping myMap = SnowflakeClient.snowFlakeTimestampWithTZWriter(writeType);
+                    return myMap;
+                })
+                .put("VarcharType", writeType -> {
+                    WriteMapping myMap = SnowflakeClient.snowFlakeVarCharWriter(writeType);
+                    return myMap;
+                })
+                .put("CharType", writeType -> {
+                    WriteMapping myMap = SnowflakeClient.snowFlakeCharWriter(writeType);
+                    return myMap;
+                })
+                .put("LongDecimalType", writeType -> {
+                    WriteMapping myMap = SnowflakeClient.snowFlakeDecimalWriter(writeType);
+                    return myMap;
+                })
+                .put("ShortDecimalType", writeType -> {
+                    WriteMapping myMap = SnowflakeClient.snowFlakeDecimalWriter(writeType);
+                    return myMap;
+                })
+                .buildOrThrow();
+
+        WriteMappingFunction writeMappingFunction = snowflakeWriteMappings.get(simple);
         if (writeMappingFunction != null) {
             return writeMappingFunction.convert(type);
         }
-
-        log.debug("SnowflakeClient.toWriteMapping: SNOWFLAKE_CONNECTOR_COLUMN_TYPE_NOT_SUPPORTED: Unsupported column type: " + type.getDisplayName() + ", simple:" + simple);
 
         throw new TrinoException(NOT_SUPPORTED, "SNOWFLAKE_CONNECTOR_COLUMN_TYPE_NOT_SUPPORTED: Unsupported column type: " + type.getDisplayName() + ", simple:" + simple);
     }
@@ -322,7 +416,6 @@ public class SnowflakeClient
     private static ColumnMapping columnMappingPushdown(ColumnMapping mapping)
     {
         if (mapping.getPredicatePushdownController() == PredicatePushdownController.DISABLE_PUSHDOWN) {
-            log.debug("SnowflakeClient.columnMappingPushdown: NOT_SUPPORTED mapping.getPredicatePushdownController() is DISABLE_PUSHDOWN. Type was " + mapping.getType());
             throw new TrinoException(NOT_SUPPORTED, "mapping.getPredicatePushdownController() is DISABLE_PUSHDOWN. Type was " + mapping.getType());
         }
 
