@@ -64,16 +64,11 @@ public class JdbcConnectorExpressionRewriterBuilder
         return this;
     }
 
-    public ExpressionMapping<JdbcConnectorExpressionRewriterBuilder> map(String expressionPattern)
+    public ExpressionMapping map(String expressionPattern)
     {
-        return new ExpressionMapping<>()
-        {
-            @Override
-            public JdbcConnectorExpressionRewriterBuilder to(String rewritePattern)
-            {
-                rules.add(new GenericRewrite(typeClasses, expressionPattern, rewritePattern));
-                return JdbcConnectorExpressionRewriterBuilder.this;
-            }
+        return rewritePattern -> {
+            rules.add(new GenericRewrite(typeClasses, expressionPattern, rewritePattern));
+            return JdbcConnectorExpressionRewriterBuilder.this;
         };
     }
 
@@ -82,8 +77,8 @@ public class JdbcConnectorExpressionRewriterBuilder
         return new ConnectorExpressionRewriter<>(rules.build());
     }
 
-    public interface ExpressionMapping<Continuation>
+    public interface ExpressionMapping
     {
-        Continuation to(String rewritePattern);
+        JdbcConnectorExpressionRewriterBuilder to(String rewritePattern);
     }
 }
