@@ -193,11 +193,12 @@ public class AvroPageDataReader
             case RECORD -> new RowBlockBuildingDecoder(action, typeManager);
             case ENUM -> new EnumBlockBuildingDecoder((Resolver.EnumAdjust) action);
             case WRITER_UNION -> {
-                if (isSimpleNullableUnion(action.reader)) {
-                    yield new WriterUnionBlockBuildingDecoder((Resolver.WriterUnion) action, typeManager);
+                if (action.reader.getType() == Schema.Type.UNION && !isSimpleNullableUnion(action.reader)) {
+                    yield new WriterUnionCoercedIntoRowBlockBuildingDecoder((Resolver.WriterUnion) action, typeManager);
                 }
                 else {
-                    yield new WriterUnionCoercedIntoRowBlockBuildingDecoder((Resolver.WriterUnion) action, typeManager);
+                    // reading a union with non-union or nullable union, optimistically try to create the reader, will fail at read time with any underlying issues
+                    yield new WriterUnionBlockBuildingDecoder((Resolver.WriterUnion) action, typeManager);
                 }
             }
             case READER_UNION -> {
