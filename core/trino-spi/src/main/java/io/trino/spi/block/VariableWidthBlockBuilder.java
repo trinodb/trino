@@ -32,7 +32,7 @@ public class VariableWidthBlockBuilder
         implements BlockBuilder
 {
     private static final int INSTANCE_SIZE = instanceSize(VariableWidthBlockBuilder.class);
-    private static final Block NULL_VALUE_BLOCK = new VariableWidthBlock(0, 1, EMPTY_SLICE, new int[]{0, 0}, new boolean[]{true});
+    private static final Block NULL_VALUE_BLOCK = new VariableWidthBlock(0, 1, EMPTY_SLICE, new int[] {0, 0}, new boolean[] {true});
     private static final int SIZE_IN_BYTES_PER_POSITION = Integer.BYTES + Byte.BYTES;
 
     private final BlockBuilderStatus blockBuilderStatus;

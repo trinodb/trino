@@ -88,7 +88,7 @@ public final class DescribeOutputRewrite
             extends AstVisitor<Node, Void>
     {
         private static final Query EMPTY_OUTPUT = createDesctibeOutputQuery(
-                new Row[]{row(
+                new Row[] {row(
                         new Cast(new NullLiteral(), toSqlType(VARCHAR)),
                         new Cast(new NullLiteral(), toSqlType(VARCHAR)),
                         new Cast(new NullLiteral(), toSqlType(VARCHAR)),
