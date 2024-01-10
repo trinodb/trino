@@ -579,7 +579,7 @@ public final class CachingHiveMetastore
             delegate.updatePartitionStatistics(table, updates);
         }
         finally {
-            updates.forEach((partitionName, update) -> {
+            updates.keySet().forEach(partitionName -> {
                 HivePartitionName hivePartitionName = hivePartitionName(hiveTableName(table.getDatabaseName(), table.getTableName()), partitionName);
                 partitionStatisticsCache.invalidate(hivePartitionName);
                 // basic stats are stored as partition properties
