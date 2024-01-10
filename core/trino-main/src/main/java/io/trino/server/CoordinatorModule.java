@@ -50,6 +50,7 @@ import io.trino.execution.ForQueryExecution;
 import io.trino.execution.QueryDecorator;
 import io.trino.execution.QueryExecution;
 import io.trino.execution.QueryExecutionMBean;
+import io.trino.execution.QueryExecutorInternal;
 import io.trino.execution.QueryIdGenerator;
 import io.trino.execution.QueryManager;
 import io.trino.execution.QueryManagerConfig;
@@ -107,6 +108,7 @@ import io.trino.server.protocol.data.QueryDataFormatsModule;
 import io.trino.server.remotetask.RemoteTaskStats;
 import io.trino.server.ui.WebUiModule;
 import io.trino.server.ui.WorkerResource;
+import io.trino.spi.VersionEmbedder;
 import io.trino.spi.memory.ClusterMemoryPoolManager;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.AnalyzerFactory;
@@ -146,6 +148,7 @@ import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.trino.server.InternalCommunicationHttpClientModule.internalHttpClientModule;
+import static io.trino.util.Executors.decorateWithVersion;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -388,7 +391,7 @@ public class CoordinatorModule
 
     @Provides
     @Singleton
-    @ForQueryExecution
+    @QueryExecutorInternal
     public static ExecutorService createQueryExecutor(QueryManagerConfig queryManagerConfig)
     {
         ThreadPoolExecutor queryExecutor = new ThreadPoolExecutor(
@@ -399,6 +402,14 @@ public class CoordinatorModule
                 threadsNamed("query-execution-%s"));
         queryExecutor.allowCoreThreadTimeOut(true);
         return queryExecutor;
+    }
+
+    @Provides
+    @Singleton
+    @ForQueryExecution
+    public static ExecutorService createQueryExecutor(@QueryExecutorInternal ExecutorService queryExecutor, VersionEmbedder versionEmbedder)
+    {
+        return decorateWithVersion(queryExecutor, versionEmbedder);
     }
 
     @Provides
