@@ -36,7 +36,6 @@ import javax.security.auth.login.LoginException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.security.Principal;
-import java.security.PrivilegedAction;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Locale;
@@ -204,7 +203,7 @@ public class KerberosAuthenticator
 
     private static <T> T doAs(Subject subject, GssSupplier<T> action)
     {
-        return Subject.doAs(subject, (PrivilegedAction<T>) () -> {
+        return Subject.callAs(subject, () -> {
             try {
                 return action.get();
             }
