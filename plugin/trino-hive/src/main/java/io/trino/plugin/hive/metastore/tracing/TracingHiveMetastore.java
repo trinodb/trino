@@ -149,17 +149,6 @@ public class TracingHiveMetastore
     }
 
     @Override
-    public void updatePartitionsStatistics(Table table, String partitionName, Function<PartitionStatistics, PartitionStatistics> update)
-    {
-        Span span = tracer.spanBuilder("HiveMetastore.updatePartitionsStatistics")
-                .setAttribute(SCHEMA, table.getDatabaseName())
-                .setAttribute(TABLE, table.getTableName())
-                .setAttribute(PARTITION, partitionName)
-                .startSpan();
-        withTracing(span, () -> delegate.updatePartitionsStatistics(table, partitionName, update));
-    }
-
-    @Override
     public void updatePartitionStatistics(Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
     {
         Span span = tracer.spanBuilder("HiveMetastore.updatePartitionStatistics")
