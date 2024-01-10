@@ -48,6 +48,7 @@ final class TestBridgingHiveMetastore
         extends AbstractTestHiveMetastore
 {
     private final HiveHadoop hiveHadoop;
+    private final HiveMetastore metastore;
 
     TestBridgingHiveMetastore()
     {
@@ -68,16 +69,22 @@ final class TestBridgingHiveMetastore
             return result;
         });
 
-        setMetastore(new BridgingHiveMetastore(testingThriftHiveMetastoreBuilder()
+        metastore = new BridgingHiveMetastore(testingThriftHiveMetastoreBuilder()
                 .metastoreClient(hiveHadoop.getHiveMetastoreEndpoint(), metastoreClientAdapterProvider)
                 .thriftMetastoreConfig(new ThriftMetastoreConfig().setDeleteFilesOnDrop(true))
-                .build()));
+                .build());
     }
 
     @AfterAll
     void afterAll()
     {
         hiveHadoop.stop();
+    }
+
+    @Override
+    protected HiveMetastore getMetastore()
+    {
+        return metastore;
     }
 
     @Test
