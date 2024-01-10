@@ -45,6 +45,7 @@ import java.util.concurrent.Future;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.trino.plugin.iceberg.IcebergTestUtils.getFileSystemFactory;
@@ -156,7 +157,9 @@ public abstract class BaseIcebergConnectorSmokeTest
                     .collect(toImmutableList());
 
             Stream<Optional<String>> expectedRows = Streams.mapWithIndex(futures.stream(), (future, index) -> {
-                boolean deleteSuccessful = tryGetFutureValue(future, 10, SECONDS).orElseThrow();
+                Optional<Boolean> value = tryGetFutureValue(future, 20, SECONDS);
+                checkState(value.isPresent(), "Task %s did not complete in time", index);
+                boolean deleteSuccessful = value.get();
                 return deleteSuccessful ? Optional.empty() : Optional.of(rows.get((int) index));
             });
             List<String> expectedValues = expectedRows.filter(Optional::isPresent).map(Optional::get).collect(toImmutableList());
