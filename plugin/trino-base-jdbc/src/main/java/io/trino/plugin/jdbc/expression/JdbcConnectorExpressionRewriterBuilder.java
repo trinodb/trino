@@ -64,7 +64,7 @@ public class JdbcConnectorExpressionRewriterBuilder
         return this;
     }
 
-    public ExpressionMapping map(String expressionPattern)
+    public ExpectRewriteTarget map(String expressionPattern)
     {
         return rewritePattern -> {
             rules.add(new GenericRewrite(typeClasses, expressionPattern, rewritePattern));
@@ -77,7 +77,7 @@ public class JdbcConnectorExpressionRewriterBuilder
         return new ConnectorExpressionRewriter<>(rules.build());
     }
 
-    public interface ExpressionMapping
+    public interface ExpectRewriteTarget
     {
         JdbcConnectorExpressionRewriterBuilder to(String rewritePattern);
     }
