@@ -334,15 +334,6 @@ public class CoordinatorModule
                 .toInstance(newSingleThreadScheduledExecutor(threadsNamed("stage-scheduler")));
 
         // query execution
-        QueryManagerConfig queryManagerConfig = buildConfigObject(QueryManagerConfig.class);
-        ThreadPoolExecutor queryExecutor = new ThreadPoolExecutor(
-                queryManagerConfig.getQueryExecutorPoolSize(),
-                queryManagerConfig.getQueryExecutorPoolSize(),
-                60, SECONDS,
-                new LinkedBlockingQueue<>(1000),
-                threadsNamed("query-execution-%s"));
-        queryExecutor.allowCoreThreadTimeOut(true);
-        binder.bind(ExecutorService.class).annotatedWith(ForQueryExecution.class).toInstance(queryExecutor);
         binder.bind(QueryExecutionMBean.class).in(Scopes.SINGLETON);
         newExporter(binder).export(QueryExecutionMBean.class)
                 .as(generator -> generator.generatedNameOf(QueryExecution.class));
@@ -384,6 +375,21 @@ public class CoordinatorModule
     public static ResourceGroupManager<?> getResourceGroupManager(@SuppressWarnings("rawtypes") ResourceGroupManager manager)
     {
         return manager;
+    }
+
+    @Provides
+    @Singleton
+    @ForQueryExecution
+    public static ExecutorService createQueryExecutor(QueryManagerConfig queryManagerConfig)
+    {
+        ThreadPoolExecutor queryExecutor = new ThreadPoolExecutor(
+                queryManagerConfig.getQueryExecutorPoolSize(),
+                queryManagerConfig.getQueryExecutorPoolSize(),
+                60, SECONDS,
+                new LinkedBlockingQueue<>(1000),
+                threadsNamed("query-execution-%s"));
+        queryExecutor.allowCoreThreadTimeOut(true);
+        return queryExecutor;
     }
 
     @Provides
