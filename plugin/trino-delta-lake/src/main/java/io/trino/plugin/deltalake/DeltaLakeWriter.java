@@ -350,7 +350,7 @@ public final class DeltaLakeWriter
                 RowBlock rowBlock = (RowBlock) runLengthEncodedBlock.getValue();
                 RowBlock newRowBlock = RowBlock.fromNotNullSuppressedFieldBlocks(
                         1,
-                        rowBlock.isNull(0) ? Optional.of(new boolean[]{true}) : Optional.empty(),
+                        rowBlock.isNull(0) ? Optional.of(new boolean[] {true}) : Optional.empty(),
                         coerceFields(rowBlock.getFieldBlocks()));
                 return RunLengthEncodedBlock.create(newRowBlock, runLengthEncodedBlock.getPositionCount());
             }

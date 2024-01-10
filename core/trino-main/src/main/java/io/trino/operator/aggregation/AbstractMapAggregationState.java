@@ -186,7 +186,7 @@ public abstract class AbstractMapAggregationState
     private static byte[][] createRecordGroups(int capacity, int recordSize)
     {
         if (capacity < RECORDS_PER_GROUP) {
-            return new byte[][]{new byte[multiplyExact(capacity, recordSize)]};
+            return new byte[][] {new byte[multiplyExact(capacity, recordSize)]};
         }
 
         byte[][] groups = new byte[(capacity + 1) >> RECORDS_PER_GROUP_SHIFT][];

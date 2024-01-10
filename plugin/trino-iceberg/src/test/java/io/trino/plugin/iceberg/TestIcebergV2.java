@@ -206,7 +206,7 @@ public class TestIcebergV2
         String tableName = "test_v2_equality_delete" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM tpch.tiny.nation", 25);
         Table icebergTable = loadTable(tableName);
-        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[]{1L})));
+        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
         // nationkey is before the equality delete column in the table schema, comment is after
         assertQuery("SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE regionkey != 1");
@@ -235,7 +235,7 @@ public class TestIcebergV2
                 "SELECT regionkey, ARRAY[1,2] array_column, MAP(ARRAY[1], ARRAY[2]) map_column, " +
                 "CAST(ROW(1, 2e0) AS ROW(x BIGINT, y DOUBLE)) row_column FROM tpch.tiny.nation", 25);
         Table icebergTable = loadTable(tableName);
-        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[]{1L})));
+        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
         assertQuery("SELECT array_column[1], map_column[1], row_column.x FROM " + tableName, "SELECT 1, 2, 1 FROM nation WHERE regionkey != 1");
     }
 
@@ -247,7 +247,7 @@ public class TestIcebergV2
         assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", 25);
         Table icebergTable = loadTable(tableName);
         assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
-        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[]{1L})));
+        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
         List<String> initialActiveFiles = getActiveFiles(tableName);
         query("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
@@ -267,7 +267,7 @@ public class TestIcebergV2
         Table icebergTable = loadTable(tableName);
         assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
         List<String> initialActiveFiles = getActiveFiles(tableName);
-        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[]{1L})));
+        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
         query("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE regionkey != 1");
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
         // nationkey is before the equality delete column in the table schema, comment is after
@@ -284,7 +284,7 @@ public class TestIcebergV2
         String tableName = "test_selectively_optimizing_leaves_eq_deletes_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['nationkey']) AS SELECT * FROM tpch.tiny.nation", 25);
         Table icebergTable = loadTable(tableName);
-        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[]{1L})));
+        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
         query("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE nationkey < 5");
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1 OR nationkey != 1");
         assertThat(loadTable(tableName).currentSnapshot().summary()).containsEntry("total-equality-deletes", "1");
@@ -420,7 +420,7 @@ public class TestIcebergV2
         String tableName = "test_optimizing_whole_table_removes_eq_deletes_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['nationkey']) AS SELECT * FROM tpch.tiny.nation", 25);
         Table icebergTable = loadTable(tableName);
-        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[]{1L})));
+        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
         query("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1 OR nationkey != 1");
         assertThat(loadTable(tableName).currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
@@ -453,7 +453,7 @@ public class TestIcebergV2
         assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['regionkey']) AS SELECT * FROM tpch.tiny.nation", 25);
         Table icebergTable = loadTable(tableName);
         assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
-        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[]{1L})));
+        writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
         List<String> initialActiveFiles = getActiveFiles(tableName);
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
         query("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE regionkey != 1");
@@ -464,8 +464,8 @@ public class TestIcebergV2
         List<String> updatedFiles = getActiveFiles(tableName);
         assertThat(updatedFiles)
                 .doesNotContain(initialActiveFiles.stream()
-                                .filter(path -> !path.contains("regionkey=1"))
-                                .toArray(String[]::new));
+                        .filter(path -> !path.contains("regionkey=1"))
+                        .toArray(String[]::new));
     }
 
     @Test
@@ -955,7 +955,7 @@ public class TestIcebergV2
         List<Integer> equalityDeleteFieldIds = deleteColumns.stream()
                 .map(name -> deleteRowSchema.findField(name).fieldId())
                 .collect(toImmutableList());
-       writeEqualityDeleteToNationTableWithDeleteColumns(icebergTable, partitionSpec, partitionData, overwriteValues, deleteRowSchema, equalityDeleteFieldIds);
+        writeEqualityDeleteToNationTableWithDeleteColumns(icebergTable, partitionSpec, partitionData, overwriteValues, deleteRowSchema, equalityDeleteFieldIds);
     }
 
     private void writeEqualityDeleteToNationTableWithDeleteColumns(

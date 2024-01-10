@@ -1350,7 +1350,7 @@ public class PostgreSqlClient
                     varcharMapType.getValueType().writeSlice(valueBlockBuilder, utf8Slice(entry.getValue()));
                 }
             }
-            MapBlock mapBlock = varcharMapType.createBlockFromKeyValue(Optional.empty(), new int[]{0, map.size()}, keyBlockBuilder.build(), valueBlockBuilder.build());
+            MapBlock mapBlock = varcharMapType.createBlockFromKeyValue(Optional.empty(), new int[] {0, map.size()}, keyBlockBuilder.build(), valueBlockBuilder.build());
             return varcharMapType.getObject(mapBlock, 0);
         });
     }
