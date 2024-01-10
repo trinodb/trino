@@ -18,8 +18,7 @@ import org.apache.thrift.transport.TTransportException;
 
 import javax.security.auth.Subject;
 
-import java.security.PrivilegedActionException;
-import java.security.PrivilegedExceptionAction;
+import java.util.concurrent.CompletionException;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -42,15 +41,15 @@ public class TSubjectAssumingTransport
             throws TTransportException
     {
         try {
-            Subject.doAs(subject, (PrivilegedExceptionAction<?>) () -> {
+            Subject.callAs(subject, () -> {
                 transport.open();
                 return null;
             });
         }
-        catch (PrivilegedActionException e) {
+        catch (CompletionException e) {
             throwIfInstanceOf(e.getCause(), TTransportException.class);
             throwIfUnchecked(e.getCause());
-            throw new RuntimeException(e.getCause());
+            throw e;
         }
     }
 }
