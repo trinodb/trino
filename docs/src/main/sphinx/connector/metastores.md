@@ -353,8 +353,8 @@ iceberg.catalog.type=rest
 iceberg.rest-catalog.uri=http://iceberg-with-rest:8181
 ```
 
-The REST catalog does not support {doc}`views</sql/create-view>` or
-{doc}`materialized views</sql/create-materialized-view>`.
+The REST catalog does not support [view management](sql-view-management) or
+[materialized view management](sql-materialized-view-management).
 
 (iceberg-jdbc-catalog)=
 
@@ -390,8 +390,8 @@ iceberg.jdbc-catalog.connection-password=test
 iceberg.jdbc-catalog.default-warehouse-dir=s3://bucket
 ```
 
-The JDBC catalog does not support {doc}`views</sql/create-view>` or
-{doc}`materialized views</sql/create-materialized-view>`.
+The JDBC catalog does not support [view management](sql-view-management) or
+[materialized view management](sql-materialized-view-management).
 
 (iceberg-nessie-catalog)=
 
@@ -438,6 +438,9 @@ iceberg.catalog.type=nessie
 iceberg.nessie-catalog.uri=https://localhost:19120/api/v1
 iceberg.nessie-catalog.default-warehouse-dir=/tmp
 ```
+
+The Nessie catalog does not support [view management](sql-view-management) or
+[materialized view management](sql-materialized-view-management).
 
 (partition-projection)=
 
