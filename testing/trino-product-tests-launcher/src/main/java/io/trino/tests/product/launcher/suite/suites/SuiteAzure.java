@@ -21,6 +21,8 @@ import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
 
+import static io.trino.tests.product.TestGroups.AZURE;
+import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class SuiteAzure
@@ -31,7 +33,7 @@ public class SuiteAzure
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinodeAzure.class)
-                        .withGroups("configured_features", "azure")
+                        .withGroups(CONFIGURED_FEATURES, AZURE)
                         .build());
     }
 }

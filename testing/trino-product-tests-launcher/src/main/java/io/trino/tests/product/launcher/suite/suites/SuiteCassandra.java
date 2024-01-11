@@ -21,6 +21,8 @@ import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
 
+import static io.trino.tests.product.TestGroups.CASSANDRA;
+import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class SuiteCassandra
@@ -31,7 +33,7 @@ public class SuiteCassandra
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinodeCassandra.class)
-                        .withGroups("configured_features", "cassandra")
+                        .withGroups(CONFIGURED_FEATURES, CASSANDRA)
                         .build());
     }
 }

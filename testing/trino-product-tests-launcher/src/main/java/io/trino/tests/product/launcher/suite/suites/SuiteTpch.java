@@ -21,6 +21,8 @@ import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
 
+import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
+import static io.trino.tests.product.TestGroups.TPCH;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class SuiteTpch
@@ -31,7 +33,7 @@ public class SuiteTpch
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinode.class)
-                        .withGroups("configured_features", "tpch")
+                        .withGroups(CONFIGURED_FEATURES, TPCH)
                         .build());
     }
 }

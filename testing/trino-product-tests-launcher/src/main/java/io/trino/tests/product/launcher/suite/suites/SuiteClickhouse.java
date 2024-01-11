@@ -21,6 +21,8 @@ import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
 
+import static io.trino.tests.product.TestGroups.CLICKHOUSE;
+import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class SuiteClickhouse
@@ -31,7 +33,7 @@ public class SuiteClickhouse
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinodeClickhouse.class)
-                        .withGroups("configured_features", "clickhouse")
+                        .withGroups(CONFIGURED_FEATURES, CLICKHOUSE)
                         .build());
     }
 }

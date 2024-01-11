@@ -155,6 +155,11 @@
 
         <dependency>
             <groupId>io.trino</groupId>
+            <artifactId>trino-product-tests-groups</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.trino</groupId>
             <artifactId>trino-testing-containers</artifactId>
         </dependency>
 

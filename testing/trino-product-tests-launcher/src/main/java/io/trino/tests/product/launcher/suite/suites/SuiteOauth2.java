@@ -26,6 +26,8 @@ import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
 
+import static io.trino.tests.product.TestGroups.OAUTH2;
+import static io.trino.tests.product.TestGroups.OAUTH2_REFRESH;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class SuiteOauth2
@@ -36,22 +38,22 @@ public class SuiteOauth2
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvSinglenodeOauth2.class)
-                        .withGroups("oauth2")
+                        .withGroups(OAUTH2)
                         .build(),
                 testOnEnvironment(EnvSinglenodeOauth2HttpProxy.class)
-                        .withGroups("oauth2")
+                        .withGroups(OAUTH2)
                         .build(),
                 testOnEnvironment(EnvSinglenodeOauth2HttpsProxy.class)
-                        .withGroups("oauth2")
+                        .withGroups(OAUTH2)
                         .build(),
                 testOnEnvironment(EnvSinglenodeOidc.class)
-                        .withGroups("oauth2")
+                        .withGroups(OAUTH2)
                         .build(),
                 testOnEnvironment(EnvSinglenodeOauth2Refresh.class)
-                        .withGroups("oauth2_refresh")
+                        .withGroups(OAUTH2_REFRESH)
                         .build(),
                 testOnEnvironment(EnvSinglenodeOidcRefresh.class)
-                        .withGroups("oauth2_refresh")
+                        .withGroups(OAUTH2_REFRESH)
                         .build());
     }
 }

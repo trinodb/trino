@@ -22,6 +22,9 @@ import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
 
+import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
+import static io.trino.tests.product.TestGroups.HIVE_HUDI_REDIRECTIONS;
+import static io.trino.tests.product.TestGroups.HUDI;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class SuiteHudi
@@ -32,10 +35,10 @@ public class SuiteHudi
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvSinglenodeHudi.class)
-                        .withGroups("configured_features", "hudi")
+                        .withGroups(CONFIGURED_FEATURES, HUDI)
                         .build(),
                 testOnEnvironment(EnvSinglenodeHiveHudiRedirections.class)
-                        .withGroups("configured_features", "hive_hudi_redirections")
+                        .withGroups(CONFIGURED_FEATURES, HIVE_HUDI_REDIRECTIONS)
                         .build());
     }
 }
