@@ -57,6 +57,7 @@ import io.trino.execution.buffer.OutputBuffers;
 import io.trino.execution.buffer.PipelinedBufferInfo;
 import io.trino.execution.buffer.PipelinedOutputBuffers;
 import io.trino.execution.buffer.SpoolingOutputStats;
+import io.trino.metadata.InternalNode;
 import io.trino.metadata.Split;
 import io.trino.operator.TaskStats;
 import io.trino.server.DynamicFilterService;
@@ -206,7 +207,7 @@ public final class HttpRemoteTask
             Session session,
             Span stageSpan,
             TaskId taskId,
-            String nodeId,
+            InternalNode node,
             boolean speculative,
             URI location,
             PlanFragment planFragment,
@@ -236,7 +237,7 @@ public final class HttpRemoteTask
         requireNonNull(session, "session is null");
         requireNonNull(stageSpan, "stageSpan is null");
         requireNonNull(taskId, "taskId is null");
-        requireNonNull(nodeId, "nodeId is null");
+        requireNonNull(node, "node is null");
         requireNonNull(location, "location is null");
         requireNonNull(planFragment, "planFragment is null");
         requireNonNull(outputBuffers, "outputBuffers is null");
@@ -254,7 +255,7 @@ public final class HttpRemoteTask
             this.taskId = taskId;
             this.session = session;
             this.stageSpan = stageSpan;
-            this.nodeId = nodeId;
+            this.nodeId = node.getNodeIdentifier();
             this.speculative = new AtomicBoolean(speculative);
             this.planFragment = planFragment;
             this.outputBuffers.set(outputBuffers);
