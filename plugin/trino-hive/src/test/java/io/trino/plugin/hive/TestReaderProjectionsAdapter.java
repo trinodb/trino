@@ -224,7 +224,7 @@ public class TestReaderProjectionsAdapter
 
     private static Block createProjectedColumnBlock(Block data, Type finalType, RowType blockType, List<Integer> dereferences)
     {
-        if (dereferences.size() == 0) {
+        if (dereferences.isEmpty()) {
             return data;
         }
 
