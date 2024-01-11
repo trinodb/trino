@@ -2984,21 +2984,19 @@ public class IcebergMetadata
             else {
                 snapshotAtRefresh = Optional.of(Long.parseLong(value));
             }
-            TableChangeInfo tableChangeInfo = getTableChangeInfo(session, (IcebergTableHandle) tableHandle, snapshotAtRefresh);
-            if (tableChangeInfo instanceof NoTableChange) {
-                // Fresh
-            }
-            else if (tableChangeInfo instanceof FirstChangeSnapshot firstChange) {
-                hasStaleIcebergTables = true;
-                firstTableChange = firstTableChange
-                        .map(epochMilli -> Math.min(epochMilli, firstChange.snapshot().timestampMillis()));
-            }
-            else if (tableChangeInfo instanceof UnknownTableChange) {
-                hasStaleIcebergTables = true;
-                firstTableChange = Optional.empty();
-            }
-            else {
-                throw new IllegalStateException("Unhandled table change info " + tableChangeInfo);
+            switch (getTableChangeInfo(session, (IcebergTableHandle) tableHandle, snapshotAtRefresh)) {
+                case NoTableChange() -> {
+                    // Fresh
+                }
+                case FirstChangeSnapshot(Snapshot snapshot) -> {
+                    hasStaleIcebergTables = true;
+                    firstTableChange = firstTableChange
+                            .map(epochMilli -> Math.min(epochMilli, snapshot.timestampMillis()));
+                }
+                case UnknownTableChange() -> {
+                    hasStaleIcebergTables = true;
+                    firstTableChange = Optional.empty();
+                }
             }
         }
 
@@ -3111,7 +3109,7 @@ public class IcebergMetadata
     private sealed interface TableChangeInfo
             permits NoTableChange, FirstChangeSnapshot, UnknownTableChange {}
 
-    private static final class NoTableChange
+    private record NoTableChange()
             implements TableChangeInfo {}
 
     private record FirstChangeSnapshot(Snapshot snapshot)
@@ -3123,6 +3121,6 @@ public class IcebergMetadata
         }
     }
 
-    private static final class UnknownTableChange
+    private record UnknownTableChange()
             implements TableChangeInfo {}
 }
