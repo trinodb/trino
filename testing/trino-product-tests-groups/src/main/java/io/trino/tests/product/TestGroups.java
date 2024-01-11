@@ -13,6 +13,8 @@
  */
 package io.trino.tests.product;
 
+import com.google.common.collect.ImmutableSet;
+
 import java.lang.reflect.Field;
 import java.util.IdentityHashMap;
 import java.util.Set;
@@ -24,17 +26,9 @@ import static java.util.Objects.requireNonNull;
 
 public final class TestGroups
 {
-    public static final String CREATE_TABLE = "create_table";
-    public static final String CREATE_DROP_VIEW = "create_drop_view";
-    public static final String ALTER_TABLE = "alter_table";
-    public static final String COMMENT = "comment";
-    public static final String SIMPLE = "simple";
     public static final String FUNCTIONS = "functions";
     public static final String CLI = "cli";
-    public static final String SYSTEM = "system";
     public static final String CONFIGURED_FEATURES = "configured_features";
-    public static final String JMX = "jmx";
-    public static final String BLACKHOLE = "blackhole";
     public static final String TPCH = "tpch";
     public static final String TPCDS = "tpcds";
     public static final String JOIN = "join";
@@ -46,22 +40,16 @@ public final class TestGroups
     public static final String OAUTH2_REFRESH = "oauth2_refresh";
     public static final String MYSQL = "mysql";
     public static final String TRINO_JDBC = "trino_jdbc";
-    public static final String QE = "qe"; // query engine
-    public static final String COMPARISON = "comparison";
-    public static final String LOGICAL = "logical";
-    public static final String JSON_FUNCTIONS = "json_functions";
     public static final String STORAGE_FORMATS = "storage_formats";
     public static final String STORAGE_FORMATS_DETAILED = "storage_formats_detailed";
     public static final String HMS_ONLY = "hms_only";
     public static final String PROFILE_SPECIFIC_TESTS = "profile_specific_tests";
     public static final String HDFS_IMPERSONATION = "hdfs_impersonation";
     public static final String HDFS_NO_IMPERSONATION = "hdfs_no_impersonation";
-    public static final String HIVE_PARTITIONING = "hive_partitioning";
     public static final String HIVE_SPARK = "hive_spark";
     public static final String HIVE_SPARK_NO_STATS_FALLBACK = "hive_spark_no_stats_fallback";
     public static final String HIVE_COMPRESSION = "hive_compression";
     public static final String HIVE_TRANSACTIONAL = "hive_transactional";
-    public static final String HIVE_VIEWS = "hive_views";
     public static final String HIVE_VIEW_COMPATIBILITY = "hive_view_compatibility";
     public static final String HIVE_CACHING = "hive_caching";
     public static final String HIVE_ICEBERG_REDIRECTIONS = "hive_iceberg_redirections";
@@ -69,7 +57,6 @@ public final class TestGroups
     public static final String HIVE_KERBEROS = "hive_kerberos";
     public static final String HIVE_FILE_HEADER = "hive_file_header";
     public static final String AUTHORIZATION = "authorization";
-    public static final String HIVE_COERCION = "hive_coercion";
     public static final String AZURE = "azure";
     public static final String CASSANDRA = "cassandra";
     public static final String POSTGRESQL = "postgresql";
@@ -80,8 +67,6 @@ public final class TestGroups
     public static final String LDAP_AND_FILE_CLI = "ldap_and_file_cli";
     public static final String LDAP_MULTIPLE_BINDS = "ldap_multiple_binds";
     public static final String TLS = "tls";
-    public static final String ROLES = "roles";
-    public static final String CANCEL_QUERY = "cancel_query";
     public static final String LARGE_QUERY = "large_query";
     public static final String KAFKA = "kafka";
     public static final String KAFKA_CONFLUENT_LICENSE = "kafka_confluent_license";
@@ -91,7 +76,6 @@ public final class TestGroups
     public static final String ICEBERG_REST = "iceberg_rest";
     public static final String ICEBERG_JDBC = "iceberg_jdbc";
     public static final String ICEBERG_NESSIE = "iceberg_nessie";
-    public static final String AVRO = "avro";
     public static final String PHOENIX = "phoenix";
     public static final String CLICKHOUSE = "clickhouse";
     public static final String KUDU = "kudu";
@@ -117,21 +101,30 @@ public final class TestGroups
     {
         private Introspection() {}
 
+        private static final Set<String> ALL_GROUPS;
         // Identity-based set
         private static final Set<String> ALL_GROUPS_IDENTITIES;
 
         static {
             try {
+                ImmutableSet.Builder<String> groups = ImmutableSet.builder();
                 Set<String> groupIdentities = newSetFromMap(new IdentityHashMap<>());
                 for (Field field : TestGroups.class.getFields()) {
                     String group = (String) field.get(null);
+                    groups.add(group);
                     groupIdentities.add(group);
                 }
+                ALL_GROUPS = groups.build();
                 ALL_GROUPS_IDENTITIES = unmodifiableSet(groupIdentities);
             }
             catch (ReflectiveOperationException e) {
                 throw new RuntimeException(e);
             }
+        }
+
+        public static Set<String> getAllGroups()
+        {
+            return ALL_GROUPS;
         }
 
         public static void validateGroupIdentityReferences(Iterable<String> groupNames)
