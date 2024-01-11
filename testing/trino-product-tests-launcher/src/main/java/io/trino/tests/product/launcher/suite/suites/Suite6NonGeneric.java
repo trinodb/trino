@@ -27,6 +27,9 @@ import io.trino.tests.product.launcher.suite.SuiteTestRun;
 import java.util.List;
 
 import static com.google.common.base.Verify.verify;
+import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
+import static io.trino.tests.product.TestGroups.PHOENIX;
+import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class Suite6NonGeneric
@@ -39,19 +42,19 @@ public class Suite6NonGeneric
 
         return ImmutableList.of(
                 testOnEnvironment(EnvSinglenodeKerberosKmsHdfsNoImpersonation.class)
-                        .withGroups("configured_features", "storage_formats")
+                        .withGroups(CONFIGURED_FEATURES, STORAGE_FORMATS)
                         .build(),
                 testOnEnvironment(EnvSinglenodeKerberosKmsHdfsNoImpersonationWithCredentialCache.class)
-                        .withGroups("configured_features", "storage_formats")
+                        .withGroups(CONFIGURED_FEATURES, STORAGE_FORMATS)
                         .build(),
                 testOnEnvironment(EnvSinglenodeKerberosKmsHdfsImpersonation.class)
-                        .withGroups("configured_features", "storage_formats")
+                        .withGroups(CONFIGURED_FEATURES, STORAGE_FORMATS)
                         .build(),
                 testOnEnvironment(EnvSinglenodeKerberosKmsHdfsImpersonationWithCredentialCache.class)
-                        .withGroups("configured_features", "storage_formats")
+                        .withGroups(CONFIGURED_FEATURES, STORAGE_FORMATS)
                         .build(),
                 testOnEnvironment(EnvMultinodePhoenix5.class)
-                        .withGroups("configured_features", "phoenix")
+                        .withGroups(CONFIGURED_FEATURES, PHOENIX)
                         .build());
     }
 }

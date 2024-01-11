@@ -23,6 +23,8 @@ import io.trino.tests.product.launcher.suite.SuiteTestRun;
 import java.util.List;
 
 import static com.google.common.base.Verify.verify;
+import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
+import static io.trino.tests.product.TestGroups.HIVE_TRANSACTIONAL;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class SuiteHiveTransactional
@@ -36,6 +38,7 @@ public class SuiteHiveTransactional
         return ImmutableList.of(
                 testOnEnvironment(EnvSinglenodeHiveAcid.class)
                         .withGroups("configured_features", "hive_transactional")
+                        .withGroups(CONFIGURED_FEATURES, HIVE_TRANSACTIONAL)
                         .build());
     }
 }

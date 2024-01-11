@@ -25,6 +25,14 @@ import io.trino.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
 
+import static io.trino.tests.product.TestGroups.AUTHORIZATION;
+import static io.trino.tests.product.TestGroups.CLI;
+import static io.trino.tests.product.TestGroups.CONFIGURED_FEATURES;
+import static io.trino.tests.product.TestGroups.HDFS_IMPERSONATION;
+import static io.trino.tests.product.TestGroups.HDFS_NO_IMPERSONATION;
+import static io.trino.tests.product.TestGroups.HIVE_FILE_HEADER;
+import static io.trino.tests.product.TestGroups.HIVE_KERBEROS;
+import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
 
 public class Suite2
@@ -35,20 +43,20 @@ public class Suite2
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinode.class)
-                        .withGroups("configured_features", "hdfs_no_impersonation")
+                        .withGroups(CONFIGURED_FEATURES, HDFS_NO_IMPERSONATION)
                         .withExcludedTests("io.trino.tests.product.TestImpersonation.testExternalLocationTableCreationSuccess")
                         .build(),
                 testOnEnvironment(EnvSinglenodeKerberosHdfsNoImpersonation.class)
-                        .withGroups("configured_features", "storage_formats", "hdfs_no_impersonation", "hive_kerberos")
+                        .withGroups(CONFIGURED_FEATURES, STORAGE_FORMATS, HDFS_NO_IMPERSONATION, HIVE_KERBEROS)
                         .build(),
                 testOnEnvironment(EnvSinglenodeKerberosHiveNoImpersonationWithCredentialCache.class)
-                        .withGroups("configured_features", "storage_formats", "hdfs_no_impersonation")
+                        .withGroups(CONFIGURED_FEATURES, STORAGE_FORMATS, HDFS_NO_IMPERSONATION)
                         .build(),
                 testOnEnvironment(EnvSinglenodeHdfsImpersonation.class)
-                        .withGroups("configured_features", "storage_formats", "cli", "hdfs_impersonation")
+                        .withGroups(CONFIGURED_FEATURES, STORAGE_FORMATS, CLI, HDFS_IMPERSONATION)
                         .build(),
                 testOnEnvironment(EnvSinglenodeKerberosHdfsImpersonation.class)
-                        .withGroups("configured_features", "storage_formats", "cli", "hdfs_impersonation", "authorization", "hive_file_header", "hive_kerberos")
+                        .withGroups(CONFIGURED_FEATURES, STORAGE_FORMATS, CLI, HDFS_IMPERSONATION, AUTHORIZATION, HIVE_FILE_HEADER, HIVE_KERBEROS)
                         .build());
     }
 }
