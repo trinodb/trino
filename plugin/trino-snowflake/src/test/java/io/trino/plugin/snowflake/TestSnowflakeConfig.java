@@ -32,8 +32,7 @@ public class TestSnowflakeConfig
                 .setDatabase(null)
                 .setRole(null)
                 .setWarehouse(null)
-                .setHTTPProxy(null)
-                .setTimestampNoTimezoneAsUTC(null));
+                .setHTTPProxy(null));
     }
 
     @Test
@@ -53,8 +52,7 @@ public class TestSnowflakeConfig
                 .setDatabase("MYDATABASE")
                 .setRole("MYROLE")
                 .setWarehouse("MYWAREHOUSE")
-                .setHTTPProxy("MYPROXY")
-                .setTimestampNoTimezoneAsUTC(true);
+                .setHTTPProxy("MYPROXY");
 
         assertFullMapping(properties, expected);
     }

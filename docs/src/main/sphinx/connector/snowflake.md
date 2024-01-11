@@ -71,8 +71,6 @@ Trino supports the following Snowflake data types:
 | `date`         | `date`         |
 | `time`         | `time`         |
 | `timestampntz` | `timestamp`    |
-| `timestamptz`  | `timestampTZ`  |
-| `timestampltz` | `timestampTZ`  |
 
 Complete list of [Snowflake data types](https://docs.snowflake.com/en/sql-reference/intro-summary-data-types.html).
 

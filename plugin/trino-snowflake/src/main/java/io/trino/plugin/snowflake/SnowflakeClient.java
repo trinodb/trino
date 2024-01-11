@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
 import io.airlift.log.Logger;
-import io.airlift.slice.Slices;
 import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
@@ -92,10 +91,10 @@ import java.util.TimeZone;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.spi.type.DecimalType.createDecimalType;
+import static io.trino.spi.type.TimestampWithTimeZoneType.MAX_SHORT_PRECISION;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.trino.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
@@ -110,11 +109,11 @@ public class SnowflakeClient
     /* TIME supports an optional precision parameter for fractional seconds, e.g. TIME(3). Time precision can range from 0 (seconds) to 9 (nanoseconds). The default precision is 9.
       All TIME values must be between 00:00:00 and 23:59:59.999999999. TIME internally stores “wallclock” time, and all operations on TIME values are performed without taking any time zone into consideration.
      */
-    private static final int SNOWFLAKE_MAX_SUPPORTED_TIMESTAMP_PRECISION = 9;
+    private static final int MAX_SUPPORTED_TEMPORAL_PRECISION = 9;
     private static final Logger log = Logger.get(SnowflakeClient.class);
-    private static final DateTimeFormatter SNOWFLAKE_DATETIME_FORMATTER = DateTimeFormatter.ofPattern("y-MM-dd'T'HH:mm:ss.SSSSSSSSSXXX");
+    private static final DateTimeFormatter SNOWFLAKE_DATETIME_FORMATTER = DateTimeFormatter.ofPattern("u-MM-dd'T'HH:mm:ss.SSSSSSSSSXXX");
     private static final DateTimeFormatter SNOWFLAKE_DATE_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd");
-    private static final DateTimeFormatter SNOWFLAKE_TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("y-MM-dd'T'HH:mm:ss.SSSSSSSSS");
+    private static final DateTimeFormatter SNOWFLAKE_TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("u-MM-dd'T'HH:mm:ss.SSSSSSSSS");
     private static final DateTimeFormatter SNOWFLAKE_TIME_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss.SSSSSSSSS");
     private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
 
@@ -129,81 +128,6 @@ public class SnowflakeClient
     }
 
     private static final TimeZone UTC_TZ = TimeZone.getTimeZone(ZoneId.of("UTC"));
-    // Mappings for JDBC column types to internal Trino types
-    private static final Map<Integer, ColumnMapping> STANDARD_COLUMN_MAPPINGS = ImmutableMap.<Integer, ColumnMapping>builder()
-            .put(Types.BOOLEAN, StandardColumnMappings.booleanColumnMapping())
-            .put(Types.TINYINT, StandardColumnMappings.tinyintColumnMapping())
-            .put(Types.SMALLINT, StandardColumnMappings.smallintColumnMapping())
-            .put(Types.INTEGER, StandardColumnMappings.integerColumnMapping())
-            .put(Types.BIGINT, StandardColumnMappings.bigintColumnMapping())
-            .put(Types.REAL, StandardColumnMappings.realColumnMapping())
-            .put(Types.DOUBLE, StandardColumnMappings.doubleColumnMapping())
-            .put(Types.FLOAT, StandardColumnMappings.doubleColumnMapping())
-            .put(Types.BINARY, StandardColumnMappings.varbinaryColumnMapping())
-            .put(Types.VARBINARY, StandardColumnMappings.varbinaryColumnMapping())
-            .put(Types.LONGVARBINARY, StandardColumnMappings.varbinaryColumnMapping())
-            .buildOrThrow();
-
-    private static final Map<String, ColumnMappingFunction> SHOWFLAKE_COLUMN_MAPPINGS = ImmutableMap.<String, ColumnMappingFunction>builder()
-            .put("time", typeHandle -> Optional.of(timeColumnMapping(typeHandle)))
-            .put("timestampntz", typeHandle -> Optional.of(timestampColumnMapping(typeHandle)))
-            .put("timestamptz", typeHandle -> Optional.of(timestampTzColumnMapping(typeHandle)))
-            .put("timestampltz", typeHandle -> Optional.of(timestampTzColumnMapping(typeHandle)))
-            .put("date", typeHandle -> Optional.of(ColumnMapping.longMapping(
-                    DateType.DATE,
-                    (resultSet, columnIndex) -> LocalDate.ofEpochDay(resultSet.getLong(columnIndex)).toEpochDay(),
-                    snowFlakeDateWriter())))
-            .put("object", typeHandle -> Optional.of(ColumnMapping.sliceMapping(
-                    createUnboundedVarcharType(),
-                    StandardColumnMappings.varcharReadFunction(createUnboundedVarcharType()),
-                    StandardColumnMappings.varcharWriteFunction(),
-                    PredicatePushdownController.DISABLE_PUSHDOWN)))
-            .put("array", typeHandle -> Optional.of(ColumnMapping.sliceMapping(
-                    createUnboundedVarcharType(),
-                    StandardColumnMappings.varcharReadFunction(createUnboundedVarcharType()),
-                    StandardColumnMappings.varcharWriteFunction(),
-                    PredicatePushdownController.DISABLE_PUSHDOWN)))
-            .put("variant", typeHandle -> Optional.of(ColumnMapping.sliceMapping(
-                    createUnboundedVarcharType(),
-                    variantReadFunction(),
-                    StandardColumnMappings.varcharWriteFunction(),
-                    PredicatePushdownController.FULL_PUSHDOWN)))
-            .put("varchar", typeHandle -> Optional.of(varcharColumnMapping(typeHandle.getRequiredColumnSize())))
-            .put("number", typeHandle -> {
-                int decimalDigits = typeHandle.getRequiredDecimalDigits();
-                int precision = typeHandle.getRequiredColumnSize() + Math.max(-decimalDigits, 0);
-                if (precision > 38) {
-                    return Optional.empty();
-                }
-                return Optional.of(columnMappingPushdown(
-                        StandardColumnMappings.decimalColumnMapping(createDecimalType(precision, Math.max(decimalDigits, 0)), RoundingMode.UNNECESSARY)));
-            })
-            .buildOrThrow();
-
-    // Mappings for internal Trino types to JDBC column types
-    private static final Map<String, WriteMapping> STANDARD_WRITE_MAPPINGS = ImmutableMap.<String, WriteMapping>builder()
-            .put("BooleanType", WriteMapping.booleanMapping("boolean", StandardColumnMappings.booleanWriteFunction()))
-            .put("BigintType", WriteMapping.longMapping("number(19)", StandardColumnMappings.bigintWriteFunction()))
-            .put("IntegerType", WriteMapping.longMapping("number(10)", StandardColumnMappings.integerWriteFunction()))
-            .put("SmallintType", WriteMapping.longMapping("number(5)", StandardColumnMappings.smallintWriteFunction()))
-            .put("TinyintType", WriteMapping.longMapping("number(3)", StandardColumnMappings.tinyintWriteFunction()))
-            .put("DoubleType", WriteMapping.doubleMapping("double precision", StandardColumnMappings.doubleWriteFunction()))
-            .put("RealType", WriteMapping.longMapping("real", StandardColumnMappings.realWriteFunction()))
-            .put("VarbinaryType", WriteMapping.sliceMapping("varbinary", StandardColumnMappings.varbinaryWriteFunction()))
-            .put("DateType", WriteMapping.longMapping("date", snowFlakeDateWriter()))
-            .buildOrThrow();
-
-    private static final Map<String, WriteMappingFunction> SNOWFLAKE_WRITE_MAPPINGS = ImmutableMap.<String, WriteMappingFunction>builder()
-            .put("TimeType", type -> WriteMapping.longMapping("time", SnowflakeClient.snowFlaketimeWriter(type)))
-            .put("ShortTimestampType", SnowflakeClient::snowFlakeTimestampWriter)
-            .put("ShortTimestampWithTimeZoneType", SnowflakeClient::snowFlakeTimestampWithTZWriter)
-            .put("LongTimestampType", SnowflakeClient::snowFlakeTimestampWithTZWriter)
-            .put("LongTimestampWithTimeZoneType", SnowflakeClient::snowFlakeTimestampWithTZWriter)
-            .put("VarcharType", SnowflakeClient::snowFlakeVarCharWriter)
-            .put("CharType", SnowflakeClient::snowFlakeCharWriter)
-            .put("LongDecimalType", SnowflakeClient::snowFlakeDecimalWriter)
-            .put("ShortDecimalType", SnowflakeClient::snowFlakeDecimalWriter)
-            .buildOrThrow();
 
     @Inject
     public SnowflakeClient(
@@ -233,22 +157,8 @@ public class SnowflakeClient
     }
 
     @Override
-    public void abortReadConnection(Connection connection, ResultSet resultSet)
-            throws SQLException
-    {
-        // Abort connection before closing. Without this, the Snowflake driver
-        // attempts to drain the connection by reading all the results.
-        connection.abort(directExecutor());
-    }
-
-    @Override
     public Optional<ColumnMapping> toColumnMapping(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
-        Optional<ColumnMapping> mapping = getForcedMappingToVarchar(typeHandle);
-        if (mapping.isPresent()) {
-            return mapping;
-        }
-
         String jdbcTypeName = typeHandle.getJdbcTypeName()
                 .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
         jdbcTypeName = jdbcTypeName.toLowerCase(Locale.ENGLISH);
@@ -275,18 +185,9 @@ public class SnowflakeClient
         }
 
         final Map<String, ColumnMappingFunction> snowflakeColumnMappings = ImmutableMap.<String, ColumnMappingFunction>builder()
-                .put("time", handle -> {
-                    return Optional.of(timeColumnMapping(handle));
-                })
-                .put("date", handle -> {
-                    return Optional.of(ColumnMapping.longMapping(
-                            DateType.DATE, (resultSet, columnIndex) ->
-                                    LocalDate.ofEpochDay(resultSet.getLong(columnIndex)).toEpochDay(),
-                            snowFlakeDateWriter()));
-                })
-                .put("varchar", handle -> {
-                    return Optional.of(varcharColumnMapping(handle.getRequiredColumnSize()));
-                })
+                .put("time", handle -> { return Optional.of(timeColumnMapping(handle.getRequiredDecimalDigits())); })
+                .put("date", handle -> { return Optional.of(ColumnMapping.longMapping(DateType.DATE, (resultSet, columnIndex) -> LocalDate.ofEpochDay(resultSet.getLong(columnIndex)).toEpochDay(), snowFlakeDateWriter())); })
+                .put("varchar", handle -> { return Optional.of(varcharColumnMapping(handle.getRequiredColumnSize())); })
                 .put("number", handle -> {
                     int decimalDigits = handle.getRequiredDecimalDigits();
                     int precision = handle.getRequiredColumnSize() + Math.max(-decimalDigits, 0);
@@ -294,8 +195,7 @@ public class SnowflakeClient
                         return Optional.empty();
                     }
                     return Optional.of(columnMappingPushdown(
-                            StandardColumnMappings.decimalColumnMapping(DecimalType.createDecimalType(
-                                    precision, Math.max(decimalDigits, 0)), RoundingMode.UNNECESSARY)));
+                            StandardColumnMappings.decimalColumnMapping(DecimalType.createDecimalType(precision, Math.max(decimalDigits, 0)), RoundingMode.UNNECESSARY)));
                 })
                 .buildOrThrow();
 
@@ -305,7 +205,7 @@ public class SnowflakeClient
         }
 
         // Code should never reach here so throw an error.
-        throw new TrinoException(NOT_SUPPORTED, "SNOWFLAKE_CONNECTOR_COLUMN_TYPE_NOT_SUPPORTED: Unsupported column type(" + type + "):" + jdbcTypeName);
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported column type(" + type + "):" + jdbcTypeName);
     }
 
     @Override
@@ -334,7 +234,7 @@ public class SnowflakeClient
 
         final Map<String, WriteMappingFunction> snowflakeWriteMappings = ImmutableMap.<String, WriteMappingFunction>builder()
                 .put("TimeType", writeType -> {
-                    return WriteMapping.longMapping("time", SnowflakeClient.snowFlaketimeWriter(writeType));
+                    return WriteMapping.longMapping("time", timeWriteFunction(((TimeType) writeType).getPrecision()));
                 })
                 .put("ShortTimestampType", writeType -> {
                     WriteMapping myMap = SnowflakeClient.snowFlakeTimestampWriter(writeType);
@@ -375,7 +275,7 @@ public class SnowflakeClient
             return writeMappingFunction.convert(type);
         }
 
-        throw new TrinoException(NOT_SUPPORTED, "SNOWFLAKE_CONNECTOR_COLUMN_TYPE_NOT_SUPPORTED: Unsupported column type: " + type.getDisplayName() + ", simple:" + simple);
+        throw new TrinoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName() + ", simple:" + simple);
     }
 
     @Override
@@ -410,7 +310,7 @@ public class SnowflakeClient
 
     private static SliceReadFunction variantReadFunction()
     {
-        return (resultSet, columnIndex) -> Slices.utf8Slice(resultSet.getString(columnIndex).replaceAll("^\"|\"$", ""));
+        return (resultSet, columnIndex) -> utf8Slice(resultSet.getString(columnIndex).replaceAll("^\"|\"$", ""));
     }
 
     private static ColumnMapping columnMappingPushdown(ColumnMapping mapping)
@@ -422,10 +322,9 @@ public class SnowflakeClient
         return new ColumnMapping(mapping.getType(), mapping.getReadFunction(), mapping.getWriteFunction(), PredicatePushdownController.FULL_PUSHDOWN);
     }
 
-    private static ColumnMapping timeColumnMapping(JdbcTypeHandle typeHandle)
+    private static ColumnMapping timeColumnMapping(int precision)
     {
-        int precision = typeHandle.getRequiredDecimalDigits();
-        checkArgument(precision <= SNOWFLAKE_MAX_SUPPORTED_TIMESTAMP_PRECISION, "The max timestamp precision in Snowflake is " + SNOWFLAKE_MAX_SUPPORTED_TIMESTAMP_PRECISION);
+        checkArgument(precision <= MAX_SUPPORTED_TEMPORAL_PRECISION, "The max timestamp precision in Snowflake is " + MAX_SUPPORTED_TEMPORAL_PRECISION);
         return ColumnMapping.longMapping(
                 TimeType.createTimeType(precision),
                 (resultSet, columnIndex) -> {
@@ -436,21 +335,15 @@ public class SnowflakeClient
                 PredicatePushdownController.FULL_PUSHDOWN);
     }
 
-    private static LongWriteFunction snowFlaketimeWriter(Type type)
-    {
-        return timeWriteFunction(((TimeType) type).getPrecision());
-    }
-
     private static LongWriteFunction timeWriteFunction(int precision)
     {
-        checkArgument(precision <= SNOWFLAKE_MAX_SUPPORTED_TIMESTAMP_PRECISION, "Unsupported precision: %s", precision);
-        String bindExpression = format("CAST(? AS time(%s))", precision);
+        checkArgument(precision <= MAX_SUPPORTED_TEMPORAL_PRECISION, "Unsupported precision: %s", precision);
         return new LongWriteFunction()
         {
             @Override
             public String getBindExpression()
             {
-                return bindExpression;
+                return format("CAST(? AS time(%s))", precision);
             }
 
             @Override
@@ -474,16 +367,14 @@ public class SnowflakeClient
         String jdbcTypeName = typeHandle.getJdbcTypeName()
                 .orElseThrow(() -> new TrinoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
         int type = typeHandle.getJdbcType();
-        log.debug("timestampTZColumnMapping: jdbcTypeName(%s):%s precision:%s", type, jdbcTypeName, precision);
-
-        if (precision <= 3) {
+        if (precision <= MAX_SHORT_PRECISION) {
             return ColumnMapping.longMapping(
                     createTimestampWithTimeZoneType(precision),
                     (resultSet, columnIndex) -> {
                         ZonedDateTime timestamp = SNOWFLAKE_DATETIME_FORMATTER.parse(resultSet.getString(columnIndex), ZonedDateTime::from);
                         return DateTimeEncoding.packDateTimeWithZone(timestamp.toInstant().toEpochMilli(), timestamp.getZone().getId());
                     },
-                    timestampWithTZWriter(),
+                    timestampWithTimezoneWriteFunction(),
                     PredicatePushdownController.FULL_PUSHDOWN);
         }
         else {
@@ -568,8 +459,8 @@ public class SnowflakeClient
     {
         TimestampType timestampType = (TimestampType) type;
         checkArgument(
-                timestampType.getPrecision() <= SNOWFLAKE_MAX_SUPPORTED_TIMESTAMP_PRECISION,
-                "The max timestamp precision in Snowflake is " + SNOWFLAKE_MAX_SUPPORTED_TIMESTAMP_PRECISION);
+                timestampType.getPrecision() <= MAX_SUPPORTED_TEMPORAL_PRECISION,
+                "The max timestamp precision in Snowflake is " + MAX_SUPPORTED_TEMPORAL_PRECISION);
 
         if (timestampType.isShort()) {
             return WriteMapping.longMapping(format("timestamp_ntz(%d)", timestampType.getPrecision()), timestampWriteFunction());
@@ -593,14 +484,14 @@ public class SnowflakeClient
     {
         TimestampWithTimeZoneType timeTZType = (TimestampWithTimeZoneType) type;
 
-        checkArgument(timeTZType.getPrecision() <= SNOWFLAKE_MAX_SUPPORTED_TIMESTAMP_PRECISION, "Max Snowflake precision is is " + SNOWFLAKE_MAX_SUPPORTED_TIMESTAMP_PRECISION);
+        checkArgument(timeTZType.getPrecision() <= MAX_SUPPORTED_TEMPORAL_PRECISION, "Max Snowflake precision is is " + MAX_SUPPORTED_TEMPORAL_PRECISION);
         if (timeTZType.isShort()) {
-            return WriteMapping.longMapping(format("timestamp_tz(%d)", timeTZType.getPrecision()), timestampWithTZWriter());
+            return WriteMapping.longMapping(format("timestamp_tz(%d)", timeTZType.getPrecision()), timestampWithTimezoneWriteFunction());
         }
         return WriteMapping.objectMapping(format("timestamp_tz(%d)", timeTZType.getPrecision()), longTimestampWithTzWriteFunction());
     }
 
-    private static LongWriteFunction timestampWithTZWriter()
+    private static LongWriteFunction timestampWithTimezoneWriteFunction()
     {
         return (statement, index, encodedTimeWithZone) -> {
             Instant instant = Instant.ofEpochMilli(DateTimeEncoding.unpackMillisUtc(encodedTimeWithZone));

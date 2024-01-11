@@ -65,7 +65,6 @@ public class TestSnowflakeTypeMapping
     @BeforeAll
     public void setUp()
     {
-        String zone = jvmZone.getId();
         checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "Timezone not configured correctly. Add -Duser.timezone=America/Bahia_Banderas to your JVM arguments");
         checkIsGap(jvmZone, LocalDate.of(1970, 1, 1));
         checkIsGap(vilnius, LocalDate.of(1983, 4, 1));
@@ -76,9 +75,7 @@ public class TestSnowflakeTypeMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        snowflakeServer = new TestingSnowflakeServer();
         return createSnowflakeQueryRunner(
-                snowflakeServer,
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 ImmutableList.of());
@@ -322,7 +319,6 @@ public class TestSnowflakeTypeMapping
                 .build();
 
         SqlDataTypeTest.create()
-                // after epoch (MariaDb's timestamp type doesn't support values <= epoch)
                 .addRoundTrip("timestamp(3)", "TIMESTAMP '2019-03-18 10:01:17.987'", createTimestampType(3), "TIMESTAMP '2019-03-18 10:01:17.987'")
                 // time doubled in JVM zone
                 .addRoundTrip("timestamp(3)", "TIMESTAMP '2018-10-28 01:33:17.456'", createTimestampType(3), "TIMESTAMP '2018-10-28 01:33:17.456'")

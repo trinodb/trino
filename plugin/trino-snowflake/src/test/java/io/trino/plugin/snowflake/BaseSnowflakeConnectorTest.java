@@ -59,12 +59,10 @@ public abstract class BaseSnowflakeConnectorTest
                 return false;
             case SUPPORTS_COMMENT_ON_COLUMN:
             case SUPPORTS_ADD_COLUMN_WITH_COMMENT:
-            case SUPPORTS_COMMENT_ON_TABLE:
             case SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT:
             case SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT:
             case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
-            case SUPPORTS_DROP_FIELD:
             case SUPPORTS_ROW_TYPE:
             case SUPPORTS_ARRAY:
                 return false;
@@ -323,7 +321,6 @@ public abstract class BaseSnowflakeConnectorTest
                         "SELECT 1234567890, 123",
                 "SELECT count(*) + 1 FROM nation");
 
-        // TODO: BigQuery throws table not found at BigQueryClient.insert if we reuse the same table name
         tableName = "test_ctas" + randomNameSuffix();
         assertExplainAnalyze("EXPLAIN ANALYZE CREATE TABLE " + tableName + " AS SELECT name FROM nation");
         assertQuery("SELECT * from " + tableName, "SELECT name FROM nation");
@@ -357,7 +354,6 @@ public abstract class BaseSnowflakeConnectorTest
         assertQueryFails("CREATE TABLE " + tableName + " (a bad_type)", ".* Unknown type 'bad_type' for column 'a'");
         assertFalse(getQueryRunner().tableExists(getSession(), tableName));
 
-        // TODO (https://github.com/trinodb/trino/issues/5901) revert to longer name when Oracle version is updated
         tableName = "test_cr_not_exists_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (a bigint, b varchar(50), c double)");
         assertTrue(getQueryRunner().tableExists(getSession(), tableName));

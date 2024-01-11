@@ -36,7 +36,6 @@ public final class SnowflakeQueryRunner
     private SnowflakeQueryRunner() {}
 
     public static DistributedQueryRunner createSnowflakeQueryRunner(
-            TestingSnowflakeServer server,
             Map<String, String> extraProperties,
             Map<String, String> connectorProperties,
             Iterable<TpchTable<?>> tables)
@@ -85,7 +84,6 @@ public final class SnowflakeQueryRunner
             throws Exception
     {
         DistributedQueryRunner queryRunner = createSnowflakeQueryRunner(
-                new TestingSnowflakeServer(),
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),
                 ImmutableList.of());

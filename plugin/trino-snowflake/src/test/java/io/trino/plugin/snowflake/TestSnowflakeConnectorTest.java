@@ -26,8 +26,7 @@ public class TestSnowflakeConnectorTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        server = closeAfterClass(new TestingSnowflakeServer());
-        return createSnowflakeQueryRunner(server, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+        return createSnowflakeQueryRunner(ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
     }
 
     @Override
