@@ -22,7 +22,7 @@ import org.testng.annotations.Test;
 import static io.trino.tempto.assertions.QueryAssert.assertQueryFailure;
 import static io.trino.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
-import static io.trino.tests.product.TestGroups.SQL_SERVER;
+import static io.trino.tests.product.TestGroups.SQLSERVER;
 import static io.trino.tests.product.sqlserver.SqlServerTpchTableDefinitions.NATION;
 import static io.trino.tests.product.sqlserver.TestConstants.CONNECTOR_NAME;
 import static io.trino.tests.product.sqlserver.TestConstants.KEY_SPACE;
@@ -39,7 +39,7 @@ public class TestInvalidSelect
         return immutableTable(NATION);
     }
 
-    @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {SQLSERVER, PROFILE_SPECIFIC_TESTS})
     public void testNonExistentTable()
     {
         String tableName = format("%s.%s.%s", CONNECTOR_NAME, KEY_SPACE, "bogus");
@@ -47,7 +47,7 @@ public class TestInvalidSelect
                 .hasMessageContaining("Table '%s' does not exist", tableName);
     }
 
-    @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {SQLSERVER, PROFILE_SPECIFIC_TESTS})
     public void testNonExistentSchema()
     {
         String tableName = format("%s.%s.%s", CONNECTOR_NAME, "does_not_exist", "bogus");
@@ -55,7 +55,7 @@ public class TestInvalidSelect
                 .hasMessageContaining("Schema 'does_not_exist' does not exist");
     }
 
-    @Test(groups = {SQL_SERVER, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {SQLSERVER, PROFILE_SPECIFIC_TESTS})
     public void testNonExistentColumn()
     {
         String tableName = format("%s.%s.%s", CONNECTOR_NAME, KEY_SPACE, NATION.getName());
