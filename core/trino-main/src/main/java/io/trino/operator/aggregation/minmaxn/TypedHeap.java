@@ -14,7 +14,6 @@
 package io.trino.operator.aggregation.minmaxn;
 
 import com.google.common.base.Throwables;
-import com.google.common.primitives.Ints;
 import io.airlift.slice.SizeOf;
 import io.trino.operator.VariableWidthData;
 import io.trino.spi.block.BlockBuilder;
@@ -36,6 +35,7 @@ import static io.trino.operator.VariableWidthData.POINTER_SIZE;
 import static io.trino.operator.VariableWidthData.getChunkOffset;
 import static io.trino.operator.VariableWidthData.getValueLength;
 import static io.trino.operator.VariableWidthData.writePointer;
+import static java.lang.Math.clamp;
 import static java.util.Objects.requireNonNull;
 
 public final class TypedHeap
@@ -382,7 +382,7 @@ public final class TypedHeap
         if (newSize > 0) {
             int openSliceSize = newSize;
             if (newSize < MAX_CHUNK_SIZE) {
-                openSliceSize = Ints.constrainToRange(Ints.saturatedCast(openSliceSize * 2L), MIN_CHUNK_SIZE, MAX_CHUNK_SIZE);
+                openSliceSize = clamp(openSliceSize * 2L, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE);
             }
             moveVariableWidthToNewSlice(data, fixedSizeChunk, fixedRecordSize, fixedRecordPointerOffset, indexStart, recordCount, newSlices, openSliceSize, relocateVariableWidthOffsets);
             openChunkOffset = newSize;
