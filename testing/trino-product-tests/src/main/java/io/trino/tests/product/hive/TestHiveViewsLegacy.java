@@ -27,7 +27,6 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tests.product.TestGroups.HIVE_VIEWS;
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_ISSUES;
 import static io.trino.tests.product.utils.HadoopTestUtils.RETRYABLE_FAILURES_MATCH;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
@@ -49,7 +48,7 @@ public class TestHiveViewsLegacy
     }
 
     @Override
-    @Test(groups = HIVE_VIEWS)
+    @Test
     public void testShowCreateView()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS hive_show_view");
@@ -61,7 +60,7 @@ public class TestHiveViewsLegacy
     }
 
     @Override
-    @Test(groups = HIVE_VIEWS)
+    @Test
     public void testHiveViewInInformationSchema()
     {
         onHive().executeQuery("DROP SCHEMA IF EXISTS test_schema CASCADE");
@@ -86,7 +85,7 @@ public class TestHiveViewsLegacy
     }
 
     @Override
-    @Test(groups = HIVE_VIEWS)
+    @Test
     public void testHiveViewWithParametrizedTypes()
     {
         onHive().executeQuery("DROP VIEW IF EXISTS hive_view_parametrized");
@@ -119,7 +118,7 @@ public class TestHiveViewsLegacy
     }
 
     @Override
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testArrayConstructionInView()
     {
@@ -128,7 +127,7 @@ public class TestHiveViewsLegacy
     }
 
     @Override
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testMapConstructionInView()
     {
@@ -137,7 +136,7 @@ public class TestHiveViewsLegacy
     }
 
     @Override
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testPmodFunction()
     {
@@ -158,7 +157,7 @@ public class TestHiveViewsLegacy
     }
 
     @Override
-    @Test(groups = HIVE_VIEWS)
+    @Test
     @Flaky(issue = RETRYABLE_FAILURES_ISSUES, match = RETRYABLE_FAILURES_MATCH)
     public void testNestedHiveViews()
     {

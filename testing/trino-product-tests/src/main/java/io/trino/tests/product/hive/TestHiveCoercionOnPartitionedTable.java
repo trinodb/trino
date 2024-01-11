@@ -27,7 +27,6 @@ import java.util.Optional;
 import static io.trino.tempto.Requirements.compose;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
-import static io.trino.tests.product.TestGroups.HIVE_COERCION;
 import static io.trino.tests.product.TestGroups.JDBC;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
@@ -289,91 +288,91 @@ public class TestHiveCoercionOnPartitionedTable
     }
 
     @Requires(TextRequirements.class)
-    @Test(groups = {HIVE_COERCION, JDBC})
+    @Test(groups = JDBC)
     public void testHiveCoercionTextFile()
     {
         doTestHiveCoercion(HIVE_COERCION_TEXTFILE);
     }
 
     @Requires(TextRequirements.class)
-    @Test(groups = {HIVE_COERCION, JDBC})
+    @Test(groups = JDBC)
     public void testHiveCoercionWithDifferentTimestampPrecisionTextFile()
     {
         doTestHiveCoercionWithDifferentTimestampPrecision(HIVE_TIMESTAMP_COERCION_TEXTFILE);
     }
 
     @Requires(OrcRequirements.class)
-    @Test(groups = {HIVE_COERCION, JDBC})
+    @Test(groups = JDBC)
     public void testHiveCoercionOrc()
     {
         doTestHiveCoercion(HIVE_COERCION_ORC);
     }
 
     @Requires(OrcRequirements.class)
-    @Test(groups = {HIVE_COERCION, JDBC})
+    @Test(groups = JDBC)
     public void testHiveCoercionWithDifferentTimestampPrecisionOrc()
     {
         doTestHiveCoercionWithDifferentTimestampPrecision(HIVE_TIMESTAMP_COERCION_ORC);
     }
 
     @Requires(RcTextRequirements.class)
-    @Test(groups = {HIVE_COERCION, JDBC})
+    @Test(groups = JDBC)
     public void testHiveCoercionRcText()
     {
         doTestHiveCoercion(HIVE_COERCION_RCTEXT);
     }
 
     @Requires(RcTextRequirements.class)
-    @Test(groups = {HIVE_COERCION, JDBC})
+    @Test(groups = JDBC)
     public void testHiveCoercionWithDifferentTimestampPrecisionRcText()
     {
         doTestHiveCoercionWithDifferentTimestampPrecision(HIVE_TIMESTAMP_COERCION_RCTEXT);
     }
 
     @Requires(RcBinaryRequirements.class)
-    @Test(groups = {HIVE_COERCION, JDBC})
+    @Test(groups = JDBC)
     public void testHiveCoercionRcBinary()
     {
         doTestHiveCoercion(HIVE_COERCION_RCBINARY);
     }
 
     @Requires(RcBinaryRequirements.class)
-    @Test(groups = {HIVE_COERCION, JDBC})
+    @Test(groups = JDBC)
     public void testHiveCoercionWithDifferentTimestampPrecisionRcBinary()
     {
         doTestHiveCoercionWithDifferentTimestampPrecision(HIVE_TIMESTAMP_COERCION_RCBINARY);
     }
 
     @Requires(ParquetRequirements.class)
-    @Test(groups = {HIVE_COERCION, JDBC})
+    @Test(groups = JDBC)
     public void testHiveCoercionParquet()
     {
         doTestHiveCoercion(HIVE_COERCION_PARQUET);
     }
 
     @Requires(ParquetRequirements.class)
-    @Test(groups = {HIVE_COERCION, JDBC})
+    @Test(groups = JDBC)
     public void testHiveCoercionWithDifferentTimestampPrecisionParquet()
     {
         doTestHiveCoercionWithDifferentTimestampPrecision(HIVE_TIMESTAMP_COERCION_PARQUET);
     }
 
     @Requires(SequenceRequirements.class)
-    @Test(groups = {HIVE_COERCION, JDBC})
+    @Test(groups = JDBC)
     public void testHiveCoercionSequence()
     {
         doTestHiveCoercion(HIVE_COERCION_SEQUENCE);
     }
 
     @Requires(SequenceRequirements.class)
-    @Test(groups = {HIVE_COERCION, JDBC})
+    @Test(groups = JDBC)
     public void testHiveCoercionWithDifferentTimestampPrecisionSequence()
     {
         doTestHiveCoercionWithDifferentTimestampPrecision(HIVE_TIMESTAMP_COERCION_SEQUENCE);
     }
 
     @Requires(AvroRequirements.class)
-    @Test(groups = {HIVE_COERCION, JDBC})
+    @Test(groups = JDBC)
     public void testHiveCoercionAvro()
     {
         String tableName = mutableTableInstanceOf(HIVE_COERCION_AVRO).getNameInDatabase();
