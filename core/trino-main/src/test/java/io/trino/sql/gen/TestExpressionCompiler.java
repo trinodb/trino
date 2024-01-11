@@ -2089,6 +2089,53 @@ public class TestExpressionCompiler
         assertThat(assertions.expression("a IN (100, 101, if(rand()<0, 1), if(rand()>=0, 1))")
                 .binding("a", "2"))
                 .isNull(BOOLEAN);
+
+        // Test nulls in
+        assertThat(assertions.expression("(a, a, a) IN ((1, 2, 3))")
+                .binding("a", toLiteral(null, BIGINT)))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("""
+                (a, a, a) IN (
+                    (5544, 2353, 20707),
+                    (31151, 28065, 16095),
+                    (3438, 18492, 6766),
+                    (2760, 24192, 11910),
+                    (3742, 19535, 22987),
+                    (25095, 1010, 3350),
+                    (7041, 31411, 7591),
+                    (17249, 3966, 689)
+                )""")
+                .binding("a", toLiteral(null, BIGINT)))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("""
+                (a, a, a) IN (
+                    (0.3800333741515576,0.8791181098432054,0.8079168966591113),
+                    (0.841473183490171,0.6860318355122751,0.5095470524329374),
+                    (0.8018365844287392,0.5593077891717974,0.8910788708369497),
+                    (0.14038332668184272,0.6365466202692381,0.129021808157588),
+                    (0.5092693053249044,0.8550520748957249,0.6145972410498111),
+                    (0.29832096538891706,0.33744008233336487,0.5314014695786806),
+                    (0.6543933704493586,0.5583125620036814,0.30143883710327324),
+                    (0.18208897386302747,0.029459145253995844,0.5091670949185126)
+                )""")
+                .binding("a", toLiteral(null, DOUBLE)))
+                .isNull(BOOLEAN);
+
+        assertThat(assertions.expression("""
+                (a, a, a) IN (
+                    ('ENfsMkSuwJ','AyXdaqvmHG','KNEglPUiLq'),
+                    ('YxyzjGpwqu','lTWPpGOjfM','MTqbvaKuXJ'),
+                    ('hSxdZWuLEj','qrGZvDlkMw','MTUxntwpQe'),
+                    ('kFXxnrTZAb','yTjfKwcrEU','KOmFAaelSp'),
+                    ('FNPZQOGzKr','aFnCQOujdU','JwTMGErynA'),
+                    ('EUxWSTLrNp','JTeLWKuMtv','SIZCPrXpzO'),
+                    ('mBzobeIVrA','QLPvGtYprB','vBOLRnlaMN'),
+                    ('yznCLJqmVK','WgoKkNdSLR','mwAoQsMjrt')
+                )""")
+                .binding("a", toLiteral(null, DOUBLE)))
+                .isNull(BOOLEAN);
     }
 
     @Test

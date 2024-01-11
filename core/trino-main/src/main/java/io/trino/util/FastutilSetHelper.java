@@ -33,7 +33,6 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static com.google.common.base.Verify.verifyNotNull;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.util.SingleAccessMethodCompiler.compileSingleAccessMethod;
@@ -128,8 +127,7 @@ public final class FastutilSetHelper
         public boolean equals(long a, long b)
         {
             Boolean result = longEquals.equals(a, b);
-            // FastutilHashSet is not intended be used for indeterminate values lookup
-            verifyNotNull(result, "result is null");
+            // result can be null at null input
             return TRUE.equals(result);
         }
     }
@@ -172,8 +170,7 @@ public final class FastutilSetHelper
         public boolean equals(double a, double b)
         {
             Boolean result = doubleEquals.equals(a, b);
-            // FastutilHashSet is not intended be used for indeterminate values lookup
-            verifyNotNull(result, "result is null");
+            // result can be null at null input
             return TRUE.equals(result);
         }
     }
@@ -228,8 +225,7 @@ public final class FastutilSetHelper
                 return a == null && b == null;
             }
             Boolean result = objectEquals.equals(a, b);
-            // FastutilHashSet is not intended be used for indeterminate values lookup
-            verifyNotNull(result, "result is null");
+            // result can be null at null input
             return TRUE.equals(result);
         }
     }
