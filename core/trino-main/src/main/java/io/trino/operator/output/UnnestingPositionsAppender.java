@@ -15,6 +15,7 @@ package io.trino.operator.output;
 
 import io.trino.spi.block.Block;
 import io.trino.spi.block.DictionaryBlock;
+import io.trino.spi.block.LazyBlock;
 import io.trino.spi.block.RunLengthEncodedBlock;
 import io.trino.spi.block.ValueBlock;
 import io.trino.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
@@ -74,35 +75,35 @@ public class UnnestingPositionsAppender
             return;
         }
 
-        if (source instanceof RunLengthEncodedBlock rleBlock) {
-            appendRle(rleBlock.getValue(), positions.size());
-        }
-        else if (source instanceof DictionaryBlock dictionaryBlock) {
-            ValueBlock dictionary = dictionaryBlock.getDictionary();
-            if (state == State.UNINITIALIZED) {
-                state = State.DICTIONARY;
-                this.dictionary = dictionary;
-                dictionaryIdsBuilder.appendPositions(positions, dictionaryBlock);
+        switch (source) {
+            case RunLengthEncodedBlock rleBlock -> {
+                appendRle(rleBlock.getValue(), positions.size());
             }
-            else if (state == State.DICTIONARY && this.dictionary == dictionary) {
-                dictionaryIdsBuilder.appendPositions(positions, dictionaryBlock);
-            }
-            else {
-                transitionToDirect();
-
-                int[] positionArray = new int[positions.size()];
-                for (int i = 0; i < positions.size(); i++) {
-                    positionArray[i] = dictionaryBlock.getId(positions.getInt(i));
+            case DictionaryBlock dictionaryBlock -> {
+                ValueBlock dictionary = dictionaryBlock.getDictionary();
+                if (state == State.UNINITIALIZED) {
+                    state = State.DICTIONARY;
+                    this.dictionary = dictionary;
+                    dictionaryIdsBuilder.appendPositions(positions, dictionaryBlock);
                 }
-                delegate.append(IntArrayList.wrap(positionArray), dictionary);
+                else if (state == State.DICTIONARY && this.dictionary == dictionary) {
+                    dictionaryIdsBuilder.appendPositions(positions, dictionaryBlock);
+                }
+                else {
+                    transitionToDirect();
+
+                    int[] positionArray = new int[positions.size()];
+                    for (int i = 0; i < positions.size(); i++) {
+                        positionArray[i] = dictionaryBlock.getId(positions.getInt(i));
+                    }
+                    delegate.append(IntArrayList.wrap(positionArray), dictionary);
+                }
             }
-        }
-        else if (source instanceof ValueBlock valueBlock) {
-            transitionToDirect();
-            delegate.append(positions, valueBlock);
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported block type: " + source.getClass().getSimpleName());
+            case ValueBlock valueBlock -> {
+                transitionToDirect();
+                delegate.append(positions, valueBlock);
+            }
+            case LazyBlock ignore -> throw new IllegalArgumentException("Unsupported block type: " + source.getClass().getSimpleName());
         }
     }
 
@@ -144,17 +145,11 @@ public class UnnestingPositionsAppender
             transitionToDirect();
         }
 
-        if (source instanceof RunLengthEncodedBlock runLengthEncodedBlock) {
-            delegate.append(0, runLengthEncodedBlock.getValue());
-        }
-        else if (source instanceof DictionaryBlock dictionaryBlock) {
-            delegate.append(dictionaryBlock.getId(position), dictionaryBlock.getDictionary());
-        }
-        else if (source instanceof ValueBlock valueBlock) {
-            delegate.append(position, valueBlock);
-        }
-        else {
-            throw new IllegalArgumentException("Unsupported block type: " + source.getClass().getSimpleName());
+        switch (source) {
+            case RunLengthEncodedBlock runLengthEncodedBlock -> delegate.append(0, runLengthEncodedBlock.getValue());
+            case DictionaryBlock dictionaryBlock -> delegate.append(dictionaryBlock.getId(position), dictionaryBlock.getDictionary());
+            case ValueBlock valueBlock -> delegate.append(position, valueBlock);
+            case LazyBlock ignore -> throw new IllegalArgumentException("Unsupported block type: " + source.getClass().getSimpleName());
         }
     }
 
