@@ -64,7 +64,7 @@ public class TestHiveReaderProjectionsUtil
     {
         checkArgument(column.isBaseColumn(), "base column is expected here");
 
-        if (indices.size() == 0) {
+        if (indices.isEmpty()) {
             return column;
         }
 
