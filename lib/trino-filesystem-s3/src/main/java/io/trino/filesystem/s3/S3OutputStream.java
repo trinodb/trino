@@ -39,7 +39,7 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
-import static com.google.common.primitives.Ints.constrainToRange;
+import static java.lang.Math.clamp;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.System.arraycopy;
@@ -181,7 +181,7 @@ final class S3OutputStream
             int target = max(buffer.length, initialBufferSize);
             if (target < capacity) {
                 target += target / 2; // increase 50%
-                target = constrainToRange(target, capacity, partSize);
+                target = clamp(target, capacity, partSize);
             }
             buffer = Arrays.copyOf(buffer, target);
             memoryContext.setBytes(buffer.length);

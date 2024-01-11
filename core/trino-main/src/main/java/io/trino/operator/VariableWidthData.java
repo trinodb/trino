@@ -31,6 +31,7 @@ import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.slice.SizeOf.sizeOfObjectArray;
 import static io.trino.operator.FlatHash.sumExact;
 import static java.lang.Math.addExact;
+import static java.lang.Math.clamp;
 import static java.lang.Math.max;
 import static java.lang.Math.subtractExact;
 import static java.util.Objects.checkIndex;
@@ -117,7 +118,7 @@ public final class VariableWidthData
             // allocate enough space for 32 values of the current size, or double the current chunk size, whichever is larger
             int newSize = Ints.saturatedCast(max(size * 32L, openChunk.length * 2L));
             // constrain to be between min and max chunk size
-            newSize = Ints.constrainToRange(newSize, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE);
+            newSize = clamp(newSize, MIN_CHUNK_SIZE, MAX_CHUNK_SIZE);
             // jumbo rows get a separate allocation
             newSize = max(newSize, size);
             openChunk = new byte[newSize];
