@@ -119,6 +119,19 @@ public class TestProductTestGroups
     }
 
     @Test
+    public void testAllGroupsUsed()
+            throws Exception
+    {
+        Set<String> definedGroups = definedTestGroups();
+        Set<String> usedGroups = productTests()
+                .flatMap(test -> test.groups().stream())
+                .collect(toImmutableSet());
+
+        assertThat(difference(definedGroups, usedGroups)).as("All groups defined by TestGroups should be used in product tests")
+                .isEmpty();
+    }
+
+    @Test
     public void testGroupsReasonable()
             throws Exception
     {
