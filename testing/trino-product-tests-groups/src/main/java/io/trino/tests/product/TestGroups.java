@@ -31,10 +31,10 @@ public final class TestGroups
     public static final String SIMPLE = "simple";
     public static final String FUNCTIONS = "functions";
     public static final String CLI = "cli";
-    public static final String SYSTEM_CONNECTOR = "system";
+    public static final String SYSTEM = "system";
     public static final String CONFIGURED_FEATURES = "configured_features";
-    public static final String JMX_CONNECTOR = "jmx";
-    public static final String BLACKHOLE_CONNECTOR = "blackhole";
+    public static final String JMX = "jmx";
+    public static final String BLACKHOLE = "blackhole";
     public static final String TPCH = "tpch";
     public static final String TPCDS = "tpcds";
     public static final String JOIN = "join";
@@ -46,7 +46,7 @@ public final class TestGroups
     public static final String OAUTH2_REFRESH = "oauth2_refresh";
     public static final String MYSQL = "mysql";
     public static final String TRINO_JDBC = "trino_jdbc";
-    public static final String QUERY_ENGINE = "qe";
+    public static final String QE = "qe"; // query engine
     public static final String COMPARISON = "comparison";
     public static final String LOGICAL = "logical";
     public static final String JSON_FUNCTIONS = "json_functions";
@@ -73,7 +73,7 @@ public final class TestGroups
     public static final String AZURE = "azure";
     public static final String CASSANDRA = "cassandra";
     public static final String POSTGRESQL = "postgresql";
-    public static final String SQL_SERVER = "sqlserver";
+    public static final String SQLSERVER = "sqlserver";
     public static final String LDAP = "ldap";
     public static final String LDAP_AND_FILE = "ldap_and_file";
     public static final String LDAP_CLI = "ldap_cli";
