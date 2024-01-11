@@ -158,8 +158,8 @@ terms of memory and processing. Take the following considerations into account
 when writing and running SQL routines:
 
 * Some checks for the runtime behavior of routines are in place. For example,
-  routines that use take longer to process than a hardcoded threshold are automatically
-  terminated.
+  routines that take longer to process than a hardcoded threshold are
+  automatically terminated.
 * Avoid creation of arrays in a looping construct. Each iteration creates a
   separate new array with all items and copies the data for each modification,
   leaving the prior array in memory for automated clean up later. Use a [lambda
