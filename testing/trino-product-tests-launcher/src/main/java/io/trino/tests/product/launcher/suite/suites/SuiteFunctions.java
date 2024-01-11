@@ -31,7 +31,7 @@ public class SuiteFunctions
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinode.class)
-                        .withGroups("configured-features", "functions")
+                        .withGroups("configured_features", "functions")
                         .build());
     }
 }
