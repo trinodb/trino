@@ -32,7 +32,7 @@ public class SuiteClients
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinode.class)
                         .withGroups(
-                                "configured-features",
+                                "configured_features",
                                 "cli",
                                 "jdbc",
                                 "trino_jdbc")
