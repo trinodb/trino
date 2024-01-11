@@ -38,7 +38,7 @@ import static io.trino.tests.product.TestGroups.HIVE_SPARK;
 import static io.trino.tests.product.TestGroups.HIVE_SPARK_NO_STATS_FALLBACK;
 import static io.trino.tests.product.TestGroups.KUDU;
 import static io.trino.tests.product.TestGroups.POSTGRESQL;
-import static io.trino.tests.product.TestGroups.SQL_SERVER;
+import static io.trino.tests.product.TestGroups.SQLSERVER;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.TestGroups.TWO_HIVES;
 import static io.trino.tests.product.launcher.suite.SuiteTestRun.testOnEnvironment;
@@ -56,7 +56,7 @@ public class Suite7NonGeneric
                         .withGroups(CONFIGURED_FEATURES, POSTGRESQL)
                         .build(),
                 testOnEnvironment(EnvMultinodeSqlserver.class)
-                        .withGroups(CONFIGURED_FEATURES, SQL_SERVER)
+                        .withGroups(CONFIGURED_FEATURES, SQLSERVER)
                         .build(),
                 testOnEnvironment(EnvSinglenodeSparkHive.class)
                         .withGroups(CONFIGURED_FEATURES, HIVE_SPARK)
