@@ -86,7 +86,8 @@ public class CacheSplitSource
                                 splitId,
                                 // do not override connector provided split addresses
                                 Optional.empty(),
-                                Optional.empty()));
+                                Optional.empty(),
+                                split.getFailoverHappened()));
             }
             else {
                 newBatch.add(
@@ -95,7 +96,8 @@ public class CacheSplitSource
                                 split.getConnectorSplit(),
                                 splitId,
                                 Optional.of(false),
-                                Optional.of(ImmutableList.of(addressProvider.getPreferredAddress(splitId.get())))));
+                                Optional.of(ImmutableList.of(addressProvider.getPreferredAddress(splitId.get()))),
+                                split.getFailoverHappened()));
             }
         }
         return new SplitBatch(newBatch.build(), batch.isLastBatch());
