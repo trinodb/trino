@@ -17,7 +17,6 @@ import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tests.product.TestGroups.AVRO;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -39,7 +38,7 @@ public class TestAvroSchemaLiteral
             }
             """;
 
-    @Test(groups = AVRO)
+    @Test
     public void testHiveCreatedTable()
     {
         onHive().executeQuery("DROP TABLE IF EXISTS test_avro_schema_literal_hive");
@@ -59,7 +58,7 @@ public class TestAvroSchemaLiteral
         onHive().executeQuery("DROP TABLE test_avro_schema_literal_hive");
     }
 
-    @Test(groups = AVRO)
+    @Test
     public void testTrinoCreatedTable()
     {
         onTrino().executeQuery("DROP TABLE IF EXISTS test_avro_schema_literal_trino");

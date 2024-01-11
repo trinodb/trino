@@ -24,7 +24,6 @@ import java.io.InputStream;
 import java.nio.file.Paths;
 
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tests.product.TestGroups.AVRO;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
@@ -42,7 +41,7 @@ public class TestAvroSymlinkInputFormat
     @Named("databases.hive.warehouse_directory_path")
     private String warehouseDirectory;
 
-    @Test(groups = {AVRO, STORAGE_FORMATS})
+    @Test(groups = STORAGE_FORMATS)
     public void testSymlinkTable()
             throws Exception
     {
@@ -76,7 +75,7 @@ public class TestAvroSymlinkInputFormat
         hdfsClient.delete(dataDir);
     }
 
-    @Test(groups = {AVRO, STORAGE_FORMATS})
+    @Test(groups = STORAGE_FORMATS)
     public void testSymlinkTableWithMultipleParentDirectories()
             throws Exception
     {
@@ -113,7 +112,7 @@ public class TestAvroSymlinkInputFormat
         hdfsClient.delete(anotherDataDir);
     }
 
-    @Test(groups = {AVRO, STORAGE_FORMATS})
+    @Test(groups = STORAGE_FORMATS)
     public void testSymlinkTableWithNestedDirectory()
             throws Exception
     {

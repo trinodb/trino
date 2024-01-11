@@ -18,7 +18,6 @@ import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.ProductTest;
 import org.testng.annotations.Test;
 
-import static io.trino.tests.product.TestGroups.COMMENT;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
 import static java.lang.String.format;
@@ -43,7 +42,7 @@ public class TestComments
         onHive().executeQuery("DROP VIEW IF EXISTS " + COMMENT_HIVE_VIEW_NAME);
     }
 
-    @Test(groups = COMMENT)
+    @Test
     public void testCommentTable()
     {
         String createTableSql = format("" +
@@ -69,7 +68,7 @@ public class TestComments
         assertThat(getTableComment("hive", "default", COMMENT_TABLE_NAME)).isNull();
     }
 
-    @Test(groups = COMMENT)
+    @Test
     public void testCommentView()
     {
         String createViewSql = format("" +
@@ -102,7 +101,7 @@ public class TestComments
         return (String) onTrino().executeQuery(sql).getOnlyValue();
     }
 
-    @Test(groups = COMMENT)
+    @Test
     public void testCommentViewColumn()
     {
         String columnName = "col";
@@ -136,7 +135,7 @@ public class TestComments
         return (String) onTrino().executeQuery(sql).getOnlyValue();
     }
 
-    @Test(groups = COMMENT)
+    @Test
     public void testCommentColumn()
     {
         String createTableSql = format("" +

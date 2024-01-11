@@ -26,7 +26,6 @@ import java.util.Map;
 
 import static io.trino.tempto.Requirements.compose;
 import static io.trino.tempto.fulfillment.table.MutableTableRequirement.State.CREATED;
-import static io.trino.tests.product.TestGroups.HIVE_COERCION;
 import static io.trino.tests.product.TestGroups.JDBC;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -152,14 +151,14 @@ public class TestHiveCoercionOnUnpartitionedTable
     }
 
     @Requires(OrcRequirements.class)
-    @Test(groups = {HIVE_COERCION, JDBC})
+    @Test(groups = JDBC)
     public void testHiveCoercionOrc()
     {
         doTestHiveCoercion(HIVE_COERCION_ORC);
     }
 
     @Requires(OrcRequirements.class)
-    @Test(groups = {HIVE_COERCION, JDBC})
+    @Test(groups = JDBC)
     public void testHiveCoercionWithDifferentTimestampPrecision()
     {
         doTestHiveCoercionWithDifferentTimestampPrecision(HIVE_TIMESTAMP_COERCION_ORC);

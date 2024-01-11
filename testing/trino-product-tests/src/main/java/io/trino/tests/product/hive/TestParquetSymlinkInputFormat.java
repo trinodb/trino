@@ -24,7 +24,6 @@ import java.nio.file.Paths;
 
 import static com.google.common.io.Resources.getResource;
 import static io.trino.tempto.assertions.QueryAssert.Row.row;
-import static io.trino.tests.product.TestGroups.AVRO;
 import static io.trino.tests.product.TestGroups.STORAGE_FORMATS;
 import static io.trino.tests.product.utils.QueryExecutors.onHive;
 import static io.trino.tests.product.utils.QueryExecutors.onTrino;
@@ -94,7 +93,7 @@ public class TestParquetSymlinkInputFormat
         hdfsClient.delete(dataDir);
     }
 
-    @Test(groups = {AVRO, STORAGE_FORMATS})
+    @Test(groups = STORAGE_FORMATS)
     public void testSymlinkTableWithMultipleParentDirectories()
             throws Exception
     {
