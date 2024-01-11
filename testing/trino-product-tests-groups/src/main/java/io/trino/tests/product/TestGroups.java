@@ -13,6 +13,15 @@
  */
 package io.trino.tests.product;
 
+import java.lang.reflect.Field;
+import java.util.IdentityHashMap;
+import java.util.Set;
+
+import static com.google.common.base.Preconditions.checkArgument;
+import static java.util.Collections.newSetFromMap;
+import static java.util.Collections.unmodifiableSet;
+import static java.util.Objects.requireNonNull;
+
 public final class TestGroups
 {
     public static final String CREATE_TABLE = "create_table";
@@ -26,6 +35,10 @@ public final class TestGroups
     public static final String CONFIGURED_FEATURES = "configured_features";
     public static final String JMX_CONNECTOR = "jmx";
     public static final String BLACKHOLE_CONNECTOR = "blackhole";
+    public static final String TPCH = "tpch";
+    public static final String TPCDS = "tpcds";
+    public static final String JOIN = "join";
+    public static final String GROUP_BY = "group-by";
     public static final String SMOKE = "smoke";
     public static final String JDBC = "jdbc";
     public static final String JDBC_KERBEROS_CONSTRAINED_DELEGATION = "jdbc_kerberos_constrained_delegation";
@@ -54,10 +67,12 @@ public final class TestGroups
     public static final String HIVE_ICEBERG_REDIRECTIONS = "hive_iceberg_redirections";
     public static final String HIVE_HUDI_REDIRECTIONS = "hive_hudi_redirections";
     public static final String HIVE_KERBEROS = "hive_kerberos";
+    public static final String HIVE_FILE_HEADER = "hive_file_header";
     public static final String AUTHORIZATION = "authorization";
     public static final String HIVE_COERCION = "hive_coercion";
     public static final String AZURE = "azure";
     public static final String CASSANDRA = "cassandra";
+    public static final String POSTGRESQL = "postgresql";
     public static final String SQL_SERVER = "sqlserver";
     public static final String LDAP = "ldap";
     public static final String LDAP_AND_FILE = "ldap_and_file";
@@ -97,4 +112,49 @@ public final class TestGroups
     public static final String HIVE_CACHE_SUBQUERIES = "hive-cache-subqueries";
 
     private TestGroups() {}
+
+    public abstract static class Introspection
+    {
+        private Introspection() {}
+
+        // Identity-based set
+        private static final Set<String> ALL_GROUPS_IDENTITIES;
+
+        static {
+            try {
+                Set<String> groupIdentities = newSetFromMap(new IdentityHashMap<>());
+                for (Field field : TestGroups.class.getFields()) {
+                    String group = (String) field.get(null);
+                    groupIdentities.add(group);
+                }
+                ALL_GROUPS_IDENTITIES = unmodifiableSet(groupIdentities);
+            }
+            catch (ReflectiveOperationException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        public static void validateGroupIdentityReferences(Iterable<String> groupNames)
+        {
+            for (String groupName : groupNames) {
+                checkArgument(
+                        isGroupIdentityReference(groupName),
+                        "Group name '%s' should reference one of the named constants in %s",
+                        groupName,
+                        TestGroups.class);
+            }
+        }
+
+        public static boolean isGroupIdentityReference(String groupName)
+        {
+            return ALL_GROUPS_IDENTITIES.contains(requireNonNull(groupName, "groupName is null"));
+        }
+    }
+
+    public static final class FakeUsageForMavenDependencyChecker
+    {
+        private FakeUsageForMavenDependencyChecker() {}
+
+        public static void fakeUse() {}
+    }
 }
