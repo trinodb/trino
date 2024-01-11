@@ -31,7 +31,7 @@ public class SuiteGcs
     {
         return ImmutableList.of(
                 testOnEnvironment(EnvMultinodeGcs.class)
-                        .withGroups("delta-lake-gcs", "configured-features")
+                        .withGroups("delta-lake-gcs", "configured_features")
                         .build());
     }
 }
