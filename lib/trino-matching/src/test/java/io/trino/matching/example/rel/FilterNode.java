@@ -16,8 +16,8 @@ package io.trino.matching.example.rel;
 public class FilterNode
         implements SingleSourceRelNode
 {
-    private RelNode source;
-    private Expression predicate;
+    private final RelNode source;
+    private final Expression predicate;
 
     public FilterNode(RelNode source, Expression predicate)
     {

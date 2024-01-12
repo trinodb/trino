@@ -61,9 +61,9 @@ public class HudiInstant
         return dotIndex == -1 ? "" : fileName.substring(dotIndex);
     }
 
+    private final String timestamp;
     private HudiInstant.State state = HudiInstant.State.COMPLETED;
     private String action;
-    private String timestamp;
 
     /**
      * Load the instant from the meta FileStatus.

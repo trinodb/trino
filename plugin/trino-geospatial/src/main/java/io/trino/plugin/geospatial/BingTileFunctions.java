@@ -672,9 +672,9 @@ public final class BingTileFunctions
 
     private static final class GreatCircleDistanceToPoint
     {
-        private double sinLatitude;
-        private double cosLatitude;
-        private double radianLongitude;
+        private final double sinLatitude;
+        private final double cosLatitude;
+        private final double radianLongitude;
 
         private GreatCircleDistanceToPoint(double latitude, double longitude)
         {
