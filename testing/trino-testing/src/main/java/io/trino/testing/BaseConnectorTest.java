@@ -125,6 +125,7 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DELETE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DEREFERENCE_PUSHDOWN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_COLUMN;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_FIELD;
+import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_NOT_NULL_CONSTRAINT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_DROP_SCHEMA_CASCADE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_INSERT;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_MATERIALIZED_VIEW_FRESHNESS_FROM_BASE_TABLES;
@@ -3067,6 +3068,48 @@ public abstract class BaseConnectorTest
         return (String) computeScalar(format("SELECT data_type FROM information_schema.columns WHERE table_schema = CURRENT_SCHEMA AND table_name = '%s' AND column_name = '%s'",
                 tableName,
                 columnName));
+    }
+
+    @Test
+    public void testDropNotNullConstraint()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_CREATE_TABLE) && hasBehavior(SUPPORTS_NOT_NULL_CONSTRAINT));
+
+        if (!hasBehavior(SUPPORTS_DROP_NOT_NULL_CONSTRAINT)) {
+            try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_not_null_", "(col integer NOT NULL)")) {
+                assertQueryFails(
+                        "ALTER TABLE " + table.getName() + " ALTER COLUMN col DROP NOT NULL",
+                        "This connector does not support dropping a not null constraint");
+            }
+            return;
+        }
+
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_not_null_", "(col integer NOT NULL)")) {
+            assertThat(columnIsNullable(table.getName(), "col")).isFalse();
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col DROP NOT NULL");
+            assertThat(columnIsNullable(table.getName(), "col")).isTrue();
+
+            assertUpdate("INSERT INTO " + table.getName() + " VALUES NULL", 1);
+            assertQuery("SELECT * FROM " + table.getName(), "VALUES NULL");
+        }
+    }
+
+    @Test
+    public void testDropNotNullConstraintWithColumnComment()
+    {
+        skipTestUnless(hasBehavior(SUPPORTS_DROP_NOT_NULL_CONSTRAINT) && hasBehavior(SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT));
+
+        // Verify DROP NOT NULL preserves the existing column comment
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_drop_not_null_", "(col integer NOT NULL COMMENT 'test comment')")) {
+            assertThat(getColumnComment(table.getName(), "col")).isEqualTo("test comment");
+            assertThat(columnIsNullable(table.getName(), "col")).isFalse();
+
+            assertUpdate("ALTER TABLE " + table.getName() + " ALTER COLUMN col DROP NOT NULL");
+            assertThat(columnIsNullable(table.getName(), "col")).isTrue();
+
+            assertThat(getColumnComment(table.getName(), "col")).isEqualTo("test comment");
+        }
     }
 
     @Test
