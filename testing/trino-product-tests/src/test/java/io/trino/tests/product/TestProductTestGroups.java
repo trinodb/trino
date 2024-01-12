@@ -56,7 +56,6 @@ public class TestProductTestGroups
     private static final Set<String> IGNORED_CONVENTION_BASED_TEST_GROUPS = ImmutableSet.<String>builder()
             .add("varchar")
             .add("base_sql")
-            .add("no_from")
             .add("insert")
             .add("conditional")
             .add("limit")
