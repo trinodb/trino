@@ -20,8 +20,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class MockRedirectHandler
         implements RedirectHandler
 {
+    private final AtomicInteger redirectionCount = new AtomicInteger(0);
     private URI redirectedTo;
-    private AtomicInteger redirectionCount = new AtomicInteger(0);
     private Duration redirectTime;
 
     @Override

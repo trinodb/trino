@@ -22,7 +22,7 @@ public enum TrinoS3StorageClass
     STANDARD(StorageClass.Standard),
     INTELLIGENT_TIERING(StorageClass.IntelligentTiering);
 
-    private StorageClass s3StorageClass;
+    private final StorageClass s3StorageClass;
 
     TrinoS3StorageClass(StorageClass s3StorageClass)
     {

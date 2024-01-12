@@ -20,8 +20,8 @@ import static java.util.Arrays.asList;
 public class JoinNode
         implements RelNode
 {
-    private RelNode probe;
-    private RelNode build;
+    private final RelNode probe;
+    private final RelNode build;
 
     public JoinNode(RelNode probe, RelNode build)
     {

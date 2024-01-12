@@ -36,8 +36,8 @@ public class GcsInputFile
     private final GcsLocation location;
     private final Storage storage;
     private final int readBlockSize;
+    private final OptionalLong predeclaredLength;
     private OptionalLong length;
-    private OptionalLong predeclaredLength;
     private Optional<Instant> lastModified = Optional.empty();
 
     public GcsInputFile(GcsLocation location, Storage storage, int readBockSize, OptionalLong predeclaredLength)

@@ -39,7 +39,7 @@ public class GcsInputStream
     private final OptionalLong predeclaredLength;
     private ReadChannel readChannel;
     // Used for read(). Similar to sun.nio.ch.ChannelInputStream
-    private ByteBuffer readBuffer = ByteBuffer.allocate(1);
+    private final ByteBuffer readBuffer = ByteBuffer.allocate(1);
     private long currentPosition;
     private long nextPosition;
     private boolean closed;
