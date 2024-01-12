@@ -82,6 +82,7 @@ import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.DropFunction;
 import io.trino.sql.tree.DropMaterializedView;
+import io.trino.sql.tree.DropNotNullConstraint;
 import io.trino.sql.tree.DropRole;
 import io.trino.sql.tree.DropSchema;
 import io.trino.sql.tree.DropTable;
@@ -830,6 +831,16 @@ class AstBuilder
                 getQualifiedName(context.tableName),
                 getQualifiedName(context.columnName),
                 (DataType) visit(context.type()),
+                context.EXISTS() != null);
+    }
+
+    @Override
+    public Node visitDropNotNullConstraint(SqlBaseParser.DropNotNullConstraintContext context)
+    {
+        return new DropNotNullConstraint(
+                getLocation(context),
+                getQualifiedName(context.tableName),
+                (Identifier) visit(context.columnName),
                 context.EXISTS() != null);
     }
 

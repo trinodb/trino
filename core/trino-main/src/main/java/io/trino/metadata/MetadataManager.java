@@ -961,6 +961,14 @@ public final class MetadataManager
     }
 
     @Override
+    public void dropNotNullConstraint(Session session, TableHandle tableHandle, ColumnHandle column)
+    {
+        CatalogHandle catalogHandle = tableHandle.getCatalogHandle();
+        ConnectorMetadata metadata = getMetadataForWrite(session, catalogHandle);
+        metadata.dropNotNullConstraint(session.toConnectorSession(catalogHandle), tableHandle.getConnectorHandle(), column);
+    }
+
+    @Override
     public void setTableAuthorization(Session session, CatalogSchemaTableName table, TrinoPrincipal principal)
     {
         CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, table.getCatalogName());
