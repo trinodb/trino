@@ -887,7 +887,7 @@ public final class StringFunctions
     @SqlType(StandardTypes.VARBINARY)
     public static Slice toUtf8(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice)
     {
-        return Chars.padSpaces(slice, (int) x);
+        return Chars.padSpaces(slice, toIntExact(x));
     }
 
     // TODO: implement N arguments char concat
