@@ -286,6 +286,7 @@ public final class IcebergUtil
                 type,
                 ImmutableList.of(),
                 type,
+                column.isOptional(),
                 Optional.ofNullable(column.doc()));
     }
 

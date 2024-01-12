@@ -57,6 +57,7 @@ public class IcebergColumnHandle
     // The list of field ids to indicate the projected part of the top-level column represented by baseColumnIdentity
     private final List<Integer> path;
     private final Type type;
+    private final boolean nullable;
     private final Optional<String> comment;
     // Cache of ColumnIdentity#getId to ensure quick access, even with dereferences
     private final int id;
@@ -67,12 +68,14 @@ public class IcebergColumnHandle
             @JsonProperty("baseType") Type baseType,
             @JsonProperty("path") List<Integer> path,
             @JsonProperty("type") Type type,
+            @JsonProperty("nullable") boolean nullable,
             @JsonProperty("comment") Optional<String> comment)
     {
         this.baseColumnIdentity = requireNonNull(baseColumnIdentity, "baseColumnIdentity is null");
         this.baseType = requireNonNull(baseType, "baseType is null");
         this.path = ImmutableList.copyOf(requireNonNull(path, "path is null"));
         this.type = requireNonNull(type, "type is null");
+        this.nullable = nullable;
         this.comment = requireNonNull(comment, "comment is null");
         this.id = path.isEmpty() ? baseColumnIdentity.getId() : Iterables.getLast(path);
     }
@@ -108,7 +111,13 @@ public class IcebergColumnHandle
     @JsonIgnore
     public IcebergColumnHandle getBaseColumn()
     {
-        return new IcebergColumnHandle(getBaseColumnIdentity(), getBaseType(), ImmutableList.of(), getBaseType(), Optional.empty());
+        return new IcebergColumnHandle(getBaseColumnIdentity(), getBaseType(), ImmutableList.of(), getBaseType(), isNullable(), Optional.empty());
+    }
+
+    @JsonProperty
+    public boolean isNullable()
+    {
+        return nullable;
     }
 
     @JsonProperty
@@ -197,7 +206,7 @@ public class IcebergColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(baseColumnIdentity, baseType, path, type, comment);
+        return Objects.hash(baseColumnIdentity, baseType, path, type, nullable, comment);
     }
 
     @Override
@@ -214,6 +223,7 @@ public class IcebergColumnHandle
                 Objects.equals(this.baseType, other.baseType) &&
                 Objects.equals(this.path, other.path) &&
                 Objects.equals(this.type, other.type) &&
+                this.nullable == other.nullable &&
                 Objects.equals(this.comment, other.comment);
     }
 
@@ -230,6 +240,7 @@ public class IcebergColumnHandle
                 FILE_PATH.getType(),
                 ImmutableList.of(),
                 FILE_PATH.getType(),
+                false,
                 Optional.empty());
     }
 
@@ -249,6 +260,7 @@ public class IcebergColumnHandle
                 FILE_MODIFIED_TIME.getType(),
                 ImmutableList.of(),
                 FILE_MODIFIED_TIME.getType(),
+                false,
                 Optional.empty());
     }
 
