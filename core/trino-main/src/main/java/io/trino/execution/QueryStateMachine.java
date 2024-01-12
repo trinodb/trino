@@ -54,8 +54,6 @@ import io.trino.spi.security.SelectedRole;
 import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.Output;
 import io.trino.sql.planner.PlanFragment;
-import io.trino.sql.planner.plan.ChooseAlternativeNode;
-import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.tracing.TrinoAttributes;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionInfo;
@@ -670,8 +668,7 @@ public class QueryStateMachine
             failedInternalNetworkInputPositions += stageStats.getFailedInternalNetworkInputPositions();
 
             PlanFragment plan = stageInfo.getPlan();
-            // ChooseAlternativeNode is put into partitionedSources to link SplitSource to AlternativesAwareDriverFactory
-            if (plan != null && plan.getPartitionedSourceNodes().stream().anyMatch(node -> node instanceof TableScanNode || node instanceof ChooseAlternativeNode)) {
+            if (plan != null && plan.containsTableScanNode()) {
                 rawInputDataSize += stageStats.getRawInputDataSize().toBytes();
                 failedRawInputDataSize += stageStats.getFailedRawInputDataSize().toBytes();
                 rawInputPositions += stageStats.getRawInputPositions();

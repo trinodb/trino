@@ -22,10 +22,12 @@ import io.trino.connector.CatalogProperties;
 import io.trino.cost.StatsAndCosts;
 import io.trino.metadata.LanguageScalarFunctionData;
 import io.trino.spi.type.Type;
+import io.trino.sql.planner.plan.ChooseAlternativeNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.RemoteSourceNode;
+import io.trino.sql.planner.plan.TableScanNode;
 
 import java.util.List;
 import java.util.Map;
@@ -55,6 +57,7 @@ public class PlanFragment
     private final List<CatalogProperties> activeCatalogs;
     private final List<LanguageScalarFunctionData> languageFunctions;
     private final Optional<String> jsonRepresentation;
+    private final boolean containsTableScanNode;
 
     // Only for creating instances without the JSON representation embedded
     private PlanFragment(
@@ -88,6 +91,8 @@ public class PlanFragment
         this.activeCatalogs = requireNonNull(activeCatalogs, "activeCatalogs is null");
         this.languageFunctions = requireNonNull(languageFunctions, "languageFunctions is null");
         this.jsonRepresentation = Optional.empty();
+        // ChooseAlternativeNode is put into partitionedSources to link SplitSource to AlternativesAwareDriverFactory
+        this.containsTableScanNode = partitionedSourceNodes.stream().anyMatch(node -> node instanceof TableScanNode || node instanceof ChooseAlternativeNode);
     }
 
     @JsonCreator
@@ -135,6 +140,8 @@ public class PlanFragment
         this.remoteSourceNodes = remoteSourceNodes.build();
 
         this.outputPartitioningScheme = requireNonNull(outputPartitioningScheme, "partitioningScheme is null");
+        // ChooseAlternativeNode is put into partitionedSources to link SplitSource to AlternativesAwareDriverFactory
+        this.containsTableScanNode = partitionedSourceNodes.stream().anyMatch(node -> node instanceof TableScanNode || node instanceof ChooseAlternativeNode);
     }
 
     @JsonProperty
@@ -371,5 +378,10 @@ public class PlanFragment
                 activeCatalogs,
                 this.languageFunctions,
                 this.jsonRepresentation);
+    }
+
+    public boolean containsTableScanNode()
+    {
+        return containsTableScanNode;
     }
 }

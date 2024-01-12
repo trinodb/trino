@@ -33,7 +33,6 @@ import io.trino.plugin.base.metrics.TDigestHistogram;
 import io.trino.spi.eventlistener.StageGcStatistics;
 import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.plan.PlanNodeId;
-import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.tracing.TrinoAttributes;
 import io.trino.util.Failures;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
@@ -338,7 +337,7 @@ public class StageStateMachine
             internalNetworkInputDataSize += taskStats.getInternalNetworkInputDataSize().toBytes();
             internalNetworkInputPositions += taskStats.getInternalNetworkInputPositions();
 
-            if (fragment.getPartitionedSourceNodes().stream().anyMatch(TableScanNode.class::isInstance)) {
+            if (fragment.containsTableScanNode()) {
                 rawInputDataSize += taskStats.getRawInputDataSize().toBytes();
                 rawInputPositions += taskStats.getRawInputPositions();
             }
