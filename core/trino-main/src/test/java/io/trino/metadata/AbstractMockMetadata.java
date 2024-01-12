@@ -378,6 +378,12 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public void dropNotNullConstraint(Session session, TableHandle tableHandle, ColumnHandle column)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public void setTableAuthorization(Session session, CatalogSchemaTableName table, TrinoPrincipal principal)
     {
         throw new UnsupportedOperationException();
