@@ -427,7 +427,24 @@ public class BackgroundHiveSplitLoader
                     maxSplitFileSize);
 
             for (Entry<Location, List<Location>> entry : Multimaps.asMap(targets).entrySet()) {
-                fileIterators.addLast(buildManifestFileIterator(splitFactory, entry.getKey(), entry.getValue(), splittable));
+                try {
+                    fileIterators.addLast(buildManifestFileIterator(splitFactory, entry.getKey(), entry.getValue(), splittable));
+                }
+                catch (TrinoException e) {
+                    if (HIVE_FILE_NOT_FOUND.equals(e.getErrorCode()) && directoryLister instanceof CachingDirectoryLister) {
+                        // Invalidate the cache and retry
+                        if (partition.getPartition().isPresent()) {
+                            directoryLister.invalidate(partition.getPartition().get());
+                        }
+                        else {
+                            directoryLister.invalidate(table);
+                        }
+                        fileIterators.addLast(buildManifestFileIterator(splitFactory, entry.getKey(), entry.getValue(), splittable));
+                    }
+                    else {
+                        throw e;
+                    }
+                }
             }
 
             return COMPLETED_FUTURE;
