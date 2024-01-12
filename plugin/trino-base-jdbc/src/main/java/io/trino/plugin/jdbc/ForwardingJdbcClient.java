@@ -376,6 +376,12 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
+    public void dropNotNullConstraint(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
+    {
+        delegate().dropNotNullConstraint(session, handle, column);
+    }
+
+    @Override
     public void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName)
     {
         delegate().renameTable(session, handle, newTableName);

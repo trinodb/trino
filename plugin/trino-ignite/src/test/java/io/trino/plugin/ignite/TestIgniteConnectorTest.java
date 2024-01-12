@@ -78,6 +78,7 @@ public class TestIgniteConnectorTest
                     SUPPORTS_ARRAY,
                     SUPPORTS_COMMENT_ON_COLUMN,
                     SUPPORTS_COMMENT_ON_TABLE,
+                    SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
                     SUPPORTS_CREATE_SCHEMA,
                     SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
                     SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT,

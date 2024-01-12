@@ -297,6 +297,12 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
+    public void dropNotNullConstraint(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
+    {
+        stats.getDropNotNullConstraint().wrap(() -> delegate().dropNotNullConstraint(session, handle, column));
+    }
+
+    @Override
     public void renameTable(ConnectorSession session, JdbcTableHandle handle, SchemaTableName newTableName)
     {
         stats.getRenameTable().wrap(() -> delegate().renameTable(session, handle, newTableName));
