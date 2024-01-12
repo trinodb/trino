@@ -63,6 +63,7 @@ public abstract class BaseSqlServerConnectorTest
                     SUPPORTS_COMMENT_ON_TABLE,
                     SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
                     SUPPORTS_CREATE_TABLE_WITH_TABLE_COMMENT,
+                    SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
                     SUPPORTS_DROP_SCHEMA_CASCADE,
                     SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM,
                     SUPPORTS_NEGATIVE_DATE,

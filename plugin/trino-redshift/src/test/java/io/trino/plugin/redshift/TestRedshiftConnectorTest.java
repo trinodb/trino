@@ -74,6 +74,7 @@ public class TestRedshiftConnectorTest
                     SUPPORTS_AGGREGATION_PUSHDOWN_REGRESSION,
                     SUPPORTS_ARRAY,
                     SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
+                    SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
                     SUPPORTS_DROP_SCHEMA_CASCADE,
                     SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM,
                     SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN,
