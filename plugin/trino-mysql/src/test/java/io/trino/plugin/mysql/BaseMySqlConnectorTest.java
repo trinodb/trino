@@ -65,6 +65,7 @@ public abstract class BaseMySqlConnectorTest
                     SUPPORTS_ARRAY,
                     SUPPORTS_COMMENT_ON_COLUMN,
                     SUPPORTS_CREATE_TABLE_WITH_COLUMN_COMMENT,
+                    SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
                     SUPPORTS_JOIN_PUSHDOWN_WITH_DISTINCT_FROM,
                     SUPPORTS_JOIN_PUSHDOWN_WITH_FULL_JOIN,
                     SUPPORTS_NEGATIVE_DATE,

@@ -145,7 +145,6 @@ public abstract class BaseJdbcConnectorTest
             case SUPPORTS_UPDATE -> true;
             case SUPPORTS_CREATE_MATERIALIZED_VIEW,
                     SUPPORTS_CREATE_VIEW,
-                    SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
                     SUPPORTS_MERGE,
                     SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN,
                     SUPPORTS_ROW_LEVEL_UPDATE -> false;
