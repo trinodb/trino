@@ -860,4 +860,10 @@ public class OracleClient
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column types");
     }
+
+    @Override
+    public void dropNotNullConstraint(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping a not null constraint");
+    }
 }

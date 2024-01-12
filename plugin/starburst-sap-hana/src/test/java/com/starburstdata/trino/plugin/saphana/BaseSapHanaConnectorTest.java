@@ -61,6 +61,8 @@ public abstract class BaseSapHanaConnectorTest
 
             case SUPPORTS_SET_COLUMN_TYPE:
                 return false;
+            case SUPPORTS_DROP_NOT_NULL_CONSTRAINT:
+                return false;
 
             case SUPPORTS_ARRAY:
             case SUPPORTS_ROW_TYPE:

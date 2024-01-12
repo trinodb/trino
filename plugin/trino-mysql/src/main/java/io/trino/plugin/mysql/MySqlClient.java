@@ -912,6 +912,12 @@ public class MySqlClient
     }
 
     @Override
+    public void dropNotNullConstraint(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping a not null constraint");
+    }
+
+    @Override
     public void renameSchema(ConnectorSession session, String schemaName, String newSchemaName)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support renaming schemas");

@@ -1142,6 +1142,15 @@ public class DefaultJdbcMetadata
     }
 
     @Override
+    public void dropNotNullConstraint(ConnectorSession session, ConnectorTableHandle table, ColumnHandle column)
+    {
+        JdbcTableHandle tableHandle = (JdbcTableHandle) table;
+        JdbcColumnHandle columnHandle = (JdbcColumnHandle) column;
+        verify(!tableHandle.isSynthetic(), "Not a table reference: %s", tableHandle);
+        jdbcClient.dropNotNullConstraint(session, tableHandle, columnHandle);
+    }
+
+    @Override
     public void renameTable(ConnectorSession session, ConnectorTableHandle table, SchemaTableName newTableName)
     {
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
