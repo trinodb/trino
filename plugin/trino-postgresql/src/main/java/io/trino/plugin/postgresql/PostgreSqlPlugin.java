@@ -15,6 +15,8 @@ package io.trino.plugin.postgresql;
 
 import io.trino.plugin.jdbc.JdbcPlugin;
 
+import java.lang.foreign.Arena;
+
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
 
 public class PostgreSqlPlugin
@@ -23,5 +25,9 @@ public class PostgreSqlPlugin
     public PostgreSqlPlugin()
     {
         super("postgresql", combine(new PostgreSqlClientModule(), new PostgreSqlConnectionFactoryModule()));
+
+        try (Arena arena = Arena.ofAuto()) {
+            System.out.println("allocated " + arena.allocate(1024));
+        }
     }
 }
