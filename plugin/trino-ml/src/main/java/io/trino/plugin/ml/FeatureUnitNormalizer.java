@@ -25,6 +25,8 @@ import it.unimi.dsi.fastutil.ints.Int2DoubleOpenHashMap;
 import java.util.HashMap;
 import java.util.Map;
 
+import static java.lang.Math.clamp;
+
 /**
  * Normalizes features by making every feature value lie in [0, 1].
  */
@@ -115,7 +117,7 @@ public class FeatureUnitNormalizer
                 value = 0;
             }
             // In case value is outside of the values seen in the training data, make sure it's [0, 1]
-            value = Math.min(1, Math.max(0, value));
+            value = clamp(value, 0, 1);
             transformed.put(entry.getKey(), value);
         }
         return new FeatureVector(transformed);

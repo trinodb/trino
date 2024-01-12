@@ -28,13 +28,12 @@ import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit;
 import static io.trino.util.MachineInfo.getAvailablePhysicalProcessorCount;
 import static it.unimi.dsi.fastutil.HashCommon.nextPowerOfTwo;
-import static java.lang.Math.max;
-import static java.lang.Math.min;
+import static java.lang.Math.clamp;
 
 public class TestTaskManagerConfig
 {
-    private static final int DEFAULT_PROCESSOR_COUNT = min(max(nextPowerOfTwo(getAvailablePhysicalProcessorCount()), 2), 32);
-    private static final int DEFAULT_MAX_WRITER_COUNT = min(max(nextPowerOfTwo(getAvailablePhysicalProcessorCount() * 2), 2), 64);
+    private static final int DEFAULT_PROCESSOR_COUNT = clamp(nextPowerOfTwo(getAvailablePhysicalProcessorCount()), 2, 32);
+    private static final int DEFAULT_MAX_WRITER_COUNT = clamp(nextPowerOfTwo(getAvailablePhysicalProcessorCount() * 2), 2, 64);
 
     @Test
     public void testDefaults()
