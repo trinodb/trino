@@ -1240,10 +1240,10 @@ public class OrcTester
         private final JobConf jobConf;
         private final File file;
 
-        private Class<? extends Writable> valueClass = Text.class;
+        private final Class<? extends Writable> valueClass = Text.class;
         private final CompressionKind compression;
-        private Progressable reporter = () -> {};
-        private Properties tableProperties = new Properties();
+        private final Progressable reporter = () -> {};
+        private final Properties tableProperties = new Properties();
 
         private RecordWriterBuilder(File file, Format format, CompressionKind compression)
         {

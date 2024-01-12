@@ -50,7 +50,7 @@ public class KinesisSplitManager
 
     private final KinesisClientProvider clientManager;
 
-    private Map<String, InternalStreamDescription> streamMap = Collections.synchronizedMap(new HashMap<>());
+    private final Map<String, InternalStreamDescription> streamMap = Collections.synchronizedMap(new HashMap<>());
 
     /**
      * Cache the result of a Kinesis describe stream call so we don't need to retrieve

@@ -84,10 +84,10 @@ public class PrimitiveColumnWriter
     private final Set<Encoding> encodings = new HashSet<>();
     private final Map<org.apache.parquet.format.Encoding, Integer> dataPagesWithEncoding = new HashMap<>();
     private final Map<org.apache.parquet.format.Encoding, Integer> dictionaryPagesWithEncoding = new HashMap<>();
+    private final Statistics<?> columnStatistics;
     private long totalCompressedSize;
     private long totalUnCompressedSize;
     private long totalValues;
-    private Statistics<?> columnStatistics;
 
     private final int maxDefinitionLevel;
 
