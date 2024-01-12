@@ -51,7 +51,7 @@
 * Reduce the number of requests made to AWS Glue when listing tables, schemas,
   or functions. ({issue}`20189`)
 * Fix potential loss of data when running multiple `INSERT` queries at the same
-  time. ({issue}`20093`)
+  time. ({issue}`20092`)
 * Fix incorrect results when providing a nonexistent namespace while listing
   namespaces. ({issue}`19980`)
 * Fix predicate pushdown not running for Parquet files when columns have been
