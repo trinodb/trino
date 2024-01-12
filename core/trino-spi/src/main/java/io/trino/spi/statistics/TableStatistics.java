@@ -96,8 +96,8 @@ public final class TableStatistics
 
     public static final class Builder
     {
+        private final Map<ColumnHandle, ColumnStatistics> columnStatisticsMap = new LinkedHashMap<>();
         private Estimate rowCount = Estimate.unknown();
-        private Map<ColumnHandle, ColumnStatistics> columnStatisticsMap = new LinkedHashMap<>();
 
         public Builder setRowCount(Estimate rowCount)
         {

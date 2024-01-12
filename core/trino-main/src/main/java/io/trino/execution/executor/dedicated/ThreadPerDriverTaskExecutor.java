@@ -153,7 +153,7 @@ public class ThreadPerDriverTaskExecutor
         private volatile boolean destroyed;
 
         @GuardedBy("this")
-        private Set<SplitRunner> splits = new HashSet<>();
+        private final Set<SplitRunner> splits = new HashSet<>();
 
         public TaskEntry(TaskId taskId, Group group)
         {

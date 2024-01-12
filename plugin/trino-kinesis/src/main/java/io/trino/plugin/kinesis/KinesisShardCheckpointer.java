@@ -25,11 +25,11 @@ import io.airlift.log.Logger;
 public class KinesisShardCheckpointer
 {
     private static final Logger log = Logger.get(KinesisShardCheckpointer.class);
-    private KinesisClientLeaseManager leaseManager;
-    private KinesisSplit kinesisSplit;
-    private String logicalProcessName;
-    private int currentIterationNumber;
-    private KinesisClientLease kinesisClientLease;
+    private final KinesisClientLeaseManager leaseManager;
+    private final KinesisSplit kinesisSplit;
+    private final String logicalProcessName;
+    private final int currentIterationNumber;
+    private final KinesisClientLease kinesisClientLease;
 
     public KinesisShardCheckpointer(
             AmazonDynamoDB dynamoDBClient,

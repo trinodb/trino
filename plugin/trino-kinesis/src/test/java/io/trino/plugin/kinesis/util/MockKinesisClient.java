@@ -60,13 +60,13 @@ import static java.lang.Integer.parseInt;
 public class MockKinesisClient
         extends AmazonKinesisClient
 {
-    private List<InternalStream> streams = new ArrayList<>();
+    private final List<InternalStream> streams = new ArrayList<>();
 
     public static class InternalShard
             extends Shard
     {
-        private List<Record> recs = new ArrayList<>();
-        private int index;
+        private final List<Record> recs = new ArrayList<>();
+        private final int index;
 
         public InternalShard(String streamName, int index)
         {
