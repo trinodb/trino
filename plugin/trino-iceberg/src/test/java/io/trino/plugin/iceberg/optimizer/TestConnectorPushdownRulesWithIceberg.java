@@ -152,6 +152,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 baseType,
                 ImmutableList.of(1),
                 BIGINT,
+                true,
                 Optional.empty());
 
         IcebergTableHandle icebergTable = new IcebergTableHandle(
@@ -260,7 +261,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 Optional.of(false));
         TableHandle table = new TableHandle(catalogHandle, icebergTable, new HiveTransactionHandle(false));
 
-        IcebergColumnHandle column = new IcebergColumnHandle(primitiveColumnIdentity(1, "a"), INTEGER, ImmutableList.of(), INTEGER, Optional.empty());
+        IcebergColumnHandle column = new IcebergColumnHandle(primitiveColumnIdentity(1, "a"), INTEGER, ImmutableList.of(), INTEGER, true, Optional.empty());
 
         tester().assertThat(pushPredicateIntoTableScan)
                 .on(p ->
@@ -311,8 +312,8 @@ public class TestConnectorPushdownRulesWithIceberg
                 Optional.of(false));
         TableHandle table = new TableHandle(catalogHandle, icebergTable, new HiveTransactionHandle(false));
 
-        IcebergColumnHandle columnA = new IcebergColumnHandle(primitiveColumnIdentity(0, "a"), INTEGER, ImmutableList.of(), INTEGER, Optional.empty());
-        IcebergColumnHandle columnB = new IcebergColumnHandle(primitiveColumnIdentity(1, "b"), INTEGER, ImmutableList.of(), INTEGER, Optional.empty());
+        IcebergColumnHandle columnA = new IcebergColumnHandle(primitiveColumnIdentity(0, "a"), INTEGER, ImmutableList.of(), INTEGER, true, Optional.empty());
+        IcebergColumnHandle columnB = new IcebergColumnHandle(primitiveColumnIdentity(1, "b"), INTEGER, ImmutableList.of(), INTEGER, true, Optional.empty());
 
         tester().assertThat(pruneTableScanColumns)
                 .on(p -> {
@@ -373,12 +374,13 @@ public class TestConnectorPushdownRulesWithIceberg
                 Optional.of(false));
         TableHandle table = new TableHandle(catalogHandle, icebergTable, new HiveTransactionHandle(false));
 
-        IcebergColumnHandle bigintColumn = new IcebergColumnHandle(primitiveColumnIdentity(1, "just_bigint"), BIGINT, ImmutableList.of(), BIGINT, Optional.empty());
+        IcebergColumnHandle bigintColumn = new IcebergColumnHandle(primitiveColumnIdentity(1, "just_bigint"), BIGINT, ImmutableList.of(), BIGINT, true, Optional.empty());
         IcebergColumnHandle partialColumn = new IcebergColumnHandle(
                 new ColumnIdentity(3, "struct_of_bigint", STRUCT, ImmutableList.of(primitiveColumnIdentity(1, "a"), primitiveColumnIdentity(2, "b"))),
                 ROW_TYPE,
                 ImmutableList.of(1),
                 BIGINT,
+                true,
                 Optional.empty());
 
         // Test projection pushdown with duplicate column references
