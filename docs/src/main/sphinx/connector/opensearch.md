@@ -287,7 +287,7 @@ formats] are not supported. Dates with the [format] property are ignored.
 Documents in OpenSearch can include more complex structures that are not
 represented in the mapping. For example, a single `keyword` field can have
 widely different content including a single `keyword` value, an array, or a
-multidimensional `keyword` array with any level of nesting
+multidimensional `keyword` array with any level of nesting.
 
 The following command configures `array_string_field` mapping with OpenSearch
 available at `search.example.com:9200`:
