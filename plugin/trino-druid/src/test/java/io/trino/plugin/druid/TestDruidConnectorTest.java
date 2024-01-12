@@ -94,6 +94,7 @@ public class TestDruidConnectorTest
                     SUPPORTS_CREATE_SCHEMA,
                     SUPPORTS_CREATE_TABLE,
                     SUPPORTS_DELETE,
+                    SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
                     SUPPORTS_INSERT,
                     SUPPORTS_RENAME_COLUMN,
                     SUPPORTS_RENAME_TABLE,

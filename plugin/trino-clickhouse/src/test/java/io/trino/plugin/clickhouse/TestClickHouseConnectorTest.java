@@ -69,6 +69,7 @@ public class TestClickHouseConnectorTest
                     SUPPORTS_AGGREGATION_PUSHDOWN_VARIANCE,
                     SUPPORTS_ARRAY,
                     SUPPORTS_DELETE,
+                    SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
                     SUPPORTS_NATIVE_QUERY,
                     SUPPORTS_NEGATIVE_DATE,
                     SUPPORTS_PREDICATE_PUSHDOWN_WITH_VARCHAR_EQUALITY,
