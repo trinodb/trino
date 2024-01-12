@@ -2240,6 +2240,10 @@ public class TestStringFunctions
                 .hasType(VARCHAR)
                 .isEqualTo("hello");
 
+        assertThat(assertions.function("from_utf8", "to_utf8(cast('hello' as char(10)))"))
+                .hasType(VARCHAR)
+                .isEqualTo("hello     ");
+
         assertThat(assertions.function("from_utf8", "from_hex('58BF')"))
                 .hasType(VARCHAR)
                 .isEqualTo("X\uFFFD");
@@ -2268,6 +2272,12 @@ public class TestStringFunctions
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
 
         assertTrinoExceptionThrownBy(assertions.function("from_utf8", "to_utf8('hello')", "1114112")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(assertions.function("from_utf8", "to_utf8(cast('hello' as char(10)))", "'foo'")::evaluate)
+                .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
+
+        assertTrinoExceptionThrownBy(assertions.function("from_utf8", "to_utf8(cast('hello' as char(10)))", "1114112")::evaluate)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }
 
