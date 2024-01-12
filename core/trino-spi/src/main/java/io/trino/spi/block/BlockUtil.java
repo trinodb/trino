@@ -19,6 +19,7 @@ import jakarta.annotation.Nullable;
 import java.util.Arrays;
 
 import static java.lang.Math.ceil;
+import static java.lang.Math.clamp;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -97,7 +98,7 @@ final class BlockUtil
         long newSize = (long) currentSize + (currentSize >> 1);
 
         // ensure new size is within bounds
-        newSize = Math.min(Math.max(newSize, minimumSize), MAX_ARRAY_SIZE);
+        newSize = clamp(newSize, minimumSize, MAX_ARRAY_SIZE);
         return (int) newSize;
     }
 

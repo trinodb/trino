@@ -125,6 +125,7 @@ import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static io.trino.util.Failures.toFailure;
 import static java.lang.Math.addExact;
+import static java.lang.Math.clamp;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -712,8 +713,7 @@ public final class HttpRemoteTask
                 }
             }
             if (numSplits != 0) {
-                newSplitBatchSize = (int) ((numSplits * (maxRequestSizeInBytes - requestSizeHeadroomInBytes)) / requestSize);
-                newSplitBatchSize = Math.max(guaranteedSplitsPerRequest, Math.min(maxUnacknowledgedSplits, newSplitBatchSize));
+                newSplitBatchSize = clamp((numSplits * (maxRequestSizeInBytes - requestSizeHeadroomInBytes)) / requestSize, guaranteedSplitsPerRequest, maxUnacknowledgedSplits);
             }
             if (newSplitBatchSize != currentSplitBatchSize) {
                 log.debug("%s - Split batch size changed: prevSize=%s, newSize=%s", taskId, currentSplitBatchSize, newSplitBatchSize);
