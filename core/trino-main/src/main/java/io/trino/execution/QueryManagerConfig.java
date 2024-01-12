@@ -138,7 +138,6 @@ public class QueryManagerConfig
     // Currently, initial setup is 5GB of task memory processing 4GB data. Given that we triple the memory in case of
     // task OOM, max task size is set to 12GB such that tasks of stages below threshold will succeed within one retry.
     private DataSize faultTolerantExecutionRuntimeAdaptivePartitioningMaxTaskSize = DataSize.of(12, GIGABYTE);
-    private boolean faultTolerantExecutionForcePreferredWritePartitioningEnabled = true;
     private double faultTolerantExecutionMinSourceStageProgress = 0.2;
 
     private boolean faultTolerantExecutionSmallStageEstimationEnabled = true;
