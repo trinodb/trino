@@ -10,6 +10,7 @@ ALTER TABLE [ IF EXISTS ] name ADD COLUMN [ IF NOT EXISTS ] column_name data_typ
 ALTER TABLE [ IF EXISTS ] name DROP COLUMN [ IF EXISTS ] column_name
 ALTER TABLE [ IF EXISTS ] name RENAME COLUMN [ IF EXISTS ] old_name TO new_name
 ALTER TABLE [ IF EXISTS ] name ALTER COLUMN column_name SET DATA TYPE new_type
+ALTER TABLE [ IF EXISTS ] name ALTER COLUMN column_name DROP NOT NULL
 ALTER TABLE name SET AUTHORIZATION ( user | USER user | ROLE role )
 ALTER TABLE name SET PROPERTIES property_name = expression [, ...]
 ALTER TABLE name EXECUTE command [ ( parameter => expression [, ... ] ) ]
@@ -116,6 +117,12 @@ Change type of column `id` to `bigint` in the `users` table:
 
 ```
 ALTER TABLE users ALTER COLUMN id SET DATA TYPE bigint;
+```
+
+Drop a not null constraint on `id` column in the `users` table:
+
+```
+ALTER TABLE users ALTER COLUMN id DROP NOT NULL;
 ```
 
 Change owner of table `people` to user `alice`:

@@ -423,6 +423,19 @@ public abstract class BaseDataDefinitionTaskTest
             tables.put(tableName, new ConnectorTableMetadata(tableName, columns.build()));
         }
 
+        @Override
+        public void dropNotNullConstraint(Session session, TableHandle tableHandle, ColumnHandle columnHandle)
+        {
+            SchemaTableName tableName = getTableName(tableHandle);
+            ConnectorTableMetadata metadata = tables.get(tableName);
+            String columnName = ((TestingColumnHandle) columnHandle).getName();
+
+            List<ColumnMetadata> columns = metadata.getColumns().stream()
+                    .map(column -> column.getName().equals(columnName) ? ColumnMetadata.builderFrom(column).setNullable(true).build() : column)
+                    .collect(toImmutableList());
+            tables.put(tableName, new ConnectorTableMetadata(tableName, columns));
+        }
+
         private ConnectorTableMetadata getTableMetadata(TableHandle tableHandle)
         {
             return tables.get(getTableName(tableHandle));

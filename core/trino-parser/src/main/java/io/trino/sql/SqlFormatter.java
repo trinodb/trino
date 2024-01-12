@@ -50,6 +50,7 @@ import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.DropFunction;
 import io.trino.sql.tree.DropMaterializedView;
+import io.trino.sql.tree.DropNotNullConstraint;
 import io.trino.sql.tree.DropRole;
 import io.trino.sql.tree.DropSchema;
 import io.trino.sql.tree.DropTable;
@@ -1847,6 +1848,21 @@ public final class SqlFormatter
                     .append(formatName(node.getColumnName()))
                     .append(" SET DATA TYPE ")
                     .append(node.getType().toString());
+
+            return null;
+        }
+
+        @Override
+        protected Void visitDropNotNullConstraint(DropNotNullConstraint node, Integer context)
+        {
+            builder.append("ALTER TABLE ");
+            if (node.isTableExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getTable()))
+                    .append(" ALTER COLUMN ")
+                    .append(formatName(node.getColumn()))
+                    .append(" DROP NOT NULL");
 
             return null;
         }
