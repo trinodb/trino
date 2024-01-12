@@ -192,9 +192,6 @@ public class PageProcessor
         private int lastComputeBatchSize;
         private Work<Block> pageProjectWork;
 
-        private int outputPagePositions = -1;
-        private long outputPageSizeInBytes;
-
         private ProjectSelectedPositions(
                 ConnectorSession session,
                 DriverYieldSignal yieldSignal,
