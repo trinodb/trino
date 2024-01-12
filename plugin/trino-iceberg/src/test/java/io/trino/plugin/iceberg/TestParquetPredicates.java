@@ -72,6 +72,7 @@ public class TestParquetPredicates
                 baseType,
                 ImmutableList.of(2),
                 INTEGER,
+                false,
                 Optional.empty());
         Domain predicateDomain = Domain.singleValue(INTEGER, 123L);
         TupleDomain<IcebergColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(projectedColumn, predicateDomain));
@@ -115,6 +116,7 @@ public class TestParquetPredicates
                 baseType,
                 ImmutableList.of(4),
                 INTEGER,
+                false,
                 Optional.empty());
         Domain predicateDomain = Domain.singleValue(INTEGER, 123L);
         TupleDomain<IcebergColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(projectedColumn, predicateDomain));
@@ -163,6 +165,7 @@ public class TestParquetPredicates
                 baseType,
                 ImmutableList.of(5),
                 nestedType,
+                false,
                 Optional.empty());
 
         Domain predicateDomain = Domain.onlyNull(nestedType);
@@ -204,6 +207,7 @@ public class TestParquetPredicates
                 baseType,
                 ImmutableList.of(3),
                 INTEGER,
+                false,
                 Optional.empty());
         Domain predicateDomain = Domain.singleValue(INTEGER, 123L);
         TupleDomain<IcebergColumnHandle> tupleDomain = withColumnDomains(ImmutableMap.of(projectedColumn, predicateDomain));

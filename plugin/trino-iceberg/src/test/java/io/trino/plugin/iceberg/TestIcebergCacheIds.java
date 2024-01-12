@@ -227,7 +227,7 @@ public class TestIcebergCacheIds
                 "location")))
                 .isEqualTo(Optional.of(new CacheTableId("{\"catalog\":\"iceberg:normal:v12345\",\"schemaName\":\"iceberg_cache\",\"tableName\":\"testing\"," +
                         "\"tableLocation\":\"location\",\"unenforcedPredicate\":{\"columnDomains\":[{\"column\":\"{\\\"baseColumnIdentity\\\":{\\\"id\\\":2,\\\"name\\\":\\\"column_2\\\",\\\"typeCategory\\\":\\\"PRIMITIVE\\\",\\\"children\\\":[]},\\\"baseType\\\":\\\"timestamp(6) with time zone\\\"," +
-                        "\\\"path\\\":[],\\\"type\\\":\\\"timestamp(6) with time zone\\\"}\",\"domain\":{\"values\":{\"@type\":\"sortable\",\"type\":\"timestamp(6) with time zone\",\"inclusive\":[true,false]," +
+                        "\\\"path\\\":[],\\\"type\\\":\\\"timestamp(6) with time zone\\\",\\\"nullable\\\":true}\",\"domain\":{\"values\":{\"@type\":\"sortable\",\"type\":\"timestamp(6) with time zone\",\"inclusive\":[true,false]," +
                         "\"sortedRanges\":\"BwAAAEZJWEVEMTICAAAAAAAAwMXu+hcAAAAAAAAAgCtB+xcAAAAAAA==\"},\"nullAllowed\":false}}]},\"storageProperties\":{}}")));
 
         // enforce predicate is not part of table id
@@ -465,6 +465,7 @@ public class TestIcebergCacheIds
                 type,
                 ImmutableList.of(),
                 type,
+                true,
                 Optional.empty());
     }
 

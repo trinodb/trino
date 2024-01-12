@@ -152,12 +152,14 @@ public class TestIcebergProjectionPushdownPlans
                 column0Handle.getType(),
                 ImmutableList.of(column0Handle.getColumnIdentity().getChildren().get(0).getId()),
                 BIGINT,
+                true,
                 Optional.empty());
         IcebergColumnHandle columnY = new IcebergColumnHandle(
                 column0Handle.getColumnIdentity(),
                 column0Handle.getType(),
                 ImmutableList.of(column0Handle.getColumnIdentity().getChildren().get(1).getId()),
                 BIGINT,
+                true,
                 Optional.empty());
 
         // Simple Projection pushdown

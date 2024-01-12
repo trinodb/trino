@@ -722,6 +722,7 @@ public class IcebergMetadata
         return ColumnMetadata.builder()
                 .setName(column.getName())
                 .setType(column.getType())
+                .setNullable(column.isNullable())
                 .setComment(column.getComment())
                 .build();
     }
@@ -2716,6 +2717,7 @@ public class IcebergMetadata
                 column.getBaseType(),
                 fullPath.build(),
                 projectedColumnType,
+                true,
                 Optional.empty());
     }
 

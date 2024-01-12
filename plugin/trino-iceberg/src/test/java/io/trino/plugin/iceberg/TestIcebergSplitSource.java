@@ -248,6 +248,7 @@ public class TestIcebergSplitSource
                 BIGINT,
                 ImmutableList.of(),
                 BIGINT,
+                true,
                 Optional.empty());
         assertThat(IcebergSplitSource.partitionMatchesPredicate(
                 ImmutableSet.of(bigintColumn),
@@ -271,6 +272,7 @@ public class TestIcebergSplitSource
                 BIGINT,
                 ImmutableList.of(),
                 BIGINT,
+                true,
                 Optional.empty());
         Map<Integer, Type.PrimitiveType> primitiveTypes = ImmutableMap.of(1, Types.LongType.get());
         Map<Integer, ByteBuffer> lowerBound = ImmutableMap.of(1, Conversions.toByteBuffer(Types.LongType.get(), 1000L));
@@ -372,6 +374,7 @@ public class TestIcebergSplitSource
                 BIGINT,
                 ImmutableList.of(),
                 BIGINT,
+                true,
                 Optional.empty());
         Map<Integer, Type.PrimitiveType> primitiveTypes = ImmutableMap.of(1, Types.LongType.get());
         Map<Integer, ByteBuffer> lowerBound = ImmutableMap.of(1, Conversions.toByteBuffer(Types.LongType.get(), -1000L));
