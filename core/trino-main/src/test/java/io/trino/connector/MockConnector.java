@@ -666,6 +666,12 @@ public class MockConnector
         }
 
         @Override
+        public void dropNotNullConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
+        {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
         public void setTableAuthorization(ConnectorSession session, SchemaTableName tableName, TrinoPrincipal principal) {}
 
         @Override

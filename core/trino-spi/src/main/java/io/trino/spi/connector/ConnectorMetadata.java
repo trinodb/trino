@@ -649,6 +649,14 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Drop a not null constraint on the specified column
+     */
+    default void dropNotNullConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support dropping a not null constraint");
+    }
+
+    /**
      * Sets the user/role on the specified table.
      */
     default void setTableAuthorization(ConnectorSession session, SchemaTableName tableName, TrinoPrincipal principal)

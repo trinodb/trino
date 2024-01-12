@@ -516,6 +516,15 @@ public class TracingMetadata
     }
 
     @Override
+    public void dropNotNullConstraint(Session session, TableHandle tableHandle, ColumnHandle column)
+    {
+        Span span = startSpan("dropNotNullConstraint", tableHandle);
+        try (var ignored = scopedSpan(span)) {
+            delegate.dropNotNullConstraint(session, tableHandle, column);
+        }
+    }
+
+    @Override
     public void setTableAuthorization(Session session, CatalogSchemaTableName table, TrinoPrincipal principal)
     {
         Span span = startSpan("setTableAuthorization", table);

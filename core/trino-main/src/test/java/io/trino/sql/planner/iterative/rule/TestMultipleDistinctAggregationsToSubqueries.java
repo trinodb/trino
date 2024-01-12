@@ -1426,6 +1426,12 @@ public class TestMultipleDistinctAggregationsToSubqueries
         }
 
         @Override
+        public void dropNotNullConstraint(Session session, TableHandle tableHandle, ColumnHandle column)
+        {
+            metadata.dropNotNullConstraint(session, tableHandle, column);
+        }
+
+        @Override
         public void setTableAuthorization(Session session, CatalogSchemaTableName table, TrinoPrincipal principal)
         {
             metadata.setTableAuthorization(session, table, principal);

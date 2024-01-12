@@ -150,6 +150,7 @@ import io.trino.sql.tree.DereferenceExpression;
 import io.trino.sql.tree.DropCatalog;
 import io.trino.sql.tree.DropColumn;
 import io.trino.sql.tree.DropMaterializedView;
+import io.trino.sql.tree.DropNotNullConstraint;
 import io.trino.sql.tree.DropSchema;
 import io.trino.sql.tree.DropTable;
 import io.trino.sql.tree.DropView;
@@ -1098,6 +1099,12 @@ class StatementAnalyzer
 
         @Override
         protected Scope visitSetColumnType(SetColumnType node, Optional<Scope> scope)
+        {
+            return createAndAssignScope(node, scope);
+        }
+
+        @Override
+        protected Scope visitDropNotNullConstraint(DropNotNullConstraint node, Optional<Scope> scope)
         {
             return createAndAssignScope(node, scope);
         }

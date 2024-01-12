@@ -397,6 +397,12 @@ public class MockPlanAlternativeMetadata
     }
 
     @Override
+    public void dropNotNullConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
+    {
+        delegate.dropNotNullConstraint(session, getDelegate(tableHandle), column);
+    }
+
+    @Override
     public void setTableAuthorization(ConnectorSession session, SchemaTableName tableName, TrinoPrincipal principal)
     {
         delegate.setTableAuthorization(session, tableName, principal);

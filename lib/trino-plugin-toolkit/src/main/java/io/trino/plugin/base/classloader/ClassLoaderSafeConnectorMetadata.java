@@ -395,6 +395,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public void dropNotNullConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle column)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.dropNotNullConstraint(session, tableHandle, column);
+        }
+    }
+
+    @Override
     public void setTableAuthorization(ConnectorSession session, SchemaTableName table, TrinoPrincipal principal)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

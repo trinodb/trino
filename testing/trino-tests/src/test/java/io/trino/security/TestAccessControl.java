@@ -751,6 +751,19 @@ public class TestAccessControl
     }
 
     @Test
+    public void testDropNotNullConstraint()
+    {
+        reset();
+
+        String tableName = "test_drop_not_null" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT * FROM orders", 0);
+
+        assertAccessDenied("ALTER TABLE " + tableName + " ALTER COLUMN orderkey DROP NOT NULL", "Cannot alter a column for table .*." + tableName + ".*", privilege(tableName, ALTER_COLUMN));
+        assertThatThrownBy(() -> getQueryRunner().execute(getSession(), "ALTER TABLE " + tableName + " ALTER COLUMN orderkey DROP NOT NULL"))
+                .hasMessageContaining("Column is already nullable"); // Update this test once Black Hole connector supports a not null constraint
+    }
+
+    @Test
     public void testSetTableProperties()
     {
         reset();

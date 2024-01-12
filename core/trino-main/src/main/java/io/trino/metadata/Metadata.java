@@ -287,6 +287,11 @@ public interface Metadata
     void setFieldType(Session session, TableHandle tableHandle, List<String> fieldPath, Type type);
 
     /**
+     * Drop a not null constraint on the specified column.
+     */
+    void dropNotNullConstraint(Session session, TableHandle tableHandle, ColumnHandle column);
+
+    /**
      * Set the authorization (owner) of specified table's user/role
      */
     void setTableAuthorization(Session session, CatalogSchemaTableName table, TrinoPrincipal principal);
