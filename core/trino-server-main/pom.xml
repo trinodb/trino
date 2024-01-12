@@ -16,6 +16,8 @@
         <!-- allow dependencies with newer bytecode versions -->
         <air.check.skip-enforcer>true</air.check.skip-enforcer>
         <project.build.targetJdk>8</project.build.targetJdk>
+        <!-- always disable preview features for target 8 -->
+        <air.compiler.enable-preview>false</air.compiler.enable-preview>
     </properties>
 
     <dependencies>
