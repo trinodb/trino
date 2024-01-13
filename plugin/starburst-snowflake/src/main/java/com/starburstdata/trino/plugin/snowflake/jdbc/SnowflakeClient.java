@@ -338,7 +338,7 @@ public class SnowflakeClient
     }
 
     @Override
-    protected String createTableSql(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
+    protected List<String> createTableSqls(RemoteTableName remoteTableName, List<String> columns, ConnectorTableMetadata tableMetadata)
     {
         RemoteTableName remappedRemoteTableName = remoteTableName;
         if (databasePrefixForSchemaEnabled) {
@@ -348,7 +348,7 @@ public class SnowflakeClient
                     Optional.of(databaseSchema.getSchemaName()),
                     remoteTableName.getTableName());
         }
-        return super.createTableSql(remappedRemoteTableName, columns, tableMetadata);
+        return super.createTableSqls(remappedRemoteTableName, columns, tableMetadata);
     }
 
     @Override
