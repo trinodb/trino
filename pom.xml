@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
-        <version>148</version>
+        <version>149</version>
     </parent>
 
     <groupId>io.trino</groupId>
@@ -174,18 +174,18 @@
         <!-- keep dependency properties sorted -->
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.accumulo.version>1.10.2</dep.accumulo.version>
-        <dep.airlift.version>239</dep.airlift.version>
+        <dep.airlift.version>240</dep.airlift.version>
         <dep.antlr.version>4.13.1</dep.antlr.version>
         <dep.arrow.version>14.0.2</dep.arrow.version>
         <dep.avro.version>1.11.3</dep.avro.version>
-        <dep.aws-sdk.version>1.12.630</dep.aws-sdk.version>
+        <dep.aws-sdk.version>1.12.636</dep.aws-sdk.version>
         <dep.cassandra.version>4.17.0</dep.cassandra.version>
         <dep.confluent.version>7.5.1</dep.confluent.version>
         <dep.docker.images.version>87</dep.docker.images.version>
         <dep.drift.version>1.21</dep.drift.version>
         <dep.duct-tape.version>1.0.8</dep.duct-tape.version>
         <dep.errorprone.version>2.23.0</dep.errorprone.version>
-        <dep.flyway.version>10.4.1</dep.flyway.version>
+        <dep.flyway.version>10.5.0</dep.flyway.version>
         <dep.google.http.client.version>1.43.3</dep.google.http.client.version>
         <dep.iceberg.version>1.4.3</dep.iceberg.version>
         <dep.jna.version>5.14.0</dep.jna.version>
@@ -218,7 +218,7 @@
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
-                <version>26.27.0</version>
+                <version>26.29.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -298,7 +298,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.22.10</version>
+                <version>2.23.2</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -536,6 +536,12 @@
                 <groupId>com.google.errorprone</groupId>
                 <artifactId>error_prone_annotations</artifactId>
                 <version>${dep.errorprone.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.guava</groupId>
+                <artifactId>failureaccess</artifactId>
+                <version>1.0.2</version>
             </dependency>
 
             <dependency>
