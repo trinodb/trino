@@ -68,7 +68,8 @@ public class PageSourceManager
                 split.getConnectorSplit(),
                 table.getConnectorHandle(),
                 columns,
-                dynamicFilter);
+                dynamicFilter,
+                !split.getFailoverHappened());
         if (!provider.shouldPerformDynamicRowFiltering()) {
             return pageSource;
         }

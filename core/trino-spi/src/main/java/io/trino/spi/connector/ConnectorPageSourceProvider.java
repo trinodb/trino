@@ -32,6 +32,27 @@ public interface ConnectorPageSourceProvider
             DynamicFilter dynamicFilter);
 
     /**
+     * @param splitAddressEnforced true iff the split executed on its preferred node (from its {@link ConnectorSplit#getAddresses()}  result).
+     */
+    default ConnectorPageSource createPageSource(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorSplit split,
+            ConnectorTableHandle table,
+            List<ColumnHandle> columns,
+            DynamicFilter dynamicFilter,
+            boolean splitAddressEnforced)
+    {
+        return createPageSource(
+                transaction,
+                session,
+                split,
+                table,
+                columns,
+                dynamicFilter);
+    }
+
+    /**
      * Simplifies predicate into a predicate that {@link ConnectorPageSource} would use
      * to filter split data. Returned predicate might contain additional columns that
      * were not part of input predicate.

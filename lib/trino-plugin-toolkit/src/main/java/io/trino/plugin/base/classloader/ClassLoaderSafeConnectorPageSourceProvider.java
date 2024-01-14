@@ -75,6 +75,21 @@ public class ClassLoaderSafeConnectorPageSourceProvider
     }
 
     @Override
+    public ConnectorPageSource createPageSource(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorSplit split,
+            ConnectorTableHandle table,
+            List<ColumnHandle> columns,
+            DynamicFilter dynamicFilter,
+            boolean splitAddressEnforced)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.createPageSource(transaction, session, split, table, columns, dynamicFilter, splitAddressEnforced);
+        }
+    }
+
+    @Override
     public boolean shouldPerformDynamicRowFiltering()
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
