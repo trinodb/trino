@@ -543,6 +543,7 @@ TABLE AS </sql/create-table-as>` syntax.
 
 The connector supports the following [](/sql/alter-table) statements.
 
+(delta-lake-alter-table-execute)=
 #### ALTER TABLE EXECUTE
 
 The connector supports the following commands for use with {ref}`ALTER TABLE
