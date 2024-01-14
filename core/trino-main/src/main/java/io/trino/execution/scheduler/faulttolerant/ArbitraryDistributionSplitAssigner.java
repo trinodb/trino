@@ -64,7 +64,7 @@ class ArbitraryDistributionSplitAssigner
     private long targetPartitionSizeInBytes;
     private long roundedTargetPartitionSizeInBytes;
     private final List<PartitionAssignment> allAssignments = new ArrayList<>();
-    private final Map<Optional<HostAddress>, PartitionAssignment> openAssignments = new HashMap<>();
+    private final Map<NodeRequirements, PartitionAssignment> openAssignments = new HashMap<>();
 
     private final Set<PlanNodeId> completedSources = new HashSet<>();
 
@@ -208,8 +208,8 @@ class ArbitraryDistributionSplitAssigner
         AssignmentResult.Builder assignment = AssignmentResult.builder();
 
         for (Split split : splits) {
-            Optional<HostAddress> hostRequirement = getHostRequirement(split);
-            PartitionAssignment partitionAssignment = openAssignments.get(hostRequirement);
+            NodeRequirements nodeRequirements = getNodeRequirements(split);
+            PartitionAssignment partitionAssignment = openAssignments.get(nodeRequirements);
             long splitSizeInBytes = getSplitSizeInBytes(split);
             if (partitionAssignment != null && ((partitionAssignment.getAssignedDataSizeInBytes() + splitSizeInBytes > roundedTargetPartitionSizeInBytes)
                     || (partitionAssignment.getAssignedSplitCount() + 1 > maxTaskSplitCount))) {
@@ -226,7 +226,7 @@ class ArbitraryDistributionSplitAssigner
                     assignment.sealPartition(partitionAssignment.getPartitionId());
                 }
                 partitionAssignment = null;
-                openAssignments.remove(hostRequirement);
+                openAssignments.remove(nodeRequirements);
 
                 adaptiveCounter++;
                 if (adaptiveCounter >= adaptiveGrowthPeriod) {
@@ -240,10 +240,10 @@ class ArbitraryDistributionSplitAssigner
             if (partitionAssignment == null) {
                 partitionAssignment = new PartitionAssignment(nextPartitionId++);
                 allAssignments.add(partitionAssignment);
-                openAssignments.put(hostRequirement, partitionAssignment);
+                openAssignments.put(nodeRequirements, partitionAssignment);
                 assignment.addPartition(new Partition(
                         partitionAssignment.getPartitionId(),
-                        new NodeRequirements(catalogRequirement, hostRequirement.map(ImmutableSet::of).orElseGet(ImmutableSet::of))));
+                        nodeRequirements));
 
                 for (PlanNodeId replicatedSourceId : replicatedSources) {
                     assignment.updatePartition(new PartitionUpdate(
@@ -341,30 +341,45 @@ class ArbitraryDistributionSplitAssigner
                 .toString();
     }
 
-    private Optional<HostAddress> getHostRequirement(Split split)
+    /**
+     * Ranks the desirability of selecting a node for the next split assignment.  Lower is better.
+     */
+    private long rank(HostAddress address)
+    {
+        // The node-to-split map can have two entries for this address: one for failover-allowed splits and one for failover-forbidden splits.
+        PartitionAssignment flexEntry = openAssignments.get(new NodeRequirements(catalogRequirement, ImmutableSet.of(address), true));
+        PartitionAssignment rigidEntry = openAssignments.get(new NodeRequirements(catalogRequirement, ImmutableSet.of(address), false));
+        if (flexEntry == null && rigidEntry == null) {
+            return -1; // Most desirable: an unassigned node.
+        }
+        // The more data assigned to this node, the less desirable it is.
+        if (flexEntry == null) {
+            return rigidEntry.getAssignedDataSizeInBytes();
+        }
+        if (rigidEntry == null) {
+            return flexEntry.getAssignedDataSizeInBytes();
+        }
+        return flexEntry.getAssignedDataSizeInBytes() + rigidEntry.getAssignedDataSizeInBytes();
+    }
+
+    private NodeRequirements getNodeRequirements(Split split)
     {
         if (split.getConnectorSplit().isRemotelyAccessible()) {
-            return Optional.empty();
+            return new NodeRequirements(catalogRequirement, ImmutableSet.of(), false);
         }
         List<HostAddress> addresses = split.getAddresses();
         checkArgument(!addresses.isEmpty(), "split is not remotely accessible but the list of hosts is empty: %s", split);
         HostAddress selectedAddress = null;
-        long selectedAssignmentDataSize = Long.MAX_VALUE;
+        long selectedAssignmentRank = Long.MAX_VALUE;
         for (HostAddress address : addresses) {
-            PartitionAssignment assignment = openAssignments.get(Optional.of(address));
-            if (assignment == null) {
-                // prioritize unused addresses
+            long rank = rank(address);
+            if (rank < selectedAssignmentRank) {
                 selectedAddress = address;
-                break;
-            }
-            if (assignment.getAssignedDataSizeInBytes() < selectedAssignmentDataSize) {
-                // otherwise prioritize the smallest assignment
-                selectedAddress = address;
-                selectedAssignmentDataSize = assignment.getAssignedDataSizeInBytes();
+                selectedAssignmentRank = rank;
             }
         }
         verify(selectedAddress != null, "selectedAddress is null");
-        return Optional.of(selectedAddress);
+        return new NodeRequirements(catalogRequirement, ImmutableSet.of(selectedAddress), split.isRemotelyAccessibleIfNodeMissing());
     }
 
     private long getSplitSizeInBytes(Split split)
