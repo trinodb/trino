@@ -288,6 +288,9 @@ public class MySqlClient
                 .map("$negate(value: integer_type)").to("-value")
                 .add(new RewriteLikeWithCaseSensitivity())
                 .add(new RewriteLikeEscapeWithCaseSensitivity())
+                .map("$not($is_null(value))").to("value IS NOT NULL")
+                .map("$is_null(value)").to("value IS NULL")
+                .map("$nullif(first, second)").to("NULLIF(first, second)")
                 .build();
 
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
