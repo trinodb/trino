@@ -59,6 +59,7 @@ import static io.trino.SystemSessionProperties.getMinInputSizePerTask;
 import static io.trino.SystemSessionProperties.getQueryMaxMemoryPerNode;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.SystemSessionProperties.isDeterminePartitionCountForWriteEnabled;
+import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
@@ -121,7 +122,8 @@ public class DeterminePartitionCount
         requireNonNull(taskCountEstimator, "taskCountEstimator is null");
 
         // Skip partition count determination if no partitioned remote exchanges exist in the plan anyway
-        if (!isEligibleRemoteExchangePresent(plan)) {
+        boolean taskRetries = getRetryPolicy(session).equals(RetryPolicy.TASK);
+        if (!isEligibleRemoteExchangePresent(plan, taskRetries)) {
             return plan;
         }
 
@@ -133,7 +135,7 @@ public class DeterminePartitionCount
         }
 
         return determinePartitionCount(plan, session, types, tableStatsProvider, isWriteQuery)
-                .map(partitionCount -> rewriteWith(new Rewriter(partitionCount), plan))
+                .map(partitionCount -> rewriteWith(new Rewriter(partitionCount, taskRetries), plan))
                 .orElse(plan);
     }
 
@@ -317,32 +319,37 @@ public class DeterminePartitionCount
                 .sum();
     }
 
-    private static boolean isEligibleRemoteExchangePresent(PlanNode root)
+    private static boolean isEligibleRemoteExchangePresent(PlanNode root, boolean taskRetries)
     {
         return PlanNodeSearcher.searchFrom(root)
-                .where(node -> node instanceof ExchangeNode exchangeNode && isEligibleRemoteExchange(exchangeNode))
+                .where(node -> node instanceof ExchangeNode exchangeNode && isEligibleRemoteExchange(exchangeNode, taskRetries))
                 .matches();
     }
 
-    private static boolean isEligibleRemoteExchange(ExchangeNode exchangeNode)
+    private static boolean isEligibleRemoteExchange(ExchangeNode exchangeNode, boolean taskRetries)
     {
         if (exchangeNode.getScope() != REMOTE || exchangeNode.getType() != REPARTITION) {
             return false;
         }
+
         PartitioningHandle partitioningHandle = exchangeNode.getPartitioningScheme().getPartitioning().getHandle();
+
         return !partitioningHandle.isScaleWriters()
                 && !partitioningHandle.isSingleNode()
-                && partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle;
+                && partitioningHandle.getConnectorHandle() instanceof SystemPartitioningHandle
+                && (!taskRetries || partitioningHandle == FIXED_HASH_DISTRIBUTION); // for FTE it only makes sense to set partition count fot hash partitioned fragments
     }
 
     private static class Rewriter
             extends SimplePlanRewriter<Void>
     {
         private final int partitionCount;
+        private final boolean taskRetries;
 
-        private Rewriter(int partitionCount)
+        private Rewriter(int partitionCount, boolean taskRetries)
         {
             this.partitionCount = partitionCount;
+            this.taskRetries = taskRetries;
         }
 
         @Override
@@ -353,7 +360,7 @@ public class DeterminePartitionCount
                     .collect(toImmutableList());
 
             PartitioningScheme partitioningScheme = node.getPartitioningScheme();
-            if (isEligibleRemoteExchange(node)) {
+            if (isEligibleRemoteExchange(node, taskRetries)) {
                 partitioningScheme = partitioningScheme.withPartitionCount(Optional.of(partitionCount));
             }
 

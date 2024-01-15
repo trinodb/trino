@@ -753,7 +753,7 @@ public class TestDeterminePartitionCount
                 output(
                         join(INNER, builder -> builder
                                 .ignoreEquiCriteria() // criteria uses new symbols output by exchange left exchange which cannot be expressed in plan matcher
-                                .left(exchange(REMOTE, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION, Optional.of(15),
+                                .left(exchange(REMOTE, REPARTITION, FIXED_ARBITRARY_DISTRIBUTION, Optional.empty(),
                                         join(INNER, builder2 -> builder2
                                                 .equiCriteria("column_a_0", "column_a_2")
                                                 .left(exchange(REMOTE, REPARTITION, FIXED_HASH_DISTRIBUTION, Optional.of(15),
