@@ -15,7 +15,9 @@ package io.trino.plugin.mysql;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.TestingConnectorBehavior;
 
+import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -28,6 +30,19 @@ public class TestMySqlConnectorTest
     {
         mySqlServer = closeAfterClass(new TestingMySqlServer(false));
         return createMySqlQueryRunner(mySqlServer, ImmutableMap.of(), ImmutableMap.of(), REQUIRED_TPCH_TABLES);
+    }
+
+    @Override
+    protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
+    {
+        return switch (connectorBehavior) {
+            case SUPPORTS_PREDICATE_EXPRESSION_PUSHDOWN -> {
+                // TODO remove once super has this set to true
+                verify(!super.hasBehavior(connectorBehavior));
+                yield true;
+            }
+            default -> super.hasBehavior(connectorBehavior);
+        };
     }
 
     @Override

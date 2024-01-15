@@ -22,11 +22,22 @@ import io.trino.plugin.jdbc.JdbcColumnHandle;
 import io.trino.plugin.jdbc.JdbcExpression;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.JdbcTypeHandle;
+import io.trino.plugin.jdbc.QueryParameter;
+import io.trino.plugin.jdbc.expression.ParameterizedExpression;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
+import io.trino.spi.type.Type;
+import io.trino.sql.planner.ConnectorExpressionTranslator;
+import io.trino.sql.planner.LiteralEncoder;
+import io.trino.sql.planner.Symbol;
+import io.trino.sql.planner.TypeProvider;
+import io.trino.sql.tree.ArithmeticBinaryExpression;
+import io.trino.sql.tree.ArithmeticUnaryExpression;
+import io.trino.sql.tree.Expression;
+import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Types;
@@ -34,11 +45,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
+import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
+import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestMySqlClient
@@ -67,6 +83,8 @@ public class TestMySqlClient
             TESTING_TYPE_MANAGER,
             new DefaultIdentifierMapping(),
             RemoteQueryModifier.NONE);
+
+    private static final LiteralEncoder LITERAL_ENCODER = new LiteralEncoder(PLANNER_CONTEXT);
 
     @Test
     public void testImplementCount()
@@ -168,5 +186,54 @@ public class TestMySqlClient
             assertThat(columnMapping.get().getType())
                     .isEqualTo(aggregateFunction.getOutputType());
         }
+    }
+
+    @Test
+    public void testConvertArithmeticBinary()
+    {
+        for (ArithmeticBinaryExpression.Operator operator : ArithmeticBinaryExpression.Operator.values()) {
+            ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
+                            SESSION,
+                            translateToConnectorExpression(
+                                    new ArithmeticBinaryExpression(
+                                            operator,
+                                            new SymbolReference("c_bigint_symbol"),
+                                            LITERAL_ENCODER.toExpression(42L, BIGINT)),
+                                    Map.of("c_bigint_symbol", BIGINT)),
+                            Map.of("c_bigint_symbol", BIGINT_COLUMN))
+                    .orElseThrow();
+
+            assertThat(converted.expression()).isEqualTo(format("(`c_bigint`) %s (?)", operator.getValue()));
+            assertThat(converted.parameters()).isEqualTo(List.of(new QueryParameter(BIGINT, Optional.of(42L))));
+        }
+    }
+
+    @Test
+    public void testConvertArithmeticUnaryMinus()
+    {
+        ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(
+                        SESSION,
+                        translateToConnectorExpression(
+                                new ArithmeticUnaryExpression(
+                                        ArithmeticUnaryExpression.Sign.MINUS,
+                                        new SymbolReference("c_bigint_symbol")),
+                                Map.of("c_bigint_symbol", BIGINT)),
+                        Map.of("c_bigint_symbol", BIGINT_COLUMN))
+                .orElseThrow();
+
+        assertThat(converted.expression()).isEqualTo("-(`c_bigint`)");
+        assertThat(converted.parameters()).isEqualTo(List.of());
+    }
+
+    private ConnectorExpression translateToConnectorExpression(Expression expression, Map<String, Type> symbolTypes)
+    {
+        return ConnectorExpressionTranslator.translate(
+                        TEST_SESSION,
+                        expression,
+                        TypeProvider.viewOf(symbolTypes.entrySet().stream()
+                                .collect(toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue))),
+                        PLANNER_CONTEXT,
+                        createTestingTypeAnalyzer(PLANNER_CONTEXT))
+                .orElseThrow();
     }
 }
