@@ -58,6 +58,7 @@ public final class JoinMatcher
 {
     private final JoinNode.Type joinType;
     private final List<ExpectedValueProvider<JoinNode.EquiJoinClause>> equiCriteria;
+    private final boolean ignoreEquiCriteria;
     private final Optional<Expression> filter;
     private final Optional<DistributionType> distributionType;
     private final Optional<Boolean> spillable;
@@ -67,6 +68,7 @@ public final class JoinMatcher
     JoinMatcher(
             JoinNode.Type joinType,
             List<ExpectedValueProvider<JoinNode.EquiJoinClause>> equiCriteria,
+            boolean ignoreEquiCriteria,
             Optional<Expression> filter,
             Optional<DistributionType> distributionType,
             Optional<Boolean> spillable,
@@ -74,6 +76,10 @@ public final class JoinMatcher
     {
         this.joinType = requireNonNull(joinType, "joinType is null");
         this.equiCriteria = requireNonNull(equiCriteria, "equiCriteria is null");
+        if (ignoreEquiCriteria && !equiCriteria.isEmpty()) {
+            throw new IllegalArgumentException("ignoreEquiCriteria passed with non-empty equiCriteria");
+        }
+        this.ignoreEquiCriteria = ignoreEquiCriteria;
         this.filter = requireNonNull(filter, "filter cannot be null");
         this.distributionType = requireNonNull(distributionType, "distributionType is null");
         this.spillable = requireNonNull(spillable, "spillable is null");
@@ -97,7 +103,7 @@ public final class JoinMatcher
 
         JoinNode joinNode = (JoinNode) node;
 
-        if (joinNode.getCriteria().size() != equiCriteria.size()) {
+        if (!ignoreEquiCriteria && joinNode.getCriteria().size() != equiCriteria.size()) {
             return NO_MATCH;
         }
 
@@ -123,18 +129,20 @@ public final class JoinMatcher
             return NO_MATCH;
         }
 
-        /*
-         * Have to use order-independent comparison; there are no guarantees what order
-         * the equi criteria will have after planning and optimizing.
-         */
-        Set<JoinNode.EquiJoinClause> actual = ImmutableSet.copyOf(joinNode.getCriteria());
-        Set<JoinNode.EquiJoinClause> expected =
-                equiCriteria.stream()
-                        .map(maker -> maker.getExpectedValue(symbolAliases))
-                        .collect(toImmutableSet());
+        if (!ignoreEquiCriteria) {
+            /*
+             * Have to use order-independent comparison; there are no guarantees what order
+             * the equi criteria will have after planning and optimizing.
+             */
+            Set<JoinNode.EquiJoinClause> actual = ImmutableSet.copyOf(joinNode.getCriteria());
+            Set<JoinNode.EquiJoinClause> expected =
+                    equiCriteria.stream()
+                            .map(maker -> maker.getExpectedValue(symbolAliases))
+                            .collect(toImmutableSet());
 
-        if (!expected.equals(actual)) {
-            return NO_MATCH;
+            if (!expected.equals(actual)) {
+                return NO_MATCH;
+            }
         }
 
         return new MatchResult(matchDynamicFilters(joinNode, symbolAliases));
@@ -204,6 +212,7 @@ public final class JoinMatcher
         private PlanMatchPattern left;
         private PlanMatchPattern right;
         private Optional<String> filter = Optional.empty();
+        private boolean ignoreEquiCriteria;
 
         public Builder(JoinNode.Type joinType)
         {
@@ -292,6 +301,12 @@ public final class JoinMatcher
             return this;
         }
 
+        public Builder ignoreEquiCriteria()
+        {
+            this.ignoreEquiCriteria = true;
+            return this;
+        }
+
         public PlanMatchPattern build()
         {
             return node(JoinNode.class, left, right)
@@ -299,6 +314,7 @@ public final class JoinMatcher
                             new JoinMatcher(
                                     joinType,
                                     equiCriteria.orElse(ImmutableList.of()),
+                                    ignoreEquiCriteria,
                                     filter.map(PlanBuilder::expression),
                                     distributionType,
                                     expectedSpillable,
