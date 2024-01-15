@@ -82,13 +82,13 @@ public class NodeRequirements
             return false;
         }
         NodeRequirements that = (NodeRequirements) o;
-        return Objects.equals(catalogHandle, that.catalogHandle) && Objects.equals(addresses, that.addresses);
+        return Objects.equals(catalogHandle, that.catalogHandle) && Objects.equals(addresses, that.addresses) && this.allowsNodeFailover == that.allowsNodeFailover;
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(catalogHandle, addresses);
+        return Objects.hash(catalogHandle, addresses, allowsNodeFailover);
     }
 
     @Override
@@ -97,6 +97,7 @@ public class NodeRequirements
         return toStringHelper(this)
                 .add("catalogHandle", catalogHandle)
                 .add("addresses", addresses)
+                .add("allowsNodeFailover", allowsNodeFailover)
                 .toString();
     }
 
