@@ -910,7 +910,8 @@ for the equivalent Avro field type.
 
 No other types are supported.
 
-The following example shows an Avro field definition in a [kafka.table-description-dirition file](#table-definition-files) for a Kafka message:
+The following example shows an Avro field definition in a [table definition
+file](#table-definition-files) for a Kafka message:
 
 ```json
 {
