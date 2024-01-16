@@ -203,6 +203,15 @@ public final class StringFunctions
         return SliceUtf8.reverse(slice);
     }
 
+    @Description("Reverse all code points in a given string")
+    @ScalarFunction(value = "reverse")
+    @LiteralParameters("x")
+    @SqlType("char(x)")
+    public static Slice charReverse(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice)
+    {
+        return SliceUtf8.reverse(padSpaces(slice, (int) x));
+    }
+
     @Description("Returns index of first occurrence of a substring (or 0 if not found)")
     @ScalarFunction("strpos")
     @LiteralParameters({"x", "y"})
