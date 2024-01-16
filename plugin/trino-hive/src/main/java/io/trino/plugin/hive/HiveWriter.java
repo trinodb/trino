@@ -58,6 +58,11 @@ public class HiveWriter
         this.hiveWriterStats = requireNonNull(hiveWriterStats, "hiveWriterStats is null");
     }
 
+    public String getTargetPath()
+    {
+        return targetPath;
+    }
+
     public FileWriter getFileWriter()
     {
         return fileWriter;

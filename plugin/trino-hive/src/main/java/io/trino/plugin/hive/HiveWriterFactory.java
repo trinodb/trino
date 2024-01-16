@@ -106,6 +106,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 
 public class HiveWriterFactory
+        implements WriterFactory
 {
     private static final int MAX_BUCKET_COUNT = 100_000;
     private static final int BUCKET_NUMBER_PADDING = Integer.toString(MAX_BUCKET_COUNT - 1).length();
@@ -271,6 +272,7 @@ public class HiveWriterFactory
         this.hiveWriterStats = requireNonNull(hiveWriterStats, "hiveWriterStats is null");
     }
 
+    @Override
     public HiveWriter createWriter(Page partitionColumns, int position, OptionalInt bucketNumber)
     {
         if (bucketCount.isPresent()) {

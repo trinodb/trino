@@ -209,7 +209,7 @@ public final class HiveType
 
     public static List<HiveType> toHiveTypes(String hiveTypes)
     {
-        requireNonNull(hiveTypes, "hiveTypes is null");
+        requireNonNull(hiveTypes, "dataColumnTypes is null");
         return getTypeInfosFromTypeString(hiveTypes).stream()
                 .map(HiveType::toHiveType)
                 .collect(toImmutableList());

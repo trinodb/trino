@@ -549,6 +549,10 @@
                                 <exclude>**/TestHiveConcurrentModificationGlueMetastore.java</exclude>
                                 <exclude>**/TestFullParquetReader.java</exclude>
                                 <exclude>**/TestParquetReader.java</exclude>
+                                <exclude>**/TestUnloadS3.java</exclude>
+                                <exclude>**/TestUnloadNativeS3.java</exclude>
+                                <exclude>**/TestUnloadGcs.java</exclude>
+                                <exclude>**/TestUnloadAbfs.java</exclude>
                                 <exclude>**/Test*FailureRecoveryTest.java</exclude>
                             </excludes>
                         </configuration>
@@ -593,7 +597,7 @@
         </profile>
 
         <profile>
-            <id>aws-tests</id>
+            <id>cloud-tests</id>
             <build>
                 <plugins>
                     <plugin>
@@ -603,6 +607,10 @@
                             <includes>
                                 <include>**/TestHiveS3AndGlueMetastoreTest.java</include>
                                 <include>**/TestHiveConcurrentModificationGlueMetastore.java</include>
+                                <include>**/TestUnloadS3.java</include>
+                                <include>**/TestUnloadNativeS3.java</include>
+                                <include>**/TestUnloadGcs.java</include>
+                                <include>**/TestUnloadAbfs.java</include>
                             </includes>
                         </configuration>
                     </plugin>

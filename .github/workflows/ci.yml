@@ -342,16 +342,21 @@ jobs:
         run: |
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           $MAVEN clean install ${MAVEN_FAST_INSTALL} ${MAVEN_GIB} -Dgib.logImpactedTo=gib-impacted.log -am -pl :trino-hive
-      - name: Run Hive AWS Tests
+      - name: Run Hive Cloud Tests
         env:
+          ABFS_CONTAINER: ${{ secrets.AZURE_ABFS_CONTAINER }}
+          ABFS_ACCOUNT: ${{ secrets.AZURE_ABFS_ACCOUNT }}
+          ABFS_ACCESSKEY: ${{ secrets.AZURE_ABFS_ACCESSKEY }}
           AWS_ACCESS_KEY_ID: ${{ secrets.TRINO_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.TRINO_AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ vars.TRINO_AWS_REGION }}
           S3_BUCKET: ${{ vars.TRINO_S3_BUCKET }}
           S3_BUCKET_ENDPOINT: "s3.${{ vars.TRINO_AWS_REGION }}.amazonaws.com"
+          GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
+          GCP_STORAGE_BUCKET: ${{ vars.GCP_STORAGE_BUCKET }}
         run: |
           if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
-            $MAVEN test ${MAVEN_TEST} -pl :trino-hive -P aws-tests
+            $MAVEN test ${MAVEN_TEST} -pl :trino-hive -P cloud-tests
           fi
       - name: Upload test results
         uses: actions/upload-artifact@v3
