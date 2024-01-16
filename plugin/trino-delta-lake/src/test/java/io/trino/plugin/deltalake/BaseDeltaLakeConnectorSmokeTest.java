@@ -351,12 +351,12 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         String tableName = "test_create_table_partition_validation_" + randomNameSuffix();
         assertQueryFails("CREATE TABLE " + tableName + " (a int, b VARCHAR, c TIMESTAMP WITH TIME ZONE) " +
                         "WITH (location = '" + getLocationForTable(bucketName, tableName) + "', partitioned_by = ARRAY['a', 'd', 'e'])",
-                "Table property 'partition_by' contained column names which do not exist: \\[d, e]");
+                "Table property 'partitioned_by' contained column names which do not exist: \\[d, e]");
 
         assertQueryFails("CREATE TABLE " + tableName + " (a, b, c) " +
                         "WITH (location = '" + getLocationForTable(bucketName, tableName) + "', partitioned_by = ARRAY['a', 'd', 'e']) " +
                         "AS VALUES (1, 'one', TIMESTAMP '2020-02-03 01:02:03.123 UTC')",
-                "Table property 'partition_by' contained column names which do not exist: \\[d, e]");
+                "Table property 'partitioned_by' contained column names which do not exist: \\[d, e]");
     }
 
     @Test
