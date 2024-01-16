@@ -186,7 +186,7 @@ public class HivePageSinkProvider
                 temporaryStagingDirectoryPath);
 
         return new HivePageSink(
-                handle,
+                handle.getTransaction().isMerge(),
                 writerFactory,
                 handle.getInputColumns(),
                 handle.isTransactional(),
