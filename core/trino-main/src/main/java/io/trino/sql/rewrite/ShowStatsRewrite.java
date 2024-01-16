@@ -147,10 +147,7 @@ public class ShowStatsRewrite
         protected Node visitShowStats(ShowStats node, Void context)
         {
             Query query = getRelation(node);
-            // Disable subquery cache and microplans for SHOW STATS queries.
-            // TODO: hack, remove once https://starburstdata.atlassian.net/browse/SEP-12766 and
-            // https://starburstdata.atlassian.net/browse/SIC-978 is done
-            Plan plan = queryExplainer.getShowStatsPlan(session, query, parameters, warningCollector, planOptimizersStatsCollector);
+            Plan plan = queryExplainer.getLogicalPlan(session, query, parameters, warningCollector, planOptimizersStatsCollector);
             CachingStatsProvider cachingStatsProvider = new CachingStatsProvider(statsCalculator, session, plan.getTypes(), new CachingTableStatsProvider(metadata, session));
             PlanNodeStatsEstimate stats = cachingStatsProvider.getStats(plan.getRoot());
             return rewriteShowStats(plan, stats);

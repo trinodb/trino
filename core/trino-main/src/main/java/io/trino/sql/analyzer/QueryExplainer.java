@@ -161,23 +161,6 @@ public class QueryExplainer
         };
     }
 
-    public Plan getShowStatsPlan(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector)
-    {
-        Analysis analysis = analyze(session, statement, parameters, warningCollector, planOptimizersStatsCollector);
-        LogicalPlanner logicalPlanner = new LogicalPlanner(
-                session,
-                planOptimizers,
-                alternativeOptimizers,
-                new PlanNodeIdAllocator(),
-                plannerContext,
-                new TypeAnalyzer(plannerContext, statementAnalyzerFactory),
-                statsCalculator,
-                costCalculator,
-                warningCollector,
-                planOptimizersStatsCollector);
-        return logicalPlanner.plan(analysis, OPTIMIZED_AND_VALIDATED, true, true);
-    }
-
     public Plan getLogicalPlan(Session session, Statement statement, List<Expression> parameters, WarningCollector warningCollector, PlanOptimizersStatsCollector planOptimizersStatsCollector)
     {
         // analyze statement

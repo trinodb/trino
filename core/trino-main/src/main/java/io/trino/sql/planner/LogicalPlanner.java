@@ -259,11 +259,6 @@ public class LogicalPlanner
 
     public Plan plan(Analysis analysis, Stage stage, boolean collectPlanStatistics)
     {
-        return plan(analysis, stage, collectPlanStatistics, false);
-    }
-
-    public Plan plan(Analysis analysis, Stage stage, boolean collectPlanStatistics, boolean showStatsQuery)
-    {
         PlanNode root;
         try (var ignored = scopedSpan(plannerContext.getTracer(), "plan")) {
             root = planStatement(analysis, analysis.getStatement());
@@ -302,7 +297,7 @@ public class LogicalPlanner
             }
         }
 
-        if (!showStatsQuery && (cacheEnabled || isUseSubPlanAlternatives(session))) {
+        if (cacheEnabled || isUseSubPlanAlternatives(session)) {
             try (var ignored = scopedSpan(plannerContext.getTracer(), "cache-subqueries")) {
                 root = cacheCommonSubqueries.cacheSubqueries(root);
             }
@@ -339,7 +334,6 @@ public class LogicalPlanner
         StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types, collectTableStatsProvider);
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), session, types);
         try (var ignored = scopedSpan(plannerContext.getTracer(), "plan-stats")) {
-            // TODO: Choose the worse alternative for each stat. Please note that these stats are used for explain (not for CBO)
             statsAndCosts = StatsAndCosts.create(root, statsProvider, costProvider);
         }
         return new Plan(root, types, statsAndCosts);

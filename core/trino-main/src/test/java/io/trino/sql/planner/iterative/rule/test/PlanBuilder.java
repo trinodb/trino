@@ -57,6 +57,7 @@ import io.trino.sql.planner.plan.AggregationNode.Step;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.ChooseAlternativeNode;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.DistinctLimitNode;
@@ -1208,6 +1209,11 @@ public class PlanBuilder
     {
         List<Symbol> outputs = ImmutableList.copyOf(outputsToInputs.keySet());
         return new ExceptNode(idAllocator.getNextId(), sources, outputsToInputs, outputs, distinct);
+    }
+
+    public ChooseAlternativeNode chooseAlternative(List<PlanNode> alternatives, ChooseAlternativeNode.FilteredTableScan originalTableScan)
+    {
+        return new ChooseAlternativeNode(idAllocator.getNextId(), alternatives, originalTableScan);
     }
 
     public TableWriterNode tableWriter(List<Symbol> columns, List<String> columnNames, PlanNode source)
