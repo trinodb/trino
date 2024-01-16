@@ -17,6 +17,7 @@ import io.trino.spi.Experimental;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.RetryMode;
 
 import java.util.List;
 import java.util.Map;
@@ -49,4 +50,9 @@ public interface ConnectorTableFunction
      * @param arguments actual invocation arguments, mapped by argument names
      */
     TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments, ConnectorAccessControl accessControl);
+
+    default TableFunctionAnalysis analyze(ConnectorSession session, ConnectorTransactionHandle transaction, Map<String, Argument> arguments, ConnectorAccessControl accessControl, RetryMode retryMode)
+    {
+        return analyze(session, transaction, arguments, accessControl);
+    }
 }
