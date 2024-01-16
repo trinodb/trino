@@ -23,6 +23,7 @@ import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.GroupReference;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
+import io.trino.sql.planner.plan.ChooseAlternativeNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
@@ -55,6 +56,8 @@ import static io.trino.cost.CostCalculatorWithEstimatedExchanges.calculateRemote
 import static io.trino.cost.LocalCostEstimate.addPartialComponents;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
+import static io.trino.util.MoreMath.maxExcludeNaN;
+import static java.lang.Double.NaN;
 import static java.lang.Math.max;
 import static java.util.Objects.requireNonNull;
 
@@ -109,6 +112,26 @@ public class CostCalculatorUsingExchanges
         public PlanCostEstimate visitGroupReference(GroupReference node, Void context)
         {
             throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public PlanCostEstimate visitChooseAlternativeNode(ChooseAlternativeNode node, Void context)
+        {
+            // Pick up the max costs because it's unknown which alternatives will get executed
+            double maxCpuCost = NaN;
+            double maxMemory = NaN;
+            double maxMemoryWhenOutputting = NaN;
+            double maxNetworkCost = NaN;
+
+            for (PlanNode alternative : node.getSources()) {
+                PlanCostEstimate alternativeCost = sourcesCosts.getCost(alternative);
+                maxCpuCost = maxExcludeNaN(maxCpuCost, alternativeCost.getCpuCost());
+                maxMemory = maxExcludeNaN(maxMemory, alternativeCost.getMaxMemory());
+                maxMemoryWhenOutputting = maxExcludeNaN(maxMemoryWhenOutputting, alternativeCost.getMaxMemoryWhenOutputting());
+                maxNetworkCost = maxExcludeNaN(maxNetworkCost, alternativeCost.getNetworkCost());
+            }
+            LocalCostEstimate localCost = LocalCostEstimate.ofCpu(getStats(node).getOutputSizeInBytes(node.getOutputSymbols(), types));
+            return new PlanCostEstimate(maxCpuCost, maxMemory, maxMemoryWhenOutputting, maxNetworkCost, localCost);
         }
 
         @Override

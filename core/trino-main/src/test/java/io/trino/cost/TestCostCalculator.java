@@ -34,6 +34,8 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.ChooseAlternativeNode;
+import io.trino.sql.planner.plan.ChooseAlternativeNode.FilteredTableScan;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
@@ -74,9 +76,11 @@ import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.ExchangeNode.partitionedExchange;
 import static io.trino.sql.planner.plan.ExchangeNode.replicatedExchange;
+import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TransactionBuilder.transaction;
+import static java.lang.Double.NaN;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -215,6 +219,45 @@ public class TestCostCalculator
                 .network(0);
 
         assertCostHasUnknownComponentsForUnknownStats(filter, types);
+    }
+
+    @Test
+    public void testChooseAlternative()
+    {
+        FilterNode alternative1 = new FilterNode(new PlanNodeId("alternative1"), tableScan("ts1", "string"), TRUE_LITERAL);
+        TableScanNode alternative2 = tableScan("alternative2", "string");
+        ChooseAlternativeNode chooseAlternativeNode = new ChooseAlternativeNode(
+                new PlanNodeId("chooseAlternative"),
+                List.of(alternative1, alternative2),
+                new FilteredTableScan(tableScan("ts_original", "string"), Optional.empty()));
+
+        Map<String, PlanCostEstimate> costs = ImmutableMap.of(
+                "alternative1", new PlanCostEstimate(1000, 3000, NaN, 0),
+                "alternative2", new PlanCostEstimate(2000, 1500, 1000, NaN));
+        Map<String, PlanNodeStatsEstimate> stats = ImmutableMap.of(
+                "chooseAlternative", statsEstimate(chooseAlternativeNode, 5000));
+        Map<String, Type> types = ImmutableMap.of(
+                "string", VARCHAR);
+
+        assertCost(chooseAlternativeNode, costs, stats, types)
+                .cpu(2000)
+                .memory(3000)
+                .memoryWhenOutputting(1000)
+                .network(0);
+
+        assertCostEstimatedExchanges(chooseAlternativeNode, costs, stats, types)
+                .cpu(2000)
+                .memory(3000)
+                .memoryWhenOutputting(1000)
+                .network(0);
+
+        assertCostFragmentedPlan(chooseAlternativeNode, costs, stats, types)
+                .cpu(2000)
+                .memory(3000)
+                .memoryWhenOutputting(1000)
+                .network(0);
+
+        assertCostHasUnknownComponentsForUnknownStats(chooseAlternativeNode, types);
     }
 
     @Test
