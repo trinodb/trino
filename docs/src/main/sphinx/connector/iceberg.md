@@ -1144,7 +1144,7 @@ Retrieve all records that belong to a specific file using
 ```
 SELECT *
 FROM example.web.page_views
-WHERE "$file_modified_time" = CAST('2022-07-01 01:02:03.456 UTC' AS TIMESTAMP WIOTH TIMEZONE)
+WHERE "$file_modified_time" = CAST('2022-07-01 01:02:03.456 UTC' AS TIMESTAMP WITH TIME ZONE)
 ```
 
 #### DROP TABLE
