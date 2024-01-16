@@ -17,6 +17,7 @@ import io.trino.spi.classloader.ThreadContextClassLoader;
 import io.trino.spi.connector.ConnectorAccessControl;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
+import io.trino.spi.connector.RetryMode;
 import io.trino.spi.function.table.Argument;
 import io.trino.spi.function.table.ArgumentSpecification;
 import io.trino.spi.function.table.ConnectorTableFunction;
@@ -80,6 +81,19 @@ public class ClassLoaderSafeConnectorTableFunction
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
             return delegate.analyze(session, transaction, arguments, accessControl);
+        }
+    }
+
+    @Override
+    public TableFunctionAnalysis analyze(
+            ConnectorSession session,
+            ConnectorTransactionHandle transaction,
+            Map<String, Argument> arguments,
+            ConnectorAccessControl accessControl,
+            RetryMode retryMode)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.analyze(session, transaction, arguments, accessControl, retryMode);
         }
     }
 }
