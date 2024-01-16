@@ -514,6 +514,51 @@ public class TestStringFunctions
     }
 
     @Test
+    public void testCharReverse()
+    {
+        assertThat(assertions.function("reverse", "CAST('' AS CHAR(0))"))
+                .hasType(createCharType(0))
+                .isEqualTo("");
+
+        assertThat(assertions.function("reverse", "CAST('hello' AS CHAR(5))"))
+                .hasType(createCharType(5))
+                .isEqualTo("olleh");
+
+        assertThat(assertions.function("reverse", "CAST('Quadratically' AS CHAR(13))"))
+                .hasType(createCharType(13))
+                .isEqualTo("yllacitardauQ");
+
+        assertThat(assertions.function("reverse", "CAST('racecar' AS CHAR(7))"))
+                .hasType(createCharType(7))
+                .isEqualTo("racecar");
+
+        assertThat(assertions.function("reverse", "CAST('racecar' AS CHAR(10))"))
+                .hasType(createCharType(10))
+                .isEqualTo("   racecar");
+
+        // Test REVERSE for non-ASCII
+        assertThat(assertions.function("reverse", "CAST('\u4FE1\u5FF5,\u7231,\u5E0C\u671B' AS CHAR(7))"))
+                .hasType(createCharType(7))
+                .isEqualTo("\u671B\u5E0C,\u7231,\u5FF5\u4FE1");
+
+        assertThat(assertions.function("reverse", "CAST('\u00D6sterreich' AS CHAR(10))"))
+                .hasType(createCharType(10))
+                .isEqualTo("hcierrets\u00D6");
+
+        assertThat(assertions.function("reverse", "CAST('na\u00EFve' AS CHAR(5))"))
+                .hasType(createCharType(5))
+                .isEqualTo("ev\u00EFan");
+
+        assertThat(assertions.function("reverse", "CAST('\uD801\uDC2Dend' AS CHAR(4))"))
+                .hasType(createCharType(4))
+                .isEqualTo("dne\uD801\uDC2D");
+
+        assertThat(assertions.function("reverse", "CAST('\uD801\uDC2Dend' AS CHAR(6))"))
+                .hasType(createCharType(6))
+                .isEqualTo("  dne\uD801\uDC2D");
+    }
+
+    @Test
     public void testStringPosition()
     {
         assertThat(assertions.function("strpos", "'high'", "'ig'"))
