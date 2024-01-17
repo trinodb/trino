@@ -62,6 +62,12 @@
         </artifact>
     </artifactSet>
 
+    <artifactSet to="plugin/dameng">
+        <artifact id="${project.groupId}:trino-dameng:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
+
     <artifactSet to="plugin/delta-lake">
         <artifact id="${project.groupId}:trino-delta-lake:zip:${project.version}">
             <unpack />
