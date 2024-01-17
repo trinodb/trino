@@ -198,39 +198,26 @@ public class QueryExplainer
             return Optional.empty();
         }
 
-        if (statement instanceof CreateCatalog) {
-            return Optional.of("CREATE CATALOG " + ((CreateCatalog) statement).getCatalogName());
-        }
-        if (statement instanceof DropCatalog) {
-            return Optional.of("DROP CATALOG " + ((DropCatalog) statement).getCatalogName());
-        }
-        if (statement instanceof CreateSchema) {
-            return Optional.of("CREATE SCHEMA " + ((CreateSchema) statement).getSchemaName());
-        }
-        if (statement instanceof DropSchema) {
-            return Optional.of("DROP SCHEMA " + ((DropSchema) statement).getSchemaName());
-        }
-        if (statement instanceof CreateTable) {
-            return Optional.of("CREATE TABLE " + ((CreateTable) statement).getName());
-        }
-        if (statement instanceof CreateView) {
-            return Optional.of("CREATE VIEW " + ((CreateView) statement).getName());
-        }
-        if (statement instanceof CreateMaterializedView) {
-            return Optional.of("CREATE MATERIALIZED VIEW " + ((CreateMaterializedView) statement).getName());
-        }
-        if (statement instanceof Prepare) {
-            return Optional.of("PREPARE " + ((Prepare) statement).getName());
-        }
+        return Optional.of(switch (statement) {
+            case CreateCatalog createCatalog -> "CREATE CATALOG " + createCatalog.getCatalogName();
+            case DropCatalog dropCatalog -> "DROP CATALOG " + dropCatalog.getCatalogName();
+            case CreateSchema createSchema -> "CREATE SCHEMA " + createSchema.getSchemaName();
+            case DropSchema dropSchema -> "DROP SCHEMA " + dropSchema.getSchemaName();
+            case CreateTable createTable -> "CREATE TABLE " + createTable.getName();
+            case CreateView createView -> "CREATE VIEW " + createView.getName();
+            case CreateMaterializedView createMaterializedView -> "CREATE MATERIALIZED VIEW " + createMaterializedView.getName();
+            case Prepare prepare -> "PREPARE " + prepare.getName();
+            default -> {
+                StringBuilder builder = new StringBuilder();
+                builder.append(SqlFormatter.formatSql(statement));
+                if (!parameters.isEmpty()) {
+                    builder.append("\n")
+                            .append("Parameters: ")
+                            .append(parameters);
+                }
 
-        StringBuilder builder = new StringBuilder();
-        builder.append(SqlFormatter.formatSql(statement));
-        if (!parameters.isEmpty()) {
-            builder.append("\n")
-                    .append("Parameters: ")
-                    .append(parameters);
-        }
-
-        return Optional.of(builder.toString());
+                yield builder.toString();
+            }
+        });
     }
 }
