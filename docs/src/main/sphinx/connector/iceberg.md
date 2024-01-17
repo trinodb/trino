@@ -718,6 +718,10 @@ connector using a {doc}`WITH </sql/create-table-as>` clause.
 * - `orc_bloom_filter_fpp`
   - The ORC bloom filters false positive probability. Requires ORC format.
     Defaults to `0.05`.
+* - ``extra_properties``
+  - Additional properties added to a Iceberg table. The properties are not used by Trino,
+    and are available in the ``$properties`` metadata table.
+    The properties are not included in the output of ``SHOW CREATE TABLE`` statements.
 :::
 
 The table definition below specifies to use Parquet files, partitioning by columns

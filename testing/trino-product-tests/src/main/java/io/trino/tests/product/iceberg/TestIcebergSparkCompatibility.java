@@ -601,6 +601,23 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery("DROP TABLE IF EXISTS " + sparkTableName);
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS, ICEBERG_REST, ICEBERG_JDBC})
+    public void testSparkReadingTrinoIcebergTablePropertiesData()
+    {
+        String baseTableName = toLowerCase("test_spark_reading_trino_iceberg_table_properties");
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
+
+        onTrino().executeQuery("CREATE TABLE " + trinoTableName + " (doc_id VARCHAR) " +
+                        "WITH ( extra_properties = MAP(ARRAY['custom.table-property'], ARRAY['my_custom_value']))");
+
+        assertThat(onSpark().executeQuery("SHOW TBLPROPERTIES " + sparkTableName)).contains(row("custom.table-property", "my_custom_value"));
+
+        onTrino().executeQuery("DROP TABLE IF EXISTS " + trinoTableName);
+    }
+
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS, ICEBERG_REST, ICEBERG_JDBC, ICEBERG_NESSIE}, dataProvider = "storageFormatsWithSpecVersion")
     public void testTrinoReadingNestedSparkData(StorageFormat storageFormat, int specVersion)
     {
