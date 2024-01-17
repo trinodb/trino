@@ -1028,6 +1028,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public String getCatalogIdentity(ConnectorSession session)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getCatalogIdentity(session);
+        }
+    }
+
+    @Override
     public Optional<JoinApplicationResult<ConnectorTableHandle>> applyJoin(
             ConnectorSession session,
             JoinType joinType,

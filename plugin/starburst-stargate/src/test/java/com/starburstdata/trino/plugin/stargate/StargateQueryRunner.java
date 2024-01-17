@@ -222,7 +222,7 @@ public final class StargateQueryRunner
         }
     }
 
-    private static String stargateConnectionUrl(DistributedQueryRunner stargateQueryRunner, String catalog)
+    public static String stargateConnectionUrl(DistributedQueryRunner stargateQueryRunner, String catalog)
     {
         return connectionUrl(stargateQueryRunner.getCoordinator().getBaseUrl(), catalog);
     }

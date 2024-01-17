@@ -147,6 +147,7 @@ import static com.google.common.collect.Streams.stream;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
+import static io.trino.SystemSessionProperties.isJoinPushdownAcrossCatalogsEnabled;
 import static io.trino.client.NodeVersion.UNKNOWN;
 import static io.trino.metadata.CatalogMetadata.SecurityManagement.CONNECTOR;
 import static io.trino.metadata.CatalogMetadata.SecurityManagement.SYSTEM;
@@ -1943,15 +1944,24 @@ public final class MetadataManager
             Map<String, ColumnHandle> rightAssignments,
             JoinStatistics statistics)
     {
-        if (!right.getCatalogHandle().equals(left.getCatalogHandle())) {
-            // Exact comparison is fine as catalog name here is passed from CatalogMetadata and is normalized to lowercase
-            return Optional.empty();
-        }
         CatalogHandle catalogHandle = left.getCatalogHandle();
 
         ConnectorTransactionHandle transaction = left.getTransaction();
         ConnectorMetadata metadata = getMetadata(session, catalogHandle);
         ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
+
+        // Exact comparison is fine as catalog name here is passed from CatalogMetadata and is normalized to lowercase
+        if (!right.getCatalogHandle().equals(left.getCatalogHandle())) {
+            // Check whether JOIN pushdown across catalogs is possible
+            if (!isJoinPushdownAcrossCatalogsEnabled(session)) {
+                return Optional.empty();
+            }
+            ConnectorMetadata rightMetadata = getMetadata(session, right.getCatalogHandle());
+            ConnectorSession rightConnectorSession = session.toConnectorSession(right.getCatalogHandle());
+            if (!metadata.getCatalogIdentity(connectorSession).equals(rightMetadata.getCatalogIdentity(rightConnectorSession))) {
+                return Optional.empty();
+            }
+        }
 
         Optional<JoinApplicationResult<ConnectorTableHandle>> connectorResult =
                 metadata.applyJoin(

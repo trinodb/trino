@@ -1199,6 +1199,15 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public String getCatalogIdentity(ConnectorSession session)
+    {
+        Span span = startSpan("getCatalogIdentity");
+        try (var ignored = scopedSpan(span)) {
+            return delegate.getCatalogIdentity(session);
+        }
+    }
+
+    @Override
     public Optional<JoinApplicationResult<ConnectorTableHandle>> applyJoin(ConnectorSession session, JoinType joinType, ConnectorTableHandle left, ConnectorTableHandle right, ConnectorExpression joinCondition, Map<String, ColumnHandle> leftAssignments, Map<String, ColumnHandle> rightAssignments, JoinStatistics statistics)
     {
         Span span = startSpan("applyJoin");

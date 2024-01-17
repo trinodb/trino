@@ -442,6 +442,11 @@ public class TrinoUri
         return new TrinoUri(uri, firstNonNull(properties, new Properties()));
     }
 
+    public HostAndPort getAddress()
+    {
+        return address;
+    }
+
     public URI getUri()
     {
         return uri;

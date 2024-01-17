@@ -51,6 +51,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.UnaryOperator;
 import java.util.logging.Level;
@@ -1524,6 +1525,14 @@ public interface ConnectorMetadata
         }
 
         return Optional.empty();
+    }
+
+    /**
+     * Returns random UUID by default. This method is used to identify the catalog identity for the join pushdown with Stargate catalogs.
+     */
+    default String getCatalogIdentity(ConnectorSession session)
+    {
+        return UUID.randomUUID().toString();
     }
 
     /**

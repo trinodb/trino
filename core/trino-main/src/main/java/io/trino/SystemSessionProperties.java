@@ -64,6 +64,7 @@ public final class SystemSessionProperties
     public static final String JOIN_DISTRIBUTION_TYPE = "join_distribution_type";
     public static final String JOIN_MAX_BROADCAST_TABLE_SIZE = "join_max_broadcast_table_size";
     public static final String JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR = "join_multi_clause_independence_factor";
+    public static final String JOIN_PUSHDOWN_ACROSS_CATALOGS_ENABLED = "join_pushdown_across_catalogs_enabled";
     public static final String DETERMINE_PARTITION_COUNT_FOR_WRITE_ENABLED = "determine_partition_count_for_write_enabled";
     public static final String MAX_HASH_PARTITION_COUNT = "max_hash_partition_count";
     public static final String MIN_HASH_PARTITION_COUNT = "min_hash_partition_count";
@@ -292,6 +293,11 @@ public final class SystemSessionProperties
                         false,
                         value -> validateDoubleRange(value, JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR, 0.0, 1.0),
                         value -> value),
+                booleanProperty(
+                        JOIN_PUSHDOWN_ACROSS_CATALOGS_ENABLED,
+                        "Enable join pushdown across catalogs of the same connector",
+                        optimizerConfig.isJoinPushdownAcrossCatalogsEnabled(),
+                        false),
                 booleanProperty(
                         DETERMINE_PARTITION_COUNT_FOR_WRITE_ENABLED,
                         "Determine the number of partitions based on amount of data read and processed by the query for write queries",
@@ -1237,6 +1243,11 @@ public final class SystemSessionProperties
     public static double getJoinMultiClauseIndependenceFactor(Session session)
     {
         return session.getSystemProperty(JOIN_MULTI_CLAUSE_INDEPENDENCE_FACTOR, Double.class);
+    }
+
+    public static boolean isJoinPushdownAcrossCatalogsEnabled(Session session)
+    {
+        return session.getSystemProperty(JOIN_PUSHDOWN_ACROSS_CATALOGS_ENABLED, Boolean.class);
     }
 
     public static boolean isDeterminePartitionCountForWriteEnabled(Session session)

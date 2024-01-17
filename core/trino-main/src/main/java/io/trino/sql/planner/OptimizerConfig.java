@@ -40,6 +40,7 @@ public class OptimizerConfig
     private DataSize joinMaxBroadcastTableSize = DataSize.of(100, MEGABYTE);
     private JoinDistributionType joinDistributionType = JoinDistributionType.AUTOMATIC;
     private double joinMultiClauseIndependenceFactor = 0.25;
+    private boolean joinPushdownAcrossCatalogsEnabled;
 
     private JoinReorderingStrategy joinReorderingStrategy = JoinReorderingStrategy.AUTOMATIC;
     private int maxReorderedJoins = 8;
@@ -210,6 +211,19 @@ public class OptimizerConfig
     public OptimizerConfig setJoinMultiClauseIndependenceFactor(double joinMultiClauseIndependenceFactor)
     {
         this.joinMultiClauseIndependenceFactor = joinMultiClauseIndependenceFactor;
+        return this;
+    }
+
+    public boolean isJoinPushdownAcrossCatalogsEnabled()
+    {
+        return joinPushdownAcrossCatalogsEnabled;
+    }
+
+    @Config("optimizer.join-pushdown-across-catalogs-enabled")
+    @ConfigDescription("Enable join pushdown across catalogs of the same connector")
+    public OptimizerConfig setJoinPushdownAcrossCatalogsEnabled(boolean joinPushdownAcrossCatalogsEnabled)
+    {
+        this.joinPushdownAcrossCatalogsEnabled = joinPushdownAcrossCatalogsEnabled;
         return this;
     }
 

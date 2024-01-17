@@ -23,18 +23,20 @@ import static java.util.Objects.requireNonNull;
 public class StargateMetadataFactory
         extends DefaultJdbcMetadataFactory
 {
+    private final StargateCatalogIdentityFactory catalogIdentityFactory;
     private final Set<JdbcQueryEventListener> jdbcQueryEventListeners;
 
     @Inject
-    public StargateMetadataFactory(JdbcClient jdbcClient, Set<JdbcQueryEventListener> jdbcQueryEventListeners)
+    public StargateMetadataFactory(StargateCatalogIdentityFactory catalogIdentityFactory, JdbcClient jdbcClient, Set<JdbcQueryEventListener> jdbcQueryEventListeners)
     {
         super(jdbcClient, jdbcQueryEventListeners);
+        this.catalogIdentityFactory = requireNonNull(catalogIdentityFactory, "catalogIdentityFactory is null");
         this.jdbcQueryEventListeners = ImmutableSet.copyOf(requireNonNull(jdbcQueryEventListeners, "jdbcQueryEventListeners is null"));
     }
 
     @Override
     protected JdbcMetadata create(JdbcClient transactionCachingJdbcClient)
     {
-        return new StargateMetadata(transactionCachingJdbcClient, jdbcQueryEventListeners);
+        return new StargateMetadata(catalogIdentityFactory, transactionCachingJdbcClient, jdbcQueryEventListeners);
     }
 }

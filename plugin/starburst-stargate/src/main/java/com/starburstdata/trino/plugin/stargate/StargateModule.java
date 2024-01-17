@@ -80,6 +80,11 @@ public class StargateModule
                 .to(StargateClient.class)
                 .in(Scopes.SINGLETON);
 
+        newOptionalBinder(binder, StargateCatalogIdentityFactory.class)
+                .setDefault()
+                .to(DefaultStargateCatalogIdentityFactory.class)
+                .in(Scopes.SINGLETON);
+
         // Using optional binder for overriding ConnectionFactory in Galaxy
         newOptionalBinder(binder, Key.get(ConnectionFactory.class, ForBaseJdbc.class))
                 .setDefault()
