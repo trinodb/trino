@@ -75,16 +75,16 @@ The following table details all general configuration properties:
 * - `elasticsearch.max-retry-time`
   - The maximum [duration](prop-type-duration) across all retry attempts for a
     single request to Elasticsearch.
-  - `20s`
+  - `30s`
 * - `elasticsearch.node-refresh-interval`
   - [Duration](prop-type-duration) between requests to refresh the list of
     available Elasticsearch nodes.
   - `1m`
 * - `elasticsearch.ignore-publish-address`
   - Disable using the address published by the Elasticsearch API to connect for
-    queries. Defaults to `false`. Some deployments map Elasticsearch ports to a
-    random public port and enabling this property can help in these cases.
-  -
+    queries. Some deployments map Elasticsearch ports to a random public port
+    and enabling this property can help in these cases.
+  - `false`
 :::
 
 ### Authentication
@@ -104,8 +104,8 @@ following options must be configured:
 * - `elasticsearch.aws.region`
   - AWS region of the Elasticsearch endpoint. This option is required.
 * - `elasticsearch.aws.access-key`
-  -  AWS access key to use to connect to the Elasticsearch domain. If not set, the
-     default AWS credentials provider chain is used.
+  - AWS access key to use to connect to the Elasticsearch domain. If not set, the
+    default AWS credentials provider chain is used.
 * - `elasticsearch.aws.secret-key`
   - AWS secret key to use to connect to the Elasticsearch domain. If not set, the
     default AWS credentials provider chain is used.
