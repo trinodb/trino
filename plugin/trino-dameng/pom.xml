@@ -10,8 +10,8 @@
     </parent>
 
     <artifactId>trino-dameng</artifactId>
-    <description>Trino - Dameng Connector</description>
     <packaging>trino-plugin</packaging>
+    <description>Trino - Dameng Connector</description>
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
