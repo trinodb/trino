@@ -3770,15 +3770,7 @@ public class HiveMetadata
         // Validate the name and the type of each column
         for (ColumnMetadata column : tableMetadata.getColumns()) {
             String columnName = column.getName();
-            if (columnName.startsWith(" ")) {
-                throw new TrinoException(NOT_SUPPORTED, format("Hive column names must not start with a space: '%s'", columnName));
-            }
-            if (columnName.endsWith(" ")) {
-                throw new TrinoException(NOT_SUPPORTED, format("Hive column names must not end with a space: '%s'", columnName));
-            }
-            if (columnName.contains(",")) {
-                throw new TrinoException(NOT_SUPPORTED, format("Hive column names must not contain commas: '%s'", columnName));
-            }
+            verifyHiveColumnName(columnName);
             // validate type is supported
             toHiveType(column.getType());
         }
@@ -3798,6 +3790,19 @@ public class HiveMetadata
                     .map(columnMetadata -> format("%s %s", columnMetadata.getName(), columnMetadata.getType()))
                     .collect(joining(", "));
             throw new TrinoException(NOT_SUPPORTED, "Hive CSV storage format only supports VARCHAR (unbounded). Unsupported columns: " + joinedUnsupportedColumns);
+        }
+    }
+
+    public static void verifyHiveColumnName(String columnName)
+    {
+        if (columnName.startsWith(" ")) {
+            throw new TrinoException(NOT_SUPPORTED, format("Hive column names must not start with a space: '%s'", columnName));
+        }
+        if (columnName.endsWith(" ")) {
+            throw new TrinoException(NOT_SUPPORTED, format("Hive column names must not end with a space: '%s'", columnName));
+        }
+        if (columnName.contains(",")) {
+            throw new TrinoException(NOT_SUPPORTED, format("Hive column names must not contain commas: '%s'", columnName));
         }
     }
 
