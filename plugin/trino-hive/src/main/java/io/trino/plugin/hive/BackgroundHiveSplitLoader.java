@@ -434,12 +434,7 @@ public class BackgroundHiveSplitLoader
                 catch (TrinoException e) {
                     if (HIVE_FILE_NOT_FOUND.toErrorCode().equals(e.getErrorCode()) && directoryLister instanceof CachingDirectoryLister) {
                         // Invalidate the cache and retry
-                        if (partition.getPartition().isPresent()) {
-                            directoryLister.invalidate(partition.getPartition().get());
-                        }
-                        else {
-                            directoryLister.invalidate(table);
-                        }
+                        partition.getPartition().ifPresentOrElse(p -> directoryLister.invalidate(p), () -> directoryLister.invalidate(table));
                         fileIterators.addLast(buildManifestFileIterator(splitFactory, entry.getKey(), entry.getValue(), splittable));
                     }
                     else {
