@@ -15,6 +15,7 @@ package io.trino.plugin.singlestore;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
+import io.airlift.slice.Slice;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.jdbc.BaseJdbcClient;
@@ -31,6 +32,7 @@ import io.trino.plugin.jdbc.LongWriteFunction;
 import io.trino.plugin.jdbc.PreparedQuery;
 import io.trino.plugin.jdbc.QueryBuilder;
 import io.trino.plugin.jdbc.RemoteTableName;
+import io.trino.plugin.jdbc.SliceReadFunction;
 import io.trino.plugin.jdbc.WriteMapping;
 import io.trino.plugin.jdbc.expression.JdbcConnectorExpressionRewriterBuilder;
 import io.trino.plugin.jdbc.expression.ParameterizedExpression;
@@ -308,7 +310,7 @@ public class SingleStoreClient
                 return Optional.of(defaultCharColumnMapping(typeHandle.getRequiredColumnSize(), false));
             case Types.VARCHAR:
             case Types.LONGVARCHAR:
-                return Optional.of(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), false));
+                return Optional.of(checkNullUsingBytes(defaultVarcharColumnMapping(typeHandle.getRequiredColumnSize(), false)));
             case Types.DECIMAL:
                 int precision = typeHandle.getRequiredColumnSize();
                 int decimalDigits = typeHandle.getRequiredDecimalDigits();
@@ -323,7 +325,7 @@ public class SingleStoreClient
             case Types.BINARY:
             case Types.VARBINARY:
             case Types.LONGVARBINARY:
-                return Optional.of(varbinaryColumnMapping());
+                return Optional.of(checkNullUsingBytes(varbinaryColumnMapping()));
             case Types.DATE:
                 return Optional.of(ColumnMapping.longMapping(
                         DATE,
@@ -345,6 +347,32 @@ public class SingleStoreClient
             return mapToUnboundedVarchar(typeHandle);
         }
         return Optional.empty();
+    }
+
+    private static ColumnMapping checkNullUsingBytes(ColumnMapping mapping)
+    {
+        if (mapping.getReadFunction() instanceof SliceReadFunction sliceReadFunction) {
+            SliceReadFunction wrapper = new SliceReadFunction() {
+                @Override
+                public Slice readSlice(ResultSet resultSet, int columnIndex)
+                        throws SQLException
+                {
+                    return sliceReadFunction.readSlice(resultSet, columnIndex);
+                }
+
+                @Override
+                public boolean isNull(ResultSet resultSet, int columnIndex)
+                        throws SQLException
+                {
+                    // Singlestore driver 1.2.1 will throw an exception if blob backed columns are read using getObject()
+                    resultSet.getBytes(columnIndex);
+                    return resultSet.wasNull();
+                }
+            };
+
+            return ColumnMapping.mapping(mapping.getType(), wrapper, mapping.getWriteFunction(), mapping.getPredicatePushdownController());
+        }
+        return mapping;
     }
 
     private static int getTimePrecision(int timeColumnSize)

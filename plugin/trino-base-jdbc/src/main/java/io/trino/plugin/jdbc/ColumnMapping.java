@@ -92,6 +92,15 @@ public final class ColumnMapping
         return new ColumnMapping(trinoType, readFunction, writeFunction, predicatePushdownController);
     }
 
+    public static ColumnMapping mapping(
+            Type trinoType,
+            ReadFunction readFunction,
+            WriteFunction writeFunction,
+            PredicatePushdownController predicatePushdownController)
+    {
+        return new ColumnMapping(trinoType, readFunction, writeFunction, predicatePushdownController);
+    }
+
     private final Type type;
     private final ReadFunction readFunction;
     private final WriteFunction writeFunction;
