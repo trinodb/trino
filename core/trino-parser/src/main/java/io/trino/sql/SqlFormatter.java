@@ -32,6 +32,7 @@ import io.trino.sql.tree.Commit;
 import io.trino.sql.tree.CompoundStatement;
 import io.trino.sql.tree.ControlStatement;
 import io.trino.sql.tree.CreateCatalog;
+import io.trino.sql.tree.CreateCatalogLike;
 import io.trino.sql.tree.CreateFunction;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateRole;
@@ -1456,6 +1457,21 @@ public final class SqlFormatter
             node.getWhere().ifPresent(where -> builder
                     .append(" WHERE ")
                     .append(formatExpression(where)));
+
+            return null;
+        }
+
+        @Override
+        protected Void visitCreateCatalogLike(CreateCatalogLike node, Integer indent)
+        {
+            builder.append("CREATE CATALOG ");
+            if (node.isNotExists()) {
+                builder.append("IF NOT EXISTS ");
+            }
+            builder.append(formatName(node.getTarget()))
+                    .append(" LIKE ")
+                    .append(formatName(node.getSource()));
+            builder.append(formatPropertiesMultiLine(node.getProperties()));
 
             return null;
         }

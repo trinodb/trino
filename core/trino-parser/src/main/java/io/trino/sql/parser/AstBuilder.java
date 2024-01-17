@@ -20,6 +20,7 @@ import io.trino.grammar.sql.SqlBaseBaseVisitor;
 import io.trino.grammar.sql.SqlBaseLexer;
 import io.trino.grammar.sql.SqlBaseParser;
 import io.trino.grammar.sql.SqlBaseParser.CreateCatalogContext;
+import io.trino.grammar.sql.SqlBaseParser.CreateCatalogLikeContext;
 import io.trino.grammar.sql.SqlBaseParser.DropCatalogContext;
 import io.trino.grammar.sql.SqlBaseParser.RenameCatalogContext;
 import io.trino.sql.tree.AddColumn;
@@ -50,6 +51,7 @@ import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.CompoundStatement;
 import io.trino.sql.tree.ControlStatement;
 import io.trino.sql.tree.CreateCatalog;
+import io.trino.sql.tree.CreateCatalogLike;
 import io.trino.sql.tree.CreateFunction;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateRole;
@@ -426,6 +428,21 @@ class AstBuilder
                 getLocation(context),
                 visitIfPresent(context.catalog, Identifier.class),
                 (Identifier) visit(context.schema));
+    }
+
+    @Override
+    public Node visitCreateCatalogLike(CreateCatalogLikeContext context)
+    {
+        List<Property> properties = Optional.ofNullable(context.properties())
+                .map(props -> visit(props.propertyAssignments().property(), Property.class))
+                .orElse(ImmutableList.of());
+
+        return new CreateCatalogLike(
+                getLocation(context),
+                (Identifier) visit(context.source),
+                (Identifier) visit(context.target),
+                context.EXISTS() != null,
+                properties);
     }
 
     @Override

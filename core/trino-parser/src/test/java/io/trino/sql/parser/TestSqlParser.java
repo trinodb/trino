@@ -38,6 +38,7 @@ import io.trino.sql.tree.Comment;
 import io.trino.sql.tree.Commit;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.CreateCatalog;
+import io.trino.sql.tree.CreateCatalogLike;
 import io.trino.sql.tree.CreateMaterializedView;
 import io.trino.sql.tree.CreateRole;
 import io.trino.sql.tree.CreateSchema;
@@ -1874,6 +1875,31 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty()));
+    }
+
+    @Test
+    public void testCreateCatalogLike()
+    {
+        assertStatement("CREATE CATALOG test LIKE another",
+                new CreateCatalogLike(new Identifier("another"), new Identifier("test"), false, ImmutableList.of()));
+
+        assertStatement("CREATE CATALOG test LIKE another WITH (\"a\" = 'apple', \"b\" = 123)",
+                new CreateCatalogLike(
+                        new Identifier("another"),
+                        new Identifier("test"),
+                        false,
+                        ImmutableList.of(
+                                new Property(new Identifier("a"), new StringLiteral("apple")),
+                                new Property(new Identifier("b"), new LongLiteral("123")))));
+
+        assertStatement("CREATE CATALOG IF NOT EXISTS test LIKE another WITH (\"a\" = 'apple', \"b\" = 123)",
+                new CreateCatalogLike(
+                        new Identifier("another"),
+                        new Identifier("test"),
+                        true,
+                        ImmutableList.of(
+                                new Property(new Identifier("a"), new StringLiteral("apple")),
+                                new Property(new Identifier("b"), new LongLiteral("123")))));
     }
 
     @Test
