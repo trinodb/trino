@@ -1018,7 +1018,6 @@
                 <type>test-jar</type>
             </dependency>
 
-
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-delta-lake</artifactId>
