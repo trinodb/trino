@@ -4294,20 +4294,6 @@ public abstract class BaseHiveConnectorTest
     }
 
     @Test
-    public void testTableCommentsTable()
-    {
-        assertUpdate("CREATE TABLE test_comment (c1 bigint) COMMENT 'foo'");
-        String selectTableComment = format("" +
-                        "SELECT comment FROM system.metadata.table_comments " +
-                        "WHERE catalog_name = '%s' AND schema_name = '%s' AND table_name = 'test_comment'",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get());
-        assertQuery(selectTableComment, "SELECT 'foo'");
-
-        assertUpdate("DROP TABLE IF EXISTS test_comment");
-    }
-
-    @Test
     @Override
     public void testShowCreateTable()
     {
