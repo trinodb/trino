@@ -73,16 +73,16 @@ The following table details all general configuration properties:
 * - `opensearch.max-retry-time`
   - The maximum [duration](prop-type-duration) across all retry attempts for a
     single request.
-  - `20s`
+  - `30s`
 * - `opensearch.node-refresh-interval`
   - [Duration](prop-type-duration) between requests to refresh the list of
     available OpenSearch nodes.
   - `1m`
 * - `opensearch.ignore-publish-address`
   - Disable using the address published by the OpenSearch API to connect for
-    queries. Defaults to `false`. Some deployments map OpenSearch ports to a
-    random public port and enabling this property can help in these cases.
-  -
+    queries. Some deployments map OpenSearch ports to a random public port and
+    enabling this property can help in these cases.
+  - `false`
 :::
 
 ### Authentication
@@ -102,8 +102,8 @@ following options must be configured:
 * - `opensearch.aws.region`
   - AWS region of the OpenSearch endpoint. This option is required.
 * - `opensearch.aws.access-key`
-  -  AWS access key to use to connect to the OpenSearch domain. If not set, the
-     default AWS credentials provider chain is used.
+  - AWS access key to use to connect to the OpenSearch domain. If not set, the
+    default AWS credentials provider chain is used.
 * - `opensearch.aws.secret-key`
   - AWS secret key to use to connect to the OpenSearch domain. If not set, the
     default AWS credentials provider chain is used.
