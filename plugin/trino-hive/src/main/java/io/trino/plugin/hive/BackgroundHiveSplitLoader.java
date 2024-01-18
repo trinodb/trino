@@ -535,11 +535,13 @@ public class BackgroundHiveSplitLoader
             // Invalidate the cache and reload
             if (missing) {
                 ((CachingDirectoryLister)directoryLister).invalidate(location);
-                Map<String, TrinoFileStatus> newFileStatuses = new HashMap<>();
-                Iterator<TrinoFileStatus> newFileStatusIterator = new HiveFileIterator(table, location, trinoFileSystem, directoryLister, RECURSE);
-                newFileStatusIterator.forEachRemaining(status -> newFileStatuses.put(Location.of(status.getPath()).path(), status));
+
+                fileStatuses.clear();
+                fileStatusIterator = new HiveFileIterator(table, location, trinoFileSystem, directoryLister, RECURSE);
+                fileStatusIterator.forEachRemaining(status -> fileStatuses.put(Location.of(status.getPath()).path(), status));
             }
         }
+
 
         return paths.stream()
                 .map(path -> {
