@@ -11,10 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.pinot.client;
+package io.trino.plugin.base.ssl;
 
-public enum PinotKeystoreTrustStoreType
+import java.util.Optional;
+
+import static java.util.Locale.ENGLISH;
+
+public enum TruststoreType
 {
     JKS,
-    PKCS12,
+    PKCS12;
+
+    public static Optional<TruststoreType> fromString(String value)
+    {
+        return Optional.of(TruststoreType.valueOf(value.toUpperCase(ENGLISH)));
+    }
 }

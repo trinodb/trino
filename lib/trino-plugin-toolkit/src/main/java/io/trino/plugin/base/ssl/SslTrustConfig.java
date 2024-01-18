@@ -11,16 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.mongodb;
+package io.trino.plugin.base.ssl;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigSecuritySensitive;
+import io.airlift.configuration.LegacyConfig;
 import io.airlift.configuration.validation.FileExists;
 
 import java.io.File;
 import java.util.Optional;
 
-public class MongoSslConfig
+public class SslTrustConfig
 {
     private File keystorePath;
     private String keystorePassword;
@@ -32,8 +33,9 @@ public class MongoSslConfig
         return Optional.ofNullable(keystorePath);
     }
 
-    @Config("mongodb.tls.keystore-path")
-    public MongoSslConfig setKeystorePath(File keystorePath)
+    @Config("keystore-path")
+    @LegacyConfig({"keystore.location", "keystore.path"})
+    public SslTrustConfig setKeystorePath(File keystorePath)
     {
         this.keystorePath = keystorePath;
         return this;
@@ -44,9 +46,10 @@ public class MongoSslConfig
         return Optional.ofNullable(keystorePassword);
     }
 
-    @Config("mongodb.tls.keystore-password")
+    @Config("keystore-password")
+    @LegacyConfig({"keystore.password", "keystore.key"})
     @ConfigSecuritySensitive
-    public MongoSslConfig setKeystorePassword(String keystorePassword)
+    public SslTrustConfig setKeystorePassword(String keystorePassword)
     {
         this.keystorePassword = keystorePassword;
         return this;
@@ -57,8 +60,9 @@ public class MongoSslConfig
         return Optional.ofNullable(truststorePath);
     }
 
-    @Config("mongodb.tls.truststore-path")
-    public MongoSslConfig setTruststorePath(File truststorePath)
+    @Config("truststore-path")
+    @LegacyConfig({"truststore.location", "truststore.path"})
+    public SslTrustConfig setTruststorePath(File truststorePath)
     {
         this.truststorePath = truststorePath;
         return this;
@@ -69,9 +73,10 @@ public class MongoSslConfig
         return Optional.ofNullable(truststorePassword);
     }
 
-    @Config("mongodb.tls.truststore-password")
+    @Config("truststore-password")
+    @LegacyConfig({"truststore.password", "truststore.key"})
     @ConfigSecuritySensitive
-    public MongoSslConfig setTruststorePassword(String truststorePassword)
+    public SslTrustConfig setTruststorePassword(String truststorePassword)
     {
         this.truststorePassword = truststorePassword;
         return this;

@@ -33,6 +33,7 @@ import io.airlift.json.ObjectMapperProvider;
 import io.airlift.log.Logger;
 import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
+import io.trino.plugin.base.ssl.SslTrustConfig;
 import io.trino.plugin.elasticsearch.AwsSecurityConfig;
 import io.trino.plugin.elasticsearch.ElasticsearchConfig;
 import io.trino.plugin.elasticsearch.PasswordConfig;
@@ -135,10 +136,11 @@ public class ElasticsearchClient
     @Inject
     public ElasticsearchClient(
             ElasticsearchConfig config,
+            SslTrustConfig trustConfig,
             Optional<AwsSecurityConfig> awsSecurityConfig,
             Optional<PasswordConfig> passwordConfig)
     {
-        client = createClient(config, awsSecurityConfig, passwordConfig, backpressureStats);
+        client = createClient(config, trustConfig, awsSecurityConfig, passwordConfig, backpressureStats);
 
         this.ignorePublishAddress = config.isIgnorePublishAddress();
         this.scrollSize = config.getScrollSize();
@@ -194,6 +196,7 @@ public class ElasticsearchClient
 
     private static BackpressureRestHighLevelClient createClient(
             ElasticsearchConfig config,
+            SslTrustConfig trustConfig,
             Optional<AwsSecurityConfig> awsSecurityConfig,
             Optional<PasswordConfig> passwordConfig,
             TimeStat backpressureStats)
@@ -221,7 +224,7 @@ public class ElasticsearchClient
                     .setMaxConnPerRoute(config.getMaxHttpConnections())
                     .setMaxConnTotal(config.getMaxHttpConnections());
             if (config.isTlsEnabled()) {
-                buildSslContext(config.getKeystorePath(), config.getKeystorePassword(), config.getTrustStorePath(), config.getTruststorePassword())
+                buildSslContext(trustConfig.getKeystorePath(), trustConfig.getKeystorePassword(), trustConfig.getTruststorePath(), trustConfig.getTruststorePassword())
                         .ifPresent(clientBuilder::setSSLContext);
 
                 if (!config.isVerifyHostnames()) {

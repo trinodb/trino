@@ -16,6 +16,7 @@ package io.trino.plugin.elasticsearch;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.base.ssl.SslTrustConfig;
 import io.trino.plugin.elasticsearch.client.ElasticsearchClient;
 import io.trino.plugin.elasticsearch.ptf.RawQuery;
 import io.trino.spi.function.table.ConnectorTableFunction;
@@ -45,6 +46,7 @@ public class ElasticsearchConnectorModule
         newExporter(binder).export(ElasticsearchClient.class).withGeneratedName();
 
         configBinder(binder).bindConfig(ElasticsearchConfig.class);
+        configBinder(binder).bindConfig(SslTrustConfig.class, "elasticsearch.tls");
 
         newOptionalBinder(binder, AwsSecurityConfig.class);
         newOptionalBinder(binder, PasswordConfig.class);

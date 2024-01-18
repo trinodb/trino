@@ -11,11 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.plugin.mongodb;
+package io.trino.plugin.base.ssl;
 
 import com.google.common.collect.ImmutableMap;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
@@ -24,12 +25,12 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-public class TestMongoSslConfig
+public class TestSslTrustConfig
 {
     @Test
     public void testDefaults()
     {
-        assertRecordedDefaults(recordDefaults(MongoSslConfig.class)
+        assertRecordedDefaults(recordDefaults(SslTrustConfig.class)
                 .setKeystorePath(null)
                 .setKeystorePassword(null)
                 .setTruststorePath(null)
@@ -38,22 +39,21 @@ public class TestMongoSslConfig
 
     @Test
     public void testExplicitPropertyMappings()
-            throws Exception
+            throws IOException
     {
-        Path keystoreFile = Files.createTempFile(null, null);
-        Path truststoreFile = Files.createTempFile(null, null);
-
+        Path truststorePath = Files.createTempFile("truststore", ".p12");
+        Path keystoreFile = Files.createTempFile("keystore", ".jks");
         Map<String, String> properties = ImmutableMap.<String, String>builder()
-                .put("mongodb.tls.keystore-path", keystoreFile.toString())
-                .put("mongodb.tls.keystore-password", "keystore-password")
-                .put("mongodb.tls.truststore-path", truststoreFile.toString())
-                .put("mongodb.tls.truststore-password", "truststore-password")
+                .put("keystore-path", keystoreFile.toString())
+                .put("keystore-password", "keystore-password")
+                .put("truststore-path", truststorePath.toString())
+                .put("truststore-password", "truststore-password")
                 .buildOrThrow();
 
-        MongoSslConfig expected = new MongoSslConfig()
+        SslTrustConfig expected = new SslTrustConfig()
                 .setKeystorePath(keystoreFile.toFile())
                 .setKeystorePassword("keystore-password")
-                .setTruststorePath(truststoreFile.toFile())
+                .setTruststorePath(truststorePath.toFile())
                 .setTruststorePassword("truststore-password");
         assertFullMapping(properties, expected);
     }

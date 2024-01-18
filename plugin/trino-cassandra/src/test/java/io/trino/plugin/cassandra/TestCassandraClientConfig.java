@@ -19,9 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Map;
 
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
@@ -60,20 +57,12 @@ public class TestCassandraClientConfig
                 .setSpeculativeExecutionLimit(null)
                 .setSpeculativeExecutionDelay(new Duration(500, MILLISECONDS))
                 .setProtocolVersion(null)
-                .setTlsEnabled(false)
-                .setKeystorePath(null)
-                .setKeystorePassword(null)
-                .setTruststorePath(null)
-                .setTruststorePassword(null));
+                .setTlsEnabled(false));
     }
 
     @Test
     public void testExplicitPropertyMappings()
-            throws IOException
     {
-        Path keystoreFile = Files.createTempFile(null, null);
-        Path truststoreFile = Files.createTempFile(null, null);
-
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("cassandra.contact-points", "host1,host2")
                 .put("cassandra.native-protocol-port", "9999")
@@ -99,10 +88,6 @@ public class TestCassandraClientConfig
                 .put("cassandra.speculative-execution.delay", "101s")
                 .put("cassandra.protocol-version", "V3")
                 .put("cassandra.tls.enabled", "true")
-                .put("cassandra.tls.keystore-path", keystoreFile.toString())
-                .put("cassandra.tls.keystore-password", "keystore-password")
-                .put("cassandra.tls.truststore-path", truststoreFile.toString())
-                .put("cassandra.tls.truststore-password", "truststore-password")
                 .buildOrThrow();
 
         CassandraClientConfig expected = new CassandraClientConfig()
@@ -129,12 +114,7 @@ public class TestCassandraClientConfig
                 .setSpeculativeExecutionLimit(10)
                 .setSpeculativeExecutionDelay(new Duration(101, SECONDS))
                 .setProtocolVersion(DefaultProtocolVersion.V3)
-                .setTlsEnabled(true)
-                .setKeystorePath(keystoreFile.toFile())
-                .setKeystorePassword("keystore-password")
-                .setTruststorePath(truststoreFile.toFile())
-                .setTruststorePassword("truststore-password");
-
+                .setTlsEnabled(true);
         assertFullMapping(properties, expected);
     }
 }

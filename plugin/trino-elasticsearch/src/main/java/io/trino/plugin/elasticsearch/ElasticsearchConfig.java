@@ -15,15 +15,12 @@ package io.trino.plugin.elasticsearch;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
-import io.airlift.configuration.ConfigSecuritySensitive;
 import io.airlift.configuration.DefunctConfig;
-import io.airlift.configuration.validation.FileExists;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
-import java.io.File;
 import java.util.List;
 import java.util.Optional;
 
@@ -69,10 +66,6 @@ public class ElasticsearchConfig
     private int httpThreadCount = Runtime.getRuntime().availableProcessors();
 
     private boolean tlsEnabled;
-    private File keystorePath;
-    private File trustStorePath;
-    private String keystorePassword;
-    private String truststorePassword;
     private boolean ignorePublishAddress;
     private boolean verifyHostnames = true;
 
@@ -268,56 +261,6 @@ public class ElasticsearchConfig
     public ElasticsearchConfig setTlsEnabled(boolean tlsEnabled)
     {
         this.tlsEnabled = tlsEnabled;
-        return this;
-    }
-
-    public Optional<@FileExists File> getKeystorePath()
-    {
-        return Optional.ofNullable(keystorePath);
-    }
-
-    @Config("elasticsearch.tls.keystore-path")
-    public ElasticsearchConfig setKeystorePath(File path)
-    {
-        this.keystorePath = path;
-        return this;
-    }
-
-    public Optional<String> getKeystorePassword()
-    {
-        return Optional.ofNullable(keystorePassword);
-    }
-
-    @Config("elasticsearch.tls.keystore-password")
-    @ConfigSecuritySensitive
-    public ElasticsearchConfig setKeystorePassword(String password)
-    {
-        this.keystorePassword = password;
-        return this;
-    }
-
-    public Optional<@FileExists File> getTrustStorePath()
-    {
-        return Optional.ofNullable(trustStorePath);
-    }
-
-    @Config("elasticsearch.tls.truststore-path")
-    public ElasticsearchConfig setTrustStorePath(File path)
-    {
-        this.trustStorePath = path;
-        return this;
-    }
-
-    public Optional<String> getTruststorePassword()
-    {
-        return Optional.ofNullable(truststorePassword);
-    }
-
-    @Config("elasticsearch.tls.truststore-password")
-    @ConfigSecuritySensitive
-    public ElasticsearchConfig setTruststorePassword(String password)
-    {
-        this.truststorePassword = password;
         return this;
     }
 
