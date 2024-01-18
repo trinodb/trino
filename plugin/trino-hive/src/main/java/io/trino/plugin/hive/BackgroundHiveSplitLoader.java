@@ -531,7 +531,7 @@ public class BackgroundHiveSplitLoader
         // If file statuses came from cache verify that all are present
         if (isCached) {
             boolean missing = paths.stream()
-                    .anyMatch(path -> !fileStatuses.containsKey(path));
+                    .anyMatch(path -> !fileStatuses.containsKey(path.path()));
             // Invalidate the cache and reload
             if (missing) {
                 ((CachingDirectoryLister)directoryLister).invalidate(location);
