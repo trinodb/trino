@@ -58,6 +58,37 @@ public class TestDynamicCatalogsSql
     }
 
     @Test
+    public void testCreateCatalogLike()
+    {
+        String createCatalogSql = """
+                CREATE CATALOG %s USING base_jdbc
+                WITH (
+                   "bootstrap.quiet" = 'true',
+                   "connection-url" = '%s'
+                )""";
+
+        String oldCatalog = "catalog_" + randomNameSuffix();
+        String oldConnectionUrl = createH2ConnectionUrl();
+        assertUpdate(createCatalogSql.formatted(oldCatalog, oldConnectionUrl));
+
+        String catalog = "catalog_" + randomNameSuffix();
+        String newConnectionUrl = createH2ConnectionUrl();
+        assertUpdate("""
+                CREATE CATALOG %s LIKE %s
+                WITH (
+                   "bootstrap.quiet" = 'true',
+                   "connection-url" = '%s'
+                )
+                """
+                .formatted(catalog, oldCatalog, newConnectionUrl));
+        assertThat((String) computeActual("SHOW CATALOGS LIKE '%s'".formatted(catalog)).getOnlyValue())
+                .isEqualTo(catalog);
+
+        assertUpdate("DROP CATALOG " + catalog);
+        assertUpdate("DROP CATALOG " + oldCatalog);
+    }
+
+    @Test
     public void testRenameCatalog()
     {
         String createCatalogSql = """

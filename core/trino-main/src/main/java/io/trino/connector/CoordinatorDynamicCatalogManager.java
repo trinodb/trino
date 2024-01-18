@@ -290,6 +290,34 @@ public class CoordinatorDynamicCatalogManager
     }
 
     @Override
+    public void createCatalogLike(CatalogName oldCatalogName, CatalogName catalogName, boolean notExists, Map<String, Optional<String>> properties)
+    {
+        requireNonNull(oldCatalogName, "oldCatalogName is null");
+        requireNonNull(catalogName, "catalog is null");
+        requireNonNull(properties, "properties is null");
+
+        catalogsUpdateLock.lock();
+        try {
+            checkState(state != State.STOPPED, "ConnectorManager is stopped");
+
+            if (!activeCatalogs.containsKey(oldCatalogName)) {
+                throw new TrinoException(NOT_FOUND, format("Catalog '%s' does not exist", oldCatalogName));
+            }
+            if (activeCatalogs.containsKey(catalogName)) {
+                if (!notExists) {
+                    throw new TrinoException(ALREADY_EXISTS, format("Catalog '%s' already exists", catalogName));
+                }
+                return;
+            }
+            CatalogConnector catalog = createCatalogLikeInternal(oldCatalogName, catalogName, properties);
+            log.info("Added catalog: %s", catalog.getCatalogHandle());
+        }
+        finally {
+            catalogsUpdateLock.unlock();
+        }
+    }
+
+    @Override
     public void renameCatalog(CatalogName catalogName, CatalogName newCatalogName)
     {
         requireNonNull(catalogName, "catalogName is null");

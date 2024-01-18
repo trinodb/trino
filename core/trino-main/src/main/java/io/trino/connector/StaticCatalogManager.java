@@ -238,6 +238,12 @@ public class StaticCatalogManager
     }
 
     @Override
+    public void createCatalogLike(CatalogName oldCatalog, CatalogName catalog, boolean notExists, Map<String, Optional<String>> properties)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "CREATE CATALOG LIKE is not supported by the static catalog store");
+    }
+
+    @Override
     public void renameCatalog(CatalogName catalogName, CatalogName newCatalogName)
     {
         throw new TrinoException(NOT_SUPPORTED, "RENAME CATALOG is not supported by the static catalog store");
