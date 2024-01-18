@@ -825,6 +825,52 @@ The output of the query has the following columns:
   - Whether or not this snapshot is an ancestor of the current snapshot.
 :::
 
+##### `$metadata_log_entries` table
+
+The `$metadata_log_entries` table provides a view of metadata log entries
+of the Iceberg table.
+
+You can retrieve the information about the metadata log entries of the Iceberg
+table `test_table` by using the following query:
+
+```
+SELECT * FROM "test_table$metadata_log_entries"
+```
+
+```text
+             timestamp                 |                                                              file                                                          | latest_snapshot_id  | latest_schema_id | latest_sequence_number
+---------------------------------------+----------------------------------------------------------------------------------------------------------------------------+---------------------+------------------+------------------------
+ 2024-01-16 15:55:31.172 Europe/Vienna | hdfs://hadoop-master:9000/user/hive/warehouse/test_table/metadata/00000-39174715-be2a-48fa-9949-35413b8b736e.metadata.json | 1221802298419195590 |                0 |                      1
+ 2024-01-16 17:19:56.118 Europe/Vienna | hdfs://hadoop-master:9000/user/hive/warehouse/test_table/metadata/00001-e40178c9-271f-4a96-ad29-eed5e7aef9b0.metadata.json | 7124386610209126943 |                0 |                      2
+```
+
+The output of the query has the following columns:
+
+:::{list-table} Metadata log entries columns
+:widths: 30, 30, 40
+:header-rows: 1
+
+* - Name
+  - Type
+  - Description
+* - `timestamp`
+  - `TIMESTAMP(3) WITH TIME ZONE`
+  - The time when the metadata was created.
+* - `file`
+  - `VARCHAR`
+  - The location of the metadata file.
+* - `latest_snapshot_id`
+  - `BIGINT`
+  - The identifier of the latest snapshot when the metadata was updated.
+* - `latest_schema_id`
+  - `INTEGER`
+  - The identifier of the latest schema when the metadata was updated.
+* - `latest_sequence_number`
+  - `BIGINT`
+  - The data sequence number of the metadata file.
+:::
+
+
 ##### `$snapshots` table
 
 The `$snapshots` table provides a detailed view of snapshots of the Iceberg
