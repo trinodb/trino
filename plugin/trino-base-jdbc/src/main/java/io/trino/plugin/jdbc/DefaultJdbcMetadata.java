@@ -104,6 +104,7 @@ import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.connector.RowChangeParadigm.CHANGE_ONLY_UPDATED_COLUMNS;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.lang.Math.max;
+import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class DefaultJdbcMetadata
@@ -601,7 +602,14 @@ public class DefaultJdbcMetadata
             if (leftColumn.isEmpty() || rightColumn.isEmpty()) {
                 return Optional.empty();
             }
-            jdbcJoinConditions.add(new JdbcJoinCondition(leftColumn.get(), joinCondition.getOperator(), rightColumn.get()));
+
+            JdbcColumnHandle newLeftColumn = leftColumn.get();
+            verify(newLeftColumn.getRemoteColumnName().isPresent(), format("left column from condition (%s) should contain remote information", joinCondition));
+
+            JdbcColumnHandle newRightColumn = rightColumn.get();
+            verify(newRightColumn.getRemoteColumnName().isPresent(), format("right column from condition (%s) should contain remote information", joinCondition));
+
+            jdbcJoinConditions.add(new JdbcJoinCondition(newLeftColumn, joinCondition.getOperator(), newRightColumn));
         }
 
         Optional<PreparedQuery> joinQuery = jdbcClient.legacyImplementJoin(
@@ -653,8 +661,10 @@ public class DefaultJdbcMetadata
 
         final String separator = "_";
         if (optionalMaxColumnNameLength.isEmpty()) {
+            String newColumnName = column.getColumnName() + separator + nextSyntheticColumnId;
             return JdbcColumnHandle.builderFrom(column)
-                    .setColumnName(column.getColumnName() + separator + nextSyntheticColumnId)
+                    .setColumnName(newColumnName)
+                    .setRemoteColumnName(Optional.of(newColumnName))
                     .build();
         }
 

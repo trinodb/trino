@@ -92,9 +92,9 @@ public class TestJdbcClient
         assertThat(table.get().getRequiredNamedRelation().getRemoteTableName().getTableName()).isEqualTo("NUMBERS");
         assertThat(table.get().getRequiredNamedRelation().getSchemaTableName()).isEqualTo(schemaTableName);
         assertThat(jdbcClient.getColumns(session, table.orElse(null))).containsExactly(
-                new JdbcColumnHandle("TEXT", JDBC_VARCHAR, VARCHAR),
-                new JdbcColumnHandle("TEXT_SHORT", JDBC_VARCHAR, createVarcharType(32)),
-                new JdbcColumnHandle("VALUE", JDBC_BIGINT, BIGINT));
+                new JdbcColumnHandle("TEXT".toLowerCase(ENGLISH), JDBC_VARCHAR, VARCHAR),
+                new JdbcColumnHandle("TEXT_SHORT".toLowerCase(ENGLISH), JDBC_VARCHAR, createVarcharType(32)),
+                new JdbcColumnHandle("VALUE".toLowerCase(ENGLISH), JDBC_BIGINT, BIGINT));
     }
 
     @Test
@@ -104,8 +104,8 @@ public class TestJdbcClient
         Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(session, schemaTableName);
         assertThat(table.isPresent()).withFailMessage("table is missing").isTrue();
         assertThat(jdbcClient.getColumns(session, table.get())).containsExactly(
-                new JdbcColumnHandle("TE_T", JDBC_VARCHAR, VARCHAR),
-                new JdbcColumnHandle("VA%UE", JDBC_BIGINT, BIGINT));
+                new JdbcColumnHandle("TE_T".toLowerCase(ENGLISH), JDBC_VARCHAR, VARCHAR),
+                new JdbcColumnHandle("VA%UE".toLowerCase(ENGLISH), JDBC_BIGINT, BIGINT));
     }
 
     @Test
@@ -115,10 +115,10 @@ public class TestJdbcClient
         Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(session, schemaTableName);
         assertThat(table.isPresent()).withFailMessage("table is missing").isTrue();
         assertThat(jdbcClient.getColumns(session, table.get())).containsExactly(
-                new JdbcColumnHandle("COL1", JDBC_BIGINT, BIGINT),
-                new JdbcColumnHandle("COL2", JDBC_DOUBLE, DOUBLE),
-                new JdbcColumnHandle("COL3", JDBC_DOUBLE, DOUBLE),
-                new JdbcColumnHandle("COL4", JDBC_REAL, REAL));
+                new JdbcColumnHandle("COL1".toLowerCase(ENGLISH), JDBC_BIGINT, BIGINT),
+                new JdbcColumnHandle("COL2".toLowerCase(ENGLISH), JDBC_DOUBLE, DOUBLE),
+                new JdbcColumnHandle("COL3".toLowerCase(ENGLISH), JDBC_DOUBLE, DOUBLE),
+                new JdbcColumnHandle("COL4".toLowerCase(ENGLISH), JDBC_REAL, REAL));
     }
 
     @Test
@@ -128,9 +128,9 @@ public class TestJdbcClient
         Optional<JdbcTableHandle> table = jdbcClient.getTableHandle(session, schemaTableName);
         assertThat(table.isPresent()).withFailMessage("table is missing").isTrue();
         assertThat(jdbcClient.getColumns(session, table.get())).containsExactly(
-                new JdbcColumnHandle("TS_3", JDBC_TIMESTAMP, TIMESTAMP_MILLIS),
-                new JdbcColumnHandle("TS_6", JDBC_TIMESTAMP, TIMESTAMP_MICROS),
-                new JdbcColumnHandle("TS_9", JDBC_TIMESTAMP, TIMESTAMP_NANOS));
+                new JdbcColumnHandle("TS_3".toLowerCase(ENGLISH), JDBC_TIMESTAMP, TIMESTAMP_MILLIS),
+                new JdbcColumnHandle("TS_6".toLowerCase(ENGLISH), JDBC_TIMESTAMP, TIMESTAMP_MICROS),
+                new JdbcColumnHandle("TS_9".toLowerCase(ENGLISH), JDBC_TIMESTAMP, TIMESTAMP_NANOS));
     }
 
     @Test

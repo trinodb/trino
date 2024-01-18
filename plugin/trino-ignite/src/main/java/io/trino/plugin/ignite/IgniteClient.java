@@ -483,7 +483,7 @@ public class IgniteClient
                     .map(sortItem -> {
                         String ordering = sortItem.getSortOrder().isAscending() ? "ASC" : "DESC";
                         String nullsHandling = sortItem.getSortOrder().isNullsFirst() ? "IS NULL DESC" : "IS NULL ASC";
-                        String columnName = quoted(sortItem.getColumn().getColumnName());
+                        String columnName = quoted(sortItem.getColumn().getRemoteColumnName().orElse(sortItem.getColumn().getColumnName()));
 
                         return format("%s %s, %1$s %s", columnName, nullsHandling, ordering);
                     })

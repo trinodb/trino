@@ -34,22 +34,22 @@ public final class RuleBasedIdentifierMappingUtils
     public static Path createRuleBasedIdentifierMappingFile()
             throws Exception
     {
-        return createRuleBasedIdentifierMappingFile(ImmutableList.of(), ImmutableList.of());
+        return createRuleBasedIdentifierMappingFile(ImmutableList.of(), ImmutableList.of(), ImmutableList.of());
     }
 
-    public static Path createRuleBasedIdentifierMappingFile(List<SchemaMappingRule> schemas, List<TableMappingRule> tables)
+    public static Path createRuleBasedIdentifierMappingFile(List<SchemaMappingRule> schemas, List<TableMappingRule> tables, List<ColumnMappingRule> columns)
             throws Exception
     {
         Path file = createTempFile("identifier-mapping-", ".json");
         file.toFile().deleteOnExit();
-        updateRuleBasedIdentifierMappingFile(file, schemas, tables);
+        updateRuleBasedIdentifierMappingFile(file, schemas, tables, columns);
         return file;
     }
 
-    public static Path updateRuleBasedIdentifierMappingFile(Path file, List<SchemaMappingRule> schemas, List<TableMappingRule> tables)
+    public static Path updateRuleBasedIdentifierMappingFile(Path file, List<SchemaMappingRule> schemas, List<TableMappingRule> tables, List<ColumnMappingRule> columns)
             throws Exception
     {
-        IdentifierMappingRules mapping = new IdentifierMappingRules(schemas, tables);
+        IdentifierMappingRules mapping = new IdentifierMappingRules(schemas, tables, columns);
 
         String json = jsonCodec(IdentifierMappingRules.class).toJson(mapping);
 

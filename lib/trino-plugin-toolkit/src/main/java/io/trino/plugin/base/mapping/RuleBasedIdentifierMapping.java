@@ -16,7 +16,9 @@ package io.trino.plugin.base.mapping;
 import com.google.common.collect.Table;
 import io.trino.spi.security.ConnectorIdentity;
 
+import java.util.AbstractMap;
 import java.util.Map;
+import java.util.Objects;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableTable.toImmutableTable;
@@ -29,6 +31,8 @@ public class RuleBasedIdentifierMapping
     private final Map<String, String> toRemoteSchema;
     private final Table<String, String, String> fromRemoteTable;
     private final Table<String, String, String> toRemoteTable;
+    private final Map<ColumnMapping, String> fromRemoteColumn;
+    private final Map<ColumnMapping, String> toRemoteColumn;
     private final IdentifierMapping delegate;
 
     public RuleBasedIdentifierMapping(IdentifierMappingRules rules, IdentifierMapping delegate)
@@ -51,6 +55,13 @@ public class RuleBasedIdentifierMapping
                         TableMappingRule::getRemoteSchema,
                         TableMappingRule::getMapping,
                         TableMappingRule::getRemoteTable));
+
+        fromRemoteColumn = rules.getColumns().stream()
+                .map(r -> new AbstractMap.SimpleEntry<>(new ColumnMapping(r.getRemoteSchema(), r.getRemoteTable(), r.getRemoteColumn()), r.getMapping()))
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+        toRemoteColumn = rules.getColumns().stream()
+                .map(r -> new AbstractMap.SimpleEntry<>(new ColumnMapping(r.getRemoteSchema(), r.getRemoteTable(), r.getMapping()), r.getRemoteColumn()))
+                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
         this.delegate = requireNonNull(delegate, "delegate is null");
     }
@@ -76,9 +87,14 @@ public class RuleBasedIdentifierMapping
     }
 
     @Override
-    public String fromRemoteColumnName(String remoteColumnName)
+    public String fromRemoteColumnName(String remoteSchemaName, String remoteTableName, String remoteColumnName)
     {
-        return delegate.fromRemoteColumnName(remoteColumnName);
+        ColumnMapping columnMapping = new ColumnMapping(remoteSchemaName, remoteTableName, remoteColumnName);
+        String columnName = fromRemoteColumn.get(columnMapping);
+        if (columnName == null) {
+            columnName = delegate.fromRemoteColumnName(remoteSchemaName, remoteTableName, remoteColumnName);
+        }
+        return columnName;
     }
 
     @Override
@@ -102,8 +118,46 @@ public class RuleBasedIdentifierMapping
     }
 
     @Override
-    public String toRemoteColumnName(RemoteIdentifiers remoteIdentifiers, String columnName)
+    public String toRemoteColumnName(RemoteIdentifiers remoteIdentifiers, ConnectorIdentity identity, String remoteSchemaName, String remoteTableName, String columnName)
     {
-        return delegate.toRemoteColumnName(remoteIdentifiers, columnName);
+        ColumnMapping columnMapping = new ColumnMapping(remoteSchemaName, remoteTableName, columnName);
+        String remoteColumnName = toRemoteColumn.get(columnMapping);
+        if (remoteColumnName == null) {
+            remoteColumnName = delegate.toRemoteColumnName(remoteIdentifiers, identity, remoteSchemaName, remoteTableName, columnName);
+        }
+        return remoteColumnName;
+    }
+
+    private static class ColumnMapping
+    {
+        private final String schema;
+        private final String table;
+        private final String mapping;
+
+        private ColumnMapping(String schema, String table, String mapping)
+        {
+            this.schema = schema;
+            this.table = table;
+            this.mapping = mapping;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            ColumnMapping that = (ColumnMapping) o;
+            return schema.equals(that.schema) && table.equals(that.table) && mapping.equals(that.mapping);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(schema, table, mapping);
+        }
     }
 }

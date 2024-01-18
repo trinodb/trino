@@ -29,6 +29,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Verify.verify;
 import static io.trino.plugin.postgresql.PostgreSqlClient.isCollatable;
 import static io.trino.plugin.postgresql.PostgreSqlSessionProperties.isEnableStringPushdownWithCollate;
 import static java.lang.String.format;
@@ -65,8 +66,9 @@ public class CollationAwareQueryBuilder
     protected String toPredicate(JdbcClient client, ConnectorSession session, JdbcColumnHandle column, JdbcTypeHandle jdbcType, Type type, WriteFunction writeFunction, String operator, Object value, Consumer<QueryParameter> accumulator)
     {
         if (isCollatable(column) && isEnableStringPushdownWithCollate(session)) {
+            verify(column.getRemoteColumnName().isPresent(), "remote column name is empty");
             accumulator.accept(new QueryParameter(jdbcType, type, Optional.of(value)));
-            return format("%s %s %s COLLATE \"C\"", client.quoted(column.getColumnName()), operator, writeFunction.getBindExpression());
+            return format("%s %s %s COLLATE \"C\"", client.quoted(column.getRemoteColumnName().get()), operator, writeFunction.getBindExpression());
         }
 
         return super.toPredicate(client, session, column, jdbcType, type, writeFunction, operator, value, accumulator);

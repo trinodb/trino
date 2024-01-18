@@ -477,7 +477,7 @@ public class ClickHouseClient
     public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
-            String remoteColumnName = getIdentifierMapping().toRemoteColumnName(getRemoteIdentifiers(connection), column.getName());
+            String remoteColumnName = getRemoteColumnName(getRemoteIdentifiers(connection), handle.asPlainTable().getSchemaTableName(), session.getIdentity(), column.getName());
             String sql = format(
                     "ALTER TABLE %s ADD COLUMN %s",
                     quoted(handle.asPlainTable().getRemoteTableName()),
@@ -505,7 +505,7 @@ public class ClickHouseClient
         String sql = format(
                 "ALTER TABLE %s COMMENT COLUMN %s %s",
                 quoted(handle.asPlainTable().getRemoteTableName()),
-                quoted(column.getColumnName()),
+                quoted(column.getRemoteColumnName().orElse(column.getColumnName())),
                 clickhouseVarcharLiteral(comment.orElse("")));
         execute(session, sql);
     }

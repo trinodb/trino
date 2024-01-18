@@ -26,7 +26,7 @@ public class TestIdentifierMappingRules
     {
         // The JSON format is part of the user interface, changing this may affect users.
 
-        String json = "{\n" +
+        String jsonWithColumns = "{\n" +
                 "  \"schemas\" : [ {\n" +
                 "    \"remoteSchema\" : \"remote_schema\",\n" +
                 "    \"mapping\" : \"trino_schema\"\n" +
@@ -35,14 +35,40 @@ public class TestIdentifierMappingRules
                 "    \"remoteSchema\" : \"remote_schema\",\n" +
                 "    \"remoteTable\" : \"remote_table\",\n" +
                 "    \"mapping\" : \"trino_table\"\n" +
-                "  } ]\n" +
+                "  } ],\n" +
+                " \"columns\" : [ {\n" +
+                "   \"remoteSchema\" : \"remote_schema\",\n" +
+                "   \"remoteTable\" : \"remote_table\",\n" +
+                "   \"remoteColumn\" : \"remote_column\",\n" +
+                "   \"mapping\" : \"trino_column\"\n" +
+                " } ]\n" +
+                "}";
+
+        String jsonWithoutColumns = "{\n" +
+                "  \"schemas\" : [ {\n" +
+                "    \"remoteSchema\" : \"remote_schema\",\n" +
+                "    \"mapping\" : \"trino_schema\"\n" +
+                "  } ],\n" +
+                "  \"tables\" : [ {\n" +
+                "    \"remoteSchema\" : \"remote_schema\",\n" +
+                "    \"remoteTable\" : \"remote_table\",\n" +
+                "    \"mapping\" : \"trino_table\"\n" +
+                " } ]\n" +
                 "}";
 
         JsonCodec<IdentifierMappingRules> identifierMappingRulesJsonCodec = JsonCodec.jsonCodec(IdentifierMappingRules.class);
-        assertThat(identifierMappingRulesJsonCodec.fromJson(json))
+        assertThat(identifierMappingRulesJsonCodec.fromJson(jsonWithColumns))
                 .isEqualTo(new IdentifierMappingRules(
                         ImmutableList.of(new SchemaMappingRule("remote_schema", "trino_schema")),
-                        ImmutableList.of(new TableMappingRule("remote_schema", "remote_table", "trino_table"))))
-                .isNotEqualTo(new IdentifierMappingRules(ImmutableList.of(), ImmutableList.of()));
+                        ImmutableList.of(new TableMappingRule("remote_schema", "remote_table", "trino_table")),
+                        ImmutableList.of(new ColumnMappingRule("remote_schema", "remote_table", "remote_column", "trino_column"))))
+                .isNotEqualTo(new IdentifierMappingRules(ImmutableList.of(), ImmutableList.of(), ImmutableList.of()));
+
+        assertThat(identifierMappingRulesJsonCodec.fromJson(jsonWithoutColumns))
+                .isEqualTo(new IdentifierMappingRules(
+                        ImmutableList.of(new SchemaMappingRule("remote_schema", "trino_schema")),
+                        ImmutableList.of(new TableMappingRule("remote_schema", "remote_table", "trino_table")),
+                        null))
+                .isNotEqualTo(new IdentifierMappingRules(ImmutableList.of(), ImmutableList.of(), ImmutableList.of()));
     }
 }

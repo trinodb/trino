@@ -16,6 +16,7 @@ package io.trino.plugin.ignite;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.plugin.base.mapping.ColumnMappingRule;
 import io.trino.plugin.jdbc.BaseCaseInsensitiveMappingTest;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
@@ -28,6 +29,7 @@ import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.base.mapping.RuleBasedIdentifierMappingUtils.createRuleBasedIdentifierMappingFile;
+import static io.trino.plugin.base.mapping.RuleBasedIdentifierMappingUtils.updateRuleBasedIdentifierMappingFile;
 import static io.trino.plugin.ignite.IgniteQueryRunner.createIgniteQueryRunner;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -120,8 +122,8 @@ public class TestIgniteCaseInsensitiveMapping
                     "SELECT column_name FROM information_schema.columns WHERE table_name = 'nonlowercasetable'",
                     "VALUES 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
             assertThat(computeActual("SHOW COLUMNS FROM public.nonlowercasetable").getMaterializedRows().stream()
-                            .map(row -> row.getField(0))
-                            .collect(toImmutableSet())).isEqualTo(ImmutableSet.of("lower_case_name", "mixed_case_name", "upper_case_name"));
+                    .map(row -> row.getField(0))
+                    .collect(toImmutableSet())).isEqualTo(ImmutableSet.of("lower_case_name", "mixed_case_name", "upper_case_name"));
 
             assertQuery("SELECT lower_case_name FROM public.nonlowercasetable", "VALUES 'a'");
             assertQuery("SELECT mixed_case_name FROM public.nonlowercasetable", "VALUES 'b'");
@@ -190,6 +192,134 @@ public class TestIgniteCaseInsensitiveMapping
                 assertQueryFails("CREATE TABLE " + nameVariant + " (c varchar(5), ignore int) with (primary_key = ARRAY['ignore'])", ".* Table 'ignite.public.casesensitivename' already exists");
             }
         }
+    }
+
+    @Override
+    @Test
+    public void testColumnRuleMapping()
+            throws Exception
+    {
+        String schema = "PUBLIC";
+        updateRuleBasedIdentifierMappingFile(
+                getMappingFile(),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                ImmutableList.of(new ColumnMappingRule(schema, "REMOTE_TABLE", "C1", "remote_column")));
+
+        try (AutoCloseable ignore1 = withTable(schema, "remote_table", "(" + quoted("c1") + " varchar(5), s int primary key)");
+                AutoCloseable ignore2 = withTable(schema, "remote_table1", "(" + quoted("c1") + " varchar(5), s int primary key)")) {
+            assertTableColumnNames(schema + ".remote_table", "remote_column", "s");
+            assertTableColumnNames(schema + ".Remote_table1", "c1", "s");
+
+            assertUpdate("INSERT INTO " + schema + ".remote_table VALUES ('a', 1), ('a1', 2), ('b', 3)", 3);
+            assertUpdate("INSERT INTO " + schema + ".remote_table (remote_column, s) VALUES ('a', 4), ('a1', 5)", 2);
+            assertUpdate("INSERT INTO " + schema + ".remote_table1 VALUES ('b', 1), ('b1', 2), ('a', 3)", 3);
+            assertUpdate("INSERT INTO " + schema + ".remote_table1 (C1, s) VALUES ('b', 4), ('b1', 5)", 2);
+
+            assertQuery("SELECT * FROM " + schema + ".remote_table", "VALUES ('a', 1), ('a1', 2), ('b', 3), ('a', 4), ('a1', 5)");
+            assertQuery("SELECT remote_column, s FROM " + schema + ".remote_table", "VALUES ('a', 1), ('a1', 2), ('b', 3), ('a', 4), ('a1', 5)");
+            assertQuery("SELECT * FROM " + schema + ".remote_table1", "VALUES ('b', 1), ('b1', 2), ('a', 3), ('b', 4), ('b1', 5)");
+            assertQuery("SELECT c1, s FROM " + schema + ".remote_table1", "VALUES ('b', 1), ('b1', 2), ('a', 3), ('b', 4), ('b1', 5)");
+
+            assertQuery("SELECT remote_column || 'a', sum(s) AS c1 FROM " + schema + ".remote_table WHERE remote_column = 'a' GROUP BY remote_column HAVING sum(s) < 6 ORDER BY remote_column", "VALUES ('aa', 5)");
+            assertQuery("SELECT c1 || 'b', sum(s) AS remote_column FROM " + schema + ".remote_table1 WHERE c1 = 'b' GROUP BY c1 HAVING sum(s) < 6 ORDER BY c1", "VALUES ('bb', 5)");
+
+            assertQuery("SELECT remote_column, " + schema + ".remote_table.s, c1 FROM " + schema + ".remote_table JOIN " + schema + ".remote_table1 ON remote_column || 'a' = c1 || 'a' WHERE remote_column = 'a'", "VALUES ('a', 1, 'a'), ('a', 4, 'a')");
+            assertQuery("SELECT c1, " + schema + ".remote_table1.s, remote_column FROM " + schema + ".remote_table1 JOIN " + schema + ".remote_table ON c1 || 'a' = remote_column || 'a' WHERE c1 = 'a'", "VALUES ('a', 3, 'a'), ('a', 3, 'a')");
+        }
+    }
+
+    @Override
+    @Test
+    public void testChangeColumnMapping()
+            throws Exception
+    {
+        String schema = "PUBLIC";
+        updateRuleBasedIdentifierMappingFile(
+                getMappingFile(),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                ImmutableList.of(new ColumnMappingRule(schema, "REMOTE_TABLE", "C1", "remote_column")));
+
+        try (AutoCloseable ignore1 = withTable(schema, "remote_table", "(" + quoted("c1") + " varchar(5), s int primary key)");
+                AutoCloseable ignore2 = withTable(schema, "remote_table1", "(" + quoted("c1") + " varchar(5), s int primary key)")) {
+            assertTableColumnNames(schema + ".remote_table", "remote_column", "s");
+            assertTableColumnNames(schema + ".Remote_table1", "c1", "s");
+
+            assertUpdate("INSERT INTO " + schema + ".remote_table VALUES ('a', 1), ('a1', 2), ('b', 3)", 3);
+            assertUpdate("INSERT INTO " + schema + ".remote_table (remote_column, s) VALUES ('a', 4), ('a1', 5)", 2);
+            assertUpdate("INSERT INTO " + schema + ".remote_table1 VALUES ('b', 1), ('b1', 2), ('a', 3)", 3);
+            assertUpdate("INSERT INTO " + schema + ".remote_table1 (C1, s) VALUES ('b', 4), ('b1', 5)", 2);
+
+            assertQueryFails("ALTER TABLE " + schema + ".remote_table RENAME COLUMN remote_column TO c2", "This connector does not support renaming columns");
+
+            updateRuleBasedIdentifierMappingFile(
+                    getMappingFile(),
+                    ImmutableList.of(),
+                    ImmutableList.of(),
+                    ImmutableList.of(new ColumnMappingRule(schema, "REMOTE_TABLE", "C2", "remote_column"),
+                            new ColumnMappingRule(schema, "REMOTE_TABLE", "C1", "remote_column1")));
+
+            assertTableColumnNames(schema + ".remote_table", "remote_column1", "s");
+            assertUpdate("ALTER TABLE " + schema + ".remote_table DROP COLUMN remote_column1");
+            assertTableColumnNames(schema + ".remote_table", "s");
+            assertUpdate("ALTER TABLE " + schema + ".remote_table ADD COLUMN c2 varchar(5)");
+            assertTableColumnNames(schema + ".remote_table", "s", "remote_column");
+        }
+    }
+
+    @Override
+    @Test
+    public void testCreateTableAsSelectColumnMapping()
+            throws Exception
+    {
+        String schema = "PUBLIC";
+        updateRuleBasedIdentifierMappingFile(
+                getMappingFile(),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                ImmutableList.of(new ColumnMappingRule(schema, "REMOTE_TABLE", "C1", "remote_column")));
+
+        try (AutoCloseable ignore1 = withTable(schema, "remote_table", "(" + quoted("c1") + " varchar(5), s int primary key)");
+                AutoCloseable ignore2 = withTable(schema, "remote_table1", "(" + quoted("c1") + " varchar(5), s int primary key)")) {
+            assertTableColumnNames(schema + ".remote_table", "remote_column", "s");
+            assertTableColumnNames(schema + ".Remote_table1", "c1", "s");
+
+            assertUpdate("INSERT INTO " + schema + ".remote_table VALUES ('a', 1), ('a1', 2), ('b', 3)", 3);
+            assertUpdate("INSERT INTO " + schema + ".remote_table (remote_column, s) VALUES ('a', 4), ('a1', 5)", 2);
+            assertUpdate("INSERT INTO " + schema + ".remote_table1 VALUES ('b', 1), ('b1', 2), ('a', 3)", 3);
+            assertUpdate("INSERT INTO " + schema + ".remote_table1 (C1, s) VALUES ('b', 4), ('b1', 5)", 2);
+
+            assertUpdate("CREATE TABLE " + schema + ".remote_table_select as SELECT remote_column FROM " + schema + ".remote_table", 5);
+            assertUpdate("CREATE TABLE " + schema + ".remote_table1_select as SELECT c1 FROM " + schema + ".remote_table1", 5);
+            String remoteTableSelect = "remote_table_select".toUpperCase(ENGLISH);
+            assertQuery("SELECT remote_column FROM " + schema + "." + remoteTableSelect, "VALUES 'a', 'a1', 'b', 'a', 'a1'");
+            String remoteTable1Select = "remote_table1_select".toUpperCase(ENGLISH);
+            assertQuery("SELECT c1 FROM " + schema + "." + remoteTable1Select, "VALUES 'b', 'b1', 'a', 'b', 'b1'");
+
+            updateRuleBasedIdentifierMappingFile(
+                    getMappingFile(),
+                    ImmutableList.of(),
+                    ImmutableList.of(),
+                    ImmutableList.of(new ColumnMappingRule(schema, "remote_table", "C1", "remote_column"),
+                            new ColumnMappingRule(schema, remoteTableSelect, "remote_column".toUpperCase(ENGLISH), "c1"),
+                            new ColumnMappingRule(schema, remoteTable1Select, "C1", "remote_column")));
+
+            assertQuery("SELECT c1 FROM " + schema + "." + remoteTableSelect, "VALUES 'a', 'a1', 'b', 'a', 'a1'");
+            assertQuery("SELECT remote_column FROM " + schema + "." + remoteTable1Select, "VALUES 'b', 'b1', 'a', 'b', 'b1'");
+
+            assertUpdate("DELETE FROM " + schema + "." + remoteTableSelect, 5);
+            assertUpdate("DELETE FROM " + schema + "." + remoteTable1Select, 5);
+            assertUpdate("DROP TABLE " + schema + "." + remoteTableSelect);
+            assertUpdate("DROP TABLE " + schema + "." + remoteTable1Select);
+        }
+    }
+
+    @Override
+    @Test
+    public void testSchemaAndTableMappingsWithColumnMappings()
+    {
+        abort("Not support creating Ignite custom schema");
     }
 
     @Test

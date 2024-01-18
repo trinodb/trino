@@ -33,7 +33,7 @@ public class DefaultIdentifierMapping
     }
 
     @Override
-    public String fromRemoteColumnName(String remoteColumnName)
+    public String fromRemoteColumnName(String remoteSchemaName, String remoteTableName, String remoteColumnName)
     {
         return remoteColumnName.toLowerCase(ENGLISH);
     }
@@ -51,7 +51,7 @@ public class DefaultIdentifierMapping
     }
 
     @Override
-    public String toRemoteColumnName(RemoteIdentifiers remoteIdentifiers, String columnName)
+    public String toRemoteColumnName(RemoteIdentifiers remoteIdentifiers, ConnectorIdentity identity, String remoteSchemaName, String remoteTableName, String columnName)
     {
         return toRemoteIdentifier(columnName, remoteIdentifiers);
     }

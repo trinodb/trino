@@ -40,11 +40,17 @@ public final class JdbcColumnHandle
     private final Type columnType;
     private final boolean nullable;
     private final Optional<String> comment;
+    private final Optional<String> remoteColumnName;
 
     // All and only required fields
     public JdbcColumnHandle(String columnName, JdbcTypeHandle jdbcTypeHandle, Type columnType)
     {
-        this(columnName, jdbcTypeHandle, columnType, true, Optional.empty());
+        this(columnName, jdbcTypeHandle, columnType, true, Optional.empty(), Optional.empty());
+    }
+
+    public JdbcColumnHandle(String columnName, JdbcTypeHandle jdbcTypeHandle, Type columnType, String remoteColumnName)
+    {
+        this(columnName, jdbcTypeHandle, columnType, true, Optional.empty(), Optional.of(remoteColumnName));
     }
 
     /**
@@ -57,13 +63,15 @@ public final class JdbcColumnHandle
             @JsonProperty("jdbcTypeHandle") JdbcTypeHandle jdbcTypeHandle,
             @JsonProperty("columnType") Type columnType,
             @JsonProperty("nullable") boolean nullable,
-            @JsonProperty("comment") Optional<String> comment)
+            @JsonProperty("comment") Optional<String> comment,
+            @JsonProperty("remoteColumnName") Optional<String> remoteColumnName)
     {
         this.columnName = requireNonNull(columnName, "columnName is null");
         this.jdbcTypeHandle = requireNonNull(jdbcTypeHandle, "jdbcTypeHandle is null");
         this.columnType = requireNonNull(columnType, "columnType is null");
         this.nullable = nullable;
         this.comment = requireNonNull(comment, "comment is null");
+        this.remoteColumnName = requireNonNull(remoteColumnName, "remoteColumnName is null");
     }
 
     @JsonProperty
@@ -94,6 +102,12 @@ public final class JdbcColumnHandle
     public Optional<String> getComment()
     {
         return comment;
+    }
+
+    @JsonProperty
+    public Optional<String> getRemoteColumnName()
+    {
+        return remoteColumnName;
     }
 
     public ColumnMetadata getColumnMetadata()
@@ -149,6 +163,7 @@ public final class JdbcColumnHandle
                 + sizeOf(nullable)
                 + estimatedSizeOf(columnName)
                 + sizeOf(comment, SizeOf::estimatedSizeOf)
+                + sizeOf(remoteColumnName, SizeOf::estimatedSizeOf)
                 + jdbcTypeHandle.getRetainedSizeInBytes();
     }
 
@@ -169,6 +184,7 @@ public final class JdbcColumnHandle
         private Type columnType;
         private boolean nullable = true;
         private Optional<String> comment = Optional.empty();
+        private Optional<String> remoteColumnName = Optional.empty();
 
         public Builder() {}
 
@@ -179,6 +195,7 @@ public final class JdbcColumnHandle
             this.columnType = handle.getColumnType();
             this.nullable = handle.isNullable();
             this.comment = handle.getComment();
+            this.remoteColumnName = handle.getRemoteColumnName();
         }
 
         public Builder setColumnName(String columnName)
@@ -211,6 +228,12 @@ public final class JdbcColumnHandle
             return this;
         }
 
+        public Builder setRemoteColumnName(Optional<String> remoteColumnName)
+        {
+            this.remoteColumnName = remoteColumnName;
+            return this;
+        }
+
         public JdbcColumnHandle build()
         {
             return new JdbcColumnHandle(
@@ -218,7 +241,8 @@ public final class JdbcColumnHandle
                     jdbcTypeHandle,
                     columnType,
                     nullable,
-                    comment);
+                    comment,
+                    remoteColumnName);
         }
     }
 }

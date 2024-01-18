@@ -26,6 +26,7 @@ import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.base.mapping.IdentifierMapping;
+import io.trino.plugin.base.mapping.RemoteIdentifiers;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.CaseSensitivity;
@@ -76,6 +77,7 @@ import io.trino.spi.connector.TableNotFoundException;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
@@ -947,6 +949,24 @@ public class MySqlClient
     }
 
     @Override
+    protected void addColumn(ConnectorSession session, Connection connection, RemoteTableName table, ColumnMetadata column)
+            throws SQLException
+    {
+        verify(table.getSchemaName().isPresent() || table.getCatalogName().isPresent(), "remote schema name is empty");
+        String columnName = column.getName();
+        verifyColumnName(connection.getMetaData(), columnName);
+        RemoteIdentifiers remoteIdentifiers = getRemoteIdentifiers(connection);
+        ConnectorIdentity identity = session.getIdentity();
+        String remoteColumnName = getIdentifierMapping().toRemoteColumnName(remoteIdentifiers, identity, table.getSchemaName().orElse(table.getCatalogName().get()), table.getTableName(), columnName);
+
+        String sql = format(
+                "ALTER TABLE %s ADD %s",
+                quoted(table),
+                getColumnDefinitionSql(session, column, remoteColumnName));
+        execute(session, connection, sql);
+    }
+
+    @Override
     protected Optional<BiFunction<String, Long, String>> limitFunction()
     {
         return Optional.of((sql, limit) -> sql + " LIMIT " + limit);
@@ -1122,7 +1142,7 @@ public class MySqlClient
             for (JdbcColumnHandle column : this.getColumns(session, table)) {
                 ColumnStatistics.Builder columnStatisticsBuilder = ColumnStatistics.builder();
 
-                String columnName = column.getColumnName();
+                String columnName = column.getRemoteColumnName().orElse(column.getColumnName());
                 Optional<ColumnHistogram> histogram = getColumnHistogram(columnHistograms, columnName);
                 if (histogram.isPresent()) {
                     log.debug("Reading column statistics for %s, %s from histogram: %s", table, columnName, columnHistograms.get(columnName));
@@ -1219,16 +1239,16 @@ public class MySqlClient
         {
             RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
             return handle.createQuery("""
-                        SELECT max(row_count) FROM (
-                            (SELECT TABLE_ROWS AS row_count FROM INFORMATION_SCHEMA.TABLES
-                            WHERE TABLE_SCHEMA = :schema AND TABLE_NAME = :table_name
-                            AND TABLE_TYPE = 'BASE TABLE')
-                            UNION ALL
-                            (SELECT CARDINALITY AS row_count FROM INFORMATION_SCHEMA.STATISTICS
-                            WHERE TABLE_SCHEMA = :schema AND TABLE_NAME = :table_name
-                            AND CARDINALITY IS NOT NULL)
-                        ) t
-                        """)
+                            SELECT max(row_count) FROM (
+                                (SELECT TABLE_ROWS AS row_count FROM INFORMATION_SCHEMA.TABLES
+                                WHERE TABLE_SCHEMA = :schema AND TABLE_NAME = :table_name
+                                AND TABLE_TYPE = 'BASE TABLE')
+                                UNION ALL
+                                (SELECT CARDINALITY AS row_count FROM INFORMATION_SCHEMA.STATISTICS
+                                WHERE TABLE_SCHEMA = :schema AND TABLE_NAME = :table_name
+                                AND CARDINALITY IS NOT NULL)
+                            ) t
+                            """)
                     .bind("schema", remoteTableName.getCatalogName().orElse(null))
                     .bind("table_name", remoteTableName.getTableName())
                     .mapTo(Long.class)
@@ -1240,17 +1260,17 @@ public class MySqlClient
         {
             RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
             return handle.createQuery("""
-                        SELECT
-                            COLUMN_NAME,
-                            MAX(NULLABLE) AS NULLABLE,
-                            MAX(CARDINALITY) AS CARDINALITY
-                        FROM INFORMATION_SCHEMA.STATISTICS
-                        WHERE TABLE_SCHEMA = :schema AND TABLE_NAME = :table_name
-                        AND SEQ_IN_INDEX = 1 -- first column in the index
-                        AND SUB_PART IS NULL -- ignore cases where only a column prefix is indexed
-                        AND CARDINALITY IS NOT NULL -- CARDINALITY might be null (https://stackoverflow.com/a/42242729/65458)
-                        GROUP BY COLUMN_NAME -- there might be multiple indexes on a column
-                        """)
+                            SELECT
+                                COLUMN_NAME,
+                                MAX(NULLABLE) AS NULLABLE,
+                                MAX(CARDINALITY) AS CARDINALITY
+                            FROM INFORMATION_SCHEMA.STATISTICS
+                            WHERE TABLE_SCHEMA = :schema AND TABLE_NAME = :table_name
+                            AND SEQ_IN_INDEX = 1 -- first column in the index
+                            AND SUB_PART IS NULL -- ignore cases where only a column prefix is indexed
+                            AND CARDINALITY IS NOT NULL -- CARDINALITY might be null (https://stackoverflow.com/a/42242729/65458)
+                            GROUP BY COLUMN_NAME -- there might be multiple indexes on a column
+                            """)
                     .bind("schema", remoteTableName.getCatalogName().orElse(null))
                     .bind("table_name", remoteTableName.getTableName())
                     .map((rs, ctx) -> {
@@ -1282,9 +1302,9 @@ public class MySqlClient
 
             RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
             return handle.createQuery("""
-                        SELECT COLUMN_NAME, HISTOGRAM FROM INFORMATION_SCHEMA.COLUMN_STATISTICS
-                        WHERE SCHEMA_NAME = :schema AND TABLE_NAME = :table_name
-                        """)
+                            SELECT COLUMN_NAME, HISTOGRAM FROM INFORMATION_SCHEMA.COLUMN_STATISTICS
+                            WHERE SCHEMA_NAME = :schema AND TABLE_NAME = :table_name
+                            """)
                     .bind("schema", remoteTableName.getCatalogName().orElse(null))
                     .bind("table_name", remoteTableName.getTableName())
                     .map((rs, ctx) -> new SimpleEntry<>(rs.getString("COLUMN_NAME"), rs.getString("HISTOGRAM")))

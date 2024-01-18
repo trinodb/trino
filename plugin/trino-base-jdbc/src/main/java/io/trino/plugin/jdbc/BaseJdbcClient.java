@@ -270,8 +270,12 @@ public abstract class BaseJdbcClient
     {
         ImmutableList.Builder<JdbcColumnHandle> columns = ImmutableList.builder();
         for (int column = 1; column <= metadata.getColumnCount(); column++) {
+            String remoteSchemaName = metadata.getSchemaName(column);
+            String remoteTableName = metadata.getTableName(column);
+            String remoteColumnName = metadata.getColumnLabel(column);
+
             // Use getColumnLabel method because query pass-through table function may contain column aliases
-            String name = metadata.getColumnLabel(column);
+            String name = identifierMapping.fromRemoteColumnName(remoteSchemaName, remoteTableName, remoteColumnName);
             JdbcTypeHandle jdbcTypeHandle = new JdbcTypeHandle(
                     metadata.getColumnType(column),
                     Optional.ofNullable(metadata.getColumnTypeName(column)),
@@ -282,7 +286,7 @@ public abstract class BaseJdbcClient
             Type type = toColumnMapping(session, connection, jdbcTypeHandle)
                     .orElseThrow(() -> new UnsupportedOperationException(format("Unsupported type: %s of column: %s", jdbcTypeHandle, name)))
                     .getType();
-            columns.add(new JdbcColumnHandle(name, jdbcTypeHandle, type));
+            columns.add(new JdbcColumnHandle(name, jdbcTypeHandle, type, remoteColumnName));
         }
         return columns.build();
     }
@@ -309,7 +313,10 @@ public abstract class BaseJdbcClient
                     continue;
                 }
                 allColumns++;
-                String columnName = resultSet.getString("COLUMN_NAME");
+
+                String remoteSchemaName = getTableSchemaName(resultSet);
+                String remoteColumnName = resultSet.getString("COLUMN_NAME");
+                String columnName = identifierMapping.fromRemoteColumnName(remoteSchemaName, remoteTableName.getTableName(), remoteColumnName);
                 JdbcTypeHandle typeHandle = new JdbcTypeHandle(
                         getInteger(resultSet, "DATA_TYPE").orElseThrow(() -> new IllegalStateException("DATA_TYPE is null")),
                         Optional.ofNullable(resultSet.getString("TYPE_NAME")),
@@ -329,6 +336,7 @@ public abstract class BaseJdbcClient
                         .setColumnType(mapping.getType())
                         .setNullable(nullable)
                         .setComment(comment)
+                        .setRemoteColumnName(Optional.of(remoteColumnName))
                         .build()));
                 if (columnMapping.isEmpty()) {
                     UnsupportedTypeHandling unsupportedTypeHandling = getUnsupportedTypeHandling(session);
@@ -695,8 +703,9 @@ public abstract class BaseJdbcClient
         // columnList is only used for createTableSql - the extraColumns are not included on the JdbcOutputTableHandle
         ImmutableList.Builder<String> columnList = ImmutableList.builderWithExpectedSize(columns.size() + (pageSinkIdColumn.isPresent() ? 1 : 0));
 
+        ConnectorIdentity identity = session.getIdentity();
         for (ColumnMetadata column : columns) {
-            String columnName = identifierMapping.toRemoteColumnName(remoteIdentifiers, column.getName());
+            String columnName = identifierMapping.toRemoteColumnName(remoteIdentifiers, identity, remoteSchema, remoteTable, column.getName());
             verifyColumnName(connection.getMetaData(), columnName);
             columnNames.add(columnName);
             columnTypes.add(column.getType());
@@ -705,7 +714,7 @@ public abstract class BaseJdbcClient
 
         Optional<String> pageSinkIdColumnName = Optional.empty();
         if (pageSinkIdColumn.isPresent()) {
-            String columnName = identifierMapping.toRemoteColumnName(remoteIdentifiers, pageSinkIdColumn.get().getName());
+            String columnName = identifierMapping.toRemoteColumnName(remoteIdentifiers, identity, remoteSchema, remoteTable, pageSinkIdColumn.get().getName());
             pageSinkIdColumnName = Optional.of(columnName);
             verifyColumnName(connection.getMetaData(), columnName);
             columnList.add(getColumnDefinitionSql(session, pageSinkIdColumn.get(), columnName));
@@ -794,7 +803,7 @@ public abstract class BaseJdbcClient
         ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
         ImmutableList.Builder<JdbcTypeHandle> jdbcColumnTypes = ImmutableList.builder();
         for (JdbcColumnHandle column : columns) {
-            columnNames.add(column.getColumnName());
+            columnNames.add(identifierMapping.toRemoteColumnName(remoteIdentifiers, identity, remoteSchema, remoteTable, column.getColumnName()));
             columnTypes.add(column.getColumnType());
             jdbcColumnTypes.add(column.getJdbcTypeHandle());
         }
@@ -832,7 +841,7 @@ public abstract class BaseJdbcClient
                 columnTypes.build(),
                 Optional.of(jdbcColumnTypes.build()),
                 Optional.of(remoteTemporaryTableName),
-                pageSinkIdColumn.map(column -> identifierMapping.toRemoteColumnName(remoteIdentifiers, column.getName())));
+                pageSinkIdColumn.map(column -> identifierMapping.toRemoteColumnName(remoteIdentifiers, identity, remoteSchema, remoteTable, column.getName())));
     }
 
     protected void copyTableSchema(ConnectorSession session, Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
@@ -1037,14 +1046,28 @@ public abstract class BaseJdbcClient
     protected void addColumn(ConnectorSession session, Connection connection, RemoteTableName table, ColumnMetadata column)
             throws SQLException
     {
+        verify(table.getSchemaName().isPresent(), "remote schema name is empty");
         String columnName = column.getName();
         verifyColumnName(connection.getMetaData(), columnName);
-        String remoteColumnName = identifierMapping.toRemoteColumnName(getRemoteIdentifiers(connection), columnName);
+        String remoteColumnName = identifierMapping.toRemoteColumnName(
+                getRemoteIdentifiers(connection),
+                session.getIdentity(),
+                table.getSchemaName().get(),
+                table.getTableName(),
+                columnName);
+
         String sql = format(
                 "ALTER TABLE %s ADD %s",
                 quoted(table),
                 getColumnDefinitionSql(session, column, remoteColumnName));
         execute(session, connection, sql);
+    }
+
+    protected String getRemoteColumnName(RemoteIdentifiers remoteIdentifiers, SchemaTableName schemaTableName, ConnectorIdentity identity, String columnName)
+    {
+        String remoteSchema = identifierMapping.toRemoteSchemaName(remoteIdentifiers, identity, schemaTableName.getSchemaName());
+        String remoteTable = identifierMapping.toRemoteTableName(remoteIdentifiers, identity, remoteSchema, schemaTableName.getTableName());
+        return identifierMapping.toRemoteColumnName(remoteIdentifiers, identity, remoteSchema, remoteTable, columnName);
     }
 
     @Override
@@ -1053,9 +1076,10 @@ public abstract class BaseJdbcClient
         verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(handle));
         try (Connection connection = connectionFactory.openConnection(session)) {
             verify(connection.getAutoCommit());
-            String newRemoteColumnName = identifierMapping.toRemoteColumnName(getRemoteIdentifiers(connection), newColumnName);
+            String newRemoteColumnName = getRemoteColumnName(getRemoteIdentifiers(connection), handle.asPlainTable().getSchemaTableName(), session.getIdentity(), newColumnName);
             verifyColumnName(connection.getMetaData(), newRemoteColumnName);
-            renameColumn(session, connection, handle.asPlainTable().getRemoteTableName(), jdbcColumn.getColumnName(), newRemoteColumnName);
+            String remoteColumnName = getRemoteColumnName(getRemoteIdentifiers(connection), handle.asPlainTable().getSchemaTableName(), session.getIdentity(), jdbcColumn.getColumnName());
+            renameColumn(session, connection, handle.asPlainTable().getRemoteTableName(), remoteColumnName, newRemoteColumnName);
         }
         catch (SQLException e) {
             throw new TrinoException(JDBC_ERROR, e);
@@ -1078,7 +1102,8 @@ public abstract class BaseJdbcClient
         verify(handle.getAuthorization().isEmpty(), "Unexpected authorization is required for table: %s".formatted(handle));
         try (Connection connection = connectionFactory.openConnection(session)) {
             verify(connection.getAutoCommit());
-            String remoteColumnName = identifierMapping.toRemoteColumnName(getRemoteIdentifiers(connection), column.getColumnName());
+            String remoteColumnName = column.getRemoteColumnName().orElse(
+                    getRemoteColumnName(getRemoteIdentifiers(connection), handle.asPlainTable().getSchemaTableName(), session.getIdentity(), column.getColumnName()));
             String sql = format(
                     "ALTER TABLE %s DROP COLUMN %s",
                     quoted(handle.asPlainTable().getRemoteTableName()),
@@ -1095,7 +1120,7 @@ public abstract class BaseJdbcClient
     {
         try (Connection connection = connectionFactory.openConnection(session)) {
             verify(connection.getAutoCommit());
-            String remoteColumnName = identifierMapping.toRemoteColumnName(getRemoteIdentifiers(connection), column.getColumnName());
+            String remoteColumnName = column.getRemoteColumnName().orElse(getRemoteColumnName(getRemoteIdentifiers(connection), handle.asPlainTable().getSchemaTableName(), session.getIdentity(), column.getColumnName()));
             String sql = format(
                     "ALTER TABLE %s ALTER COLUMN %s SET DATA TYPE %s",
                     quoted(handle.asPlainTable().getRemoteTableName()),
@@ -1148,6 +1173,8 @@ public abstract class BaseJdbcClient
     @Override
     public String buildInsertSql(JdbcOutputTableHandle handle, List<WriteFunction> columnWriters)
     {
+        // handle already stores names for a remote source
+
         boolean hasPageSinkIdColumn = handle.getPageSinkIdColumnName().isPresent();
         checkArgument(handle.getColumnNames().size() == columnWriters.size(), "handle and columnWriters mismatch: %s, %s", handle, columnWriters);
         return format(
@@ -1175,6 +1202,18 @@ public abstract class BaseJdbcClient
             throws SQLException
     {
         return connection.prepareStatement(sql);
+    }
+
+    public ResultSet getColumns(Connection connection, String remoteSchemaName, String remoteTableName)
+            throws SQLException
+    {
+        // this method is called by IdentifierMapping, so cannot use IdentifierMapping here as this would cause an endless loop
+        DatabaseMetaData metadata = connection.getMetaData();
+        return metadata.getColumns(
+                connection.getCatalog(),
+                remoteSchemaName,
+                remoteTableName,
+                null);
     }
 
     public ResultSet getTables(Connection connection, Optional<String> remoteSchemaName, Optional<String> remoteTableName)
@@ -1555,7 +1594,7 @@ public abstract class BaseJdbcClient
                         .map(sortItem -> {
                             String ordering = sortItem.getSortOrder().isAscending() ? "ASC" : "DESC";
                             String nullsHandling = sortItem.getSortOrder().isNullsFirst() ? "NULLS FIRST" : "NULLS LAST";
-                            return format("%s %s %s", quote.apply(sortItem.getColumn().getColumnName()), ordering, nullsHandling);
+                            return format("%s %s %s", quote.apply(sortItem.getColumn().getRemoteColumnName().orElse(sortItem.getColumn().getColumnName())), ordering, nullsHandling);
                         })
                         .collect(joining(", "));
 

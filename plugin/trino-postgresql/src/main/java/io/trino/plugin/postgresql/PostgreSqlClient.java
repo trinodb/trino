@@ -452,7 +452,10 @@ public class PostgreSqlClient
                 List<JdbcColumnHandle> columns = new ArrayList<>();
                 while (resultSet.next()) {
                     allColumns++;
-                    String columnName = resultSet.getString("COLUMN_NAME");
+                    String remoteSchemaName = getTableSchemaName(resultSet);
+                    String remoteTableName = resultSet.getString("TABLE_NAME");
+                    String remoteColumnName = resultSet.getString("COLUMN_NAME");
+                    String columnName = getIdentifierMapping().fromRemoteColumnName(remoteSchemaName, remoteTableName, remoteColumnName);
                     JdbcTypeHandle typeHandle = new JdbcTypeHandle(
                             getInteger(resultSet, "DATA_TYPE").orElseThrow(() -> new IllegalStateException("DATA_TYPE is null")),
                             Optional.of(resultSet.getString("TYPE_NAME")),
@@ -472,6 +475,7 @@ public class PostgreSqlClient
                                 .setColumnType(columnMapping.get().getType())
                                 .setNullable(nullable)
                                 .setComment(comment)
+                                .setRemoteColumnName(Optional.of(remoteColumnName))
                                 .build());
                     }
                     if (columnMapping.isEmpty()) {
@@ -831,7 +835,7 @@ public class PostgreSqlClient
                         if (isCollatable(sortItem.getColumn())) {
                             collation = "COLLATE \"C\"";
                         }
-                        return format("%s %s %s %s", quoted(sortItem.getColumn().getColumnName()), collation, ordering, nullsHandling);
+                        return format("%s %s %s %s", quoted(sortItem.getColumn().getRemoteColumnName().orElse(sortItem.getColumn().getColumnName())), collation, ordering, nullsHandling);
                     })
                     .collect(joining(", "));
             return format("%s ORDER BY %s LIMIT %d", query, orderBy, limit);
@@ -986,7 +990,7 @@ public class PostgreSqlClient
                     .collect(toImmutableMap(ColumnStatisticsResult::getColumnName, identity()));
 
             for (JdbcColumnHandle column : this.getColumns(session, table)) {
-                ColumnStatisticsResult result = columnStatistics.get(column.getColumnName());
+                ColumnStatisticsResult result = columnStatistics.get(column.getRemoteColumnName().orElse(column.getColumnName()));
                 if (result == null) {
                     continue;
                 }

@@ -39,6 +39,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
@@ -148,9 +149,9 @@ public class TestDefaultJdbcMetadata
     {
         // known table
         assertThat(metadata.getColumnHandles(SESSION, tableHandle)).isEqualTo(ImmutableMap.of(
-                "text", new JdbcColumnHandle("TEXT", JDBC_VARCHAR, VARCHAR),
-                "text_short", new JdbcColumnHandle("TEXT_SHORT", JDBC_VARCHAR, createVarcharType(32)),
-                "value", new JdbcColumnHandle("VALUE", JDBC_BIGINT, BIGINT)));
+                "text", new JdbcColumnHandle("TEXT".toLowerCase(Locale.ENGLISH), JDBC_VARCHAR, VARCHAR),
+                "text_short", new JdbcColumnHandle("TEXT_SHORT".toLowerCase(Locale.ENGLISH), JDBC_VARCHAR, createVarcharType(32)),
+                "value", new JdbcColumnHandle("VALUE".toLowerCase(Locale.ENGLISH), JDBC_BIGINT, BIGINT)));
 
         // unknown table
         unknownTableColumnHandle(new JdbcTableHandle(new SchemaTableName("unknown", "unknown"), new RemoteTableName(Optional.of("unknown"), Optional.of("unknown"), "unknown"), Optional.empty()));
@@ -340,9 +341,9 @@ public class TestDefaultJdbcMetadata
         JdbcTableHandle tableHandleWithFilter = applyFilter(session, aggregatedTable, new Constraint(TupleDomain.withColumnDomains(ImmutableMap.of(groupByColumn, secondDomain))));
         assertThat(tableHandleWithFilter.getConstraint().getDomains())
                 .isEqualTo(
-                    // The query effectively intersects firstDomain and secondDomain, but this is not visible in JdbcTableHandle.constraint,
-                    // as firstDomain has been converted into a PreparedQuery
-                    Optional.of(ImmutableMap.of(groupByColumn, secondDomain)));
+                        // The query effectively intersects firstDomain and secondDomain, but this is not visible in JdbcTableHandle.constraint,
+                        // as firstDomain has been converted into a PreparedQuery
+                        Optional.of(ImmutableMap.of(groupByColumn, secondDomain)));
         assertThat(((JdbcQueryRelationHandle) tableHandleWithFilter.getRelationHandle()).getPreparedQuery().getQuery())
                 .isEqualTo("SELECT \"TEXT\", count(*) AS \"_pfgnrtd_0\" " +
                         "FROM \"" + database.getDatabaseName() + "\".\"EXAMPLE\".\"NUMBERS\" " +

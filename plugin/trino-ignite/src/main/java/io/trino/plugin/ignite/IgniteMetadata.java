@@ -45,6 +45,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
@@ -93,7 +94,8 @@ public class IgniteMetadata
         ImmutableList.Builder<JdbcTypeHandle> columnJdbcTypeHandles = ImmutableList.builder();
         for (ColumnHandle column : columns) {
             JdbcColumnHandle columnHandle = (JdbcColumnHandle) column;
-            columnNames.add(columnHandle.getColumnName());
+            verify(columnHandle.getRemoteColumnName().isPresent(), "remote column name is empty");
+            columnNames.add(columnHandle.getRemoteColumnName().get());
             columnTypes.add(columnHandle.getColumnType());
             columnJdbcTypeHandles.add(columnHandle.getJdbcTypeHandle());
         }

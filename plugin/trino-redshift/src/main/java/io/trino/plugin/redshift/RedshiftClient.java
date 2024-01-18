@@ -383,7 +383,7 @@ public class RedshiftClient
                     .map(sortItem -> {
                         String ordering = sortItem.getSortOrder().isAscending() ? "ASC" : "DESC";
                         String nullsHandling = sortItem.getSortOrder().isNullsFirst() ? "NULLS FIRST" : "NULLS LAST";
-                        return format("%s %s %s", quoted(sortItem.getColumn().getColumnName()), ordering, nullsHandling);
+                        return format("%s %s %s", quoted(sortItem.getColumn().getRemoteColumnName().orElse(sortItem.getColumn().getColumnName())), ordering, nullsHandling);
                     })
                     .collect(joining(", "));
 
@@ -813,7 +813,7 @@ public class RedshiftClient
         String sql = format(
                 "COMMENT ON COLUMN %s.%s IS %s",
                 quoted(handle.asPlainTable().getRemoteTableName()),
-                quoted(column.getColumnName()),
+                quoted(column.getRemoteColumnName().orElse(column.getColumnName())),
                 comment.map(RedshiftClient::redshiftVarcharLiteral).orElse("NULL"));
         execute(session, sql);
     }

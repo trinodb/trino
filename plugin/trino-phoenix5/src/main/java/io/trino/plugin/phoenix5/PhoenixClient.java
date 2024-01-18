@@ -665,7 +665,7 @@ public class PhoenixClient
                 if (column.getComment() != null) {
                     throw new TrinoException(NOT_SUPPORTED, "This connector does not support creating tables with column comment");
                 }
-                String columnName = getIdentifierMapping().toRemoteColumnName(remoteIdentifiers, column.getName());
+                String columnName = getIdentifierMapping().toRemoteColumnName(remoteIdentifiers, identity, schema, table, column.getName());
                 columnNames.add(columnName);
                 columnTypes.add(column.getType());
                 String typeStatement = toWriteMapping(session, column.getType()).getDataType();
@@ -816,7 +816,8 @@ public class PhoenixClient
 
     private static LongWriteFunction dateWriteFunctionUsingString()
     {
-        return new LongWriteFunction() {
+        return new LongWriteFunction()
+        {
             @Override
             public String getBindExpression()
             {
@@ -984,7 +985,7 @@ public class PhoenixClient
                 .map(Optional::get)
                 .collect(toImmutableSet());
         Set<String> primaryKeyColumnNames = primaryKeyColumnHandles.stream()
-                .map(JdbcColumnHandle::getColumnName)
+                .map(c -> c.getRemoteColumnName().orElse(c.getColumnName()))
                 .collect(toImmutableSet());
         checkArgument(mergeRowIdFieldNames.containsAll(primaryKeyColumnNames), "Merge row id fields should contains all primary keys");
 

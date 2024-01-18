@@ -225,11 +225,13 @@ public class PhoenixMetadata
                 .map(JdbcColumnHandle.class::cast)
                 .collect(toImmutableList());
 
+        verify(columnHandles.stream().allMatch(c -> c.getRemoteColumnName().isPresent()), "remote column name is empty");
+
         RemoteTableName remoteTableName = handle.asPlainTable().getRemoteTableName();
         return new PhoenixOutputTableHandle(
                 remoteTableName.getSchemaName().orElse(null),
                 remoteTableName.getTableName(),
-                columnHandles.stream().map(JdbcColumnHandle::getColumnName).collect(toImmutableList()),
+                columnHandles.stream().map(c -> c.getRemoteColumnName().get()).collect(toImmutableList()),
                 columnHandles.stream().map(JdbcColumnHandle::getColumnType).collect(toImmutableList()),
                 Optional.of(columnHandles.stream().map(JdbcColumnHandle::getJdbcTypeHandle).collect(toImmutableList())),
                 rowkeyColumn);
@@ -266,7 +268,7 @@ public class PhoenixMetadata
         phoenixClient.execute(session, format(
                 "ALTER TABLE %s DROP COLUMN %s",
                 getEscapedTableName(remoteTableName.getSchemaName().orElse(null), remoteTableName.getTableName()),
-                phoenixClient.quoted(columnHandle.getColumnName())));
+                phoenixClient.quoted(columnHandle.getRemoteColumnName().orElse(columnHandle.getColumnName()))));
     }
 
     @Override
@@ -291,7 +293,7 @@ public class PhoenixMetadata
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
 
         List<RowType.Field> fields = phoenixClient.getPrimaryKeyColumnHandles(session, handle).stream()
-                .map(columnHandle -> new RowType.Field(Optional.of(columnHandle.getColumnName()), columnHandle.getColumnType()))
+                .map(columnHandle -> new RowType.Field(Optional.of(columnHandle.getRemoteColumnName().orElse(columnHandle.getColumnName())), columnHandle.getColumnType()))
                 .collect(toImmutableList());
         verify(!fields.isEmpty(), "Phoenix primary key is empty");
 

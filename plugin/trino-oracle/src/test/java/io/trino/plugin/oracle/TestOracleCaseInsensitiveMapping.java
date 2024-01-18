@@ -41,6 +41,7 @@ public class TestOracleCaseInsensitiveMapping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
+        useUpperCase = true;
         mappingFile = createRuleBasedIdentifierMappingFile();
         oracleServer = closeAfterClass(new TestingOracleServer());
         return createOracleQueryRunner(

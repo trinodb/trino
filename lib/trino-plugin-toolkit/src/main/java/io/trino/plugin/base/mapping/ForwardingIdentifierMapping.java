@@ -51,9 +51,9 @@ public abstract class ForwardingIdentifierMapping
     }
 
     @Override
-    public String fromRemoteColumnName(String remoteColumnName)
+    public String fromRemoteColumnName(String remoteSchemaName, String remoteTableName, String remoteColumnName)
     {
-        return delegate().fromRemoteColumnName(remoteColumnName);
+        return delegate().fromRemoteColumnName(remoteSchemaName, remoteTableName, remoteColumnName);
     }
 
     @Override
@@ -69,8 +69,8 @@ public abstract class ForwardingIdentifierMapping
     }
 
     @Override
-    public String toRemoteColumnName(RemoteIdentifiers remoteIdentifiers, String columnName)
+    public String toRemoteColumnName(RemoteIdentifiers remoteIdentifiers, ConnectorIdentity identity, String remoteSchemaName, String remoteTableName, String columnName)
     {
-        return delegate().toRemoteColumnName(remoteIdentifiers, columnName);
+        return delegate().toRemoteColumnName(remoteIdentifiers, identity, remoteSchemaName, remoteTableName, columnName);
     }
 }

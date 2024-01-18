@@ -504,9 +504,10 @@ public class SqlServerClient
 
         try (PreparedStatement preparedStatement = queryBuilder.prepareStatement(this, session, connection, preparedQuery, Optional.empty())) {
             ResultSetMetaData metadata = preparedStatement.getMetaData();
+            RemoteTableName remoteInformation = tableHandle.getRequiredNamedRelation().getRemoteTableName();
             ImmutableMap.Builder<String, CaseSensitivity> columns = ImmutableMap.builder();
             for (int column = 1; column <= metadata.getColumnCount(); column++) {
-                String name = metadata.getColumnName(column);
+                String name = getIdentifierMapping().fromRemoteColumnName(remoteInformation.getSchemaName().get(), remoteInformation.getTableName(), metadata.getColumnName(column));
                 columns.put(name, metadata.isCaseSensitive(column) ? CASE_SENSITIVE : CASE_INSENSITIVE);
             }
             return columns.buildOrThrow();
@@ -777,7 +778,7 @@ public class SqlServerClient
             Map<String, String> columnNameToStatisticsName = getColumnNameToStatisticsName(table, statisticsDao, tableObjectId);
 
             for (JdbcColumnHandle column : this.getColumns(session, table)) {
-                String statisticName = columnNameToStatisticsName.get(column.getColumnName());
+                String statisticName = columnNameToStatisticsName.get(column.getRemoteColumnName().orElse(column.getColumnName()));
                 if (statisticName == null) {
                     // No statistic for column
                     continue;
@@ -1085,7 +1086,8 @@ public class SqlServerClient
             String orderBy = sortItems.stream()
                     .flatMap(sortItem -> {
                         String ordering = sortItem.getSortOrder().isAscending() ? "ASC" : "DESC";
-                        String columnSorting = format("%s %s", quoted(sortItem.getColumn().getColumnName()), ordering);
+                        String columnName = sortItem.getColumn().getRemoteColumnName().orElse(sortItem.getColumn().getColumnName());
+                        String columnSorting = format("%s %s", quoted(columnName), ordering);
 
                         switch (sortItem.getSortOrder()) {
                             case ASC_NULLS_FIRST:
@@ -1096,11 +1098,11 @@ public class SqlServerClient
 
                             case ASC_NULLS_LAST:
                                 return Stream.of(
-                                        format("(CASE WHEN %s IS NULL THEN 1 ELSE 0 END) ASC", quoted(sortItem.getColumn().getColumnName())),
+                                        format("(CASE WHEN %s IS NULL THEN 1 ELSE 0 END) ASC", quoted(columnName)),
                                         columnSorting);
                             case DESC_NULLS_FIRST:
                                 return Stream.of(
-                                        format("(CASE WHEN %s IS NULL THEN 1 ELSE 0 END) DESC", quoted(sortItem.getColumn().getColumnName())),
+                                        format("(CASE WHEN %s IS NULL THEN 1 ELSE 0 END) DESC", quoted(columnName)),
                                         columnSorting);
                         }
                         throw new UnsupportedOperationException("Unsupported sort order: " + sortItem.getSortOrder());

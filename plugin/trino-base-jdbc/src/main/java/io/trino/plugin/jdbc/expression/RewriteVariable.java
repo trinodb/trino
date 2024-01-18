@@ -46,6 +46,6 @@ public class RewriteVariable
     public Optional<ParameterizedExpression> rewrite(Variable variable, Captures captures, RewriteContext<ParameterizedExpression> context)
     {
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignment(variable.getName());
-        return Optional.of(new ParameterizedExpression(identifierQuote.apply(columnHandle.getColumnName()), ImmutableList.of()));
+        return Optional.of(new ParameterizedExpression(identifierQuote.apply(columnHandle.getRemoteColumnName().orElse(columnHandle.getColumnName())), ImmutableList.of()));
     }
 }

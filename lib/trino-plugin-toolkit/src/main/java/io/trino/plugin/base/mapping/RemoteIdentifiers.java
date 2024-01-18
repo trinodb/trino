@@ -21,5 +21,7 @@ public interface RemoteIdentifiers
 
     Set<String> getRemoteTables(String remoteSchema);
 
+    Set<String> getRemoteColumns(String remoteSchema, String remoteTable);
+
     boolean storesUpperCaseIdentifiers();
 }

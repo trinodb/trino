@@ -15,6 +15,7 @@ package io.trino.plugin.druid;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.plugin.base.mapping.ColumnMappingRule;
 import io.trino.plugin.base.mapping.TableMappingRule;
 import io.trino.plugin.jdbc.BaseCaseInsensitiveMappingTest;
 import io.trino.testing.DistributedQueryRunner;
@@ -118,7 +119,7 @@ public class TestDruidCaseInsensitiveMapping
     public void testTableNameClash()
             throws Exception
     {
-        updateRuleBasedIdentifierMappingFile(getMappingFile(), ImmutableList.of(), ImmutableList.of());
+        updateRuleBasedIdentifierMappingFile(getMappingFile(), ImmutableList.of(), ImmutableList.of(), ImmutableList.of());
 
         copyAndIngestTpchDataFromSourceToTarget(
                 getQueryRunner().execute(SELECT_FROM_REGION),
@@ -148,7 +149,8 @@ public class TestDruidCaseInsensitiveMapping
         updateRuleBasedIdentifierMappingFile(
                 getMappingFile(),
                 ImmutableList.of(),
-                ImmutableList.of(new TableMappingRule("druid", "remote_table", "trino_table")));
+                ImmutableList.of(new TableMappingRule("druid", "remote_table", "trino_table")),
+                ImmutableList.of());
 
         copyAndIngestTpchDataFromSourceToTarget(getQueryRunner().execute(SELECT_FROM_REGION), this.druidServer, "region", "remote_table", Optional.empty());
 
@@ -166,7 +168,7 @@ public class TestDruidCaseInsensitiveMapping
         List<TableMappingRule> tableMappingRules = ImmutableList.of(
                 new TableMappingRule(schema, "CaseSensitiveName", "casesensitivename_a"),
                 new TableMappingRule(schema, "casesensitivename", "casesensitivename_b"));
-        updateRuleBasedIdentifierMappingFile(getMappingFile(), ImmutableList.of(), tableMappingRules);
+        updateRuleBasedIdentifierMappingFile(getMappingFile(), ImmutableList.of(), tableMappingRules, ImmutableList.of());
 
         copyAndIngestTpchDataFromSourceToTarget(
                 getQueryRunner().execute(SELECT_FROM_REGION),
@@ -190,6 +192,65 @@ public class TestDruidCaseInsensitiveMapping
                 .hasSize(2);
         assertQuery("SELECT COUNT(1) FROM druid.druid.casesensitivename_a", "VALUES 5");
         assertQuery("SELECT COUNT(1) FROM druid.druid.casesensitivename_b", "VALUES 5");
+    }
+
+    @Override
+    @Test
+    public void testColumnRuleMapping()
+            throws Exception
+    {
+        updateRuleBasedIdentifierMappingFile(
+                getMappingFile(),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                ImmutableList.of(new ColumnMappingRule("druid", "remote_table", "name", "remote_column")));
+
+        copyAndIngestTpchDataFromSourceToTarget(
+                getQueryRunner().execute(SELECT_FROM_REGION),
+                this.druidServer,
+                "region",
+                "remote_table",
+                Optional.empty());
+
+        copyAndIngestTpchDataFromSourceToTarget(
+                getQueryRunner().execute(SELECT_FROM_REGION),
+                this.druidServer,
+                "region",
+                "remote_table1",
+                Optional.empty());
+
+        assertThat(computeActual("DESCRIBE remote_table").getMaterializedRows().stream().map(row -> (String) row.getField(0)).toList()).contains("remote_column");
+        assertThat(computeActual("DESCRIBE remote_table1").getMaterializedRows().stream().map(row -> (String) row.getField(0)).toList()).doesNotContain("remote_column");
+
+        assertQuery("SELECT remote_column, regionkey FROM druid.remote_table", "VALUES ('AFRICA', 0), ('AMERICA', 1), ('ASIA', 2), ('EUROPE', 3), ('MIDDLE EAST', 4)");
+        assertQuery("SELECT name, regionkey FROM druid.remote_table1", "VALUES ('AFRICA', 0), ('AMERICA', 1), ('ASIA', 2), ('EUROPE', 3), ('MIDDLE EAST', 4)");
+
+        assertQuery("SELECT remote_column || 'a', sum(regionkey) AS c1 FROM druid.remote_table WHERE remote_column = 'MIDDLE EAST' GROUP BY remote_column HAVING sum(regionkey) > 3 ORDER BY remote_column", "VALUES ('MIDDLE EASTa', 4)");
+        assertQuery("SELECT name || 'b', sum(regionkey) AS remote_column FROM druid.remote_table1 WHERE name = 'EUROPE' GROUP BY name HAVING sum(regionkey) > 2 ORDER BY name", "VALUES ('EUROPEb', 3)");
+
+        assertQuery("SELECT remote_column, druid.remote_table.regionkey, name FROM druid.remote_table JOIN druid.remote_table1 ON remote_column || 'a' = name || 'a' WHERE remote_column = 'MIDDLE EAST' ORDER BY remote_column", "VALUES ('MIDDLE EAST', 4, 'MIDDLE EAST')");
+        assertQuery("SELECT name, druid.remote_table1.regionkey, remote_column FROM druid.remote_table1 JOIN druid.remote_table ON name || 'a' = remote_column || 'a' WHERE name = 'EUROPE' ORDER BY name", "VALUES ('EUROPE', 3, 'EUROPE')");
+    }
+
+    @Override
+    @Test
+    public void testChangeColumnMapping()
+    {
+        abort("Druid connector only supports schema 'druid'.");
+    }
+
+    @Override
+    @Test
+    public void testCreateTableAsSelectColumnMapping()
+    {
+        abort("This connector does not support creating tables with data");
+    }
+
+    @Override
+    @Test
+    public void testSchemaAndTableMappingsWithColumnMappings()
+    {
+        abort("Druid connector only supports schema 'druid'.");
     }
 
     @Override

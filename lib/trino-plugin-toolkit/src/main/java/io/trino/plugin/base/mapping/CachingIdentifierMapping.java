@@ -44,6 +44,7 @@ public final class CachingIdentifierMapping
 {
     private final NonKeyEvictableCache<ConnectorIdentity, Mapping> remoteSchemaNames;
     private final NonKeyEvictableCache<RemoteTableNameCacheKey, Mapping> remoteTableNames;
+    private final NonKeyEvictableCache<RemoteColumnNameCacheKey, Mapping> remoteColumnNames;
     private final IdentifierMapping identifierMapping;
 
     @Inject
@@ -55,6 +56,7 @@ public final class CachingIdentifierMapping
                 .expireAfterWrite(mappingConfig.getCaseInsensitiveNameMatchingCacheTtl().toMillis(), MILLISECONDS);
         this.remoteSchemaNames = buildNonEvictableCacheWithWeakInvalidateAll(remoteNamesCacheBuilder);
         this.remoteTableNames = buildNonEvictableCacheWithWeakInvalidateAll(remoteNamesCacheBuilder);
+        this.remoteColumnNames = buildNonEvictableCacheWithWeakInvalidateAll(remoteNamesCacheBuilder);
 
         this.identifierMapping = requireNonNull(identifierMapping, "identifierMapping is null");
     }
@@ -80,9 +82,9 @@ public final class CachingIdentifierMapping
     }
 
     @Override
-    public String fromRemoteColumnName(String remoteColumnName)
+    public String fromRemoteColumnName(String remoteSchemaName, String remoteTableName, String remoteColumnName)
     {
-        return identifierMapping.fromRemoteColumnName(remoteColumnName);
+        return identifierMapping.fromRemoteColumnName(remoteSchemaName, remoteTableName, remoteColumnName);
     }
 
     @Override
@@ -142,9 +144,38 @@ public final class CachingIdentifierMapping
     }
 
     @Override
-    public String toRemoteColumnName(RemoteIdentifiers remoteIdentifiers, String columnName)
+    public String toRemoteColumnName(RemoteIdentifiers remoteIdentifiers, ConnectorIdentity identity, String remoteSchema, String remoteTable, String columnName)
     {
-        return identifierMapping.toRemoteColumnName(remoteIdentifiers, columnName);
+        requireNonNull(remoteSchema, "remoteSchema is null");
+        requireNonNull(remoteTable, "remoteTable is null");
+        verify(CharMatcher.forPredicate(Character::isUpperCase).matchesNoneOf(columnName), "Expected column name from internal metadata to be lowercase: %s", columnName);
+        try {
+            RemoteColumnNameCacheKey cacheKey = new RemoteColumnNameCacheKey(identity, remoteSchema, remoteTable);
+            Mapping mapping = remoteColumnNames.getIfPresent(cacheKey);
+            if (mapping != null && !mapping.hasRemoteObject(columnName)) {
+                mapping = null;
+            }
+            if (mapping == null) {
+                mapping = createColumnMapping(remoteSchema, remoteTable, remoteIdentifiers.getRemoteColumns(remoteSchema, remoteTable));
+                remoteColumnNames.put(cacheKey, mapping);
+            }
+            String remoteColumn = mapping.get(columnName);
+            if (remoteColumn != null) {
+                return remoteColumn;
+            }
+        }
+        catch (RuntimeException e) {
+            throw new TrinoException(GENERIC_INTERNAL_ERROR, "Failed to find remote column name: " + firstNonNull(e.getMessage(), e), e);
+        }
+
+        return identifierMapping.toRemoteColumnName(remoteIdentifiers, identity, remoteSchema, remoteTable, columnName);
+    }
+
+    private Mapping createColumnMapping(String remoteSchema, String remoteTable, Set<String> remoteColumns)
+    {
+        return createMapping(
+                remoteColumns,
+                remoteColumnName -> identifierMapping.fromRemoteColumnName(remoteSchema, remoteTable, remoteColumnName));
     }
 
     private Mapping createSchemaMapping(Collection<String> remoteSchemas)

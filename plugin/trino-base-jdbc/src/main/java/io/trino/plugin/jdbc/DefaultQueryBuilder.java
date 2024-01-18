@@ -330,7 +330,7 @@ public class DefaultQueryBuilder
 
     protected String buildJoinColumn(JdbcClient client, JdbcColumnHandle columnHandle)
     {
-        return client.quoted(columnHandle.getColumnName());
+        return client.quoted(columnHandle.getRemoteColumnName().orElse(columnHandle.getColumnName()));
     }
 
     protected String formatProjections(JdbcClient client, Map<JdbcColumnHandle, String> projections)
@@ -343,7 +343,7 @@ public class DefaultQueryBuilder
     protected String formatAssignments(JdbcClient client, String relationAlias, Map<JdbcColumnHandle, String> assignments)
     {
         return assignments.entrySet().stream()
-                .map(entry -> format("%s.%s AS %s", relationAlias, client.quoted(entry.getKey().getColumnName()), client.quoted(entry.getValue())))
+                .map(entry -> format("%s.%s AS %s", relationAlias, client.quoted(entry.getKey().getRemoteColumnName().orElse(entry.getKey().getColumnName())), client.quoted(entry.getValue())))
                 .collect(joining(", "));
     }
 
@@ -374,7 +374,8 @@ public class DefaultQueryBuilder
         }
         List<String> projections = new ArrayList<>();
         for (JdbcColumnHandle jdbcColumnHandle : columns) {
-            String columnAlias = client.quoted(jdbcColumnHandle.getColumnName());
+            String columnName = jdbcColumnHandle.getRemoteColumnName().orElse(jdbcColumnHandle.getColumnName());
+            String columnAlias = client.quoted(columnName);
             ParameterizedExpression expression = columnExpressions.get(jdbcColumnHandle.getColumnName());
             if (expression == null) {
                 projections.add(columnAlias);
@@ -428,19 +429,20 @@ public class DefaultQueryBuilder
 
     protected String toPredicate(JdbcClient client, ConnectorSession session, Connection connection, JdbcColumnHandle column, Domain domain, Consumer<QueryParameter> accumulator)
     {
+        String columnName = column.getRemoteColumnName().orElse(column.getColumnName());
         if (domain.getValues().isNone()) {
-            return domain.isNullAllowed() ? client.quoted(column.getColumnName()) + " IS NULL" : ALWAYS_FALSE;
+            return domain.isNullAllowed() ? client.quoted(columnName) + " IS NULL" : ALWAYS_FALSE;
         }
 
         if (domain.getValues().isAll()) {
-            return domain.isNullAllowed() ? ALWAYS_TRUE : client.quoted(column.getColumnName()) + " IS NOT NULL";
+            return domain.isNullAllowed() ? ALWAYS_TRUE : client.quoted(columnName) + " IS NOT NULL";
         }
 
         String predicate = toPredicate(client, session, connection, column, domain.getValues(), accumulator);
         if (!domain.isNullAllowed()) {
             return predicate;
         }
-        return format("(%s OR %s IS NULL)", predicate, client.quoted(column.getColumnName()));
+        return format("(%s OR %s IS NULL)", predicate, client.quoted(columnName));
     }
 
     protected String toPredicate(JdbcClient client, ConnectorSession session, Connection connection, JdbcColumnHandle column, ValueSet valueSet, Consumer<QueryParameter> accumulator)
@@ -493,7 +495,8 @@ public class DefaultQueryBuilder
                 accumulator.accept(new QueryParameter(jdbcType, type, Optional.of(value)));
             }
             String values = Joiner.on(",").join(nCopies(singleValues.size(), writeFunction.getBindExpression()));
-            disjuncts.add(client.quoted(column.getColumnName()) + " IN (" + values + ")");
+            String columnName = column.getRemoteColumnName().orElse(column.getColumnName());
+            disjuncts.add(client.quoted(columnName) + " IN (" + values + ")");
         }
 
         checkState(!disjuncts.isEmpty());
@@ -506,7 +509,7 @@ public class DefaultQueryBuilder
     protected String toPredicate(JdbcClient client, ConnectorSession session, JdbcColumnHandle column, JdbcTypeHandle jdbcType, Type type, WriteFunction writeFunction, String operator, Object value, Consumer<QueryParameter> accumulator)
     {
         accumulator.accept(new QueryParameter(jdbcType, type, Optional.of(value)));
-        return format("%s %s %s", client.quoted(column.getColumnName()), operator, writeFunction.getBindExpression());
+        return format("%s %s %s", client.quoted(column.getRemoteColumnName().orElse(column.getColumnName())), operator, writeFunction.getBindExpression());
     }
 
     protected String getGroupBy(JdbcClient client, Optional<List<List<JdbcColumnHandle>>> groupingSets)
@@ -523,14 +526,14 @@ public class DefaultQueryBuilder
                 return "";
             }
             return " GROUP BY " + groupingSet.stream()
-                    .map(JdbcColumnHandle::getColumnName)
+                    .map(c -> c.getRemoteColumnName().orElse(c.getColumnName()))
                     .map(client::quoted)
                     .collect(joining(", "));
         }
         return " GROUP BY GROUPING SETS " +
                 groupingSets.get().stream()
                         .map(groupingSet -> groupingSet.stream()
-                                .map(JdbcColumnHandle::getColumnName)
+                                .map(c -> c.getRemoteColumnName().orElse(c.getColumnName()))
                                 .map(client::quoted)
                                 .collect(joining(", ", "(", ")")))
                         .collect(joining(", ", "(", ")"));

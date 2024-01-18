@@ -640,7 +640,8 @@ public class OracleClient
         int precision = timestampType.getPrecision();
         verifyLongTimestampPrecision(timestampType);
 
-        return new ObjectWriteFunction() {
+        return new ObjectWriteFunction()
+        {
             @Override
             public Class<?> getJavaType()
             {
@@ -850,7 +851,7 @@ public class OracleClient
         String sql = format(
                 "COMMENT ON COLUMN %s.%s IS %s",
                 quoted(handle.asPlainTable().getRemoteTableName()),
-                quoted(column.getColumnName()),
+                quoted(column.getRemoteColumnName().orElse(column.getColumnName())),
                 varcharLiteral(comment.orElse("")));
         execute(session, sql);
     }

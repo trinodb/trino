@@ -22,6 +22,7 @@ import io.trino.plugin.base.aggregation.AggregateFunctionRewriter;
 import io.trino.plugin.base.aggregation.AggregateFunctionRule;
 import io.trino.plugin.base.expression.ConnectorExpressionRewriter;
 import io.trino.plugin.base.mapping.IdentifierMapping;
+import io.trino.plugin.base.mapping.RemoteIdentifiers;
 import io.trino.plugin.jdbc.BaseJdbcClient;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ColumnMapping;
@@ -54,6 +55,7 @@ import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.ColumnHandle;
+import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.JoinCondition;
@@ -61,6 +63,7 @@ import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.expression.ConnectorExpression;
+import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.statistics.ColumnStatistics;
 import io.trino.spi.statistics.Estimate;
 import io.trino.spi.statistics.TableStatistics;
@@ -528,6 +531,24 @@ public class MariaDbClient
     }
 
     @Override
+    protected void addColumn(ConnectorSession session, Connection connection, RemoteTableName table, ColumnMetadata column)
+            throws SQLException
+    {
+        verify(table.getSchemaName().isPresent() || table.getCatalogName().isPresent(), "remote schema name is empty");
+        String columnName = column.getName();
+        verifyColumnName(connection.getMetaData(), columnName);
+        RemoteIdentifiers remoteIdentifiers = getRemoteIdentifiers(connection);
+        ConnectorIdentity identity = session.getIdentity();
+        String remoteColumnName = getIdentifierMapping().toRemoteColumnName(remoteIdentifiers, identity, table.getSchemaName().orElse(table.getCatalogName().get()), table.getTableName(), columnName);
+
+        String sql = format(
+                "ALTER TABLE %s ADD %s",
+                quoted(table),
+                getColumnDefinitionSql(session, column, remoteColumnName));
+        execute(session, connection, sql);
+    }
+
+    @Override
     public void setColumnType(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle column, Type type)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting column types");
@@ -823,10 +844,10 @@ public class MariaDbClient
         {
             RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
             return handle.createQuery("""
-                        SELECT TABLE_ROWS FROM INFORMATION_SCHEMA.TABLES
-                        WHERE TABLE_SCHEMA = :schema AND TABLE_NAME = :table_name
-                        AND TABLE_TYPE = 'BASE TABLE'
-                        """)
+                            SELECT TABLE_ROWS FROM INFORMATION_SCHEMA.TABLES
+                            WHERE TABLE_SCHEMA = :schema AND TABLE_NAME = :table_name
+                            AND TABLE_TYPE = 'BASE TABLE'
+                            """)
                     .bind("schema", remoteTableName.getCatalogName().orElse(null))
                     .bind("table_name", remoteTableName.getTableName())
                     .mapTo(Long.class)
@@ -838,9 +859,9 @@ public class MariaDbClient
         {
             RemoteTableName remoteTableName = table.getRequiredNamedRelation().getRemoteTableName();
             return handle.createQuery("""
-                        SELECT max(CARDINALITY) AS row_count FROM INFORMATION_SCHEMA.STATISTICS
-                        WHERE TABLE_SCHEMA = :schema AND TABLE_NAME = :table_name
-                        """)
+                            SELECT max(CARDINALITY) AS row_count FROM INFORMATION_SCHEMA.STATISTICS
+                            WHERE TABLE_SCHEMA = :schema AND TABLE_NAME = :table_name
+                            """)
                     .bind("schema", remoteTableName.getCatalogName().orElse(null))
                     .bind("table_name", remoteTableName.getTableName())
                     .mapTo(Long.class)

@@ -15,6 +15,7 @@ package io.trino.plugin.jdbc;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logging;
+import io.trino.plugin.base.mapping.ColumnMappingRule;
 import io.trino.plugin.base.mapping.IdentifierMappingModule;
 import io.trino.plugin.base.mapping.SchemaMappingRule;
 import io.trino.plugin.base.mapping.TableMappingRule;
@@ -49,6 +50,8 @@ public abstract class BaseCaseInsensitiveMappingTest
     protected abstract Path getMappingFile();
 
     protected abstract SqlExecutor onRemoteDatabase();
+
+    protected boolean useUpperCase;
 
     @BeforeAll
     public void disableMappingRefreshVerboseLogging()
@@ -94,8 +97,8 @@ public abstract class BaseCaseInsensitiveMappingTest
                     "SELECT column_name FROM information_schema.columns WHERE table_name = 'nonlowercasetable'",
                     "VALUES 'lower_case_name', 'mixed_case_name', 'upper_case_name'");
             assertThat(computeActual("SHOW COLUMNS FROM someschema.nonlowercasetable").getMaterializedRows().stream()
-                            .map(row -> row.getField(0))
-                            .collect(toImmutableSet()))
+                    .map(row -> row.getField(0))
+                    .collect(toImmutableSet()))
                     .containsOnly("lower_case_name", "mixed_case_name", "upper_case_name");
 
             // Note: until https://github.com/prestodb/presto/issues/2863 is resolved, this is *the* way to access the tables.
@@ -131,7 +134,7 @@ public abstract class BaseCaseInsensitiveMappingTest
     public void testSchemaNameClash()
             throws Exception
     {
-        updateRuleBasedIdentifierMappingFile(getMappingFile(), ImmutableList.of(), ImmutableList.of());
+        updateRuleBasedIdentifierMappingFile(getMappingFile(), ImmutableList.of(), ImmutableList.of(), ImmutableList.of());
 
         String[] nameVariants = {"casesensitivename", "CaseSensitiveName", "CASESENSITIVENAME"};
         assertThat(Stream.of(nameVariants)
@@ -162,7 +165,7 @@ public abstract class BaseCaseInsensitiveMappingTest
     public void testTableNameClash()
             throws Exception
     {
-        updateRuleBasedIdentifierMappingFile(getMappingFile(), ImmutableList.of(), ImmutableList.of());
+        updateRuleBasedIdentifierMappingFile(getMappingFile(), ImmutableList.of(), ImmutableList.of(), ImmutableList.of());
 
         String[] nameVariants = {"casesensitivename", "CaseSensitiveName", "CASESENSITIVENAME"};
         assertThat(Stream.of(nameVariants)
@@ -192,6 +195,7 @@ public abstract class BaseCaseInsensitiveMappingTest
         updateRuleBasedIdentifierMappingFile(
                 getMappingFile(),
                 ImmutableList.of(new SchemaMappingRule("remote_schema", "trino_schema")),
+                ImmutableList.of(),
                 ImmutableList.of());
 
         try (AutoCloseable ignore1 = withSchema("remote_schema");
@@ -213,7 +217,7 @@ public abstract class BaseCaseInsensitiveMappingTest
                 new SchemaMappingRule("casesensitivename", "casesensitivename_a"),
                 new SchemaMappingRule("CaseSensitiveName", "casesensitivename_b"),
                 new SchemaMappingRule("CASESENSITIVENAME", "casesensitivename_c"));
-        updateRuleBasedIdentifierMappingFile(getMappingFile(), schemaMappingRules, ImmutableList.of());
+        updateRuleBasedIdentifierMappingFile(getMappingFile(), schemaMappingRules, ImmutableList.of(), ImmutableList.of());
 
         String[] nameVariants = {"casesensitivename", "CaseSensitiveName", "CASESENSITIVENAME"};
         assertThat(Stream.of(nameVariants)
@@ -255,7 +259,8 @@ public abstract class BaseCaseInsensitiveMappingTest
         updateRuleBasedIdentifierMappingFile(
                 getMappingFile(),
                 ImmutableList.of(),
-                ImmutableList.of(new TableMappingRule(schema, "remote_table", "trino_table")));
+                ImmutableList.of(new TableMappingRule(schema, "remote_table", "trino_table")),
+                ImmutableList.of());
 
         try (AutoCloseable ignore = withSchema(schema);
                 AutoCloseable ignore1 = withTable(schema, "remote_table", "(c varchar(5))")) {
@@ -276,7 +281,7 @@ public abstract class BaseCaseInsensitiveMappingTest
                 new TableMappingRule(schema, "casesensitivename", "casesensitivename_a"),
                 new TableMappingRule(schema, "CaseSensitiveName", "casesensitivename_b"),
                 new TableMappingRule(schema, "CASESENSITIVENAME", "casesensitivename_c"));
-        updateRuleBasedIdentifierMappingFile(getMappingFile(), ImmutableList.of(), tableMappingRules);
+        updateRuleBasedIdentifierMappingFile(getMappingFile(), ImmutableList.of(), tableMappingRules, ImmutableList.of());
 
         String[] nameVariants = {"casesensitivename", "CaseSensitiveName", "CASESENSITIVENAME"};
         assertThat(Stream.of(nameVariants)
@@ -316,7 +321,8 @@ public abstract class BaseCaseInsensitiveMappingTest
         updateRuleBasedIdentifierMappingFile(
                 getMappingFile(),
                 ImmutableList.of(new SchemaMappingRule("remote_schema", "trino_schema")),
-                ImmutableList.of(new TableMappingRule("remote_schema", "remote_table", "trino_table")));
+                ImmutableList.of(new TableMappingRule("remote_schema", "remote_table", "trino_table")),
+                ImmutableList.of());
 
         try (AutoCloseable ignore1 = withSchema("remote_schema");
                 AutoCloseable ignore2 = withTable("remote_schema", "remote_table", "(c varchar(5))")) {
@@ -327,6 +333,156 @@ public abstract class BaseCaseInsensitiveMappingTest
             assertQuery("SHOW COLUMNS FROM trino_schema.trino_table", "SELECT 'c', 'varchar(5)', '', ''");
             assertUpdate("INSERT INTO trino_schema.trino_table VALUES 'dane'", 1);
             assertQuery("SELECT * FROM trino_schema.trino_table", "VALUES 'dane'");
+        }
+    }
+
+    @Test
+    public void testColumnRuleMapping()
+            throws Exception
+    {
+        updateRuleBasedIdentifierMappingFile(
+                getMappingFile(),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                ImmutableList.of(new ColumnMappingRule("remote_schema", "remote_table", "c1", "remote_column")));
+
+        try (var ignore1 = withSchema("remote_schema");
+                var ignore2 = withTable("remote_schema", "remote_table", "(" + quoted("c1") + " varchar(5), s int)");
+                var ignore3 = withTable("remote_schema", "remote_table1", "(" + quoted("c1") + " varchar(5), s int)")) {
+            assertTableColumnNames("remote_schema.remote_table", "remote_column", "s");
+            assertTableColumnNames("remote_schema.Remote_table1", "c1", "s");
+
+            assertUpdate("INSERT INTO remote_schema.remote_table VALUES ('a', 1), ('a1', 2), ('b', 1)", 3);
+            assertUpdate("INSERT INTO remote_schema.remote_table (remote_column, s) VALUES ('a', 1), ('a1', 2)", 2);
+            assertUpdate("INSERT INTO remote_schema.remote_table1 VALUES ('b', 1), ('b1', 2), ('a', 1)", 3);
+            assertUpdate("INSERT INTO remote_schema.remote_table1 (C1, s) VALUES ('b', 1), ('b1', 2)", 2);
+
+            assertQuery("SELECT * FROM remote_schema.remote_table", "VALUES ('a', 1), ('a1', 2), ('b', 1), ('a', 1), ('a1', 2)");
+            assertQuery("SELECT remote_column, s FROM remote_schema.remote_table", "VALUES ('a', 1), ('a1', 2), ('b', 1), ('a', 1), ('a1', 2)");
+            assertQuery("SELECT * FROM remote_schema.remote_table1", "VALUES ('b', 1), ('b1', 2), ('a', 1), ('b', 1), ('b1', 2)");
+            assertQuery("SELECT c1, s FROM remote_schema.remote_table1", "VALUES ('b', 1), ('b1', 2), ('a', 1), ('b', 1), ('b1', 2)");
+
+            assertQuery("SELECT remote_column || 'a', sum(s) AS c1 FROM remote_schema.remote_table WHERE remote_column = 'a' GROUP BY remote_column HAVING sum(s) < 4 ORDER BY remote_column", "VALUES ('aa', 2)");
+            assertQuery("SELECT c1 || 'b', sum(s) AS remote_column FROM remote_schema.remote_table1 WHERE c1 = 'b' GROUP BY c1 HAVING sum(s) < 4 ORDER BY c1", "VALUES ('bb', 2)");
+
+            assertQuery("SELECT remote_column, remote_schema.remote_table.s, c1 FROM remote_schema.remote_table JOIN remote_schema.remote_table1 ON remote_column || 'a' = c1 || 'a' WHERE remote_column = 'a'", "VALUES ('a', 1, 'a'), ('a', 1, 'a')");
+            assertQuery("SELECT c1, remote_schema.remote_table1.s, remote_column FROM remote_schema.remote_table1 JOIN remote_schema.remote_table ON c1 || 'a' = remote_column || 'a' WHERE c1 = 'a'", "VALUES ('a', 1, 'a'), ('a', 1, 'a')");
+        }
+    }
+
+    @Test
+    public void testChangeColumnMapping()
+            throws Exception
+    {
+        updateRuleBasedIdentifierMappingFile(
+                getMappingFile(),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                ImmutableList.of(new ColumnMappingRule("remote_schema", "remote_table", "c1", "remote_column")));
+
+        try (var ignore1 = withSchema("remote_schema");
+                var ignore2 = withTable("remote_schema", "remote_table", "(" + quoted("c1") + " varchar(5), s int)");
+                var ignore3 = withTable("remote_schema", "remote_table1", "(" + quoted("c1") + " varchar(5), s int)")) {
+            assertTableColumnNames("remote_schema.remote_table", "remote_column", "s");
+            assertTableColumnNames("remote_schema.Remote_table1", "c1", "s");
+
+            assertUpdate("INSERT INTO remote_schema.remote_table VALUES ('a', 1), ('a1', 2), ('b', 1)", 3);
+            assertUpdate("INSERT INTO remote_schema.remote_table (remote_column, s) VALUES ('a', 1), ('a1', 2)", 2);
+            assertUpdate("INSERT INTO remote_schema.remote_table1 VALUES ('b', 1), ('b1', 2), ('a', 1)", 3);
+            assertUpdate("INSERT INTO remote_schema.remote_table1 (C1, s) VALUES ('b', 1), ('b1', 2)", 2);
+
+            assertUpdate("ALTER TABLE remote_schema.remote_table RENAME COLUMN remote_column TO c2");
+            assertUpdate("ALTER TABLE remote_schema.remote_table ADD COLUMN c1 varchar(5)");
+
+            updateRuleBasedIdentifierMappingFile(
+                    getMappingFile(),
+                    ImmutableList.of(),
+                    ImmutableList.of(),
+                    ImmutableList.of(new ColumnMappingRule("remote_schema", "remote_table", useUpperCase ? "C1" : "c1", "remote_column")));
+
+            assertTableColumnNames("remote_schema.remote_table", "c2", "s", "remote_column");
+
+            updateRuleBasedIdentifierMappingFile(
+                    getMappingFile(),
+                    ImmutableList.of(),
+                    ImmutableList.of(),
+                    ImmutableList.of(new ColumnMappingRule("remote_schema", "remote_table", useUpperCase ? "C2" : "c2", "remote_column"),
+                            new ColumnMappingRule("remote_schema", "remote_table", useUpperCase ? "C1" : "c1", "remote_column1")));
+
+            assertTableColumnNames("remote_schema.remote_table", "remote_column", "s", "remote_column1");
+            assertUpdate("ALTER TABLE remote_schema.remote_table DROP COLUMN remote_column");
+            assertTableColumnNames("remote_schema.remote_table", "s", "remote_column1");
+            assertUpdate("ALTER TABLE remote_schema.remote_table ADD COLUMN c2 varchar(5)");
+            assertTableColumnNames("remote_schema.remote_table", "s", "remote_column1", "remote_column");
+        }
+    }
+
+    @Test
+    public void testCreateTableAsSelectColumnMapping()
+            throws Exception
+    {
+        updateRuleBasedIdentifierMappingFile(
+                getMappingFile(),
+                ImmutableList.of(),
+                ImmutableList.of(),
+                ImmutableList.of(new ColumnMappingRule("remote_schema", "remote_table", "c1", "remote_column")));
+
+        try (var ignore1 = withSchema("remote_schema");
+                var ignore2 = withTable("remote_schema", "remote_table", "(" + quoted("c1") + " varchar(5), s int)");
+                var ignore3 = withTable("remote_schema", "remote_table1", "(" + quoted("c1") + " varchar(5), s int)")) {
+            assertUpdate("INSERT INTO remote_schema.remote_table VALUES ('a', 1), ('a1', 2), ('b', 1)", 3);
+            assertUpdate("INSERT INTO remote_schema.remote_table (remote_column, s) VALUES ('a', 1), ('a1', 2)", 2);
+            assertUpdate("INSERT INTO remote_schema.remote_table1 VALUES ('b', 1), ('b1', 2), ('a', 1)", 3);
+            assertUpdate("INSERT INTO remote_schema.remote_table1 (C1, s) VALUES ('b', 1), ('b1', 2)", 2);
+
+            assertUpdate("CREATE TABLE remote_schema.remote_table_select as SELECT remote_column FROM remote_schema.remote_table", 5);
+            assertUpdate("CREATE TABLE remote_schema.remote_table1_select as SELECT c1 FROM remote_schema.remote_table1", 5);
+            var remoteTableSelect = useUpperCase ? "remote_table_select".toUpperCase(ENGLISH) : "remote_table_select";
+            assertQuery("SELECT remote_column FROM remote_schema." + remoteTableSelect, "VALUES 'a', 'a1', 'b', 'a', 'a1'");
+            var remoteTable1Select = (useUpperCase ? "remote_table1_select".toUpperCase(ENGLISH) : "remote_table1_select");
+            assertQuery("SELECT c1 FROM remote_schema." + remoteTable1Select, "VALUES 'b', 'b1', 'a', 'b', 'b1'");
+
+            updateRuleBasedIdentifierMappingFile(
+                    getMappingFile(),
+                    ImmutableList.of(),
+                    ImmutableList.of(),
+                    ImmutableList.of(new ColumnMappingRule("remote_schema", "remote_table", "c1", "remote_column"),
+                            new ColumnMappingRule("remote_schema", remoteTableSelect, useUpperCase ? "remote_column".toUpperCase(ENGLISH) : "remote_column", "c1"),
+                            new ColumnMappingRule("remote_schema", remoteTable1Select, useUpperCase ? "C1" : "c1", "remote_column")));
+
+            assertQuery("SELECT c1 FROM remote_schema." + remoteTableSelect, "VALUES 'a', 'a1', 'b', 'a', 'a1'");
+            assertQuery("SELECT remote_column FROM remote_schema." + remoteTable1Select, "VALUES 'b', 'b1', 'a', 'b', 'b1'");
+
+            assertUpdate("DELETE FROM remote_schema." + remoteTableSelect, 5);
+            assertUpdate("DELETE FROM remote_schema." + remoteTable1Select, 5);
+            assertUpdate("DROP TABLE remote_schema." + remoteTableSelect);
+            assertUpdate("DROP TABLE remote_schema." + remoteTable1Select);
+        }
+    }
+
+    @Test
+    public void testSchemaAndTableMappingsWithColumnMappings()
+            throws Exception
+    {
+        updateRuleBasedIdentifierMappingFile(
+                getMappingFile(),
+                ImmutableList.of(new SchemaMappingRule("RemoteSchema", "remote_schema")),
+                ImmutableList.of(new TableMappingRule("RemoteSchema", "RemoteTable", "remote_table")),
+                ImmutableList.of(
+                        new ColumnMappingRule("RemoteSchema", "RemoteTable", "Col", "c1"),
+                        new ColumnMappingRule("RemoteSchema", "RemoteTable", "col", "c2")));
+
+        try (AutoCloseable ignore1 = withSchema("RemoteSchema");
+                AutoCloseable ignore2 = withTable("RemoteSchema", "RemoteTable", "(" + quoted("col") + " varchar(5), " + quoted("Col") + " int)")) {
+            assertTableColumnNames("remote_schema.remote_table", "c2", "c1");
+            assertUpdate("INSERT INTO remote_schema.remote_table VALUES ('a', 1)", 1);
+            assertUpdate("INSERT INTO remote_schema.remote_table (c2, c1) VALUES ('b', 2)", 1);
+            assertUpdate("INSERT INTO remote_schema.remote_table (c2) VALUES ('c')", 1);
+
+            assertQuery("SELECT * FROM remote_schema.remote_table", "VALUES ('a', 1), ('b', 2), ('c', null)");
+            assertQuery("SELECT c2, c1 FROM remote_schema.remote_table", "VALUES ('a', 1), ('b', 2), ('c', null)");
+            assertUpdate("DELETE FROM remote_schema.remote_table where c1 = 2", 1);
+            assertQuery("SELECT c2 FROM remote_schema.remote_table", "VALUES 'a', 'c'");
         }
     }
 

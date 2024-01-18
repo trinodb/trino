@@ -66,6 +66,21 @@ public class JdbcRemoteIdentifiers
     }
 
     @Override
+    public Set<String> getRemoteColumns(String remoteSchema, String remoteTable)
+    {
+        try (ResultSet resultSet = baseJdbcClient.getColumns(connection, remoteSchema, remoteTable)) {
+            ImmutableSet.Builder<String> columnNames = ImmutableSet.builder();
+            while (resultSet.next()) {
+                columnNames.add(resultSet.getString("COLUMN_NAME"));
+            }
+            return columnNames.build();
+        }
+        catch (SQLException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
     public boolean storesUpperCaseIdentifiers()
     {
         return storesUpperCase;

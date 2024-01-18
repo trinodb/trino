@@ -540,7 +540,8 @@ public class SingleStoreClient
             String orderBy = sortItems.stream()
                     .flatMap(sortItem -> {
                         String ordering = sortItem.getSortOrder().isAscending() ? "ASC" : "DESC";
-                        String columnSorting = format("%s %s", quoted(sortItem.getColumn().getColumnName()), ordering);
+                        String columnName = sortItem.getColumn().getRemoteColumnName().orElse(sortItem.getColumn().getColumnName());
+                        String columnSorting = format("%s %s", quoted(columnName), ordering);
 
                         switch (sortItem.getSortOrder()) {
                             case ASC_NULLS_FIRST:
@@ -551,11 +552,11 @@ public class SingleStoreClient
 
                             case ASC_NULLS_LAST:
                                 return Stream.of(
-                                        format("ISNULL(%s) ASC", quoted(sortItem.getColumn().getColumnName())),
+                                        format("ISNULL(%s) ASC", quoted(columnName)),
                                         columnSorting);
                             case DESC_NULLS_FIRST:
                                 return Stream.of(
-                                        format("ISNULL(%s) DESC", quoted(sortItem.getColumn().getColumnName())),
+                                        format("ISNULL(%s) DESC", quoted(columnName)),
                                         columnSorting);
                         }
                         throw new UnsupportedOperationException("Unsupported sort order: " + sortItem.getSortOrder());
