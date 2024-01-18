@@ -771,7 +771,7 @@ public class MariaDbClient
             for (JdbcColumnHandle column : getColumns(session, table)) {
                 ColumnStatistics.Builder columnStatisticsBuilder = ColumnStatistics.builder();
 
-                String columnName = column.getColumnName();
+                String columnName = column.getRemoteColumnName().orElse(column.getColumnName());
                 AnalyzeColumnStatistics analyzeColumnStatistics = columnStatistics.get(columnName);
                 if (analyzeColumnStatistics != null) {
                     log.debug("Reading column statistics for %s, %s from analayze's column statistics: %s", table, columnName, analyzeColumnStatistics);

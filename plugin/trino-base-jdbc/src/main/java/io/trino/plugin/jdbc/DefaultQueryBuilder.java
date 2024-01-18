@@ -246,7 +246,7 @@ public class DefaultQueryBuilder
                             columnHandle.getJdbcTypeHandle(),
                             columnHandle.getColumnType())
                             .getBindExpression();
-                    return client.quoted(columnHandle.getColumnName()) + " = " + bindExpression;
+                    return client.quoted(columnHandle.getRemoteColumnName().orElse(columnHandle.getColumnName())) + " = " + bindExpression;
                 })
                 .collect(joining(", "));
 
@@ -336,7 +336,7 @@ public class DefaultQueryBuilder
     protected String formatProjections(JdbcClient client, Map<JdbcColumnHandle, String> projections)
     {
         return projections.entrySet().stream()
-                .map(entry -> format("%s AS %s", client.quoted(entry.getKey().getColumnName()), client.quoted(entry.getValue())))
+                .map(entry -> format("%s AS %s", client.quoted(entry.getKey().getRemoteColumnName().orElse(entry.getKey().getColumnName())), client.quoted(entry.getValue())))
                 .collect(joining(", "));
     }
 

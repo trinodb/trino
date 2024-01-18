@@ -673,14 +673,18 @@ public class DefaultJdbcMetadata
         verify(maxColumnNameLength >= nextSyntheticColumnIdLength, "Maximum allowed column name length is %s but next synthetic id has length %s", maxColumnNameLength, nextSyntheticColumnIdLength);
 
         if (nextSyntheticColumnIdLength == maxColumnNameLength) {
+            String newColumnName = String.valueOf(nextSyntheticColumnId);
             return JdbcColumnHandle.builderFrom(column)
-                    .setColumnName(String.valueOf(nextSyntheticColumnId))
+                    .setColumnName(newColumnName)
+                    .setRemoteColumnName(Optional.of(newColumnName))
                     .build();
         }
 
         if (nextSyntheticColumnIdLength + separator.length() == maxColumnNameLength) {
+            String newColumnName = separator + nextSyntheticColumnId;
             return JdbcColumnHandle.builderFrom(column)
-                    .setColumnName(separator + nextSyntheticColumnId)
+                    .setColumnName(newColumnName)
+                    .setRemoteColumnName(Optional.of(newColumnName))
                     .build();
         }
 
@@ -689,8 +693,10 @@ public class DefaultJdbcMetadata
                 .split(column.getColumnName())
                 .iterator()
                 .next();
+        String newColumnName = truncatedColumnName + separator + nextSyntheticColumnId;
         return JdbcColumnHandle.builderFrom(column)
-                .setColumnName(truncatedColumnName + separator + nextSyntheticColumnId)
+                .setColumnName(newColumnName)
+                .setRemoteColumnName(Optional.of(newColumnName))
                 .build();
     }
 
