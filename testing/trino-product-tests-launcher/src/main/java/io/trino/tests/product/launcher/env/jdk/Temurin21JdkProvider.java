@@ -28,6 +28,6 @@ public class Temurin21JdkProvider
     @Override
     protected String getReleaseName()
     {
-        return "jdk-21.0.1+12";
+        return "jdk-21.0.2+13";
     }
 }
