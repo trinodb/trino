@@ -199,7 +199,7 @@ public class SpoolingExchangeOutputBuffer
         }
         updateMemoryUsage(sink.getMemoryUsage());
         totalPagesAdded.addAndGet(pages.size());
-        outputStats.update(partition, dataSizeInBytes);
+        outputStats.updatePartitionDataSize(partition, dataSizeInBytes);
     }
 
     @Override
