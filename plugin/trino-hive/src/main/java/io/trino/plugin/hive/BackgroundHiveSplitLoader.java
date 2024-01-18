@@ -31,6 +31,7 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.hive.HiveSplit.BucketConversion;
 import io.trino.plugin.hive.HiveSplit.BucketValidation;
+import io.trino.plugin.hive.fs.CachingDirectoryLister;
 import io.trino.plugin.hive.fs.DirectoryLister;
 import io.trino.plugin.hive.fs.HiveFileIterator;
 import io.trino.plugin.hive.fs.TrinoFileStatus;
@@ -512,7 +513,13 @@ public class BackgroundHiveSplitLoader
     @VisibleForTesting
     Iterator<InternalHiveSplit> buildManifestFileIterator(InternalHiveSplitFactory splitFactory, Location location, List<Location> paths, boolean splittable)
     {
+        return createInternalHiveSplitIterator(splitFactory, splittable, Optional.empty(), verifiedFileStatusesStream(location, paths));
+    }
+
+    private Stream<TrinoFileStatus> verifiedFileStatusesStream(Location location, List<Location> paths)
+    {
         TrinoFileSystem trinoFileSystem = fileSystemFactory.create(session);
+        boolean isCached = directoryLister instanceof CachingDirectoryLister && ((CachingDirectoryLister) directoryLister).isCached(location);
 
         Map<String, TrinoFileStatus> fileStatuses = new HashMap<>();
         Iterator<TrinoFileStatus> fileStatusIterator = new HiveFileIterator(table, location, trinoFileSystem, directoryLister, RECURSE);
@@ -520,7 +527,21 @@ public class BackgroundHiveSplitLoader
             checkPartitionLocationExists(trinoFileSystem, location);
         }
         fileStatusIterator.forEachRemaining(status -> fileStatuses.put(Location.of(status.getPath()).path(), status));
-        Stream<TrinoFileStatus> fileStream = paths.stream()
+
+        // If file statuses came from cache verify that all are present
+        if (isCached) {
+            boolean missing = paths.stream()
+                    .anyMatch(path -> !fileStatuses.containsKey(path));
+            // Invalidate the cache and reload
+            if (missing) {
+                ((CachingDirectoryLister)directoryLister).invalidate(location);
+                Map<String, TrinoFileStatus> newFileStatuses = new HashMap<>();
+                Iterator<TrinoFileStatus> newFileStatusIterator = new HiveFileIterator(table, location, trinoFileSystem, directoryLister, RECURSE);
+                newFileStatusIterator.forEachRemaining(status -> newFileStatuses.put(Location.of(status.getPath()).path(), status));
+            }
+        }
+
+        return paths.stream()
                 .map(path -> {
                     TrinoFileStatus status = fileStatuses.get(path.path());
                     if (status == null) {
@@ -528,7 +549,6 @@ public class BackgroundHiveSplitLoader
                     }
                     return status;
                 });
-        return createInternalHiveSplitIterator(splitFactory, splittable, Optional.empty(), fileStream);
     }
 
     private ListenableFuture<Void> getTransactionalSplits(Location path, boolean splittable, Optional<BucketConversion> bucketConversion, InternalHiveSplitFactory splitFactory)

@@ -117,6 +117,11 @@ public class CachingDirectoryLister
         return new TrinoFileStatusRemoteIterator(fs.listFiles(location));
     }
 
+    public void invalidate(Location location)
+    {
+        cache.invalidate(location);
+    }
+
     @Override
     public void invalidate(Table table)
     {
@@ -205,8 +210,7 @@ public class CachingDirectoryLister
         return cache.stats().requestCount();
     }
 
-    @VisibleForTesting
-    boolean isCached(Location location)
+    public boolean isCached(Location location)
     {
         ValueHolder cached = cache.getIfPresent(location);
         return cached != null && cached.getFiles().isPresent();
