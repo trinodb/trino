@@ -101,8 +101,6 @@ public class OrcReader
             Optional<OrcWriteValidation> writeValidation)
             throws IOException
     {
-        orcDataSource = wrapWithCacheIfTiny(orcDataSource, options.getTinyStripeThreshold());
-
         // read the tail of the file, and check if the file is actually empty
         long estimatedFileSize = orcDataSource.getEstimatedSize();
         if (estimatedFileSize > 0 && estimatedFileSize <= MAGIC.length()) {
@@ -314,7 +312,7 @@ public class OrcReader
                 fieldMapperFactory);
     }
 
-    private static OrcDataSource wrapWithCacheIfTiny(OrcDataSource dataSource, DataSize maxCacheSize)
+    static OrcDataSource wrapWithCacheIfTiny(OrcDataSource dataSource, DataSize maxCacheSize)
             throws IOException
     {
         if (dataSource instanceof MemoryOrcDataSource || dataSource instanceof CachingOrcDataSource) {
