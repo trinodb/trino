@@ -25,6 +25,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.PlanNodeIdAllocator;
+import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.DynamicFilterId;
@@ -144,7 +145,7 @@ public class DeterminePreferredDynamicFilterTimeout
         private final StatsProvider statsProvider;
         private final long smallDynamicFilterWaitTimeoutMillis;
         private final long smallDynamicFilterMaxRowCount;
-        private final Map<DynamicFilterId, Boolean> dynamicFilterEstimations = new HashMap<>();
+        private final Map<DynamicFilterId, DynamicFilterTimeout> dynamicFilterBuildSideStates = new HashMap<>();
 
         public Rewriter(
                 PlannerContext plannerContext,
@@ -168,7 +169,6 @@ public class DeterminePreferredDynamicFilterTimeout
 
             Map<DynamicFilterId, PlanNode> dynamicFiltersContext = rewriteContext.get();
             List<Expression> conjuncts = extractConjuncts(node.getPredicate());
-            boolean rewritten = false;
 
             ImmutableList.Builder<Expression> expressionBuilder = ImmutableList.builder();
             for (Expression conjunct : conjuncts) {
@@ -180,24 +180,32 @@ public class DeterminePreferredDynamicFilterTimeout
                 DynamicFilterId dynamicFilterId = descriptor.get().getId();
                 PlanNode planNode = dynamicFiltersContext.get(dynamicFilterId);
 
-                Boolean isSmallOutput = dynamicFilterEstimations.computeIfAbsent(dynamicFilterId, ignore -> isSmallOutputRowCount(getBuildSide(planNode)));
-                if (isSmallOutput) {
-                    rewritten = true;
-                    expressionBuilder.add(replaceDynamicFilterTimeout((FunctionCall) conjunct, smallDynamicFilterWaitTimeoutMillis));
+                DynamicFilterTimeout dynamicFilterTimeout = dynamicFilterBuildSideStates.computeIfAbsent(dynamicFilterId, ignore -> getBuildSideState(getBuildSide(planNode), getDynamicFilterSymbol(planNode, dynamicFilterId)));
+                switch (dynamicFilterTimeout) {
+                    case USE_PREFERRED_TIMEOUT -> expressionBuilder.add(replaceDynamicFilterTimeout((FunctionCall) conjunct, smallDynamicFilterWaitTimeoutMillis));
+                    case NO_WAIT -> expressionBuilder.add(replaceDynamicFilterTimeout((FunctionCall) conjunct, 0));
+                    case UNESTIMATED -> expressionBuilder.add(conjunct);
                 }
-                else {
-                    expressionBuilder.add(conjunct);
-                }
-            }
-
-            if (!rewritten) {
-                return node;
             }
 
             return new FilterNode(
                     node.getId(),
                     node.getSource(),
                     combineConjuncts(plannerContext.getMetadata(), expressionBuilder.build()));
+        }
+
+        private static Symbol getDynamicFilterSymbol(PlanNode planNode, DynamicFilterId dynamicFilterId)
+        {
+            if (planNode instanceof JoinNode joinNode) {
+                return joinNode.getDynamicFilters().get(dynamicFilterId);
+            }
+            if (planNode instanceof SemiJoinNode semiJoinNode) {
+                return semiJoinNode.getFilteringSourceJoinSymbol();
+            }
+            if (planNode instanceof DynamicFilterSourceNode dynamicFilterSourceNode) {
+                return dynamicFilterSourceNode.getDynamicFilters().get(dynamicFilterId);
+            }
+            throw new IllegalArgumentException("Plan node unsupported " + planNode.getClass().getSimpleName());
         }
 
         private static PlanNode getBuildSide(PlanNode planNode)
@@ -214,15 +222,22 @@ public class DeterminePreferredDynamicFilterTimeout
             throw new IllegalArgumentException("Plan node unsupported " + planNode.getClass().getSimpleName());
         }
 
-        private boolean isSmallOutputRowCount(PlanNode planNode)
+        private DynamicFilterTimeout getBuildSideState(PlanNode planNode, Symbol dynamicFilterSymbol)
         {
             // Skip for expanding plan nodes like CROSS JOIN or UNNEST which can substantially increase the amount of data.
             if (isInputMultiplyingPlanNodePresent(planNode)) {
-                return false;
+                return DynamicFilterTimeout.NO_WAIT;
             }
-            double rowCount = getEstimatedMaxOutputRowCount(planNode, statsProvider);
 
-            return !isNaN(rowCount) && rowCount < smallDynamicFilterMaxRowCount;
+            double rowCount = getEstimatedMaxOutputRowCount(planNode, statsProvider);
+            if (isNaN(rowCount)) {
+                return DynamicFilterTimeout.UNESTIMATED;
+            }
+            if (rowCount < smallDynamicFilterMaxRowCount) {
+                return DynamicFilterTimeout.USE_PREFERRED_TIMEOUT;
+            }
+
+            return DynamicFilterTimeout.NO_WAIT;
         }
     }
 
@@ -293,5 +308,12 @@ public class DeterminePreferredDynamicFilterTimeout
                 // from two different sources, thus more data is transferred over the network.
                 || node instanceof UnionNode
                 || (node instanceof ExchangeNode && node.getSources().size() > 1);
+    }
+
+    enum DynamicFilterTimeout
+    {
+        USE_PREFERRED_TIMEOUT,
+        NO_WAIT,
+        UNESTIMATED,
     }
 }

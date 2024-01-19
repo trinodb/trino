@@ -23,9 +23,9 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 public class JdbcDynamicFilteringConfig
 {
     private boolean dynamicFilteringEnabled = true;
-    // 20s allows DF collection from dimensional tables as well as
-    // some larger build side subqueries
-    private Duration dynamicFilteringWaitTimeout = new Duration(20, SECONDS);
+    private Duration dynamicFilteringWaitTimeout = new Duration(1, SECONDS);
+    // dynamic filter timeout for filters we cannot estimate build side size or connector does not present table statistics
+    private Duration unestimatableDynamicFilteringWaitTimeout = new Duration(20, SECONDS);
 
     public boolean isDynamicFilteringEnabled()
     {
@@ -51,6 +51,20 @@ public class JdbcDynamicFilteringConfig
     public JdbcDynamicFilteringConfig setDynamicFilteringWaitTimeout(Duration dynamicFilteringWaitTimeout)
     {
         this.dynamicFilteringWaitTimeout = dynamicFilteringWaitTimeout;
+        return this;
+    }
+
+    @NotNull
+    public Duration getUnestimatableDynamicFilteringWaitTimeout()
+    {
+        return unestimatableDynamicFilteringWaitTimeout;
+    }
+
+    @Config("dynamic-filtering.non-estimatable-wait-timeout")
+    @ConfigDescription("Duration to wait for completion of dynamic filters when the build side output size could not be estimated")
+    public JdbcDynamicFilteringConfig setUnestimatableDynamicFilteringWaitTimeout(Duration unestimatableDynamicFilteringWaitTimeout)
+    {
+        this.unestimatableDynamicFilteringWaitTimeout = unestimatableDynamicFilteringWaitTimeout;
         return this;
     }
 }

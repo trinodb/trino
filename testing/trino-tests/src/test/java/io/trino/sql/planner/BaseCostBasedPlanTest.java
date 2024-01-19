@@ -345,8 +345,13 @@ public abstract class BaseCostBasedPlanTest
         public Void visitFilter(FilterNode node, Integer indent)
         {
             DynamicFilters.ExtractResult filters = extractDynamicFilters(node.getPredicate());
+            String unestimatableInputs = filters.getDynamicConjuncts().stream()
+                    .filter(descriptor -> descriptor.getPreferredTimeout().isEmpty())
+                    .map(descriptor -> descriptor.getInput().toString())
+                    .sorted()
+                    .collect(joining(", "));
             String inputs = filters.getDynamicConjuncts().stream()
-                    .filter(descriptor -> descriptor.getPreferredTimeout().isEmpty() || descriptor.getPreferredTimeout().getAsLong() == 0)
+                    .filter(descriptor -> descriptor.getPreferredTimeout().isPresent() && descriptor.getPreferredTimeout().getAsLong() == 0)
                     .map(descriptor -> descriptor.getInput().toString())
                     .sorted()
                     .collect(joining(", "));
@@ -356,10 +361,13 @@ public abstract class BaseCostBasedPlanTest
                     .sorted()
                     .collect(joining(", "));
 
-            if (!inputs.isEmpty() || !awaitInputs.isEmpty()) {
+            if (!inputs.isEmpty() || !awaitInputs.isEmpty() || !unestimatableInputs.isEmpty()) {
                 List<String> msg = new ArrayList<>();
                 if (!inputs.isEmpty()) {
                     msg.add("[%s]".formatted(inputs));
+                }
+                if (!unestimatableInputs.isEmpty()) {
+                    msg.add("unestimatable [%s]".formatted(unestimatableInputs));
                 }
                 if (!awaitInputs.isEmpty()) {
                     msg.add("await [%s]".formatted(awaitInputs));

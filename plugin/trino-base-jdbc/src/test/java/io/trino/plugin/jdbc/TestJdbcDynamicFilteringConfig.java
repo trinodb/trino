@@ -32,7 +32,8 @@ public class TestJdbcDynamicFilteringConfig
     {
         assertRecordedDefaults(recordDefaults(JdbcDynamicFilteringConfig.class)
                 .setDynamicFilteringEnabled(true)
-                .setDynamicFilteringWaitTimeout(new Duration(20, SECONDS)));
+                .setDynamicFilteringWaitTimeout(new Duration(1, SECONDS))
+                .setUnestimatableDynamicFilteringWaitTimeout(new Duration(20, SECONDS)));
     }
 
     @Test
@@ -41,11 +42,13 @@ public class TestJdbcDynamicFilteringConfig
         Map<String, String> properties = ImmutableMap.<String, String>builder()
                 .put("dynamic-filtering.enabled", "false")
                 .put("dynamic-filtering.wait-timeout", "10m")
+                .put("dynamic-filtering.non-estimatable-wait-timeout", "15m")
                 .buildOrThrow();
 
         JdbcDynamicFilteringConfig expected = new JdbcDynamicFilteringConfig()
                 .setDynamicFilteringEnabled(false)
-                .setDynamicFilteringWaitTimeout(new Duration(10, MINUTES));
+                .setDynamicFilteringWaitTimeout(new Duration(10, MINUTES))
+                .setUnestimatableDynamicFilteringWaitTimeout(new Duration(15, MINUTES));
 
         assertFullMapping(properties, expected);
     }
