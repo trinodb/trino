@@ -346,12 +346,12 @@ public abstract class BaseCostBasedPlanTest
         {
             DynamicFilters.ExtractResult filters = extractDynamicFilters(node.getPredicate());
             String inputs = filters.getDynamicConjuncts().stream()
-                    .filter(descriptor -> descriptor.getPreferredTimeout().isEmpty())
+                    .filter(descriptor -> descriptor.getPreferredTimeout().isEmpty() || descriptor.getPreferredTimeout().getAsLong() == 0)
                     .map(descriptor -> descriptor.getInput().toString())
                     .sorted()
                     .collect(joining(", "));
             String awaitInputs = filters.getDynamicConjuncts().stream()
-                    .filter(descriptor -> descriptor.getPreferredTimeout().isPresent())
+                    .filter(descriptor -> descriptor.getPreferredTimeout().isPresent() && descriptor.getPreferredTimeout().getAsLong() > 0)
                     .map(descriptor -> descriptor.getInput().toString())
                     .sorted()
                     .collect(joining(", "));

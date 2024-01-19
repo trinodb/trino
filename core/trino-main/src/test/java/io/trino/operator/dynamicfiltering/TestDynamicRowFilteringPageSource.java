@@ -534,9 +534,9 @@ public class TestDynamicRowFilteringPageSource
             }
 
             @Override
-            public long getPreferredDynamicFilterTimeout()
+            public OptionalLong getPreferredDynamicFilterTimeout()
             {
-                return 0;
+                return OptionalLong.of(0L);
             }
         };
     }

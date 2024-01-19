@@ -31,7 +31,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -255,8 +255,8 @@ public class TestLocalDynamicFiltersCollector
         DynamicFilter filter = createDynamicFilter(
                 collector,
                 ImmutableList.of(
-                        new DynamicFilters.Descriptor(filterId1, symbol1.toSymbolReference(), EQUAL, true, Optional.empty()),
-                        new DynamicFilters.Descriptor(filterId2, symbol2.toSymbolReference(), EQUAL, true, Optional.empty())),
+                        new DynamicFilters.Descriptor(filterId1, symbol1.toSymbolReference(), EQUAL, true, OptionalLong.empty()),
+                        new DynamicFilters.Descriptor(filterId2, symbol2.toSymbolReference(), EQUAL, true, OptionalLong.empty())),
                 ImmutableMap.of(symbol1, column1, symbol2, column2),
                 symbolAllocator.getTypes());
 

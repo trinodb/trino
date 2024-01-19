@@ -18,6 +18,7 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.TupleDomain;
 
 import java.util.List;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -89,8 +90,8 @@ public class StaticDynamicFilter
     }
 
     @Override
-    public long getPreferredDynamicFilterTimeout()
+    public OptionalLong getPreferredDynamicFilterTimeout()
     {
-        return 0;
+        return OptionalLong.of(0L);
     }
 }

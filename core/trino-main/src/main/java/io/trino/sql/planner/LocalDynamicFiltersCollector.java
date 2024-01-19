@@ -31,6 +31,7 @@ import io.trino.sql.planner.plan.DynamicFilterId;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -208,9 +209,9 @@ public class LocalDynamicFiltersCollector
         }
 
         @Override
-        public long getPreferredDynamicFilterTimeout()
+        public OptionalLong getPreferredDynamicFilterTimeout()
         {
-            return 0;
+            return OptionalLong.of(0L);
         }
     }
 }

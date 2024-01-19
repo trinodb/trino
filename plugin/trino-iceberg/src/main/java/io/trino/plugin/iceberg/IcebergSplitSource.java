@@ -175,7 +175,7 @@ public class IcebergSplitSource
     public CompletableFuture<ConnectorSplitBatch> getNextBatch(int maxSize)
     {
         CompletableFuture<?> blocked = dynamicFilter.isBlocked();
-        long timeLeft = max(dynamicFilteringWaitTimeoutMillis, dynamicFilter.getPreferredDynamicFilterTimeout()) - dynamicFilterWaitStopwatch.elapsed(MILLISECONDS);
+        long timeLeft = max(dynamicFilteringWaitTimeoutMillis, dynamicFilter.getPreferredDynamicFilterTimeout().orElse(0L)) - dynamicFilterWaitStopwatch.elapsed(MILLISECONDS);
         if (dynamicFilter.isAwaitable() && timeLeft > 0) {
             return blocked
                     .thenApply(ignored -> EMPTY_BATCH)

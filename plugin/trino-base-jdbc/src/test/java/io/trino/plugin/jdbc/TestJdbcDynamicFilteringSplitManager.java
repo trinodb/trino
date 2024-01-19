@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -84,9 +85,9 @@ public class TestJdbcDynamicFilteringSplitManager
         }
 
         @Override
-        public long getPreferredDynamicFilterTimeout()
+        public OptionalLong getPreferredDynamicFilterTimeout()
         {
-            return 0;
+            return OptionalLong.of(0L);
         }
     };
 
@@ -158,9 +159,9 @@ public class TestJdbcDynamicFilteringSplitManager
                     }
 
                     @Override
-                    public long getPreferredDynamicFilterTimeout()
+                    public OptionalLong getPreferredDynamicFilterTimeout()
                     {
-                        return getUndoneFutures().isEmpty() ? 0L : 3000L;
+                        return getUndoneFutures().isEmpty() ? OptionalLong.of(0L) : OptionalLong.of(3000L);
                     }
 
                     private List<CompletableFuture<Void>> getUndoneFutures()

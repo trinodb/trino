@@ -48,6 +48,7 @@ import io.trino.sql.tree.SymbolReference;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -240,12 +241,12 @@ public final class DynamicFilters
         boolean nullAllowed = ((BooleanLiteral) nullAllowedExpression).getValue();
 
         Expression timeoutExpression = arguments.get(4);
-        Optional<Long> timeout;
+        OptionalLong timeout;
         if (timeoutExpression instanceof NullLiteral) {
-            timeout = Optional.empty();
+            timeout = OptionalLong.empty();
         }
         else if (timeoutExpression instanceof LongLiteral longTimeoutLiteral) {
-            timeout = Optional.of(longTimeoutLiteral.getParsedValue());
+            timeout = OptionalLong.of(longTimeoutLiteral.getParsedValue());
         }
         else {
             throw new IllegalArgumentException(format("timeout is expected to be an instance of LongLiteral or NullLiteral: %s", timeoutExpression.getClass().getSimpleName()));
@@ -288,9 +289,9 @@ public final class DynamicFilters
         private final Expression input;
         private final ComparisonExpression.Operator operator;
         private final boolean nullAllowed;
-        private final Optional<Long> preferredTimeout;
+        private final OptionalLong preferredTimeout;
 
-        public Descriptor(DynamicFilterId id, Expression input, ComparisonExpression.Operator operator, boolean nullAllowed, Optional<Long> preferredTimeout)
+        public Descriptor(DynamicFilterId id, Expression input, ComparisonExpression.Operator operator, boolean nullAllowed, OptionalLong preferredTimeout)
         {
             this.id = requireNonNull(id, "id is null");
             this.input = requireNonNull(input, "input is null");
@@ -302,7 +303,7 @@ public final class DynamicFilters
 
         public Descriptor(DynamicFilterId id, Expression input, ComparisonExpression.Operator operator)
         {
-            this(id, input, operator, false, Optional.empty());
+            this(id, input, operator, false, OptionalLong.empty());
         }
 
         public Descriptor(DynamicFilterId id, Expression input)
@@ -330,7 +331,7 @@ public final class DynamicFilters
             return nullAllowed;
         }
 
-        public Optional<Long> getPreferredTimeout()
+        public OptionalLong getPreferredTimeout()
         {
             return preferredTimeout;
         }
@@ -366,7 +367,7 @@ public final class DynamicFilters
                     .add("input", input)
                     .add("operator", operator)
                     .add("nullAllowed", nullAllowed)
-                    .add("timeout", preferredTimeout.orElse(null))
+                    .add("timeout", preferredTimeout.isPresent() ? preferredTimeout.getAsLong() : null)
                     .toString();
         }
 

@@ -40,6 +40,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
@@ -250,9 +251,9 @@ class TestNodeLocalDynamicSplitPruning
             }
 
             @Override
-            public long getPreferredDynamicFilterTimeout()
+            public OptionalLong getPreferredDynamicFilterTimeout()
             {
-                return 0;
+                return OptionalLong.of(0L);
             }
         };
     }

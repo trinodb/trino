@@ -43,6 +43,7 @@ import org.junit.jupiter.api.Timeout;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -139,9 +140,9 @@ public class TestKuduIntegrationDynamicFilter
         }
 
         @Override
-        public long getPreferredDynamicFilterTimeout()
+        public OptionalLong getPreferredDynamicFilterTimeout()
         {
-            return 0;
+            return OptionalLong.of(0L);
         }
     }
 

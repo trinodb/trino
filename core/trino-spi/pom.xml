@@ -192,7 +192,7 @@
                                 <item>
                                     <ignore>true</ignore>
                                     <code>java.method.addedToInterface</code>
-                                    <new>method long io.trino.spi.connector.DynamicFilter::getPreferredDynamicFilterTimeout()</new>
+                                    <new>method java.util.OptionalLong io.trino.spi.connector.DynamicFilter::getPreferredDynamicFilterTimeout()</new>
                                     <justification>Internal change</justification>
                                 </item>
                                 <!-- / Cork internal changes -->

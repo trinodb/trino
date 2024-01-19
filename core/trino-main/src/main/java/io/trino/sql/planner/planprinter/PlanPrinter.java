@@ -1413,7 +1413,7 @@ public class PlanPrinter
         {
             return filters.stream()
                     .map(filter -> anonymizer.anonymize(filter.getInput()) + " " + filter.getOperator().getValue() + " #" + filter.getId() +
-                            (filter.getPreferredTimeout().isPresent() ? " await" : ""))
+                            (filter.getPreferredTimeout().isPresent() && filter.getPreferredTimeout().getAsLong() > 0 ? " await" : ""))
                     .collect(Collectors.joining(", ", "{", "}"));
         }
 

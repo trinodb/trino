@@ -55,6 +55,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
@@ -352,9 +353,9 @@ public class TestCacheDriverFactory
         }
 
         @Override
-        public long getPreferredDynamicFilterTimeout()
+        public OptionalLong getPreferredDynamicFilterTimeout()
         {
-            return 0;
+            return OptionalLong.of(0L);
         }
     }
 }

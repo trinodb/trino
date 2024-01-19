@@ -25,6 +25,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.trino.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
@@ -114,8 +115,8 @@ public class TestDeterminePreferredDynamicFilterTimeout
                                 .equiCriteria("LINEITEM_OK", "PART_PK")
                                 .dynamicFilter(
                                         ImmutableList.of(
-                                                new PlanMatchPattern.DynamicFilterPattern("LINEITEM_OK", EQUAL, "PART_PK", false, Optional.of(waitForCascadingDynamicFiltersTimeout)),
-                                                new PlanMatchPattern.DynamicFilterPattern("ORDERS_OK", EQUAL, "PART_PK", false, Optional.of(waitForCascadingDynamicFiltersTimeout))))
+                                                new PlanMatchPattern.DynamicFilterPattern("LINEITEM_OK", EQUAL, "PART_PK", false, OptionalLong.of(waitForCascadingDynamicFiltersTimeout)),
+                                                new PlanMatchPattern.DynamicFilterPattern("ORDERS_OK", EQUAL, "PART_PK", false, OptionalLong.of(waitForCascadingDynamicFiltersTimeout))))
                                 .left(
                                         join(INNER, leftJoinBuilder -> leftJoinBuilder
                                                 .equiCriteria("LINEITEM_OK", "ORDERS_OK")
@@ -169,8 +170,8 @@ public class TestDeterminePreferredDynamicFilterTimeout
                         join(INNER, builder -> builder
                                 .dynamicFilter(
                                         ImmutableList.of(
-                                                new PlanMatchPattern.DynamicFilterPattern("O_ORDERKEY", GREATER_THAN_OR_EQUAL, "L_ORDERKEY", false, Optional.empty()),
-                                                new PlanMatchPattern.DynamicFilterPattern("O_ORDERKEY", LESS_THAN_OR_EQUAL, "L_PARTKEY", false, Optional.empty())))
+                                                new PlanMatchPattern.DynamicFilterPattern("O_ORDERKEY", GREATER_THAN_OR_EQUAL, "L_ORDERKEY", false, OptionalLong.empty()),
+                                                new PlanMatchPattern.DynamicFilterPattern("O_ORDERKEY", LESS_THAN_OR_EQUAL, "L_PARTKEY", false, OptionalLong.empty())))
                                 .left(
                                         filter(
                                                 TRUE_LITERAL,
@@ -184,8 +185,8 @@ public class TestDeterminePreferredDynamicFilterTimeout
                                                                 equiJoinClause("L_SUPPKEY", "P_SUPPKEY")))
                                                         .dynamicFilter(
                                                                 ImmutableList.of(
-                                                                        new PlanMatchPattern.DynamicFilterPattern("L_PARTKEY", EQUAL, "P_PARTKEY", false, Optional.of(waitForCascadingDynamicFiltersTimeout)),
-                                                                        new PlanMatchPattern.DynamicFilterPattern("L_SUPPKEY", EQUAL, "P_SUPPKEY", false, Optional.of(waitForCascadingDynamicFiltersTimeout))))
+                                                                        new PlanMatchPattern.DynamicFilterPattern("L_PARTKEY", EQUAL, "P_PARTKEY", false, OptionalLong.of(waitForCascadingDynamicFiltersTimeout)),
+                                                                        new PlanMatchPattern.DynamicFilterPattern("L_SUPPKEY", EQUAL, "P_SUPPKEY", false, OptionalLong.of(waitForCascadingDynamicFiltersTimeout))))
                                                         .left(
                                                                 anyTree(
                                                                         tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey", "L_PARTKEY", "partkey", "L_SUPPKEY", "suppkey"))))
@@ -208,7 +209,7 @@ public class TestDeterminePreferredDynamicFilterTimeout
                                         tableScan("lineitem", ImmutableMap.of("LINE_ORDER_KEY", "orderkey")))
                                         .with(FilterNode.class, filterNode -> extractDynamicFilters(filterNode.getPredicate())
                                                 .getDynamicConjuncts().get(0).getPreferredTimeout()
-                                                .equals(Optional.of(waitForCascadingDynamicFiltersTimeout))),
+                                                .equals(OptionalLong.of(waitForCascadingDynamicFiltersTimeout))),
                                 node(ExchangeNode.class,
                                         filter("ORDERS_ORDER_KEY = CAST(random(5) AS bigint)",
                                                 tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));

@@ -161,7 +161,7 @@ public class JdbcDynamicFilteringSplitManager
 
         private long getRemainingTimeoutNanos(DynamicFilter dynamicFilter)
         {
-            long preferredDynamicFilterTimeoutNanos = TimeUnit.MILLISECONDS.toNanos(dynamicFilter.getPreferredDynamicFilterTimeout());
+            long preferredDynamicFilterTimeoutNanos = TimeUnit.MILLISECONDS.toNanos(dynamicFilter.getPreferredDynamicFilterTimeout().orElse(0L));
             return max(dynamicFilteringTimeoutNanos, preferredDynamicFilterTimeoutNanos) - (System.nanoTime() - startNanos);
         }
 
