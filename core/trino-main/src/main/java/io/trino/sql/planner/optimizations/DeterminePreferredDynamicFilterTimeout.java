@@ -19,6 +19,7 @@ import io.trino.Session;
 import io.trino.cost.CachingStatsProvider;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
+import io.trino.cost.SymbolStatsEstimate;
 import io.trino.cost.TableStatsProvider;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
@@ -51,6 +52,7 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.SystemSessionProperties.getSmallDynamicFilterMaxNdvCount;
 import static io.trino.SystemSessionProperties.getSmallDynamicFilterMaxRowCount;
 import static io.trino.SystemSessionProperties.getSmallDynamicFilterWaitTimeout;
 import static io.trino.sql.DynamicFilters.getDescriptor;
@@ -92,8 +94,9 @@ public class DeterminePreferredDynamicFilterTimeout
 
         Duration smallDynamicFilterWaitTimeout = getSmallDynamicFilterWaitTimeout(session);
         long smallDynamicFilterMaxRowCount = getSmallDynamicFilterMaxRowCount(session);
+        long smallDynamicFilterMaxNdvCount = getSmallDynamicFilterMaxNdvCount(session);
 
-        if (smallDynamicFilterWaitTimeout.toMillis() == 0 || smallDynamicFilterMaxRowCount == 0) {
+        if (smallDynamicFilterWaitTimeout.toMillis() == 0 || smallDynamicFilterMaxRowCount == 0 || smallDynamicFilterMaxNdvCount == 0) {
             return plan;
         }
 
@@ -109,7 +112,8 @@ public class DeterminePreferredDynamicFilterTimeout
                         plannerContext,
                         statsProvider,
                         smallDynamicFilterWaitTimeout,
-                        smallDynamicFilterMaxRowCount),
+                        smallDynamicFilterMaxRowCount,
+                        smallDynamicFilterMaxNdvCount),
                 plan,
                 dynamicFilters);
     }
@@ -145,18 +149,21 @@ public class DeterminePreferredDynamicFilterTimeout
         private final StatsProvider statsProvider;
         private final long smallDynamicFilterWaitTimeoutMillis;
         private final long smallDynamicFilterMaxRowCount;
+        private final long smallDynamicFilterMaxNdvCount;
         private final Map<DynamicFilterId, DynamicFilterTimeout> dynamicFilterBuildSideStates = new HashMap<>();
 
         public Rewriter(
                 PlannerContext plannerContext,
                 StatsProvider statsProvider,
                 Duration smallDynamicFilterWaitTimeout,
-                long smallDynamicFilterMaxRowCount)
+                long smallDynamicFilterMaxRowCount,
+                long smallDynamicFilterMaxNdvCount)
         {
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
             this.statsProvider = statsProvider;
             this.smallDynamicFilterWaitTimeoutMillis = smallDynamicFilterWaitTimeout.toMillis();
             this.smallDynamicFilterMaxRowCount = smallDynamicFilterMaxRowCount;
+            this.smallDynamicFilterMaxNdvCount = smallDynamicFilterMaxNdvCount;
         }
 
         @Override
@@ -228,6 +235,12 @@ public class DeterminePreferredDynamicFilterTimeout
             if (isInputMultiplyingPlanNodePresent(planNode)) {
                 return DynamicFilterTimeout.NO_WAIT;
             }
+            SymbolStatsEstimate symbolStatsEstimate = statsProvider.getStats(planNode).getSymbolStatistics(dynamicFilterSymbol);
+            if (!symbolStatsEstimate.isUnknown() && !isExpandingPlanNodePresent(planNode)) {
+                if (symbolStatsEstimate.getDistinctValuesCount() < smallDynamicFilterMaxNdvCount) {
+                    return DynamicFilterTimeout.USE_PREFERRED_TIMEOUT;
+                }
+            }
 
             double rowCount = getEstimatedMaxOutputRowCount(planNode, statsProvider);
             if (isNaN(rowCount)) {
@@ -245,6 +258,13 @@ public class DeterminePreferredDynamicFilterTimeout
     {
         return PlanNodeSearcher.searchFrom(root)
                 .where(DeterminePreferredDynamicFilterTimeout::isInputMultiplyingPlanNode)
+                .matches();
+    }
+
+    private static boolean isExpandingPlanNodePresent(PlanNode root)
+    {
+        return PlanNodeSearcher.searchFrom(root)
+                .where(DeterminePreferredDynamicFilterTimeout::isExpandingPlanNode)
                 .matches();
     }
 

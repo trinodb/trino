@@ -28,10 +28,10 @@ final aggregation over ()
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
                                         alternatives
-                                            dynamic filter (["ws_item_sk"], await ["ws_sold_date_sk"])
+                                            dynamic filter (await ["ws_item_sk", "ws_sold_date_sk"])
                                                 scan web_sales
                                             cache data
-                                                dynamic filter (["ws_item_sk"], await ["ws_sold_date_sk"])
+                                                dynamic filter (await ["ws_item_sk", "ws_sold_date_sk"])
                                                     scan web_sales
                                             load from cache
                                         local exchange (GATHER, SINGLE, [])

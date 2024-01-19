@@ -145,6 +145,7 @@ public final class SystemSessionProperties
     public static final String ENABLE_LARGE_DYNAMIC_FILTERS = "enable_large_dynamic_filters";
     public static final String SMALL_DYNAMIC_FILTER_WAIT_TIMEOUT = "small_dynamic_filter_wait_timeout";
     public static final String SMALL_DYNAMIC_FILTER_MAX_ROW_COUNT = "small_dynamic_filter_max_row_count";
+    public static final String SMALL_DYNAMIC_FILTER_MAX_NDV_COUNT = "small_dynamic_filter_max_ndv_count";
     public static final String QUERY_MAX_MEMORY_PER_NODE = "query_max_memory_per_node";
     public static final String IGNORE_DOWNSTREAM_PREFERENCES = "ignore_downstream_preferences";
     public static final String FILTERING_SEMI_JOIN_TO_INNER = "rewrite_filtering_semi_join_to_inner_join";
@@ -723,6 +724,11 @@ public final class SystemSessionProperties
                         SMALL_DYNAMIC_FILTER_MAX_ROW_COUNT,
                         "Maximum number of rows for dynamic filter to be considered small",
                         dynamicFilterConfig.getSmallDynamicFilterMaxRowCount(),
+                        false),
+                longProperty(
+                        SMALL_DYNAMIC_FILTER_MAX_NDV_COUNT,
+                        "Maximum number of distinct values for dynamic filter to be considered small",
+                        dynamicFilterConfig.getSmallDynamicFilterMaxNdvCount(),
                         false),
                 dataSizeProperty(
                         QUERY_MAX_MEMORY_PER_NODE,
@@ -1715,6 +1721,11 @@ public final class SystemSessionProperties
     public static long getSmallDynamicFilterMaxRowCount(Session session)
     {
         return session.getSystemProperty(SMALL_DYNAMIC_FILTER_MAX_ROW_COUNT, Long.class);
+    }
+
+    public static long getSmallDynamicFilterMaxNdvCount(Session session)
+    {
+        return session.getSystemProperty(SMALL_DYNAMIC_FILTER_MAX_NDV_COUNT, Long.class);
     }
 
     public static DataSize getQueryMaxMemoryPerNode(Session session)

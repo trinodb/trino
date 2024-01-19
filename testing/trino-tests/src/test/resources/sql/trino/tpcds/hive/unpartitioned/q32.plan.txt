@@ -18,7 +18,7 @@ final aggregation over ()
                             remote exchange (REPARTITION, HASH, ["cs_item_sk"])
                                 join (INNER, REPLICATED):
                                     join (INNER, REPLICATED):
-                                        dynamic filter (["cs_item_sk"], await ["cs_sold_date_sk"])
+                                        dynamic filter (await ["cs_item_sk", "cs_sold_date_sk"])
                                             scan catalog_sales
                                         local exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])

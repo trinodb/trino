@@ -47,6 +47,7 @@ public class DynamicFilterConfig
 
     private Duration smallDynamicFilterWaitTimeout = new Duration(20, SECONDS);
     private long smallDynamicFilterMaxRowCount = 100_000;
+    private long smallDynamicFilterMaxNdvCount = 500;
     /*
      * dynamic-filtering.small.* and dynamic-filtering.large.* limits are applied when
      * collected over a not pre-partitioned source (when join distribution type is
@@ -145,6 +146,20 @@ public class DynamicFilterConfig
     public DynamicFilterConfig setSmallDynamicFilterMaxRowCount(long smallDynamicFilterMaxRowCount)
     {
         this.smallDynamicFilterMaxRowCount = smallDynamicFilterMaxRowCount;
+        return this;
+    }
+
+    @Min(0)
+    public long getSmallDynamicFilterMaxNdvCount()
+    {
+        return smallDynamicFilterMaxNdvCount;
+    }
+
+    @Config("small-dynamic-filter.max-ndv-count")
+    @ConfigDescription("Maximum number of distinct values for dynamic filter to be considered small")
+    public DynamicFilterConfig setSmallDynamicFilterMaxNdvCount(long smallDynamicFilterMaxNdvCount)
+    {
+        this.smallDynamicFilterMaxNdvCount = smallDynamicFilterMaxNdvCount;
         return this;
     }
 

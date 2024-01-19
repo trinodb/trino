@@ -15,24 +15,38 @@ package io.trino.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
+import io.trino.connector.MockConnectorColumnHandle;
+import io.trino.connector.MockConnectorFactory;
+import io.trino.connector.MockConnectorTableHandle;
+import io.trino.spi.connector.ColumnMetadata;
+import io.trino.spi.statistics.ColumnStatistics;
+import io.trino.spi.statistics.Estimate;
+import io.trino.spi.statistics.TableStatistics;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
+import io.trino.testing.LocalQueryRunner;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
+import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 
 import static io.trino.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
+import static io.trino.SystemSessionProperties.ENABLE_STATS_CALCULATOR;
 import static io.trino.SystemSessionProperties.FILTERING_SEMI_JOIN_TO_INNER;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.trino.SystemSessionProperties.SMALL_DYNAMIC_FILTER_MAX_NDV_COUNT;
 import static io.trino.SystemSessionProperties.SMALL_DYNAMIC_FILTER_MAX_ROW_COUNT;
 import static io.trino.SystemSessionProperties.getSmallDynamicFilterWaitTimeout;
+import static io.trino.spi.statistics.TableStatistics.empty;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.DynamicFilters.extractDynamicFilters;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.BROADCAST;
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.NONE;
@@ -50,18 +64,92 @@ import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
+import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class TestDeterminePreferredDynamicFilterTimeout
         extends BasePlanTest
 {
     private long waitForCascadingDynamicFiltersTimeout;
 
-    public TestDeterminePreferredDynamicFilterTimeout()
+    @Override
+    protected LocalQueryRunner createLocalQueryRunner()
     {
-        super(ImmutableMap.of(
+        String catalogName = "mock";
+        Map<String, String> sessionProperties = ImmutableMap.of(
                 ENABLE_DYNAMIC_FILTERING, "true",
                 JOIN_REORDERING_STRATEGY, NONE.name(),
-                JOIN_DISTRIBUTION_TYPE, BROADCAST.name()));
+                JOIN_DISTRIBUTION_TYPE, BROADCAST.name());
+        Map<String, TableStatistics> tables = Map.of(
+                "table_undefined_a", new TableStatistics(
+                        Estimate.unknown(),
+                        Map.of(
+                                new MockConnectorColumnHandle("a_1", INTEGER), ColumnStatistics.empty(),
+                                new MockConnectorColumnHandle("a_2", INTEGER), ColumnStatistics.empty())),
+                "table_undefined_b", new TableStatistics(
+                        Estimate.unknown(),
+                        Map.of(
+                                new MockConnectorColumnHandle("b_1", INTEGER), ColumnStatistics.empty(),
+                                new MockConnectorColumnHandle("b_2", INTEGER), ColumnStatistics.empty())),
+                "table_small_a", new TableStatistics(
+                        Estimate.of(10_000),
+                        Map.of(
+                                new MockConnectorColumnHandle("a_1", INTEGER), ColumnStatistics.empty(),
+                                new MockConnectorColumnHandle("a_2", INTEGER), new ColumnStatistics(
+                                        Estimate.unknown(), Estimate.of(400), Estimate.unknown(), Optional.empty()))),
+                "table_small_b", new TableStatistics(
+                        Estimate.of(10_000),
+                        Map.of(
+                                new MockConnectorColumnHandle("b_1", INTEGER), ColumnStatistics.empty(),
+                                new MockConnectorColumnHandle("b_2", INTEGER), new ColumnStatistics(
+                                        Estimate.unknown(), Estimate.of(400), Estimate.unknown(), Optional.empty()),
+                                new MockConnectorColumnHandle("b_3", INTEGER), ColumnStatistics.empty())),
+                "table_small_c", new TableStatistics(
+                        Estimate.of(10_000),
+                        Map.of(
+                                new MockConnectorColumnHandle("c_1", INTEGER), ColumnStatistics.empty(),
+                                new MockConnectorColumnHandle("c_2", INTEGER), new ColumnStatistics(
+                                        Estimate.unknown(), Estimate.of(400), Estimate.unknown(), Optional.empty()))));
+        MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
+                .withGetTableHandle((session, table) -> {
+                    if (tables.containsKey(table.getTableName())) {
+                        return new MockConnectorTableHandle(table);
+                    }
+                    return null;
+                })
+                .withGetColumns(schemaTableName -> {
+                    TableStatistics table = tables.get(schemaTableName.getTableName());
+                    if (table != null) {
+                        return table.getColumnStatistics().keySet().stream()
+                                .map(MockConnectorColumnHandle.class::cast)
+                                .map(columnHandle -> new ColumnMetadata(columnHandle.getName(), columnHandle.getType()))
+                                .toList();
+                    }
+                    return Collections.emptyList();
+                })
+                .withGetTableStatistics(tableName -> {
+                    TableStatistics table = tables.get(tableName.getTableName());
+                    if (table != null) {
+                        return table;
+                    }
+                    else {
+                        return empty();
+                    }
+                })
+                .withName(catalogName)
+                .build();
+
+        Session.SessionBuilder sessionBuilder = testSessionBuilder()
+                .setCatalog(catalogName)
+                .setSchema("default");
+        sessionProperties.forEach(sessionBuilder::setSystemProperty);
+
+        LocalQueryRunner queryRunner = LocalQueryRunner.builder(sessionBuilder.build())
+                .build();
+        queryRunner.createCatalog(
+                catalogName,
+                connectorFactory,
+                ImmutableMap.of());
+        return queryRunner;
     }
 
     @BeforeAll
@@ -71,147 +159,260 @@ public class TestDeterminePreferredDynamicFilterTimeout
     }
 
     @Test
-    public void testNoTimeoutOnTableExceedingSize()
+    public void testWithUnknownTableSize()
     {
         assertPlan(
-                "SELECT part.partkey from (lineitem JOIN orders ON lineitem.orderkey = orders.orderkey) " +
-                        "JOIN part ON lineitem.orderkey = part.partkey",
+                "SELECT table_undefined_a.a_1 from table_undefined_a, table_undefined_b where table_undefined_a.a_1 = table_undefined_b.b_1",
+                anyTree(
+                        join(INNER, builder -> builder
+                                .equiCriteria("A_1", "B_1")
+                                .dynamicFilter(
+                                        ImmutableList.of(
+                                                new PlanMatchPattern.DynamicFilterPattern("A_1", EQUAL, "B_1", false, OptionalLong.empty())))
+                                .left(
+                                        node(FilterNode.class,
+                                                tableScan("table_undefined_a", ImmutableMap.of("A_1", "a_1"))))
+                                .right(
+                                        exchange(
+                                                tableScan("table_undefined_b", ImmutableMap.of("B_1", "b_1")))))));
+    }
+
+    @Test
+    public void testWithSmallRowCountTable()
+    {
+        assertPlan(
+                "SELECT table_small_a.a_1 from table_small_a, table_small_b where table_small_a.a_1 = table_small_b.b_1",
+                anyTree(
+                        join(INNER, builder -> builder
+                                .equiCriteria("A_1", "B_1")
+                                .dynamicFilter(
+                                        ImmutableList.of(
+                                                new PlanMatchPattern.DynamicFilterPattern("A_1", EQUAL, "B_1", false, OptionalLong.of(waitForCascadingDynamicFiltersTimeout))))
+                                .left(
+                                        node(FilterNode.class,
+                                                tableScan("table_small_a", ImmutableMap.of("A_1", "a_1"))))
+                                .right(
+                                        exchange(
+                                                tableScan("table_small_b", ImmutableMap.of("B_1", "b_1")))))));
+    }
+
+    @Test
+    public void testWithExceedingRowCount()
+    {
+        assertPlan(
+                "SELECT table_small_a.a_1 from table_small_a, table_small_b where table_small_a.a_1 = table_small_b.b_1",
                 Session.builder(getQueryRunner().getDefaultSession())
-                        .setSystemProperty(SMALL_DYNAMIC_FILTER_MAX_ROW_COUNT, "500")
+                        .setSystemProperty(SMALL_DYNAMIC_FILTER_MAX_ROW_COUNT, "9999")
                         .build(),
                 anyTree(
                         join(INNER, builder -> builder
-                                .equiCriteria("LINEITEM_OK", "PART_PK")
+                                .equiCriteria("A_1", "B_1")
                                 .dynamicFilter(
                                         ImmutableList.of(
-                                                new PlanMatchPattern.DynamicFilterPattern("LINEITEM_OK", EQUAL, "PART_PK", false),
-                                                new PlanMatchPattern.DynamicFilterPattern("ORDERS_OK", EQUAL, "PART_PK", false)))
+                                                new PlanMatchPattern.DynamicFilterPattern("A_1", EQUAL, "B_1", false, OptionalLong.of(0L))))
                                 .left(
-                                        join(INNER, leftJoinBuilder -> leftJoinBuilder
-                                                .equiCriteria("LINEITEM_OK", "ORDERS_OK")
-                                                .dynamicFilter("LINEITEM_OK", "ORDERS_OK")
-                                                .left(
-                                                        node(FilterNode.class,
-                                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))
-                                                .right(
-                                                        anyTree(node(FilterNode.class,
-                                                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))))))
+                                        node(FilterNode.class,
+                                                tableScan("table_small_a", ImmutableMap.of("A_1", "a_1"))))
                                 .right(
                                         exchange(
-                                                tableScan("part", ImmutableMap.of("PART_PK", "partkey")))))));
+                                                tableScan("table_small_b", ImmutableMap.of("B_1", "b_1")))))));
+    }
+
+    @Test
+    public void testWithSmallNdvCount()
+    {
+        assertPlan(
+                "SELECT table_small_a.a_1 from table_small_a, table_small_b where table_small_a.a_1 = table_small_b.b_2",
+                Session.builder(getQueryRunner().getDefaultSession())
+                        .setSystemProperty(SMALL_DYNAMIC_FILTER_MAX_ROW_COUNT, "1")
+                        .build(),
+                anyTree(
+                        join(INNER, builder -> builder
+                                .equiCriteria("A_1", "B_2")
+                                .dynamicFilter(
+                                        ImmutableList.of(
+                                                new PlanMatchPattern.DynamicFilterPattern("A_1", EQUAL, "B_2", false, OptionalLong.of(waitForCascadingDynamicFiltersTimeout))))
+                                .left(
+                                        node(FilterNode.class,
+                                                tableScan("table_small_a", ImmutableMap.of("A_1", "a_1"))))
+                                .right(
+                                        exchange(
+                                                tableScan("table_small_b", ImmutableMap.of("B_2", "b_2")))))));
+    }
+
+    @Test
+    public void testWithExceedNdvCount()
+    {
+        assertPlan(
+                "SELECT table_small_a.a_1 from table_small_a, table_small_b where table_small_a.a_1 = table_small_b.b_2",
+                Session.builder(getQueryRunner().getDefaultSession())
+                        .setSystemProperty(SMALL_DYNAMIC_FILTER_MAX_ROW_COUNT, "9999")
+                        .setSystemProperty(SMALL_DYNAMIC_FILTER_MAX_NDV_COUNT, "399")
+                        .build(),
+                anyTree(
+                        join(INNER, builder -> builder
+                                .equiCriteria("A_1", "B_2")
+                                .dynamicFilter(
+                                        ImmutableList.of(
+                                                new PlanMatchPattern.DynamicFilterPattern("A_1", EQUAL, "B_2", false, OptionalLong.of(0L))))
+                                .left(
+                                        node(FilterNode.class,
+                                                tableScan("table_small_a", ImmutableMap.of("A_1", "a_1"))))
+                                .right(
+                                        exchange(
+                                                tableScan("table_small_b", ImmutableMap.of("B_2", "b_2")))))));
+        assertPlan(
+                "SELECT table_small_a.a_1 from table_small_a, table_small_b where table_small_a.a_2 = table_small_b.b_2",
+                Session.builder(getQueryRunner().getDefaultSession())
+                        .setSystemProperty(SMALL_DYNAMIC_FILTER_MAX_NDV_COUNT, "399")
+                        .build(),
+                anyTree(
+                        join(INNER, builder -> builder
+                                .equiCriteria("A_2", "B_2")
+                                .dynamicFilter(
+                                        ImmutableList.of(
+                                                new PlanMatchPattern.DynamicFilterPattern("A_2", EQUAL, "B_2", false, OptionalLong.of(waitForCascadingDynamicFiltersTimeout))))
+                                .left(
+                                        node(FilterNode.class,
+                                                tableScan("table_small_a", ImmutableMap.of("A_2", "a_2"))))
+                                .right(
+                                        exchange(
+                                                tableScan("table_small_b", ImmutableMap.of("B_2", "b_2")))))));
+    }
+
+    @Test
+    public void testWithDisabledStatistics()
+    {
+        assertPlan(
+                "SELECT table_small_a.a_1 from table_small_a, table_small_b where table_small_a.a_1 = table_small_b.b_1",
+                Session.builder(getQueryRunner().getDefaultSession())
+                        .setSystemProperty(ENABLE_STATS_CALCULATOR, "false")
+                        .build(),
+                anyTree(
+                        join(INNER, builder -> builder
+                                .equiCriteria("A_1", "B_1")
+                                .dynamicFilter(
+                                        ImmutableList.of(
+                                                new PlanMatchPattern.DynamicFilterPattern("A_1", EQUAL, "B_1", false, OptionalLong.empty())))
+                                .left(
+                                        node(FilterNode.class,
+                                                tableScan("table_small_a", ImmutableMap.of("A_1", "a_1"))))
+                                .right(
+                                        exchange(
+                                                tableScan("table_small_b", ImmutableMap.of("B_1", "b_1")))))));
     }
 
     @Test
     public void testDependantDynamicFilterTable()
     {
         assertPlan(
-                "SELECT part.partkey from (lineitem JOIN orders ON lineitem.orderkey = orders.orderkey) " +
-                        "JOIN part ON lineitem.orderkey = part.partkey",
+                "SELECT table_small_c.c_1 from (table_small_a JOIN table_small_b ON table_small_a.a_2 = table_small_b.b_2) " +
+                        "JOIN table_small_c ON table_small_a.a_2 = table_small_c.c_1",
                 Session.builder(getQueryRunner().getDefaultSession())
-                        .setSystemProperty(SMALL_DYNAMIC_FILTER_MAX_ROW_COUNT, "5000")
                         .build(),
                 anyTree(
                         join(INNER, builder -> builder
-                                .equiCriteria("LINEITEM_OK", "PART_PK")
+                                .equiCriteria("A_2", "C_1")
                                 .dynamicFilter(
                                         ImmutableList.of(
-                                                new PlanMatchPattern.DynamicFilterPattern("LINEITEM_OK", EQUAL, "PART_PK", false, OptionalLong.of(waitForCascadingDynamicFiltersTimeout)),
-                                                new PlanMatchPattern.DynamicFilterPattern("ORDERS_OK", EQUAL, "PART_PK", false, OptionalLong.of(waitForCascadingDynamicFiltersTimeout))))
+                                                new PlanMatchPattern.DynamicFilterPattern("A_2", EQUAL, "C_1", false, OptionalLong.of(waitForCascadingDynamicFiltersTimeout)),
+                                                new PlanMatchPattern.DynamicFilterPattern("B_2", EQUAL, "C_1", false, OptionalLong.of(waitForCascadingDynamicFiltersTimeout))))
                                 .left(
                                         join(INNER, leftJoinBuilder -> leftJoinBuilder
-                                                .equiCriteria("LINEITEM_OK", "ORDERS_OK")
-                                                .dynamicFilter("LINEITEM_OK", "ORDERS_OK")
+                                                .equiCriteria("A_2", "B_2")
+                                                .dynamicFilter("A_2", "B_2", waitForCascadingDynamicFiltersTimeout)
                                                 .left(
                                                         node(FilterNode.class,
-                                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))
+                                                                tableScan("table_small_a", ImmutableMap.of("A_2", "a_2"))))
                                                 .right(
                                                         anyTree(node(FilterNode.class,
-                                                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))))))
+                                                                tableScan("table_small_b", ImmutableMap.of("B_2", "b_2")))))))
                                 .right(
                                         exchange(
-                                                tableScan("part", ImmutableMap.of("PART_PK", "partkey")))))));
+                                                tableScan("table_small_c", ImmutableMap.of("C_1", "c_1")))))));
     }
 
     @Test
-    public void testAddPreferredTimeoutWithExpandingNode()
+    public void testWithExpandingNodeAndSmallRowCount()
     {
         assertPlan(
-                "SELECT l.suppkey FROM lineitem l JOIN (SELECT suppkey FROM supplier UNION ALL SELECT suppkey FROM supplier) s ON l.suppkey = s.suppkey",
+                "SELECT a.a_1 FROM table_small_a a JOIN (SELECT b_1 FROM table_small_b UNION ALL SELECT b_1 FROM table_small_b) b ON a.a_1 = b.b_1",
                 anyTree(
                         join(INNER, builder -> builder
-                                .equiCriteria("LINEITEM_SK", "SUPPLIER_SK")
-                                .dynamicFilter("LINEITEM_SK", "SUPPLIER_SK", waitForCascadingDynamicFiltersTimeout)
+                                .equiCriteria("A_1", "B_1")
+                                .dynamicFilter("A_1", "B_1", waitForCascadingDynamicFiltersTimeout)
                                 .left(
                                         anyTree(
-                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_SK", "suppkey"))))
+                                                tableScan("table_small_a", ImmutableMap.of("A_1", "a_1"))))
                                 .right(
                                         exchange(
                                                 LOCAL,
                                                 Optional.empty(),
                                                 Optional.empty(),
                                                 ImmutableList.of(),
-                                                ImmutableSet.of(),
+                                                Set.of(),
                                                 Optional.empty(),
-                                                ImmutableList.of("SUPPLIER_SK"),
+                                                ImmutableList.of("B_1"),
                                                 Optional.empty(),
-                                                tableScan("supplier", ImmutableMap.of("SUPPLIER_SK_1", "suppkey")),
-                                                tableScan("supplier", ImmutableMap.of("SUPPLIER_SK_2", "suppkey")))))));
+                                                tableScan("table_small_b", ImmutableMap.of("B_1_1", "b_1")),
+                                                tableScan("table_small_b", ImmutableMap.of("B_1_2", "b_1")))))));
     }
 
     @Test
-    public void testNotAddingPreferredTimeoutWithMultiplyingNode()
+    public void testWithMultiplyingNode()
     {
         assertPlan("""
-                        SELECT o.orderkey, o.custkey FROM orders o,lineitem l
-                        JOIN partsupp s ON l.partkey = s.partkey AND s.suppkey = l.suppkey
-                        WHERE o.orderkey BETWEEN l.orderkey AND l.partkey
+                        SELECT a.a_1, a.a_2 FROM table_small_a a,table_small_b b
+                        JOIN table_small_c c ON b.b_2 = c.c_1 AND c.c_2 = b.b_3
+                        WHERE a.a_1 BETWEEN b.b_1 AND b.b_2
                         """,
-                anyTree(filter("O_ORDERKEY BETWEEN L_ORDERKEY AND L_PARTKEY",
+                anyTree(filter("A_1 BETWEEN B_1 AND B_2",
                         join(INNER, builder -> builder
                                 .dynamicFilter(
                                         ImmutableList.of(
-                                                new PlanMatchPattern.DynamicFilterPattern("O_ORDERKEY", GREATER_THAN_OR_EQUAL, "L_ORDERKEY", false, OptionalLong.empty()),
-                                                new PlanMatchPattern.DynamicFilterPattern("O_ORDERKEY", LESS_THAN_OR_EQUAL, "L_PARTKEY", false, OptionalLong.empty())))
+                                                new PlanMatchPattern.DynamicFilterPattern("A_1", GREATER_THAN_OR_EQUAL, "B_1", false, OptionalLong.of(0L)),
+                                                new PlanMatchPattern.DynamicFilterPattern("A_1", LESS_THAN_OR_EQUAL, "B_2", false, OptionalLong.of(0L))))
                                 .left(
                                         filter(
                                                 TRUE_LITERAL,
-                                                tableScan("orders", ImmutableMap.of("O_ORDERKEY", "orderkey", "O_CUSTKEY", "custkey"))))
+                                                tableScan("table_small_a", ImmutableMap.of("A_1", "a_1", "A_2", "a_2"))))
                                 .right(
                                         exchange(
                                                 LOCAL,
                                                 join(INNER, innerJoinBuilder -> innerJoinBuilder
                                                         .equiCriteria(ImmutableList.of(
-                                                                equiJoinClause("L_PARTKEY", "P_PARTKEY"),
-                                                                equiJoinClause("L_SUPPKEY", "P_SUPPKEY")))
+                                                                equiJoinClause("B_2", "C_1"),
+                                                                equiJoinClause("B_3", "C_2")))
                                                         .dynamicFilter(
                                                                 ImmutableList.of(
-                                                                        new PlanMatchPattern.DynamicFilterPattern("L_PARTKEY", EQUAL, "P_PARTKEY", false, OptionalLong.of(waitForCascadingDynamicFiltersTimeout)),
-                                                                        new PlanMatchPattern.DynamicFilterPattern("L_SUPPKEY", EQUAL, "P_SUPPKEY", false, OptionalLong.of(waitForCascadingDynamicFiltersTimeout))))
+                                                                        new PlanMatchPattern.DynamicFilterPattern("B_2", EQUAL, "C_1", false, OptionalLong.of(waitForCascadingDynamicFiltersTimeout)),
+                                                                        new PlanMatchPattern.DynamicFilterPattern("B_3", EQUAL, "C_2", false, OptionalLong.of(waitForCascadingDynamicFiltersTimeout))))
                                                         .left(
                                                                 anyTree(
-                                                                        tableScan("lineitem", ImmutableMap.of("L_ORDERKEY", "orderkey", "L_PARTKEY", "partkey", "L_SUPPKEY", "suppkey"))))
+                                                                        tableScan("table_small_b", ImmutableMap.of("B_1", "b_1", "B_2", "b_2", "B_3", "b_3"))))
                                                         .right(
                                                                 exchange(
                                                                         LOCAL,
-                                                                        tableScan("partsupp", ImmutableMap.of("P_SUPPKEY", "suppkey", "P_PARTKEY", "partkey")))))))))));
+                                                                        tableScan("table_small_c", ImmutableMap.of("C_2", "c_2", "C_1", "c_1")))))))))));
     }
 
     @Test
-    public void testSemiJoinWithDynamicFilter()
+    public void testWithSemiJoinAndSmallRowCount()
     {
-        assertPlan("SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderkey = random(5))",
+        assertPlan(
+                "SELECT table_small_a.a_1 from table_small_a where table_small_a.a_1 IN (SELECT b_1 from table_small_b where b_1 = random(5))",
                 Session.builder(getQueryRunner().getDefaultSession())
                         .setSystemProperty(FILTERING_SEMI_JOIN_TO_INNER, "false")
                         .build(),
                 anyTree(
-                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT", true,
+                        semiJoin("A_1", "B_1", "SEMI_JOIN_RESULT", true,
                                 filter(TRUE_LITERAL,
-                                        tableScan("lineitem", ImmutableMap.of("LINE_ORDER_KEY", "orderkey")))
+                                        tableScan("table_small_a", ImmutableMap.of("A_1", "a_1")))
                                         .with(FilterNode.class, filterNode -> extractDynamicFilters(filterNode.getPredicate())
                                                 .getDynamicConjuncts().get(0).getPreferredTimeout()
                                                 .equals(OptionalLong.of(waitForCascadingDynamicFiltersTimeout))),
                                 node(ExchangeNode.class,
-                                        filter("ORDERS_ORDER_KEY = CAST(random(5) AS bigint)",
-                                                tableScan("orders", ImmutableMap.of("ORDERS_ORDER_KEY", "orderkey")))))));
+                                        filter("B_1 = random(5)",
+                                                tableScan("table_small_b", ImmutableMap.of("B_1", "b_1")))))));
     }
 }
