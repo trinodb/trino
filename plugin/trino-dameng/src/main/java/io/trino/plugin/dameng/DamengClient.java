@@ -124,7 +124,8 @@ public class DamengClient
     // 19 characters are used for zero-precision timestamps while others
     // require 19 + precision + 1 characters with the additional character
     // required for the decimal separator.
-    private static final int ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE = 19;
+//    private static final int ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE = 19;
+    private static final int ZERO_PRECISION_TIMESTAMP_COLUMN_SIZE = 39;
     // driver returns width of time types instead of precision, same as the above timestamp type.
     private static final int ZERO_PRECISION_TIME_COLUMN_SIZE = 8;
     private static final int VARCHAR2_MAX_BYTES = 4000;
