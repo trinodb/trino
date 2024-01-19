@@ -38,6 +38,7 @@ import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_91;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_104_RUNTIME_VERSION;
+import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_133_RUNTIME_VERSION;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
@@ -159,9 +160,11 @@ public class TestDeltaLakeInsertCompatibility
                                    "(3, TIMESTAMP '2023-03-04 01:02:03.999')," +
                                    "(4, TIMESTAMP '9999-12-31 23:59:59.999')");
 
+            // Databricks returns incorrect results before version 13.3
+            Optional<String> expected = databricksRuntimeVersion.map(version -> version.isAtLeast(DATABRICKS_133_RUNTIME_VERSION) ? "0001-01-01 00:00:00.000" : "0001-01-03 00:00:00.000");
             assertThat(onDelta().executeQuery("SELECT id, date_format(ts, \"yyyy-MM-dd HH:mm:ss.SSS\") FROM default." + tableName))
                     .containsOnly(
-                            row(1, databricksRuntimeVersion.isPresent() ? "0001-01-03 00:00:00.000" : "0001-01-01 00:00:00.000"), // Databricks returns incorrect results
+                            row(1, expected.orElse("0001-01-01 00:00:00.000")),
                             row(2, "2023-01-02 01:02:03.999"),
                             row(3, "2023-03-04 01:02:03.999"),
                             row(4, "9999-12-31 23:59:59.999"));
