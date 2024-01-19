@@ -348,14 +348,14 @@ public class HiveMetadata
     public static final String SKIP_HEADER_COUNT_KEY = SerdeConstants.HEADER_COUNT;
     public static final String SKIP_FOOTER_COUNT_KEY = SerdeConstants.FOOTER_COUNT;
 
-    private static final String TEXT_FIELD_SEPARATOR_KEY = SerdeConstants.FIELD_DELIM;
+    public static final String TEXT_FIELD_SEPARATOR_KEY = SerdeConstants.FIELD_DELIM;
     private static final String TEXT_FIELD_SEPARATOR_ESCAPE_KEY = SerdeConstants.ESCAPE_CHAR;
     private static final String NULL_FORMAT_KEY = SerdeConstants.SERIALIZATION_NULL_FORMAT;
 
     public static final String AVRO_SCHEMA_URL_KEY = "avro.schema.url";
     public static final String AVRO_SCHEMA_LITERAL_KEY = "avro.schema.literal";
 
-    private static final String CSV_SEPARATOR_KEY = "separatorChar";
+    public static final String CSV_SEPARATOR_KEY = "separatorChar";
     private static final String CSV_QUOTE_KEY = "quoteChar";
     private static final String CSV_ESCAPE_KEY = "escapeChar";
 

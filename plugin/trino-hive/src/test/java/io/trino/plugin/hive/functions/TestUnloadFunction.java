@@ -14,6 +14,7 @@
 package io.trino.plugin.hive.functions;
 
 import io.trino.Session;
+import io.trino.plugin.hive.HiveCompressionOption;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.testing.AbstractTestQueryFramework;
@@ -75,6 +76,137 @@ class TestUnloadFunction
 
         assertUpdate("CREATE TABLE " + tableName + "(LIKE tpch.tiny.region) WITH (external_location = '" + location + "', format = '" + format.name() + "')");
         assertThat(query("SELECT * FROM " + tableName)).matches("SELECT * FROM tpch.tiny.region");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @ParameterizedTest
+    @MethodSource("testUnloadCompressionSource")
+    void testUnloadCompression(HiveStorageFormat format, HiveCompressionOption compression)
+            throws Exception
+    {
+        String tableName = "test_unload_compression_" + randomNameSuffix();
+        String location = directory.resolve(tableName).toUri().toString();
+        Files.createDirectory(directory.resolve(tableName));
+
+        String unload = "SELECT * FROM TABLE(hive.system.unload(" +
+                "input => TABLE(VALUES (CAST('1' AS varchar), CAST('a' AS varchar)), (CAST('2' AS varchar), CAST('b' AS varchar))) t(id, data)," +
+                "location => '" + location + "'," +
+                "format => '" + format.name() + "'," +
+                "compression => '" + compression.name() + "'))";
+
+        if ((format == PARQUET || format == AVRO) && compression == HiveCompressionOption.LZ4) {
+            assertThatThrownBy(() -> query(unload))
+                    .hasMessageMatching(".*Unsupported codec: LZ4|Compression codec LZ4 not supported for AVRO");
+            abort();
+        }
+
+        MaterializedResult result = computeActual(unload);
+        assertThat(result.getColumnNames()).containsExactly("path", "count");
+        assertThat(result.getRowCount()).isEqualTo(1);
+
+        assertUpdate("CREATE TABLE " + tableName + "(id varchar, data varchar) WITH (external_location = '" + location + "', format = '" + format + "')");
+        assertQuery("SELECT * FROM " + tableName, "VALUES ('1', 'a'), ('2', 'b')");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    public static Object[][] testUnloadCompressionSource()
+    {
+        return cartesianProduct(
+                Stream.of(HiveStorageFormat.values())
+                        .filter(format -> format != REGEX)
+                        .collect(toDataProvider()),
+                Stream.of(HiveCompressionOption.values())
+                        .collect(toDataProvider()));
+    }
+
+    @Test
+    void testUnloadTextfileSeparator()
+            throws Exception
+    {
+        String tableName = "test_unload_textfile_separator_" + randomNameSuffix();
+        String location = directory.resolve(tableName).toUri().toString();
+        Files.createDirectory(directory.resolve(tableName));
+
+        MaterializedResult result = computeActual("SELECT * FROM TABLE(hive.system.unload(" +
+                "input => TABLE(tpch.tiny.region)," +
+                "location => '" + location + "'," +
+                "format => 'TEXTFILE'," +
+                "separator => '|'))");
+        assertThat(result.getColumnNames()).containsExactly("path", "count");
+        assertThat(result.getRowCount()).isEqualTo(1);
+
+        assertUpdate("CREATE TABLE " + tableName + "(LIKE tpch.tiny.region) WITH (external_location = '" + location + "', format = 'TEXTFILE', textfile_field_separator = '|')");
+        assertThat(query("SELECT * FROM " + tableName)).matches("SELECT * FROM tpch.tiny.region");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    void testUnloadTextfileCompressionAndSeparator()
+            throws Exception
+    {
+        String tableName = "test_unload_textfile_compression_separator_" + randomNameSuffix();
+        String location = directory.resolve(tableName).toUri().toString();
+        Files.createDirectory(directory.resolve(tableName));
+
+        MaterializedResult result = computeActual("SELECT * FROM TABLE(hive.system.unload(" +
+                "input => TABLE(tpch.tiny.region)," +
+                "location => '" + location + "'," +
+                "format => 'TEXTFILE'," +
+                "compression => 'GZIP'," +
+                "separator => '#'))");
+        assertThat(result.getColumnNames()).containsExactly("path", "count");
+        assertThat(result.getRowCount()).isEqualTo(1);
+
+        assertUpdate("CREATE TABLE " + tableName + "(LIKE tpch.tiny.region) WITH (external_location = '" + location + "', format = 'TEXTFILE', textfile_field_separator = '#')");
+        assertThat(query("SELECT * FROM " + tableName)).matches("SELECT * FROM tpch.tiny.region");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    void testUnloadCsvSeparator()
+            throws Exception
+    {
+        String tableName = "test_unload_csv_separator_" + randomNameSuffix();
+        String location = directory.resolve(tableName).toUri().toString();
+        Files.createDirectory(directory.resolve(tableName));
+
+        MaterializedResult result = computeActual("SELECT * FROM TABLE(hive.system.unload(" +
+                "input => TABLE(VALUES (CAST('1' AS varchar), CAST('a' AS varchar)), (CAST('2' AS varchar), CAST('b' AS varchar))) t(id, data)," +
+                "location => '" + location + "'," +
+                "format => 'CSV'," +
+                "separator => '#'))");
+        assertThat(result.getColumnNames()).containsExactly("path", "count");
+        assertThat(result.getRowCount()).isEqualTo(1);
+
+        assertUpdate("CREATE TABLE " + tableName + "(id varchar, data varchar) WITH (external_location = '" + location + "', format = 'CSV', csv_separator = '#')");
+        assertQuery("SELECT * FROM " + tableName, "VALUES ('1', 'a'), ('2', 'b')");
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    void testUnloadCsvCompressionAndSeparator()
+            throws Exception
+    {
+        String tableName = "test_unload_csv_compression_separator_" + randomNameSuffix();
+        String location = directory.resolve(tableName).toUri().toString();
+        Files.createDirectory(directory.resolve(tableName));
+
+        MaterializedResult result = computeActual("SELECT * FROM TABLE(hive.system.unload(" +
+                "input => TABLE(VALUES (CAST('1' AS varchar), CAST('a' AS varchar)), (CAST('2' AS varchar), CAST('b' AS varchar))) t(id, data)," +
+                "location => '" + location + "'," +
+                "format => 'CSV'," +
+                "compression => 'GZIP'," +
+                "separator => '|'))");
+        assertThat(result.getColumnNames()).containsExactly("path", "count");
+        assertThat(result.getRowCount()).isEqualTo(1);
+
+        assertUpdate("CREATE TABLE " + tableName + "(id varchar, data varchar) WITH (external_location = '" + location + "', format = 'CSV', csv_separator = '|')");
+        assertQuery("SELECT * FROM " + tableName, "VALUES ('1', 'a'), ('2', 'b')");
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -781,6 +913,9 @@ class TestUnloadFunction
         assertQueryFails(
                 "SELECT * FROM TABLE(hive.system.unload(input => TABLE(SELECT 1 x), location => '" + location + "', format => NULL))",
                 "format cannot be null");
+        assertQueryFails(
+                "SELECT * FROM TABLE(hive.system.unload(input => TABLE(SELECT 1 x), location => '" + location + "', format => 'ORC', compression => null))",
+                "compression cannot be null");
 
         // invalid format
         assertQueryFails(
@@ -794,5 +929,15 @@ class TestUnloadFunction
         assertQueryFails(
                 "SELECT * FROM TABLE(hive.system.unload(input => TABLE(SELECT 1 x, 2 y) PARTITION BY (x, y), location => '" + location + "', format => 'ORC'))",
                 "INPUT contains only partition columns");
+    }
+
+    @ParameterizedTest
+    @EnumSource(mode = Mode.EXCLUDE, names = {"TEXTFILE", "CSV", "REGEX"})
+    void testUnloadInvalidSeparatorArgument(HiveStorageFormat format)
+    {
+        String location = directory.resolve("test_missing_argument").toUri().toString();
+        assertQueryFails(
+                "SELECT * FROM TABLE(hive.system.unload(input => TABLE(SELECT 1 x), location => '" + location + "', format => '" + format + "', separator => '\t'))",
+                "Cannot specify separator for storage format: " + format);
     }
 }

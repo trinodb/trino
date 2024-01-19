@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.filesystem.Location;
 import io.trino.plugin.hive.FileWriter;
+import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.HiveFileWriterFactory;
 import io.trino.plugin.hive.HiveStorageFormat;
 import io.trino.plugin.hive.HiveWriter;
@@ -37,7 +38,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 
-import static io.trino.plugin.hive.HiveCompressionCodec.NONE;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.trino.plugin.hive.HiveWriterFactory.getFileExtension;
 import static io.trino.plugin.hive.WriterKind.INSERT;
@@ -55,6 +55,7 @@ public class UnloadWriterFactory
     private final HiveWriterStats hiveWriterStats;
     private final Location location;
     private final HiveStorageFormat format;
+    private final HiveCompressionCodec compression;
     private final List<String> columnNames;
     private final Map<String, String> schema;
     private final List<String> partitionColumnNames;
@@ -67,6 +68,7 @@ public class UnloadWriterFactory
             HiveWriterStats hiveWriterStats,
             Location location,
             HiveStorageFormat format,
+            HiveCompressionCodec compression,
             List<String> columnNames,
             Map<String, String> schema,
             List<String> partitionColumnNames,
@@ -78,6 +80,7 @@ public class UnloadWriterFactory
         this.hiveWriterStats = requireNonNull(hiveWriterStats, "hiveWriterStats is null");
         this.location = requireNonNull(location, "location is null");
         this.format = requireNonNull(format, "format is null");
+        this.compression = requireNonNull(compression, "compression is null");
         this.columnNames = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
         this.schema = ImmutableMap.copyOf(requireNonNull(schema, "schema is null"));
         this.partitionColumnNames = ImmutableList.copyOf(requireNonNull(partitionColumnNames, "partitionColumnNames is null"));
@@ -100,14 +103,14 @@ public class UnloadWriterFactory
             partitionName = Optional.empty();
         }
 
-        String fileName = session.getQueryId() + "_" + UUID.randomUUID() + getFileExtension(NONE, fromHiveStorageFormat(format));
+        String fileName = session.getQueryId() + "_" + UUID.randomUUID() + getFileExtension(compression, fromHiveStorageFormat(format));
         FileWriter hiveFileWriter = null;
         for (HiveFileWriterFactory fileWriterFactory : fileWriterFactories) {
             Optional<FileWriter> fileWriter = fileWriterFactory.createFileWriter(
                     location.appendPath(fileName),
                     columnNames,
                     fromHiveStorageFormat(format),
-                    NONE,
+                    compression,
                     schema,
                     session,
                     OptionalInt.empty(),

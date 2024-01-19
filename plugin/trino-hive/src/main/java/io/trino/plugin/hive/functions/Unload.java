@@ -26,6 +26,8 @@ import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.base.classloader.ClassLoaderSafeConnectorTableFunction;
 import io.trino.plugin.hive.HiveColumnHandle;
+import io.trino.plugin.hive.HiveCompressionCodec;
+import io.trino.plugin.hive.HiveCompressionOption;
 import io.trino.plugin.hive.HiveFileWriterFactory;
 import io.trino.plugin.hive.HivePageSink;
 import io.trino.plugin.hive.HiveStorageFormat;
@@ -76,13 +78,17 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.plugin.base.util.Functions.checkFunctionArgument;
+import static io.trino.plugin.hive.HiveCompressionCodecs.selectCompressionCodec;
 import static io.trino.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
+import static io.trino.plugin.hive.HiveMetadata.CSV_SEPARATOR_KEY;
+import static io.trino.plugin.hive.HiveMetadata.TEXT_FIELD_SEPARATOR_KEY;
 import static io.trino.plugin.hive.HiveMetadata.verifyHiveColumnName;
 import static io.trino.plugin.hive.HiveType.toHiveType;
 import static io.trino.plugin.hive.util.HiveWriteUtils.directoryExists;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMNS;
 import static io.trino.plugin.hive.util.SerdeConstants.LIST_COLUMN_TYPES;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.trino.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.connector.RetryMode.NO_RETRIES;
 import static io.trino.spi.function.table.Descriptor.descriptor;
@@ -127,6 +133,8 @@ public class Unload
         private static final String TABLE_ARGUMENT_NAME = "INPUT";
         private static final String LOCATION_ARGUMENT_NAME = "LOCATION";
         private static final String FORMAT_ARGUMENT_NAME = "FORMAT";
+        private static final String COMPRESSION_ARGUMENT_NAME = "COMPRESSION";
+        private static final String SEPARATOR_ARGUMENT_NAME = "SEPARATOR";
 
         private final LocationAccessControl locationAccessControl;
         private final TrinoFileSystemFactory fileSystemFactory;
@@ -148,6 +156,16 @@ public class Unload
                             ScalarArgumentSpecification.builder()
                                     .name(FORMAT_ARGUMENT_NAME)
                                     .type(VARCHAR)
+                                    .build(),
+                            ScalarArgumentSpecification.builder()
+                                    .name(COMPRESSION_ARGUMENT_NAME)
+                                    .type(VARCHAR)
+                                    .defaultValue(utf8Slice("NONE"))
+                                    .build(),
+                            ScalarArgumentSpecification.builder()
+                                    .name(SEPARATOR_ARGUMENT_NAME)
+                                    .type(VARCHAR)
+                                    .defaultValue(null)
                                     .build()),
                     new ReturnTypeSpecification.DescribedTable(descriptor(ImmutableList.of("path", "count"), ImmutableList.of(VARCHAR, BIGINT))));
             this.locationAccessControl = requireNonNull(locationAccessControl, "locationAccessControl is null");
@@ -191,6 +209,16 @@ public class Unload
             if (format == HiveStorageFormat.REGEX) {
                 throw new TrinoException(NOT_SUPPORTED, "REGEX format is read-only");
             }
+
+            ScalarArgument compressionArgument = (ScalarArgument) arguments.get(COMPRESSION_ARGUMENT_NAME);
+            checkFunctionArgument(compressionArgument.getValue() != null, "compression cannot be null"); // the default is NONE
+            String compressionValue = ((Slice) compressionArgument.getValue()).toStringUtf8();
+            HiveCompressionOption compressionOption = Enums.getIfPresent(HiveCompressionOption.class, compressionValue.toUpperCase(ENGLISH)).toJavaUtil()
+                    .orElseThrow(() -> new TrinoException(NOT_SUPPORTED, compressionValue + " compression isn't supported"));
+            HiveCompressionCodec compression = selectCompressionCodec(compressionOption, format);
+
+            ScalarArgument separatorArgument = (ScalarArgument) arguments.get(SEPARATOR_ARGUMENT_NAME);
+            Slice separator = (Slice) separatorArgument.getValue();
 
             List<RowType.Field> inputSchema = tableArgument.getRowType().getFields();
             List<String> partitionColumns = tableArgument.getPartitionBy();
@@ -239,13 +267,20 @@ public class Unload
                         Optional.empty()));
             }
 
-            Map<String, String> schema = ImmutableMap.<String, String>builder()
+            ImmutableMap.Builder<String, String> schemaBuilder = ImmutableMap.<String, String>builder()
                     .put(LIST_COLUMNS, String.join(",", dataColumnNames.build()))
                     .put(LIST_COLUMN_TYPES, dataColumnTypes.build().stream()
                             .map(HiveType::getHiveTypeName)
                             .map(HiveTypeName::toString)
-                            .collect(joining(":")))
-                    .buildOrThrow();
+                            .collect(joining(":")));
+            if (separator != null) {
+                switch (format) {
+                    case TEXTFILE -> schemaBuilder.put(TEXT_FIELD_SEPARATOR_KEY, separator.toStringUtf8());
+                    case CSV -> schemaBuilder.put(CSV_SEPARATOR_KEY, separator.toStringUtf8());
+                    default -> throw new TrinoException(INVALID_TABLE_PROPERTY, "Cannot specify separator for storage format: " + format);
+                }
+            }
+            Map<String, String> schema = schemaBuilder.buildOrThrow();
 
             TrinoFileSystem fileSystem = fileSystemFactory.create(session);
             if (format == HiveStorageFormat.AVRO) {
@@ -279,7 +314,8 @@ public class Unload
                     partitionColumnTypes.build(),
                     schema,
                     location.toString(),
-                    format);
+                    format,
+                    compression);
 
             return TableFunctionAnalysis.builder()
                     .requiredColumns(TABLE_ARGUMENT_NAME, requiredColumns)
@@ -295,7 +331,8 @@ public class Unload
             List<Type> partitionColumnTypes,
             Map<String, String> schema,
             String location,
-            HiveStorageFormat format)
+            HiveStorageFormat format,
+            HiveCompressionCodec compression)
             implements ConnectorTableFunctionHandle
     {
         public UnloadFunctionHandle
@@ -308,6 +345,7 @@ public class Unload
             schema = ImmutableMap.copyOf(requireNonNull(schema, "schema is null"));
             requireNonNull(location, "location is null");
             requireNonNull(format, "format is null");
+            requireNonNull(compression, "compression is null");
         }
     }
 
@@ -336,6 +374,7 @@ public class Unload
                         hiveWriterStats,
                         location,
                         unloadFunctionHandle.format,
+                        unloadFunctionHandle.compression,
                         unloadFunctionHandle.dataColumnNames,
                         unloadFunctionHandle.schema,
                         unloadFunctionHandle.partitionColumnNames,
