@@ -15,8 +15,8 @@ env:
   # allow overriding Maven command
   MAVEN: ./mvnw
   # maven.wagon.rto is in millis, defaults to 30m
-  MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
-  MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
+  MAVEN_OPTS: "-Xmx1G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
+  MAVEN_INSTALL_OPTS: "-Xmx11G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
   MAVEN_FAST_INSTALL: "-B --strict-checksums -V --quiet -T 1C -DskipTests -Dair.check.skip-all"
   MAVEN_TEST: "-B --strict-checksums -Dair.check.skip-all --fail-at-end"
   RETRY: .github/bin/retry
