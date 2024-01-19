@@ -378,8 +378,7 @@ public class RowBlockBuilder
             return;
         }
 
-        // todo add lazy initialize
-        int newSize = BlockUtil.calculateNewArraySize(rowIsNull.length);
+        int newSize = BlockUtil.calculateNewArraySize(rowIsNull.length, capacity);
         rowIsNull = Arrays.copyOf(rowIsNull, newSize);
     }
 
