@@ -547,7 +547,7 @@ public class TestPushJoinIntoTableScan
                             Symbol columnA2Symbol = p.symbol(COLUMN_A2);
                             Symbol columnB1Symbol = p.symbol(COLUMN_B1);
 
-                            TupleDomain<ColumnHandle> leftContraint =
+                            TupleDomain<ColumnHandle> leftConstraint =
                                     TupleDomain.fromFixedValues(ImmutableMap.of(COLUMN_A2_HANDLE, NullableValue.of(BIGINT, 44L)));
                             TupleDomain<ColumnHandle> rightConstraint =
                                     TupleDomain.fromFixedValues(ImmutableMap.of(COLUMN_B1_HANDLE, NullableValue.of(BIGINT, 45L)));
@@ -558,7 +558,7 @@ public class TestPushJoinIntoTableScan
                                     ImmutableMap.of(
                                             columnA1Symbol, COLUMN_A1_HANDLE,
                                             columnA2Symbol, COLUMN_A2_HANDLE),
-                                    leftContraint);
+                                    leftConstraint);
                             TableScanNode right = p.tableScan(
                                     ruleTester.getCurrentCatalogTableHandle(SCHEMA, TABLE_B),
                                     ImmutableList.of(columnB1Symbol),
