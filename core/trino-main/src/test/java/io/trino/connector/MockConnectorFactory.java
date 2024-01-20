@@ -43,6 +43,7 @@ import io.trino.spi.connector.JoinCondition;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RelationColumnsMetadata;
+import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
 import io.trino.spi.connector.SortItem;
@@ -144,6 +145,7 @@ public class MockConnectorFactory
     private final Optional<ConnectorAccessControl> accessControl;
     private final OptionalInt maxWriterTasks;
     private final BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute;
+    private final RowChangeParadigm paradigm;
 
     private final WriterScalingOptions writerScalingOptions;
 
@@ -197,6 +199,7 @@ public class MockConnectorFactory
             Function<ConnectorTableFunctionHandle, ConnectorSplitSource> tableFunctionSplitsSources,
             OptionalInt maxWriterTasks,
             BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute,
+            RowChangeParadigm paradigm,
             WriterScalingOptions writerScalingOptions)
     {
         this.name = requireNonNull(name, "name is null");
@@ -249,6 +252,7 @@ public class MockConnectorFactory
         this.maxWriterTasks = maxWriterTasks;
         this.getLayoutForTableExecute = requireNonNull(getLayoutForTableExecute, "getLayoutForTableExecute is null");
         this.writerScalingOptions = requireNonNull(writerScalingOptions, "writerScalingOptions is null");
+        this.paradigm = requireNonNull(paradigm, "paradigm is null");
     }
 
     @Override
@@ -309,6 +313,7 @@ public class MockConnectorFactory
                 tableFunctionSplitsSources,
                 maxWriterTasks,
                 getLayoutForTableExecute,
+                paradigm,
                 writerScalingOptions);
     }
 
@@ -463,6 +468,7 @@ public class MockConnectorFactory
         private OptionalInt maxWriterTasks = OptionalInt.empty();
         private BiFunction<ConnectorSession, ConnectorTableExecuteHandle, Optional<ConnectorTableLayout>> getLayoutForTableExecute = (session, handle) -> Optional.empty();
         private WriterScalingOptions writerScalingOptions = WriterScalingOptions.DISABLED;
+        private RowChangeParadigm paradigm = RowChangeParadigm.DELETE_ROW_AND_INSERT_ROW;
 
         private Builder() {}
 
@@ -810,6 +816,12 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withRowChangeParadigm(RowChangeParadigm paradigm)
+        {
+            this.paradigm = paradigm;
+            return this;
+        }
+
         public MockConnectorFactory build()
         {
             Optional<ConnectorAccessControl> accessControl = Optional.empty();
@@ -866,6 +878,7 @@ public class MockConnectorFactory
                     tableFunctionSplitsSources,
                     maxWriterTasks,
                     getLayoutForTableExecute,
+                    paradigm,
                     writerScalingOptions);
         }
 

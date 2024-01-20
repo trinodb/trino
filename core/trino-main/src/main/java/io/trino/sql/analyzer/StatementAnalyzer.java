@@ -70,6 +70,7 @@ import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.MaterializedViewFreshness;
 import io.trino.spi.connector.PointerType;
+import io.trino.spi.connector.RowChangeParadigm;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.function.CatalogSchemaFunctionName;
@@ -3638,13 +3639,19 @@ class StatementAnalyzer
                     fieldIndexes.put(name, fieldIndex);
                 });
             }
+            RowChangeParadigm paradigm = metadata.getRowChangeParadigm(session, handle);
             Map<ColumnHandle, Integer> columnHandleFieldNumbers = columnHandleFieldNumbersBuilder.buildOrThrow();
-
+            Set<ColumnHandle> updatedColumnsSet = updatedColumns.stream().flatMap(List::stream).collect(Collectors.toSet());
             List<ColumnSchema> dataColumnSchemas = tableSchema.getColumns().stream()
                     .filter(column -> !column.isHidden())
                     .collect(toImmutableList());
+            if (paradigm == RowChangeParadigm.UPDATE_PARTIAL_COLUMNS) {
+                dataColumnSchemas = dataColumnSchemas
+                        .stream()
+                        .filter(column -> updatedColumnsSet.contains(allColumnHandles.get(column.getName())))
+                        .collect(Collectors.toList());
+            }
             Optional<TableLayout> insertLayout = metadata.getInsertLayout(session, handle);
-
             ImmutableList.Builder<ColumnHandle> dataColumnHandlesBuilder = ImmutableList.builder();
             ImmutableSet.Builder<String> dataColumnNamesBuilder = ImmutableSet.builder();
             ImmutableList.Builder<ColumnHandle> redistributionColumnHandlesBuilder = ImmutableList.builder();

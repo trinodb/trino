@@ -1199,8 +1199,14 @@ public class ClassLoaderSafeConnectorMetadata
     @Override
     public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
     {
+        return this.beginMerge(session, tableHandle, retryMode, List.of());
+    }
+
+    @Override
+    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode, List<ColumnHandle> updatedColumns)
+    {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.beginMerge(session, tableHandle, retryMode);
+            return delegate.beginMerge(session, tableHandle, retryMode, updatedColumns);
         }
     }
 

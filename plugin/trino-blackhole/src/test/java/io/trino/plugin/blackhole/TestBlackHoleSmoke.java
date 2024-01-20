@@ -255,6 +255,26 @@ public class TestBlackHoleSmoke
     }
 
     @Test
+    public void testMerge()
+    {
+        createTable("t");
+        createTable("t2");
+        MaterializedResult rows;
+        rows = queryRunner.execute(
+                "MERGE INTO t t USING t2 s ON (t.x = s.x) " +
+                        "WHEN MATCHED AND t.x = 30 " +
+                        "THEN UPDATE SET y = 3 " +
+                        "WHEN NOT MATCHED " +
+                        "THEN " +
+                        "INSERT VALUES ( " +
+                        "100, " +
+                        "200, " +
+                        "300) ");
+        assertThatQueryDoesNotReturnValues("DROP TABLE IF EXISTS t");
+        assertThatQueryDoesNotReturnValues("DROP TABLE IF EXISTS t2");
+    }
+
+    @Test
     public void testInsertAllTypes()
     {
         createBlackholeAllTypesTable();
@@ -326,6 +346,20 @@ public class TestBlackHoleSmoke
                                 ", _varbinary VARBINARY" +
                                 ", _decimal_short DECIMAL(3,2)" +
                                 ", _decimal_long DECIMAL(30,10)" +
+                                ") WITH ( %s = 1, %s = 1, %s = 1 ) ",
+                        ROWS_PER_PAGE_PROPERTY,
+                        PAGES_PER_SPLIT_PROPERTY,
+                        SPLIT_COUNT_PROPERTY));
+    }
+
+    private void createTable(String tableName)
+    {
+        assertThatQueryDoesNotReturnValues(
+                format("CREATE TABLE " + tableName +
+                                " (" +
+                                "  x INTEGER" +
+                                ", y INTEGER" +
+                                ", z INTEGER" +
                                 ") WITH ( %s = 1, %s = 1, %s = 1 ) ",
                         ROWS_PER_PAGE_PROPERTY,
                         PAGES_PER_SPLIT_PROPERTY,
