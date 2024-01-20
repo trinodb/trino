@@ -1,0 +1,73 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+.vis.timeline .item {
+    padding: 0px;
+}
+.vis.timeline .labelset .vlabel .inner {
+    padding: 0px;
+}
+.vis.timeline .item.range {
+    height: 3px;
+}
+.vis.timeline .red {
+    background-color: #F2DEDE;
+    border-color: #F2AEAE;
+}
+.vis.timeline .green {
+    background-color: #DFF0DB;
+    border-color: #B8F0AA;
+}
+.vis.timeline .blue {
+    background-color: #E3E9FC;
+    border-color: #B0C3FC;
+}
+.vis.timeline .orange {
+    background-color: #FFA500;
+    border-color: #B0C3FC;
+}
+#legend {
+    padding: 10px 40px
+}
+#legend .bar {
+    border-style: solid;
+    border-width: 1px;
+    width: 200px;
+    height: 4px;
+}
+#legend .text {
+    margin-left: -20px;
+}
+#legend .red {
+    background-color: #F2DEDE;
+    border-color: #F2AEAE;
+}
+#legend .green {
+    background-color: #DFF0DB;
+    border-color: #B8F0AA;
+}
+#legend .blue {
+    background-color: #E3E9FC;
+    border-color: #B0C3FC;
+}
+#legend .orange {
+    background-color: #FFA500;
+    border-color: #B0C3FC;
+}
+#legend .empty {
+    border-style: none;
+}
+#legend>div {
+    display: inline-block;
+}
