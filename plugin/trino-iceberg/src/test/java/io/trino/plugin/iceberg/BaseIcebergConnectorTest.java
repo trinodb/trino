@@ -32,6 +32,7 @@ import io.trino.operator.OperatorStats;
 import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
+import io.trino.plugin.iceberg.fileio.ForwardingOutputFile;
 import io.trino.server.DynamicFilterService;
 import io.trino.spi.QueryId;
 import io.trino.spi.connector.ColumnHandle;
@@ -152,6 +153,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
+import static org.apache.iceberg.TableMetadata.newTableMetadata;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.offset;
@@ -4712,6 +4714,36 @@ public abstract class BaseIcebergConnectorTest
                 .row("write.format.default", format.name())
                 .row("write.parquet.compression-codec", "zstd").build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testGetIcebergTableWithLegacyOrcBloomFilterProperties()
+            throws Exception
+    {
+        String tableName = "test_get_table_with_legacy_orc_bloom_filter_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 x, 'INDIA' y", 1);
+
+        String tableLocation = getTableLocation(tableName);
+        String metadataLocation = getLatestMetadataLocation(fileSystem, tableLocation);
+
+        TableMetadata tableMetadata = TableMetadataParser.read(new ForwardingFileIo(fileSystem), metadataLocation);
+        ImmutableMap<String, String> newProperties = ImmutableMap.<String, String>builder()
+                .putAll(tableMetadata.properties())
+                .put("orc.bloom.filter.columns", "x,y") // legacy incorrect property
+                .put("orc.bloom.filter.fpp", "0.2") // legacy incorrect property
+                .buildOrThrow();
+        TableMetadata newTableMetadata = newTableMetadata(
+                tableMetadata.schema(),
+                tableMetadata.spec(),
+                tableMetadata.sortOrder(),
+                tableMetadata.location(),
+                newProperties);
+        TableMetadataParser.overwrite(newTableMetadata, new ForwardingOutputFile(fileSystem, Location.of(metadataLocation)));
+
+        MaterializedResult actualCreateTable = computeActual("SHOW CREATE TABLE " + tableName);
+        assertThat(actualCreateTable).isNotNull();
+        assertThat(actualCreateTable.getMaterializedRows().getFirst().toString())
+                .contains(ImmutableList.of("orc_bloom_filter_columns", "orc_bloom_filter_fpp"));
     }
 
     protected abstract boolean supportsIcebergFileStatistics(String typeName);
