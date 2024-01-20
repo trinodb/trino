@@ -93,26 +93,10 @@
             <button id="submit" type="submit" class="btn btn-primary btn-block">Log In</button>
         </div>
     </form>
+    <div class="hidden" id="hide-password">false</div> <!-- This value will be replaced -->
 </div>
 
-<script>
-    var hidePassword = false; // This value will be replaced
-
-    var redirectPath = window.location.search.substring(1);
-    if (redirectPath.indexOf('&') !== -1) {
-        redirectPath = redirectPath.substring(0, redirectPath.indexOf('&'));
-    }
-    $("#redirectPath").val(redirectPath);
-
-    if (hidePassword) {
-        $("#password")
-                .prop('required', false)
-                .prop('placeholder', 'Password not allowed')
-                .prop('readonly', true);
-    }
-    $("#login").show();
-    $("#username").focus().val("");
-</script>
+<script type="text/javascript" src="assets/js/login.js"></script>
 <!-- Fonts -->
 <link href="https://fonts.googleapis.com/css?family=Roboto:400,500,700" rel="stylesheet">
 
