@@ -48,7 +48,7 @@ import static java.util.Objects.requireNonNull;
 @Path("")
 public class LoginResource
 {
-    private static final String REPLACEMENT_TEXT = "var hidePassword = false; // This value will be replaced";
+    private static final String REPLACEMENT_TEXT = "<div class=\"hidden\" id=\"hide-password\">false</div> <!-- This value will be replaced -->";
     private final FormWebUiAuthenticationFilter formWebUiAuthenticationManager;
     private final String loginHtml;
 
@@ -67,7 +67,7 @@ public class LoginResource
     public Response getFile(@Context SecurityContext securityContext)
     {
         boolean passwordAllowed = formWebUiAuthenticationManager.isPasswordAllowed(securityContext.isSecure());
-        return Response.ok(loginHtml.replace(REPLACEMENT_TEXT, "var hidePassword = " + !passwordAllowed + ";"))
+        return Response.ok(loginHtml.replace(REPLACEMENT_TEXT, "<div class=\"hidden\" id=\"hide-password\">" + !passwordAllowed + "</div>"))
                 .type(TEXT_HTML)
                 .build();
     }
