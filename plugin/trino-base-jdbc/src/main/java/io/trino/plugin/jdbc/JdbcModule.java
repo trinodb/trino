@@ -15,10 +15,13 @@ package io.trino.plugin.jdbc;
 
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.inject.Binder;
+import com.google.inject.Inject;
 import com.google.inject.Key;
 import com.google.inject.Provider;
 import com.google.inject.Scopes;
 import com.google.inject.multibindings.Multibinder;
+import com.google.inject.name.Named;
+import com.google.inject.name.Names;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.mapping.IdentifierMappingModule;
@@ -34,6 +37,7 @@ import io.trino.spi.procedure.Procedure;
 import jakarta.annotation.PreDestroy;
 
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
@@ -44,6 +48,8 @@ import static org.weakref.jmx.guice.ExportBinder.newExporter;
 public class JdbcModule
         extends AbstractConfigurationAwareModule
 {
+    private static final Key<Boolean> useVirtualThreads = Key.get(boolean.class, Names.named("useVirtualThreads"));
+
     @Override
     public void setup(Binder binder)
     {
@@ -54,6 +60,8 @@ public class JdbcModule
 
         newOptionalBinder(binder, ConnectorAccessControl.class);
         newOptionalBinder(binder, QueryBuilder.class).setDefault().to(DefaultQueryBuilder.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, useVirtualThreads).setDefault()
+                .toInstance(false);
 
         procedureBinder(binder);
         tablePropertiesProviderBinder(binder);
@@ -99,7 +107,7 @@ public class JdbcModule
 
         newOptionalBinder(binder, Key.get(ExecutorService.class, ForRecordCursor.class))
                 .setDefault()
-                .toProvider(MoreExecutors::newDirectExecutorService)
+                .toProvider(ExecutorServiceProvider.class)
                 .in(Scopes.SINGLETON);
 
         newSetBinder(binder, JdbcQueryEventListener.class);
@@ -133,6 +141,33 @@ public class JdbcModule
     public static void bindTablePropertiesProvider(Binder binder, Class<? extends TablePropertiesProvider> type)
     {
         tablePropertiesProviderBinder(binder).addBinding().to(type).in(Scopes.SINGLETON);
+    }
+
+    public static void enableVirtualThreads(Binder binder)
+    {
+        newOptionalBinder(binder, useVirtualThreads).setBinding()
+                .toInstance(true);
+    }
+
+    private static class ExecutorServiceProvider
+            implements Provider<ExecutorService>
+    {
+        private final boolean useVirtualThreads;
+
+        @Inject
+        public ExecutorServiceProvider(@Named("useVirtualThreads") boolean useVirtualThreads)
+        {
+            this.useVirtualThreads = useVirtualThreads;
+        }
+
+        @Override
+        public ExecutorService get()
+        {
+            if (useVirtualThreads) {
+                return Executors.newVirtualThreadPerTaskExecutor();
+            }
+            return MoreExecutors.newDirectExecutorService();
+        }
     }
 
     @PreDestroy
