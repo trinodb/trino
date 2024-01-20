@@ -139,6 +139,7 @@ import static io.trino.testing.assertions.Assert.assertEventually;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.lang.String.format;
 import static java.lang.String.join;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.ZoneOffset.UTC;
 import static java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 import static java.util.Collections.nCopies;
@@ -151,6 +152,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
+import static org.apache.iceberg.TableMetadata.newTableMetadata;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.offset;
@@ -4712,6 +4714,37 @@ public abstract class BaseIcebergConnectorTest
                 .row("write.format.default", format.name())
                 .row("write.parquet.compression-codec", "zstd").build();
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
+    public void testGetIcebergTableWithLegacyOrcBloomFilterProperties()
+            throws IOException
+    {
+        String tableName = "test_get_table_with_legacy_orc_bloom_filter_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " AS SELECT 1 x, 'INDIA' y", 1);
+
+        String tableLocation = getTableLocation(tableName);
+        String metadataLocation = getLatestMetadataLocation(fileSystem, tableLocation);
+
+        TableMetadata tableMetadata = TableMetadataParser.read(new ForwardingFileIo(fileSystem), metadataLocation);
+        ImmutableMap<String, String> newProperties = ImmutableMap.<String, String>builder()
+                .putAll(tableMetadata.properties())
+                .put("orc.bloom.filter.columns", "x,y") // legacy incorrect property
+                .put("orc.bloom.filter.fpp", "0.2") // legacy incorrect property
+                .buildOrThrow();
+        TableMetadata newTableMetadata = newTableMetadata(
+                tableMetadata.schema(),
+                tableMetadata.spec(),
+                tableMetadata.sortOrder(),
+                tableMetadata.location(),
+                newProperties);
+        byte[] metadataJson = TableMetadataParser.toJson(newTableMetadata).getBytes(UTF_8);
+        fileSystem.newOutputFile(Location.of(metadataLocation)).createOrOverwrite(metadataJson);
+
+        MaterializedResult actualCreateTable = computeActual("SHOW CREATE TABLE " + tableName);
+        assertThat(actualCreateTable).isNotNull();
+        assertThat(actualCreateTable.getMaterializedRows().getFirst().toString())
+                .contains(ImmutableList.of("orc_bloom_filter_columns", "orc_bloom_filter_fpp"));
     }
 
     protected abstract boolean supportsIcebergFileStatistics(String typeName);
