@@ -58,8 +58,6 @@ import static io.trino.plugin.hive.HiveMetadata.TRINO_VERSION_NAME;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_METADATA;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITER_OPEN_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITE_VALIDATION_FAILED;
-import static io.trino.plugin.iceberg.IcebergMetadata.ORC_BLOOM_FILTER_COLUMNS_KEY;
-import static io.trino.plugin.iceberg.IcebergMetadata.ORC_BLOOM_FILTER_FPP_KEY;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getCompressionCodec;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcStringStatisticsLimit;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getOrcWriterMaxDictionaryMemory;
@@ -72,12 +70,13 @@ import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterB
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterPageSize;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.getParquetWriterPageValueCount;
 import static io.trino.plugin.iceberg.IcebergSessionProperties.isOrcWriterValidate;
-import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_FPP;
+import static io.trino.plugin.iceberg.IcebergTableProperties.ORC_BLOOM_FILTER_FPP_PROPERTY;
+import static io.trino.plugin.iceberg.IcebergUtil.getOrcBloomFilterColumns;
+import static io.trino.plugin.iceberg.IcebergUtil.getOrcBloomFilterFpp;
 import static io.trino.plugin.iceberg.TypeConverter.toTrinoType;
 import static io.trino.plugin.iceberg.util.OrcTypeConverter.toOrcType;
 import static io.trino.plugin.iceberg.util.PrimitiveTypeMapBuilder.makeTypeMap;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static java.lang.Double.parseDouble;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.TableProperties.DEFAULT_WRITE_METRICS_MODE;
@@ -270,18 +269,18 @@ public class IcebergFileWriterFactory
 
     public static OrcWriterOptions withBloomFilterOptions(OrcWriterOptions orcWriterOptions, Map<String, String> storageProperties)
     {
-        if (storageProperties.containsKey(ORC_BLOOM_FILTER_COLUMNS_KEY)) {
+        Optional<String> orcBloomFilterColumns = getOrcBloomFilterColumns(storageProperties);
+        Optional<String> orcBloomFilterFpp = getOrcBloomFilterFpp(storageProperties);
+        if (orcBloomFilterColumns.isPresent()) {
             try {
-                double fpp = storageProperties.containsKey(ORC_BLOOM_FILTER_FPP_KEY)
-                        ? parseDouble(storageProperties.get(ORC_BLOOM_FILTER_FPP_KEY))
-                        : orcWriterOptions.getBloomFilterFpp();
+                double fpp = orcBloomFilterFpp.map(Double::parseDouble).orElseGet(orcWriterOptions::getBloomFilterFpp);
                 return OrcWriterOptions.builderFrom(orcWriterOptions)
-                        .setBloomFilterColumns(ImmutableSet.copyOf(COLUMN_NAMES_SPLITTER.splitToList(storageProperties.get(ORC_BLOOM_FILTER_COLUMNS_KEY))))
+                        .setBloomFilterColumns(ImmutableSet.copyOf(COLUMN_NAMES_SPLITTER.splitToList(orcBloomFilterColumns.get())))
                         .setBloomFilterFpp(fpp)
                         .build();
             }
             catch (NumberFormatException e) {
-                throw new TrinoException(ICEBERG_INVALID_METADATA, format("Invalid value for %s property: %s", ORC_BLOOM_FILTER_FPP, storageProperties.get(ORC_BLOOM_FILTER_FPP_KEY)));
+                throw new TrinoException(ICEBERG_INVALID_METADATA, format("Invalid value for %s property: %s", ORC_BLOOM_FILTER_FPP_PROPERTY, orcBloomFilterFpp.get()));
             }
         }
         return orcWriterOptions;
