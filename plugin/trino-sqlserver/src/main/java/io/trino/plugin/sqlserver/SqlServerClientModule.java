@@ -42,6 +42,7 @@ import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 import static io.trino.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
+import static io.trino.plugin.jdbc.JdbcModule.enableVirtualThreads;
 import static io.trino.plugin.sqlserver.SqlServerClient.SQL_SERVER_MAX_LIST_EXPRESSIONS;
 
 public class SqlServerClientModule
@@ -63,6 +64,8 @@ public class SqlServerClientModule
                 SqlServerConfig.class,
                 SqlServerConfig::isStoredProcedureTableFunctionEnabled,
                 internalBinder -> newSetBinder(internalBinder, ConnectorTableFunction.class).addBinding().toProvider(Procedure.class).in(Scopes.SINGLETON)));
+
+        enableVirtualThreads(binder);
     }
 
     @Provides
