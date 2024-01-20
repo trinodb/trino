@@ -40,8 +40,10 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionAbsoluteMinimumTaskMemory;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionDefaultCoordinatorTaskMemory;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionDefaultTaskMemory;
+import static io.trino.SystemSessionProperties.getFaultTolerantExecutionMinimumCompletedPartitionsForMemoryEstimation;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTaskMemoryEstimationQuantile;
 import static io.trino.SystemSessionProperties.getFaultTolerantExecutionTaskMemoryGrowthFactor;
 import static io.trino.execution.scheduler.ErrorCodes.isOutOfMemoryError;
@@ -130,14 +132,18 @@ public class ExponentialGrowthPartitionMemoryEstimator
 
             return new ExponentialGrowthPartitionMemoryEstimator(
                     defaultInitialMemoryLimit,
+                    getFaultTolerantExecutionAbsoluteMinimumTaskMemory(session),
                     memoryRequirementIncreaseOnWorkerCrashEnabled,
                     getFaultTolerantExecutionTaskMemoryGrowthFactor(session),
                     getFaultTolerantExecutionTaskMemoryEstimationQuantile(session),
+                    getFaultTolerantExecutionMinimumCompletedPartitionsForMemoryEstimation(session),
                     maxNodePoolSize::get);
         }
     }
 
     private final DataSize defaultInitialMemoryLimit;
+    private final DataSize absoluteMinimumMemory;
+    private final int minimumCompletedPartitionsForHistoryBasedEstimate;
     private final boolean memoryRequirementIncreaseOnWorkerCrashEnabled;
     private final double growthFactor;
     private final double estimationQuantile;
@@ -147,24 +153,34 @@ public class ExponentialGrowthPartitionMemoryEstimator
 
     private ExponentialGrowthPartitionMemoryEstimator(
             DataSize defaultInitialMemoryLimit,
+            DataSize absoluteMinimumMemory,
             boolean memoryRequirementIncreaseOnWorkerCrashEnabled,
             double growthFactor,
             double estimationQuantile,
+            int minimumCompletedPartitionsForHistoryBasedEstimate,
             Supplier<Optional<DataSize>> maxNodePoolSizeSupplier)
     {
         this.defaultInitialMemoryLimit = requireNonNull(defaultInitialMemoryLimit, "defaultInitialMemoryLimit is null");
+        this.absoluteMinimumMemory = requireNonNull(absoluteMinimumMemory, "absoluteMinimumMemory is null");
         this.memoryRequirementIncreaseOnWorkerCrashEnabled = memoryRequirementIncreaseOnWorkerCrashEnabled;
         this.growthFactor = growthFactor;
         this.estimationQuantile = estimationQuantile;
+        this.minimumCompletedPartitionsForHistoryBasedEstimate = minimumCompletedPartitionsForHistoryBasedEstimate;
         this.maxNodePoolSizeSupplier = requireNonNull(maxNodePoolSizeSupplier, "maxNodePoolSizeSupplier is null");
     }
 
     @Override
     public MemoryRequirements getInitialMemoryRequirements()
     {
-        DataSize memory = Ordering.natural().max(defaultInitialMemoryLimit, getEstimatedMemoryUsage());
-        memory = capMemoryToMaxNodeSize(memory);
-        return new MemoryRequirements(memory);
+        DataSize memory = getEstimatedMemoryUsage();
+        // Let's not lower the limit without plenty of history to justify it.
+        if ((memory.toBytes() < defaultInitialMemoryLimit.toBytes() && memoryUsageDistribution.getCount() < minimumCompletedPartitionsForHistoryBasedEstimate)) {
+            memory = defaultInitialMemoryLimit;
+        }
+        if (memory.toBytes() < absoluteMinimumMemory.toBytes()) {
+            memory = absoluteMinimumMemory;
+        }
+        return new MemoryRequirements(capMemoryToMaxNodeSize(memory));
     }
 
     @Override

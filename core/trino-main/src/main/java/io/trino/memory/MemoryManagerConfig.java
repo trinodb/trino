@@ -39,6 +39,8 @@ public class MemoryManagerConfig
     private DataSize maxQueryTotalMemory;
     private DataSize faultTolerantExecutionCoordinatorTaskMemory = DataSize.of(2, GIGABYTE);
     private DataSize faultTolerantExecutionTaskMemory = DataSize.of(5, GIGABYTE);
+    private DataSize faultTolerantExecutionAbsoluteMinimumTaskMemory = DataSize.of(1, GIGABYTE);
+    private int faultTolerantExecutionMinimumCompletedPartitionsForMemoryEstimation = 5;
     private double faultTolerantExecutionTaskMemoryGrowthFactor = 3.0;
     private double faultTolerantExecutionTaskMemoryEstimationQuantile = 0.9;
     private DataSize faultTolerantExecutionTaskRuntimeMemoryEstimationOverhead = DataSize.of(1, GIGABYTE);
@@ -105,6 +107,33 @@ public class MemoryManagerConfig
     public MemoryManagerConfig setFaultTolerantExecutionTaskMemory(DataSize faultTolerantExecutionTaskMemory)
     {
         this.faultTolerantExecutionTaskMemory = faultTolerantExecutionTaskMemory;
+        return this;
+    }
+
+    @NotNull
+    public DataSize getFaultTolerantExecutionAbsoluteMinimumTaskMemory()
+    {
+        return faultTolerantExecutionAbsoluteMinimumTaskMemory;
+    }
+
+    @Config("fault-tolerant-execution-absolute-minimum-task-memory")
+    @ConfigDescription("Minimum memory a single task will get under any circumstances when task level retries are used")
+    public MemoryManagerConfig setFaultTolerantExecutionAbsoluteMinimumTaskMemory(DataSize newValue)
+    {
+        this.faultTolerantExecutionAbsoluteMinimumTaskMemory = newValue;
+        return this;
+    }
+
+    public int getFaultTolerantExecutionMinimumCompletedPartitionsForMemoryEstimation()
+    {
+        return faultTolerantExecutionMinimumCompletedPartitionsForMemoryEstimation;
+    }
+
+    @Config("fault-tolerant-execution-minimum-completed-partitions-for-memory-estimation")
+    @ConfigDescription("Minimum number of completed partitions from which it's valid to estimate average memory usage when task level retries are used")
+    public MemoryManagerConfig setFaultTolerantExecutionMinimumCompletedPartitionsForMemoryEstimation(int newValue)
+    {
+        this.faultTolerantExecutionMinimumCompletedPartitionsForMemoryEstimation = newValue;
         return this;
     }
 

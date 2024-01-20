@@ -41,7 +41,9 @@ import java.util.function.Function;
 
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_ABSOLUTE_MINIMUM_TASK_MEMORY;
 import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_COORDINATOR_TASK_MEMORY;
+import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_MINIMUM_COMPLETED_PARTITIONS_FOR_MEMORY_ESTIMATION;
 import static io.trino.SystemSessionProperties.FAULT_TOLERANT_EXECUTION_TASK_MEMORY;
 import static io.trino.spi.StandardErrorCode.ADMINISTRATIVELY_PREEMPTED;
 import static io.trino.spi.StandardErrorCode.CLUSTER_OUT_OF_MEMORY;
@@ -73,6 +75,7 @@ public class TestExponentialGrowthPartitionMemoryEstimator
         Session session = TestingSession.testSessionBuilder()
                 .setSystemProperty(FAULT_TOLERANT_EXECUTION_COORDINATOR_TASK_MEMORY, "107MB")
                 .setSystemProperty(FAULT_TOLERANT_EXECUTION_TASK_MEMORY, "113MB")
+                .setSystemProperty(FAULT_TOLERANT_EXECUTION_ABSOLUTE_MINIMUM_TASK_MEMORY, "10MB")
                 .build();
 
         assertThat(estimatorFactory.createPartitionMemoryEstimator(session, getPlanFragment(COORDINATOR_DISTRIBUTION), THROWING_PLAN_FRAGMENT_LOOKUP).getInitialMemoryRequirements())
@@ -87,6 +90,7 @@ public class TestExponentialGrowthPartitionMemoryEstimator
     {
         Session session = TestingSession.testSessionBuilder()
                 .setSystemProperty(FAULT_TOLERANT_EXECUTION_TASK_MEMORY, "107MB")
+                .setSystemProperty(FAULT_TOLERANT_EXECUTION_ABSOLUTE_MINIMUM_TASK_MEMORY, "75MB")
                 .build();
 
         PartitionMemoryEstimator estimator = estimatorFactory.createPartitionMemoryEstimator(session, getPlanFragment(SINGLE_DISTRIBUTION), THROWING_PLAN_FRAGMENT_LOOKUP);
@@ -198,6 +202,19 @@ public class TestExponentialGrowthPartitionMemoryEstimator
         testInitialEstimationWithFinishedPartitions(estimatorFactory, DataSize.of(300, MEGABYTE), 10, DataSize.of(100, MEGABYTE), DataSize.of(300, MEGABYTE));
     }
 
+    @Test
+    public void testHistoryImpact()
+    {
+        // Average partition size can raise the limit.
+        testInitialEstimationWithFinishedPartitions(estimatorFactory, DataSize.of(300, MEGABYTE), 10, DataSize.of(200, MEGABYTE), DataSize.of(300, MEGABYTE));
+        // ... but cannot lower it with fewer than 15 (FAULT_TOLERANT_EXECUTION_MINIMUM_COMPLETED_PARTITIONS_FOR_MEMORY_ESTIMATION) partitions.
+        testInitialEstimationWithFinishedPartitions(estimatorFactory, DataSize.of(100, MEGABYTE), 14, DataSize.of(200, MEGABYTE), DataSize.of(200, MEGABYTE));
+        // Yet with 16 partitions, it can also lower the limit.
+        testInitialEstimationWithFinishedPartitions(estimatorFactory, DataSize.of(100, MEGABYTE), 16, DataSize.of(200, MEGABYTE), DataSize.of(100, MEGABYTE));
+        // ... but not below 10MB (FAULT_TOLERANT_EXECUTION_ABSOLUTE_MINIMUM_TASK_MEMORY).
+        testInitialEstimationWithFinishedPartitions(estimatorFactory, DataSize.of(9, MEGABYTE), 16, DataSize.of(200, MEGABYTE), DataSize.of(10, MEGABYTE));
+    }
+
     private static void testInitialEstimationWithFinishedPartitions(
             ExponentialGrowthPartitionMemoryEstimator.Factory estimatorFactory,
             DataSize recordedMemoryUsage,
@@ -207,6 +224,8 @@ public class TestExponentialGrowthPartitionMemoryEstimator
     {
         Session session = TestingSession.testSessionBuilder()
                 .setSystemProperty(FAULT_TOLERANT_EXECUTION_TASK_MEMORY, defaultInitialTaskMemory.toString())
+                .setSystemProperty(FAULT_TOLERANT_EXECUTION_ABSOLUTE_MINIMUM_TASK_MEMORY, "10MB")
+                .setSystemProperty(FAULT_TOLERANT_EXECUTION_MINIMUM_COMPLETED_PARTITIONS_FOR_MEMORY_ESTIMATION, "15")
                 .build();
 
         PartitionMemoryEstimator estimator = estimatorFactory.createPartitionMemoryEstimator(session, getPlanFragment(SINGLE_DISTRIBUTION), THROWING_PLAN_FRAGMENT_LOOKUP);

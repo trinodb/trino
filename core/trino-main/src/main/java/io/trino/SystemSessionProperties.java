@@ -187,6 +187,8 @@ public final class SystemSessionProperties
     public static final String FAULT_TOLERANT_EXECUTION_MAX_TASK_SPLIT_COUNT = "fault_tolerant_execution_max_task_split_count";
     public static final String FAULT_TOLERANT_EXECUTION_COORDINATOR_TASK_MEMORY = "fault_tolerant_execution_coordinator_task_memory";
     public static final String FAULT_TOLERANT_EXECUTION_TASK_MEMORY = "fault_tolerant_execution_task_memory";
+    public static final String FAULT_TOLERANT_EXECUTION_ABSOLUTE_MINIMUM_TASK_MEMORY = "fault_tolerant_execution_absolute_minimum_task_memory";
+    public static final String FAULT_TOLERANT_EXECUTION_MINIMUM_COMPLETED_PARTITIONS_FOR_MEMORY_ESTIMATION = "fault_tolerant_execution_minimum_completed_partitions_for_memory_estimation";
     public static final String FAULT_TOLERANT_EXECUTION_TASK_MEMORY_GROWTH_FACTOR = "fault_tolerant_execution_task_memory_growth_factor";
     public static final String FAULT_TOLERANT_EXECUTION_TASK_MEMORY_ESTIMATION_QUANTILE = "fault_tolerant_execution_task_memory_estimation_quantile";
     public static final String FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT = "fault_tolerant_execution_max_partition_count";
@@ -954,6 +956,16 @@ public final class SystemSessionProperties
                         FAULT_TOLERANT_EXECUTION_TASK_MEMORY,
                         "Estimated amount of memory a single task will use when task level retries are used; value is used when allocating nodes for tasks execution",
                         memoryManagerConfig.getFaultTolerantExecutionTaskMemory(),
+                        true),
+                dataSizeProperty(
+                        FAULT_TOLERANT_EXECUTION_ABSOLUTE_MINIMUM_TASK_MEMORY,
+                        "Minimum memory a single task will get under any circumstances when task level retries are used",
+                        memoryManagerConfig.getFaultTolerantExecutionAbsoluteMinimumTaskMemory(),
+                        true),
+                integerProperty(
+                        FAULT_TOLERANT_EXECUTION_MINIMUM_COMPLETED_PARTITIONS_FOR_MEMORY_ESTIMATION,
+                        "Minimum number of completed partitions from which it's valid to estimate average memory usage when task level retries are used",
+                        memoryManagerConfig.getFaultTolerantExecutionMinimumCompletedPartitionsForMemoryEstimation(),
                         true),
                 doubleProperty(
                         FAULT_TOLERANT_EXECUTION_TASK_MEMORY_GROWTH_FACTOR,
@@ -1914,6 +1926,16 @@ public final class SystemSessionProperties
     public static DataSize getFaultTolerantExecutionDefaultTaskMemory(Session session)
     {
         return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_TASK_MEMORY, DataSize.class);
+    }
+
+    public static DataSize getFaultTolerantExecutionAbsoluteMinimumTaskMemory(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_ABSOLUTE_MINIMUM_TASK_MEMORY, DataSize.class);
+    }
+
+    public static int getFaultTolerantExecutionMinimumCompletedPartitionsForMemoryEstimation(Session session)
+    {
+        return session.getSystemProperty(FAULT_TOLERANT_EXECUTION_MINIMUM_COMPLETED_PARTITIONS_FOR_MEMORY_ESTIMATION, Integer.class);
     }
 
     public static double getFaultTolerantExecutionTaskMemoryGrowthFactor(Session session)
