@@ -30,6 +30,7 @@ import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
+import static io.trino.plugin.jdbc.JdbcModule.enableVirtualThreads;
 
 public class PostgreSqlClientModule
         extends AbstractConfigurationAwareModule
@@ -46,5 +47,6 @@ public class PostgreSqlClientModule
         install(new JdbcJoinPushdownSupportModule());
         install(new RemoteQueryCancellationModule());
         newSetBinder(binder, ConnectorTableFunction.class).addBinding().toProvider(Query.class).in(Scopes.SINGLETON);
+        enableVirtualThreads(binder);
     }
 }
