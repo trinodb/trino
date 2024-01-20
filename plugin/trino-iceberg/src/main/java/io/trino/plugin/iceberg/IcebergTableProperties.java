@@ -43,8 +43,8 @@ public class IcebergTableProperties
     public static final String SORTED_BY_PROPERTY = "sorted_by";
     public static final String LOCATION_PROPERTY = "location";
     public static final String FORMAT_VERSION_PROPERTY = "format_version";
-    public static final String ORC_BLOOM_FILTER_COLUMNS = "orc_bloom_filter_columns";
-    public static final String ORC_BLOOM_FILTER_FPP = "orc_bloom_filter_fpp";
+    public static final String ORC_BLOOM_FILTER_COLUMNS_PROPERTY = "orc_bloom_filter_columns";
+    public static final String ORC_BLOOM_FILTER_FPP_PROPERTY = "orc_bloom_filter_fpp";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -90,7 +90,7 @@ public class IcebergTableProperties
                         IcebergTableProperties::validateFormatVersion,
                         false))
                 .add(new PropertyMetadata<>(
-                        ORC_BLOOM_FILTER_COLUMNS,
+                        ORC_BLOOM_FILTER_COLUMNS_PROPERTY,
                         "ORC Bloom filter index columns",
                         new ArrayType(VARCHAR),
                         List.class,
@@ -102,7 +102,7 @@ public class IcebergTableProperties
                                 .collect(toImmutableList()),
                         value -> value))
                 .add(doubleProperty(
-                        ORC_BLOOM_FILTER_FPP,
+                        ORC_BLOOM_FILTER_FPP_PROPERTY,
                         "ORC Bloom filter false positive probability",
                         orcWriterConfig.getDefaultBloomFilterFpp(),
                         IcebergTableProperties::validateOrcBloomFilterFpp,
@@ -154,13 +154,13 @@ public class IcebergTableProperties
 
     public static List<String> getOrcBloomFilterColumns(Map<String, Object> tableProperties)
     {
-        List<String> orcBloomFilterColumns = (List<String>) tableProperties.get(ORC_BLOOM_FILTER_COLUMNS);
+        List<String> orcBloomFilterColumns = (List<String>) tableProperties.get(ORC_BLOOM_FILTER_COLUMNS_PROPERTY);
         return orcBloomFilterColumns == null ? ImmutableList.of() : ImmutableList.copyOf(orcBloomFilterColumns);
     }
 
     public static Double getOrcBloomFilterFpp(Map<String, Object> tableProperties)
     {
-        return (Double) tableProperties.get(ORC_BLOOM_FILTER_FPP);
+        return (Double) tableProperties.get(ORC_BLOOM_FILTER_FPP_PROPERTY);
     }
 
     private static void validateOrcBloomFilterFpp(double fpp)
