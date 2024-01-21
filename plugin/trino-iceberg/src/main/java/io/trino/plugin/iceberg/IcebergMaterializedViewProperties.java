@@ -23,20 +23,24 @@ import java.util.Optional;
 
 import static io.trino.spi.session.PropertyMetadata.stringProperty;
 
-public class IcebergMaterializedViewAdditionalProperties
+public class IcebergMaterializedViewProperties
 {
     public static final String STORAGE_SCHEMA = "storage_schema";
 
     private final List<PropertyMetadata<?>> materializedViewProperties;
 
     @Inject
-    public IcebergMaterializedViewAdditionalProperties(IcebergConfig icebergConfig)
+    public IcebergMaterializedViewProperties(IcebergConfig icebergConfig, IcebergTableProperties tableProperties)
     {
-        materializedViewProperties = ImmutableList.of(stringProperty(
-                STORAGE_SCHEMA,
-                "Schema for creating materialized view storage table",
-                icebergConfig.getMaterializedViewsStorageSchema().orElse(null),
-                false));
+        materializedViewProperties = ImmutableList.<PropertyMetadata<?>>builder()
+                .add(stringProperty(
+                        STORAGE_SCHEMA,
+                        "Schema for creating materialized view storage table",
+                        icebergConfig.getMaterializedViewsStorageSchema().orElse(null),
+                        false))
+                // Materialized view should allow configuring all the supported iceberg table properties for the storage table
+                .addAll(tableProperties.getTableProperties())
+                .build();
     }
 
     public List<PropertyMetadata<?>> getMaterializedViewProperties()
