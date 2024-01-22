@@ -244,6 +244,7 @@ The `date_trunc` function supports the following units:
 
 | Unit      | Example Truncated Value   |
 | --------- | ------------------------- |
+| `millisecond`  | `2001-08-22 03:04:05.321` |
 | `second`  | `2001-08-22 03:04:05.000` |
 | `minute`  | `2001-08-22 03:04:00.000` |
 | `hour`    | `2001-08-22 03:00:00.000` |
