@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.Iterables.transform;
 import static io.trino.client.ClientStandardTypes.ARRAY;
 import static io.trino.client.ClientStandardTypes.BIGINT;
 import static io.trino.client.ClientStandardTypes.BING_TILE;
@@ -63,8 +64,7 @@ final class FixJsonDataUtils
             return null;
         }
         ColumnTypeHandler[] typeHandlers = createTypeHandlers(columns);
-        ImmutableList.Builder<List<Object>> rows = ImmutableList.builderWithExpectedSize(data.size());
-        for (List<Object> row : data) {
+        return transform(data, row -> {
             if (row.size() != typeHandlers.length) {
                 throw new IllegalArgumentException("row/column size mismatch");
             }
@@ -77,9 +77,8 @@ final class FixJsonDataUtils
                 newRow.add(value);
                 column++;
             }
-            rows.add(unmodifiableList(newRow)); // allow nulls in list
-        }
-        return rows.build();
+            return unmodifiableList(newRow); // allow nulls in list
+        });
     }
 
     private static ColumnTypeHandler[] createTypeHandlers(List<Column> columns)
