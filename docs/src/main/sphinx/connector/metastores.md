@@ -370,6 +370,10 @@ directory.
 The JDBC catalog may have compatibility issues if Iceberg introduces breaking
 changes in the future. Consider the {ref}`REST catalog
 <iceberg-rest-catalog>` as an alternative solution.
+
+The JDBC catalog requires the metadata tables to already exist. 
+Refer to [Iceberg repository](https://github.com/apache/iceberg/blob/main/core/src/main/java/org/apache/iceberg/jdbc/JdbcUtil.java)
+for creating those tables.
 :::
 
 At a minimum, `iceberg.jdbc-catalog.driver-class`,
