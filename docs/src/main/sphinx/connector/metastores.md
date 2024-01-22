@@ -360,7 +360,7 @@ The REST catalog does not support [view management](sql-view-management) or
 
 ### JDBC catalog
 
-The Iceberg REST catalog is supported for the Iceberg connector.  At a minimum,
+The Iceberg JDBC catalog is supported for the Iceberg connector.  At a minimum,
 `iceberg.jdbc-catalog.driver-class`, `iceberg.jdbc-catalog.connection-url`
 and `iceberg.jdbc-catalog.catalog-name` must be configured. When using any
 database besides PostgreSQL, a JDBC driver jar file must be placed in the plugin
