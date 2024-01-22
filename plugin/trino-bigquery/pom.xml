@@ -275,6 +275,13 @@
         <dependency>
             <groupId>org.apache.arrow</groupId>
             <artifactId>arrow-vector</artifactId>
+            <exclusions>
+                <!-- conflicts with version from google-cloud-bigquery -->
+                <exclusion>
+                    <groupId>com.google.flatbuffers</groupId>
+                    <artifactId>flatbuffers-java</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -484,6 +491,9 @@
                 <configuration>
                     <ignoredResourcePatterns>
                         <ignoredResourcePattern>arrow-git.properties</ignoredResourcePattern>
+                        <ignoredResourcePattern>LICENSE-EDL-1.0.txt</ignoredResourcePattern>
+                        <ignoredResourcePattern>LICENSE-EPL-1.0.txt</ignoredResourcePattern>
+                        <ignoredResourcePattern>about.html</ignoredResourcePattern>
                     </ignoredResourcePatterns>
                 </configuration>
             </plugin>
