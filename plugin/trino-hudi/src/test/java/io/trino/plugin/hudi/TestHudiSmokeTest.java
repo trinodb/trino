@@ -24,10 +24,7 @@ import java.nio.file.Path;
 import java.time.ZonedDateTime;
 
 import static io.trino.plugin.hudi.HudiQueryRunner.createHudiQueryRunner;
-import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_COW_PT_TBL;
-import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.HUDI_NON_PART_COW;
-import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_TICKS_COW;
-import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.STOCK_TICKS_MOR;
+import static io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer.TestingTable.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHudiSmokeTest
@@ -157,6 +154,12 @@ public class TestHudiSmokeTest
     }
 
     @Test
+    public void testStockDataMORwithHashingTableCount()
+    {
+        assertQuery("SELECT count(1) FROM " + STOCK_DATA_WITH_HASHING_MOR , "SELECT * FROM VALUES ('99')");
+    }
+
+    @Test
     public void testPartitionColumn()
     {
         assertQuery("SELECT \"$partition\" FROM " + HUDI_COW_PT_TBL + " WHERE id = 1", "VALUES 'dt=2021-12-09/hh=10'");
@@ -170,4 +173,5 @@ public class TestHudiSmokeTest
         // Remove leading 'file:' because path column returns 'file:/path-to-file' in case of local file system
         return Path.of(path.replaceFirst("^file:", ""));
     }
+
 }
