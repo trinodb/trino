@@ -532,7 +532,7 @@ public class DeltaLakeMetadata
         ProtocolEntry protocolEntry = null;
         try {
             metadataEntry = transactionLogAccess.getMetadataEntry(tableSnapshot, session);
-            protocolEntry = transactionLogAccess.getProtocolEntry(session, tableSnapshot);
+            protocolEntry = transactionLogAccess.getProtocolEntry(tableSnapshot, session);
         }
         catch (TrinoException e) {
             return new CorruptedDeltaLakeTableHandle(tableName, managed, tableLocation, e);
@@ -743,7 +743,7 @@ public class DeltaLakeMetadata
                         String tableLocation = metastoreTable.get().location();
                         TableSnapshot snapshot = transactionLogAccess.loadSnapshot(session, table, tableLocation);
                         MetadataEntry metadata = transactionLogAccess.getMetadataEntry(snapshot, session);
-                        ProtocolEntry protocol = transactionLogAccess.getProtocolEntry(session, snapshot);
+                        ProtocolEntry protocol = transactionLogAccess.getProtocolEntry(snapshot, session);
                         Map<String, String> columnComments = getColumnComments(metadata);
                         Map<String, Boolean> columnsNullability = getColumnsNullability(metadata);
                         Map<String, String> columnGenerations = getGeneratedColumnExpressions(metadata);

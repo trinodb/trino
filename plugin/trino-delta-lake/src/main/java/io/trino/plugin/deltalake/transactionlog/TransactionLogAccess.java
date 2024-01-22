@@ -423,7 +423,7 @@ public class TransactionLogAccess
         }
     }
 
-    public ProtocolEntry getProtocolEntry(ConnectorSession session, TableSnapshot tableSnapshot)
+    public ProtocolEntry getProtocolEntry(TableSnapshot tableSnapshot, ConnectorSession session)
     {
         if (tableSnapshot.getCachedProtocol().isEmpty()) {
             populateMetadataAndProtocol(tableSnapshot, session);

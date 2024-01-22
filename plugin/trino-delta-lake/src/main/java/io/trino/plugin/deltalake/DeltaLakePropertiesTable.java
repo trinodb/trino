@@ -85,7 +85,7 @@ public class DeltaLakePropertiesTable
             SchemaTableName baseTableName = new SchemaTableName(tableName.getSchemaName(), DeltaLakeTableName.tableNameFrom(tableName.getTableName()));
             TableSnapshot tableSnapshot = transactionLogAccess.loadSnapshot(session, baseTableName, tableLocation);
             metadataEntry = transactionLogAccess.getMetadataEntry(tableSnapshot, session);
-            protocolEntry = transactionLogAccess.getProtocolEntry(session, tableSnapshot);
+            protocolEntry = transactionLogAccess.getProtocolEntry(tableSnapshot, session);
         }
         catch (IOException e) {
             throw new TrinoException(DeltaLakeErrorCode.DELTA_LAKE_INVALID_SCHEMA, "Unable to load table metadata from location: " + tableLocation, e);
