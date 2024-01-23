@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.base.security;
 
+import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaRoutineName;
 import io.trino.spi.connector.CatalogSchemaTableName;
@@ -85,6 +86,12 @@ public abstract class ForwardingSystemAccessControl
     public void checkCanExecuteQuery(Identity identity)
     {
         delegate().checkCanExecuteQuery(identity);
+    }
+
+    @Override
+    public void checkCanExecuteQuery(Identity identity, QueryId queryId)
+    {
+        delegate().checkCanExecuteQuery(identity, queryId);
     }
 
     @Override
