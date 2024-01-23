@@ -37,6 +37,7 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.types.Type;
+import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.util.StructLikeWrapper;
@@ -65,7 +66,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
-import static java.util.stream.Collectors.toUnmodifiableSet;
 
 public class PartitionTable
         implements SystemTable
@@ -142,10 +142,7 @@ public class PartitionTable
 
     private static List<PartitionField> getAllPartitionFields(Table icebergTable)
     {
-        Set<Integer> existingColumnsIds = icebergTable.schema()
-                .columns().stream()
-                .map(NestedField::fieldId)
-                .collect(toUnmodifiableSet());
+        Set<Integer> existingColumnsIds = TypeUtil.indexById(icebergTable.schema().asStruct()).keySet();
 
         List<PartitionField> visiblePartitionFields = icebergTable.specs()
                 .values().stream()
