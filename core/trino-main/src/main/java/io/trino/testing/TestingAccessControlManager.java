@@ -23,6 +23,7 @@ import io.trino.plugin.base.security.DefaultSystemAccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
 import io.trino.security.SecurityContext;
+import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
@@ -269,13 +270,13 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public void checkCanExecuteQuery(Identity identity)
+    public void checkCanExecuteQuery(Identity identity, QueryId queryId)
     {
         if (shouldDenyPrivilege(identity.getUser(), "query", EXECUTE_QUERY)) {
             denyExecuteQuery();
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanExecuteQuery(identity);
+            super.checkCanExecuteQuery(identity, queryId);
         }
     }
 

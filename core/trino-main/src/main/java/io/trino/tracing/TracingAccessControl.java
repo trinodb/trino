@@ -20,6 +20,7 @@ import io.opentelemetry.api.trace.Tracer;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.security.AccessControl;
 import io.trino.security.SecurityContext;
+import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.EntityKindAndName;
@@ -98,11 +99,11 @@ public class TracingAccessControl
     }
 
     @Override
-    public void checkCanExecuteQuery(Identity identity)
+    public void checkCanExecuteQuery(Identity identity, QueryId queryId)
     {
         Span span = startSpan("checkCanExecuteQuery");
         try (var ignored = scopedSpan(span)) {
-            delegate.checkCanExecuteQuery(identity);
+            delegate.checkCanExecuteQuery(identity, queryId);
         }
     }
 

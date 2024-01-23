@@ -310,7 +310,7 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanExecuteQuery(Identity identity)
+    public void checkCanExecuteQuery(Identity identity, QueryId queryId)
     {
         requireNonNull(identity, "identity is null");
 
