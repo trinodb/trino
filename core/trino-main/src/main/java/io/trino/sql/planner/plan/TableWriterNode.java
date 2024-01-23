@@ -407,6 +407,7 @@ public class TableWriterNode
         private final boolean multipleWritersPerPartitionSupported;
         private final OptionalInt maxWriterTasks;
         private final WriterScalingOptions writerScalingOptions;
+        private final List<TableHandle> sourceTableHandles;
 
         @JsonCreator
         public InsertTarget(
@@ -414,13 +415,15 @@ public class TableWriterNode
                 @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
                 @JsonProperty("multipleWritersPerPartitionSupported") boolean multipleWritersPerPartitionSupported,
                 @JsonProperty("maxWriterTasks") OptionalInt maxWriterTasks,
-                @JsonProperty("writerScalingOptions") WriterScalingOptions writerScalingOptions)
+                @JsonProperty("writerScalingOptions") WriterScalingOptions writerScalingOptions,
+                @JsonProperty("sourceTableHandles") List<TableHandle> sourceTableHandles)
         {
             this.handle = requireNonNull(handle, "handle is null");
             this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
             this.multipleWritersPerPartitionSupported = multipleWritersPerPartitionSupported;
             this.maxWriterTasks = requireNonNull(maxWriterTasks, "maxWriterTasks is null");
             this.writerScalingOptions = requireNonNull(writerScalingOptions, "writerScalingOptions is null");
+            this.sourceTableHandles = ImmutableList.copyOf(sourceTableHandles);
         }
 
         @JsonProperty
@@ -469,6 +472,12 @@ public class TableWriterNode
         public WriterScalingOptions getWriterScalingOptions(Metadata metadata, Session session)
         {
             return writerScalingOptions;
+        }
+
+        @JsonProperty
+        public List<TableHandle> getSourceTableHandles()
+        {
+            return sourceTableHandles;
         }
     }
 

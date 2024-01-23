@@ -627,6 +627,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, List<ConnectorTableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.finishInsert(session, insertHandle, sourceTableHandles, fragments, computedStatistics);
+        }
+    }
+
+    @Override
     public boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
