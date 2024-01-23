@@ -1051,17 +1051,194 @@ public abstract class BaseIcebergConnectorTest
     }
 
     @Test
-    public void testCreatePartitionedTableWithNestedField()
+    public void testCreateTableWithUnsupportedNestedFieldPartitioning()
     {
         assertQueryFails(
-                "CREATE TABLE test_partitioned_table_nested_field(parent ROW(child VARCHAR)) WITH (partitioning = ARRAY['\"parent.child\"'])",
-                "\\QPartitioning by nested field is unsupported: parent.child");
-        assertQueryFails(
-                "CREATE TABLE test_partitioned_table_nested_field(grandparent ROW(parent ROW(child VARCHAR))) WITH (partitioning = ARRAY['\"grandparent.parent.child\"'])",
-                "\\QPartitioning by nested field is unsupported: grandparent.parent.child");
-        assertQueryFails(
-                "CREATE TABLE test_partitioned_table_nested_field(grandparent ROW(parent ROW(child VARCHAR))) WITH (partitioning = ARRAY['\"grandparent.parent\"'])",
+                "CREATE TABLE test_partitioned_table_nested_field_3 (grandparent ROW(parent ROW(child VARCHAR))) WITH (partitioning = ARRAY['\"grandparent.parent\"'])",
                 "\\QUnable to parse partitioning value: Cannot partition by non-primitive source field: struct<3: child: optional string>");
+        assertQueryFails(
+                "CREATE TABLE test_partitioned_table_nested_field_inside_array (parent ARRAY(ROW(child VARCHAR))) WITH (partitioning = ARRAY['\"parent.child\"'])",
+                "\\QPartitioning field [parent.child] cannot be contained in a array");
+        assertQueryFails(
+                "CREATE TABLE test_partitioned_table_nested_field_inside_map (parent MAP(ROW(child INTEGER), ARRAY(VARCHAR))) WITH (partitioning = ARRAY['\"parent.key.child\"'])",
+                "\\QPartitioning field [parent.key.child] cannot be contained in a map");
+        assertQueryFails(
+                "CREATE TABLE test_partitioned_table_nested_field_year_transform_in_string (parent ROW(child VARCHAR)) WITH (partitioning = ARRAY['year(\"parent.child\")'])",
+                "\\QUnable to parse partitioning value: Invalid source type string for transform: year");
+    }
+
+    @Test
+    public void testNestedFieldPartitionedTable()
+    {
+        String tableName = "test_nested_field_partitioned_table_" + randomNameSuffix();
+        assertQuerySucceeds("CREATE TABLE " + tableName + "(id INTEGER, name VARCHAR, parent ROW(child VARCHAR, child2 VARCHAR))" +
+                " WITH (partitioning = ARRAY['id', '\"parent.child\"', '\"parent.child2\"'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'presto', ROW('a', 'b'))", 1);
+
+        assertThat(query("SELECT id, name, parent.child, parent.child2 FROM " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES (1, 'presto', 'a', 'b')");
+
+        assertUpdate("UPDATE " + tableName + " SET name = 'trino' WHERE parent.child = 'a'", 1);
+        assertQuerySucceeds("DELETE FROM " + tableName);
+        assertThat(query("SELECT * FROM " + tableName))
+                .returnsEmptyResult();
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, 'trino', ROW('a', 'b'))", 1);
+
+        assertThat(query("SELECT id, name, parent.child, parent.child2 FROM " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES (1, 'trino', 'a', 'b')");
+
+        String newTableName = "test_nested_field_partitioned_table_" + randomNameSuffix();
+        assertQuerySucceeds("ALTER TABLE " + tableName + " RENAME TO " + newTableName);
+
+        assertQuerySucceeds(withSingleWriterPerTask(getSession()), "ALTER TABLE " + newTableName + " EXECUTE OPTIMIZE");
+        assertQuerySucceeds(prepareCleanUpSession(), "ALTER TABLE " + newTableName + " EXECUTE expire_snapshots(retention_threshold => '0s')");
+
+        assertThat(query("SELECT id, name, parent.child, parent.child2 FROM " + newTableName))
+                .skippingTypesCheck()
+                .matches("VALUES (1, 'trino', 'a', 'b')");
+
+        assertUpdate("DROP TABLE " + newTableName);
+    }
+
+    @Test
+    public void testMultipleLevelNestedFieldPartitionedTable()
+    {
+        String tableName = "test_multiple_level_nested_field_partitioned_table_" + randomNameSuffix();
+        assertQuerySucceeds("CREATE TABLE " + tableName + "(id INTEGER, gradparent ROW(parent ROW(child VARCHAR)))" +
+                " WITH (partitioning = ARRAY['\"gradparent.parent.child\"'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, ROW(ROW('trino')))", 1);
+
+        assertThat(query("SELECT id, gradparent.parent.child FROM " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES (1, 'trino')");
+
+        assertUpdate("UPDATE " + tableName + " SET id = 2 WHERE gradparent.parent.child = 'trino'", 1);
+        assertQuerySucceeds("DELETE FROM " + tableName);
+        assertThat(query("SELECT * FROM " + tableName))
+                .returnsEmptyResult();
+        assertUpdate("INSERT INTO " + tableName + " VALUES (3, ROW(ROW('trino')))", 1);
+
+        assertThat(query("SELECT id, gradparent.parent.child FROM " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES (3, 'trino')");
+
+        String newTableName = "test_multiple_level_nested_field_partitioned_table_" + randomNameSuffix();
+        assertQuerySucceeds("ALTER TABLE " + tableName + " RENAME TO " + newTableName);
+
+        assertQuerySucceeds(withSingleWriterPerTask(getSession()), "ALTER TABLE " + newTableName + " EXECUTE OPTIMIZE");
+        assertQuerySucceeds(prepareCleanUpSession(), "ALTER TABLE " + newTableName + " EXECUTE expire_snapshots(retention_threshold => '0s')");
+
+        assertThat(query("SELECT id, gradparent.parent.child FROM " + newTableName))
+                .skippingTypesCheck()
+                .matches("VALUES (3, 'trino')");
+
+        assertUpdate("DROP TABLE " + newTableName);
+    }
+
+    @Test
+    public void testNestedFieldPartitionedTableHavingSameChildName()
+    {
+        String tableName = "test_nested_field_partitioned_table_having_same_child_name_" + randomNameSuffix();
+        assertQuerySucceeds("CREATE TABLE " + tableName + "(id INTEGER, gradparent ROW(parent ROW(child VARCHAR)), parent ROW(child VARCHAR))" +
+                " WITH (partitioning = ARRAY['\"gradparent.parent.child\"'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, ROW(ROW('trino')), ROW('trinodb'))", 1);
+
+        assertThat(query("SELECT id, gradparent.parent.child, parent.child FROM " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES (1, 'trino', 'trinodb')");
+
+        assertUpdate("UPDATE " + tableName + " SET id = 2 WHERE gradparent.parent.child = 'trino'", 1);
+        assertQuerySucceeds("DELETE FROM " + tableName);
+        assertThat(query("SELECT * FROM " + tableName))
+                .returnsEmptyResult();
+        assertUpdate("INSERT INTO " + tableName + " VALUES (3, ROW(ROW('trino')), ROW('trinodb'))", 1);
+
+        assertThat(query("SELECT id, gradparent.parent.child, parent.child FROM " + tableName))
+                .skippingTypesCheck()
+                .matches("VALUES (3, 'trino', 'trinodb')");
+
+        String newTableName = "test_nested_field_partitioned_table_having_same_child_name_" + randomNameSuffix();
+        assertQuerySucceeds("ALTER TABLE " + tableName + " RENAME TO " + newTableName);
+
+        assertQuerySucceeds(withSingleWriterPerTask(getSession()), "ALTER TABLE " + newTableName + " EXECUTE OPTIMIZE");
+        assertQuerySucceeds(prepareCleanUpSession(), "ALTER TABLE " + newTableName + " EXECUTE expire_snapshots(retention_threshold => '0s')");
+
+        assertThat(query("SELECT id, gradparent.parent.child, parent.child FROM " + newTableName))
+                .skippingTypesCheck()
+                .matches("VALUES (3, 'trino', 'trinodb')");
+
+        assertUpdate("DROP TABLE " + newTableName);
+    }
+
+    @Test
+    public void testMergeWithNestedFieldPartitionedTable()
+    {
+        String sourceTable = "test_merge_with_nested_field_partitioned_table_source_" + randomNameSuffix();
+        String targetTable = "test_merge_with_nested_field_partitioned_table_target_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + sourceTable + " (customer VARCHAR, purchases INT, address ROW (city VARCHAR))" +
+                " WITH (partitioning = ARRAY['\"address.city\"'])");
+        assertUpdate(
+                "INSERT INTO " + sourceTable + " (customer, purchases, address)" +
+                        " VALUES ('Aaron', 6, ROW('Arches')), ('Ed', 7, ROW('Etherville')), ('Carol', 9, ROW('Centreville')), ('Dave', 11, ROW('Darbyshire'))",
+                4);
+
+        assertUpdate("CREATE TABLE " + targetTable + " (customer VARCHAR, purchases INT, address ROW (city VARCHAR))" +
+                " WITH (partitioning = ARRAY['\"address.city\"'])");
+        assertUpdate(
+                "INSERT INTO " + targetTable + " (customer, purchases, address) " +
+                        " VALUES ('Aaron', 5, ROW('Antioch')), ('Bill', 7, ROW('Buena')), ('Carol', 3, ROW('Cambridge')), ('Dave', 11, ROW('Devon'))",
+                4);
+
+        String sql = "MERGE INTO " + targetTable + " t USING " + sourceTable + " s ON (t.customer = s.customer)" +
+                "    WHEN MATCHED AND s.address.city = 'Centreville' THEN DELETE" +
+                "    WHEN MATCHED THEN UPDATE SET purchases = s.purchases + t.purchases" +
+                "    WHEN NOT MATCHED THEN INSERT (customer, purchases, address) VALUES (s.customer, s.purchases, s.address)";
+
+        assertUpdate(sql, 4);
+
+        assertQuery(
+                "SELECT customer, purchases, address.city FROM " + targetTable,
+                "VALUES ('Aaron', 11, 'Antioch'), ('Ed', 7, 'Etherville'), ('Bill', 7, 'Buena'), ('Dave', 22, 'Devon')");
+
+        assertUpdate("DROP TABLE " + sourceTable);
+        assertUpdate("DROP TABLE " + targetTable);
+    }
+
+    @Test
+    public void testSchemaEvolutionWithNestedFieldPartitioning()
+    {
+        String tableName = "test_schema_evolution_with_nested_field_partitioning_" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " (c1 bigint, parent1 ROW(child VARCHAR), parent2 ROW(child VARCHAR)) WITH (partitioning = ARRAY['\"parent1.child\"'])");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (1, ROW('BLR'), ROW('BLR'))", 1);
+        assertQuery("SELECT c1, parent1.child, parent2.child from " + tableName, "VALUES (1, 'BLR', 'BLR')");
+
+        // Drop end column
+        assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN parent2");
+        assertQuery("SELECT c1, parent1.child FROM " + tableName, "VALUES (1, 'BLR')");
+
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN parent3 ROW(child VARCHAR)");
+        assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN parent4 ROW(child VARCHAR)");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (2, ROW('DEL'), ROW('DL'), ROW('IN'))", 1);
+        assertQuery("SELECT c1, parent1.child, parent3.child, parent4.child FROM " + tableName, "VALUES (1, 'BLR', NULL, NULL), (2, 'DEL', 'DL', 'IN')");
+
+        // Drop a column (parent3) from middle of table
+        assertUpdate("ALTER TABLE " + tableName + " DROP COLUMN parent3");
+        assertQuery("SELECT c1, parent1.child, parent4.child FROM " + tableName, "VALUES (1, 'BLR', NULL), (2, 'DEL', 'IN')");
+
+        // Rename nested column
+        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN parent4 TO renamed_parent");
+
+        // Rename nested partitioned column
+        assertUpdate("ALTER TABLE " + tableName + " RENAME COLUMN parent1 TO renamed_partitioned_parent");
+
+        assertQuery("SHOW COLUMNS FROM " + tableName, "VALUES " +
+                "('c1', 'bigint', '', ''), " +
+                "('renamed_partitioned_parent', 'row(child varchar)', '', ''), " +
+                "('renamed_parent', 'row(child varchar)', '', '')");
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -1576,10 +1753,13 @@ public abstract class BaseIcebergConnectorTest
     public void testDropPartitionColumn()
     {
         String tableName = "test_drop_partition_column_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR, age INTEGER) WITH (partitioning = ARRAY['id', 'truncate(name, 5)', 'void(age)'])");
+        assertUpdate("CREATE TABLE " + tableName + " (id INTEGER, name VARCHAR, age INTEGER, nested ROW(f1 integer, f2 integer)) " +
+                "WITH (partitioning = ARRAY['id', 'truncate(name, 5)', 'void(age)', '\"nested.f1\"'])");
         assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN id", "Cannot drop partition field: id");
         assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN name", "Cannot drop partition field: name");
         assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN age", "Cannot drop partition field: age");
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN nested", "Failed to drop column.*");
+        assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN nested.f1", "Cannot drop partition field: nested.f1");
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -2019,6 +2199,45 @@ public abstract class BaseIcebergConnectorTest
 
         // The old partition scheme is no longer used so pushdown using the hour transform is allowed
         assertUpdate("DELETE FROM " + tableName + " WHERE year(d) = 1969", 3);
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE optimize");
+        assertUpdate("INSERT INTO " + tableName + " VALUES " + initialValues, 3);
+        assertThat(query(selectQuery))
+                .containsAll("VALUES 1, 8, 9, 10")
+                .isFullyPushedDown();
+
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testPartitionPredicatePushdownWithNestedFieldPartitioning()
+    {
+        // Start with a bucket transform, which cannot be used for predicate pushdown
+        String tableName = "test_partition_predicate_pushdown_with_nested_field_partitioning";
+        assertUpdate("CREATE TABLE " + tableName + " (parent ROW(child1 TIMESTAMP(6), child2 INTEGER)) WITH (partitioning = ARRAY['bucket(\"parent.child2\", 3)'])");
+        String selectQuery = "SELECT parent.child2 FROM " + tableName + " WHERE CAST(parent.child1 AS date) < DATE '2015-01-02'";
+
+        String initialValues =
+                "ROW(ROW(TIMESTAMP '1969-12-31 22:22:22.222222', 8))," +
+                        "ROW(ROW(TIMESTAMP '1969-12-31 23:33:11.456789', 9))," +
+                        "ROW(ROW(TIMESTAMP '1969-12-31 23:44:55.567890', 10))";
+        assertUpdate("INSERT INTO " + tableName + " VALUES " + initialValues, 3);
+        assertThat(query(selectQuery))
+                .containsAll("VALUES 8, 9, 10")
+                .isNotFullyPushedDown(FilterNode.class);
+
+        String hourTransformValues =
+                "ROW(ROW(TIMESTAMP '2015-01-01 10:01:23.123456', 1))," +
+                        "ROW(ROW(TIMESTAMP '2015-01-02 10:10:02.987654', 2))," +
+                        "ROW(ROW(TIMESTAMP '2015-01-03 10:55:00.456789', 3))";
+        // While the bucket transform is still used, the hour transform cannot be used for pushdown
+        assertUpdate("ALTER TABLE " + tableName + " SET PROPERTIES partitioning = ARRAY['hour(\"parent.child1\")']");
+        assertUpdate("INSERT INTO " + tableName + " VALUES " + hourTransformValues, 3);
+        assertThat(query(selectQuery))
+                .containsAll("VALUES 1, 8, 9, 10")
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // The old partition scheme is no longer used so pushdown using the hour transform is allowed
+        assertUpdate("DELETE FROM " + tableName + " WHERE year(parent.child1) = 1969", 3);
         assertUpdate("ALTER TABLE " + tableName + " EXECUTE optimize");
         assertUpdate("INSERT INTO " + tableName + " VALUES " + initialValues, 3);
         assertThat(query(selectQuery))

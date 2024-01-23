@@ -175,6 +175,6 @@ public class IcebergPageSinkProvider
                 schema,
                 partitionsSpecs,
                 pageSink,
-                tableHandle.inputColumns().size());
+                schema.columns().size());
     }
 }

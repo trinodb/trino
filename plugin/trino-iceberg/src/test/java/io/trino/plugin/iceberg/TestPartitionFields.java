@@ -16,6 +16,7 @@ package io.trino.plugin.iceberg;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.exceptions.ValidationException;
+import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.DoubleType;
 import org.apache.iceberg.types.Types.ListType;
 import org.apache.iceberg.types.Types.LongType;
@@ -67,8 +68,17 @@ public class TestPartitionFields
         assertParse("void(\"quoted field\")", partitionSpec(builder -> builder.alwaysNull("quoted field")));
         assertParse("truncate(\"\"\"another\"\" \"\"quoted\"\" \"\"field\"\"\", 13)", partitionSpec(builder -> builder.truncate("\"another\" \"quoted\" \"field\"", 13)));
         assertParse("void(\"\"\"another\"\" \"\"quoted\"\" \"\"field\"\"\")", partitionSpec(builder -> builder.alwaysNull("\"another\" \"quoted\" \"field\"")));
+        assertParse("\"nested.value\"", partitionSpec(builder -> builder.identity("nested.value")));
+        assertParse("year(\"nested.ts\")", partitionSpec(builder -> builder.year("nested.ts")));
+        assertParse("month(\"nested.ts\")", partitionSpec(builder -> builder.month("nested.ts")));
+        assertParse("day(\"nested.ts\")", partitionSpec(builder -> builder.day("nested.ts")));
+        assertParse("hour(\"nested.nested.ts\")", partitionSpec(builder -> builder.hour("nested.nested.ts")));
+        assertParse("truncate(\"nested.nested.value\", 13)", partitionSpec(builder -> builder.truncate("nested.nested.value", 13)));
+        assertParse("bucket(\"nested.nested.value\", 42)", partitionSpec(builder -> builder.bucket("nested.nested.value", 42)));
+        assertParse("void(\"nested.nested.value\")", partitionSpec(builder -> builder.alwaysNull("nested.nested.value")));
 
         assertInvalid("bucket()", "Invalid partition field declaration: bucket()");
+        assertInvalid(".nested", "Invalid partition field declaration: .nested");
         assertInvalid("abc", "Cannot find source column: abc");
         assertInvalid("notes", "Cannot partition by non-primitive source field: list<string>");
         assertInvalid("bucket(price, 42)", "Invalid source type double for transform: bucket[42]");
@@ -83,6 +93,7 @@ public class TestPartitionFields
         assertInvalid("\"ABC\"", "Uppercase characters in identifier '\"ABC\"' are not supported.");
         assertInvalid("year(ABC)", "Cannot find source column: abc");
         assertInvalid("bucket(\"ABC\", 12)", "Uppercase characters in identifier '\"ABC\"' are not supported.");
+        assertInvalid("\"nested.list\"", "Cannot partition by non-primitive source field: list<string>");
     }
 
     private static void assertParse(String value, PartitionSpec expected, String canonicalRepresentation)
@@ -122,7 +133,14 @@ public class TestPartitionFields
                 NestedField.optional(5, "notes", ListType.ofRequired(6, StringType.get())),
                 NestedField.optional(7, "quoted field", StringType.get()),
                 NestedField.optional(8, "quoted ts", TimestampType.withoutZone()),
-                NestedField.optional(9, "\"another\" \"quoted\" \"field\"", StringType.get()));
+                NestedField.optional(9, "\"another\" \"quoted\" \"field\"", StringType.get()),
+                NestedField.required(10, "nested", Types.StructType.of(
+                        NestedField.required(12, "value", StringType.get()),
+                        NestedField.required(13, "ts", TimestampType.withZone()),
+                        NestedField.required(14, "list", ListType.ofRequired(15, StringType.get())),
+                        NestedField.required(16, "nested", Types.StructType.of(
+                                NestedField.required(17, "value", StringType.get()),
+                                NestedField.required(18, "ts", TimestampType.withZone()))))));
 
         PartitionSpec.Builder builder = PartitionSpec.builderFor(schema);
         consumer.accept(builder);

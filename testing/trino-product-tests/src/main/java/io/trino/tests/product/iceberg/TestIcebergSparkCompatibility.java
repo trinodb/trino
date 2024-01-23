@@ -427,6 +427,161 @@ public class TestIcebergSparkCompatibility
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS, ICEBERG_REST, ICEBERG_JDBC}, dataProvider = "storageFormats")
+    public void testSparkReadsTrinoNestedPartitionedTable(StorageFormat storageFormat)
+    {
+        String baseTableName = toLowerCase("test_spark_reads_trino_nested_partitioned_table_" + storageFormat + randomNameSuffix());
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onTrino().executeQuery(format(
+                "CREATE TABLE %s (_string VARCHAR, _bigint BIGINT, _struct ROW(_field INT, _another_field VARCHAR))" +
+                        " WITH (partitioning = ARRAY['\"_struct._field\"'], format = '%s')",
+                trinoTableName,
+                storageFormat));
+        onTrino().executeQuery(format(
+                "INSERT INTO %s VALUES" +
+                        " ('update', 1001, ROW(1, 'x'))," +
+                        " ('b', 1002, ROW(2, 'y'))," +
+                        " ('c', 1003, ROW(3, 'z'))",
+                trinoTableName));
+
+        onTrino().executeQuery("UPDATE " + trinoTableName + " SET _string = 'a' WHERE _struct._field = 1");
+        onTrino().executeQuery("DELETE FROM " + trinoTableName + " WHERE _struct._another_field = 'y'");
+        onTrino().executeQuery("ALTER TABLE " + trinoTableName + " EXECUTE OPTIMIZE");
+        assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE " + trinoTableName + " DROP COLUMN _struct._field"))
+                .hasMessageContaining("Cannot drop partition field: _struct._field");
+
+        List<Row> expectedRows = ImmutableList.of(
+                row("a", 1001, 1, "x"),
+                row("c", 1003, 3, "z"));
+        String select = "SELECT _string, _bigint, _struct._field, _struct._another_field FROM %s" +
+                " WHERE _struct._field = 1 OR _struct._another_field = 'z'";
+
+        assertThat(onTrino().executeQuery(format(select, trinoTableName)))
+                .containsOnly(expectedRows);
+        assertThat(onSpark().executeQuery(format(select, sparkTableName)))
+                .containsOnly(expectedRows);
+
+        onTrino().executeQuery("DROP TABLE " + trinoTableName);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS, ICEBERG_REST, ICEBERG_JDBC}, dataProvider = "storageFormats")
+    public void testTrinoReadsSparkNestedPartitionedTable(StorageFormat storageFormat)
+    {
+        String baseTableName = toLowerCase("test_trino_reads_spark_nested_partitioned_table_" + storageFormat + randomNameSuffix());
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onSpark().executeQuery(format(
+                "CREATE TABLE %s (_string STRING, _varbinary BINARY, _bigint BIGINT, _struct STRUCT<_field:INT, _another_field:STRING>)" +
+                        " USING ICEBERG PARTITIONED BY (_struct._field) TBLPROPERTIES ('write.format.default'='%s', 'format-version' = 2)",
+                sparkTableName,
+                storageFormat));
+        onSpark().executeQuery(format(
+                "INSERT INTO %s VALUES" +
+                        " ('update', X'0ff102f0feff', 1001, named_struct('_field', 1, '_another_field', 'x'))," +
+                        " ('b', X'0ff102f0fefe', 1002, named_struct('_field', 2, '_another_field', 'y'))," +
+                        " ('c', X'0ff102fdfeff', 1003, named_struct('_field', 3, '_another_field', 'z'))",
+                sparkTableName));
+
+        onSpark().executeQuery("UPDATE " + sparkTableName + " SET _string = 'a' WHERE _struct._field = 1");
+        assertThatThrownBy(() -> onSpark().executeQuery("DELETE FROM " + sparkTableName + " WHERE _struct._another_field = 'y'"))
+                .hasMessageContaining("Cannot filter by nested column: 6: _another_field: optional string");
+        assertQueryFailure(() -> onSpark().executeQuery("ALTER TABLE " + sparkTableName + " DROP COLUMN _struct._field"))
+                .hasMessageContaining("Cannot find source column for partition field: 1000: _struct._field: identity(5)");
+
+        Row[] expectedRows = new Row[] {
+                row("a", new byte[] {15, -15, 2, -16, -2, -1}, 1001, 1, "x"),
+                row("c", new byte[] {15, -15, 2, -3, -2, -1}, 1003, 3, "z")
+        };
+        String select = "SELECT _string, _varbinary, _bigint, _struct._field, _struct._another_field FROM %s" +
+                " WHERE _struct._field = 1 OR _struct._another_field = 'z'";
+
+        assertThat(onTrino().executeQuery(format(select, trinoTableName)))
+                .containsOnly(expectedRows);
+        assertThat(onSpark().executeQuery(format(select, sparkTableName)))
+                .containsOnly(expectedRows);
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS, ICEBERG_REST, ICEBERG_JDBC}, dataProvider = "storageFormats")
+    public void testSparkReadsTrinoNestedPartitionedTableWithOneFieldStruct(StorageFormat storageFormat)
+    {
+        String baseTableName = toLowerCase("test_spark_reads_trino_nested_partitioned_table_with_one_field_struct_" + storageFormat + randomNameSuffix());
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onTrino().executeQuery(format(
+                "CREATE TABLE %s (_string VARCHAR, _bigint BIGINT, _struct ROW(_field BIGINT))" +
+                        " WITH (partitioning = ARRAY['\"_struct._field\"'], format = '%s')",
+                trinoTableName,
+                storageFormat));
+        onTrino().executeQuery(format(
+                "INSERT INTO %s VALUES" +
+                        " ('a', 1001, ROW(1))," +
+                        " ('b', 1002, ROW(2))," +
+                        " ('c', 1003, ROW(3))",
+                trinoTableName));
+
+        Row expectedRow = row("a", 1001, 1);
+        String select = "SELECT _string, _bigint, _struct._field FROM %s WHERE _string = 'a'";
+
+        assertThat(onTrino().executeQuery(format(select, trinoTableName)))
+                .containsOnly(expectedRow);
+
+        if (storageFormat == StorageFormat.ORC) {
+            // Open iceberg issue https://github.com/apache/iceberg/issues/3139 to read ORC table with nested partition column
+            assertThatThrownBy(() -> onSpark().executeQuery(format(select, sparkTableName)))
+                    .hasMessageContaining("java.lang.IndexOutOfBoundsException: Index 2 out of bounds for length 2");
+        }
+        else {
+            assertThat(onSpark().executeQuery(format(select, sparkTableName)))
+                    .containsOnly(expectedRow);
+        }
+
+        onTrino().executeQuery("DROP TABLE " + trinoTableName);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS, ICEBERG_REST, ICEBERG_JDBC}, dataProvider = "storageFormats")
+    public void testTrinoReadsSparkNestedPartitionedTableWithOneFieldStruct(StorageFormat storageFormat)
+    {
+        String baseTableName = toLowerCase("test_trino_reads_spark_nested_partitioned_table_with_one_field_struct_" + storageFormat + randomNameSuffix());
+        String trinoTableName = trinoTableName(baseTableName);
+        String sparkTableName = sparkTableName(baseTableName);
+
+        onSpark().executeQuery(format(
+                "CREATE TABLE %s (_string STRING, _bigint BIGINT, _struct STRUCT<_field:STRING>)" +
+                        " USING ICEBERG PARTITIONED BY (_struct._field) TBLPROPERTIES ('write.format.default'='%s', 'format-version' = 2)",
+                sparkTableName,
+                storageFormat));
+        onSpark().executeQuery(format(
+                "INSERT INTO %s VALUES" +
+                        " ('a', 1001, named_struct('_field', 'field1'))," +
+                        " ('b', 1002, named_struct('_field', 'field2'))," +
+                        " ('c', 1003, named_struct('_field', 'field3'))",
+                sparkTableName));
+
+        Row expectedRow = row("a", 1001, "field1");
+        String selectNested = "SELECT _string, _bigint, _struct._field FROM %s WHERE _struct._field = 'field1'";
+
+        assertThat(onTrino().executeQuery(format(selectNested, trinoTableName)))
+                .containsOnly(expectedRow);
+
+        if (storageFormat == StorageFormat.ORC) {
+            // Open iceberg issue https://github.com/apache/iceberg/issues/3139 to read ORC table with nested partition column
+            assertThatThrownBy(() -> onSpark().executeQuery(format(selectNested, sparkTableName)))
+                    .hasMessageContaining("java.lang.IndexOutOfBoundsException: Index 2 out of bounds for length 2");
+        }
+        else {
+            assertThat(onSpark().executeQuery(format(selectNested, sparkTableName)))
+                    .containsOnly(expectedRow);
+        }
+
+        onSpark().executeQuery("DROP TABLE " + sparkTableName);
+    }
+
     @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS}, dataProvider = "storageFormats")
     public void testTrinoPartitionedByRealWithNaN(StorageFormat storageFormat)
     {
@@ -480,38 +635,6 @@ public class TestIcebergSparkCompatibility
 
         assertThat(onTrino().executeQuery("SELECT * FROM " + trinoTableName)).containsOnly(row(expectedValue));
         assertThat(onSpark().executeQuery("SELECT * FROM " + sparkTableName)).containsOnly(row(expectedValue));
-
-        onSpark().executeQuery("DROP TABLE " + sparkTableName);
-    }
-
-    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
-    public void testPartitionedByNestedField()
-    {
-        String baseTableName = "test_trino_nested_field_partition_" + randomNameSuffix();
-        String trinoTableName = trinoTableName(baseTableName);
-        String sparkTableName = sparkTableName(baseTableName);
-
-        onSpark().executeQuery(format("" +
-                        "CREATE TABLE %s (" +
-                        "  id INT," +
-                        "  parent STRUCT<nested:STRING, nested_another:STRING>)" +
-                        "  USING ICEBERG" +
-                        "  PARTITIONED BY (parent.nested)" +
-                        "  TBLPROPERTIES ('format-version'=2)",
-                sparkTableName));
-
-        assertQueryFailure(() -> onTrino().executeQuery("INSERT INTO " + trinoTableName + " VALUES (2, ROW('b'))"))
-                .hasMessageContaining("Partitioning by nested field is unsupported: parent.nested");
-        assertQueryFailure(() -> onTrino().executeQuery("UPDATE " + trinoTableName + " SET id = 2"))
-                .hasMessageContaining("Partitioning by nested field is unsupported: parent.nested");
-        assertQueryFailure(() -> onTrino().executeQuery("DELETE FROM " + trinoTableName))
-                .hasMessageContaining("Partitioning by nested field is unsupported: parent.nested");
-        assertQueryFailure(() -> onTrino().executeQuery("MERGE INTO " + trinoTableName + " t USING " + trinoTableName + " s ON (t.id = s.id) WHEN MATCHED THEN UPDATE SET id = 2"))
-                .hasMessageContaining("Partitioning by nested field is unsupported: parent.nested");
-        assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE " + trinoTableName + " EXECUTE OPTIMIZE"))
-                .hasMessageContaining("Partitioning by nested field is unsupported: parent.nested");
-        assertQueryFailure(() -> onTrino().executeQuery("ALTER TABLE " + trinoTableName + " DROP COLUMN parent.nested"))
-                .hasMessageContaining("Cannot drop partition field: parent.nested");
 
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
