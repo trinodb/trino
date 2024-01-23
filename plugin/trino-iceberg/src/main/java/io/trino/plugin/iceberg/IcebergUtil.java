@@ -70,6 +70,7 @@ import org.apache.iceberg.TableScan;
 import org.apache.iceberg.Transaction;
 import org.apache.iceberg.io.LocationProvider;
 import org.apache.iceberg.types.Type.PrimitiveType;
+import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.types.Types.NestedField;
 import org.apache.iceberg.types.Types.StructType;
 
@@ -231,6 +232,42 @@ public final class IcebergUtil
         return new BaseTable(operations, quotedTableName(table), TRINO_METRICS_REPORTER);
     }
 
+    public static List<IcebergColumnHandle> getProjectedColumns(Schema schema, TypeManager typeManager)
+    {
+        ImmutableList.Builder<IcebergColumnHandle> projectedColumns = ImmutableList.builder();
+        StructType schemaAsStruct = schema.asStruct();
+        Map<Integer, NestedField> indexById = TypeUtil.indexById(schemaAsStruct);
+        Map<Integer, Integer> indexParents = TypeUtil.indexParents(schemaAsStruct);
+        Map<Integer, List<Integer>> indexPaths = indexById.entrySet().stream()
+                .collect(toImmutableMap(Entry::getKey, e -> buildPath(indexParents, e.getKey())));
+
+        for (Map.Entry<Integer, NestedField> entry : indexById.entrySet()) {
+            int fieldId = entry.getKey();
+            NestedField childField = entry.getValue();
+            NestedField baseField = childField;
+
+            List<Integer> path = new ArrayList<>(requireNonNull(indexPaths.get(fieldId)));
+            if (!path.isEmpty()) {
+                // Path does not include the base field id
+                baseField = indexById.get(path.removeFirst());
+                path.add(fieldId);
+            }
+            projectedColumns.add(getColumnHandle(baseField, childField, typeManager, path));
+        }
+        return projectedColumns.build();
+    }
+
+    private static List<Integer> buildPath(Map<Integer, Integer> indexParents, int fieldId)
+    {
+        Integer parentId = indexParents.get(fieldId);
+        if (parentId == null) {
+            return new ArrayList<>();
+        }
+        List<Integer> path = buildPath(indexParents, parentId);
+        path.add(parentId);
+        return path;
+    }
+
     public static Map<String, Object> getIcebergTableProperties(Table icebergTable)
     {
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
@@ -317,14 +354,18 @@ public final class IcebergUtil
 
     public static IcebergColumnHandle getColumnHandle(NestedField column, TypeManager typeManager)
     {
-        Type type = toTrinoType(column.type(), typeManager);
+        return getColumnHandle(column, column, typeManager, ImmutableList.of());
+    }
+
+    private static IcebergColumnHandle getColumnHandle(NestedField baseColumn, NestedField childColumn, TypeManager typeManager, List<Integer> path)
+    {
         return new IcebergColumnHandle(
-                createColumnIdentity(column),
-                type,
-                ImmutableList.of(),
-                type,
-                column.isOptional(),
-                Optional.ofNullable(column.doc()));
+                createColumnIdentity(baseColumn),
+                toTrinoType(baseColumn.type(), typeManager),
+                path,
+                toTrinoType(childColumn.type(), typeManager),
+                childColumn.isOptional(),
+                Optional.ofNullable(childColumn.doc()));
     }
 
     public static Schema schemaFromHandles(List<IcebergColumnHandle> columns)

@@ -247,6 +247,7 @@ import static io.trino.plugin.iceberg.IcebergUtil.getColumnMetadatas;
 import static io.trino.plugin.iceberg.IcebergUtil.getFileFormat;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableProperties;
 import static io.trino.plugin.iceberg.IcebergUtil.getPartitionKeys;
+import static io.trino.plugin.iceberg.IcebergUtil.getProjectedColumns;
 import static io.trino.plugin.iceberg.IcebergUtil.getSnapshotIdAsOfTime;
 import static io.trino.plugin.iceberg.IcebergUtil.getTableComment;
 import static io.trino.plugin.iceberg.IcebergUtil.getTopLevelColumns;
@@ -605,7 +606,7 @@ public class IcebergMetadata
         DiscretePredicates discretePredicates = null;
         if (!partitionSourceIds.isEmpty()) {
             // Extract identity partition columns
-            Map<Integer, IcebergColumnHandle> columns = getTopLevelColumns(icebergTable.schema(), typeManager).stream()
+            Map<Integer, IcebergColumnHandle> columns = getProjectedColumns(icebergTable.schema(), typeManager).stream()
                     .filter(column -> partitionSourceIds.contains(column.getId()))
                     .collect(toImmutableMap(IcebergColumnHandle::getId, identity()));
 
@@ -1009,13 +1010,32 @@ public class IcebergMetadata
             return Optional.empty();
         }
 
-        validateNotPartitionedByNestedField(tableSchema, partitionSpec);
-        Map<Integer, IcebergColumnHandle> columnById = getTopLevelColumns(tableSchema, typeManager).stream()
+        Map<Integer, Integer> indexParents = indexParents(tableSchema.asStruct());
+        Map<Integer, IcebergColumnHandle> columnById = getProjectedColumns(tableSchema, typeManager).stream()
                 .collect(toImmutableMap(IcebergColumnHandle::getId, identity()));
 
         List<IcebergColumnHandle> partitioningColumns = partitionSpec.fields().stream()
                 .sorted(Comparator.comparing(PartitionField::sourceId))
-                .map(field -> requireNonNull(columnById.get(field.sourceId()), () -> "Cannot find source column for partitioning field " + field))
+                .map(field -> {
+                    boolean isBaseColumn = !indexParents.containsKey(field.sourceId());
+                    int sourceId;
+                    if (isBaseColumn) {
+                        sourceId = field.sourceId();
+                    }
+                    else {
+                        sourceId = getRootFieldId(indexParents, field.sourceId());
+                    }
+                    Type sourceType = tableSchema.findType(sourceId);
+                    // The source column, must be a primitive type and cannot be contained in a map or list, but may be nested in a struct.
+                    // https://iceberg.apache.org/spec/#partitioning
+                    if (sourceType.isMapType()) {
+                        throw new TrinoException(NOT_SUPPORTED, "Partitioning field [" + field.name() + "] cannot be contained in a map");
+                    }
+                    if (sourceType.isListType()) {
+                        throw new TrinoException(NOT_SUPPORTED, "Partitioning field [" + field.name() + "] cannot be contained in a array");
+                    }
+                    return requireNonNull(columnById.get(sourceId), () -> "Cannot find source column for partition field " + field);
+                })
                 .distinct()
                 .collect(toImmutableList());
         List<String> partitioningColumnNames = partitioningColumns.stream()
@@ -1030,6 +1050,15 @@ public class IcebergMetadata
         return Optional.of(new ConnectorTableLayout(partitioningHandle, partitioningColumnNames, true));
     }
 
+    private static int getRootFieldId(Map<Integer, Integer> indexParents, int fieldId)
+    {
+        int rootFieldId = fieldId;
+        while (indexParents.containsKey(rootFieldId)) {
+            rootFieldId = indexParents.get(rootFieldId);
+        }
+        return rootFieldId;
+    }
+
     @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns, RetryMode retryMode)
     {
@@ -1037,7 +1066,6 @@ public class IcebergMetadata
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
 
         validateNotModifyingOldSnapshot(table, icebergTable);
-        validateNotPartitionedByNestedField(icebergTable.schema(), icebergTable.spec());
 
         beginTransaction(icebergTable);
 
@@ -1052,7 +1080,7 @@ public class IcebergMetadata
                 transformValues(table.specs(), PartitionSpecParser::toJson),
                 table.spec().specId(),
                 getSupportedSortFields(table.schema(), table.sortOrder()),
-                getTopLevelColumns(table.schema(), typeManager),
+                getProjectedColumns(table.schema(), typeManager),
                 table.location(),
                 getFileFormat(table),
                 table.properties(),
@@ -1297,7 +1325,7 @@ public class IcebergMetadata
                         tableHandle.getSnapshotId(),
                         tableHandle.getTableSchemaJson(),
                         tableHandle.getPartitionSpecJson().orElseThrow(() -> new VerifyException("Partition spec missing in the table handle")),
-                        getTopLevelColumns(SchemaParser.fromJson(tableHandle.getTableSchemaJson()), typeManager),
+                        getProjectedColumns(SchemaParser.fromJson(tableHandle.getTableSchemaJson()), typeManager),
                         icebergTable.sortOrder().fields().stream()
                                 .map(TrinoSortField::fromIceberg)
                                 .collect(toImmutableList()),
@@ -1398,7 +1426,6 @@ public class IcebergMetadata
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
 
         validateNotModifyingOldSnapshot(table, icebergTable);
-        validateNotPartitionedByNestedField(icebergTable.schema(), icebergTable.spec());
 
         int tableFormatVersion = ((BaseTable) icebergTable).operations().current().formatVersion();
         if (tableFormatVersion > OPTIMIZE_MAX_SUPPORTED_TABLE_VERSION) {
@@ -1854,7 +1881,6 @@ public class IcebergMetadata
         }
         else {
             PartitionSpec partitionSpec = parsePartitionFields(schema, partitionColumns);
-            validateNotPartitionedByNestedField(schema, partitionSpec);
             Set<PartitionField> partitionFields = ImmutableSet.copyOf(partitionSpec.fields());
             difference(existingPartitionFields, partitionFields).stream()
                     .map(PartitionField::name)
@@ -2312,7 +2338,6 @@ public class IcebergMetadata
 
         Table icebergTable = catalog.loadTable(session, table.getSchemaTableName());
         validateNotModifyingOldSnapshot(table, icebergTable);
-        validateNotPartitionedByNestedField(icebergTable.schema(), icebergTable.spec());
 
         beginTransaction(icebergTable);
 
@@ -2340,16 +2365,6 @@ public class IcebergMetadata
     {
         if (table.getSnapshotId().isPresent() && (table.getSnapshotId().get() != icebergTable.currentSnapshot().snapshotId())) {
             throw new TrinoException(NOT_SUPPORTED, "Modifying old snapshot is not supported in Iceberg");
-        }
-    }
-
-    public static void validateNotPartitionedByNestedField(Schema schema, PartitionSpec partitionSpec)
-    {
-        Map<Integer, Integer> indexParents = indexParents(schema.asStruct());
-        for (PartitionField field : partitionSpec.fields()) {
-            if (indexParents.containsKey(field.sourceId())) {
-                throw new TrinoException(NOT_SUPPORTED, "Partitioning by nested field is unsupported: " + field.name());
-            }
         }
     }
 
