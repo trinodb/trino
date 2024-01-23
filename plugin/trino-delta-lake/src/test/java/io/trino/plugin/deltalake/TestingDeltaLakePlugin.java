@@ -16,6 +16,8 @@ package io.trino.plugin.deltalake;
 import com.google.inject.Module;
 import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.filesystem.local.LocalFileSystemFactory;
+import io.trino.plugin.deltalake.transactionlog.writer.LocalTransactionLogSynchronizer;
+import io.trino.plugin.deltalake.transactionlog.writer.TransactionLogSynchronizer;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
@@ -70,8 +72,11 @@ public class TestingDeltaLakePlugin
                         metastoreModule,
                         binder -> {
                             binder.install(new TestingDeltaLakeExtensionsModule());
+                            LocalFileSystemFactory localFileSystemFactory = new LocalFileSystemFactory(localFileSystemRootPath);
                             newMapBinder(binder, String.class, TrinoFileSystemFactory.class)
-                                    .addBinding("local").toInstance(new LocalFileSystemFactory(localFileSystemRootPath));
+                                    .addBinding("local").toInstance(localFileSystemFactory);
+                            newMapBinder(binder, String.class, TransactionLogSynchronizer.class)
+                                    .addBinding("local").toInstance(new LocalTransactionLogSynchronizer(localFileSystemFactory));
                             configBinder(binder).bindConfigDefaults(FileHiveMetastoreConfig.class, defaults -> defaults.setCatalogDirectory("local:///"));
                         });
             }
