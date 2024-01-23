@@ -1169,7 +1169,13 @@ public class EventDrivenFaultTolerantQueryScheduler
                 if (stageExecution == null) {
                     IsReadyForExecutionResult result = isReadyForExecutionCache.computeIfAbsent(subPlan, ignored -> isReadyForExecution(subPlan));
                     if (result.isReadyForExecution()) {
-                        createStageExecution(subPlan, fragmentId.equals(rootFragmentId), result.getSourceOutputSizeEstimates(), nextSchedulingPriority++, result.isEager());
+                        createStageExecution(
+                                subPlan,
+                                fragmentId.equals(rootFragmentId),
+                                result.getSourceOutputSizeEstimates(),
+                                nextSchedulingPriority++,
+                                result.isSpeculative(),
+                                result.isEager());
                     }
                 }
                 if (stageExecution != null && stageExecution.getState().equals(StageState.FINISHED) && !stageExecution.isExchangeClosed()) {
@@ -1189,22 +1195,27 @@ public class EventDrivenFaultTolerantQueryScheduler
         private static class IsReadyForExecutionResult
         {
             private final boolean readyForExecution;
+            private final boolean speculative;
             private final Optional<Map<StageId, OutputDataSizeEstimate>> sourceOutputSizeEstimates;
             private final boolean eager;
 
             @CheckReturnValue
-            public static IsReadyForExecutionResult ready(Map<StageId, OutputDataSizeEstimate> sourceOutputSizeEstimates, boolean eager)
+            public static IsReadyForExecutionResult ready(Map<StageId, OutputDataSizeEstimate> sourceOutputSizeEstimates, boolean eager, boolean speculative)
             {
-                return new IsReadyForExecutionResult(true, Optional.of(sourceOutputSizeEstimates), eager);
+                return new IsReadyForExecutionResult(true, Optional.of(sourceOutputSizeEstimates), eager, speculative);
             }
 
             @CheckReturnValue
             public static IsReadyForExecutionResult notReady()
             {
-                return new IsReadyForExecutionResult(false, Optional.empty(), false);
+                return new IsReadyForExecutionResult(false, Optional.empty(), false, false);
             }
 
-            private IsReadyForExecutionResult(boolean readyForExecution, Optional<Map<StageId, OutputDataSizeEstimate>> sourceOutputSizeEstimates, boolean eager)
+            private IsReadyForExecutionResult(
+                    boolean readyForExecution,
+                    Optional<Map<StageId, OutputDataSizeEstimate>> sourceOutputSizeEstimates,
+                    boolean eager,
+                    boolean speculative)
             {
                 requireNonNull(sourceOutputSizeEstimates, "sourceOutputSizeEstimates is null");
                 if (readyForExecution) {
@@ -1214,6 +1225,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                     checkArgument(sourceOutputSizeEstimates.isEmpty(), "expected sourceOutputSizeEstimates to be not set");
                 }
                 this.readyForExecution = readyForExecution;
+                this.speculative = speculative;
                 this.sourceOutputSizeEstimates = sourceOutputSizeEstimates.map(ImmutableMap::copyOf);
                 this.eager = eager;
             }
@@ -1231,6 +1243,11 @@ public class EventDrivenFaultTolerantQueryScheduler
             public boolean isEager()
             {
                 return eager;
+            }
+
+            public boolean isSpeculative()
+            {
+                return speculative;
             }
         }
 
@@ -1317,7 +1334,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         finishedSourcesCount,
                         estimateCountByKind);
             }
-            return IsReadyForExecutionResult.ready(sourceOutputStatsEstimates.buildOrThrow(), eager);
+            return IsReadyForExecutionResult.ready(sourceOutputStatsEstimates.buildOrThrow(), eager, speculative);
         }
 
         private boolean shouldScheduleEagerly(SubPlan subPlan)
@@ -1373,7 +1390,13 @@ public class EventDrivenFaultTolerantQueryScheduler
             }
         }
 
-        private void createStageExecution(SubPlan subPlan, boolean rootFragment, Map<StageId, OutputDataSizeEstimate> sourceOutputSizeEstimates, int schedulingPriority, boolean eager)
+        private void createStageExecution(
+                SubPlan subPlan,
+                boolean rootFragment,
+                Map<StageId, OutputDataSizeEstimate> sourceOutputSizeEstimates,
+                int schedulingPriority,
+                boolean speculative,
+                boolean eager)
         {
             Closer closer = Closer.create();
 
@@ -1472,6 +1495,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                         schedulingPriority,
                         eager,
                         dynamicFilterService);
+                execution.setSpeculative(speculative);
 
                 stageExecutions.put(execution.getStageId(), execution);
 
@@ -1867,6 +1891,8 @@ public class EventDrivenFaultTolerantQueryScheduler
         private final int maxTaskExecutionAttempts;
         private final int schedulingPriority;
         private final boolean eager;
+        private boolean speculative;
+
         private final DynamicFilterService dynamicFilterService;
         private final long[] outputDataSize;
         private long outputRowCount;
@@ -1981,6 +2007,11 @@ public class EventDrivenFaultTolerantQueryScheduler
             return exchangeClosed;
         }
 
+        public void setSpeculative(boolean speculative)
+        {
+            this.speculative = speculative;
+        }
+
         public void addPartition(int partitionId, NodeRequirements nodeRequirements)
         {
             if (getState().isDone()) {
@@ -2017,7 +2048,10 @@ public class EventDrivenFaultTolerantQueryScheduler
             partition.addSplits(planNodeId, splits, noMoreSplits);
             if (readyForScheduling && !partition.isTaskScheduled()) {
                 partition.setTaskScheduled(true);
-                return Optional.of(PrioritizedScheduledTask.createSpeculative(stage.getStageId(), taskPartitionId, schedulingPriority, eager));
+                PrioritizedScheduledTask task = speculative ?
+                        PrioritizedScheduledTask.createSpeculative(stage.getStageId(), taskPartitionId, schedulingPriority, eager) :
+                        PrioritizedScheduledTask.create(stage.getStageId(), taskPartitionId, schedulingPriority);
+                return Optional.of(task);
             }
             return Optional.empty();
         }
@@ -3030,7 +3064,8 @@ public class EventDrivenFaultTolerantQueryScheduler
 
     private interface Event
     {
-        Event ABORT = new Event() {
+        Event ABORT = new Event()
+        {
             @Override
             public <T> T accept(EventListener<T> listener)
             {
@@ -3038,7 +3073,8 @@ public class EventDrivenFaultTolerantQueryScheduler
             }
         };
 
-        Event WAKE_UP = new Event() {
+        Event WAKE_UP = new Event()
+        {
             @Override
             public <T> T accept(EventListener<T> listener)
             {
