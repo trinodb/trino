@@ -747,6 +747,18 @@ WITH (
     orc_bloom_filter_fpp = 0.05)
 ```
 
+The table definition below specifies to use Avro files, partitioning 
+by `child1` field in `parent` column:
+
+```
+CREATE TABLE test_table (
+    data INTEGER,
+    parent ROW(child1 DOUBLE, child2 INTEGER))
+WITH (
+    format = 'AVRO',
+    partitioning = ARRAY['"parent.child1"'])
+```
+
 (iceberg-metadata-tables)=
 #### Metadata tables
 
