@@ -708,6 +708,18 @@ public class TracingConnectorMetadata
     }
 
     @Override
+    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, List<ConnectorTableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        Span span = startSpan("finishInsert");
+        if (span.isRecording()) {
+            span.setAttribute(TrinoAttributes.HANDLE, insertHandle.toString());
+        }
+        try (var ignored = scopedSpan(span)) {
+            return delegate.finishInsert(session, insertHandle, sourceTableHandles, fragments, computedStatistics);
+        }
+    }
+
+    @Override
     public boolean delegateMaterializedViewRefreshToConnector(ConnectorSession session, SchemaTableName viewName)
     {
         Span span = startSpan("delegateMaterializedViewRefreshToConnector", viewName);
