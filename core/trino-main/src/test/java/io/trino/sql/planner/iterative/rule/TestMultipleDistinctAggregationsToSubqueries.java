@@ -1542,9 +1542,9 @@ public class TestMultipleDistinctAggregationsToSubqueries
         }
 
         @Override
-        public Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+        public Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, List<TableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
         {
-            return metadata.finishInsert(session, tableHandle, fragments, computedStatistics);
+            return metadata.finishInsert(session, tableHandle, sourceTableHandles, fragments, computedStatistics);
         }
 
         @Override

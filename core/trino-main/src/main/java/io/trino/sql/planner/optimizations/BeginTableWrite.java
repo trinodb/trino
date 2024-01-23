@@ -46,6 +46,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.sql.planner.planprinter.PlanPrinter.textLogicalPlan;
 import static java.util.Objects.requireNonNull;
@@ -171,7 +172,7 @@ public class BeginTableWrite
             PlanNode child = node.getSource();
 
             WriterTarget originalTarget = getWriterTarget(child);
-            WriterTarget newTarget = createWriterTarget(originalTarget);
+            WriterTarget newTarget = createWriterTarget(originalTarget, child);
 
             child = context.rewrite(child, Optional.of(newTarget));
 
@@ -222,7 +223,7 @@ public class BeginTableWrite
             throw new IllegalArgumentException("Invalid child for TableCommitNode: " + node.getClass().getSimpleName());
         }
 
-        private WriterTarget createWriterTarget(WriterTarget target)
+        private WriterTarget createWriterTarget(WriterTarget target, PlanNode planNode)
         {
             // TODO: begin these operations in pre-execution step, not here
             // TODO: we shouldn't need to store the schemaTableName in the handles, but there isn't a good way to pass this around with the current architecture
@@ -241,7 +242,8 @@ public class BeginTableWrite
                         metadata.getTableName(session, insert.getHandle()).getSchemaTableName(),
                         target.supportsMultipleWritersPerPartition(metadata, session),
                         target.getMaxWriterTasks(metadata, session),
-                        target.getWriterScalingOptions(metadata, session));
+                        target.getWriterScalingOptions(metadata, session),
+                        findSourceTableHandles(planNode));
             }
             if (target instanceof MergeTarget merge) {
                 MergeHandle mergeHandle = metadata.beginMerge(session, merge.getHandle());
@@ -265,6 +267,17 @@ public class BeginTableWrite
                 return new TableExecuteTarget(result.getTableExecuteHandle(), Optional.of(result.getSourceHandle()), tableExecute.getSchemaTableName(), tableExecute.getWriterScalingOptions());
             }
             throw new IllegalArgumentException("Unhandled target type: " + target.getClass().getSimpleName());
+        }
+
+        private static List<TableHandle> findSourceTableHandles(PlanNode startNode)
+        {
+            return PlanNodeSearcher.searchFrom(startNode)
+                    .where(TableScanNode.class::isInstance)
+                    .findAll()
+                    .stream()
+                    .map(TableScanNode.class::cast)
+                    .map(TableScanNode::getTable)
+                    .collect(toImmutableList());
         }
 
         private Optional<TableHandle> findTableScanHandleForTableExecute(PlanNode startNode)
