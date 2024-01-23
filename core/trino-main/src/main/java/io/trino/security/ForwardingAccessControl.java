@@ -14,6 +14,7 @@
 package io.trino.security;
 
 import io.trino.metadata.QualifiedObjectName;
+import io.trino.spi.QueryId;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.EntityKindAndName;
@@ -80,9 +81,9 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
-    public void checkCanExecuteQuery(Identity identity)
+    public void checkCanExecuteQuery(Identity identity, QueryId queryId)
     {
-        delegate().checkCanExecuteQuery(identity);
+        delegate().checkCanExecuteQuery(identity, queryId);
     }
 
     @Override

@@ -190,7 +190,7 @@ public class DispatchManager
             session = sessionSupplier.createSession(queryId, querySpan, sessionContext);
 
             // check query execute permissions
-            accessControl.checkCanExecuteQuery(sessionContext.getIdentity());
+            accessControl.checkCanExecuteQuery(sessionContext.getIdentity(), queryId);
 
             // prepare query
             preparedQuery = queryPreparer.prepareQuery(session, query);
