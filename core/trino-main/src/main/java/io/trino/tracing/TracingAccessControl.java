@@ -585,11 +585,11 @@ public class TracingAccessControl
     }
 
     @Override
-    public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
+    public void checkCanSetSystemSessionProperty(Identity identity, QueryId queryId, String propertyName)
     {
         Span span = startSpan("checkCanSetSystemSessionProperty");
         try (var ignored = scopedSpan(span)) {
-            delegate.checkCanSetSystemSessionProperty(identity, propertyName);
+            delegate.checkCanSetSystemSessionProperty(identity, queryId, propertyName);
         }
     }
 

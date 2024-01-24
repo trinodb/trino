@@ -580,7 +580,7 @@ public final class Session
     {
         for (Entry<String, String> property : systemProperties.entrySet()) {
             // verify permissions
-            accessControl.checkCanSetSystemSessionProperty(identity, property.getKey());
+            accessControl.checkCanSetSystemSessionProperty(identity, queryId, property.getKey());
 
             // validate session property value
             sessionPropertyManager.validateSystemSessionProperty(property.getKey(), property.getValue());
