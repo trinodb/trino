@@ -51,7 +51,8 @@ public class FilterAndProjectOperator
             PageProcessor pageProcessor,
             List<Type> types,
             DataSize minOutputPageSize,
-            int minOutputPageRowCount)
+            int minOutputPageRowCount,
+            boolean iteratorEnd)
     {
         AggregatedMemoryContext localAggregatedMemoryContext = newSimpleAggregatedMemoryContext();
         LocalMemoryContext outputMemoryContext = localAggregatedMemoryContext.newLocalMemoryContext(FilterAndProjectOperator.class.getSimpleName());
@@ -63,8 +64,9 @@ public class FilterAndProjectOperator
                         yieldSignal,
                         outputMemoryContext,
                         metrics,
-                        page))
-                .transformProcessor(processor -> mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, processor, localAggregatedMemoryContext))
+                        page,
+                        iteratorEnd))
+                .transformProcessor(processor -> mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, processor, localAggregatedMemoryContext, iteratorEnd))
                 .blocking(() -> memoryTrackingContext.localUserMemoryContext().setBytes(localAggregatedMemoryContext.getBytes()));
     }
 
@@ -86,7 +88,8 @@ public class FilterAndProjectOperator
             Supplier<PageProcessor> processor,
             List<Type> types,
             DataSize minOutputPageSize,
-            int minOutputPageRowCount)
+            int minOutputPageRowCount,
+            boolean iteratorEnd)
     {
         return createAdapterOperatorFactory(new Factory(
                 operatorId,
@@ -94,7 +97,8 @@ public class FilterAndProjectOperator
                 processor,
                 types,
                 minOutputPageSize,
-                minOutputPageRowCount));
+                minOutputPageRowCount,
+                iteratorEnd));
     }
 
     private static class Factory
@@ -107,6 +111,7 @@ public class FilterAndProjectOperator
         private final DataSize minOutputPageSize;
         private final int minOutputPageRowCount;
         private boolean closed;
+        private final boolean iteratorEnd;
 
         private Factory(
                 int operatorId,
@@ -114,7 +119,8 @@ public class FilterAndProjectOperator
                 Supplier<PageProcessor> processor,
                 List<Type> types,
                 DataSize minOutputPageSize,
-                int minOutputPageRowCount)
+                int minOutputPageRowCount,
+                boolean iteratorEnd)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -122,6 +128,7 @@ public class FilterAndProjectOperator
             this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
             this.minOutputPageSize = requireNonNull(minOutputPageSize, "minOutputPageSize is null");
             this.minOutputPageRowCount = minOutputPageRowCount;
+            this.iteratorEnd = iteratorEnd;
         }
 
         @Override
@@ -136,7 +143,8 @@ public class FilterAndProjectOperator
                     processor.get(),
                     types,
                     minOutputPageSize,
-                    minOutputPageRowCount);
+                    minOutputPageRowCount,
+                    iteratorEnd);
         }
 
         @Override
@@ -151,7 +159,8 @@ public class FilterAndProjectOperator
                     processor.get(),
                     types,
                     minOutputPageSize,
-                    minOutputPageRowCount);
+                    minOutputPageRowCount,
+                    iteratorEnd);
         }
 
         @Override
@@ -181,7 +190,7 @@ public class FilterAndProjectOperator
         @Override
         public BasicAdapterWorkProcessorOperatorFactory duplicate()
         {
-            return new Factory(operatorId, planNodeId, processor, types, minOutputPageSize, minOutputPageRowCount);
+            return new Factory(operatorId, planNodeId, processor, types, minOutputPageSize, minOutputPageRowCount, iteratorEnd);
         }
     }
 }

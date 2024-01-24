@@ -1643,6 +1643,17 @@ public interface ConnectorMetadata
     }
 
     /**
+     * If the file is ordered, attempt to push down sort or topN to connector.
+     */
+    default Optional<PartialSortApplicationResult<ConnectorTableHandle>> applyPartialSort(
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle,
+            Map<ColumnHandle, SortOrder> columnHandleSortOrderMap)
+    {
+        return Optional.empty();
+    }
+
+    /**
      * Attempt to push down the table function invocation into the connector.
      * <p>
      * Connectors can indicate whether they don't support table function invocation pushdown or that the action had no

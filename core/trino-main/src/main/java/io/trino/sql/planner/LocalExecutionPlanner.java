@@ -63,6 +63,7 @@ import io.trino.operator.GroupIdOperator;
 import io.trino.operator.HashAggregationOperator.HashAggregationOperatorFactory;
 import io.trino.operator.HashSemiJoinOperator;
 import io.trino.operator.JoinOperatorType;
+import io.trino.operator.LastNOperator;
 import io.trino.operator.LeafTableFunctionOperator.LeafTableFunctionOperatorFactory;
 import io.trino.operator.LimitOperator.LimitOperatorFactory;
 import io.trino.operator.LocalPlannerAware;
@@ -205,6 +206,7 @@ import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.IndexSourceNode;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.LastNNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.MergeProcessorNode;
@@ -626,6 +628,11 @@ public class LocalExecutionPlanner
                         skewedPartitionRebalancer));
     }
 
+    private boolean iteratorEnd(PlanNode node)
+    {
+        return searchFrom(node).where(LastNNode.class::isInstance).matches();
+    }
+
     public LocalExecutionPlan plan(
             TaskContext taskContext,
             PlanNode plan,
@@ -635,7 +642,7 @@ public class LocalExecutionPlanner
             OutputFactory outputOperatorFactory)
     {
         Session session = taskContext.getSession();
-        LocalExecutionPlanContext context = new LocalExecutionPlanContext(taskContext, types);
+        LocalExecutionPlanContext context = new LocalExecutionPlanContext(taskContext, types, iteratorEnd(plan));
 
         PhysicalOperation physicalOperation = plan.accept(new Visitor(session), context);
 
@@ -682,14 +689,17 @@ public class LocalExecutionPlanner
         private boolean inputDriver = true;
         private OptionalInt driverInstanceCount = OptionalInt.empty();
 
-        public LocalExecutionPlanContext(TaskContext taskContext, TypeProvider types)
+        private final boolean iteratorEnd;
+
+        public LocalExecutionPlanContext(TaskContext taskContext, TypeProvider types, boolean iteratorEnd)
         {
             this(
                     taskContext,
                     types,
                     new ArrayList<>(),
                     Optional.empty(),
-                    new AtomicInteger(0));
+                    new AtomicInteger(0),
+                    iteratorEnd);
         }
 
         private LocalExecutionPlanContext(
@@ -697,13 +707,15 @@ public class LocalExecutionPlanner
                 TypeProvider types,
                 List<DriverFactory> driverFactories,
                 Optional<IndexSourceContext> indexSourceContext,
-                AtomicInteger nextPipelineId)
+                AtomicInteger nextPipelineId,
+                boolean iteratorEnd)
         {
             this.taskContext = taskContext;
             this.types = types;
             this.driverFactories = driverFactories;
             this.indexSourceContext = indexSourceContext;
             this.nextPipelineId = nextPipelineId;
+            this.iteratorEnd = iteratorEnd;
         }
 
         public void addDriverFactory(boolean outputDriver, PhysicalOperation physicalOperation, LocalExecutionPlanContext context)
@@ -766,6 +778,11 @@ public class LocalExecutionPlanner
             return types;
         }
 
+        public boolean isIteratorEnd()
+        {
+            return iteratorEnd;
+        }
+
         public LocalDynamicFiltersCollector getDynamicFiltersCollector()
         {
             return taskContext.getLocalDynamicFiltersCollector();
@@ -818,12 +835,12 @@ public class LocalExecutionPlanner
         public LocalExecutionPlanContext createSubContext()
         {
             checkState(indexSourceContext.isEmpty(), "index build plan cannot have sub-contexts");
-            return new LocalExecutionPlanContext(taskContext, types, driverFactories, indexSourceContext, nextPipelineId);
+            return new LocalExecutionPlanContext(taskContext, types, driverFactories, indexSourceContext, nextPipelineId, iteratorEnd);
         }
 
         public LocalExecutionPlanContext createIndexSourceSubContext(IndexSourceContext indexSourceContext)
         {
-            return new LocalExecutionPlanContext(taskContext, types, driverFactories, Optional.of(indexSourceContext), nextPipelineId);
+            return new LocalExecutionPlanContext(taskContext, types, driverFactories, Optional.of(indexSourceContext), nextPipelineId, iteratorEnd);
         }
 
         public OptionalInt getDriverInstanceCount()
@@ -1967,6 +1984,14 @@ public class LocalExecutionPlanner
             return visitScanFilterAndProject(context, node.getId(), sourceNode, filterExpression, node.getAssignments(), outputSymbols);
         }
 
+        @Override
+        public PhysicalOperation visitLastN(LastNNode node, LocalExecutionPlanContext context)
+        {
+            PhysicalOperation source = node.getSource().accept(this, context);
+            OperatorFactory operatorFactory = new LastNOperator.LastNOperatorFactory(context.getNextOperatorId(), node.getId(), node.getCount());
+            return new PhysicalOperation(operatorFactory, source.getLayout(), context, source);
+        }
+
         // TODO: This should be refactored, so that there's an optimizer that merges scan-filter-project into a single PlanNode
         private PhysicalOperation visitScanFilterAndProject(
                 LocalExecutionPlanContext context,
@@ -2061,7 +2086,8 @@ public class LocalExecutionPlanner
                             dynamicFilter,
                             getTypes(projections, expressionTypes),
                             getFilterAndProjectMinOutputPageSize(session),
-                            getFilterAndProjectMinOutputPageRowCount(session));
+                            getFilterAndProjectMinOutputPageRowCount(session),
+                            context.isIteratorEnd());
 
                     return new PhysicalOperation(operatorFactory, outputMappings, context);
                 }
@@ -2073,7 +2099,8 @@ public class LocalExecutionPlanner
                         pageProcessor,
                         getTypes(projections, expressionTypes),
                         getFilterAndProjectMinOutputPageSize(session),
-                        getFilterAndProjectMinOutputPageRowCount(session));
+                        getFilterAndProjectMinOutputPageRowCount(session),
+                        context.isIteratorEnd());
 
                 return new PhysicalOperation(operatorFactory, outputMappings, context, source);
             }

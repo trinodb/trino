@@ -41,6 +41,7 @@ import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.LastNNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.MergeProcessorNode;
@@ -378,6 +379,12 @@ public class SplitSourceFactory
 
         @Override
         public Map<PlanNodeId, SplitSource> visitLimit(LimitNode node, Void context)
+        {
+            return node.getSource().accept(this, context);
+        }
+
+        @Override
+        public Map<PlanNodeId, SplitSource> visitLastN(LastNNode node, Void context)
         {
             return node.getSource().accept(this, context);
         }

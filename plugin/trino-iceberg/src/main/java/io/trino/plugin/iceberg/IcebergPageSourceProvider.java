@@ -35,7 +35,7 @@ import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcDataSourceId;
 import io.trino.orc.OrcReader;
 import io.trino.orc.OrcReaderOptions;
-import io.trino.orc.OrcRecordReader;
+import io.trino.orc.RecordReader;
 import io.trino.orc.TupleDomainOrcPredicate;
 import io.trino.orc.TupleDomainOrcPredicate.TupleDomainOrcPredicateBuilder;
 import io.trino.parquet.Column;
@@ -279,7 +279,8 @@ public class IcebergPageSourceProvider
                 split.getFileRecordCount(),
                 split.getPartitionDataJson(),
                 split.getFileFormat(),
-                tableHandle.getNameMappingJson().map(NameMappingParser::fromJson));
+                tableHandle.getNameMappingJson().map(NameMappingParser::fromJson),
+                tableHandle.getIteratorEnd());
     }
 
     public ConnectorPageSource createPageSource(
@@ -298,7 +299,8 @@ public class IcebergPageSourceProvider
             long fileRecordCount,
             String partitionDataJson,
             IcebergFileFormat fileFormat,
-            Optional<NameMapping> nameMapping)
+            Optional<NameMapping> nameMapping,
+            boolean iteratorEnd)
     {
         Set<IcebergColumnHandle> deleteFilterRequiredColumns = requiredColumnsForDeletes(tableSchema, deletes);
         Map<Integer, Optional<String>> partitionKeys = getPartitionKeys(partitionData, partitionSpec);
@@ -380,7 +382,8 @@ public class IcebergPageSourceProvider
                 requiredColumns,
                 effectivePredicate,
                 nameMapping,
-                partitionKeys);
+                partitionKeys,
+                iteratorEnd);
         ReaderPageSource dataPageSource = readerPageSourceWithRowPositions.getReaderPageSource();
 
         Optional<ReaderProjectionsAdapter> projectionsAdapter = dataPageSource.getReaderColumns().map(readerColumns ->
@@ -402,7 +405,8 @@ public class IcebergPageSourceProvider
                     path,
                     deletes,
                     readerPageSourceWithRowPositions.getStartRowPosition(),
-                    readerPageSourceWithRowPositions.getEndRowPosition());
+                    readerPageSourceWithRowPositions.getEndRowPosition(),
+                    iteratorEnd);
             return deleteFilters.stream()
                     .map(filter -> filter.createPredicate(readColumns))
                     .reduce(RowPredicate::and);
@@ -413,7 +417,8 @@ public class IcebergPageSourceProvider
                 requiredColumns,
                 dataPageSource.get(),
                 projectionsAdapter,
-                deletePredicate);
+                deletePredicate,
+                iteratorEnd);
     }
 
     private TupleDomain<IcebergColumnHandle> getEffectivePredicate(
@@ -462,7 +467,8 @@ public class IcebergPageSourceProvider
             String dataFilePath,
             List<DeleteFile> deleteFiles,
             Optional<Long> startRowPosition,
-            Optional<Long> endRowPosition)
+            Optional<Long> endRowPosition,
+            boolean iteratorEnd)
     {
         verify(startRowPosition.isPresent() == endRowPosition.isPresent(), "startRowPosition and endRowPosition must be specified together");
 
@@ -498,7 +504,7 @@ public class IcebergPageSourceProvider
                     }
                 }
 
-                try (ConnectorPageSource pageSource = openDeletes(session, delete, deleteColumns, deleteDomain)) {
+                try (ConnectorPageSource pageSource = openDeletes(session, delete, deleteColumns, deleteDomain, iteratorEnd)) {
                     readPositionDeletes(pageSource, targetPath, deletedRows);
                 }
                 catch (IOException e) {
@@ -515,7 +521,7 @@ public class IcebergPageSourceProvider
 
                 EqualityDeleteSet equalityDeleteSet = deletesSetByFieldIds.computeIfAbsent(fieldIds, key -> new EqualityDeleteSet(deleteSchema, schemaFromHandles(readColumns)));
 
-                try (ConnectorPageSource pageSource = openDeletes(session, delete, columns, TupleDomain.all())) {
+                try (ConnectorPageSource pageSource = openDeletes(session, delete, columns, TupleDomain.all(), iteratorEnd)) {
                     readEqualityDeletes(pageSource, columns, equalityDeleteSet::add);
                 }
                 catch (IOException e) {
@@ -542,7 +548,8 @@ public class IcebergPageSourceProvider
             ConnectorSession session,
             DeleteFile delete,
             List<IcebergColumnHandle> columns,
-            TupleDomain<IcebergColumnHandle> tupleDomain)
+            TupleDomain<IcebergColumnHandle> tupleDomain,
+            boolean iteratorEnd)
     {
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
         return createDataPageSource(
@@ -558,7 +565,8 @@ public class IcebergPageSourceProvider
                 columns,
                 tupleDomain,
                 Optional.empty(),
-                ImmutableMap.of())
+                ImmutableMap.of(),
+                iteratorEnd)
                 .getReaderPageSource()
                 .get();
     }
@@ -576,7 +584,8 @@ public class IcebergPageSourceProvider
             List<IcebergColumnHandle> dataColumns,
             TupleDomain<IcebergColumnHandle> predicate,
             Optional<NameMapping> nameMapping,
-            Map<Integer, Optional<String>> partitionKeys)
+            Map<Integer, Optional<String>> partitionKeys,
+            boolean iteratorEnd)
     {
         switch (fileFormat) {
             case ORC:
@@ -600,7 +609,8 @@ public class IcebergPageSourceProvider
                         fileFormatDataSourceStats,
                         typeManager,
                         nameMapping,
-                        partitionKeys);
+                        partitionKeys,
+                        iteratorEnd);
             case PARQUET:
                 return createParquetPageSource(
                         inputFile,
@@ -684,7 +694,8 @@ public class IcebergPageSourceProvider
             FileFormatDataSourceStats stats,
             TypeManager typeManager,
             Optional<NameMapping> nameMapping,
-            Map<Integer, Optional<String>> partitionKeys)
+            Map<Integer, Optional<String>> partitionKeys,
+            boolean iteratorEnd)
     {
         OrcDataSource orcDataSource = null;
         try {
@@ -775,20 +786,42 @@ public class IcebergPageSourceProvider
                 }
             }
 
+            if (iteratorEnd) {
+                columnAdaptations.add(ColumnAdaptation.rowGroupColumn());
+            }
+
             AggregatedMemoryContext memoryUsage = newSimpleAggregatedMemoryContext();
             OrcDataSourceId orcDataSourceId = orcDataSource.getId();
-            OrcRecordReader recordReader = reader.createRecordReader(
-                    fileReadColumns,
-                    fileReadTypes,
-                    projectedLayouts,
-                    predicateBuilder.build(),
-                    start,
-                    length,
-                    UTC,
-                    memoryUsage,
-                    INITIAL_BATCH_SIZE,
-                    exception -> handleException(orcDataSourceId, exception),
-                    new IdBasedFieldMapperFactory(readBaseColumns));
+
+            RecordReader recordReader;
+            if (iteratorEnd) {
+                recordReader = reader.createRecordBackwardReader(
+                        fileReadColumns,
+                        fileReadTypes,
+                        projectedLayouts,
+                        predicateBuilder.build(),
+                        start,
+                        length,
+                        UTC,
+                        memoryUsage,
+                        INITIAL_BATCH_SIZE,
+                        exception -> handleException(orcDataSourceId, exception),
+                        new IdBasedFieldMapperFactory(readBaseColumns));
+            }
+            else {
+                recordReader = reader.createRecordReader(
+                        fileReadColumns,
+                        fileReadTypes,
+                        projectedLayouts,
+                        predicateBuilder.build(),
+                        start,
+                        length,
+                        UTC,
+                        memoryUsage,
+                        INITIAL_BATCH_SIZE,
+                        exception -> handleException(orcDataSourceId, exception),
+                        new IdBasedFieldMapperFactory(readBaseColumns));
+            }
 
             return new ReaderPageSourceWithRowPositions(
                     new ReaderPageSource(

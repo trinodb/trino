@@ -176,7 +176,8 @@ public class BenchmarkScanFilterAndProjectOperator
                     DynamicFilter.EMPTY,
                     types,
                     FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_SIZE,
-                    FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT);
+                    FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT,
+                    false);
         }
 
         public TaskContext createTaskContext()

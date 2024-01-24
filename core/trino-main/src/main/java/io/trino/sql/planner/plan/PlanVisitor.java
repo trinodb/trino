@@ -44,6 +44,11 @@ public abstract class PlanVisitor<R, C>
         return visitPlan(node, context);
     }
 
+    public R visitLastN(LastNNode node, C context)
+    {
+        return visitPlan(node, context);
+    }
+
     public R visitOutput(OutputNode node, C context)
     {
         return visitPlan(node, context);

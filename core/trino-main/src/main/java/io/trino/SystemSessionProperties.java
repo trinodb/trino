@@ -211,6 +211,7 @@ public final class SystemSessionProperties
     public static final String PAGE_PARTITIONING_BUFFER_POOL_SIZE = "page_partitioning_buffer_pool_size";
     public static final String IDLE_WRITER_MIN_DATA_SIZE_THRESHOLD = "idle_writer_min_data_size_threshold";
     public static final String CLOSE_IDLE_WRITERS_TRIGGER_DURATION = "close_idle_writers_trigger_duration";
+    public static final String ALLOW_PUSH_PARTIAL_TOP_N_TO_TABLE_SCAN = "allow_push_partial_top_n_to_table_scan";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -1072,7 +1073,11 @@ public final class SystemSessionProperties
                 durationProperty(CLOSE_IDLE_WRITERS_TRIGGER_DURATION,
                         "The duration after which the writer operator tries to close the idle writers",
                         new Duration(5, SECONDS),
-                        true));
+                        true),
+                booleanProperty(ALLOW_PUSH_PARTIAL_TOP_N_TO_TABLE_SCAN,
+                        "Allow push partial sort to table scan.",
+                        false,
+                        false));
     }
 
     @Override
@@ -1204,6 +1209,11 @@ public final class SystemSessionProperties
     public static boolean isOptimizeMetadataQueries(Session session)
     {
         return session.getSystemProperty(OPTIMIZE_METADATA_QUERIES, Boolean.class);
+    }
+
+    public static boolean isPushPartialTopNIntoTableScan(Session session)
+    {
+        return session.getSystemProperty(ALLOW_PUSH_PARTIAL_TOP_N_TO_TABLE_SCAN, Boolean.class);
     }
 
     public static DataSize getQueryMaxMemory(Session session)

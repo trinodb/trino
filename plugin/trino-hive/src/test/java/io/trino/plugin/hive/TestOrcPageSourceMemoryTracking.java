@@ -626,7 +626,8 @@ public class TestOrcPageSourceMemoryTracking
                     DynamicFilter.EMPTY,
                     types,
                     DataSize.ofBytes(0),
-                    0);
+                    0,
+                    false);
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
             operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
             operator.noMoreSplits();

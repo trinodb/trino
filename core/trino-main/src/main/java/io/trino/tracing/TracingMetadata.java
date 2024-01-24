@@ -63,6 +63,7 @@ import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
+import io.trino.spi.connector.PartialSortApplicationResult;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RelationType;
@@ -72,6 +73,7 @@ import io.trino.spi.connector.SampleType;
 import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SortItem;
+import io.trino.spi.connector.SortOrder;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableFunctionApplicationResult;
@@ -1018,6 +1020,15 @@ public class TracingMetadata
         Span span = startSpan("applyTopN", handle);
         try (var ignored = scopedSpan(span)) {
             return delegate.applyTopN(session, handle, topNCount, sortItems, assignments);
+        }
+    }
+
+    @Override
+    public Optional<PartialSortApplicationResult<TableHandle>> applyPartialSort(Session session, TableHandle tableHandle, Map<ColumnHandle, SortOrder> columnHandleSortOrderMap)
+    {
+        Span span = startSpan("applyPartialSort", tableHandle);
+        try (var ignored = scopedSpan(span)) {
+            return delegate.applyPartialSort(session, tableHandle, columnHandleSortOrderMap);
         }
     }
 

@@ -21,7 +21,7 @@ import io.trino.memory.context.LocalMemoryContext;
 import io.trino.orc.OrcCorruptionException;
 import io.trino.orc.OrcDataSource;
 import io.trino.orc.OrcDataSourceId;
-import io.trino.orc.OrcRecordReader;
+import io.trino.orc.RecordReader;
 import io.trino.orc.metadata.CompressionKind;
 import io.trino.plugin.base.metrics.LongCount;
 import io.trino.plugin.hive.FileFormatDataSourceStats;
@@ -67,7 +67,7 @@ public class OrcPageSource
     private static final Block ORIGINAL_FILE_TRANSACTION_ID_BLOCK = nativeValueToBlock(BIGINT, 0L);
     public static final String ORC_CODEC_METRIC_PREFIX = "OrcReaderCompressionFormat_";
 
-    private final OrcRecordReader recordReader;
+    private final RecordReader recordReader;
     private final List<ColumnAdaptation> columnAdaptations;
     private final OrcDataSource orcDataSource;
     private final Optional<OrcDeletedRows> deletedRows;
@@ -88,7 +88,7 @@ public class OrcPageSource
     private Optional<Page> outstandingPage = Optional.empty();
 
     public OrcPageSource(
-            OrcRecordReader recordReader,
+            RecordReader recordReader,
             List<ColumnAdaptation> columnAdaptations,
             OrcDataSource orcDataSource,
             Optional<OrcDeletedRows> deletedRows,
@@ -264,6 +264,11 @@ public class OrcPageSource
         static ColumnAdaptation sourceColumn(int index)
         {
             return new SourceColumn(index);
+        }
+
+        static ColumnAdaptation rowGroupColumn()
+        {
+            return new RowGroupAdaptation();
         }
 
         static ColumnAdaptation coercedColumn(int index, TypeCoercer<?, ?> typeCoercer)
@@ -451,6 +456,16 @@ public class OrcPageSource
                             RunLengthEncodedBlock.create(bucketBlock, positionCount),
                             createRowNumberBlock(startingRowId, filePosition, positionCount)
                     }));
+        }
+    }
+
+    private static class RowGroupAdaptation
+            implements ColumnAdaptation
+    {
+        @Override
+        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction, long filePosition, OptionalLong startRowId)
+        {
+            return sourcePage.getBlock(sourcePage.getChannelCount() - 1);
         }
     }
 

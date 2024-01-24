@@ -314,6 +314,47 @@ public class OrcReader
                 fieldMapperFactory);
     }
 
+    public OrcRecordBackwardReader createRecordBackwardReader(
+            List<OrcColumn> readColumns,
+            List<Type> readTypes,
+            List<ProjectedLayout> readLayouts,
+            OrcPredicate predicate,
+            long offset,
+            long length,
+            DateTimeZone legacyFileTimeZone,
+            AggregatedMemoryContext memoryUsage,
+            int initialBatchSize,
+            Function<Exception, RuntimeException> exceptionTransform,
+            FieldMapperFactory fieldMapperFactory)
+            throws OrcCorruptionException
+    {
+        return new OrcRecordBackwardReader(
+                requireNonNull(readColumns, "readColumns is null"),
+                requireNonNull(readTypes, "readTypes is null"),
+                requireNonNull(readLayouts, "readLayouts is null"),
+                requireNonNull(predicate, "predicate is null"),
+                footer.getNumberOfRows(),
+                footer.getStripes(),
+                footer.getFileStats(),
+                metadata.getStripeStatsList(),
+                orcDataSource,
+                offset,
+                length,
+                footer.getTypes(),
+                decompressor,
+                footer.getRowsInRowGroup(),
+                requireNonNull(legacyFileTimeZone, "legacyFileTimeZone is null"),
+                hiveWriterVersion,
+                metadataReader,
+                options,
+                footer.getUserMetadata(),
+                memoryUsage,
+                writeValidation,
+                initialBatchSize,
+                exceptionTransform,
+                fieldMapperFactory);
+    }
+
     private static OrcDataSource wrapWithCacheIfTiny(OrcDataSource dataSource, DataSize maxCacheSize)
             throws IOException
     {

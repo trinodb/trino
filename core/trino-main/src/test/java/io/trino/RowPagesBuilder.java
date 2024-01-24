@@ -17,10 +17,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
 import io.trino.type.TypeTestUtils;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -77,6 +79,22 @@ public class RowPagesBuilder
 
         pageBreak();
         Page page = SequencePageBuilder.createSequencePage(types, length, initialValues);
+        pages.add(page);
+        return this;
+    }
+
+    public RowPagesBuilder addSequencePageWithRowGroupId(int length, long rowGroupId, int... initialValues)
+    {
+        checkArgument(length > 0, "length must be at least 1");
+        checkArgument(rowGroupId >= 0, "length must be at least 0");
+        requireNonNull(initialValues, "initialValues is null");
+        checkArgument(initialValues.length == types.size(), "Expected %s initialValues, but got %s", types.size(), initialValues.length);
+
+        pageBreak();
+        Page page = SequencePageBuilder.createSequencePage(types, length, initialValues);
+        long[] values = new long[page.getPositionCount()];
+        Arrays.fill(values, rowGroupId);
+        page = page.appendColumn(new LongArrayBlock(page.getPositionCount(), Optional.empty(), values));
         pages.add(page);
         return this;
     }

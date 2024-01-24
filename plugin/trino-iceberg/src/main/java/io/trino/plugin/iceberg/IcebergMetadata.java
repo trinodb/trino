@@ -78,6 +78,7 @@ import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.DiscretePredicates;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
+import io.trino.spi.connector.PartialSortApplicationResult;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RelationColumnsMetadata;
 import io.trino.spi.connector.RelationCommentMetadata;
@@ -125,6 +126,7 @@ import org.apache.iceberg.ManifestFile;
 import org.apache.iceberg.ManifestFiles;
 import org.apache.iceberg.ManifestReader;
 import org.apache.iceberg.MetadataColumns;
+import org.apache.iceberg.NullOrder;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
@@ -135,6 +137,7 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.SnapshotRef;
+import org.apache.iceberg.SortDirection;
 import org.apache.iceberg.SortField;
 import org.apache.iceberg.SortOrder;
 import org.apache.iceberg.StatisticsFile;
@@ -480,7 +483,9 @@ public class IcebergMetadata
                 false,
                 Optional.empty(),
                 ImmutableSet.of(),
-                Optional.of(false));
+                Optional.of(false),
+                false,
+                false);
     }
 
     private static long getSnapshotIdFromVersion(ConnectorSession session, Table table, ConnectorTableVersion version)
@@ -2510,7 +2515,9 @@ public class IcebergMetadata
                 table.isRecordScannedFiles(),
                 table.getMaxScannedFileSize(),
                 table.getConstraintColumns(),
-                table.getForAnalyze());
+                table.getForAnalyze(),
+                table.isSort(),
+                table.getIteratorEnd());
 
         return Optional.of(new LimitApplicationResult<>(table, false, false));
     }
@@ -2611,7 +2618,9 @@ public class IcebergMetadata
                         table.isRecordScannedFiles(),
                         table.getMaxScannedFileSize(),
                         newConstraintColumns,
-                        table.getForAnalyze()),
+                        table.getForAnalyze(),
+                        table.isSort(),
+                        table.getIteratorEnd()),
                 remainingConstraint.transformKeys(ColumnHandle.class::cast),
                 extractionResult.remainingExpression(),
                 false));
@@ -2705,6 +2714,112 @@ public class IcebergMetadata
                 false));
     }
 
+    @Override
+    public Optional<PartialSortApplicationResult<ConnectorTableHandle>> applyPartialSort(
+            ConnectorSession session,
+            ConnectorTableHandle tableHandle,
+            Map<ColumnHandle, io.trino.spi.connector.SortOrder> columnHandleSortOrderMap)
+    {
+        if (columnHandleSortOrderMap.size() != 1) {
+            return Optional.empty();
+        }
+        IcebergTableHandle originalTableHandle = (IcebergTableHandle) tableHandle;
+        if (originalTableHandle.isSort()) {
+            return Optional.empty();
+        }
+        IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
+        Table table;
+        table = catalog.loadTable(session, icebergTableHandle.getSchemaTableName());
+        IcebergColumnHandle sortOrderColumn = (IcebergColumnHandle) columnHandleSortOrderMap.keySet().stream().toList().get(0);
+        Set<Integer> specIdNotMatching = new HashSet<>();
+
+        // partition specs are {0:f1, 1:f1,f2, 2:f3}
+        // if query sort is `order by f2`, filter out result(specIdNotMatching) is specId=0,2. later we will use `planFile` decide whether the planed files have specId 0 or 2.
+        // if all the files spec ids does not have 0 or 2 due to some reason, then we hope the query can use our optimization.
+        table.specs().values().forEach(spec -> {
+            if (spec.fields().stream().noneMatch(field -> (field.sourceId() == sortOrderColumn.getId() && field.transform().isIdentity()))) {
+                specIdNotMatching.add(spec.specId());
+            }
+        });
+
+        if (specIdNotMatching.size() != table.specs().size()) {
+            // two common cases will make specIdNotMatching empty.
+            // case1: partition specs are {0:f1, 1:f1,f2, 2:f1} and query sort is `order by f1`
+            // case2: partition specs are {0:f1}, then rename f1 to f2 by update schema. the new specs is still {0:f1}. the query sort order `order by f2` would still work by this optimization.
+            if (specIdNotMatching.isEmpty()) {
+                return Optional.of(
+                        new PartialSortApplicationResult<>(
+                                originalTableHandle.withSort(true),
+                                true,
+                                true,
+                                true));
+            }
+            TupleDomain<IcebergColumnHandle> effectivePredicate =
+                    icebergTableHandle.getUnenforcedPredicate().intersect(icebergTableHandle.getEnforcedPredicate());
+            try (CloseableIterable<FileScanTask> fileScanTasks = table.newScan().filter(toIcebergExpression(effectivePredicate)).planFiles()) {
+                for (FileScanTask scanTask : fileScanTasks) {
+                    int specId = scanTask.file().specId();
+                    if (specIdNotMatching.contains(specId)) {
+                        return Optional.empty();
+                    }
+                }
+                return Optional.of(
+                        new PartialSortApplicationResult<>(
+                                originalTableHandle.withSort(true),
+                                true,
+                                true,
+                                true));
+            }
+            catch (Throwable t) {
+                throw new RuntimeException(t);
+            }
+        }
+
+        if (table.sortOrder().isUnsorted()) {
+            return Optional.empty();
+        }
+        SortField sortField = table.sortOrder().fields().get(0);
+        if (sortField.sourceId() != sortOrderColumn.getId()) {
+            return Optional.empty();
+        }
+
+        io.trino.spi.connector.SortOrder trinoSortOrder = columnHandleSortOrderMap.values().stream().toList().get(0);
+        io.trino.spi.connector.SortOrder icebergSortOrder = toSortOrder(sortField);
+        boolean allSorted = true;
+        TupleDomain<IcebergColumnHandle> effectivePredicate =
+                icebergTableHandle.getUnenforcedPredicate().intersect(icebergTableHandle.getEnforcedPredicate());
+        try (CloseableIterable<FileScanTask> fileScanTasks = table.newScan().filter(toIcebergExpression(effectivePredicate)).planFiles()) {
+            for (FileScanTask scanTask : fileScanTasks) {
+                DataFile file = scanTask.file();
+                if (file.sortOrderId() != table.sortOrder().orderId()) {
+                    allSorted = false;
+                    break;
+                }
+            }
+        }
+        catch (Throwable t) {
+            throw new RuntimeException(t);
+        }
+        boolean writeOrderNotSameAsReadOrder = trinoSortOrder.isAscending() != icebergSortOrder.isAscending()
+                && trinoSortOrder.isNullsFirst() != icebergSortOrder.isNullsFirst();
+        return Optional.of(
+                new PartialSortApplicationResult<>(
+                        writeOrderNotSameAsReadOrder ? originalTableHandle.withSort(allSorted).withIteratorEnd(true) : originalTableHandle.withSort(allSorted),
+                        trinoSortOrder.isAscending() == icebergSortOrder.isAscending(),
+                        trinoSortOrder.isNullsFirst() == icebergSortOrder.isNullsFirst(),
+                        allSorted));
+    }
+
+    public static io.trino.spi.connector.SortOrder toSortOrder(SortField storage)
+    {
+        SortDirection direction = storage.direction();
+        NullOrder nullOrder = storage.nullOrder();
+        return switch (direction) {
+            case ASC -> nullOrder == NullOrder.NULLS_FIRST ? io.trino.spi.connector.SortOrder.ASC_NULLS_FIRST : io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
+            case DESC -> nullOrder == NullOrder.NULLS_FIRST ? io.trino.spi.connector.SortOrder.DESC_NULLS_FIRST : io.trino.spi.connector.SortOrder.DESC_NULLS_LAST;
+        };
+    }
+
     private static IcebergColumnHandle createProjectedColumnHandle(IcebergColumnHandle column, List<Integer> indices, io.trino.spi.type.Type projectedColumnType)
     {
         if (indices.isEmpty()) {
@@ -2762,7 +2877,9 @@ public class IcebergMetadata
                         false, // recordScannedFiles does not affect stats
                         originalHandle.getMaxScannedFileSize(),
                         ImmutableSet.of(), // constraintColumns do not affect stats
-                        Optional.empty()), // forAnalyze does not affect stats
+                        Optional.empty(),
+                        originalHandle.isSort(),
+                        originalHandle.getIteratorEnd()), // forAnalyze does not affect stats
                 handle -> {
                     Table icebergTable = catalog.loadTable(session, handle.getSchemaTableName());
                     return TableStatisticsReader.getTableStatistics(typeManager, session, handle, icebergTable);

@@ -174,7 +174,9 @@ public class TestConnectorPushdownRulesWithIceberg
                 false,
                 Optional.empty(),
                 ImmutableSet.of(),
-                Optional.of(false));
+                Optional.of(false),
+                false,
+                false);
         TableHandle table = new TableHandle(catalogHandle, icebergTable, new HiveTransactionHandle(false));
 
         IcebergColumnHandle fullColumn = partialColumn.getBaseColumn();
@@ -258,7 +260,9 @@ public class TestConnectorPushdownRulesWithIceberg
                 false,
                 Optional.empty(),
                 ImmutableSet.of(),
-                Optional.of(false));
+                Optional.of(false),
+                false,
+                false);
         TableHandle table = new TableHandle(catalogHandle, icebergTable, new HiveTransactionHandle(false));
 
         IcebergColumnHandle column = new IcebergColumnHandle(primitiveColumnIdentity(1, "a"), INTEGER, ImmutableList.of(), INTEGER, true, Optional.empty());
@@ -309,7 +313,9 @@ public class TestConnectorPushdownRulesWithIceberg
                 false,
                 Optional.empty(),
                 ImmutableSet.of(),
-                Optional.of(false));
+                Optional.of(false),
+                false,
+                false);
         TableHandle table = new TableHandle(catalogHandle, icebergTable, new HiveTransactionHandle(false));
 
         IcebergColumnHandle columnA = new IcebergColumnHandle(primitiveColumnIdentity(0, "a"), INTEGER, ImmutableList.of(), INTEGER, true, Optional.empty());
@@ -371,7 +377,9 @@ public class TestConnectorPushdownRulesWithIceberg
                 false,
                 Optional.empty(),
                 ImmutableSet.of(),
-                Optional.of(false));
+                Optional.of(false),
+                false,
+                false);
         TableHandle table = new TableHandle(catalogHandle, icebergTable, new HiveTransactionHandle(false));
 
         IcebergColumnHandle bigintColumn = new IcebergColumnHandle(primitiveColumnIdentity(1, "just_bigint"), BIGINT, ImmutableList.of(), BIGINT, true, Optional.empty());

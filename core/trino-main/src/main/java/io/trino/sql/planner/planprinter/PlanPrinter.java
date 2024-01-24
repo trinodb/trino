@@ -81,6 +81,7 @@ import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.IndexSourceNode;
 import io.trino.sql.planner.plan.IntersectNode;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.LastNNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.MergeProcessorNode;
@@ -822,6 +823,12 @@ public class PlanPrinter
                             "inputPreSortedBy", formatSymbols(node.getPreSortedInputs())),
                     context.tag());
             return processChildren(node, new Context());
+        }
+
+        @Override
+        public Void visitLastN(LastNNode node, Context context)
+        {
+            return super.visitLastN(node, context);
         }
 
         @Override

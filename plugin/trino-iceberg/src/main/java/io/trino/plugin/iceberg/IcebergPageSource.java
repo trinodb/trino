@@ -58,13 +58,14 @@ public class IcebergPageSource
             List<IcebergColumnHandle> requiredColumns,
             ConnectorPageSource delegate,
             Optional<ReaderProjectionsAdapter> projectionsAdapter,
-            Supplier<Optional<RowPredicate>> deletePredicate)
+            Supplier<Optional<RowPredicate>> deletePredicate,
+            boolean iteratorEnd)
     {
         // expectedColumns should contain columns which should be in the final Page
         // requiredColumns should include all expectedColumns as well as any columns needed by the DeleteFilter
         requireNonNull(expectedColumns, "expectedColumns is null");
         requireNonNull(requiredColumns, "requiredColumns is null");
-        this.expectedColumnIndexes = new int[expectedColumns.size()];
+        this.expectedColumnIndexes = new int[!iteratorEnd ? expectedColumns.size() : expectedColumns.size() + 1];
         for (int i = 0; i < expectedColumns.size(); i++) {
             IcebergColumnHandle expectedColumn = expectedColumns.get(i);
             checkArgument(expectedColumn.equals(requiredColumns.get(i)), "Expected columns must be a prefix of required columns");
@@ -83,6 +84,10 @@ public class IcebergPageSource
                     fieldIdToRowIdIndex.put(fieldId, columnIndex);
                 }
             }
+        }
+
+        if (iteratorEnd) {
+            expectedColumnIndexes[expectedColumns.size()] = expectedColumns.size();
         }
 
         this.delegate = requireNonNull(delegate, "delegate is null");

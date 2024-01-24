@@ -95,7 +95,8 @@ public class ScanFilterAndProjectOperator
             DynamicFilter dynamicFilter,
             Iterable<Type> types,
             DataSize minOutputPageSize,
-            int minOutputPageRowCount)
+            int minOutputPageRowCount,
+            boolean iteratorEnd)
     {
         pages = splits.flatTransform(
                 new SplitToPages(
@@ -110,7 +111,8 @@ public class ScanFilterAndProjectOperator
                         types,
                         memoryTrackingContext.aggregateUserMemoryContext(),
                         minOutputPageSize,
-                        minOutputPageRowCount));
+                        minOutputPageRowCount,
+                        iteratorEnd));
     }
 
     @Override
@@ -205,6 +207,7 @@ public class ScanFilterAndProjectOperator
         final LocalMemoryContext outputMemoryContext;
         final DataSize minOutputPageSize;
         final int minOutputPageRowCount;
+        boolean iteratorEnd;
 
         SplitToPages(
                 Session session,
@@ -218,7 +221,8 @@ public class ScanFilterAndProjectOperator
                 Iterable<Type> types,
                 AggregatedMemoryContext aggregatedMemoryContext,
                 DataSize minOutputPageSize,
-                int minOutputPageRowCount)
+                int minOutputPageRowCount,
+                boolean iteratorEnd)
         {
             this.session = requireNonNull(session, "session is null");
             this.yieldSignal = requireNonNull(yieldSignal, "yieldSignal is null");
@@ -235,6 +239,7 @@ public class ScanFilterAndProjectOperator
             this.outputMemoryContext = localAggregatedMemoryContext.newLocalMemoryContext(ScanFilterAndProjectOperator.class.getSimpleName());
             this.minOutputPageSize = requireNonNull(minOutputPageSize, "minOutputPageSize is null");
             this.minOutputPageRowCount = minOutputPageRowCount;
+            this.iteratorEnd = iteratorEnd;
         }
 
         @Override
@@ -286,8 +291,9 @@ public class ScanFilterAndProjectOperator
                             yieldSignal,
                             outputMemoryContext,
                             pageProcessorMetrics,
-                            page))
-                    .transformProcessor(processor -> mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, processor, localAggregatedMemoryContext))
+                            page,
+                            iteratorEnd))
+                    .transformProcessor(processor -> mergePages(types, minOutputPageSize.toBytes(), minOutputPageRowCount, processor, localAggregatedMemoryContext, iteratorEnd))
                     .blocking(() -> memoryContext.setBytes(localAggregatedMemoryContext.getBytes()));
         }
     }
@@ -420,6 +426,7 @@ public class ScanFilterAndProjectOperator
         private final DataSize minOutputPageSize;
         private final int minOutputPageRowCount;
         private boolean closed;
+        private boolean iteratorEnd;
 
         public ScanFilterAndProjectOperatorFactory(
                 int operatorId,
@@ -433,7 +440,8 @@ public class ScanFilterAndProjectOperator
                 DynamicFilter dynamicFilter,
                 List<Type> types,
                 DataSize minOutputPageSize,
-                int minOutputPageRowCount)
+                int minOutputPageRowCount,
+                boolean iteratorEnd)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -447,6 +455,7 @@ public class ScanFilterAndProjectOperator
             this.types = requireNonNull(types, "types is null");
             this.minOutputPageSize = requireNonNull(minOutputPageSize, "minOutputPageSize is null");
             this.minOutputPageRowCount = minOutputPageRowCount;
+            this.iteratorEnd = iteratorEnd;
         }
 
         @Override
@@ -501,7 +510,8 @@ public class ScanFilterAndProjectOperator
                     dynamicFilter,
                     types,
                     minOutputPageSize,
-                    minOutputPageRowCount);
+                    minOutputPageRowCount,
+                    iteratorEnd);
         }
 
         @Override

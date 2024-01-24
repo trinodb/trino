@@ -133,7 +133,8 @@ public class TestScanFilterAndProjectOperator
                 DynamicFilter.EMPTY,
                 ImmutableList.of(VARCHAR),
                 DataSize.ofBytes(0),
-                0);
+                0,
+                false);
 
         SourceOperator operator = factory.createOperator(driverContext);
         operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
@@ -175,7 +176,8 @@ public class TestScanFilterAndProjectOperator
                 DynamicFilter.EMPTY,
                 ImmutableList.of(BIGINT),
                 DataSize.of(64, KILOBYTE),
-                2);
+                2,
+                false);
 
         SourceOperator operator = factory.createOperator(newDriverContext());
         operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
@@ -220,7 +222,8 @@ public class TestScanFilterAndProjectOperator
                 DynamicFilter.EMPTY,
                 ImmutableList.of(BIGINT),
                 DataSize.ofBytes(0),
-                0);
+                0,
+                false);
 
         SourceOperator operator = factory.createOperator(driverContext);
         operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
@@ -254,7 +257,8 @@ public class TestScanFilterAndProjectOperator
                 DynamicFilter.EMPTY,
                 ImmutableList.of(VARCHAR),
                 DataSize.ofBytes(0),
-                0);
+                0,
+                false);
 
         SourceOperator operator = factory.createOperator(driverContext);
         operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
@@ -305,7 +309,8 @@ public class TestScanFilterAndProjectOperator
                 DynamicFilter.EMPTY,
                 ImmutableList.of(BIGINT),
                 DataSize.ofBytes(0),
-                0);
+                0,
+                false);
 
         SourceOperator operator = factory.createOperator(driverContext);
         operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));
@@ -370,7 +375,8 @@ public class TestScanFilterAndProjectOperator
                 DynamicFilter.EMPTY,
                 ImmutableList.of(BIGINT),
                 DataSize.ofBytes(0),
-                0);
+                0,
+                false);
 
         SourceOperator operator = factory.createOperator(driverContext);
         operator.addSplit(new Split(TEST_CATALOG_HANDLE, TestingSplit.createLocalSplit()));

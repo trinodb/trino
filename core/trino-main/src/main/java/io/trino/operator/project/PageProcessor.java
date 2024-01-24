@@ -95,7 +95,7 @@ public class PageProcessor
     @VisibleForTesting
     public Iterator<Optional<Page>> process(ConnectorSession session, DriverYieldSignal yieldSignal, LocalMemoryContext memoryContext, Page page)
     {
-        WorkProcessor<Page> processor = createWorkProcessor(session, yieldSignal, memoryContext, new PageProcessorMetrics(), page);
+        WorkProcessor<Page> processor = createWorkProcessor(session, yieldSignal, memoryContext, new PageProcessorMetrics(), page, false);
         return processor.yieldingIterator();
     }
 
@@ -104,7 +104,8 @@ public class PageProcessor
             DriverYieldSignal yieldSignal,
             LocalMemoryContext memoryContext,
             PageProcessorMetrics metrics,
-            Page page)
+            Page page,
+            boolean iteratorEnd)
     {
         // limit the scope of the dictionary ids to just one page
         dictionarySourceIdFunction.reset();

@@ -169,7 +169,9 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             false,
                             Optional.empty(),
                             ImmutableSet.of(),
-                            Optional.of(false)),
+                            Optional.of(false),
+                            false,
+                            false),
                     transaction);
 
             TupleDomain<ColumnHandle> splitPruningPredicate = TupleDomain.withColumnDomains(
@@ -284,7 +286,9 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             false,
                             Optional.empty(),
                             ImmutableSet.of(),
-                            Optional.of(false)),
+                            Optional.of(false),
+                            false,
+                            false),
                     transaction);
 
             // Simulate situations where the dynamic filter (e.g.: while performing a JOIN with another table) reduces considerably
@@ -443,7 +447,9 @@ public class TestIcebergNodeLocalDynamicSplitPruning
                             false,
                             Optional.empty(),
                             ImmutableSet.of(),
-                            Optional.of(false)),
+                            Optional.of(false),
+                            false,
+                            false),
                     transaction);
 
             // Simulate situations where the dynamic filter (e.g.: while performing a JOIN with another table) reduces considerably

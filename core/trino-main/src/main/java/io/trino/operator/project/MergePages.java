@@ -64,9 +64,10 @@ public final class MergePages
             long minPageSizeInBytes,
             int minRowCount,
             WorkProcessor<Page> pages,
-            AggregatedMemoryContext memoryContext)
+            AggregatedMemoryContext memoryContext,
+            boolean iteratorEnd)
     {
-        return mergePages(types, minPageSizeInBytes, minRowCount, DEFAULT_MAX_PAGE_SIZE_IN_BYTES, pages, memoryContext);
+        return mergePages(types, minPageSizeInBytes, minRowCount, DEFAULT_MAX_PAGE_SIZE_IN_BYTES, pages, memoryContext, iteratorEnd);
     }
 
     public static WorkProcessor<Page> mergePages(
@@ -75,8 +76,12 @@ public final class MergePages
             int minRowCount,
             int maxPageSizeInBytes,
             WorkProcessor<Page> pages,
-            AggregatedMemoryContext memoryContext)
+            AggregatedMemoryContext memoryContext,
+            boolean iteratorEnd)
     {
+        if (iteratorEnd) {
+            return pages;
+        }
         List<Type> typeList = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         WorkProcessor.Transformation<Page, Page> mergingTransform;
         if (typeList.isEmpty()) {

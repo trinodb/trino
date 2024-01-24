@@ -72,6 +72,9 @@ public class IcebergTableHandle
     // ANALYZE only. Coordinator-only
     private final Optional<Boolean> forAnalyze;
 
+    private final boolean sort;
+    private final boolean iteratorEnd;
+
     @JsonCreator
     @DoNotCall // For JSON deserialization only
     public static IcebergTableHandle fromJsonForDeserializationOnly(
@@ -89,7 +92,9 @@ public class IcebergTableHandle
             @JsonProperty("projectedColumns") Set<IcebergColumnHandle> projectedColumns,
             @JsonProperty("nameMappingJson") Optional<String> nameMappingJson,
             @JsonProperty("tableLocation") String tableLocation,
-            @JsonProperty("storageProperties") Map<String, String> storageProperties)
+            @JsonProperty("storageProperties") Map<String, String> storageProperties,
+            @JsonProperty("sort") boolean sort,
+            @JsonProperty("iteratorEnd") boolean iteratorEnd)
     {
         return new IcebergTableHandle(
                 catalog,
@@ -110,7 +115,9 @@ public class IcebergTableHandle
                 false,
                 Optional.empty(),
                 ImmutableSet.of(),
-                Optional.empty());
+                Optional.empty(),
+                sort,
+                iteratorEnd);
     }
 
     public IcebergTableHandle(
@@ -132,7 +139,9 @@ public class IcebergTableHandle
             boolean recordScannedFiles,
             Optional<DataSize> maxScannedFileSize,
             Set<IcebergColumnHandle> constraintColumns,
-            Optional<Boolean> forAnalyze)
+            Optional<Boolean> forAnalyze,
+            boolean sort,
+            boolean iteratorEnd)
     {
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
@@ -153,6 +162,8 @@ public class IcebergTableHandle
         this.maxScannedFileSize = requireNonNull(maxScannedFileSize, "maxScannedFileSize is null");
         this.constraintColumns = ImmutableSet.copyOf(requireNonNull(constraintColumns, "constraintColumns is null"));
         this.forAnalyze = requireNonNull(forAnalyze, "forAnalyze is null");
+        this.sort = sort;
+        this.iteratorEnd = iteratorEnd;
     }
 
     @JsonProperty
@@ -301,7 +312,61 @@ public class IcebergTableHandle
                 recordScannedFiles,
                 maxScannedFileSize,
                 constraintColumns,
-                forAnalyze);
+                forAnalyze,
+                sort,
+                iteratorEnd);
+    }
+
+    public IcebergTableHandle withSort(boolean sort)
+    {
+        return new IcebergTableHandle(
+                catalog,
+                schemaName,
+                tableName,
+                tableType,
+                snapshotId,
+                tableSchemaJson,
+                partitionSpecJson,
+                formatVersion,
+                unenforcedPredicate,
+                enforcedPredicate,
+                limit,
+                projectedColumns,
+                nameMappingJson,
+                tableLocation,
+                storageProperties,
+                recordScannedFiles,
+                maxScannedFileSize,
+                constraintColumns,
+                forAnalyze,
+                sort,
+                iteratorEnd);
+    }
+
+    public IcebergTableHandle withIteratorEnd(boolean iteratorEnd)
+    {
+        return new IcebergTableHandle(
+                catalog,
+                schemaName,
+                tableName,
+                tableType,
+                snapshotId,
+                tableSchemaJson,
+                partitionSpecJson,
+                formatVersion,
+                unenforcedPredicate,
+                enforcedPredicate,
+                limit,
+                projectedColumns,
+                nameMappingJson,
+                tableLocation,
+                storageProperties,
+                recordScannedFiles,
+                maxScannedFileSize,
+                constraintColumns,
+                forAnalyze,
+                sort,
+                iteratorEnd);
     }
 
     public IcebergTableHandle forAnalyze()
@@ -325,7 +390,9 @@ public class IcebergTableHandle
                 recordScannedFiles,
                 maxScannedFileSize,
                 constraintColumns,
-                Optional.of(true));
+                Optional.of(true),
+                sort,
+                iteratorEnd);
     }
 
     public IcebergTableHandle forOptimize(boolean recordScannedFiles, DataSize maxScannedFileSize)
@@ -349,7 +416,20 @@ public class IcebergTableHandle
                 recordScannedFiles,
                 Optional.of(maxScannedFileSize),
                 constraintColumns,
-                forAnalyze);
+                forAnalyze,
+                sort,
+                iteratorEnd);
+    }
+
+    public boolean isSort()
+    {
+        return sort;
+    }
+
+    @JsonProperty
+    public boolean getIteratorEnd()
+    {
+        return iteratorEnd;
     }
 
     @Override
@@ -381,7 +461,9 @@ public class IcebergTableHandle
                 Objects.equals(storageProperties, that.storageProperties) &&
                 Objects.equals(maxScannedFileSize, that.maxScannedFileSize) &&
                 Objects.equals(constraintColumns, that.constraintColumns) &&
-                Objects.equals(forAnalyze, that.forAnalyze);
+                Objects.equals(forAnalyze, that.forAnalyze) &&
+                Objects.equals(sort, that.sort) &&
+                Objects.equals(iteratorEnd, that.iteratorEnd);
     }
 
     @Override
@@ -406,7 +488,9 @@ public class IcebergTableHandle
                 recordScannedFiles,
                 maxScannedFileSize,
                 constraintColumns,
-                forAnalyze);
+                forAnalyze,
+                sort,
+                iteratorEnd);
     }
 
     @Override
@@ -424,6 +508,10 @@ public class IcebergTableHandle
                     .collect(joining(", ", "[", "]")));
         }
         limit.ifPresent(limit -> builder.append(" LIMIT ").append(limit));
+
+        if (iteratorEnd) {
+            builder.append(" iteratorEnd ").append(Boolean.valueOf(true));
+        }
         return builder.toString();
     }
 }

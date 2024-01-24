@@ -164,7 +164,9 @@ public class TestIcebergSplitSource
                 false,
                 Optional.empty(),
                 ImmutableSet.of(),
-                Optional.of(false));
+                Optional.of(false),
+                false,
+                false);
 
         try (IcebergSplitSource splitSource = new IcebergSplitSource(
                 fileSystemFactory,

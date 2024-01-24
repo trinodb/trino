@@ -40,6 +40,7 @@ import io.trino.orc.reader.ColumnReader;
 import io.trino.orc.stream.InputStreamSources;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
+import io.trino.spi.block.LongArrayBlock;
 import io.trino.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
@@ -47,18 +48,15 @@ import java.io.IOException;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Iterator;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.slice.SizeOf.instanceSize;
-import static io.trino.orc.OrcDataSourceUtils.mergeAdjacentDiskRanges;
 import static io.trino.orc.OrcReader.BATCH_SIZE_GROWTH_FACTOR;
 import static io.trino.orc.OrcReader.MAX_BATCH_SIZE;
 import static io.trino.orc.OrcRecordReader.LinearProbeRangeFinder.createTinyStripesRangeFinder;
@@ -70,11 +68,9 @@ import static java.lang.Math.toIntExact;
 import static java.util.Comparator.comparingLong;
 import static java.util.Objects.requireNonNull;
 
-public class OrcRecordReader
+public class OrcRecordBackwardReader
         implements RecordReader
 {
-    private static final int INSTANCE_SIZE = instanceSize(OrcRecordReader.class);
-
     private final OrcDataSource orcDataSource;
 
     private final ColumnReader[] columnReaders;
@@ -87,22 +83,20 @@ public class OrcRecordReader
     private final long totalDataLength;
     private final long maxBlockBytes;
     private final ColumnMetadata<OrcType> orcTypes;
-    private long currentPosition;
-    private long currentStripePosition;
     private int currentBatchSize;
     private int nextBatchSize;
     private int maxBatchSize = MAX_BATCH_SIZE;
 
     private final List<StripeInformation> stripes;
     private final StripeReader stripeReader;
-    private int currentStripe = -1;
     private AggregatedMemoryContext currentStripeMemoryContext;
 
     private final long fileRowCount;
     private final List<Long> stripeFilePositions;
+    private int stripeSize;
     private long filePosition;
 
-    private Iterator<RowGroup> rowGroups = ImmutableList.<RowGroup>of().iterator();
+    private ListIterator<RowGroup> backwardRowGroups = ImmutableList.<RowGroup>of().listIterator();
     private int currentRowGroup = -1;
     private long currentGroupRowCount;
     private long nextRowInGroup;
@@ -123,7 +117,7 @@ public class OrcRecordReader
     private final Optional<Long> startRowPosition;
     private final Optional<Long> endRowPosition;
 
-    public OrcRecordReader(
+    public OrcRecordBackwardReader(
             List<OrcColumn> readColumns,
             List<Type> readTypes,
             List<OrcReader.ProjectedLayout> readLayouts,
@@ -223,6 +217,7 @@ public class OrcRecordReader
         this.totalDataLength = totalDataLength;
         this.stripes = stripes.build();
         this.stripeFilePositions = stripeFilePositions.build();
+        this.stripeSize = this.stripes.size();
 
         orcDataSource = wrapWithCacheIfTinyStripes(orcDataSource, this.stripes, options.getMaxMergeDistance(), options.getTinyStripeThreshold());
         this.orcDataSource = orcDataSource;
@@ -300,17 +295,6 @@ public class OrcRecordReader
     public long getFileRowCount()
     {
         return fileRowCount;
-    }
-
-    /**
-     * Return the row position within the stripes being read by this reader.
-     * This position will include rows that were never read due to row groups
-     * that are excluded due to row group statistics. Thus, it will advance
-     * faster than the number of rows actually read.
-     */
-    public long getReaderPosition()
-    {
-        return currentPosition;
     }
 
     /**
@@ -398,7 +382,6 @@ public class OrcRecordReader
     {
         // update position for current row group (advancing resets them)
         filePosition += currentBatchSize;
-        currentPosition += currentBatchSize;
         currentBatchSize = 0;
 
         // if next row is within the current group return
@@ -406,7 +389,6 @@ public class OrcRecordReader
             // attempt to advance to next row group
             if (!advanceToNextRowGroup()) {
                 filePosition = fileRowCount;
-                currentPosition = totalRowCount;
                 return null;
             }
         }
@@ -445,6 +427,10 @@ public class OrcRecordReader
         }
 
         Page page = new Page(currentBatchSize, blocks);
+        long[] values = new long[page.getPositionCount()];
+        Arrays.fill(values, (long) stripeSize << 32 | currentRowGroup);
+        LongArrayBlock rowGroupId = new LongArrayBlock(page.getPositionCount(), Optional.empty(), values);
+        page = page.appendColumn(rowGroupId);
         validateWritePageChecksum(page);
         return page;
     }
@@ -477,30 +463,29 @@ public class OrcRecordReader
         if (currentRowGroup >= 0) {
             if (rowGroupStatisticsValidation.isPresent()) {
                 StatisticsValidation statisticsValidation = rowGroupStatisticsValidation.get();
-                long offset = stripes.get(currentStripe).getOffset();
+                long offset = stripes.get(stripeSize).getOffset();
                 writeValidation.get().validateRowGroupStatistics(orcDataSource.getId(), offset, currentRowGroup, statisticsValidation.build().get());
                 statisticsValidation.reset();
             }
         }
-        while (!rowGroups.hasNext() && currentStripe < stripes.size()) {
+        while (!backwardRowGroups.hasPrevious() && stripeSize >= 0) {
             advanceToNextStripe();
             currentRowGroup = -1;
         }
 
-        if (!rowGroups.hasNext()) {
+        if (!backwardRowGroups.hasPrevious()) {
             currentGroupRowCount = 0;
             return false;
         }
 
         currentRowGroup++;
-        RowGroup currentRowGroup = rowGroups.next();
+        RowGroup currentRowGroup = backwardRowGroups.previous();
         currentGroupRowCount = currentRowGroup.getRowCount();
         if (currentRowGroup.getMinAverageRowBytes() > 0) {
             maxBatchSize = toIntExact(min(maxBatchSize, max(1, maxBlockBytes / currentRowGroup.getMinAverageRowBytes())));
         }
 
-        currentPosition = currentStripePosition + currentRowGroup.getRowOffset();
-        filePosition = stripeFilePositions.get(currentStripe) + currentRowGroup.getRowOffset();
+        filePosition = stripeFilePositions.get(stripeSize) + currentRowGroup.getRowOffset();
 
         // give reader data streams from row group
         InputStreamSources rowGroupStreamSources = currentRowGroup.getStreamSources();
@@ -518,27 +503,23 @@ public class OrcRecordReader
     {
         currentStripeMemoryContext.close();
         currentStripeMemoryContext = memoryUsage.newAggregatedMemoryContext();
-        rowGroups = ImmutableList.<RowGroup>of().iterator();
+        backwardRowGroups = ImmutableList.<RowGroup>of().listIterator();
 
-        if (currentStripe >= 0) {
+        stripeSize--;
+        if (stripeSize >= 0) {
             if (stripeStatisticsValidation.isPresent()) {
                 StatisticsValidation statisticsValidation = stripeStatisticsValidation.get();
-                long offset = stripes.get(currentStripe).getOffset();
+                long offset = stripes.get(stripeSize).getOffset();
                 writeValidation.get().validateStripeStatistics(orcDataSource.getId(), offset, statisticsValidation.build().get());
                 statisticsValidation.reset();
             }
         }
 
-        currentStripe++;
-        if (currentStripe >= stripes.size()) {
+        if (stripeSize < 0) {
             return;
         }
 
-        if (currentStripe > 0) {
-            currentStripePosition += stripes.get(currentStripe - 1).getNumberOfRows();
-        }
-
-        StripeInformation stripeInformation = stripes.get(currentStripe);
+        StripeInformation stripeInformation = stripes.get(stripeSize);
         validateWriteStripe(stripeInformation.getNumberOfRows());
 
         Stripe stripe = stripeReader.readStripe(stripeInformation, currentStripeMemoryContext);
@@ -553,7 +534,7 @@ public class OrcRecordReader
                 }
             }
 
-            rowGroups = stripe.getRowGroups().iterator();
+            backwardRowGroups = stripe.getRowGroups().listIterator(stripe.getRowGroups().size());
         }
         orcDataSourceMemoryUsage.setBytes(orcDataSource.getRetainedSize());
     }
@@ -581,91 +562,6 @@ public class OrcRecordReader
             rowGroupStatisticsValidation.get().addPage(page);
             stripeStatisticsValidation.get().addPage(page);
             fileStatisticsValidation.get().addPage(page);
-        }
-    }
-
-    /**
-     * @return The size of memory retained by all the stream readers (local buffers + object overhead)
-     */
-    @VisibleForTesting
-    long getStreamReaderRetainedSizeInBytes()
-    {
-        long totalRetainedSizeInBytes = 0;
-        for (ColumnReader column : columnReaders) {
-            if (column != null) {
-                totalRetainedSizeInBytes += column.getRetainedSizeInBytes();
-            }
-        }
-        return totalRetainedSizeInBytes;
-    }
-
-    /**
-     * @return The size of memory retained by the current stripe (excludes object overheads)
-     */
-    @VisibleForTesting
-    long getCurrentStripeRetainedSizeInBytes()
-    {
-        return currentStripeMemoryContext.getBytes();
-    }
-
-    /**
-     * @return The total size of memory retained by this OrcRecordReader
-     */
-    @VisibleForTesting
-    long getRetainedSizeInBytes()
-    {
-        return INSTANCE_SIZE + getStreamReaderRetainedSizeInBytes() + getCurrentStripeRetainedSizeInBytes();
-    }
-
-    /**
-     * @return The memory reserved by this OrcRecordReader. It does not include non-leaf level StreamReaders'
-     * instance sizes.
-     */
-    @VisibleForTesting
-    long getMemoryUsage()
-    {
-        return memoryUsage.getBytes();
-    }
-
-    static class LinearProbeRangeFinder
-            implements CachingOrcDataSource.RegionFinder
-    {
-        private final List<DiskRange> diskRanges;
-        private int index;
-
-        private LinearProbeRangeFinder(List<DiskRange> diskRanges)
-        {
-            this.diskRanges = diskRanges;
-        }
-
-        @Override
-        public DiskRange getRangeFor(long desiredOffset)
-        {
-            // Assumption: range are always read in order
-            // Assumption: bytes that are not part of any range are never read
-            while (index < diskRanges.size()) {
-                DiskRange range = diskRanges.get(index);
-                if (range.getEnd() > desiredOffset) {
-                    checkArgument(range.getOffset() <= desiredOffset);
-                    return range;
-                }
-                index++;
-            }
-            throw new IllegalArgumentException("Invalid desiredOffset " + desiredOffset);
-        }
-
-        public static LinearProbeRangeFinder createTinyStripesRangeFinder(List<StripeInformation> stripes, DataSize maxMergeDistance, DataSize tinyStripeThreshold)
-        {
-            if (stripes.isEmpty()) {
-                return new LinearProbeRangeFinder(ImmutableList.of());
-            }
-
-            List<DiskRange> scratchDiskRanges = stripes.stream()
-                    .map(stripe -> new DiskRange(stripe.getOffset(), toIntExact(stripe.getTotalLength())))
-                    .collect(Collectors.toList());
-            List<DiskRange> diskRanges = mergeAdjacentDiskRanges(scratchDiskRanges, maxMergeDistance, tinyStripeThreshold);
-
-            return new LinearProbeRangeFinder(diskRanges);
         }
     }
 }

@@ -51,7 +51,8 @@ public class TestMergePages
                 Integer.MAX_VALUE,
                 Integer.MAX_VALUE,
                 pagesSource(page),
-                newSimpleAggregatedMemoryContext());
+                newSimpleAggregatedMemoryContext(),
+                false);
 
         validateResult(mergePages, actualPage -> assertPageEquals(TYPES, actualPage, page));
         assertFinishes(mergePages);
@@ -68,7 +69,8 @@ public class TestMergePages
                 page.getPositionCount(),
                 Integer.MAX_VALUE,
                 pagesSource(page),
-                newSimpleAggregatedMemoryContext());
+                newSimpleAggregatedMemoryContext(),
+                false);
 
         validateResult(mergePages, actualPage -> assertPageEquals(TYPES, actualPage, page));
         assertFinishes(mergePages);
@@ -90,7 +92,8 @@ public class TestMergePages
                 page.getPositionCount() * 2,
                 Integer.MAX_VALUE,
                 pagesSource(page),
-                newSimpleAggregatedMemoryContext());
+                newSimpleAggregatedMemoryContext(),
+                false);
 
         assertThat(mergePages.process()).isTrue();
         assertThat(mergePages.isFinished()).isFalse();
@@ -115,7 +118,8 @@ public class TestMergePages
                 page.getPositionCount() + 1,
                 Integer.MAX_VALUE,
                 pagesSource(splits.get(0), splits.get(1)),
-                newSimpleAggregatedMemoryContext());
+                newSimpleAggregatedMemoryContext(),
+                false);
 
         validateResult(mergePages, actualPage -> assertPageEquals(TYPES, actualPage, page));
         assertFinishes(mergePages);
@@ -133,7 +137,8 @@ public class TestMergePages
                 bigPage.getPositionCount(),
                 Integer.MAX_VALUE,
                 pagesSource(smallPage, bigPage),
-                newSimpleAggregatedMemoryContext());
+                newSimpleAggregatedMemoryContext(),
+                false);
 
         validateResult(mergePages, actualPage -> assertPageEquals(TYPES, actualPage, smallPage));
         validateResult(mergePages, actualPage -> assertPageEquals(TYPES, actualPage, bigPage));
@@ -154,7 +159,8 @@ public class TestMergePages
                 page.getPositionCount() / 2 + 1,
                 toIntExact(page.getSizeInBytes()),
                 pagesSource(splits.get(0), splits.get(1), splits.get(0), splits.get(1)),
-                newSimpleAggregatedMemoryContext());
+                newSimpleAggregatedMemoryContext(),
+                false);
 
         validateResult(mergePages, actualPage -> assertPageEquals(types, actualPage, page));
         validateResult(mergePages, actualPage -> assertPageEquals(types, actualPage, page));

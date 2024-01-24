@@ -35,6 +35,7 @@ import io.trino.spi.connector.JoinStatistics;
 import io.trino.spi.connector.JoinType;
 import io.trino.spi.connector.LimitApplicationResult;
 import io.trino.spi.connector.MaterializedViewFreshness;
+import io.trino.spi.connector.PartialSortApplicationResult;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RelationCommentMetadata;
 import io.trino.spi.connector.RelationType;
@@ -44,6 +45,7 @@ import io.trino.spi.connector.SampleType;
 import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SortItem;
+import io.trino.spi.connector.SortOrder;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableFunctionApplicationResult;
@@ -557,6 +559,17 @@ public interface Metadata
             long topNCount,
             List<SortItem> sortItems,
             Map<String, ColumnHandle> assignments);
+
+    /**
+     * Attempt to push down partial sort or top n to table scan.
+     */
+    default Optional<PartialSortApplicationResult<TableHandle>> applyPartialSort(
+            Session session,
+            TableHandle tableHandle,
+            Map<ColumnHandle, SortOrder> columnHandleSortOrderMap)
+    {
+        return Optional.empty();
+    }
 
     Optional<TableFunctionApplicationResult<TableHandle>> applyTableFunction(Session session, TableFunctionHandle handle);
 
