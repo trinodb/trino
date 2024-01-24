@@ -16,7 +16,8 @@ import io.trino.plugin.sqlserver.TestSqlServerConnectorTest;
 import io.trino.plugin.sqlserver.TestingSqlServer;
 import io.trino.testing.QueryRunner;
 import io.trino.testng.services.Flaky;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -39,7 +40,8 @@ public class TestStarburstSqlServerConnectorTest
 
     @Override
     @Flaky(issue = "https://github.com/trinodb/trino/issues/12535", match = ".*but the following elements were unexpected.*")
-    @Test(timeOut = 60_000)
+    @Test
+    @Timeout(60)
     public void testAddColumnConcurrently()
             throws Exception
     {
