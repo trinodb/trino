@@ -55,7 +55,6 @@ connector. The following connectors support fault-tolerant execution:
 The following configuration properties control the behavior of fault-tolerant
 execution on a Trino cluster:
 
-
 :::{list-table} Fault-tolerant execution configuration properties
 :widths: 30, 50, 20
 :header-rows: 1
@@ -76,15 +75,14 @@ execution on a Trino cluster:
     exceeded" error message unless an [exchange manager](fte-exchange-manager)
     is configured.
   - `32MB`
-* - `exchange.compression-enabled`
-  - Enable compression of spooling data. Setting to `true` is recommended
-    when using an [exchange manager](fte-exchange-manager).
-  - ``false``
 * - `fault-tolerant-execution.exchange-encryption-enabled`
   - Enable encryption of spooling data, see [Encryption](fte-encryption) for details. 
     Setting this property to false is not recommended if Trino processes sensitive data.
   - ``true``
 :::
+
+Find further related properties in [](/admin/properties), specifically in
+[](/admin/properties-resource-management) and [](/admin/properties-exchange).
 
 (fte-retry-policy)=
 
