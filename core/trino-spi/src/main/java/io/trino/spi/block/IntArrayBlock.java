@@ -222,10 +222,7 @@ public final class IntArrayBlock
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("IntArrayBlock{");
-        sb.append("positionCount=").append(getPositionCount());
-        sb.append('}');
-        return sb.toString();
+        return "IntArrayBlock{positionCount=" + getPositionCount() + '}';
     }
 
     boolean[] getRawValueIsNull()

@@ -320,10 +320,6 @@ public final class VariableWidthBlock
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("VariableWidthBlock{");
-        sb.append("positionCount=").append(getPositionCount());
-        sb.append(", slice=").append(slice);
-        sb.append('}');
-        return sb.toString();
+        return "VariableWidthBlock{positionCount=" + getPositionCount() + ", slice=" + slice + '}';
     }
 }
