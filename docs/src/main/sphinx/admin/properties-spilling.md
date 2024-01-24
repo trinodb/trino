@@ -65,13 +65,7 @@ Max spill space to be used by a single query on a single node.
 
 Limit for memory used for unspilling a single aggregation operator instance.
 
-## `spill-compression-enabled`
-
-- **Type:** {ref}`prop-type-boolean`
-- **Default value:** `false`
-
-Enables data compression for pages spilled to disk. It is replaced by `spill-compression-codec`.
-
+(prop-spill-compression-codec)=
 ## `spill-compression-codec`
 
 - **Type:** {ref}`prop-type-string`
