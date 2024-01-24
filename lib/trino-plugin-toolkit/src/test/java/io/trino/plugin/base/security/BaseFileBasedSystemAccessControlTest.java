@@ -207,7 +207,7 @@ public abstract class BaseFileBasedSystemAccessControlTest
         accessControl.checkCanSetUser(Optional.empty(), "unknown");
         accessControl.checkCanSetUser(Optional.of(new KerberosPrincipal("stuff@example.com")), "unknown");
 
-        accessControl.checkCanSetSystemSessionProperty(unknown, "anything");
+        accessControl.checkCanSetSystemSessionProperty(unknown, queryId, "anything");
         accessControl.checkCanSetCatalogSessionProperty(UNKNOWN, "unknown", "anything");
 
         accessControl.checkCanExecuteQuery(unknown, queryId);
@@ -1034,18 +1034,18 @@ public abstract class BaseFileBasedSystemAccessControlTest
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-session-property.json");
 
-        accessControl.checkCanSetSystemSessionProperty(admin, "dangerous");
-        accessControl.checkCanSetSystemSessionProperty(admin, "any");
-        accessControl.checkCanSetSystemSessionProperty(alice, "safe");
-        accessControl.checkCanSetSystemSessionProperty(alice, "unsafe");
-        accessControl.checkCanSetSystemSessionProperty(alice, "staff");
-        accessControl.checkCanSetSystemSessionProperty(bob, "safe");
-        accessControl.checkCanSetSystemSessionProperty(bob, "staff");
-        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(bob, "unsafe"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(alice, "dangerous"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(charlie, "safe"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(charlie, "staff"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(joe, "staff"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        accessControl.checkCanSetSystemSessionProperty(admin, queryId, "dangerous");
+        accessControl.checkCanSetSystemSessionProperty(admin, queryId, "any");
+        accessControl.checkCanSetSystemSessionProperty(alice, queryId, "safe");
+        accessControl.checkCanSetSystemSessionProperty(alice, queryId, "unsafe");
+        accessControl.checkCanSetSystemSessionProperty(alice, queryId, "staff");
+        accessControl.checkCanSetSystemSessionProperty(bob, queryId, "safe");
+        accessControl.checkCanSetSystemSessionProperty(bob, queryId, "staff");
+        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(bob, queryId, "unsafe"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(alice, queryId, "dangerous"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(charlie, queryId, "safe"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(charlie, queryId, "staff"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(joe, queryId, "staff"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
 
         accessControl.checkCanSetCatalogSessionProperty(ADMIN, "any", "dangerous");
         accessControl.checkCanSetCatalogSessionProperty(ADMIN, "alice-catalog", "dangerous");
@@ -1072,13 +1072,13 @@ public abstract class BaseFileBasedSystemAccessControlTest
         Identity bannedUser = Identity.ofUser("banned_user");
         SystemSecurityContext bannedUserContext = new SystemSecurityContext(Identity.ofUser("banned_user"), queryId, queryStart);
 
-        accessControl.checkCanSetSystemSessionProperty(admin, "any");
-        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(alice, "any"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(bannedUser, "any"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        accessControl.checkCanSetSystemSessionProperty(admin, queryId, "any");
+        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(alice, queryId, "any"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(bannedUser, queryId, "any"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
 
-        accessControl.checkCanSetSystemSessionProperty(admin, "resource_overcommit");
-        accessControl.checkCanSetSystemSessionProperty(alice, "resource_overcommit");
-        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(bannedUser, "resource_overcommit"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
+        accessControl.checkCanSetSystemSessionProperty(admin, queryId, "resource_overcommit");
+        accessControl.checkCanSetSystemSessionProperty(alice, queryId, "resource_overcommit");
+        assertAccessDenied(() -> accessControl.checkCanSetSystemSessionProperty(bannedUser, queryId, "resource_overcommit"), SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
 
         accessControl.checkCanSetCatalogSessionProperty(ADMIN, "hive", "any");
         assertAccessDenied(() -> accessControl.checkCanSetCatalogSessionProperty(ALICE, "hive", "any"), SET_CATALOG_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE);
