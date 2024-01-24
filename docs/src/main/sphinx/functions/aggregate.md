@@ -634,5 +634,5 @@ GROUP BY id;
 -- (2, 42)
 ```
 
-The state type must be a boolean, integer, floating-point, or date/time/interval.
+The state type must be a boolean, integer, floating-point, char, varchar or date/time/interval.
 :::
