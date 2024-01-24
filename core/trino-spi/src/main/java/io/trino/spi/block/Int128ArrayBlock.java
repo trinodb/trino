@@ -238,10 +238,7 @@ public final class Int128ArrayBlock
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("Int128ArrayBlock{");
-        sb.append("positionCount=").append(getPositionCount());
-        sb.append('}');
-        return sb.toString();
+        return "Int128ArrayBlock{positionCount=" + getPositionCount() + '}';
     }
 
     int getRawOffset()

@@ -246,10 +246,7 @@ public final class Fixed12Block
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("Fixed12Block{");
-        sb.append("positionCount=").append(getPositionCount());
-        sb.append('}');
-        return sb.toString();
+        return "Fixed12Block{positionCount=" + getPositionCount() + '}';
     }
 
     /**

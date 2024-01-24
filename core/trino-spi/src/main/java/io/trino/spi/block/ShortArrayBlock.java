@@ -220,10 +220,7 @@ public final class ShortArrayBlock
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("ShortArrayBlock{");
-        sb.append("positionCount=").append(getPositionCount());
-        sb.append('}');
-        return sb.toString();
+        return "ShortArrayBlock{positionCount=" + getPositionCount() + '}';
     }
 
     int getRawValuesOffset()

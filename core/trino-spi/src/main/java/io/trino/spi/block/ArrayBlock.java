@@ -200,10 +200,7 @@ public final class ArrayBlock
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("ArrayBlock{");
-        sb.append("positionCount=").append(getPositionCount());
-        sb.append('}');
-        return sb.toString();
+        return "ArrayBlock{positionCount=" + getPositionCount() + '}';
     }
 
     @Override
