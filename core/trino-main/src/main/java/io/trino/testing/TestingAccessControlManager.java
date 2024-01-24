@@ -552,13 +552,13 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
+    public void checkCanSetSystemSessionProperty(Identity identity, QueryId queryId, String propertyName)
     {
         if (shouldDenyPrivilege(identity.getUser(), propertyName, SET_SESSION)) {
             denySetSystemSessionProperty(propertyName);
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanSetSystemSessionProperty(identity, propertyName);
+            super.checkCanSetSystemSessionProperty(identity, queryId, propertyName);
         }
     }
 

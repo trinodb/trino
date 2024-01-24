@@ -1064,7 +1064,7 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
+    public void checkCanSetSystemSessionProperty(Identity identity, QueryId queryId, String propertyName)
     {
         requireNonNull(identity, "identity is null");
         requireNonNull(propertyName, "propertyName is null");
