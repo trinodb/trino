@@ -205,10 +205,22 @@ public interface SystemAccessControl
      * Check if identity is allowed to set the specified system property.
      *
      * @throws AccessDeniedException if not allowed
+     * @deprecated use {@link #checkCanSetSystemSessionProperty(Identity, QueryId, String)}
      */
+    @Deprecated
     default void checkCanSetSystemSessionProperty(Identity identity, String propertyName)
     {
         denySetSystemSessionProperty(propertyName);
+    }
+
+    /**
+     * Check if identity is allowed to set the specified system property.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanSetSystemSessionProperty(Identity identity, QueryId queryId, String propertyName)
+    {
+        checkCanSetSystemSessionProperty(identity, propertyName);
     }
 
     /**
