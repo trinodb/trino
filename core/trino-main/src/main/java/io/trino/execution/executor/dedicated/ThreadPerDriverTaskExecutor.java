@@ -18,7 +18,6 @@ import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.errorprone.annotations.ThreadSafe;
-import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.inject.Inject;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Tracer;
@@ -37,11 +36,9 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.OptionalInt;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.DoubleSupplier;
 import java.util.function.Predicate;
 
@@ -142,67 +139,6 @@ public class ThreadPerDriverTaskExecutor
     {
         // TODO
         return ImmutableSet.of();
-    }
-
-    private static class TaskEntry
-            implements TaskHandle
-    {
-        private final TaskId taskId;
-        private final Group group;
-        private final AtomicInteger nextSplitId = new AtomicInteger();
-        private volatile boolean destroyed;
-
-        @GuardedBy("this")
-        private final Set<SplitRunner> splits = new HashSet<>();
-
-        public TaskEntry(TaskId taskId, Group group)
-        {
-            this.taskId = taskId;
-            this.group = group;
-        }
-
-        public TaskId taskId()
-        {
-            return taskId;
-        }
-
-        public Group group()
-        {
-            return group;
-        }
-
-        public synchronized void destroy()
-        {
-            destroyed = true;
-
-            for (SplitRunner split : splits) {
-                split.close();
-            }
-
-            splits.clear();
-        }
-
-        public synchronized void addSplit(SplitRunner split)
-        {
-            checkArgument(!destroyed, "Task already destroyed: %s", taskId);
-            splits.add(split);
-        }
-
-        public synchronized void removeSplit(SplitRunner split)
-        {
-            splits.remove(split);
-        }
-
-        public int nextSplitId()
-        {
-            return nextSplitId.incrementAndGet();
-        }
-
-        @Override
-        public boolean isDestroyed()
-        {
-            return destroyed;
-        }
     }
 
     private record VersionEmbedderBridge(VersionEmbedder versionEmbedder, Schedulable delegate)
