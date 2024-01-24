@@ -395,6 +395,12 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
+    public void checkCanSetSystemSessionProperty(Identity identity, QueryId queryId, String propertyName)
+    {
+        checkCanSetSystemSessionProperty(identity, propertyName);
+    }
+
+    @Override
     public boolean canAccessCatalog(SystemSecurityContext context, String catalogName)
     {
         return canAccessCatalog(context, catalogName, READ_ONLY);
