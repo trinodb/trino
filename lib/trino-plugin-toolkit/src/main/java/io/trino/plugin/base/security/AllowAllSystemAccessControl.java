@@ -118,6 +118,11 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanSetSystemSessionProperty(Identity identity, QueryId queryId, String propertyName)
+    {
+    }
+
+    @Override
     public boolean canAccessCatalog(SystemSecurityContext context, String catalogName)
     {
         return true;

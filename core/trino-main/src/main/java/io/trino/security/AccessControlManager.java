@@ -1069,7 +1069,7 @@ public class AccessControlManager
         requireNonNull(identity, "identity is null");
         requireNonNull(propertyName, "propertyName is null");
 
-        systemAuthorizationCheck(control -> control.checkCanSetSystemSessionProperty(identity, propertyName));
+        systemAuthorizationCheck(control -> control.checkCanSetSystemSessionProperty(identity, queryId, propertyName));
     }
 
     @Override

@@ -119,6 +119,12 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanSetSystemSessionProperty(Identity identity, QueryId queryId, String propertyName)
+    {
+        delegate().checkCanSetSystemSessionProperty(identity, queryId, propertyName);
+    }
+
+    @Override
     public boolean canAccessCatalog(SystemSecurityContext context, String catalogName)
     {
         return delegate().canAccessCatalog(context, catalogName);
