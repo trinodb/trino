@@ -221,10 +221,7 @@ public final class LongArrayBlock
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("LongArrayBlock{");
-        sb.append("positionCount=").append(getPositionCount());
-        sb.append('}');
-        return sb.toString();
+        return "LongArrayBlock{positionCount=" + getPositionCount() + '}';
     }
 
     int getRawValuesOffset()

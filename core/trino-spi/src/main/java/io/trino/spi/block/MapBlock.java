@@ -266,10 +266,7 @@ public final class MapBlock
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("MapBlock{");
-        sb.append("positionCount=").append(getPositionCount());
-        sb.append('}');
-        return sb.toString();
+        return "MapBlock{positionCount=" + getPositionCount() + '}';
     }
 
     @Override

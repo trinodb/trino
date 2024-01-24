@@ -223,10 +223,7 @@ public final class ByteArrayBlock
     @Override
     public String toString()
     {
-        StringBuilder sb = new StringBuilder("ByteArrayBlock{");
-        sb.append("positionCount=").append(getPositionCount());
-        sb.append('}');
-        return sb.toString();
+        return "ByteArrayBlock{positionCount=" + getPositionCount() + '}';
     }
 
     Slice getValuesSlice()
