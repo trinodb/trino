@@ -20,6 +20,7 @@ import io.airlift.log.Logger;
 import io.trino.filesystem.FileEntry;
 import io.trino.filesystem.FileIterator;
 import io.trino.filesystem.Location;
+import io.trino.filesystem.TrinoFileSystem;
 import io.trino.plugin.hudi.compaction.CompactionOperation;
 import io.trino.plugin.hudi.compaction.HudiCompactionOperation;
 import io.trino.plugin.hudi.compaction.HudiCompactionPlan;
@@ -56,6 +57,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.plugin.hudi.HudiErrorCode.HUDI_BAD_DATA;
+import static io.trino.plugin.hudi.HudiErrorCode.HUDI_FILESYSTEM_ERROR;
+import static io.trino.plugin.hudi.HudiErrorCode.HUDI_PARTITION_NOT_FOUND;
 import static io.trino.plugin.hudi.files.FSUtils.LOG_FILE_PATTERN;
 import static io.trino.plugin.hudi.files.FSUtils.getPartitionLocation;
 import static java.util.function.Function.identity;
@@ -80,8 +83,9 @@ public class HudiTableFileSystemView
     private Map<String, List<HudiFileGroup>> partitionToFileGroupsMap;
     private Map<HudiFileGroupId, Entry<String, CompactionOperation>> fgIdToPendingCompaction;
     private Map<HudiFileGroupId, HudiInstant> fgIdToReplaceInstants;
+    private boolean ignoreAbsentPartitions;
 
-    public HudiTableFileSystemView(HudiTableMetaClient metaClient, HudiTimeline visibleActiveTimeline)
+    public HudiTableFileSystemView(HudiTableMetaClient metaClient, HudiTimeline visibleActiveTimeline, boolean ignoreAbsentPartitions)
     {
         partitionToFileGroupsMap = new ConcurrentHashMap<>();
         this.metaClient = metaClient;
@@ -90,6 +94,7 @@ public class HudiTableFileSystemView
         resetPendingCompactionOperations(getAllPendingCompactionOperations(metaClient)
                 .values().stream()
                 .map(pair -> Map.entry(pair.getKey(), CompactionOperation.convertFromAvroRecordInstance(pair.getValue()))));
+        this.ignoreAbsentPartitions = ignoreAbsentPartitions;
     }
 
     private static Map<HudiFileGroupId, Entry<String, HudiCompactionOperation>> getAllPendingCompactionOperations(
@@ -292,6 +297,9 @@ public class HudiTableFileSystemView
         if (fileIterator.hasNext()) {
             return fileIterator;
         }
+        if (!ignoreAbsentPartitions) {
+            checkPartitionLocationExists(metaClient.getFileSystem(), partitionLocation);
+        }
         return FileIterator.empty();
     }
 
@@ -308,6 +316,18 @@ public class HudiTableFileSystemView
                     }
                 });
         return fileGroups;
+    }
+
+    private static void checkPartitionLocationExists(TrinoFileSystem fileSystem, Location location)
+    {
+        try {
+            if (!fileSystem.directoryExists(location).orElse(true)) {
+                throw new TrinoException(HUDI_PARTITION_NOT_FOUND, "Partition location does not exist: " + location);
+            }
+        }
+        catch (IOException e) {
+            throw new TrinoException(HUDI_FILESYSTEM_ERROR, "Failed checking directory path:" + location, e);
+        }
     }
 
     private List<HudiFileGroup> buildFileGroups(
