@@ -26,6 +26,7 @@ import io.airlift.drift.transport.netty.server.DriftNettyServerTransport;
 import io.airlift.drift.transport.netty.server.DriftNettyServerTransportFactory;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
+import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.Session;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
@@ -172,6 +173,7 @@ public final class ThriftQueryRunner
             this.thriftServers = ImmutableList.copyOf(requireNonNull(thriftServers, "thriftServers is null"));
         }
 
+        @Override
         public TestingTrinoServer getCoordinator()
         {
             return source.getCoordinator();
@@ -267,6 +269,12 @@ public final class ThriftQueryRunner
         public TestingAccessControlManager getAccessControl()
         {
             return source.getAccessControl();
+        }
+
+        @Override
+        public List<SpanData> getSpans()
+        {
+            return source.getSpans();
         }
 
         @Override
