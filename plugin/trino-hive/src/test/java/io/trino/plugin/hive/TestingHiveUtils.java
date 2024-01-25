@@ -17,7 +17,6 @@ import com.google.inject.Injector;
 import com.google.inject.Key;
 import io.trino.connector.alternatives.MockPlanAlternativeConnector;
 import io.trino.spi.connector.Connector;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.PlanTester;
 import io.trino.testing.QueryRunner;
 
@@ -44,7 +43,7 @@ public final class TestingHiveUtils
 
     private static Injector getConnectorInjector(QueryRunner queryRunner)
     {
-        Connector connector = ((DistributedQueryRunner) queryRunner).getCoordinator().getConnector(HIVE_CATALOG);
+        Connector connector = queryRunner.getCoordinator().getConnector(HIVE_CATALOG);
         if (connector instanceof MockPlanAlternativeConnector mockConnector) {
             connector = mockConnector.getDelegate();
         }

@@ -13,6 +13,8 @@
  */
 package io.trino.testing;
 
+import com.google.common.collect.ImmutableMap;
+import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.Session;
 import io.trino.cache.CacheMetadata;
 import io.trino.cost.StatsCalculator;
@@ -21,6 +23,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
+import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
 import io.trino.split.PageSourceManager;
@@ -47,6 +50,8 @@ public interface QueryRunner
     @Override
     void close();
 
+    TestingTrinoServer getCoordinator();
+
     int getNodeCount();
 
     Session getDefaultSession();
@@ -72,6 +77,8 @@ public interface QueryRunner
     TestingGroupProviderManager getGroupProvider();
 
     TestingAccessControlManager getAccessControl();
+
+    List<SpanData> getSpans();
 
     MaterializedResult execute(@Language("SQL") String sql);
 
@@ -100,6 +107,11 @@ public interface QueryRunner
     void installPlugin(Plugin plugin);
 
     void addFunctions(FunctionBundle functionBundle);
+
+    default void createCatalog(String catalogName, String connectorName)
+    {
+        createCatalog(catalogName, connectorName, ImmutableMap.of());
+    }
 
     void createCatalog(String catalogName, String connectorName, Map<String, String> properties);
 
