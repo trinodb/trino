@@ -175,7 +175,7 @@ public class TestAccessControlManager
     }
 
     @Test
-    public static void testDenyExecuteProcedureByConnector()
+    public void testDenyExecuteProcedureByConnector()
     {
         assertAccessControl(new AllowAllSystemAccessControl(), new DenyConnectorAccessControl(), (accessControlManager, securityContext) ->
                 assertThatThrownBy(
@@ -185,7 +185,7 @@ public class TestAccessControlManager
     }
 
     @Test
-    public static void testAllowExecuteProcedure()
+    public void testAllowExecuteProcedure()
     {
         assertAccessControl(new AllowAllSystemAccessControl(), new AllowAllAccessControl(), (accessControlManager, securityContext) ->
                 accessControlManager.checkCanExecuteProcedure(securityContext, new QualifiedObjectName(TEST_CATALOG_NAME, "schema", "procedure")));
