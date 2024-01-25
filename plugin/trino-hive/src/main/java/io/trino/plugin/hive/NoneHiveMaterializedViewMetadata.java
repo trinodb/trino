@@ -93,6 +93,12 @@ public class NoneHiveMaterializedViewMetadata
     }
 
     @Override
+    public Map<String, Object> getMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition materializedViewDefinition)
+    {
+        throw new TrinoException(NOT_SUPPORTED, "This connector does not support materialized views");
+    }
+
+    @Override
     public void setMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, Map<String, Optional<Object>> properties)
     {
         throw new TrinoException(NOT_SUPPORTED, "This connector does not support setting materialized view properties");

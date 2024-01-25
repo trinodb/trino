@@ -3932,6 +3932,12 @@ public class HiveMetadata
     }
 
     @Override
+    public Map<String, Object> getMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, ConnectorMaterializedViewDefinition definition)
+    {
+        return hiveMaterializedViewMetadata.getMaterializedViewProperties(session, viewName, definition);
+    }
+
+    @Override
     public void setMaterializedViewProperties(ConnectorSession session, SchemaTableName viewName, Map<String, Optional<Object>> properties)
     {
         hiveMaterializedViewMetadata.setMaterializedViewProperties(session, viewName, properties);
