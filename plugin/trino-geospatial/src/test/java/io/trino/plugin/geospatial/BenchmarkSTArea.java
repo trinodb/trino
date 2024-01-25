@@ -14,7 +14,6 @@
 package io.trino.plugin.geospatial;
 
 import io.airlift.slice.Slice;
-import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -99,7 +98,6 @@ public class BenchmarkSTArea
         benchmark(BenchmarkSTArea.class).run();
     }
 
-    @Test
     public static void verify()
             throws IOException
     {
