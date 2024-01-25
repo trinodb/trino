@@ -49,6 +49,7 @@ import java.util.Optional;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Consumer;
 
 import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createPlanOptimizersStatsCollector;
 import static java.util.Objects.requireNonNull;
@@ -64,8 +65,20 @@ public final class StandaloneQueryRunner
 
     public StandaloneQueryRunner(Session defaultSession)
     {
+        this(defaultSession, builder -> {});
+    }
+
+    public StandaloneQueryRunner(Session defaultSession, Consumer<TestingTrinoServer.Builder> serverProcessor)
+    {
         this.defaultSession = requireNonNull(defaultSession, "defaultSession is null");
-        this.server = createTestingTrinoServer();
+        TestingTrinoServer.Builder builder = TestingTrinoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .put("query.client.timeout", "10m")
+                        .put("exchange.http-client.idle-timeout", "1h")
+                        .put("node-scheduler.min-candidates", "1")
+                        .buildOrThrow());
+        serverProcessor.accept(builder);
+        this.server = builder.build();
 
         this.trinoClient = new DirectTrinoClient(
                 server.getDispatchManager(),
@@ -290,16 +303,5 @@ public final class StandaloneQueryRunner
     public void loadExchangeManager(String name, Map<String, String> properties)
     {
         server.loadExchangeManager(name, properties);
-    }
-
-    private static TestingTrinoServer createTestingTrinoServer()
-    {
-        return TestingTrinoServer.builder()
-                .setProperties(ImmutableMap.<String, String>builder()
-                        .put("query.client.timeout", "10m")
-                        .put("exchange.http-client.idle-timeout", "1h")
-                        .put("node-scheduler.min-candidates", "1")
-                        .buildOrThrow())
-                .build();
     }
 }
