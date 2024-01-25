@@ -68,8 +68,7 @@ public abstract class AbstractDistributedEngineOnlyQueries
     }
 
     /**
-     * Ensure the tests are run with {@link io.trino.testing.DistributedQueryRunner}. E.g. {@link io.trino.testing.LocalQueryRunner} takes some
-     * shortcuts, not exercising certain aspects.
+     * Ensure the tests are run with {@link io.trino.testing.DistributedQueryRunner} with multiple workers.
      */
     @Test
     public void ensureDistributedQueryRunner()

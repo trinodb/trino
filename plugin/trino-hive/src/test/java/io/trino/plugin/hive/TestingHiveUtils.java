@@ -25,6 +25,11 @@ public final class TestingHiveUtils
 {
     private TestingHiveUtils() {}
 
+    public static <T> T getConnectorService(LocalQueryRunner queryRunner, Class<T> clazz)
+    {
+        return ((HiveConnector) queryRunner.getConnector(HIVE_CATALOG)).getInjector().getInstance(clazz);
+    }
+
     public static <T> T getConnectorService(QueryRunner queryRunner, Class<T> clazz)
     {
         return getConnectorInjector(queryRunner).getInstance(clazz);
@@ -37,9 +42,6 @@ public final class TestingHiveUtils
 
     private static Injector getConnectorInjector(QueryRunner queryRunner)
     {
-        if (queryRunner instanceof DistributedQueryRunner) {
-            return ((HiveConnector) ((DistributedQueryRunner) queryRunner).getCoordinator().getConnector(HIVE_CATALOG)).getInjector();
-        }
-        return ((HiveConnector) ((LocalQueryRunner) queryRunner).getConnector(HIVE_CATALOG)).getInjector();
+        return ((HiveConnector) ((DistributedQueryRunner) queryRunner).getCoordinator().getConnector(HIVE_CATALOG)).getInjector();
     }
 }

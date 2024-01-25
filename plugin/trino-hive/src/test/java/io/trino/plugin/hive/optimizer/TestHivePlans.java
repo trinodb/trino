@@ -23,7 +23,6 @@ import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.testing.LocalQueryRunner;
-import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -93,22 +92,22 @@ public class TestHivePlans
     @BeforeAll
     public void setUp()
     {
-        QueryRunner queryRunner = getQueryRunner();
+        LocalQueryRunner queryRunner = getQueryRunner();
 
         // Use common VALUES for setup so that types are the same and there are no coercions.
         String values = "VALUES ('one', 1), ('two', 2), ('three', 3), ('four', 4), ('five', 5)";
 
         // partitioned on integer
-        queryRunner.execute("CREATE TABLE table_int_partitioned WITH (partitioned_by = ARRAY['int_part']) AS SELECT str_col, int_part FROM (" + values + ") t(str_col, int_part)");
+        queryRunner.executeStatement("CREATE TABLE table_int_partitioned WITH (partitioned_by = ARRAY['int_part']) AS SELECT str_col, int_part FROM (" + values + ") t(str_col, int_part)");
 
         // partitioned on varchar
-        queryRunner.execute("CREATE TABLE table_str_partitioned WITH (partitioned_by = ARRAY['str_part']) AS SELECT int_col, str_part FROM (" + values + ") t(str_part, int_col)");
+        queryRunner.executeStatement("CREATE TABLE table_str_partitioned WITH (partitioned_by = ARRAY['str_part']) AS SELECT int_col, str_part FROM (" + values + ") t(str_part, int_col)");
 
         // with too many partitions
-        queryRunner.execute("CREATE TABLE table_int_with_too_many_partitions WITH (partitioned_by = ARRAY['int_part']) AS SELECT str_col, int_part FROM (" + values + ", ('six', 6)) t(str_col, int_part)");
+        queryRunner.executeStatement("CREATE TABLE table_int_with_too_many_partitions WITH (partitioned_by = ARRAY['int_part']) AS SELECT str_col, int_part FROM (" + values + ", ('six', 6)) t(str_col, int_part)");
 
         // unpartitioned
-        queryRunner.execute("CREATE TABLE table_unpartitioned AS SELECT str_col, int_col FROM (" + values + ") t(str_col, int_col)");
+        queryRunner.executeStatement("CREATE TABLE table_unpartitioned AS SELECT str_col, int_col FROM (" + values + ") t(str_col, int_col)");
     }
 
     @AfterAll

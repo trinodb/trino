@@ -116,9 +116,7 @@ public class TestDeterminePartitionCount
                 .setCatalog(catalogName)
                 .setSchema("default")
                 .build();
-        LocalQueryRunner queryRunner = LocalQueryRunner.builder(session)
-                .withNodeCountForStats(100)
-                .build();
+        LocalQueryRunner queryRunner = LocalQueryRunner.create(session, 100);
         queryRunner.createCatalog(
                 catalogName,
                 connectorFactory,

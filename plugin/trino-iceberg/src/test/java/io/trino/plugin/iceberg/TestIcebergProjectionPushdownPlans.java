@@ -113,7 +113,7 @@ public class TestIcebergProjectionPushdownPlans
                 .setCatalogSessionProperty(CATALOG, "projection_pushdown_enabled", "false")
                 .build();
 
-        getQueryRunner().execute(format(
+        getQueryRunner().executeStatement(format(
                 "CREATE TABLE %s (col0) AS SELECT CAST(row(5, 6) AS row(a bigint, b bigint)) AS col0 WHERE false",
                 testTable));
 
@@ -132,7 +132,7 @@ public class TestIcebergProjectionPushdownPlans
         String testTable = "test_simple_projection_pushdown" + randomNameSuffix();
         QualifiedObjectName completeTableName = new QualifiedObjectName(CATALOG, SCHEMA, testTable);
 
-        getQueryRunner().execute(format(
+        getQueryRunner().executeStatement(format(
                 "CREATE TABLE %s (col0, col1) WITH (partitioning = ARRAY['col1']) AS" +
                         " SELECT CAST(row(5, 6) AS row(x bigint, y bigint)) AS col0, 5 AS col1",
                 testTable));
