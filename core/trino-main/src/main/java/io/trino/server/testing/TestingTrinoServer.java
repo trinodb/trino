@@ -717,6 +717,15 @@ public class TestingTrinoServer
             return this;
         }
 
+        public Builder addProperty(String name, String value)
+        {
+            this.properties = ImmutableMap.<String, String>builder()
+                    .putAll(properties)
+                    .put(name, value)
+                    .buildOrThrow();
+            return this;
+        }
+
         public Builder setProperties(Map<String, String> properties)
         {
             this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
