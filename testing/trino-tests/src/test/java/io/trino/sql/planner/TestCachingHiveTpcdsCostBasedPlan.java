@@ -27,6 +27,7 @@ import java.util.stream.Stream;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.trino.sql.planner.TestHiveTpcdsCostBasedPlan.TPCDS_METADATA_DIR;
+import static io.trino.testing.PlanTesterBuilder.planTesterBuilder;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 /**
@@ -59,7 +60,7 @@ public class TestCachingHiveTpcdsCostBasedPlan
                 .setSystemProperty("task_concurrency", "1") // these tests don't handle exchanges from local parallel
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, OptimizerConfig.JoinReorderingStrategy.AUTOMATIC.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, OptimizerConfig.JoinDistributionType.AUTOMATIC.name());
-        LocalQueryRunner queryRunner = LocalQueryRunner.builder(sessionBuilder.build())
+        LocalQueryRunner queryRunner = planTesterBuilder(sessionBuilder.build())
                 .withNodeCountForStats(8)
                 .withCacheConfig(new CacheConfig()
                         .setEnabled(true)

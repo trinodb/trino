@@ -146,6 +146,7 @@ import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static io.trino.sql.planner.plan.AggregationNode.groupingSets;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.testing.PlanTesterBuilder.planTesterBuilder;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 
@@ -1147,7 +1148,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
     private static RuleTester tester(boolean connectorSupportsSingleColumnReads)
     {
         Session session = testSessionBuilder().build();
-        LocalQueryRunner localQueryRunner = LocalQueryRunner.builder(session)
+        LocalQueryRunner localQueryRunner = planTesterBuilder(session)
                 .withMetadataDecorator(metadata -> new DelegatingMetadata(metadata)
                 {
                     @Override
@@ -1155,7 +1156,8 @@ public class TestMultipleDistinctAggregationsToSubqueries
                     {
                         return connectorSupportsSingleColumnReads;
                     }
-                }).build();
+                })
+                .build();
         localQueryRunner.createCatalog(
                 session.getCatalog().orElseThrow(),
                 new TpchConnectorFactory(1),

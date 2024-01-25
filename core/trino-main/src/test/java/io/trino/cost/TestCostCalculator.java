@@ -867,7 +867,7 @@ public class TestCostCalculator
     private AggregationNode aggregation(String id, PlanNode source)
     {
         AggregationNode.Aggregation aggregation = new AggregationNode.Aggregation(
-                new TestingFunctionResolution(localQueryRunner).resolveFunction("count", ImmutableList.of()),
+                new TestingFunctionResolution(localQueryRunner.getTransactionManager(), localQueryRunner.getPlannerContext()).resolveFunction("count", ImmutableList.of()),
                 ImmutableList.of(),
                 false,
                 Optional.empty(),

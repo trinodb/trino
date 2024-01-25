@@ -86,7 +86,7 @@ public class TestMetadataQueryOptimization
     {
         String testTable = "test_metadata_optimization";
 
-        getQueryRunner().execute(format(
+        getQueryRunner().executeStatement(format(
                 "CREATE TABLE %s (a, b, c) WITH (PARTITIONING = ARRAY['b', 'c']) AS VALUES (5, 6, 7), (8, 9, 10)",
                 testTable));
 

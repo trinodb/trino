@@ -34,7 +34,6 @@ import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.MaterializedRow;
@@ -681,8 +680,7 @@ public class TestSalesforceConnectorTest
     // AbstractTestDistributedQueries
 
     /**
-     * Ensure the tests are run with {@link DistributedQueryRunner}. E.g. {@link LocalQueryRunner} takes some
-     * shortcuts, not exercising certain aspects.
+     * Ensure the tests are run with {@link io.trino.testing.DistributedQueryRunner} with multiple workers.
      */
     @Test
     public void ensureDistributedQueryRunner()

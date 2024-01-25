@@ -122,9 +122,7 @@ public abstract class BaseCostBasedPlanTest
                 .setSystemProperty("task_concurrency", "1") // these tests don't handle exchanges from local parallel
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.AUTOMATIC.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name());
-        LocalQueryRunner queryRunner = LocalQueryRunner.builder(sessionBuilder.build())
-                .withNodeCountForStats(8)
-                .build();
+        LocalQueryRunner queryRunner = LocalQueryRunner.create(sessionBuilder.build(), 8);
         queryRunner.createCatalog(
                 CATALOG_NAME,
                 createConnectorFactory(),

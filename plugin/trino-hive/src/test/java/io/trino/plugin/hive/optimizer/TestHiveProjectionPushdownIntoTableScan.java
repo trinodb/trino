@@ -105,7 +105,7 @@ public class TestHiveProjectionPushdownIntoTableScan
                 .setCatalogSessionProperty(HIVE_CATALOG_NAME, "projection_pushdown_enabled", "false")
                 .build();
 
-        getQueryRunner().execute(format(
+        getQueryRunner().executeStatement(format(
                 "CREATE TABLE %s (col0) AS" +
                         " SELECT cast(row(5, 6) as row(a bigint, b bigint)) AS col0 WHERE false",
                 testTable));
@@ -125,7 +125,7 @@ public class TestHiveProjectionPushdownIntoTableScan
         String testTable = "test_simple_projection_pushdown";
         QualifiedObjectName completeTableName = new QualifiedObjectName(HIVE_CATALOG_NAME, SCHEMA_NAME, testTable);
 
-        getQueryRunner().execute(format(
+        getQueryRunner().executeStatement(format(
                 "CREATE TABLE %s (col0, col1) AS" +
                         " SELECT cast(row(5, 6) as row(x bigint, y bigint)) AS col0, 5 AS col1 WHERE false",
                 testTable));

@@ -143,8 +143,7 @@ public class TestDeterminePreferredDynamicFilterTimeout
                 .setSchema("default");
         sessionProperties.forEach(sessionBuilder::setSystemProperty);
 
-        LocalQueryRunner queryRunner = LocalQueryRunner.builder(sessionBuilder.build())
-                .build();
+        LocalQueryRunner queryRunner = LocalQueryRunner.create(sessionBuilder.build());
         queryRunner.createCatalog(
                 catalogName,
                 connectorFactory,

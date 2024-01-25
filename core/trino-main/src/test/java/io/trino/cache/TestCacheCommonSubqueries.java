@@ -73,6 +73,7 @@ import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
+import static io.trino.testing.PlanTesterBuilder.planTesterBuilder;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
@@ -93,7 +94,7 @@ public class TestCacheCommonSubqueries
     @Override
     protected LocalQueryRunner createLocalQueryRunner()
     {
-        LocalQueryRunner queryRunner = LocalQueryRunner.builder(TEST_SESSION)
+        LocalQueryRunner queryRunner = planTesterBuilder(TEST_SESSION)
                 .withCacheConfig(new CacheConfig()
                         .setEnabled(true)
                         .setCacheCommonSubqueriesEnabled(true))

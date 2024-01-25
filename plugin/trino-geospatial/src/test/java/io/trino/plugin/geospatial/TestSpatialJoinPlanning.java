@@ -92,9 +92,9 @@ public class TestSpatialJoinPlanning
         queryRunner.installPlugin(new GeoPlugin());
         queryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
         queryRunner.createCatalog("memory", new MemoryConnectorFactory(), ImmutableMap.of());
-        queryRunner.execute(format("CREATE TABLE kdb_tree AS SELECT '%s' AS v", KDB_TREE_JSON));
-        queryRunner.execute("CREATE TABLE points (lng, lat, name) AS (VALUES (2.1e0, 2.1e0, 'x'))");
-        queryRunner.execute("CREATE TABLE polygons (wkt, name) AS (VALUES ('POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))', 'a'))");
+        queryRunner.executeStatement(format("CREATE TABLE kdb_tree AS SELECT '%s' AS v", KDB_TREE_JSON));
+        queryRunner.executeStatement("CREATE TABLE points (lng, lat, name) AS (VALUES (2.1e0, 2.1e0, 'x'))");
+        queryRunner.executeStatement("CREATE TABLE polygons (wkt, name) AS (VALUES ('POLYGON ((30 10, 40 40, 20 40, 10 20, 30 10))', 'a'))");
         return queryRunner;
     }
 
@@ -214,7 +214,7 @@ public class TestSpatialJoinPlanning
                 "Table not found: memory.default.non_existent_table");
 
         // empty table
-        getQueryRunner().execute("CREATE TABLE empty_table AS SELECT 'a' AS v WHERE false");
+        getQueryRunner().executeStatement("CREATE TABLE empty_table AS SELECT 'a' AS v WHERE false");
 
         assertInvalidSpatialPartitioning(
                 withSpatialPartitioning("empty_table"),
@@ -224,7 +224,7 @@ public class TestSpatialJoinPlanning
                 "Expected exactly one row for table memory.default.empty_table, but got none");
 
         // invalid JSON
-        getQueryRunner().execute("CREATE TABLE invalid_kdb_tree AS SELECT 'invalid-json' AS v");
+        getQueryRunner().executeStatement("CREATE TABLE invalid_kdb_tree AS SELECT 'invalid-json' AS v");
 
         assertInvalidSpatialPartitioning(
                 withSpatialPartitioning("invalid_kdb_tree"),
@@ -234,7 +234,7 @@ public class TestSpatialJoinPlanning
                 "Invalid JSON string for KDB tree: .*");
 
         // more than one row
-        getQueryRunner().execute(format("CREATE TABLE too_many_rows AS SELECT * FROM (VALUES '%s', '%s') AS t(v)", KDB_TREE_JSON, KDB_TREE_JSON));
+        getQueryRunner().executeStatement(format("CREATE TABLE too_many_rows AS SELECT * FROM (VALUES '%s', '%s') AS t(v)", KDB_TREE_JSON, KDB_TREE_JSON));
 
         assertInvalidSpatialPartitioning(
                 withSpatialPartitioning("too_many_rows"),
@@ -244,7 +244,7 @@ public class TestSpatialJoinPlanning
                 "Expected exactly one row for table memory.default.too_many_rows, but found 2 rows");
 
         // more than one column
-        getQueryRunner().execute("CREATE TABLE too_many_columns AS SELECT '%s' as c1, 100 as c2");
+        getQueryRunner().executeStatement("CREATE TABLE too_many_columns AS SELECT '%s' as c1, 100 as c2");
 
         assertInvalidSpatialPartitioning(
                 withSpatialPartitioning("too_many_columns"),

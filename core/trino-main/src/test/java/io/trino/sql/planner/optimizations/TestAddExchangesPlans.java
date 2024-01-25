@@ -37,7 +37,6 @@ import io.trino.sql.planner.plan.JoinNode.DistributionType;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.sql.query.QueryAssertions;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.testing.LocalQueryRunner;
@@ -57,6 +56,7 @@ import static io.trino.SystemSessionProperties.SPILL_ENABLED;
 import static io.trino.SystemSessionProperties.TASK_CONCURRENCY;
 import static io.trino.SystemSessionProperties.USE_COST_BASED_PARTITIONING;
 import static io.trino.SystemSessionProperties.USE_EXACT_PARTITIONING;
+import static io.trino.SystemSessionProperties.isColocatedJoinEnabled;
 import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.PARTITIONED;
 import static io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_ARBITRARY_DISTRIBUTION;
@@ -108,9 +108,7 @@ public class TestAddExchangesPlans
                 .setCatalog("tpch")
                 .setSchema("tiny")
                 .build();
-        LocalQueryRunner queryRunner = LocalQueryRunner.builder(session)
-                .withNodeCountForStats(1) // has to be non-zero for prefer parent partitioning test cases to work
-                .build();
+        LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
         queryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
         return queryRunner;
     }
@@ -929,10 +927,7 @@ public class TestAddExchangesPlans
     @Test
     public void testJoinNotExactlyPartitioned()
     {
-        QueryAssertions queryAssertions = new QueryAssertions(getQueryRunner());
-        assertThat(queryAssertions.query("SHOW SESSION LIKE 'colocated_join'"))
-                .skippingTypesCheck()
-                .matches("SELECT 'colocated_join', 'true', 'true', 'boolean', 'Use a colocated join when possible'");
+        assertThat(isColocatedJoinEnabled(getQueryRunner().getDefaultSession())).isTrue();
 
         assertDistributedPlan(
                 """
