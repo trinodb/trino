@@ -1213,17 +1213,6 @@ public class LocalQueryRunner
             return this;
         }
 
-        /**
-         * This method is required to pass in system session properties and their
-         * metadata for Trino extension modules (separate from the default system
-         * session properties), provided to the query runner at {@link LocalQueryRunner#createSessionPropertyManager}.
-         */
-        public Builder withExtraSystemSessionProperties(Set<SystemSessionPropertiesProvider> extraSessionProperties)
-        {
-            this.extraSessionProperties = ImmutableSet.copyOf(requireNonNull(extraSessionProperties, "extraSessionProperties is null"));
-            return this;
-        }
-
         public LocalQueryRunner build()
         {
             return new LocalQueryRunner(
