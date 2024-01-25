@@ -129,7 +129,7 @@ public class TestConnectorPushdownRulesWithHive
                 tester().getTypeAnalyzer(),
                 new ScalarStatsCalculator(tester().getPlannerContext(), tester().getTypeAnalyzer()));
 
-        tester().getQueryRunner().execute(format(
+        tester().getQueryRunner().executeStatement(format(
                 "CREATE TABLE  %s (struct_of_int) AS " +
                         "SELECT cast(row(5, 6) as row(a bigint, b bigint)) as struct_of_int where false",
                 tableName));
@@ -209,7 +209,7 @@ public class TestConnectorPushdownRulesWithHive
     public void testPredicatePushdown()
     {
         String tableName = "predicate_test";
-        tester().getQueryRunner().execute(format("CREATE TABLE %s (a, b) AS SELECT 5, 6", tableName));
+        tester().getQueryRunner().executeStatement(format("CREATE TABLE %s (a, b) AS SELECT 5, 6", tableName));
 
         PushPredicateIntoTableScan pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), tester().getTypeAnalyzer(), false);
 
@@ -241,7 +241,7 @@ public class TestConnectorPushdownRulesWithHive
     public void testColumnPruningProjectionPushdown()
     {
         String tableName = "column_pruning_projection_test";
-        tester().getQueryRunner().execute(format("CREATE TABLE %s (a, b) AS SELECT 5, 6", tableName));
+        tester().getQueryRunner().executeStatement(format("CREATE TABLE %s (a, b) AS SELECT 5, 6", tableName));
 
         PruneTableScanColumns pruneTableScanColumns = new PruneTableScanColumns(tester().getMetadata());
 
@@ -279,7 +279,7 @@ public class TestConnectorPushdownRulesWithHive
     public void testPushdownWithDuplicateExpressions()
     {
         String tableName = "duplicate_expressions";
-        tester().getQueryRunner().execute(format(
+        tester().getQueryRunner().executeStatement(format(
                 "CREATE TABLE  %s (struct_of_bigint, just_bigint) AS SELECT cast(row(5, 6) AS row(a bigint, b bigint)) AS struct_of_int, 5 AS just_bigint WHERE false",
                 tableName));
 

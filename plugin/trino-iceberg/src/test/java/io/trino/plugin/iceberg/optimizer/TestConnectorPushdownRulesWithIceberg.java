@@ -140,7 +140,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 tester().getTypeAnalyzer(),
                 new ScalarStatsCalculator(tester().getPlannerContext(), tester().getTypeAnalyzer()));
 
-        tester().getQueryRunner().execute(format(
+        tester().getQueryRunner().executeStatement(format(
                 "CREATE TABLE  %s (struct_of_int) AS " +
                         "SELECT cast(row(5, 6) as row(a bigint, b bigint)) as struct_of_int where false",
                 tableName));
@@ -234,7 +234,7 @@ public class TestConnectorPushdownRulesWithIceberg
     public void testPredicatePushdown()
     {
         String tableName = "predicate_test";
-        tester().getQueryRunner().execute(format("CREATE TABLE %s (a, b) AS SELECT 5, 6", tableName));
+        tester().getQueryRunner().executeStatement(format("CREATE TABLE %s (a, b) AS SELECT 5, 6", tableName));
         long snapshotId = ((IcebergTableHandle) tester().getQueryRunner().getTableHandle(TEST_CATALOG_NAME, SCHEMA_NAME, tableName).getConnectorHandle()).getSnapshotId().orElseThrow();
 
         PushPredicateIntoTableScan pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), tester().getTypeAnalyzer(), false);
@@ -286,7 +286,7 @@ public class TestConnectorPushdownRulesWithIceberg
     public void testColumnPruningProjectionPushdown()
     {
         String tableName = "column_pruning_projection_test";
-        tester().getQueryRunner().execute(format("CREATE TABLE %s (a, b) AS SELECT 5, 6", tableName));
+        tester().getQueryRunner().executeStatement(format("CREATE TABLE %s (a, b) AS SELECT 5, 6", tableName));
 
         PruneTableScanColumns pruneTableScanColumns = new PruneTableScanColumns(tester().getMetadata());
 
@@ -343,7 +343,7 @@ public class TestConnectorPushdownRulesWithIceberg
     public void testPushdownWithDuplicateExpressions()
     {
         String tableName = "duplicate_expressions";
-        tester().getQueryRunner().execute(format(
+        tester().getQueryRunner().executeStatement(format(
                 "CREATE TABLE  %s (struct_of_bigint, just_bigint) AS SELECT cast(row(5, 6) AS row(a bigint, b bigint)) AS struct_of_int, 5 AS just_bigint WHERE false",
                 tableName));
 
