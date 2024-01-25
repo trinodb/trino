@@ -56,7 +56,7 @@ joins, aggregations, partitioned window functions and others.
 
 - **Type:** {ref}`prop-type-integer`
 - **Default value:** `50`
-- **Session property:** `min_hash_partition_count_for_writre`
+- **Session property:** `min_hash_partition_count_for_write`
 
 The minimum number of partitions to use for processing distributed operations in write queries,
 such as joins, aggregations, partitioned window functions and others.
