@@ -187,9 +187,7 @@ public class RuleTester
             Session session = sessionBuilder.build();
 
             LocalQueryRunner queryRunner = nodeCountForStats
-                    .map(nodeCount -> LocalQueryRunner.builder(session)
-                            .withNodeCountForStats(nodeCount)
-                            .build())
+                    .map(nodeCount -> LocalQueryRunner.create(session, nodeCount))
                     .orElseGet(() -> LocalQueryRunner.create(session));
 
             queryRunner.createCatalog(

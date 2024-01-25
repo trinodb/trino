@@ -112,7 +112,7 @@ public class TestMongoProjectionPushdownPlans
                 .setCatalogSessionProperty(CATALOG, "projection_pushdown_enabled", "false")
                 .build();
 
-        getQueryRunner().execute("CREATE TABLE " + tableName + " (col0) AS SELECT CAST(row(5, 6) AS row(a bigint, b bigint)) AS col0 WHERE false");
+        getQueryRunner().executeStatement("CREATE TABLE " + tableName + " (col0) AS SELECT CAST(row(5, 6) AS row(a bigint, b bigint)) AS col0 WHERE false");
 
         assertPlan(
                 "SELECT col0.a expr_a, col0.b expr_b FROM " + tableName,
@@ -129,7 +129,7 @@ public class TestMongoProjectionPushdownPlans
         String tableName = "test_simple_projection_pushdown" + randomNameSuffix();
         QualifiedObjectName completeTableName = new QualifiedObjectName(CATALOG, SCHEMA, tableName);
 
-        getQueryRunner().execute("CREATE TABLE " + tableName + " (col0, col1)" +
+        getQueryRunner().executeStatement("CREATE TABLE " + tableName + " (col0, col1)" +
                 " AS SELECT CAST(row(5, 6) AS row(x BIGINT, y BIGINT)) AS col0, BIGINT '5' AS col1");
 
         Session session = getQueryRunner().getDefaultSession();
@@ -224,7 +224,7 @@ public class TestMongoProjectionPushdownPlans
         String tableName = "test_dereference_pushdown_with_dot_and_dollar_containing_field_" + randomNameSuffix();
         QualifiedObjectName completeTableName = new QualifiedObjectName(CATALOG, SCHEMA, tableName);
 
-        getQueryRunner().execute(
+        getQueryRunner().executeStatement(
                 "CREATE TABLE " + tableName + " (id, root1) AS" +
                         " SELECT BIGINT '1', CAST(ROW(11, ROW(111, ROW(1111, varchar 'foo', varchar 'bar'))) AS" +
                         " ROW(id BIGINT, root2 ROW(id BIGINT, root3 ROW(id BIGINT, \"dotted.field\" VARCHAR, \"$name\" VARCHAR))))");

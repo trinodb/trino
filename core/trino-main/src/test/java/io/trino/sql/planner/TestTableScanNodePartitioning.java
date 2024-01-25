@@ -107,9 +107,7 @@ public class TestTableScanNodePartitioning
                 .setSchema(TEST_SCHEMA)
                 .setSystemProperty(TASK_CONCURRENCY, "2"); // force parallel plan even on test nodes with single CPU
 
-        LocalQueryRunner queryRunner = LocalQueryRunner.builder(sessionBuilder.build())
-                .withNodeCountForStats(10)
-                .build();
+        LocalQueryRunner queryRunner = LocalQueryRunner.create(sessionBuilder.build(), 10);
         queryRunner.createCatalog(TEST_CATALOG_NAME, createMockFactory(), ImmutableMap.of());
         return queryRunner;
     }
