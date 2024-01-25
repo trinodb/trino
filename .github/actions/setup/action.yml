@@ -3,16 +3,16 @@ description: "Verify checked out commits and setup Java"
 inputs:
   java-version:
     description: "Java version to setup"
-    default: 21
+    default: '21'
   cache:
     description: "Cache Maven repo (true/false/restore)"
-    default: true
+    default: 'true'
   cleanup-node:
     description: "Clean up node (true/false) to increase free disk space"
-    default: false # Disabled by default as it adds ~4 minutes of test runtime. Should be enabled case by case.
+    default: 'false' # Disabled by default as it adds ~4 minutes of test runtime. Should be enabled case by case.
   download_dependencies:
     description: "Download all Maven dependencies so Maven can work in offline mode"
-    default: true
+    default: 'false'
 
 runs:
   using: composite
@@ -50,7 +50,7 @@ runs:
         if: ${{ format('{0}', inputs.cache) == 'true' }}
         uses: actions/cache@v3
         with:
-          path: | 
+          path: |
             ~/.m2/repository
             /tmp/pt_java_downloads
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
