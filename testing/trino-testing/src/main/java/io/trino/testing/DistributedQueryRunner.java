@@ -334,6 +334,7 @@ public class DistributedQueryRunner
         return trinoClient;
     }
 
+    @Override
     public List<SpanData> getSpans()
     {
         return spanExporter.getFinishedSpanItems();
@@ -416,6 +417,7 @@ public class DistributedQueryRunner
         return coordinator.getSessionPropertyDefaults();
     }
 
+    @Override
     public TestingTrinoServer getCoordinator()
     {
         return coordinator;
@@ -438,11 +440,6 @@ public class DistributedQueryRunner
     {
         functionBundles.add(functionBundle);
         servers.forEach(server -> server.addFunctions(functionBundle));
-    }
-
-    public void createCatalog(String catalogName, String connectorName)
-    {
-        createCatalog(catalogName, connectorName, ImmutableMap.of());
     }
 
     @Override

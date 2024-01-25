@@ -91,6 +91,7 @@ public final class StandaloneQueryRunner
                 server.getInstance(Key.get(BlockEncodingSerde.class)));
     }
 
+    @Override
     public List<SpanData> getSpans()
     {
         return spanExporter.getFinishedSpanItems();
@@ -108,7 +109,7 @@ public final class StandaloneQueryRunner
         return executeWithQueryId(session, sql).getResult();
     }
 
-    public MaterializedResultWithQueryId executeWithQueryId(Session session, @Language("SQL") String sql)
+    private MaterializedResultWithQueryId executeWithQueryId(Session session, @Language("SQL") String sql)
     {
         lock.readLock().lock();
         try {
@@ -226,6 +227,7 @@ public final class StandaloneQueryRunner
         return server.getAccessControl();
     }
 
+    @Override
     public TestingTrinoServer getCoordinator()
     {
         return server;
@@ -241,11 +243,6 @@ public final class StandaloneQueryRunner
     public void addFunctions(FunctionBundle functionBundle)
     {
         server.addFunctions(functionBundle);
-    }
-
-    public void createCatalog(String catalogName, String connectorName)
-    {
-        createCatalog(catalogName, connectorName, ImmutableMap.of());
     }
 
     @Override

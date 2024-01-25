@@ -15,7 +15,6 @@ package io.trino.plugin.hive;
 
 import com.google.inject.Injector;
 import com.google.inject.Key;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.PlanTester;
 import io.trino.testing.QueryRunner;
 
@@ -42,6 +41,6 @@ public final class TestingHiveUtils
 
     private static Injector getConnectorInjector(QueryRunner queryRunner)
     {
-        return ((HiveConnector) ((DistributedQueryRunner) queryRunner).getCoordinator().getConnector(HIVE_CATALOG)).getInjector();
+        return ((HiveConnector) queryRunner.getCoordinator().getConnector(HIVE_CATALOG)).getInjector();
     }
 }
