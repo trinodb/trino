@@ -714,11 +714,6 @@ public class LocalQueryRunner
         catalogManager.createCatalog(catalogName, new ConnectorName(connectorFactory.getName()), properties, false);
     }
 
-    public void registerCatalogFactory(ConnectorFactory connectorFactory)
-    {
-        catalogFactory.addConnectorFactory(connectorFactory);
-    }
-
     @Override
     public void installPlugin(Plugin plugin)
     {
