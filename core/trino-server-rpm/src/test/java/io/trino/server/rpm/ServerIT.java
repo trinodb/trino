@@ -65,7 +65,7 @@ public class ServerIT
         String rpm = "/" + new File(rpmHostPath).getName();
         String command = "" +
                 // install required dependencies that are missing in UBI9-minimal
-                "microdnf install -y python sudo\n" +
+                "microdnf install -y python sudo shadow-utils\n" +
                 // install RPM
                 "rpm -i " + rpm + "\n" +
                 // create Hive catalog file
@@ -117,7 +117,7 @@ public class ServerIT
         String rpm = "/" + new File(rpmHostPath).getName();
         String installAndStartTrino = "" +
                 // install required dependencies that are missing in UBI9-minimal
-                "microdnf install -y python sudo\n" +
+                "microdnf install -y python sudo shadow-utils\n" +
                 // install RPM
                 "rpm -i " + rpm + "\n" +
                 "/etc/init.d/trino start\n" +
