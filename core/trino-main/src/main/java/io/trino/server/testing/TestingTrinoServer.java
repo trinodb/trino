@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Closer;
 import com.google.common.net.HostAndPort;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
+import com.google.inject.Inject;
 import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
@@ -41,7 +42,10 @@ import io.airlift.node.testing.TestingNodeModule;
 import io.airlift.openmetrics.JmxOpenMetricsModule;
 import io.airlift.tracetoken.TraceTokenModule;
 import io.airlift.tracing.TracingModule;
+import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.sdk.trace.SpanProcessor;
+import io.trino.Session;
+import io.trino.SystemSessionPropertiesProvider;
 import io.trino.cache.CacheManagerModule;
 import io.trino.cache.CacheManagerRegistry;
 import io.trino.cache.CacheMetadata;
@@ -77,10 +81,13 @@ import io.trino.security.GroupProviderManager;
 import io.trino.server.GracefulShutdownHandler;
 import io.trino.server.PluginInstaller;
 import io.trino.server.PrefixObjectNameGeneratorModule;
+import io.trino.server.QuerySessionSupplier;
 import io.trino.server.Server;
 import io.trino.server.ServerLoadableComponent;
 import io.trino.server.ServerMainModule;
+import io.trino.server.SessionContext;
 import io.trino.server.SessionPropertyDefaults;
+import io.trino.server.SessionSupplier;
 import io.trino.server.ShutdownAction;
 import io.trino.server.dataframe.StarburstDataframeModule;
 import io.trino.server.security.CertificateAuthenticatorManager;
@@ -93,6 +100,7 @@ import io.trino.spi.connector.Connector;
 import io.trino.spi.eventlistener.EventListener;
 import io.trino.spi.security.GroupProvider;
 import io.trino.spi.security.SystemAccessControl;
+import io.trino.spi.session.PropertyMetadata;
 import io.trino.split.PageSourceManager;
 import io.trino.split.SplitManager;
 import io.trino.sql.PlannerContext;
@@ -120,6 +128,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -132,7 +141,9 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static com.google.inject.util.Modules.EMPTY_MODULE;
+import static io.trino.spi.type.VarcharType.VARCHAR;
 import static java.lang.Integer.parseInt;
 import static java.nio.file.Files.createTempDirectory;
 import static java.nio.file.Files.isDirectory;
@@ -147,6 +158,7 @@ public class TestingTrinoServer
         logging.setLevel("io.trino.event.QueryMonitor", Level.ERROR);
     }
 
+    public static final String SESSION_START_TIME_PROPERTY = "session_start_time";
     private static final String VERSION = "testversion";
 
     public static TestingTrinoServer create()
@@ -307,6 +319,21 @@ public class TestingTrinoServer
                     binder.bind(ProcedureTester.class).in(Scopes.SINGLETON);
                     binder.bind(ExchangeManagerRegistry.class).in(Scopes.SINGLETON);
                     spanProcessor.ifPresent(processor -> newSetBinder(binder, SpanProcessor.class).addBinding().toInstance(processor));
+
+                    newSetBinder(binder, SystemSessionPropertiesProvider.class)
+                            .addBinding().toInstance(() -> List.of(new PropertyMetadata<>(
+                                    SESSION_START_TIME_PROPERTY,
+                                    "Override session start time",
+                                    VARCHAR,
+                                    Instant.class,
+                                    null,
+                                    true,
+                                    millis -> Instant.parse((String) millis),
+                                    Instant::toString)));
+                    if (coordinator) {
+                        binder.bind(QuerySessionSupplier.class).in(Scopes.SINGLETON);
+                        newOptionalBinder(binder, SessionSupplier.class).setBinding().to(TestingSessionSupplier.class).in(Scopes.SINGLETON);
+                    }
                 });
 
         if (coordinator) {
@@ -797,6 +824,31 @@ public class TestingTrinoServer
                     systemAccessControlConfiguration,
                     systemAccessControls,
                     eventListeners);
+        }
+    }
+
+    private static class TestingSessionSupplier
+            implements SessionSupplier
+    {
+        private final QuerySessionSupplier querySessionSupplier;
+
+        @Inject
+        public TestingSessionSupplier(QuerySessionSupplier querySessionSupplier)
+        {
+            this.querySessionSupplier = querySessionSupplier;
+        }
+
+        @Override
+        public Session createSession(QueryId queryId, Span querySpan, SessionContext context)
+        {
+            Session session = querySessionSupplier.createSession(queryId, querySpan, context);
+            Instant sessionStart = session.getSystemProperty(SESSION_START_TIME_PROPERTY, Instant.class);
+            if (sessionStart != null) {
+                session = Session.builder(session)
+                        .setStart(sessionStart)
+                        .build();
+            }
+            return session;
         }
     }
 }
