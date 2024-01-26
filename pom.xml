@@ -2751,6 +2751,7 @@
                 <it.test>void</it.test>
                 <maven.install.skip>true</maven.install.skip>
                 <maven.deploy.skip>true</maven.deploy.skip>
+                <gib.disable>true</gib.disable>
             </properties>
             <build>
                 <plugins>
@@ -2767,9 +2768,16 @@
                         <groupId>io.takari.maven.plugins</groupId>
                         <artifactId>takari-lifecycle-plugin</artifactId>
                         <version>${dep.takari.version}</version>
+                        <extensions>true</extensions>
                         <configuration>
                             <skip>true</skip>
                         </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>io.github.gitflow-incremental-builder</groupId>
+                        <artifactId>gitflow-incremental-builder</artifactId>
+                        <version>4.5.1</version>
+                        <extensions>true</extensions>
                     </plugin>
                 </plugins>
             </build>
