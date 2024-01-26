@@ -129,7 +129,7 @@ public class TestDeltaPageSourceProvider
                         {"fields":[{"name":"partitionedColumn","type":"long","nullable":false,"metadata":{}}]}"
                         """);
 
-        TupleDomain<ColumnHandle> prunedPredicate = pageSourceProvider.simplifyPredicate(
+        TupleDomain<ColumnHandle> prunedPredicate = pageSourceProvider.getUnenforcedPredicate(
                 TEST_SESSION.toConnectorSession(),
                 prepareSplit(TupleDomain.withColumnDomains(ImmutableMap.of(regularColumnHandle, Domain.multipleValues(BIGINT, ImmutableList.of(0L)))), ImmutableMap.of()),
                 createDeltaLakeTableHandle(metadataEntry, TupleDomain.all()),
@@ -137,7 +137,7 @@ public class TestDeltaPageSourceProvider
         );
         assertThat(prunedPredicate).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(regularColumnHandle, Domain.singleValue(BIGINT, 0L))));
 
-        prunedPredicate = pageSourceProvider.simplifyPredicate(
+        prunedPredicate = pageSourceProvider.getUnenforcedPredicate(
                 TEST_SESSION.toConnectorSession(),
                 prepareSplit(TupleDomain.all(), ImmutableMap.of()),
                 createDeltaLakeTableHandle(metadataEntry, TupleDomain.withColumnDomains(ImmutableMap.of(regularColumnHandle, Domain.multipleValues(BIGINT, ImmutableList.of(0L))))),
@@ -145,7 +145,7 @@ public class TestDeltaPageSourceProvider
         );
         assertThat(prunedPredicate).isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(regularColumnHandle, Domain.singleValue(BIGINT, 0L))));
 
-        prunedPredicate = pageSourceProvider.simplifyPredicate(
+        prunedPredicate = pageSourceProvider.getUnenforcedPredicate(
                 TEST_SESSION.toConnectorSession(),
                 prepareSplit(TupleDomain.all(), ImmutableMap.of()),
                 createDeltaLakeTableHandle(metadataEntry, TupleDomain.withColumnDomains(ImmutableMap.of(regularColumnHandle, Domain.multipleValues(BIGINT, ImmutableList.of(0L, 1L))))),

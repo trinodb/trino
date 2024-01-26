@@ -341,7 +341,7 @@ public class IcebergPageSourceProvider
                     }
                 });
 
-        TupleDomain<IcebergColumnHandle> effectivePredicate = simplifyPredicate(
+        TupleDomain<IcebergColumnHandle> effectivePredicate = getUnenforcedPredicate(
                 new SplitSpec(tableSchema, partitionSpec, partitionKeys),
                 unenforcedPredicate,
                 dynamicFilter.getCurrentPredicate().transformKeys(IcebergColumnHandle.class::cast))
@@ -547,22 +547,22 @@ public class IcebergPageSourceProvider
     }
 
     @Override
-    public TupleDomain<ColumnHandle> simplifyPredicate(
+    public TupleDomain<ColumnHandle> getUnenforcedPredicate(
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle tableHandle,
-            TupleDomain<ColumnHandle> predicate)
+            TupleDomain<ColumnHandle> dynamicFilter)
     {
-        return simplifyPredicate(getSplitSpec(tableHandle, split), ((IcebergTableHandle) tableHandle).getUnenforcedPredicate(), predicate)
+        return getUnenforcedPredicate(getSplitSpec(tableHandle, split), ((IcebergTableHandle) tableHandle).getUnenforcedPredicate(), dynamicFilter)
                 .transformKeys(ColumnHandle.class::cast);
     }
 
-    private TupleDomain<IcebergColumnHandle> simplifyPredicate(
+    private TupleDomain<IcebergColumnHandle> getUnenforcedPredicate(
             SplitSpec splitSpec,
             TupleDomain<IcebergColumnHandle> unenforcedPredicate,
-            TupleDomain<ColumnHandle> predicate)
+            TupleDomain<ColumnHandle> dynamicFilter)
     {
-        return prunePredicate(splitSpec, predicate.intersect(unenforcedPredicate))
+        return prunePredicate(splitSpec, dynamicFilter.intersect(unenforcedPredicate))
                 .simplify(ICEBERG_DOMAIN_COMPACTION_THRESHOLD);
     }
 

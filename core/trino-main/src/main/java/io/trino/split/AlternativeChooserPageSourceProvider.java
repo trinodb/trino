@@ -68,13 +68,13 @@ public class AlternativeChooserPageSourceProvider
     }
 
     @Override
-    public TupleDomain<ColumnHandle> simplifyPredicate(
+    public TupleDomain<ColumnHandle> getUnenforcedPredicate(
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle table,
-            TupleDomain<ColumnHandle> predicate)
+            TupleDomain<ColumnHandle> dynamicFilter)
     {
-        return alternativeChooser.simplifyPredicate(session, split, table, predicate);
+        return alternativeChooser.getUnenforcedPredicate(session, split, table, dynamicFilter);
     }
 
     @Override

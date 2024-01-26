@@ -495,7 +495,7 @@ public abstract class BaseCacheSubqueriesTest
                     }
                     else {
                         // simplifyPredicate should not prune but simplify data column
-                        assertThat(pageSourceProvider.simplifyPredicate(
+                        assertThat(pageSourceProvider.getUnenforcedPredicate(
                                 connectorSession,
                                 split.getConnectorSplit(),
                                 handle.get().getConnectorHandle(),
@@ -537,7 +537,7 @@ public abstract class BaseCacheSubqueriesTest
         if (isDynamicRowFilteringEnabled) {
             return dynamicRowFilteringPageSourceProvider.simplifyPredicate(pageSourceProvider, session, connectorSession, split, table, predicate);
         }
-        return pageSourceProvider.simplifyPredicate(connectorSession, split, table, predicate);
+        return pageSourceProvider.getUnenforcedPredicate(connectorSession, split, table, predicate);
     }
 
     protected CacheColumnId getCacheColumnId(Session session, String tableName, String columnName)

@@ -291,13 +291,13 @@ public class TestCacheDynamicFiltering
                 }
 
                 @Override
-                public TupleDomain<ColumnHandle> simplifyPredicate(
+                public TupleDomain<ColumnHandle> getUnenforcedPredicate(
                         ConnectorSession session,
                         ConnectorSplit split,
                         ConnectorTableHandle table,
-                        TupleDomain<ColumnHandle> predicate)
+                        TupleDomain<ColumnHandle> dynamicFilter)
                 {
-                    return predicate;
+                    return dynamicFilter;
                 }
             };
         }

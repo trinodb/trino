@@ -135,7 +135,7 @@ public class CacheDriverFactory
         StaticDynamicFilter originalDynamicFilter = originalDynamicFilterSupplier.get();
         StaticDynamicFilter commonDynamicFilter = commonDynamicFilterSupplier.get();
         StaticDynamicFilter dynamicFilter = resolveDynamicFilter(originalDynamicFilter, commonDynamicFilter);
-        TupleDomain<ColumnHandle> dynamicPredicate = pageSourceProvider.simplifyPredicate(
+        TupleDomain<ColumnHandle> dynamicPredicate = pageSourceProvider.getUnenforcedPredicate(
                         session,
                         split.getSplit(),
                         originalTableHandle,

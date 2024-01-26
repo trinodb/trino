@@ -32,11 +32,11 @@ public interface PageSourceProvider
             List<ColumnHandle> columns,
             DynamicFilter dynamicFilter);
 
-    default TupleDomain<ColumnHandle> simplifyPredicate(
+    default TupleDomain<ColumnHandle> getUnenforcedPredicate(
             Session session,
             Split split,
             TableHandle table,
-            TupleDomain<ColumnHandle> predicate)
+            TupleDomain<ColumnHandle> dynamicFilter)
     {
         throw new UnsupportedOperationException();
     }

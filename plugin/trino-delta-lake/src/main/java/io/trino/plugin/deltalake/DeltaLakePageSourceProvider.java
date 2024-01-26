@@ -178,16 +178,16 @@ public class DeltaLakePageSourceProvider
         // and the dynamic filter in the coordinator during split generation. The file level stats
         // in DeltaLakeSplit#statisticsPredicate could help to prune this split when a more selective dynamic filter
         // is available now, without having to access parquet file footer for row-group stats.
-        TupleDomain<DeltaLakeColumnHandle> filteredSplitPredicate = simplifyPredicate(
+        TupleDomain<DeltaLakeColumnHandle> effectivePredicate = getUnenforcedPredicate(
                 session,
                 split,
                 table,
                 dynamicFilter.getCurrentPredicate())
                 .transformKeys(DeltaLakeColumnHandle.class::cast);
-        if (filteredSplitPredicate.isNone()) {
+        if (effectivePredicate.isNone()) {
             return new EmptyPageSource();
         }
-        if (filteredSplitPredicate.isAll() &&
+        if (effectivePredicate.isAll() &&
                 split.getStart() == 0 && split.getLength() == split.getFileSize() &&
                 split.getFileRowCount().isPresent() &&
                 split.getDeletionVector().isEmpty() &&
@@ -233,7 +233,7 @@ public class DeltaLakePageSourceProvider
             hiveColumnHandles.add(PARQUET_ROW_INDEX_COLUMN);
         }
 
-        TupleDomain<HiveColumnHandle> parquetPredicate = getParquetTupleDomain(filteredSplitPredicate, columnMappingMode, parquetFieldIdToName);
+        TupleDomain<HiveColumnHandle> parquetPredicate = getParquetTupleDomain(effectivePredicate, columnMappingMode, parquetFieldIdToName);
 
         ReaderPageSource pageSource = ParquetPageSourceFactory.createPageSource(
                 inputFile,
@@ -297,11 +297,11 @@ public class DeltaLakePageSourceProvider
     }
 
     @Override
-    public TupleDomain<ColumnHandle> simplifyPredicate(
+    public TupleDomain<ColumnHandle> getUnenforcedPredicate(
             ConnectorSession connectorSession,
             ConnectorSplit connectorSplit,
             ConnectorTableHandle connectorTable,
-            TupleDomain<ColumnHandle> predicate)
+            TupleDomain<ColumnHandle> dynamicFilter)
     {
         DeltaLakeSplit split = (DeltaLakeSplit) connectorSplit;
         DeltaLakeTableHandle table = (DeltaLakeTableHandle) connectorTable;
@@ -310,7 +310,7 @@ public class DeltaLakePageSourceProvider
                 TupleDomain.intersect(ImmutableList.of(
                         table.getNonPartitionConstraint(),
                         split.getStatisticsPredicate(),
-                        predicate)));
+                        dynamicFilter)));
         return prunedPredicate.simplify(domainCompactionThreshold);
     }
 

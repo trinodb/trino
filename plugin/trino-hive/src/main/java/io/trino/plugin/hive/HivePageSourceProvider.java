@@ -107,7 +107,7 @@ public class HivePageSourceProvider
         HiveTableHandle hiveTable = (HiveTableHandle) tableHandle;
         HiveSplit hiveSplit = (HiveSplit) split;
 
-        TupleDomain<ColumnHandle> effectivePredicate = simplifyPredicate(session, split, tableHandle, dynamicFilter.getCurrentPredicate());
+        TupleDomain<ColumnHandle> effectivePredicate = getUnenforcedPredicate(session, split, tableHandle, dynamicFilter.getCurrentPredicate());
         if (effectivePredicate.isNone()) {
             return new EmptyPageSource();
         }
@@ -159,18 +159,18 @@ public class HivePageSourceProvider
     }
 
     @Override
-    public TupleDomain<ColumnHandle> simplifyPredicate(
+    public TupleDomain<ColumnHandle> getUnenforcedPredicate(
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle tableHandle,
-            TupleDomain<ColumnHandle> predicate)
+            TupleDomain<ColumnHandle> dynamicFilter)
     {
         HiveTableHandle hiveTableHandle = (HiveTableHandle) tableHandle;
         return prunePredicate(
                 session,
                 split,
                 hiveTableHandle,
-                predicate.intersect(hiveTableHandle.getCompactEffectivePredicate()))
+                dynamicFilter.intersect(hiveTableHandle.getCompactEffectivePredicate()))
                 .simplify(domainCompactionThreshold);
     }
 

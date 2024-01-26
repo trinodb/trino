@@ -269,7 +269,7 @@ public class TestCacheDataOperator
         }
 
         @Override
-        public TupleDomain<ColumnHandle> simplifyPredicate(
+        public TupleDomain<ColumnHandle> getUnenforcedPredicate(
                 Session session,
                 Split split,
                 TableHandle table,

@@ -81,18 +81,18 @@ public class PageSourceManager
     }
 
     @Override
-    public TupleDomain<ColumnHandle> simplifyPredicate(
+    public TupleDomain<ColumnHandle> getUnenforcedPredicate(
             Session session,
             Split split,
             TableHandle table,
-            TupleDomain<ColumnHandle> predicate)
+            TupleDomain<ColumnHandle> dynamicFilter)
     {
         CatalogHandle catalogHandle = split.getCatalogHandle();
         ConnectorPageSourceProvider provider = pageSourceProvider.getService(catalogHandle);
         ConnectorSession connectorSession = session.toConnectorSession(catalogHandle);
         if (!provider.shouldPerformDynamicRowFiltering()) {
-            return provider.simplifyPredicate(connectorSession, split.getConnectorSplit(), table.getConnectorHandle(), predicate);
+            return provider.getUnenforcedPredicate(connectorSession, split.getConnectorSplit(), table.getConnectorHandle(), dynamicFilter);
         }
-        return dynamicRowFilteringPageSourceProvider.simplifyPredicate(provider, session, connectorSession, split.getConnectorSplit(), table.getConnectorHandle(), predicate);
+        return dynamicRowFilteringPageSourceProvider.simplifyPredicate(provider, session, connectorSession, split.getConnectorSplit(), table.getConnectorHandle(), dynamicFilter);
     }
 }

@@ -50,13 +50,13 @@ public class TpchPageSourceProvider
     }
 
     @Override
-    public TupleDomain<ColumnHandle> simplifyPredicate(
+    public TupleDomain<ColumnHandle> getUnenforcedPredicate(
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle tableHandle,
-            TupleDomain<ColumnHandle> predicate)
+            TupleDomain<ColumnHandle> dynamicFilter)
     {
-        // tpch connector doesn't support dynamic predicates
+        // tpch connector doesn't support unenforced (effective) predicates
         return TupleDomain.all();
     }
 }

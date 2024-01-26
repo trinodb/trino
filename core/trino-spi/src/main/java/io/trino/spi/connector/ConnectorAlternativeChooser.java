@@ -31,10 +31,20 @@ public interface ConnectorAlternativeChooser
             List<ConnectorTableHandle> alternatives);
 
     /**
-     * Simplifies predicate into a predicate that {@link ConnectorPageSource} would use
-     * to filter split data. Returned predicate might contain additional columns that
-     * were not part of input predicate.
+     * Returns unenforced (effective) predicate that {@link ConnectorPageSource} would use to filter split data.
+     * If split is completely filtered out, then this method should return {@link TupleDomain#none}.
      */
+    default TupleDomain<ColumnHandle> getUnenforcedPredicate(
+            ConnectorSession session,
+            ConnectorSplit split,
+            ConnectorTableHandle table,
+            TupleDomain<ColumnHandle> dynamicFilter)
+    {
+        return simplifyPredicate(session, split, table, dynamicFilter);
+    }
+
+    // for warp compatibility
+    @Deprecated
     default TupleDomain<ColumnHandle> simplifyPredicate(
             ConnectorSession session,
             ConnectorSplit split,
@@ -45,8 +55,8 @@ public interface ConnectorAlternativeChooser
     }
 
     /**
-     * Prunes columns from predicate that have prefilled values for a given split.
-     * If split is completely filtered out by pruned and prefilled columns, then this
+     * Prunes columns from predicate that are not effective in filtering split data.
+     * If split is completely filtered out by given predicate, then this
      * method must return {@link TupleDomain#none}.
      */
     default TupleDomain<ColumnHandle> prunePredicate(

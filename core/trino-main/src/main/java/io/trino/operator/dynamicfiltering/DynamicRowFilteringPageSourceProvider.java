@@ -68,7 +68,7 @@ public class DynamicRowFilteringPageSourceProvider
             TupleDomain<ColumnHandle> predicate)
     {
         if (!isDynamicRowFilteringEnabled(session)) {
-            return delegatePageSourceProvider.simplifyPredicate(connectorSession, split, table, predicate);
+            return delegatePageSourceProvider.getUnenforcedPredicate(connectorSession, split, table, predicate);
         }
 
         // DynamicRowFilteringPageSourceProvider doesn't simplify dynamic predicate,

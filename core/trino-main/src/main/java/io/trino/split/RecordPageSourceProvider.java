@@ -52,11 +52,11 @@ public class RecordPageSourceProvider
     }
 
     @Override
-    public TupleDomain<ColumnHandle> simplifyPredicate(
+    public TupleDomain<ColumnHandle> getUnenforcedPredicate(
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle table,
-            TupleDomain<ColumnHandle> predicate)
+            TupleDomain<ColumnHandle> dynamicFilter)
     {
         // record page source doesn't support dynamic predicates
         return TupleDomain.all();

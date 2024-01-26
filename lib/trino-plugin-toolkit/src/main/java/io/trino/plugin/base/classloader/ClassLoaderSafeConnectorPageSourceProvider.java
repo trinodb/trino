@@ -51,6 +51,18 @@ public class ClassLoaderSafeConnectorPageSourceProvider
     }
 
     @Override
+    public TupleDomain<ColumnHandle> getUnenforcedPredicate(
+            ConnectorSession session,
+            ConnectorSplit split,
+            ConnectorTableHandle table,
+            TupleDomain<ColumnHandle> dynamicFilter)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.getUnenforcedPredicate(session, split, table, dynamicFilter);
+        }
+    }
+
+    @Override
     public TupleDomain<ColumnHandle> simplifyPredicate(
             ConnectorSession session,
             ConnectorSplit split,
