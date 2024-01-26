@@ -772,13 +772,12 @@ private SqlMap encodeMap(Map<String, ?> map)
     MapType mapType = typeManager.getType(TypeSignature.mapType(
                             VARCHAR.getTypeSignature(),
                             VARCHAR.getTypeSignature()));
-    BlockBuilder values = mapType.createBlockBuilder(null, map != null ? map.size() : 0);
+    MapBlockBuilder values = mapType.createBlockBuilder(null, map != null ? map.size() : 0);
     if (map == null) {
         values.appendNull();
         return values.build().getObject(0, Block.class);
     }
-    BlockBuilder builder = values.beginBlockEntry();
-    builder.buildEntry((keyBuilder, valueBuilder) -> map.foreach((key, value) -> {
+    values.buildEntry((keyBuilder, valueBuilder) -> map.foreach((key, value) -> {
         VARCHAR.writeString(keyBuilder, key);
         if (value == null) {
             valueBuilder.appendNull();
