@@ -101,7 +101,8 @@
                         </goals>
                         <phase>validate</phase>
                         <configuration>
-                            <executable>diff</executable>
+                            <!-- Hack: workaround for https://github.com/mojohaus/exec-maven-plugin/issues/401 -->
+                            <executable>/usr/bin/diff</executable>
                             <arguments>
                                 <argument>-b</argument>
                                 <argument>-c</argument>
