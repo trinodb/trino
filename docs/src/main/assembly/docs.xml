@@ -8,6 +8,10 @@
     <includeBaseDirectory>false</includeBaseDirectory>
     <fileSets>
         <fileSet>
+            <directory>${project.basedir}/src/main/static</directory>
+            <outputDirectory></outputDirectory>
+        </fileSet>
+        <fileSet>
             <directory>${project.build.directory}/html</directory>
             <outputDirectory>/html</outputDirectory>
             <excludes>
