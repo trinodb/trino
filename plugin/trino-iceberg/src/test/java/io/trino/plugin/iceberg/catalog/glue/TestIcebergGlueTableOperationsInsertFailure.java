@@ -17,14 +17,15 @@ import com.amazonaws.services.glue.AWSGlueAsync;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.Session;
+import io.trino.execution.Failure;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.glue.GlueHiveMetastore;
 import io.trino.plugin.iceberg.TestingIcebergPlugin;
 import io.trino.spi.security.PrincipalType;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
-import org.apache.iceberg.exceptions.CommitStateUnknownException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -40,6 +41,7 @@ import static io.trino.plugin.hive.metastore.glue.TestingGlueHiveMetastore.creat
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
@@ -124,8 +126,13 @@ public class TestIcebergGlueTableOperationsInsertFailure
 
         getQueryRunner().execute(format("CREATE TABLE %s (a_varchar) AS VALUES ('Trino')", tableName));
         assertThatThrownBy(() -> getQueryRunner().execute("INSERT INTO " + tableName + " VALUES 'rocks'"))
-                .isInstanceOf(CommitStateUnknownException.class)
-                .hasMessageContaining("Test-simulated Glue timeout exception");
+                .satisfies(throwable -> {
+                    assertThat(throwable).isInstanceOf(QueryFailedException.class);
+                    assertThat(throwable.getCause()).isInstanceOf(Failure.class);
+                    Failure failure = (Failure) throwable.getCause();
+                    assertThat(failure.getMessage()).contains("Test-simulated Glue timeout exception");
+                    assertThat(failure.getFailureInfo().getType()).isEqualTo("org.apache.iceberg.exceptions.CommitStateUnknownException");
+                });
         assertQuery("SELECT * FROM " + tableName, "VALUES 'Trino', 'rocks'");
     }
 }
