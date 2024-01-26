@@ -83,7 +83,7 @@ public class TestDropCatalogTask
         assertThat(queryRunner.getPlannerContext().getMetadata().catalogExists(createNewQuery().getSession(), TEST_CATALOG)).isFalse();
         assertThatExceptionOfType(TrinoException.class)
                 .isThrownBy(() -> getFutureValue(task.execute(statement, createNewQuery(), emptyList(), WarningCollector.NOOP)))
-                .withMessage("Catalog '%s' does not exist", TEST_CATALOG);
+                .withMessage("Catalog '%s' not found", TEST_CATALOG);
     }
 
     @Test

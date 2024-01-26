@@ -283,7 +283,7 @@ public final class ShowQueriesRewrite
             accessControl.checkCanShowTables(session.toSecurityContext(), schema);
 
             if (!metadata.catalogExists(session, schema.getCatalogName())) {
-                throw semanticException(CATALOG_NOT_FOUND, showTables, "Catalog '%s' does not exist", schema.getCatalogName());
+                throw semanticException(CATALOG_NOT_FOUND, showTables, "Catalog '%s' not found", schema.getCatalogName());
             }
 
             if (!metadata.schemaExists(session, schema)) {

@@ -319,7 +319,7 @@ public class CoordinatorDynamicCatalogManager
         }
 
         if (!removed && !exists) {
-            throw new TrinoException(CATALOG_NOT_FOUND, format("Catalog '%s' does not exist", catalogName));
+            throw new TrinoException(CATALOG_NOT_FOUND, format("Catalog '%s' not found", catalogName));
         }
         // Do not shut down the catalog, because there may still be running queries using this catalog.
         // Catalog shutdown logic will be added later.
