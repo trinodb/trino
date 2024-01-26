@@ -112,11 +112,11 @@ public abstract class AbstractDistributedEngineOnlyQueries
         assertQueryFails(invalid, "REVOKE test FROM USER foo", "line 1:1: Role 'test' does not exist");
         assertQueryFails(invalid, "SET ROLE test", "line 1:1: Role 'test' does not exist");
 
-        assertQueryFails(invalid, "CREATE ROLE test IN invalid", "line 1:1: Catalog 'invalid' does not exist");
-        assertQueryFails(invalid, "DROP ROLE test IN invalid", "line 1:1: Catalog 'invalid' does not exist");
-        assertQueryFails(invalid, "GRANT test TO USER foo IN invalid", "line 1:1: Catalog 'invalid' does not exist");
-        assertQueryFails(invalid, "REVOKE test FROM USER foo IN invalid", "line 1:1: Catalog 'invalid' does not exist");
-        assertQueryFails(invalid, "SET ROLE test IN invalid", "line 1:1: Catalog 'invalid' does not exist");
+        assertQueryFails(invalid, "CREATE ROLE test IN invalid", "line 1:1: Catalog 'invalid' not found");
+        assertQueryFails(invalid, "DROP ROLE test IN invalid", "line 1:1: Catalog 'invalid' not found");
+        assertQueryFails(invalid, "GRANT test TO USER foo IN invalid", "line 1:1: Catalog 'invalid' not found");
+        assertQueryFails(invalid, "REVOKE test FROM USER foo IN invalid", "line 1:1: Catalog 'invalid' not found");
+        assertQueryFails(invalid, "SET ROLE test IN invalid", "line 1:1: Catalog 'invalid' not found");
     }
 
     @Test

@@ -107,7 +107,7 @@ public final class MetadataUtil
     public static CatalogHandle getRequiredCatalogHandle(Metadata metadata, Session session, Node node, String catalogName)
     {
         return metadata.getCatalogHandle(session, catalogName)
-                .orElseThrow(() -> semanticException(CATALOG_NOT_FOUND, node, "Catalog '%s' does not exist", catalogName));
+                .orElseThrow(() -> semanticException(CATALOG_NOT_FOUND, node, "Catalog '%s' not found", catalogName));
     }
 
     public static CatalogSchemaName createCatalogSchemaName(Session session, Node node, Optional<QualifiedName> schema)
