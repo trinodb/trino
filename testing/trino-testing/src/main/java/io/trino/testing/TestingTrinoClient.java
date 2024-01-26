@@ -167,7 +167,7 @@ public class TestingTrinoClient
                 columnNames.set(getNames(statusInfo.getColumns()));
             }
 
-            if (data.isPresent()) {
+            if (data.getData() != null) {
                 checkState(types.get() != null, "data received without types");
                 rows.addAll(mappedCopy(data.getData(), dataToRow(types.get())));
             }

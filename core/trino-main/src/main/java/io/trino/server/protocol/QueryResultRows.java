@@ -16,14 +16,17 @@ package io.trino.server.protocol;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.trino.Session;
+import io.trino.client.ClientCapabilities;
 import io.trino.client.Column;
 import io.trino.spi.Page;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.Type;
 import jakarta.annotation.Nullable;
 
+import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -35,17 +38,20 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.util.Objects.requireNonNull;
 
 public class QueryResultRows
+        implements Iterable<List<Object>>
 {
     private final Session session;
     private final Optional<List<ColumnAndType>> columns;
     private final List<Page> pages;
+    private final Consumer<Throwable> exceptionConsumer;
     private final long totalRows;
 
-    private QueryResultRows(Session session, Optional<List<ColumnAndType>> columns, List<Page> pages)
+    private QueryResultRows(Session session, Optional<List<ColumnAndType>> columns, List<Page> pages, Consumer<Throwable> exceptionConsumer)
     {
         this.session = requireNonNull(session, "session is null");
         this.columns = requireNonNull(columns, "columns is null");
         this.pages = ImmutableList.copyOf(pages);
+        this.exceptionConsumer = requireNonNull(exceptionConsumer, "exceptionConsumer is null");
         this.totalRows = countRows(pages);
 
         verify(totalRows == 0 || (totalRows > 0 && columns.isPresent()), "data present without columns and types");
@@ -56,21 +62,11 @@ public class QueryResultRows
         return totalRows == 0;
     }
 
-    public Optional<List<ColumnAndType>> getColumnsAndTypes()
-    {
-        return this.columns;
-    }
-
     public Optional<List<Column>> getColumns()
     {
         return columns.map(columns -> columns.stream()
                 .map(ColumnAndType::getColumn)
                 .collect(toImmutableList()));
-    }
-
-    public List<Page> getPages()
-    {
-        return this.pages;
     }
 
     /**
@@ -101,6 +97,12 @@ public class QueryResultRows
         return Optional.ofNullable(value).map(Number::longValue);
     }
 
+    @Override
+    public Iterator<List<Object>> iterator()
+    {
+        return new JsonArrayResultsIterator(session.toConnectorSession(), pages, columns.orElseThrow(), session.getClientCapabilities().contains(ClientCapabilities.PARAMETRIC_DATETIME.toString()), exceptionConsumer);
+    }
+
     private static long countRows(List<Page> pages)
     {
         long rows = 0;
@@ -122,7 +124,7 @@ public class QueryResultRows
 
     public static QueryResultRows empty(Session session)
     {
-        return new QueryResultRows(session, Optional.empty(), ImmutableList.of());
+        return new QueryResultRows(session, Optional.empty(), ImmutableList.of(), null);
     }
 
     public static Builder queryResultRowsBuilder(Session session)
@@ -135,6 +137,7 @@ public class QueryResultRows
         private final Session session;
         private ImmutableList.Builder<Page> pages = ImmutableList.builder();
         private Optional<List<ColumnAndType>> columns = Optional.empty();
+        private Consumer<Throwable> exceptionConsumer = (throwable) -> {};
 
         public Builder(Session session)
         {
@@ -172,12 +175,19 @@ public class QueryResultRows
             return this;
         }
 
+        public Builder withExceptionConsumer(Consumer<Throwable> exceptionConsumer)
+        {
+            this.exceptionConsumer = exceptionConsumer;
+            return this;
+        }
+
         public QueryResultRows build()
         {
             return new QueryResultRows(
                     session,
                     columns,
-                    pages.build());
+                    pages.build(),
+                    exceptionConsumer);
         }
 
         private static List<ColumnAndType> combine(@Nullable List<Column> columns, @Nullable List<Type> types)

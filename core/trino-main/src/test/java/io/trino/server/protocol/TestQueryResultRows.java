@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.client.ClientTypeSignature;
 import io.trino.client.Column;
-import io.trino.server.protocol.data.InlineJsonQueryDataProducer;
 import io.trino.spi.Page;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.ArrayType;
@@ -58,7 +57,7 @@ import static java.util.Collections.singletonMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestQueryResults
+public class TestQueryResultRows
 {
     private static final Function<String, Column> BOOLEAN_COLUMN = name -> new Column(name, BOOLEAN, new ClientTypeSignature(BOOLEAN));
     private static final Function<String, Column> BIGINT_COLUMN = name -> new Column(name, BIGINT, new ClientTypeSignature(BIGINT));
@@ -69,10 +68,10 @@ public class TestQueryResults
     {
         QueryResultRows rows = QueryResultRows.empty(getSession());
 
-        assertThat((Iterable<? extends List<Object>>) toIterableList(getSession(), rows)).as("rows").isEmpty();
-        assertThat(getAllValues(rows, ignoredException -> {})).hasSize(0);
+        assertThat((Iterable<? extends List<Object>>) rows).as("rows").isEmpty();
+        assertThat(getAllValues(rows)).hasSize(0);
         assertThat(rows.getColumns()).isEmpty();
-        assertThat(toIterableList(getSession(), rows).iterator().hasNext()).isFalse();
+        assertThat(rows.iterator().hasNext()).isFalse();
     }
 
     @Test
@@ -84,8 +83,8 @@ public class TestQueryResults
                 .withSingleBooleanValue(column, true)
                 .build();
 
-        assertThat((Iterable<? extends List<Object>>) toIterableList(getSession(), rows)).as("rows").isNotEmpty();
-        assertThat(getAllValues(rows, ignoredException -> {})).hasSize(1).containsOnly(ImmutableList.of(true));
+        assertThat((Iterable<? extends List<Object>>) rows).as("rows").isNotEmpty();
+        assertThat(getAllValues(rows)).hasSize(1).containsOnly(ImmutableList.of(true));
         assertThat(rows.getColumns().orElseThrow()).containsOnly(column);
     }
 
@@ -100,11 +99,11 @@ public class TestQueryResults
                 .addPages(rowPagesBuilder(BigintType.BIGINT).row(value).build())
                 .build();
 
-        assertThat((Iterable<? extends List<Object>>) toIterableList(getSession(), rows)).as("rows").isNotEmpty();
+        assertThat((Iterable<? extends List<Object>>) rows).as("rows").isNotEmpty();
         assertThat(rows.getUpdateCount()).isPresent();
         assertThat(rows.getUpdateCount().get()).isEqualTo(value);
 
-        assertThat(getAllValues(rows, ignoredException -> {})).containsExactly(ImmutableList.of(value));
+        assertThat(getAllValues(rows)).containsExactly(ImmutableList.of(value));
         assertThat(rows.getColumns().orElseThrow()).containsOnly(column);
     }
 
@@ -117,9 +116,9 @@ public class TestQueryResults
                 .withSingleBooleanValue(column, false)
                 .build();
 
-        assertThat((Iterable<? extends List<Object>>) toIterableList(getSession(), rows)).as("rows").isNotEmpty();
+        assertThat((Iterable<? extends List<Object>>) rows).as("rows").isNotEmpty();
         assertThat(rows.getUpdateCount()).isEmpty();
-        assertThat(toIterableList(getSession(), rows).iterator().hasNext()).isTrue();
+        assertThat(rows.iterator()).hasNext();
     }
 
     @Test
@@ -146,14 +145,15 @@ public class TestQueryResults
         QueryResultRows rows = queryResultRowsBuilder(getSession())
                 .withColumnsAndTypes(columns, types)
                 .addPages(pages)
+                .withExceptionConsumer(exceptionConsumer)
                 .build();
 
-        assertThat((Iterable<? extends List<Object>>) toIterableList(getSession(), rows)).as("rows").isNotEmpty();
+        assertThat((Iterable<? extends List<Object>>) rows).as("rows").isNotEmpty();
         assertThat(rows.getTotalRowsCount()).isEqualTo(10);
         assertThat(rows.getColumns()).isEqualTo(Optional.of(columns));
         assertThat(rows.getUpdateCount()).isEmpty();
 
-        assertThat(getAllValues(rows, exceptionConsumer)).containsExactly(
+        assertThat(getAllValues(rows)).containsExactly(
                 ImmutableList.of(0, 10L),
                 ImmutableList.of(1, 11L),
                 ImmutableList.of(2, 12L),
@@ -185,6 +185,7 @@ public class TestQueryResults
         TestExceptionConsumer exceptionConsumer = new TestExceptionConsumer();
         QueryResultRows rows = queryResultRowsBuilder(getSession())
                 .withColumnsAndTypes(columns, types)
+                .withExceptionConsumer(exceptionConsumer)
                 .addPages(pages)
                 .build();
 
@@ -195,7 +196,7 @@ public class TestQueryResults
         assertThat(rows.getColumns()).isEqualTo(Optional.of(columns));
         assertThat(rows.getUpdateCount().isEmpty()).isTrue();
 
-        assertThat(getAllValues(rows, exceptionConsumer))
+        assertThat(getAllValues(rows))
                 .containsExactly(ImmutableList.of(0, 0));
 
         List<Throwable> exceptions = exceptionConsumer.getExceptions();
@@ -244,6 +245,7 @@ public class TestQueryResults
         TestExceptionConsumer exceptionConsumer = new TestExceptionConsumer();
         QueryResultRows rows = queryResultRowsBuilder(getSession())
                 .withColumnsAndTypes(columns, types)
+                .withExceptionConsumer(exceptionConsumer)
                 .addPages(pages)
                 .build();
 
@@ -252,7 +254,7 @@ public class TestQueryResults
                 .isFalse();
         assertThat(rows.getTotalRowsCount()).isEqualTo(3);
 
-        assertThat(getAllValues(rows, exceptionConsumer))
+        assertThat(getAllValues(rows))
                 .hasSize(3)
                 .containsExactly(newArrayList(0, null), newArrayList(1, null), newArrayList(2, true));
     }
@@ -272,6 +274,7 @@ public class TestQueryResults
         TestExceptionConsumer exceptionConsumer = new TestExceptionConsumer();
         QueryResultRows rows = queryResultRowsBuilder(getSession())
                 .withColumnsAndTypes(columns, types)
+                .withExceptionConsumer(exceptionConsumer)
                 .addPages(pages)
                 .build();
 
@@ -281,7 +284,7 @@ public class TestQueryResults
                 .isFalse();
         assertThat(rows.getTotalRowsCount()).isEqualTo(1);
 
-        assertThat(getAllValues(rows, exceptionConsumer))
+        assertThat(getAllValues(rows))
                 .hasSize(1)
                 .containsExactly(newArrayList(null, null));
     }
@@ -299,6 +302,7 @@ public class TestQueryResults
         TestExceptionConsumer exceptionConsumer = new TestExceptionConsumer();
         QueryResultRows rows = queryResultRowsBuilder(getSession())
                 .withColumnsAndTypes(columns, types)
+                .withExceptionConsumer(exceptionConsumer)
                 .addPages(pages)
                 .build();
 
@@ -308,7 +312,7 @@ public class TestQueryResults
                 .isFalse();
         assertThat(rows.getTotalRowsCount()).isEqualTo(1);
 
-        assertThat(getAllValues(rows, exceptionConsumer))
+        assertThat(getAllValues(rows))
                 .hasSize(1)
                 .containsOnly(singletonList(singletonList(null)));
 
@@ -328,6 +332,7 @@ public class TestQueryResults
         TestExceptionConsumer exceptionConsumer = new TestExceptionConsumer();
         QueryResultRows rows = queryResultRowsBuilder(getSession())
                 .withColumnsAndTypes(columns, types)
+                .withExceptionConsumer(exceptionConsumer)
                 .addPages(pages)
                 .build();
 
@@ -337,7 +342,7 @@ public class TestQueryResults
                 .isFalse();
         assertThat(rows.getTotalRowsCount()).isEqualTo(1);
 
-        assertThat(getAllValues(rows, exceptionConsumer))
+        assertThat(getAllValues(rows))
                 .hasSize(1)
                 .containsOnly(singletonList(singletonMap(10L, null)));
 
@@ -361,6 +366,7 @@ public class TestQueryResults
         TestExceptionConsumer exceptionConsumer = new TestExceptionConsumer();
         QueryResultRows rows = queryResultRowsBuilder(getSession())
                 .withColumnsAndTypes(columns, types)
+                .withExceptionConsumer(exceptionConsumer)
                 .addPages(pages)
                 .build();
 
@@ -370,7 +376,7 @@ public class TestQueryResults
                 .isFalse();
         assertThat(rows.getTotalRowsCount()).isEqualTo(1);
 
-        List<List<Object>> allValues = getAllValues(rows, exceptionConsumer);
+        List<List<Object>> allValues = getAllValues(rows);
 
         assertThat(allValues)
                 .hasSize(1)
@@ -449,30 +455,15 @@ public class TestQueryResults
                 .hasMessage("data present without columns and types");
     }
 
-    private static List<List<Object>> getAllValues(QueryResultRows rows, Consumer<Throwable> throwableConsumer)
+    private static List<List<Object>> getAllValues(QueryResultRows rows)
     {
         ImmutableList.Builder<List<Object>> builder = ImmutableList.builder();
 
-        for (List<Object> values : toIterableList(getSession(), rows, throwableConsumer)) {
+        for (List<Object> values : rows) {
             builder.add(values);
         }
 
         return builder.build();
-    }
-
-    private static Iterable<List<Object>> toIterableList(Session session, QueryResultRows rows)
-    {
-        return toIterableList(session, rows, exception -> {});
-    }
-
-    private static Iterable<List<Object>> toIterableList(Session session, QueryResultRows rows, Consumer<Throwable> throwableConsumer)
-    {
-        try {
-            return new InlineJsonQueryDataProducer().produce(session, rows, true, throwableConsumer).getData();
-        }
-        catch (UnsupportedOperationException e) {
-            return ImmutableList.of();
-        }
     }
 
     private static Session getSession()

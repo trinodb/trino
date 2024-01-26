@@ -259,7 +259,7 @@ public class TestSetSessionAuthorization
             try (StatementClient client = newStatementClient(httpClient, clientSession, query)) {
                 while (client.isRunning() && !Thread.currentThread().isInterrupted()) {
                     QueryData results = client.currentData();
-                    if (results.isPresent()) {
+                    if (results.getData() != null) {
                         data.addAll(results.getData());
                     }
                     client.advance();

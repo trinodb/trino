@@ -18,10 +18,6 @@ import com.google.common.collect.AbstractSequentialIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Streams;
-import com.google.inject.Injector;
-import com.google.inject.Key;
-import com.google.inject.TypeLiteral;
-import io.airlift.bootstrap.Bootstrap;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpUriBuilder;
@@ -29,12 +25,10 @@ import io.airlift.http.client.Request;
 import io.airlift.http.client.StatusResponseHandler.StatusResponse;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.json.JsonCodec;
-import io.airlift.json.JsonModule;
 import io.trino.client.QueryError;
 import io.trino.client.QueryResults;
 import io.trino.plugin.memory.MemoryPlugin;
 import io.trino.server.BasicQueryInfo;
-import io.trino.server.protocol.data.QueryDataFormatsModule;
 import io.trino.server.testing.TestingTrinoServer;
 import io.trino.spi.QueryId;
 import io.trino.spi.type.TimeZoneNotSupportedException;
@@ -70,7 +64,7 @@ import static io.airlift.http.client.Request.Builder.prepareHead;
 import static io.airlift.http.client.Request.Builder.preparePost;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static io.airlift.http.client.StatusResponseHandler.createStatusResponseHandler;
-import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
+import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.airlift.testing.Closeables.closeAll;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.MAX_HASH_PARTITION_COUNT;
@@ -97,7 +91,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 @Execution(CONCURRENT)
 public class TestServer
 {
-    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = queryResultsCodec();
+    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
     private TestingTrinoServer server;
     private HttpClient client;
 
@@ -160,11 +154,11 @@ public class TestServer
         QueryResults first = queryResults.get(0);
         QueryResults last = queryResults.get(queryResults.size() - 1);
 
-        Optional<QueryResults> data = queryResults.stream().filter(results -> results.getData().isPresent()).findFirst();
+        Optional<QueryResults> data = queryResults.stream().filter(results -> results.getData() != null).findFirst();
 
         assertThat(first.getColumns()).isNull();
         assertThat(first.getStats().getState()).isEqualTo("QUEUED");
-        assertThat(first.getData().isPresent()).isFalse();
+        assertThat(first.getData()).isNull();
 
         assertThat(last.getColumns()).hasSize(1);
         assertThat(last.getColumns().get(0).getName()).isEqualTo("Catalog");
@@ -174,7 +168,7 @@ public class TestServer
         assertThat(data).isPresent();
 
         QueryResults results = data.orElseThrow();
-        assertThat(results.getData().getData()).containsOnly(ImmutableList.of("memory"), ImmutableList.of("system"));
+        assertThat(results.getData()).containsOnly(ImmutableList.of("memory"), ImmutableList.of("system"));
     }
 
     @Test
@@ -203,8 +197,8 @@ public class TestServer
                 .map(JsonResponse::getValue)
                 .peek(result -> assertThat(result.getError()).isNull())
                 .peek(results -> {
-                    if (results.getData().isPresent()) {
-                        data.addAll(results.getData().getData());
+                    if (results.getData() != null) {
+                        data.addAll(results.getData());
                     }
                 })
                 .collect(last());
@@ -443,15 +437,5 @@ public class TestServer
 
             return client.execute(prepareGet().setUri(previous.getValue().getNextUri()).build(), createFullJsonResponseHandler(QUERY_RESULTS_CODEC));
         }
-    }
-
-    public static JsonCodec<QueryResults> queryResultsCodec()
-    {
-        Injector injector = new Bootstrap(
-                new JsonModule(),
-                new QueryDataFormatsModule(), binder -> jsonCodecBinder(binder).bindJsonCodec(QueryResults.class)
-        ).initialize();
-
-        return injector.getInstance(Key.get(new TypeLiteral<>(){}));
     }
 }

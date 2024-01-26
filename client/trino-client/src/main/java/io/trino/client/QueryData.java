@@ -15,20 +15,7 @@ package io.trino.client;
 
 import java.util.List;
 
-/**
- * QueryData implementations are shared between the client and the server.
- * Implementing class is responsible for transferring result data over the wire (through @JsonProperty)
- * and deserializing incoming result data (through @JsonCreator) accordingly.
- * {@link JsonInlineQueryData} is an exception to the above as it is entirely handled by the {@link QueryDataJsonSerializationModule}.
- */
 public interface QueryData
 {
     Iterable<List<Object>> getData();
-
-    boolean isPresent();
-
-    default boolean isEmpty()
-    {
-        return !isPresent();
-    }
 }

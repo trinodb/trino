@@ -220,7 +220,7 @@ public class Query
 
     private void processInitialStatusUpdates(WarningsPrinter warningsPrinter)
     {
-        while (client.isRunning() && client.currentData().isEmpty()) {
+        while (client.isRunning() && (client.currentData().getData() == null)) {
             warningsPrinter.print(client.currentStatusInfo().getWarnings(), true, false);
             try {
                 client.advance();

@@ -84,7 +84,7 @@ public class OpenSearchLoader
                 types.set(getTypes(statusInfo.getColumns()));
             }
 
-            if (data.isEmpty()) {
+            if (data.getData() == null) {
                 return;
             }
             checkState(types.get() != null, "Type information is missing");
