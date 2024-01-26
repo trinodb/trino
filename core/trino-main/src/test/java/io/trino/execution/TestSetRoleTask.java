@@ -133,7 +133,7 @@ public class TestSetRoleTask
     {
         assertTrinoExceptionThrownBy(() -> executeSetRole("SET ROLE foo IN invalid"))
                 .hasErrorCode(CATALOG_NOT_FOUND)
-                .hasMessage("line 1:1: Catalog 'invalid' does not exist");
+                .hasMessage("line 1:1: Catalog 'invalid' not found");
     }
 
     @Test

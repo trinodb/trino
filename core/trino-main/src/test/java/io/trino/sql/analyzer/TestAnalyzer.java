@@ -935,7 +935,7 @@ public class TestAnalyzer
     {
         assertFails("SELECT * FROM foo.bar.t")
                 .hasErrorCode(CATALOG_NOT_FOUND)
-                .hasMessage("line 1:15: Catalog 'foo' does not exist");
+                .hasMessage("line 1:15: Catalog 'foo' not found");
         assertFails("SELECT * FROM foo.t")
                 .hasErrorCode(SCHEMA_NOT_FOUND)
                 .hasMessage("line 1:15: Schema 'foo' does not exist");

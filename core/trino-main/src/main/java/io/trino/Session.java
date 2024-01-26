@@ -351,7 +351,7 @@ public final class Session
             String catalogName = entry.getKey();
             SelectedRole role = entry.getValue();
             if (transactionManager.getCatalogHandle(transactionId, catalogName).isEmpty()) {
-                throw new TrinoException(CATALOG_NOT_FOUND, "Catalog for role does not exist: " + catalogName);
+                throw new TrinoException(CATALOG_NOT_FOUND, "Catalog for role not found: " + catalogName);
             }
             if (role.getType() == SelectedRole.Type.ROLE) {
                 accessControl.checkCanSetCatalogRole(new SecurityContext(transactionId, identity, queryId, start), role.getRole().orElseThrow(), catalogName);

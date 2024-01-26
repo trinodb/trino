@@ -5424,7 +5424,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertThat(result.getOnlyColumnAsSet()).containsAll(expectedTables);
 
         assertQueryFails("SHOW TABLES FROM UNKNOWN", "line 1:1: Schema 'unknown' does not exist");
-        assertQueryFails("SHOW TABLES FROM UNKNOWNCATALOG.UNKNOWNSCHEMA", "line 1:1: Catalog 'unknowncatalog' does not exist");
+        assertQueryFails("SHOW TABLES FROM UNKNOWNCATALOG.UNKNOWNSCHEMA", "line 1:1: Catalog 'unknowncatalog' not found");
     }
 
     @Test

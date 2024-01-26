@@ -509,7 +509,7 @@ public class LogicalPlanner
 
         String catalogName = destination.getCatalogName();
         CatalogHandle catalogHandle = metadata.getCatalogHandle(session, catalogName)
-                .orElseThrow(() -> semanticException(CATALOG_NOT_FOUND, query, "Destination catalog '%s' does not exist", catalogName));
+                .orElseThrow(() -> semanticException(CATALOG_NOT_FOUND, query, "Destination catalog '%s' not found", catalogName));
 
         Assignments.Builder assignmentsBuilder = Assignments.builder();
         ImmutableList.Builder<ColumnMetadata> finalColumnsBuilder = ImmutableList.builder();
