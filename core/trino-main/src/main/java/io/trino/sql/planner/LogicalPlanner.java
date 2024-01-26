@@ -301,6 +301,10 @@ public class LogicalPlanner
             try (var ignored = scopedSpan(plannerContext.getTracer(), "cache-subqueries")) {
                 root = cacheCommonSubqueries.cacheSubqueries(root);
             }
+            catch (Throwable t) {
+                LOG.error(t, "SUBQUERY CACHE: planning exception");
+                throw t;
+            }
 
             if (isUseSubPlanAlternatives(session)) {
                 for (PlanOptimizer optimizer : alternativeOptimizers) {

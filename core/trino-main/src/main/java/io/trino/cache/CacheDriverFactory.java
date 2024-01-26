@@ -16,6 +16,7 @@ package io.trino.cache;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
+import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.execution.ScheduledSplit;
 import io.trino.metadata.TableHandle;
@@ -51,6 +52,8 @@ import static java.util.Objects.requireNonNull;
 
 public class CacheDriverFactory
 {
+    private static final Logger LOG = Logger.get(CacheDriverFactory.class);
+
     public static final float THRASHING_CACHE_THRESHOLD = 0.7f;
     public static final int MIN_PROCESSED_SPLITS = 16;
 
@@ -102,6 +105,17 @@ public class CacheDriverFactory
     }
 
     public Driver createDriver(DriverContext driverContext, ScheduledSplit split, Optional<CacheSplitId> cacheSplitIdOptional)
+    {
+        try {
+            return createDriverInternal(driverContext, split, cacheSplitIdOptional);
+        }
+        catch (Throwable t) {
+            LOG.error(t, "SUBQUERY CACHE: create driver exception");
+            throw t;
+        }
+    }
+
+    private Driver createDriverInternal(DriverContext driverContext, ScheduledSplit split, Optional<CacheSplitId> cacheSplitIdOptional)
     {
         if (cacheSplitIdOptional.isEmpty()) {
             // no split id, fallback to original plan
