@@ -201,6 +201,9 @@
         <dep.tcnative.version>2.0.62.Final</dep.tcnative.version>
         <dep.tempto.version>201</dep.tempto.version>
         <dep.wire.version>4.8.1</dep.wire.version>
+        
+        <!-- Maven4 hack for now: plugin is incompatible with Maven4 -->
+        <trino.check.skip-revapi>true</trino.check.skip-revapi>
     </properties>
 
     <dependencyManagement>
