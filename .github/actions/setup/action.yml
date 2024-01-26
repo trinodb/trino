@@ -68,7 +68,7 @@ runs:
       - name: Fetch any missing dependencies
         shell: bash
         if: ${{ format('{0}', inputs.download_dependencies) == 'true' }}
-        run: ./mvnw -P quick clean deploy -b smart -T2C
+        run: ./mvnw -V -ntp -P quick clean deploy -b smart -T2C
       - name: Configure Problem Matchers
         if: ${{ inputs.java-version != '' }}
         shell: bash
