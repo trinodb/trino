@@ -2744,8 +2744,18 @@
             </build>
         </profile>
         <profile>
-            <!-- To be used as: mvn -P quick clean deploy -b smart -T2C -->
-            <id>quick</id>
+            <!--
+            The "go-offline" profile to be invoked as: mvn -P go-offline clean deploy -b smart -T2C
+
+            The goal is to download everything needed for the build, to "prime" the local repository.
+            This profile PREVENTS:
+            * installation (so local repo is NOT polluted with semi-done builds, only by cached dependencies)
+            * deployment (same for remote repo)
+            * does not compile/test-compile
+            * does not run UTs/ITs
+            * disables several checks
+            -->
+            <id>go-offline</id>
             <properties>
                 <air.check.skip-all>true</air.check.skip-all>
                 <air.check.skip-basic>true</air.check.skip-basic>
