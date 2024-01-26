@@ -652,11 +652,17 @@ as `group@example.net`, you can use the following rules.
 These rules specify which users can access the system information management
 interface. System information access includes the following aspects:
 
-- Read access to details such as Trino version, uptime of the node, and others
-  from the `/v1/info` and `/v1/status` REST endpoints.
+- Read access to sensitive information from REST endpoints, such as `/v1/node`
+  and `/v1/thread`.
 - Read access with the {doc}`system information functions </functions/system>`.
 - Read access with the {doc}`/connector/system`.
 - Write access to trigger {doc}`/admin/graceful-shutdown`.
+
+The following REST endpoints are always public and not affected by these rules:
+
+- `GET /v1/info`
+- `GET /v1/info/state`
+- `GET /v1/status`
 
 The user is granted or denied access based on the first matching
 rule read from top to bottom. If no rules are specified, all access to system
