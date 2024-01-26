@@ -2547,6 +2547,18 @@
                                 <version>${dep.protobuf.version}</version>
                                 <repositoryType>MAIN</repositoryType>
                             </DynamicDependency>
+                            <DynamicDependency>
+                                <groupId>io.github.gitflow-incremental-builder</groupId>
+                                <artifactId>gitflow-incremental-builder</artifactId>
+                                <version>4.5.1</version>
+                                <repositoryType>MAIN</repositoryType>
+                            </DynamicDependency>
+                            <DynamicDependency>
+                                <groupId>org.skife.maven</groupId>
+                                <artifactId>really-executable-jar-maven-plugin</artifactId>
+                                <version>2.1.1</version>
+                                <repositoryType>MAIN</repositoryType>
+                            </DynamicDependency>
                         </dynamicDependencies>
                     </configuration>
                 </plugin>
@@ -2757,6 +2769,9 @@
             -->
             <!-- TODO: issue bug requests to various plugins and sort out version properties -->
             <id>go-offline</id>
+            <modules>
+                <module>go-offline</module>
+            </modules>
             <properties>
                 <air.check.skip-all>true</air.check.skip-all>
                 <air.check.skip-basic>true</air.check.skip-basic>
@@ -2776,27 +2791,6 @@
                 <exec.skip>true</exec.skip>
                 <gib.disable>true</gib.disable>
             </properties>
-            <dependencies>
-                <dependency>
-                    <groupId>com.google.errorprone</groupId>
-                    <artifactId>error_prone_core</artifactId>
-                    <version>${dep.errorprone.version}</version>
-                    <scope>runtime</scope>
-                </dependency>
-                <dependency>
-                    <groupId>io.github.gitflow-incremental-builder</groupId>
-                    <artifactId>gitflow-incremental-builder</artifactId>
-                    <version>4.5.1</version>
-                    <scope>runtime</scope>
-                </dependency>
-                <dependency>
-                    <!-- "good behaving" plugins have maven bits in provided scope, so this pull only what plugin needs -->
-                    <groupId>org.skife.maven</groupId>
-                    <artifactId>really-executable-jar-maven-plugin</artifactId>
-                    <version>2.1.1</version>
-                    <scope>runtime</scope>
-                </dependency>
-            </dependencies>
             <build>
                 <plugins>
                     <plugin>
