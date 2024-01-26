@@ -2755,6 +2755,7 @@
             * does not run UTs/ITs
             * disables several checks
             -->
+            <!-- TODO: issue bug requests to various plugins and sort out version properties -->
             <id>go-offline</id>
             <properties>
                 <air.check.skip-all>true</air.check.skip-all>
@@ -2786,6 +2787,13 @@
                     <groupId>io.github.gitflow-incremental-builder</groupId>
                     <artifactId>gitflow-incremental-builder</artifactId>
                     <version>4.5.1</version>
+                    <scope>runtime</scope>
+                </dependency>
+                <dependency>
+                    <!-- "good behaving" plugins have maven bits in provided scope, so this pull only what plugin needs -->
+                    <groupId>org.skife.maven</groupId>
+                    <artifactId>really-executable-jar-maven-plugin</artifactId>
+                    <version>2.1.1</version>
                     <scope>runtime</scope>
                 </dependency>
             </dependencies>
