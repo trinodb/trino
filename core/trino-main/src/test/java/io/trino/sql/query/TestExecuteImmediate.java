@@ -72,8 +72,8 @@ public class TestExecuteImmediate
     public void testSemanticError()
     {
         assertTrinoExceptionThrownBy(() -> assertions.query("EXECUTE IMMEDIATE 'SELECT * FROM tiny.tpch.orders'"))
-                .hasMessageMatching("line 1:34: Catalog 'tiny' does not exist");
+                .hasMessageMatching("line 1:34: Catalog 'tiny' not found");
         assertTrinoExceptionThrownBy(() -> assertions.query("EXECUTE IMMEDIATE\n'SELECT *\nFROM tiny.tpch.orders'"))
-                .hasMessageMatching("line 3:6: Catalog 'tiny' does not exist");
+                .hasMessageMatching("line 3:6: Catalog 'tiny' not found");
     }
 }
