@@ -2104,20 +2104,6 @@
         </dependencies>
     </dependencyManagement>
 
-    <repositories>
-        <repository>
-            <releases>
-                <enabled>true</enabled>
-                <updatePolicy>never</updatePolicy>
-            </releases>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-            <id>confluent</id>
-            <url>https://packages.confluent.io/maven/</url>
-        </repository>
-    </repositories>
-
     <build>
         <pluginManagement>
             <plugins>
@@ -2547,18 +2533,6 @@
                                 <version>${dep.protobuf.version}</version>
                                 <repositoryType>MAIN</repositoryType>
                             </DynamicDependency>
-                            <DynamicDependency>
-                                <groupId>io.github.gitflow-incremental-builder</groupId>
-                                <artifactId>gitflow-incremental-builder</artifactId>
-                                <version>4.5.1</version>
-                                <repositoryType>MAIN</repositoryType>
-                            </DynamicDependency>
-                            <DynamicDependency>
-                                <groupId>org.skife.maven</groupId>
-                                <artifactId>really-executable-jar-maven-plugin</artifactId>
-                                <version>2.1.1</version>
-                                <repositoryType>MAIN</repositoryType>
-                            </DynamicDependency>
                         </dynamicDependencies>
                     </configuration>
                 </plugin>
@@ -2751,122 +2725,6 @@
                             <failOnMissingGitDir>true</failOnMissingGitDir>
                             <failOnError>true</failOnError>
                         </configuration>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-        <profile>
-            <!--
-            The "go-offline" profile to be invoked as: mvn -P go-offline clean deploy -b smart -T2C
-
-            The goal is to download everything needed for the build, to "prime" the local repository.
-            This profile PREVENTS:
-            * installation (so local repo is NOT polluted with semi-done builds, only by cached dependencies)
-            * deployment (same for remote repo)
-            * does not compile/test-compile
-            * does not run UTs/ITs
-            * disables several checks
-            -->
-            <!-- TODO: issue bug requests to various plugins and sort out version properties -->
-            <id>go-offline</id>
-            <modules>
-                <module>go-offline</module>
-            </modules>
-            <properties>
-                <air.check.skip-all>true</air.check.skip-all>
-                <air.check.skip-basic>true</air.check.skip-basic>
-                <air.check.skip-extended>true</air.check.skip-extended>
-                <test>void</test>
-                <it.test>void</it.test>
-                <maven.install.skip>true</maven.install.skip>
-                <maven.deploy.skip>true</maven.deploy.skip>
-                <maven.main.skip>true</maven.main.skip>
-                <maven.test.skip>true</maven.test.skip>
-                <enforcer.skip>true</enforcer.skip>
-                <checkstyle.skip>true</checkstyle.skip>
-                <duplicate-finder.skip>true</duplicate-finder.skip>
-                <spotbugs.skip>true</spotbugs.skip>
-                <pmd.skip>true</pmd.skip>
-                <jacoco.skip>true</jacoco.skip>
-                <exec.skip>true</exec.skip>
-                <gib.disable>true</gib.disable>
-            </properties>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-jar-plugin</artifactId>
-                        <configuration>
-                            <!-- To override: maven.test.skip -->
-                            <skip>false</skip>
-                            <skipIfEmpty>false</skipIfEmpty>
-                        </configuration>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-shade-plugin</artifactId>
-                        <configuration>
-                            <skip>true</skip>
-                        </configuration>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <!-- This is must like this as airbase does it wrong -->
-                            <failIfNoTests>false</failIfNoTests>
-                            <failIfNoSpecifiedTests>false</failIfNoSpecifiedTests>
-                        </configuration>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.skife.maven</groupId>
-                        <artifactId>really-executable-jar-maven-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <id>really-executable-jar</id>
-                                <goals>
-                                    <goal>really-executable-jar</goal>
-                                </goals>
-                                <phase>none</phase>
-                            </execution>
-                        </executions>
-                    </plugin>
-                    <plugin>
-                        <groupId>io.airlift.drift</groupId>
-                        <artifactId>drift-maven-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <goals>
-                                    <goal>generate-thrift-idl</goal>
-                                </goals>
-                                <phase>none</phase>
-                            </execution>
-                        </executions>
-                    </plugin>
-                    <plugin>
-                        <groupId>io.takari.maven.plugins</groupId>
-                        <artifactId>takari-lifecycle-plugin</artifactId>
-                        <version>${dep.takari.version}</version>
-                        <extensions>true</extensions>
-                        <configuration>
-                            <skip>true</skip>
-                        </configuration>
-                    </plugin>
-                    <plugin>
-                        <groupId>io.trino</groupId>
-                        <artifactId>trino-maven-plugin</artifactId>
-                        <configuration>
-                            <skipCheckSpiDependencies>true</skipCheckSpiDependencies>
-                        </configuration>
-                        <executions>
-                            <execution>
-                                <id>default-generate-service-descriptor</id>
-                                <goals>
-                                    <goal>generate-service-descriptor</goal>
-                                </goals>
-                                <phase>none</phase>
-                            </execution>
-                        </executions>
                     </plugin>
                 </plugins>
             </build>

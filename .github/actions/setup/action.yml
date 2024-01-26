@@ -50,7 +50,7 @@ runs:
         if: ${{ format('{0}', inputs.cache) == 'true' }}
         uses: actions/cache@v3
         with:
-          path: |
+          path: | 
             ~/.m2/repository
             /tmp/pt_java_downloads
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
@@ -68,7 +68,7 @@ runs:
       - name: Fetch any missing dependencies
         shell: bash
         if: ${{ format('{0}', inputs.download_dependencies) == 'true' }}
-        run: ./mvnw -V -ntp -P go-offline clean deploy -b smart -T2C
+        run: ./.github/bin/download-maven-dependencies.sh
       - name: Configure Problem Matchers
         if: ${{ inputs.java-version != '' }}
         shell: bash

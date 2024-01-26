@@ -236,28 +236,6 @@
     </dependencies>
 
     <build>
-        <pluginManagement>
-            <plugins>
-                <plugin>
-                    <groupId>org.skife.maven</groupId>
-                    <artifactId>really-executable-jar-maven-plugin</artifactId>
-                    <configuration>
-                        <!-- Force Parallel GC to ensure MaxHeapFreeRatio is respected -->
-                        <flags>-Xmx256m -XX:+UseParallelGC -XX:MinHeapFreeRatio=10 -XX:MaxHeapFreeRatio=50</flags>
-                        <classifier>executable</classifier>
-                    </configuration>
-                    <executions>
-                        <execution>
-                            <id>really-executable-jar</id>
-                            <goals>
-                                <goal>really-executable-jar</goal>
-                            </goals>
-                            <phase>package</phase>
-                        </execution>
-                    </executions>
-                </plugin>
-            </plugins>
-        </pluginManagement>
         <plugins>
             <plugin>
                 <groupId>org.basepom.maven</groupId>
@@ -362,6 +340,19 @@
             <plugin>
                 <groupId>org.skife.maven</groupId>
                 <artifactId>really-executable-jar-maven-plugin</artifactId>
+                <configuration>
+                    <!-- Force Parallel GC to ensure MaxHeapFreeRatio is respected -->
+                    <flags>-Xmx256m -XX:+UseParallelGC -XX:MinHeapFreeRatio=10 -XX:MaxHeapFreeRatio=50</flags>
+                    <classifier>executable</classifier>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>really-executable-jar</goal>
+                        </goals>
+                        <phase>package</phase>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

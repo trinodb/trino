@@ -34,32 +34,6 @@
                         </licenseSets>
                     </configuration>
                 </plugin>
-                <plugin>
-                    <groupId>io.airlift.drift</groupId>
-                    <artifactId>drift-maven-plugin</artifactId>
-                    <dependencies>
-                        <dependency>
-                            <groupId>io.trino</groupId>
-                            <artifactId>trino-thrift-api</artifactId>
-                            <version>${project.version}</version>
-                        </dependency>
-                    </dependencies>
-                    <executions>
-                        <execution>
-                            <goals>
-                                <goal>generate-thrift-idl</goal>
-                            </goals>
-                            <phase>validate</phase>
-                            <configuration>
-                                <outputFile>${project.build.directory}/TrinoThriftService.thrift</outputFile>
-                                <classes>
-                                    <class>io.trino.plugin.thrift.api.TrinoThriftService</class>
-                                </classes>
-                                <recursive>true</recursive>
-                            </configuration>
-                        </execution>
-                    </executions>
-                </plugin>
             </plugins>
         </pluginManagement>
 
@@ -67,6 +41,28 @@
             <plugin>
                 <groupId>io.airlift.drift</groupId>
                 <artifactId>drift-maven-plugin</artifactId>
+                <dependencies>
+                    <dependency>
+                        <groupId>io.trino</groupId>
+                        <artifactId>trino-thrift-api</artifactId>
+                        <version>${project.version}</version>
+                    </dependency>
+                </dependencies>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>generate-thrift-idl</goal>
+                        </goals>
+                        <phase>validate</phase>
+                        <configuration>
+                            <outputFile>${project.build.directory}/TrinoThriftService.thrift</outputFile>
+                            <classes>
+                                <class>io.trino.plugin.thrift.api.TrinoThriftService</class>
+                            </classes>
+                            <recursive>true</recursive>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
 
             <plugin>
