@@ -882,23 +882,10 @@ public class LocalQueryRunner
         throw new UnsupportedOperationException("failure injection is not supported");
     }
 
-    public List<Driver> createDrivers(@Language("SQL") String sql, OutputFactory outputFactory, TaskContext taskContext)
-    {
-        return createDrivers(defaultSession, sql, outputFactory, taskContext);
-    }
-
     @Override
     public void loadExchangeManager(String name, Map<String, String> properties)
     {
         exchangeManagerRegistry.loadExchangeManager(name, properties);
-    }
-
-    private List<Driver> createDrivers(Session session, @Language("SQL") String sql, OutputFactory outputFactory, TaskContext taskContext)
-    {
-        return inTransaction(session, transactionSession -> {
-            Plan plan = createPlan(transactionSession, sql);
-            return createDrivers(transactionSession, plan, outputFactory, taskContext);
-        });
     }
 
     public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode)
