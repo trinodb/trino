@@ -235,7 +235,7 @@ public class TestConnectorPushdownRulesWithIceberg
     {
         String tableName = "predicate_test";
         tester().getQueryRunner().execute(format("CREATE TABLE %s (a, b) AS SELECT 5, 6", tableName));
-        Long snapshotId = (Long) tester().getQueryRunner().execute(format("SELECT snapshot_id FROM \"%s$snapshots\" LIMIT 1", tableName)).getOnlyValue();
+        long snapshotId = ((IcebergTableHandle) tester().getQueryRunner().getTableHandle(TEST_CATALOG_NAME, SCHEMA_NAME, tableName).getConnectorHandle()).getSnapshotId().orElseThrow();
 
         PushPredicateIntoTableScan pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), tester().getTypeAnalyzer(), false);
 
