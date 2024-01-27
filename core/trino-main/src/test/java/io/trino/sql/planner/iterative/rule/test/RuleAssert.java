@@ -36,7 +36,7 @@ import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.iterative.Memo;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -54,7 +54,7 @@ import static org.assertj.core.api.Fail.fail;
 public class RuleAssert
 {
     private final Rule<?> rule;
-    private final LocalQueryRunner queryRunner;
+    private final PlanTester planTester;
     private final StatsCalculator statsCalculator;
     private final Session session;
     private final PlanNode plan;
@@ -62,10 +62,10 @@ public class RuleAssert
 
     private final PlanNodeIdAllocator idAllocator;
 
-    RuleAssert(Rule<?> rule, LocalQueryRunner queryRunner, StatsCalculator statsCalculator, Session session, PlanNodeIdAllocator idAllocator, PlanNode plan, TypeProvider types)
+    RuleAssert(Rule<?> rule, PlanTester planTester, StatsCalculator statsCalculator, Session session, PlanNodeIdAllocator idAllocator, PlanNode plan, TypeProvider types)
     {
         this.rule = requireNonNull(rule, "rule is null");
-        this.queryRunner = requireNonNull(queryRunner, "queryRunner is null");
+        this.planTester = requireNonNull(planTester, "planTester is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         // verify session is in a transaction
         session.getRequiredTransactionId();
@@ -84,12 +84,12 @@ public class RuleAssert
                 fail(format(
                         "Expected %s to not fire for:\n%s",
                         rule,
-                        textLogicalPlan(plan, ruleApplication.types(), queryRunner.getPlannerContext().getMetadata(), queryRunner.getPlannerContext().getFunctionManager(), StatsAndCosts.empty(), session, 2, false)));
+                        textLogicalPlan(plan, ruleApplication.types(), planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), StatsAndCosts.empty(), session, 2, false)));
             }
         }
         finally {
-            queryRunner.getPlannerContext().getMetadata().cleanupQuery(session);
-            queryRunner.getTransactionManager().asyncAbort(session.getRequiredTransactionId());
+            planTester.getPlannerContext().getMetadata().cleanupQuery(session);
+            planTester.getTransactionManager().asyncAbort(session.getRequiredTransactionId());
         }
     }
 
@@ -130,12 +130,12 @@ public class RuleAssert
                             actual.getOutputSymbols()));
                 }
 
-                assertPlan(session, queryRunner.getPlannerContext().getMetadata(), queryRunner.getPlannerContext().getFunctionManager(), ruleApplication.statsProvider(), new Plan(actual, ruleApplication.types(), StatsAndCosts.empty()), ruleApplication.lookup(), pattern);
+                assertPlan(session, planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), ruleApplication.statsProvider(), new Plan(actual, ruleApplication.types(), StatsAndCosts.empty()), ruleApplication.lookup(), pattern);
             }
         }
         finally {
-            queryRunner.getPlannerContext().getMetadata().cleanupQuery(session);
-            queryRunner.getTransactionManager().asyncAbort(session.getRequiredTransactionId());
+            planTester.getPlannerContext().getMetadata().cleanupQuery(session);
+            planTester.getTransactionManager().asyncAbort(session.getRequiredTransactionId());
         }
     }
 
@@ -147,7 +147,7 @@ public class RuleAssert
 
         PlanNode memoRoot = memo.getNode(memo.getRootGroup());
 
-        return applyRule(rule, memoRoot, ruleContext(statsCalculator, queryRunner.getEstimatedExchangesCostCalculator(), symbolAllocator, memo, lookup, session));
+        return applyRule(rule, memoRoot, ruleContext(statsCalculator, planTester.getEstimatedExchangesCostCalculator(), symbolAllocator, memo, lookup, session));
     }
 
     private static <T> RuleApplication applyRule(Rule<T> rule, PlanNode planNode, Rule.Context context)
@@ -170,14 +170,14 @@ public class RuleAssert
 
     private String formatPlan(PlanNode plan, TypeProvider types)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types, new CachingTableStatsProvider(queryRunner.getPlannerContext().getMetadata(), session));
-        CostProvider costProvider = new CachingCostProvider(queryRunner.getCostCalculator(), statsProvider, session, types);
-        return textLogicalPlan(plan, types, queryRunner.getPlannerContext().getMetadata(), queryRunner.getPlannerContext().getFunctionManager(), StatsAndCosts.create(plan, statsProvider, costProvider), session, 2, false);
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types, new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), session));
+        CostProvider costProvider = new CachingCostProvider(planTester.getCostCalculator(), statsProvider, session, types);
+        return textLogicalPlan(plan, types, planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), StatsAndCosts.create(plan, statsProvider, costProvider), session, 2, false);
     }
 
     private Rule.Context ruleContext(StatsCalculator statsCalculator, CostCalculator costCalculator, SymbolAllocator symbolAllocator, Memo memo, Lookup lookup, Session session)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(memo), lookup, session, symbolAllocator.getTypes(), new CachingTableStatsProvider(queryRunner.getPlannerContext().getMetadata(), session));
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(memo), lookup, session, symbolAllocator.getTypes(), new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), session));
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(memo), session, symbolAllocator.getTypes());
 
         return new Rule.Context()

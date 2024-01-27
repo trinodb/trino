@@ -23,7 +23,6 @@ import java.util.function.Function;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
-// Note: the class name is off, but the built class is going to be renamed soon
 public class PlanTesterBuilder
 {
     public static PlanTesterBuilder planTesterBuilder(Session defaultSession)
@@ -62,8 +61,8 @@ public class PlanTesterBuilder
         return this;
     }
 
-    public LocalQueryRunner build()
+    public PlanTester build()
     {
-        return LocalQueryRunner.create(defaultSession, cacheConfig, metadataDecorator, nodeCountForStats);
+        return PlanTester.create(defaultSession, cacheConfig, metadataDecorator, nodeCountForStats);
     }
 }

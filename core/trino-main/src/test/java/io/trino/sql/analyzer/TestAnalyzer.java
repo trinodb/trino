@@ -89,7 +89,7 @@ import io.trino.sql.planner.OptimizerConfig;
 import io.trino.sql.rewrite.ShowQueriesRewrite;
 import io.trino.sql.rewrite.StatementRewrite;
 import io.trino.sql.tree.Statement;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import io.trino.testing.TestingAccessControlManager;
 import io.trino.testing.TestingMetadata;
 import io.trino.testing.TestingMetadata.TestingTableHandle;
@@ -7292,9 +7292,9 @@ public class TestAnalyzer
     public void setup()
     {
         closer = Closer.create();
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(TEST_SESSION);
-        closer.register(queryRunner);
-        transactionManager = queryRunner.getTransactionManager();
+        PlanTester planTester = PlanTester.create(TEST_SESSION);
+        closer.register(planTester);
+        transactionManager = planTester.getTransactionManager();
 
         AccessControlManager accessControlManager = new AccessControlManager(
                 NodeVersion.UNKNOWN,
@@ -7306,19 +7306,19 @@ public class TestAnalyzer
         accessControlManager.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
         this.accessControl = accessControlManager;
 
-        queryRunner.addFunctions(InternalFunctionBundle.builder().functions(APPLY_FUNCTION).build());
-        plannerContext = queryRunner.getPlannerContext();
+        planTester.addFunctions(InternalFunctionBundle.builder().functions(APPLY_FUNCTION).build());
+        plannerContext = planTester.getPlannerContext();
         Metadata metadata = plannerContext.getMetadata();
 
         TestingMetadata testingConnectorMetadata = new TestingMetadata();
         TestingConnector connector = new TestingConnector(testingConnectorMetadata);
-        queryRunner.createCatalog(TPCH_CATALOG, new StaticConnectorFactory("main", connector), ImmutableMap.of());
+        planTester.createCatalog(TPCH_CATALOG, new StaticConnectorFactory("main", connector), ImmutableMap.of());
 
-        tablePropertyManager = queryRunner.getTablePropertyManager();
-        analyzePropertyManager = queryRunner.getAnalyzePropertyManager();
+        tablePropertyManager = planTester.getTablePropertyManager();
+        analyzePropertyManager = planTester.getAnalyzePropertyManager();
 
-        queryRunner.createCatalog(SECOND_CATALOG, MockConnectorFactory.create("second"), ImmutableMap.of());
-        queryRunner.createCatalog(THIRD_CATALOG, MockConnectorFactory.create("third"), ImmutableMap.of());
+        planTester.createCatalog(SECOND_CATALOG, MockConnectorFactory.create("second"), ImmutableMap.of());
+        planTester.createCatalog(THIRD_CATALOG, MockConnectorFactory.create("third"), ImmutableMap.of());
 
         SchemaTableName table1 = new SchemaTableName("s1", "t1");
         inSetupTransaction(session -> metadata.createTable(session, TPCH_CATALOG,
@@ -7454,7 +7454,7 @@ public class TestAnalyzer
                 FAIL));
 
         // for identifier chain resolving tests
-        queryRunner.createCatalog(CATALOG_FOR_IDENTIFIER_CHAIN_TESTS, new StaticConnectorFactory("chain", new TestingConnector(new TestingMetadata())), ImmutableMap.of());
+        planTester.createCatalog(CATALOG_FOR_IDENTIFIER_CHAIN_TESTS, new StaticConnectorFactory("chain", new TestingConnector(new TestingMetadata())), ImmutableMap.of());
         Type singleFieldRowType = TESTING_TYPE_MANAGER.fromSqlType("row(f1 bigint)");
         Type rowType = TESTING_TYPE_MANAGER.fromSqlType("row(f1 bigint, f2 bigint)");
         Type nestedRowType = TESTING_TYPE_MANAGER.fromSqlType("row(f1 row(f11 bigint, f12 bigint), f2 boolean)");

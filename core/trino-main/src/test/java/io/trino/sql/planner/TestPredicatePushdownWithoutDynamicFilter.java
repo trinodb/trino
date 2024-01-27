@@ -93,7 +93,7 @@ public class TestPredicatePushdownWithoutDynamicFilter
     @Test
     public void testNormalizeOuterJoinToInner()
     {
-        Session disableJoinReordering = Session.builder(getQueryRunner().getDefaultSession())
+        Session disableJoinReordering = Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, "NONE")
                 .build();
 

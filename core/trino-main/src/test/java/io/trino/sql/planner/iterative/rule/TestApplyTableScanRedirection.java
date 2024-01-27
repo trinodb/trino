@@ -31,7 +31,7 @@ import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import io.trino.testing.TestingTransactionHandle;
 import org.junit.jupiter.api.Test;
 
@@ -170,7 +170,7 @@ public class TestApplyTableScanRedirection
                 ImmutableMap.of(SOURCE_COLUMN_HANDLE_A, DESTINATION_COLUMN_NAME_D));
         MockConnectorFactory mockFactory = createMockFactory(Optional.of(applyTableScanRedirect));
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(mockFactory).build()) {
-            LocalQueryRunner runner = ruleTester.getQueryRunner();
+            PlanTester runner = ruleTester.getPlanTester();
             runner.inTransaction(MOCK_SESSION, transactionSession -> {
                 assertThatThrownBy(() ->
                         runner.createPlan(transactionSession, "SELECT source_col_a FROM test_table"))

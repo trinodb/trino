@@ -52,7 +52,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SymbolReference;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import io.trino.testing.TestingHandles;
 import io.trino.testing.TestingMetadata;
 import org.intellij.lang.annotations.Language;
@@ -109,7 +109,7 @@ public class TestCanonicalSubplanExtractor
     public void setup()
     {
         planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), PLANNER_CONTEXT, TEST_SESSION);
-        tpchCatalogId = getQueryRunner().getCatalogHandle(getQueryRunner().getDefaultSession().getCatalog().orElseThrow()).getId();
+        tpchCatalogId = getPlanTester().getCatalogHandle(getPlanTester().getDefaultSession().getCatalog().orElseThrow()).getId();
     }
 
     @Test
@@ -639,11 +639,11 @@ public class TestCanonicalSubplanExtractor
     private List<CanonicalSubplan> extractCanonicalSubplansForQuery(@Language("SQL") String query)
     {
         Plan plan = plan(query);
-        LocalQueryRunner queryRunner = getQueryRunner();
-        return queryRunner.inTransaction(session -> {
+        PlanTester planTester = getPlanTester();
+        return planTester.inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
-            session.getCatalog().ifPresent(catalog -> queryRunner.getPlannerContext().getMetadata().getCatalogHandle(session, catalog));
-            return extractCanonicalSubplans(queryRunner.getPlannerContext().getMetadata(), queryRunner.getCacheMetadata(), session, plan.getRoot());
+            session.getCatalog().ifPresent(catalog -> planTester.getPlannerContext().getMetadata().getCatalogHandle(session, catalog));
+            return extractCanonicalSubplans(planTester.getPlannerContext().getMetadata(), planTester.getCacheMetadata(), session, plan.getRoot());
         });
     }
 
@@ -659,8 +659,8 @@ public class TestCanonicalSubplanExtractor
 
     private BuiltinFunctionCallBuilder getFunctionCallBuilder(String name, ExpressionWithType... arguments)
     {
-        LocalQueryRunner queryRunner = getQueryRunner();
-        BuiltinFunctionCallBuilder builder = BuiltinFunctionCallBuilder.resolve(queryRunner.getPlannerContext().getMetadata())
+        PlanTester planTester = getPlanTester();
+        BuiltinFunctionCallBuilder builder = BuiltinFunctionCallBuilder.resolve(planTester.getPlannerContext().getMetadata())
                 .setName(name);
         for (ExpressionWithType argument : arguments) {
             builder.addArgument(argument.type, argument.expression);

@@ -255,7 +255,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.function.Function.identity;
 
-public class LocalQueryRunner
+public class PlanTester
         implements Closeable
 {
     private final Session defaultSession;
@@ -307,22 +307,22 @@ public class LocalQueryRunner
     private final StatementAnalyzerFactory statementAnalyzerFactory;
     private boolean printPlan;
 
-    public static LocalQueryRunner create(Session defaultSession)
+    public static PlanTester create(Session defaultSession)
     {
-        return create(defaultSession, 1);
+        return new PlanTester(defaultSession, new CacheConfig(), identity(), 1);
     }
 
-    public static LocalQueryRunner create(Session defaultSession, int nodeCountForStats)
+    public static PlanTester create(Session defaultSession, int nodeCountForStats)
     {
-        return new LocalQueryRunner(defaultSession, new CacheConfig(), identity(), nodeCountForStats);
+        return new PlanTester(defaultSession, new CacheConfig(), identity(), nodeCountForStats);
     }
 
-    public static LocalQueryRunner create(Session defaultSession, CacheConfig cacheConfig, Function<Metadata, Metadata> metadataDecorator, int nodeCountForStats)
+    public static PlanTester create(Session defaultSession, CacheConfig cacheConfig, Function<Metadata, Metadata> metadataDecorator, int nodeCountForStats)
     {
-        return new LocalQueryRunner(defaultSession, cacheConfig, metadataDecorator, nodeCountForStats);
+        return new PlanTester(defaultSession, cacheConfig, metadataDecorator, nodeCountForStats);
     }
 
-    private LocalQueryRunner(Session defaultSession, CacheConfig cacheConfig, Function<Metadata, Metadata> metadataDecorator, int nodeCountForStats)
+    private PlanTester(Session defaultSession, CacheConfig cacheConfig, Function<Metadata, Metadata> metadataDecorator, int nodeCountForStats)
     {
         requireNonNull(defaultSession, "defaultSession is null");
 
@@ -654,7 +654,7 @@ public class LocalQueryRunner
                 .getConnector();
     }
 
-    public LocalQueryRunner printPlan()
+    public PlanTester printPlan()
     {
         printPlan = true;
         return this;
@@ -922,7 +922,7 @@ public class LocalQueryRunner
                 planOptimizersStatsCollector);
 
         Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
-        // make LocalQueryRunner always compute plan statistics for test purposes
+        // make PlanTester always compute plan statistics for test purposes
         return logicalPlanner.plan(analysis, stage);
     }
 
@@ -930,7 +930,7 @@ public class LocalQueryRunner
     {
         return new QueryExplainerFactory(
                 () -> optimizers,
-                ImmutableList::of, // TODO: when alternatives planning is supported by LocalQueryRunner, pass the optimizers
+                ImmutableList::of, // TODO: when alternatives planning is supported by PlanTester, pass the optimizers
                 planFragmenter,
                 plannerContext,
                 statementAnalyzerFactory,

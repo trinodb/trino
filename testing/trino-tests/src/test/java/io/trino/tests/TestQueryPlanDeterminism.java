@@ -64,7 +64,7 @@ public class TestQueryPlanDeterminism
                 .setSchema(TINY_SCHEMA_NAME)
                 .build();
 
-        // PlanDeterminismChecker only works with LocalQueryRunner
+        // PlanDeterminismChecker only works with PlanTester
         QueryRunner queryRunner = new StandaloneQueryRunner(defaultSession);
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog(

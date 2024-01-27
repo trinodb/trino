@@ -46,7 +46,7 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 
@@ -95,7 +95,7 @@ public class TestConnectorPushdownRulesWithHive
             .build();
 
     @Override
-    protected Optional<LocalQueryRunner> createLocalQueryRunner()
+    protected Optional<PlanTester> createPlanTester()
     {
         try {
             baseDir = Files.createTempDirectory(null).toFile();
@@ -104,11 +104,11 @@ public class TestConnectorPushdownRulesWithHive
             throw new UncheckedIOException(e);
         }
 
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(HIVE_SESSION);
-        queryRunner.createCatalog(HIVE_CATALOG, new TestingHiveConnectorFactory(baseDir.toPath()), ImmutableMap.of());
-        catalogHandle = queryRunner.getCatalogHandle(HIVE_CATALOG);
+        PlanTester planTester = PlanTester.create(HIVE_SESSION);
+        planTester.createCatalog(HIVE_CATALOG, new TestingHiveConnectorFactory(baseDir.toPath()), ImmutableMap.of());
+        catalogHandle = planTester.getCatalogHandle(HIVE_CATALOG);
 
-        metastore = getConnectorService(queryRunner, HiveMetastoreFactory.class)
+        metastore = getConnectorService(planTester, HiveMetastoreFactory.class)
                 .createMetastore(Optional.empty());
 
         metastore.createDatabase(Database.builder()
@@ -117,7 +117,7 @@ public class TestConnectorPushdownRulesWithHive
                 .setOwnerType(Optional.of(PrincipalType.ROLE))
                 .build());
 
-        return Optional.of(queryRunner);
+        return Optional.of(planTester);
     }
 
     @Test
@@ -129,7 +129,7 @@ public class TestConnectorPushdownRulesWithHive
                 tester().getTypeAnalyzer(),
                 new ScalarStatsCalculator(tester().getPlannerContext(), tester().getTypeAnalyzer()));
 
-        tester().getQueryRunner().executeStatement(format(
+        tester().getPlanTester().executeStatement(format(
                 "CREATE TABLE  %s (struct_of_int) AS " +
                         "SELECT cast(row(5, 6) as row(a bigint, b bigint)) as struct_of_int where false",
                 tableName));
@@ -209,7 +209,7 @@ public class TestConnectorPushdownRulesWithHive
     public void testPredicatePushdown()
     {
         String tableName = "predicate_test";
-        tester().getQueryRunner().executeStatement(format("CREATE TABLE %s (a, b) AS SELECT 5, 6", tableName));
+        tester().getPlanTester().executeStatement(format("CREATE TABLE %s (a, b) AS SELECT 5, 6", tableName));
 
         PushPredicateIntoTableScan pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), tester().getTypeAnalyzer(), false);
 
@@ -241,7 +241,7 @@ public class TestConnectorPushdownRulesWithHive
     public void testColumnPruningProjectionPushdown()
     {
         String tableName = "column_pruning_projection_test";
-        tester().getQueryRunner().executeStatement(format("CREATE TABLE %s (a, b) AS SELECT 5, 6", tableName));
+        tester().getPlanTester().executeStatement(format("CREATE TABLE %s (a, b) AS SELECT 5, 6", tableName));
 
         PruneTableScanColumns pruneTableScanColumns = new PruneTableScanColumns(tester().getMetadata());
 
@@ -279,7 +279,7 @@ public class TestConnectorPushdownRulesWithHive
     public void testPushdownWithDuplicateExpressions()
     {
         String tableName = "duplicate_expressions";
-        tester().getQueryRunner().executeStatement(format(
+        tester().getPlanTester().executeStatement(format(
                 "CREATE TABLE  %s (struct_of_bigint, just_bigint) AS SELECT cast(row(5, 6) AS row(a bigint, b bigint)) AS struct_of_int, 5 AS just_bigint WHERE false",
                 tableName));
 

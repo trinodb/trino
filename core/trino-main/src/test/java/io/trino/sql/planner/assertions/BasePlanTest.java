@@ -29,7 +29,7 @@ import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.rule.RemoveRedundantIdentityProjections;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.optimizations.UnaliasSymbolReferences;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -60,7 +60,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 public class BasePlanTest
 {
     private final Map<String, String> sessionProperties;
-    private LocalQueryRunner queryRunner;
+    private PlanTester planTester;
 
     public BasePlanTest()
     {
@@ -73,7 +73,7 @@ public class BasePlanTest
     }
 
     // Subclasses should implement this method to inject their own query runners
-    protected LocalQueryRunner createLocalQueryRunner()
+    protected PlanTester createPlanTester()
     {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog(TEST_CATALOG_NAME)
@@ -82,40 +82,40 @@ public class BasePlanTest
 
         sessionProperties.forEach(sessionBuilder::setSystemProperty);
 
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(sessionBuilder.build());
+        PlanTester planTester = PlanTester.create(sessionBuilder.build());
 
-        queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().get(),
+        planTester.createCatalog(planTester.getDefaultSession().getCatalog().get(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
-        return queryRunner;
+        return planTester;
     }
 
     @BeforeAll
     public final void initPlanTest()
     {
-        this.queryRunner = createLocalQueryRunner();
+        this.planTester = createPlanTester();
     }
 
     @AfterAll
     public final void destroyPlanTest()
     {
-        closeAllRuntimeException(queryRunner);
-        queryRunner = null;
+        closeAllRuntimeException(planTester);
+        planTester = null;
     }
 
     protected CatalogHandle getCurrentCatalogHandle()
     {
-        return queryRunner.inTransaction(transactionSession -> queryRunner.getPlannerContext().getMetadata().getCatalogHandle(transactionSession, transactionSession.getCatalog().get())).get();
+        return planTester.inTransaction(transactionSession -> planTester.getPlannerContext().getMetadata().getCatalogHandle(transactionSession, transactionSession.getCatalog().get())).get();
     }
 
     protected CatalogHandle getCatalogHandle(String catalogName)
     {
-        return queryRunner.inTransaction(transactionSession -> queryRunner.getPlannerContext().getMetadata().getCatalogHandle(transactionSession, catalogName)).get();
+        return planTester.inTransaction(transactionSession -> planTester.getPlannerContext().getMetadata().getCatalogHandle(transactionSession, catalogName)).get();
     }
 
-    protected LocalQueryRunner getQueryRunner()
+    protected PlanTester getPlanTester()
     {
-        return queryRunner;
+        return planTester;
     }
 
     protected void assertPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
@@ -130,7 +130,7 @@ public class BasePlanTest
 
     protected void assertPlan(@Language("SQL") String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern)
     {
-        List<PlanOptimizer> optimizers = queryRunner.getPlanOptimizers(true);
+        List<PlanOptimizer> optimizers = planTester.getPlanOptimizers(true);
 
         assertPlan(sql, stage, pattern, optimizers);
     }
@@ -142,7 +142,7 @@ public class BasePlanTest
 
     protected void assertPlan(@Language("SQL") String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern, Predicate<PlanOptimizer> optimizerPredicate)
     {
-        List<PlanOptimizer> optimizers = queryRunner.getPlanOptimizers(true).stream()
+        List<PlanOptimizer> optimizers = planTester.getPlanOptimizers(true).stream()
                 .filter(optimizerPredicate)
                 .collect(toList());
 
@@ -152,10 +152,10 @@ public class BasePlanTest
     protected void assertPlan(@Language("SQL") String sql, LogicalPlanner.Stage stage, PlanMatchPattern pattern, List<PlanOptimizer> optimizers)
     {
         try {
-            queryRunner.inTransaction(transactionSession -> {
+            planTester.inTransaction(transactionSession -> {
                 // TODO: Support alternativeOptimizers
                 List<PlanOptimizer> alternativeOptimizers = emptyList();
-                Plan actualPlan = queryRunner.createPlan(
+                Plan actualPlan = planTester.createPlan(
                         transactionSession,
                         sql,
                         optimizers,
@@ -163,7 +163,7 @@ public class BasePlanTest
                         stage,
                         NOOP,
                         createPlanOptimizersStatsCollector());
-                PlanAssert.assertPlan(transactionSession, queryRunner.getPlannerContext().getMetadata(), queryRunner.getPlannerContext().getFunctionManager(), queryRunner.getStatsCalculator(), actualPlan, pattern);
+                PlanAssert.assertPlan(transactionSession, planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), planTester.getStatsCalculator(), actualPlan, pattern);
                 return null;
             });
         }
@@ -175,7 +175,7 @@ public class BasePlanTest
 
     protected void assertDistributedPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
-        assertDistributedPlan(sql, getQueryRunner().getDefaultSession(), pattern);
+        assertDistributedPlan(sql, getPlanTester().getDefaultSession(), pattern);
     }
 
     protected void assertDistributedPlan(@Language("SQL") String sql, Session session, PlanMatchPattern pattern)
@@ -185,14 +185,14 @@ public class BasePlanTest
 
     protected void assertMinimallyOptimizedPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
-        Metadata metadata = getQueryRunner().getPlannerContext().getMetadata();
+        Metadata metadata = getPlanTester().getPlannerContext().getMetadata();
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(metadata),
                 new IterativeOptimizer(
-                        queryRunner.getPlannerContext(),
+                        planTester.getPlannerContext(),
                         new RuleStatsRecorder(),
-                        queryRunner.getStatsCalculator(),
-                        queryRunner.getCostCalculator(),
+                        planTester.getStatsCalculator(),
+                        planTester.getCostCalculator(),
                         ImmutableSet.<Rule<?>>builder()
                                 .add(new RemoveRedundantIdentityProjections())
                                 .addAll(columnPruningRules(metadata))
@@ -204,16 +204,16 @@ public class BasePlanTest
     protected void assertPlanWithSession(@Language("SQL") String sql, Session session, boolean forceSingleNode, PlanMatchPattern pattern)
     {
         try {
-            queryRunner.inTransaction(session, transactionSession -> {
-                Plan actualPlan = queryRunner.createPlan(
+            planTester.inTransaction(session, transactionSession -> {
+                Plan actualPlan = planTester.createPlan(
                         transactionSession,
                         sql,
-                        queryRunner.getPlanOptimizers(forceSingleNode),
-                        queryRunner.getAlternativeOptimizers(),
+                        planTester.getPlanOptimizers(forceSingleNode),
+                        planTester.getAlternativeOptimizers(),
                         OPTIMIZED_AND_VALIDATED,
                         NOOP,
                         createPlanOptimizersStatsCollector());
-                PlanAssert.assertPlan(transactionSession, queryRunner.getPlannerContext().getMetadata(), queryRunner.getPlannerContext().getFunctionManager(), queryRunner.getStatsCalculator(), actualPlan, pattern);
+                PlanAssert.assertPlan(transactionSession, planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), planTester.getStatsCalculator(), actualPlan, pattern);
                 return null;
             });
         }
@@ -226,16 +226,16 @@ public class BasePlanTest
     protected void assertPlanWithSession(@Language("SQL") String sql, Session session, boolean forceSingleNode, PlanMatchPattern pattern, Consumer<Plan> planValidator)
     {
         try {
-            queryRunner.inTransaction(session, transactionSession -> {
-                Plan actualPlan = queryRunner.createPlan(
+            planTester.inTransaction(session, transactionSession -> {
+                Plan actualPlan = planTester.createPlan(
                         transactionSession,
                         sql,
-                        queryRunner.getPlanOptimizers(forceSingleNode),
-                        queryRunner.getAlternativeOptimizers(),
+                        planTester.getPlanOptimizers(forceSingleNode),
+                        planTester.getAlternativeOptimizers(),
                         OPTIMIZED_AND_VALIDATED,
                         NOOP,
                         createPlanOptimizersStatsCollector());
-                PlanAssert.assertPlan(transactionSession, queryRunner.getPlannerContext().getMetadata(), queryRunner.getPlannerContext().getFunctionManager(), queryRunner.getStatsCalculator(), actualPlan, pattern);
+                PlanAssert.assertPlan(transactionSession, planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), planTester.getStatsCalculator(), actualPlan, pattern);
                 planValidator.accept(actualPlan);
                 return null;
             });
@@ -259,12 +259,12 @@ public class BasePlanTest
     protected Plan plan(@Language("SQL") String sql, LogicalPlanner.Stage stage, boolean forceSingleNode)
     {
         try {
-            return queryRunner.inTransaction(queryRunner.getDefaultSession(), transactionSession ->
-                    queryRunner.createPlan(
+            return planTester.inTransaction(planTester.getDefaultSession(), transactionSession ->
+                    planTester.createPlan(
                             transactionSession,
                             sql,
-                            queryRunner.getPlanOptimizers(forceSingleNode),
-                            queryRunner.getAlternativeOptimizers(),
+                            planTester.getPlanOptimizers(forceSingleNode),
+                            planTester.getAlternativeOptimizers(),
                             stage,
                             NOOP,
                             createPlanOptimizersStatsCollector()));
@@ -276,22 +276,22 @@ public class BasePlanTest
 
     protected SubPlan subplan(@Language("SQL") String sql, LogicalPlanner.Stage stage, boolean forceSingleNode)
     {
-        return subplan(sql, stage, forceSingleNode, getQueryRunner().getDefaultSession());
+        return subplan(sql, stage, forceSingleNode, getPlanTester().getDefaultSession());
     }
 
     protected SubPlan subplan(@Language("SQL") String sql, LogicalPlanner.Stage stage, boolean forceSingleNode, Session session)
     {
         try {
-            return queryRunner.inTransaction(session, transactionSession -> {
-                Plan plan = queryRunner.createPlan(
+            return planTester.inTransaction(session, transactionSession -> {
+                Plan plan = planTester.createPlan(
                         transactionSession,
                         sql,
-                        queryRunner.getPlanOptimizers(forceSingleNode),
-                        queryRunner.getAlternativeOptimizers(),
+                        planTester.getPlanOptimizers(forceSingleNode),
+                        planTester.getAlternativeOptimizers(),
                         stage,
                         NOOP,
                         createPlanOptimizersStatsCollector());
-                return queryRunner.createSubPlans(transactionSession, plan, forceSingleNode);
+                return planTester.createSubPlans(transactionSession, plan, forceSingleNode);
             });
         }
         catch (RuntimeException e) {

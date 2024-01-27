@@ -99,8 +99,8 @@ public class TestPushPredicateIntoTableScan
         pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), createTestingTypeAnalyzer(tester().getPlannerContext()), false);
 
         CatalogHandle catalogHandle = tester().getCurrentCatalogHandle();
-        tester().getQueryRunner().createCatalog(MOCK_CATALOG, createMockFactory(), ImmutableMap.of());
-        mockCatalogHandle = tester().getQueryRunner().getCatalogHandle(MOCK_CATALOG);
+        tester().getPlanTester().createCatalog(MOCK_CATALOG, createMockFactory(), ImmutableMap.of());
+        mockCatalogHandle = tester().getPlanTester().getCatalogHandle(MOCK_CATALOG);
 
         TpchTableHandle nation = new TpchTableHandle("sf1", "nation", 1.0);
         nationTableHandle = new TableHandle(

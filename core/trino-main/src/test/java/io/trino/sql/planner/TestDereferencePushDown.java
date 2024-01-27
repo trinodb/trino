@@ -160,7 +160,7 @@ public class TestDereferencePushDown
                         "   MIN(msg3) OVER (PARTITION BY msg1 ORDER BY msg2) AS msg6," +
                         "   MIN(msg4.x) OVER (PARTITION BY msg1 ORDER BY msg2) AS bigint_msg4 " +
                         "FROM t",
-                Session.builder(this.getQueryRunner().getDefaultSession())
+                Session.builder(this.getPlanTester().getDefaultSession())
                         .setSystemProperty(MERGE_PROJECT_WITH_VALUES, "false")
                         .build(),
                 true,
@@ -183,7 +183,7 @@ public class TestDereferencePushDown
                         "FROM t " +
                         "WHERE " +
                         "msg.x IN (SELECT msg.z FROM t)",
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(FILTERING_SEMI_JOIN_TO_INNER, "false")
                         .build(),
                 anyTree(

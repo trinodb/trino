@@ -51,7 +51,7 @@ import io.trino.sql.analyzer.StatementAnalyzerFactory;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.rewrite.ShowQueriesRewrite;
 import io.trino.sql.rewrite.StatementRewrite;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
 import org.junit.jupiter.api.AfterAll;
@@ -91,10 +91,10 @@ public class TestDataframeMetadataProvider
     public void setup()
     {
         closer = Closer.create();
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(TEST_SESSION);
-        queryRunner.createCatalog(TEST_SESSION.getCatalog().get(), new TpchConnectorFactory(), ImmutableMap.of());
-        closer.register(queryRunner);
-        transactionManager = queryRunner.getTransactionManager();
+        PlanTester planTester = PlanTester.create(TEST_SESSION);
+        planTester.createCatalog(TEST_SESSION.getCatalog().get(), new TpchConnectorFactory(), ImmutableMap.of());
+        closer.register(planTester);
+        transactionManager = planTester.getTransactionManager();
 
         AccessControlManager accessControlManager = new AccessControlManager(
                 NodeVersion.UNKNOWN,
@@ -106,10 +106,10 @@ public class TestDataframeMetadataProvider
         accessControlManager.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
         this.accessControl = accessControlManager;
 
-        queryRunner.addFunctions(InternalFunctionBundle.builder().functions(APPLY_FUNCTION).build());
-        plannerContext = queryRunner.getPlannerContext();
-        tablePropertyManager = queryRunner.getTablePropertyManager();
-        analyzePropertyManager = queryRunner.getAnalyzePropertyManager();
+        planTester.addFunctions(InternalFunctionBundle.builder().functions(APPLY_FUNCTION).build());
+        plannerContext = planTester.getPlannerContext();
+        tablePropertyManager = planTester.getTablePropertyManager();
+        analyzePropertyManager = planTester.getAnalyzePropertyManager();
 
         StatementRewrite statementRewrite = new StatementRewrite(ImmutableSet.of(new ShowQueriesRewrite(
                 plannerContext.getMetadata(),
@@ -147,7 +147,7 @@ public class TestDataframeMetadataProvider
         DataTypeMapper dataTypeMapper = new DataTypeMapper();
         TransactionId transactionId = transactionManager.beginTransaction(true);
         Session session = createSession(transactionId);
-        queryRunner.getPlannerContext().getLanguageFunctionManager().registerQuery(session);
+        planTester.getPlannerContext().getLanguageFunctionManager().registerQuery(session);
         dataframeMetadataProvider = new DataframeMetadataProvider(session, analyzerFactory, SQL_PARSER, dataTypeMapper);
     }
 

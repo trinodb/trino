@@ -27,7 +27,7 @@ import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -72,7 +72,7 @@ public class TestDeterminePreferredDynamicFilterTimeout
     private long waitForCascadingDynamicFiltersTimeout;
 
     @Override
-    protected LocalQueryRunner createLocalQueryRunner()
+    protected PlanTester createPlanTester()
     {
         String catalogName = "mock";
         Map<String, String> sessionProperties = ImmutableMap.of(
@@ -143,18 +143,18 @@ public class TestDeterminePreferredDynamicFilterTimeout
                 .setSchema("default");
         sessionProperties.forEach(sessionBuilder::setSystemProperty);
 
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(sessionBuilder.build());
-        queryRunner.createCatalog(
+        PlanTester planTester = PlanTester.create(sessionBuilder.build());
+        planTester.createCatalog(
                 catalogName,
                 connectorFactory,
                 ImmutableMap.of());
-        return queryRunner;
+        return planTester;
     }
 
     @BeforeAll
     public void setup()
     {
-        waitForCascadingDynamicFiltersTimeout = getSmallDynamicFilterWaitTimeout(getQueryRunner().getDefaultSession()).toMillis();
+        waitForCascadingDynamicFiltersTimeout = getSmallDynamicFilterWaitTimeout(getPlanTester().getDefaultSession()).toMillis();
     }
 
     @Test
@@ -200,7 +200,7 @@ public class TestDeterminePreferredDynamicFilterTimeout
     {
         assertPlan(
                 "SELECT table_small_a.a_1 from table_small_a, table_small_b where table_small_a.a_1 = table_small_b.b_1",
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(SMALL_DYNAMIC_FILTER_MAX_ROW_COUNT, "9999")
                         .build(),
                 anyTree(
@@ -222,7 +222,7 @@ public class TestDeterminePreferredDynamicFilterTimeout
     {
         assertPlan(
                 "SELECT table_small_a.a_1 from table_small_a, table_small_b where table_small_a.a_1 = table_small_b.b_2",
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(SMALL_DYNAMIC_FILTER_MAX_ROW_COUNT, "1")
                         .build(),
                 anyTree(
@@ -244,7 +244,7 @@ public class TestDeterminePreferredDynamicFilterTimeout
     {
         assertPlan(
                 "SELECT table_small_a.a_1 from table_small_a, table_small_b where table_small_a.a_1 = table_small_b.b_2",
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(SMALL_DYNAMIC_FILTER_MAX_ROW_COUNT, "9999")
                         .setSystemProperty(SMALL_DYNAMIC_FILTER_MAX_NDV_COUNT, "399")
                         .build(),
@@ -262,7 +262,7 @@ public class TestDeterminePreferredDynamicFilterTimeout
                                                 tableScan("table_small_b", ImmutableMap.of("B_2", "b_2")))))));
         assertPlan(
                 "SELECT table_small_a.a_1 from table_small_a, table_small_b where table_small_a.a_2 = table_small_b.b_2",
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(SMALL_DYNAMIC_FILTER_MAX_NDV_COUNT, "399")
                         .build(),
                 anyTree(
@@ -284,7 +284,7 @@ public class TestDeterminePreferredDynamicFilterTimeout
     {
         assertPlan(
                 "SELECT table_small_a.a_1 from table_small_a, table_small_b where table_small_a.a_1 = table_small_b.b_1",
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(ENABLE_STATS_CALCULATOR, "false")
                         .build(),
                 anyTree(
@@ -307,7 +307,7 @@ public class TestDeterminePreferredDynamicFilterTimeout
         assertPlan(
                 "SELECT table_small_c.c_1 from (table_small_a JOIN table_small_b ON table_small_a.a_2 = table_small_b.b_2) " +
                         "JOIN table_small_c ON table_small_a.a_2 = table_small_c.c_1",
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .build(),
                 anyTree(
                         join(INNER, builder -> builder
@@ -400,7 +400,7 @@ public class TestDeterminePreferredDynamicFilterTimeout
     {
         assertPlan(
                 "SELECT table_small_a.a_1 from table_small_a where table_small_a.a_1 IN (SELECT b_1 from table_small_b where b_1 = random(5))",
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(FILTERING_SEMI_JOIN_TO_INNER, "false")
                         .build(),
                 anyTree(

@@ -27,7 +27,7 @@ import io.trino.split.SplitManager;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 
 import java.io.Closeable;
 import java.util.ArrayList;
@@ -46,7 +46,7 @@ public class RuleTester
 {
     private final Metadata metadata;
     private final Session session;
-    private final LocalQueryRunner queryRunner;
+    private final PlanTester planTester;
     private final SplitManager splitManager;
     private final PageSourceManager pageSourceManager;
     private final TypeAnalyzer typeAnalyzer;
@@ -57,31 +57,31 @@ public class RuleTester
         return builder().build();
     }
 
-    public RuleTester(LocalQueryRunner queryRunner)
+    public RuleTester(PlanTester planTester)
     {
-        this.queryRunner = requireNonNull(queryRunner, "queryRunner is null");
-        this.session = queryRunner.getDefaultSession();
-        this.metadata = queryRunner.getPlannerContext().getMetadata();
-        this.functionManager = queryRunner.getPlannerContext().getFunctionManager();
-        this.splitManager = queryRunner.getSplitManager();
-        this.pageSourceManager = queryRunner.getPageSourceManager();
-        this.typeAnalyzer = createTestingTypeAnalyzer(queryRunner.getPlannerContext());
+        this.planTester = requireNonNull(planTester, "planTester is null");
+        this.session = planTester.getDefaultSession();
+        this.metadata = planTester.getPlannerContext().getMetadata();
+        this.functionManager = planTester.getPlannerContext().getFunctionManager();
+        this.splitManager = planTester.getSplitManager();
+        this.pageSourceManager = planTester.getPageSourceManager();
+        this.typeAnalyzer = createTestingTypeAnalyzer(planTester.getPlannerContext());
     }
 
     public RuleBuilder assertThat(Rule<?> rule)
     {
-        return new RuleBuilder(rule, queryRunner, session);
+        return new RuleBuilder(rule, planTester, session);
     }
 
     @Override
     public void close()
     {
-        queryRunner.close();
+        planTester.close();
     }
 
     public PlannerContext getPlannerContext()
     {
-        return queryRunner.getPlannerContext();
+        return planTester.getPlannerContext();
     }
 
     public Metadata getMetadata()
@@ -116,17 +116,17 @@ public class RuleTester
 
     public CatalogHandle getCurrentCatalogHandle()
     {
-        return queryRunner.getCatalogHandle(session.getCatalog().orElseThrow());
+        return planTester.getCatalogHandle(session.getCatalog().orElseThrow());
     }
 
     public TableHandle getCurrentCatalogTableHandle(String schemaName, String tableName)
     {
-        return queryRunner.getTableHandle(session.getCatalog().orElseThrow(), schemaName, tableName);
+        return planTester.getTableHandle(session.getCatalog().orElseThrow(), schemaName, tableName);
     }
 
-    public LocalQueryRunner getQueryRunner()
+    public PlanTester getPlanTester()
     {
-        return queryRunner;
+        return planTester;
     }
 
     public static Builder builder()
@@ -186,17 +186,17 @@ public class RuleTester
 
             Session session = sessionBuilder.build();
 
-            LocalQueryRunner queryRunner = nodeCountForStats
-                    .map(nodeCount -> LocalQueryRunner.create(session, nodeCount))
-                    .orElseGet(() -> LocalQueryRunner.create(session));
+            PlanTester planTester = nodeCountForStats
+                    .map(nodeCount -> PlanTester.create(session, nodeCount))
+                    .orElseGet(() -> PlanTester.create(session));
 
-            queryRunner.createCatalog(
+            planTester.createCatalog(
                     session.getCatalog().orElseThrow(),
                     defaultCatalogConnectorFactory,
                     ImmutableMap.of());
-            plugins.forEach(queryRunner::installPlugin);
+            plugins.forEach(planTester::installPlugin);
 
-            return new RuleTester(queryRunner);
+            return new RuleTester(planTester);
         }
     }
 }

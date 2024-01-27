@@ -531,8 +531,8 @@ public class TestJsonTable
     private void assertJsonTablePlan(@Language("SQL") String sql, JsonTablePlanNode expectedPlan)
     {
         try {
-            getQueryRunner().inTransaction(transactionSession -> {
-                Plan queryPlan = getQueryRunner().createPlan(transactionSession, sql, ImmutableList.of(), ImmutableList.of(), CREATED, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
+            getPlanTester().inTransaction(transactionSession -> {
+                Plan queryPlan = getPlanTester().createPlan(transactionSession, sql, ImmutableList.of(), ImmutableList.of(), CREATED, WarningCollector.NOOP, createPlanOptimizersStatsCollector());
                 TableFunctionNode tableFunctionNode = getOnlyElement(PlanNodeSearcher.searchFrom(queryPlan.getRoot()).where(TableFunctionNode.class::isInstance).findAll());
                 JsonTablePlanNode actualPlan = ((JsonTable.JsonTableFunctionHandle) tableFunctionNode.getHandle().getFunctionHandle()).processingPlan();
                 assertThat(actualPlan)

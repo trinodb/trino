@@ -20,7 +20,7 @@ import io.trino.plugin.deltalake.transactionlog.TableSnapshot;
 import io.trino.plugin.deltalake.transactionlog.TransactionLogAccess;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -37,9 +37,9 @@ public final class TestingDeltaLakeUtils
 {
     private TestingDeltaLakeUtils() {}
 
-    public static <T> T getConnectorService(LocalQueryRunner queryRunner, Class<T> clazz)
+    public static <T> T getConnectorService(PlanTester planTester, Class<T> clazz)
     {
-        return ((DeltaLakeConnector) queryRunner.getConnector(DELTA_CATALOG)).getInjector().getInstance(clazz);
+        return ((DeltaLakeConnector) planTester.getConnector(DELTA_CATALOG)).getInjector().getInstance(clazz);
     }
 
     public static <T> T getConnectorService(DistributedQueryRunner queryRunner, Class<T> clazz)

@@ -35,7 +35,7 @@ import io.trino.spi.security.ViewExpression;
 import io.trino.spi.transaction.IsolationLevel;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.tree.GenericLiteral;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import io.trino.testing.TestingAccessControlManager;
 import io.trino.testing.TestingMetadata;
 import org.junit.jupiter.api.Test;
@@ -69,7 +69,7 @@ public class TestMaterializedViews
     private static final String SCHEMA = "tiny";
 
     @Override
-    protected LocalQueryRunner createLocalQueryRunner()
+    protected PlanTester createPlanTester()
     {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog(TEST_CATALOG_NAME)
@@ -78,12 +78,12 @@ public class TestMaterializedViews
 
         TestingMetadata testingConnectorMetadata = new TestingMetadata();
 
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(sessionBuilder.build());
-        queryRunner.createCatalog(TEST_CATALOG_NAME, new StaticConnectorFactory("test", new TestMaterializedViewConnector(testingConnectorMetadata)), ImmutableMap.of());
+        PlanTester planTester = PlanTester.create(sessionBuilder.build());
+        planTester.createCatalog(TEST_CATALOG_NAME, new StaticConnectorFactory("test", new TestMaterializedViewConnector(testingConnectorMetadata)), ImmutableMap.of());
 
-        Metadata metadata = queryRunner.getPlannerContext().getMetadata();
+        Metadata metadata = planTester.getPlannerContext().getMetadata();
         SchemaTableName testTable = new SchemaTableName(SCHEMA, "test_table");
-        queryRunner.inTransaction(session -> {
+        planTester.inTransaction(session -> {
             metadata.createTable(
                     session,
                     TEST_CATALOG_NAME,
@@ -97,7 +97,7 @@ public class TestMaterializedViews
         });
 
         SchemaTableName storageTable = new SchemaTableName(SCHEMA, "storage_table");
-        queryRunner.inTransaction(session -> {
+        planTester.inTransaction(session -> {
             metadata.createTable(
                     session,
                     TEST_CATALOG_NAME,
@@ -111,7 +111,7 @@ public class TestMaterializedViews
         });
 
         SchemaTableName storageTableWithCasts = new SchemaTableName(SCHEMA, "storage_table_with_casts");
-        queryRunner.inTransaction(session -> {
+        planTester.inTransaction(session -> {
             metadata.createTable(
                     session,
                     TEST_CATALOG_NAME,
@@ -135,7 +135,7 @@ public class TestMaterializedViews
                 Identity.ofUser("some user"),
                 ImmutableList.of(),
                 Optional.of(new CatalogSchemaTableName(TEST_CATALOG_NAME, SCHEMA, "storage_table")));
-        queryRunner.inTransaction(session -> {
+        planTester.inTransaction(session -> {
             metadata.createMaterializedView(
                     session,
                     freshMaterializedView,
@@ -148,7 +148,7 @@ public class TestMaterializedViews
         testingConnectorMetadata.markMaterializedViewIsFresh(freshMaterializedView.asSchemaTableName());
 
         QualifiedObjectName notFreshMaterializedView = new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, "not_fresh_materialized_view");
-        queryRunner.inTransaction(session -> {
+        planTester.inTransaction(session -> {
             metadata.createMaterializedView(
                     session,
                     notFreshMaterializedView,
@@ -170,7 +170,7 @@ public class TestMaterializedViews
                 ImmutableList.of(),
                 Optional.of(new CatalogSchemaTableName(TEST_CATALOG_NAME, SCHEMA, "storage_table_with_casts")));
         QualifiedObjectName materializedViewWithCasts = new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, "materialized_view_with_casts");
-        queryRunner.inTransaction(session -> {
+        planTester.inTransaction(session -> {
             metadata.createMaterializedView(
                     session,
                     materializedViewWithCasts,
@@ -182,7 +182,7 @@ public class TestMaterializedViews
         });
         testingConnectorMetadata.markMaterializedViewIsFresh(materializedViewWithCasts.asSchemaTableName());
 
-        queryRunner.inTransaction(session -> {
+        planTester.inTransaction(session -> {
             metadata.createMaterializedView(
                     session,
                     new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, "stale_materialized_view_with_casts"),
@@ -193,7 +193,7 @@ public class TestMaterializedViews
             return null;
         });
 
-        return queryRunner;
+        return planTester;
     }
 
     @Test
@@ -207,7 +207,7 @@ public class TestMaterializedViews
     @Test
     public void testNotFreshMaterializedView()
     {
-        Session defaultSession = getQueryRunner().getDefaultSession();
+        Session defaultSession = getPlanTester().getDefaultSession();
         Session legacyGracePeriod = Session.builder(defaultSession)
                 .setSystemProperty(SystemSessionProperties.LEGACY_MATERIALIZED_VIEW_GRACE_PERIOD, "true")
                 .build();
@@ -236,7 +236,7 @@ public class TestMaterializedViews
     @Test
     public void testMaterializedViewWithCasts()
     {
-        TestingAccessControlManager accessControl = getQueryRunner().getAccessControl();
+        TestingAccessControlManager accessControl = getPlanTester().getAccessControl();
         accessControl.columnMask(
                 new QualifiedObjectName(TEST_CATALOG_NAME, SCHEMA, "materialized_view_with_casts"),
                 "a",

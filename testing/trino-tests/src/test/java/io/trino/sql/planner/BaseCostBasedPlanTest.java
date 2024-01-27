@@ -36,7 +36,7 @@ import io.trino.sql.planner.plan.LoadCachedDataPlanNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -112,7 +112,7 @@ public abstract class BaseCostBasedPlanTest
     }
 
     @Override
-    protected LocalQueryRunner createLocalQueryRunner()
+    protected PlanTester createPlanTester()
     {
         SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog(CATALOG_NAME)
@@ -122,12 +122,12 @@ public abstract class BaseCostBasedPlanTest
                 .setSystemProperty("task_concurrency", "1") // these tests don't handle exchanges from local parallel
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.AUTOMATIC.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name());
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(sessionBuilder.build(), 8);
-        queryRunner.createCatalog(
+        PlanTester planTester = PlanTester.create(sessionBuilder.build(), 8);
+        planTester.createCatalog(
                 CATALOG_NAME,
                 createConnectorFactory(),
                 ImmutableMap.of());
-        return queryRunner;
+        return planTester;
     }
 
     protected abstract ConnectorFactory createConnectorFactory();
@@ -148,7 +148,7 @@ public abstract class BaseCostBasedPlanTest
     protected String getQueryPlanResourcePath(String queryResourcePath)
     {
         Path queryPath = Paths.get(queryResourcePath);
-        String connectorName = getQueryRunner().getCatalogManager().getCatalog(CATALOG_NAME).orElseThrow().getConnectorName().toString();
+        String connectorName = getPlanTester().getCatalogManager().getCatalog(CATALOG_NAME).orElseThrow().getConnectorName().toString();
         Path directory = queryPath.getParent();
         directory = directory.resolve(connectorName + (smallFiles ? "_small_files" : ""));
         if (fileFormatName.isPresent()) {
@@ -216,9 +216,9 @@ public abstract class BaseCostBasedPlanTest
     private String generateQueryPlan(String query)
     {
         try {
-            return getQueryRunner().inTransaction(transactionSession -> {
-                LocalQueryRunner localQueryRunner = getQueryRunner();
-                Plan plan = localQueryRunner.createPlan(transactionSession, query, localQueryRunner.getPlanOptimizers(false), localQueryRunner.getAlternativeOptimizers(), OPTIMIZED_AND_VALIDATED, NOOP, createPlanOptimizersStatsCollector());
+            return getPlanTester().inTransaction(transactionSession -> {
+                PlanTester planTester = getPlanTester();
+                Plan plan = planTester.createPlan(transactionSession, query, planTester.getPlanOptimizers(false), planTester.getAlternativeOptimizers(), OPTIMIZED_AND_VALIDATED, NOOP, createPlanOptimizersStatsCollector());
                 JoinOrderPrinter joinOrderPrinter = new JoinOrderPrinter(transactionSession);
                 plan.getRoot().accept(joinOrderPrinter, 0);
                 return joinOrderPrinter.result();
@@ -379,7 +379,7 @@ public abstract class BaseCostBasedPlanTest
         @Override
         public Void visitTableScan(TableScanNode node, Integer indent)
         {
-            CatalogSchemaTableName tableName = getQueryRunner().getPlannerContext().getMetadata().getTableName(session, node.getTable());
+            CatalogSchemaTableName tableName = getPlanTester().getPlannerContext().getMetadata().getTableName(session, node.getTable());
             output(indent, "scan %s", tableName.getSchemaTableName().getTableName());
 
             return null;

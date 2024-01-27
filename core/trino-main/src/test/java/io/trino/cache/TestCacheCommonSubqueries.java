@@ -37,7 +37,7 @@ import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SymbolReference;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -92,20 +92,20 @@ public class TestCacheCommonSubqueries
     private String testCatalogId;
 
     @Override
-    protected LocalQueryRunner createLocalQueryRunner()
+    protected PlanTester createPlanTester()
     {
-        LocalQueryRunner queryRunner = planTesterBuilder(TEST_SESSION)
+        PlanTester planTester = planTesterBuilder(TEST_SESSION)
                 .withCacheConfig(new CacheConfig()
                         .setEnabled(true)
                         .setCacheCommonSubqueriesEnabled(true))
                 .build();
 
-        queryRunner.createCatalog(queryRunner.getDefaultSession().getCatalog().get(),
+        planTester.createCatalog(planTester.getDefaultSession().getCatalog().get(),
                 new TpchConnectorFactory(1, false),
                 ImmutableMap.of());
-        testCatalogId = queryRunner.getCatalogHandle(TEST_SESSION.getCatalog().orElseThrow()).getId();
+        testCatalogId = planTester.getCatalogHandle(TEST_SESSION.getCatalog().orElseThrow()).getId();
 
-        return queryRunner;
+        return planTester;
     }
 
     @Test
@@ -355,8 +355,8 @@ public class TestCacheCommonSubqueries
 
     private BuiltinFunctionCallBuilder getFunctionCallBuilder(String name, ExpressionWithType... arguments)
     {
-        LocalQueryRunner queryRunner = getQueryRunner();
-        BuiltinFunctionCallBuilder builder = BuiltinFunctionCallBuilder.resolve(queryRunner.getPlannerContext().getMetadata())
+        PlanTester planTester = getPlanTester();
+        BuiltinFunctionCallBuilder builder = BuiltinFunctionCallBuilder.resolve(planTester.getPlannerContext().getMetadata())
                 .setName(name);
         for (ExpressionWithType argument : arguments) {
             builder.addArgument(argument.type, argument.expression);

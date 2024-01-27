@@ -27,7 +27,7 @@ import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.sql.planner.LogicalPlanner.Stage;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import io.trino.tpch.Customer;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -87,7 +87,7 @@ public class BenchmarkPlanner
         @Param
         private Queries queries = TPCH;
 
-        private LocalQueryRunner queryRunner;
+        private PlanTester planTester;
         private Session session;
 
         @Setup
@@ -100,14 +100,14 @@ public class BenchmarkPlanner
                     .setSchema("sf1")
                     .build();
 
-            queryRunner = LocalQueryRunner.create(session);
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog(tpch, "tpch", ImmutableMap.<String, String>builder()
+            planTester = PlanTester.create(session);
+            planTester.installPlugin(new TpchPlugin());
+            planTester.createCatalog(tpch, "tpch", ImmutableMap.<String, String>builder()
                     .put(TPCH_SPLITS_PER_NODE, "4")
                     .put(TPCH_COLUMN_NAMING_PROPERTY, ColumnNaming.STANDARD.name())
                     .buildOrThrow());
 
-            queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
+            planTester.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                     .withGetTableHandle((session1, schemaTableName) -> new MockConnectorTableHandle(schemaTableName))
                     .withGetColumns(name -> {
                         if (!name.equals(TABLE)) {
@@ -118,26 +118,26 @@ public class BenchmarkPlanner
                                 .collect(toImmutableList());
                     })
                     .build()));
-            queryRunner.createCatalog("mock", "mock", ImmutableMap.of());
+            planTester.createCatalog("mock", "mock", ImmutableMap.of());
         }
 
         @TearDown
         public void tearDown()
         {
-            queryRunner.close();
-            queryRunner = null;
+            planTester.close();
+            planTester = null;
         }
     }
 
     @Benchmark
     public List<Plan> plan(BenchmarkData benchmarkData)
     {
-        LocalQueryRunner queryRunner = benchmarkData.queryRunner;
-        List<PlanOptimizer> planOptimizers = queryRunner.getPlanOptimizers(false);
-        List<PlanOptimizer> alternativeOptimizers = queryRunner.getAlternativeOptimizers();
+        PlanTester planTester = benchmarkData.planTester;
+        List<PlanOptimizer> planOptimizers = planTester.getPlanOptimizers(false);
+        List<PlanOptimizer> alternativeOptimizers = planTester.getAlternativeOptimizers();
         PlanOptimizersStatsCollector planOptimizersStatsCollector = createPlanOptimizersStatsCollector();
-        return queryRunner.inTransaction(transactionSession -> benchmarkData.queries.getQueries().stream()
-                .map(query -> queryRunner.createPlan(transactionSession, query, planOptimizers, alternativeOptimizers, benchmarkData.stage, NOOP, planOptimizersStatsCollector))
+        return planTester.inTransaction(transactionSession -> benchmarkData.queries.getQueries().stream()
+                .map(query -> planTester.createPlan(transactionSession, query, planOptimizers, alternativeOptimizers, benchmarkData.stage, NOOP, planOptimizersStatsCollector))
                 .collect(toImmutableList()));
     }
 

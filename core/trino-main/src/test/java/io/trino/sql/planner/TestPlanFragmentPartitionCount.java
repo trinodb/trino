@@ -26,7 +26,7 @@ import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -53,21 +53,21 @@ public class TestPlanFragmentPartitionCount
 {
     private PlanFragmenter planFragmenter;
     private Session session;
-    private LocalQueryRunner localQueryRunner;
+    private PlanTester planTester;
 
     @BeforeAll
     public void setUp()
     {
         session = testSessionBuilder().setCatalog(TEST_CATALOG_NAME).build();
-        localQueryRunner = LocalQueryRunner.create(session);
-        localQueryRunner.createCatalog(TEST_CATALOG_NAME, new TpchConnectorFactory(), ImmutableMap.of());
+        planTester = PlanTester.create(session);
+        planTester.createCatalog(TEST_CATALOG_NAME, new TpchConnectorFactory(), ImmutableMap.of());
 
         planFragmenter = new PlanFragmenter(
-                localQueryRunner.getPlannerContext().getMetadata(),
-                localQueryRunner.getPlannerContext().getFunctionManager(),
-                localQueryRunner.getTransactionManager(),
-                localQueryRunner.getCatalogManager(),
-                localQueryRunner.getPlannerContext().getLanguageFunctionManager(),
+                planTester.getPlannerContext().getMetadata(),
+                planTester.getPlannerContext().getFunctionManager(),
+                planTester.getTransactionManager(),
+                planTester.getCatalogManager(),
+                planTester.getPlannerContext().getLanguageFunctionManager(),
                 new QueryManagerConfig());
     }
 
@@ -76,14 +76,14 @@ public class TestPlanFragmentPartitionCount
     {
         planFragmenter = null;
         session = null;
-        localQueryRunner.close();
-        localQueryRunner = null;
+        planTester.close();
+        planTester = null;
     }
 
     @Test
     public void testPartitionCountInPlanFragment()
     {
-        PlanBuilder p = new PlanBuilder(new PlanNodeIdAllocator(), localQueryRunner.getPlannerContext(), session);
+        PlanBuilder p = new PlanBuilder(new PlanNodeIdAllocator(), planTester.getPlannerContext(), session);
         Symbol a = p.symbol("a", VARCHAR);
         Symbol b = p.symbol("b", VARCHAR);
         Symbol c = p.symbol("c", VARCHAR);
@@ -147,17 +147,17 @@ public class TestPlanFragmentPartitionCount
 
     private SubPlan fragment(Plan plan)
     {
-        localQueryRunner.getPlannerContext().getLanguageFunctionManager().registerQuery(session);
+        planTester.getPlannerContext().getLanguageFunctionManager().registerQuery(session);
         return inTransaction(session -> planFragmenter.createSubPlans(session, plan, false, WarningCollector.NOOP));
     }
 
     private <T> T inTransaction(Function<Session, T> transactionSessionConsumer)
     {
-        return transaction(localQueryRunner.getTransactionManager(), localQueryRunner.getPlannerContext().getMetadata(), new AllowAllAccessControl())
+        return transaction(planTester.getTransactionManager(), planTester.getPlannerContext().getMetadata(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(session, session -> {
                     // metadata.getCatalogHandle() registers the catalog for the transaction
-                    session.getCatalog().ifPresent(catalog -> localQueryRunner.getPlannerContext().getMetadata().getCatalogHandle(session, catalog));
+                    session.getCatalog().ifPresent(catalog -> planTester.getPlannerContext().getMetadata().getCatalogHandle(session, catalog));
                     return transactionSessionConsumer.apply(session);
                 });
     }

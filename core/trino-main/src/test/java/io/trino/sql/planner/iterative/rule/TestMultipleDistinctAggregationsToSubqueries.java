@@ -114,7 +114,7 @@ import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.tree.QualifiedName;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import io.trino.testing.TestingTransactionHandle;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -1148,7 +1148,7 @@ public class TestMultipleDistinctAggregationsToSubqueries
     private static RuleTester tester(boolean connectorSupportsSingleColumnReads)
     {
         Session session = testSessionBuilder().build();
-        LocalQueryRunner localQueryRunner = planTesterBuilder(session)
+        PlanTester planTester = planTesterBuilder(session)
                 .withMetadataDecorator(metadata -> new DelegatingMetadata(metadata)
                 {
                     @Override
@@ -1158,11 +1158,11 @@ public class TestMultipleDistinctAggregationsToSubqueries
                     }
                 })
                 .build();
-        localQueryRunner.createCatalog(
+        planTester.createCatalog(
                 session.getCatalog().orElseThrow(),
                 new TpchConnectorFactory(1),
                 ImmutableMap.of());
-        return new RuleTester(localQueryRunner);
+        return new RuleTester(planTester);
     }
 
     public static class DelegatingMetadata

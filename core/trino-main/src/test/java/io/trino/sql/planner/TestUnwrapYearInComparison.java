@@ -315,7 +315,7 @@ public class TestUnwrapYearInComparison
         try {
             assertPlan(
                     sql,
-                    getQueryRunner().getDefaultSession(),
+                    getPlanTester().getDefaultSession(),
                     output(
                             filter(expectedPredicate + " OR random() = 42e0",
                                     values("a"))));

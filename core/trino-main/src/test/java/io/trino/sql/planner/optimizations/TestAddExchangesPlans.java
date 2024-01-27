@@ -39,7 +39,7 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.LongLiteral;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -102,15 +102,15 @@ public class TestAddExchangesPlans
         extends BasePlanTest
 {
     @Override
-    protected LocalQueryRunner createLocalQueryRunner()
+    protected PlanTester createPlanTester()
     {
         Session session = testSessionBuilder()
                 .setCatalog("tpch")
                 .setSchema("tiny")
                 .build();
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
-        queryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
-        return queryRunner;
+        PlanTester planTester = PlanTester.create(session);
+        planTester.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());
+        return planTester;
     }
 
     @Test
@@ -145,7 +145,7 @@ public class TestAddExchangesPlans
     @Test
     public void testRepartitionForUnionAllBeforeHashJoin()
     {
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, DistributionType.PARTITIONED.name())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, ELIMINATE_CROSS_JOINS.name())
                 .build();
@@ -253,7 +253,7 @@ public class TestAddExchangesPlans
         String query = "SELECT count(orderkey), count(distinct orderkey), custkey , count(1) FROM ( SELECT * FROM (VALUES (1, 2)) as t(custkey, orderkey) UNION ALL SELECT 3, 4) GROUP BY 3";
         assertDistributedPlan(
                 query,
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(IGNORE_DOWNSTREAM_PREFERENCES, "true")
                         .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "mark_distinct")
                         .build(),
@@ -271,7 +271,7 @@ public class TestAddExchangesPlans
 
         assertDistributedPlan(
                 query,
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(IGNORE_DOWNSTREAM_PREFERENCES, "false")
                         .setSystemProperty(DISTINCT_AGGREGATIONS_STRATEGY, "mark_distinct")
                         .build(),
@@ -927,7 +927,7 @@ public class TestAddExchangesPlans
     @Test
     public void testJoinNotExactlyPartitioned()
     {
-        assertThat(isColocatedJoinEnabled(getQueryRunner().getDefaultSession())).isTrue();
+        assertThat(isColocatedJoinEnabled(getPlanTester().getDefaultSession())).isTrue();
 
         assertDistributedPlan(
                 """
@@ -1124,7 +1124,7 @@ public class TestAddExchangesPlans
                         Optional.of(ImmutableList.of(new MockConnectorColumnHandle("nationkey", BigintType.BIGINT)))))
                 .withName("mock")
                 .build();
-        getQueryRunner().createCatalog("mock", connectorFactory, ImmutableMap.of());
+        getPlanTester().createCatalog("mock", connectorFactory, ImmutableMap.of());
 
         // Need to use JOIN as parent of UNION ALL to expose replacing remote exchange with local exchange
         assertDistributedPlan(
@@ -1182,7 +1182,7 @@ public class TestAddExchangesPlans
 
     private Session spillEnabledWithJoinDistributionType(JoinDistributionType joinDistributionType)
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, joinDistributionType.toString())
                 .setSystemProperty(SPILL_ENABLED, "true")
                 .setSystemProperty(TASK_CONCURRENCY, "16")
@@ -1191,7 +1191,7 @@ public class TestAddExchangesPlans
 
     private Session noJoinReordering()
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.NONE.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.BROADCAST.name())
                 .setSystemProperty(SPILL_ENABLED, "true")
@@ -1201,7 +1201,7 @@ public class TestAddExchangesPlans
 
     private Session noJoinReorderingColocatedJoinDisabled()
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.NONE.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.BROADCAST.name())
                 .setSystemProperty(TASK_CONCURRENCY, "16")
@@ -1211,7 +1211,7 @@ public class TestAddExchangesPlans
 
     private Session useExactPartitioning()
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, ELIMINATE_CROSS_JOINS.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
                 .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
@@ -1221,7 +1221,7 @@ public class TestAddExchangesPlans
 
     private Session useExactPartitioningWithMarkDistinct()
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, ELIMINATE_CROSS_JOINS.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
                 .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
@@ -1232,14 +1232,14 @@ public class TestAddExchangesPlans
 
     private Session doNotUseCostBasedPartitioning()
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(USE_COST_BASED_PARTITIONING, "false")
                 .build();
     }
 
     private Session disableStats()
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(ENABLE_STATS_CALCULATOR, "false")
                 .build();
     }

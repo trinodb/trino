@@ -213,7 +213,7 @@ public abstract class AbstractPredicatePushdownTest
     public void testFilteredSelectFromPartitionedTable()
     {
         // use all optimizers, including AddExchanges
-        List<PlanOptimizer> allOptimizers = getQueryRunner().getPlanOptimizers(false);
+        List<PlanOptimizer> allOptimizers = getPlanTester().getPlanOptimizers(false);
 
         assertPlan(
                 "SELECT DISTINCT orderstatus FROM orders",
@@ -473,7 +473,7 @@ public abstract class AbstractPredicatePushdownTest
     @Test
     public void testBetweenPredicatePushdown()
     {
-        Session disableJoinReordering = Session.builder(getQueryRunner().getDefaultSession())
+        Session disableJoinReordering = Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, "NONE")
                 .build();
         // join build side, min between value pushed down
@@ -646,7 +646,7 @@ public abstract class AbstractPredicatePushdownTest
 
     protected Session noSemiJoinRewrite()
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(FILTERING_SEMI_JOIN_TO_INNER, "false")
                 .build();
     }

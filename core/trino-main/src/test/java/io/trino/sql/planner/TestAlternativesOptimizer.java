@@ -50,7 +50,7 @@ import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.SymbolReference;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import io.trino.testing.TestingTransactionHandle;
 import org.junit.jupiter.api.Test;
 
@@ -86,15 +86,15 @@ public class TestAlternativesOptimizer
     private static final String TEST_SCHEMA_NAME = "test_schema";
 
     @Override
-    protected LocalQueryRunner createLocalQueryRunner()
+    protected PlanTester createPlanTester()
     {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog(TEST_CATALOG_NAME)
                 .setSchema(TEST_SCHEMA_NAME);
 
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(sessionBuilder.build());
-        queryRunner.createCatalog(TEST_CATALOG_NAME, new TpchConnectorFactory(1), ImmutableMap.of());
-        return queryRunner;
+        PlanTester planTester = PlanTester.create(sessionBuilder.build());
+        planTester.createCatalog(TEST_CATALOG_NAME, new TpchConnectorFactory(1), ImmutableMap.of());
+        return planTester;
     }
 
     @Test
@@ -102,13 +102,13 @@ public class TestAlternativesOptimizer
     {
         String tableName = "nation";
         TableHandle tableHandle = new TableHandle(
-                getQueryRunner().getCatalogHandle(TEST_CATALOG_NAME),
+                getPlanTester().getCatalogHandle(TEST_CATALOG_NAME),
                 new TpchTableHandle(TEST_SCHEMA_NAME, tableName, 1.0),
                 TestingTransactionHandle.create());
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-        Session session = getQueryRunner().getDefaultSession();
-        PlanBuilder planBuilder = new PlanBuilder(idAllocator, getQueryRunner().getPlannerContext(), session);
+        Session session = getPlanTester().getDefaultSession();
+        PlanBuilder planBuilder = new PlanBuilder(idAllocator, getPlanTester().getPlannerContext(), session);
         ProjectNode plan = planBuilder.project(
                 Assignments.of(),
                 planBuilder.filter(
@@ -142,13 +142,13 @@ public class TestAlternativesOptimizer
     {
         String tableName = "nation";
         TableHandle tableHandle = new TableHandle(
-                getQueryRunner().getCatalogHandle(TEST_CATALOG_NAME),
+                getPlanTester().getCatalogHandle(TEST_CATALOG_NAME),
                 new TpchTableHandle(TEST_SCHEMA_NAME, tableName, 1.0),
                 TestingTransactionHandle.create());
 
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-        Session session = getQueryRunner().getDefaultSession();
-        PlanBuilder planBuilder = new PlanBuilder(idAllocator, getQueryRunner().getPlannerContext(), session);
+        Session session = getPlanTester().getDefaultSession();
+        PlanBuilder planBuilder = new PlanBuilder(idAllocator, getPlanTester().getPlannerContext(), session);
         TableScanNode scan = planBuilder.tableScan(tableHandle, emptyList(), emptyMap());
         PlanNode plan = new ChooseAlternativeNode(
                 idAllocator.getNextId(),
@@ -184,14 +184,14 @@ public class TestAlternativesOptimizer
     {
         String tableName = "nation";
         TableHandle tableHandle = new TableHandle(
-                getQueryRunner().getCatalogHandle(TEST_CATALOG_NAME),
+                getPlanTester().getCatalogHandle(TEST_CATALOG_NAME),
                 new TpchTableHandle(TEST_SCHEMA_NAME, tableName, 1.0),
                 TestingTransactionHandle.create());
 
         String symbol = "symbol";
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-        Session session = getQueryRunner().getDefaultSession();
-        PlanBuilder planBuilder = new PlanBuilder(idAllocator, getQueryRunner().getPlannerContext(), session);
+        Session session = getPlanTester().getDefaultSession();
+        PlanBuilder planBuilder = new PlanBuilder(idAllocator, getPlanTester().getPlannerContext(), session);
         ProjectNode plan = planBuilder.project(
                 Assignments.of(new Symbol(symbol), TRUE_LITERAL),
                 planBuilder.filter(
@@ -235,14 +235,14 @@ public class TestAlternativesOptimizer
     {
         String tableName = "nation";
         TableHandle tableHandle = new TableHandle(
-                getQueryRunner().getCatalogHandle(TEST_CATALOG_NAME),
+                getPlanTester().getCatalogHandle(TEST_CATALOG_NAME),
                 new TpchTableHandle(TEST_SCHEMA_NAME, tableName, 1.0),
                 TestingTransactionHandle.create());
 
         String columnName = "nationkey";
         PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-        Session session = getQueryRunner().getDefaultSession();
-        PlanBuilder planBuilder = new PlanBuilder(idAllocator, getQueryRunner().getPlannerContext(), session);
+        Session session = getPlanTester().getDefaultSession();
+        PlanBuilder planBuilder = new PlanBuilder(idAllocator, getPlanTester().getPlannerContext(), session);
         Symbol symbol = planBuilder.symbol(columnName, BIGINT);
         ProjectNode plan = planBuilder.project(
                 Assignments.of(symbol, new ComparisonExpression(EQUAL, new SymbolReference(columnName), new LongLiteral("1"))),
@@ -291,13 +291,13 @@ public class TestAlternativesOptimizer
 
     private PlanNode runOptimizer(PlanNode plan, TypeProvider types, Set<Rule<?>> rules)
     {
-        Session session = getQueryRunner().getDefaultSession();
+        Session session = getPlanTester().getDefaultSession();
 
         AlternativesOptimizer optimizer = new AlternativesOptimizer(
-                getQueryRunner().getPlannerContext(),
+                getPlanTester().getPlannerContext(),
                 new RuleStatsRecorder(),
-                getQueryRunner().getStatsCalculator(),
-                getQueryRunner().getCostCalculator(),
+                getPlanTester().getStatsCalculator(),
+                getPlanTester().getCostCalculator(),
                 rules);
 
         return optimizer.optimize(
@@ -309,19 +309,19 @@ public class TestAlternativesOptimizer
                         new PlanNodeIdAllocator(),
                         WarningCollector.NOOP,
                         createPlanOptimizersStatsCollector(),
-                        new CachingTableStatsProvider(getQueryRunner().getPlannerContext().getMetadata(), session)));
+                        new CachingTableStatsProvider(getPlanTester().getPlannerContext().getMetadata(), session)));
     }
 
     private void assertPlan(PlanNode actual, PlanMatchPattern pattern, TypeProvider types)
     {
-        getQueryRunner().inTransaction(session -> {
+        getPlanTester().inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
-            session.getCatalog().ifPresent(catalog -> getQueryRunner().getPlannerContext().getMetadata().getCatalogHandle(session, catalog));
+            session.getCatalog().ifPresent(catalog -> getPlanTester().getPlannerContext().getMetadata().getCatalogHandle(session, catalog));
             PlanAssert.assertPlan(
                     session,
-                    getQueryRunner().getPlannerContext().getMetadata(),
-                    getQueryRunner().getPlannerContext().getFunctionManager(),
-                    getQueryRunner().getStatsCalculator(),
+                    getPlanTester().getPlannerContext().getMetadata(),
+                    getPlanTester().getPlannerContext().getFunctionManager(),
+                    getPlanTester().getStatsCalculator(),
                     new Plan(actual, types, StatsAndCosts.empty()),
                     pattern);
             return null;

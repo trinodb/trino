@@ -17,7 +17,7 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.cache.CacheConfig;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import org.junit.jupiter.params.provider.Arguments;
 
 import java.nio.file.Path;
@@ -50,7 +50,7 @@ public class TestCachingHiveTpcdsCostBasedPlan
     }
 
     @Override
-    protected LocalQueryRunner createLocalQueryRunner()
+    protected PlanTester createPlanTester()
     {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog(CATALOG_NAME)
@@ -60,17 +60,17 @@ public class TestCachingHiveTpcdsCostBasedPlan
                 .setSystemProperty("task_concurrency", "1") // these tests don't handle exchanges from local parallel
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, OptimizerConfig.JoinReorderingStrategy.AUTOMATIC.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, OptimizerConfig.JoinDistributionType.AUTOMATIC.name());
-        LocalQueryRunner queryRunner = planTesterBuilder(sessionBuilder.build())
+        PlanTester planTester = planTesterBuilder(sessionBuilder.build())
                 .withNodeCountForStats(8)
                 .withCacheConfig(new CacheConfig()
                         .setEnabled(true)
                         .setCacheCommonSubqueriesEnabled(true))
                 .build();
-        queryRunner.createCatalog(
+        planTester.createCatalog(
                 CATALOG_NAME,
                 createConnectorFactory(),
                 ImmutableMap.of());
-        return queryRunner;
+        return planTester;
     }
 
     @Override

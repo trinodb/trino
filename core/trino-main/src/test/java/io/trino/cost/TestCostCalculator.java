@@ -52,7 +52,7 @@ import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.SymbolReference;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -102,7 +102,7 @@ public class TestCostCalculator
     private CostCalculator costCalculatorWithEstimatedExchanges;
     private PlanFragmenter planFragmenter;
     private Session session;
-    private LocalQueryRunner localQueryRunner;
+    private PlanTester planTester;
 
     @BeforeAll
     public void setUp()
@@ -113,16 +113,16 @@ public class TestCostCalculator
 
         session = testSessionBuilder().setCatalog(TEST_CATALOG_NAME).build();
 
-        localQueryRunner = LocalQueryRunner.create(session);
-        PlannerContext plannerContext = localQueryRunner.getPlannerContext();
+        planTester = PlanTester.create(session);
+        PlannerContext plannerContext = planTester.getPlannerContext();
         plannerContext.getLanguageFunctionManager().registerQuery(session);
-        localQueryRunner.createCatalog(TEST_CATALOG_NAME, new TpchConnectorFactory(), ImmutableMap.of());
+        planTester.createCatalog(TEST_CATALOG_NAME, new TpchConnectorFactory(), ImmutableMap.of());
 
         planFragmenter = new PlanFragmenter(
                 plannerContext.getMetadata(),
                 plannerContext.getFunctionManager(),
-                localQueryRunner.getTransactionManager(),
-                localQueryRunner.getCatalogManager(),
+                planTester.getTransactionManager(),
+                planTester.getCatalogManager(),
                 plannerContext.getLanguageFunctionManager(),
                 new QueryManagerConfig());
     }
@@ -134,8 +134,8 @@ public class TestCostCalculator
         costCalculatorWithEstimatedExchanges = null;
         planFragmenter = null;
         session = null;
-        localQueryRunner.close();
-        localQueryRunner = null;
+        planTester.close();
+        planTester = null;
     }
 
     @Test
@@ -634,7 +634,7 @@ public class TestCostCalculator
     {
         TypeProvider typeProvider = TypeProvider.copyOf(types.entrySet().stream()
                 .collect(toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue)));
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator(stats), session, typeProvider, new CachingTableStatsProvider(localQueryRunner.getPlannerContext().getMetadata(), session));
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator(stats), session, typeProvider, new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), session));
         CostProvider costProvider = new TestingCostProvider(costs, costCalculatorUsingExchanges, statsProvider, session, typeProvider);
         SubPlan subPlan = fragment(new Plan(node, typeProvider, StatsAndCosts.create(node, statsProvider, costProvider)));
         return new CostAssertionBuilder(subPlan.getFragment().getStatsAndCosts().getCosts().getOrDefault(node.getId(), PlanCostEstimate.unknown()));
@@ -756,7 +756,7 @@ public class TestCostCalculator
     {
         TypeProvider typeProvider = TypeProvider.copyOf(types.entrySet().stream()
                 .collect(toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue)));
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, typeProvider, new CachingTableStatsProvider(localQueryRunner.getPlannerContext().getMetadata(), session));
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, typeProvider, new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), session));
         CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.empty(), session, typeProvider);
         return costProvider.getCost(node);
     }
@@ -765,7 +765,7 @@ public class TestCostCalculator
     {
         TypeProvider typeProvider = TypeProvider.copyOf(types.entrySet().stream()
                 .collect(toImmutableMap(entry -> new Symbol(entry.getKey()), Map.Entry::getValue)));
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, typeProvider, new CachingTableStatsProvider(localQueryRunner.getPlannerContext().getMetadata(), session));
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, typeProvider, new CachingTableStatsProvider(planTester.getPlannerContext().getMetadata(), session));
         CostProvider costProvider = new CachingCostProvider(costCalculatorUsingExchanges, statsProvider, Optional.empty(), session, typeProvider);
         SubPlan subPlan = fragment(new Plan(node, typeProvider, StatsAndCosts.create(node, statsProvider, costProvider)));
         return subPlan.getFragment().getStatsAndCosts().getCosts().getOrDefault(node.getId(), PlanCostEstimate.unknown());
@@ -847,7 +847,7 @@ public class TestCostCalculator
 
         return new TableScanNode(
                 new PlanNodeId(id),
-                localQueryRunner.getTableHandle(TEST_CATALOG_NAME, "sf1", "orders"),
+                planTester.getTableHandle(TEST_CATALOG_NAME, "sf1", "orders"),
                 symbolsList,
                 assignments.buildOrThrow(),
                 TupleDomain.all(),
@@ -867,7 +867,7 @@ public class TestCostCalculator
     private AggregationNode aggregation(String id, PlanNode source)
     {
         AggregationNode.Aggregation aggregation = new AggregationNode.Aggregation(
-                new TestingFunctionResolution(localQueryRunner.getTransactionManager(), localQueryRunner.getPlannerContext()).resolveFunction("count", ImmutableList.of()),
+                new TestingFunctionResolution(planTester.getTransactionManager(), planTester.getPlannerContext()).resolveFunction("count", ImmutableList.of()),
                 ImmutableList.of(),
                 false,
                 Optional.empty(),
@@ -919,8 +919,8 @@ public class TestCostCalculator
 
     private <T> T inTransaction(Function<Session, T> transactionSessionConsumer)
     {
-        Metadata metadata = localQueryRunner.getPlannerContext().getMetadata();
-        return transaction(localQueryRunner.getTransactionManager(), metadata, new AllowAllAccessControl())
+        Metadata metadata = planTester.getPlannerContext().getMetadata();
+        return transaction(planTester.getTransactionManager(), metadata, new AllowAllAccessControl())
                 .singleStatement()
                 .execute(session, session -> {
                     // metadata.getCatalogHandle() registers the catalog for the transaction

@@ -49,7 +49,7 @@ import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 
@@ -97,7 +97,7 @@ public class TestConnectorPushdownRulesWithIceberg
             .build();
 
     @Override
-    protected Optional<LocalQueryRunner> createLocalQueryRunner()
+    protected Optional<PlanTester> createPlanTester()
     {
         try {
             baseDir = Files.createTempDirectory("metastore").toFile();
@@ -105,19 +105,19 @@ public class TestConnectorPushdownRulesWithIceberg
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(ICEBERG_SESSION);
+        PlanTester planTester = PlanTester.create(ICEBERG_SESSION);
 
         InternalFunctionBundle.InternalFunctionBundleBuilder functions = InternalFunctionBundle.builder();
         new IcebergPlugin().getFunctions().forEach(functions::functions);
-        queryRunner.addFunctions(functions.build());
+        planTester.addFunctions(functions.build());
 
-        queryRunner.createCatalog(
+        planTester.createCatalog(
                 TEST_CATALOG_NAME,
                 new TestingIcebergConnectorFactory(baseDir.toPath()),
                 ImmutableMap.of());
-        catalogHandle = queryRunner.getCatalogHandle(TEST_CATALOG_NAME);
+        catalogHandle = planTester.getCatalogHandle(TEST_CATALOG_NAME);
 
-        metastore = ((IcebergConnector) queryRunner.getConnector(TEST_CATALOG_NAME)).getInjector()
+        metastore = ((IcebergConnector) planTester.getConnector(TEST_CATALOG_NAME)).getInjector()
                 .getInstance(HiveMetastoreFactory.class)
                 .createMetastore(Optional.empty());
         Database database = Database.builder()
@@ -128,7 +128,7 @@ public class TestConnectorPushdownRulesWithIceberg
 
         metastore.createDatabase(database);
 
-        return Optional.of(queryRunner);
+        return Optional.of(planTester);
     }
 
     @Test
@@ -140,7 +140,7 @@ public class TestConnectorPushdownRulesWithIceberg
                 tester().getTypeAnalyzer(),
                 new ScalarStatsCalculator(tester().getPlannerContext(), tester().getTypeAnalyzer()));
 
-        tester().getQueryRunner().executeStatement(format(
+        tester().getPlanTester().executeStatement(format(
                 "CREATE TABLE  %s (struct_of_int) AS " +
                         "SELECT cast(row(5, 6) as row(a bigint, b bigint)) as struct_of_int where false",
                 tableName));
@@ -234,8 +234,8 @@ public class TestConnectorPushdownRulesWithIceberg
     public void testPredicatePushdown()
     {
         String tableName = "predicate_test";
-        tester().getQueryRunner().executeStatement(format("CREATE TABLE %s (a, b) AS SELECT 5, 6", tableName));
-        long snapshotId = ((IcebergTableHandle) tester().getQueryRunner().getTableHandle(TEST_CATALOG_NAME, SCHEMA_NAME, tableName).getConnectorHandle()).getSnapshotId().orElseThrow();
+        tester().getPlanTester().executeStatement(format("CREATE TABLE %s (a, b) AS SELECT 5, 6", tableName));
+        long snapshotId = ((IcebergTableHandle) tester().getPlanTester().getTableHandle(TEST_CATALOG_NAME, SCHEMA_NAME, tableName).getConnectorHandle()).getSnapshotId().orElseThrow();
 
         PushPredicateIntoTableScan pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getPlannerContext(), tester().getTypeAnalyzer(), false);
 
@@ -286,7 +286,7 @@ public class TestConnectorPushdownRulesWithIceberg
     public void testColumnPruningProjectionPushdown()
     {
         String tableName = "column_pruning_projection_test";
-        tester().getQueryRunner().executeStatement(format("CREATE TABLE %s (a, b) AS SELECT 5, 6", tableName));
+        tester().getPlanTester().executeStatement(format("CREATE TABLE %s (a, b) AS SELECT 5, 6", tableName));
 
         PruneTableScanColumns pruneTableScanColumns = new PruneTableScanColumns(tester().getMetadata());
 
@@ -343,7 +343,7 @@ public class TestConnectorPushdownRulesWithIceberg
     public void testPushdownWithDuplicateExpressions()
     {
         String tableName = "duplicate_expressions";
-        tester().getQueryRunner().executeStatement(format(
+        tester().getPlanTester().executeStatement(format(
                 "CREATE TABLE  %s (struct_of_bigint, just_bigint) AS SELECT cast(row(5, 6) AS row(a bigint, b bigint)) AS struct_of_int, 5 AS just_bigint WHERE false",
                 tableName));
 

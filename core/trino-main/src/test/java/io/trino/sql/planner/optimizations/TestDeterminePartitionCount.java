@@ -29,7 +29,7 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.TableScanNode;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -70,7 +70,7 @@ public class TestDeterminePartitionCount
         extends BasePlanTest
 {
     @Override
-    protected LocalQueryRunner createLocalQueryRunner()
+    protected PlanTester createPlanTester()
     {
         String catalogName = "mock";
         MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
@@ -116,12 +116,12 @@ public class TestDeterminePartitionCount
                 .setCatalog(catalogName)
                 .setSchema("default")
                 .build();
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(session, 100);
-        queryRunner.createCatalog(
+        PlanTester planTester = PlanTester.create(session, 100);
+        planTester.createCatalog(
                 catalogName,
                 connectorFactory,
                 ImmutableMap.of());
-        return queryRunner;
+        return planTester;
     }
 
     @Test
@@ -132,7 +132,7 @@ public class TestDeterminePartitionCount
         // DeterminePartitionCount optimizer rule should not fire since no remote exchanges are present
         assertDistributedPlan(
                 query,
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(MAX_HASH_PARTITION_COUNT, "100")
                         .setSystemProperty(MIN_HASH_PARTITION_COUNT, "4")
                         .setSystemProperty(MIN_INPUT_SIZE_PER_TASK, "20MB")
@@ -150,7 +150,7 @@ public class TestDeterminePartitionCount
         // DeterminePartitionCount optimizer rule should not fire since no remote exchanges are present
         assertDistributedPlan(
                 query,
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(MAX_HASH_PARTITION_COUNT, "100")
                         .setSystemProperty(MIN_HASH_PARTITION_COUNT, "4")
                         .setSystemProperty(MIN_INPUT_SIZE_PER_TASK, "20MB")
@@ -170,7 +170,7 @@ public class TestDeterminePartitionCount
         // DeterminePartitionCount optimizer rule should not fire since no remote repartition exchanges are present
         assertDistributedPlan(
                 query,
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(MAX_HASH_PARTITION_COUNT, "100")
                         .setSystemProperty(MIN_HASH_PARTITION_COUNT, "4")
                         .setSystemProperty(MIN_INPUT_SIZE_PER_TASK, "20MB")
@@ -194,7 +194,7 @@ public class TestDeterminePartitionCount
         // DeterminePartitionCount optimizer rule should fire and set the partitionCount to 10 for remote exchanges
         assertDistributedPlan(
                 query,
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(MAX_HASH_PARTITION_COUNT, "21")
                         .setSystemProperty(MIN_HASH_PARTITION_COUNT, "4")
                         .setSystemProperty(MIN_INPUT_SIZE_PER_TASK, "20MB")
@@ -220,7 +220,7 @@ public class TestDeterminePartitionCount
         // is greater or equal to number of workers.
         assertDistributedPlan(
                 query,
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(MAX_HASH_PARTITION_COUNT, "20")
                         .setSystemProperty(MIN_HASH_PARTITION_COUNT, "4")
                         .setSystemProperty(MIN_INPUT_SIZE_PER_TASK, "20MB")
@@ -245,7 +245,7 @@ public class TestDeterminePartitionCount
         // DeterminePartitionCount optimizer rule should not fire and partitionCount will remain empty for remote exchanges
         assertDistributedPlan(
                 query,
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(MAX_HASH_PARTITION_COUNT, "10")
                         .setSystemProperty(MIN_HASH_PARTITION_COUNT, "4")
                         .setSystemProperty(MIN_INPUT_SIZE_PER_TASK, "20MB")
@@ -272,7 +272,7 @@ public class TestDeterminePartitionCount
         // DeterminePartitionCount optimizer rule should not fire and partitionCount will remain empty for remote exchanges
         assertDistributedPlan(
                 query,
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(MAX_HASH_PARTITION_COUNT, "10")
                         .setSystemProperty(MIN_HASH_PARTITION_COUNT, "4")
                         .setSystemProperty(MIN_INPUT_SIZE_PER_TASK, "20MB")
@@ -296,7 +296,7 @@ public class TestDeterminePartitionCount
         // DeterminePartitionCount optimizer rule should not fire since no remote repartitioning exchanges are present
         assertDistributedPlan(
                 query,
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(MAX_HASH_PARTITION_COUNT, "20")
                         .setSystemProperty(MIN_HASH_PARTITION_COUNT, "4")
                         .setSystemProperty(MIN_INPUT_SIZE_PER_TASK, "20MB")
@@ -325,7 +325,7 @@ public class TestDeterminePartitionCount
         // DeterminePartitionCount optimizer rule should not fire and partitionCount will remain empty for remote exchanges
         assertDistributedPlan(
                 query,
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(MAX_HASH_PARTITION_COUNT, "10")
                         .setSystemProperty(MIN_HASH_PARTITION_COUNT, "4")
                         .setSystemProperty(MIN_INPUT_SIZE_PER_TASK, "20MB")
@@ -352,7 +352,7 @@ public class TestDeterminePartitionCount
         // DeterminePartitionCount optimizer rule should fire and set the partitionCount to 10 for remote exchanges
         assertDistributedPlan(
                 query,
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(MAX_HASH_PARTITION_COUNT, "50")
                         .setSystemProperty(MIN_HASH_PARTITION_COUNT, "4")
                         .setSystemProperty(MIN_INPUT_SIZE_PER_TASK, "20MB")
@@ -380,7 +380,7 @@ public class TestDeterminePartitionCount
         // DeterminePartitionCount optimizer rule should not fire and partitionCount will remain empty for remote exchanges
         assertDistributedPlan(
                 query,
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(MAX_HASH_PARTITION_COUNT, "5")
                         .setSystemProperty(MIN_HASH_PARTITION_COUNT, "2")
                         .setSystemProperty(MIN_INPUT_SIZE_PER_TASK, "20MB")
@@ -407,7 +407,7 @@ public class TestDeterminePartitionCount
         // DeterminePartitionCount optimizer rule estimate the partition count to 10 but because min limit is 15, it will set it to 15
         assertDistributedPlan(
                 query,
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(MAX_HASH_PARTITION_COUNT, "40")
                         .setSystemProperty(MIN_HASH_PARTITION_COUNT, "15")
                         .setSystemProperty(MIN_INPUT_SIZE_PER_TASK, "20MB")
@@ -440,7 +440,7 @@ public class TestDeterminePartitionCount
         // DeterminePartitionCount optimizer rule should fire and set the partitionCount to 20 for remote exchanges
         assertDistributedPlan(
                 query,
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(MAX_HASH_PARTITION_COUNT, "50")
                         .setSystemProperty(MIN_HASH_PARTITION_COUNT, "4")
                         .setSystemProperty(MIN_INPUT_SIZE_PER_TASK, "20MB")
@@ -472,7 +472,7 @@ public class TestDeterminePartitionCount
         // based on rows count
         assertDistributedPlan(
                 query,
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(MAX_HASH_PARTITION_COUNT, "100")
                         .setSystemProperty(MIN_HASH_PARTITION_COUNT, "4")
                         .setSystemProperty(MIN_INPUT_SIZE_PER_TASK, "20MB")
@@ -495,7 +495,7 @@ public class TestDeterminePartitionCount
                 """;
         assertDistributedPlan(
                 query,
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(RETRY_POLICY, "task")
                         .setSystemProperty(FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT, "21")
                         .setSystemProperty(FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT, "4")
@@ -519,7 +519,7 @@ public class TestDeterminePartitionCount
                 """;
         assertDistributedPlan(
                 query,
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(RETRY_POLICY, "task")
                         .setSystemProperty(FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT, "21")
                         .setSystemProperty(FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT, "11")
@@ -543,7 +543,7 @@ public class TestDeterminePartitionCount
                 """;
         assertDistributedPlan(
                 query,
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(RETRY_POLICY, "task")
                         .setSystemProperty(FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT, "8")
                         .setSystemProperty(FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT, "4")
@@ -568,7 +568,7 @@ public class TestDeterminePartitionCount
 
         assertDistributedPlan(
                 query,
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(RETRY_POLICY, "task")
                         .setSystemProperty(FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT, "50")
                         .setSystemProperty(FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT, "4")
@@ -596,7 +596,7 @@ public class TestDeterminePartitionCount
 
         assertDistributedPlan(
                 query,
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(RETRY_POLICY, "task")
                         .setSystemProperty(FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT, "50")
                         .setSystemProperty(FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT, "4")
@@ -627,7 +627,7 @@ public class TestDeterminePartitionCount
 
         assertDistributedPlan(
                 query,
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(RETRY_POLICY, "task")
                         .setSystemProperty(FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT, "50")
                         .setSystemProperty(FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT, "4")
@@ -667,7 +667,7 @@ public class TestDeterminePartitionCount
 
         assertDistributedPlan(
                 query,
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT, "50")
                         .setSystemProperty(FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT, "4")
                         .setSystemProperty(MIN_INPUT_SIZE_PER_TASK, "20MB")
@@ -702,7 +702,7 @@ public class TestDeterminePartitionCount
 
         assertDistributedPlan(
                 query,
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(RETRY_POLICY, "task")
                         .setSystemProperty(FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT, "50")
                         .setSystemProperty(FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT, "4")
@@ -740,7 +740,7 @@ public class TestDeterminePartitionCount
 
         assertDistributedPlan(
                 query,
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(RETRY_POLICY, "task")
                         .setSystemProperty(FAULT_TOLERANT_EXECUTION_MAX_PARTITION_COUNT, "50")
                         .setSystemProperty(FAULT_TOLERANT_EXECUTION_MIN_PARTITION_COUNT, "4")

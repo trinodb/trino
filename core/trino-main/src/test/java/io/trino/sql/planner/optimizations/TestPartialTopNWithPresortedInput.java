@@ -30,7 +30,7 @@ import io.trino.spi.type.RowType;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.tree.LongLiteral;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -79,13 +79,13 @@ public class TestPartialTopNWithPresortedInput
     private static final SchemaTableName nestedField = new SchemaTableName(TEST_SCHEMA, "with_nested_field");
 
     @Override
-    protected LocalQueryRunner createLocalQueryRunner()
+    protected PlanTester createPlanTester()
     {
         Session session = testSessionBuilder()
                 .setCatalog(MOCK_CATALOG)
                 .setSchema(TEST_SCHEMA)
                 .build();
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
+        PlanTester planTester = PlanTester.create(session);
         MockConnectorFactory mockFactory = MockConnectorFactory.builder()
                 .withGetTableProperties((connectorSession, handle) -> {
                     MockConnectorTableHandle tableHandle = (MockConnectorTableHandle) handle;
@@ -114,8 +114,8 @@ public class TestPartialTopNWithPresortedInput
                     throw new IllegalArgumentException();
                 })
                 .build();
-        queryRunner.createCatalog(MOCK_CATALOG, mockFactory, ImmutableMap.of());
-        return queryRunner;
+        planTester.createCatalog(MOCK_CATALOG, mockFactory, ImmutableMap.of());
+        return planTester;
     }
 
     @Test

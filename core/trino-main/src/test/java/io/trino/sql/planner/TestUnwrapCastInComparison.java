@@ -419,7 +419,7 @@ public class TestUnwrapCastInComparison
     @Test
     public void testCastDateToTimestampWithTimeZone()
     {
-        Session session = getQueryRunner().getDefaultSession();
+        Session session = getPlanTester().getDefaultSession();
 
         Session utcSession = withZone(session, TimeZoneKey.UTC_KEY);
         // east of Greenwich
@@ -513,7 +513,7 @@ public class TestUnwrapCastInComparison
     @Test
     public void testCastTimestampToTimestampWithTimeZone()
     {
-        Session session = getQueryRunner().getDefaultSession();
+        Session session = getPlanTester().getDefaultSession();
 
         Session utcSession = withZone(session, TimeZoneKey.UTC_KEY);
         // east of Greenwich
@@ -782,7 +782,7 @@ public class TestUnwrapCastInComparison
 
     private void testNoUnwrap(String inputType, String inputPredicate, String expectedCastType)
     {
-        testNoUnwrap(getQueryRunner().getDefaultSession(), inputType, inputPredicate, expectedCastType);
+        testNoUnwrap(getPlanTester().getDefaultSession(), inputType, inputPredicate, expectedCastType);
     }
 
     private void testNoUnwrap(Session session, String inputType, String inputPredicate, String expectedCastType)
@@ -804,7 +804,7 @@ public class TestUnwrapCastInComparison
 
     private void testUnwrap(String inputType, String inputPredicate, String expectedPredicate)
     {
-        testUnwrap(getQueryRunner().getDefaultSession(), inputType, inputPredicate, expectedPredicate);
+        testUnwrap(getPlanTester().getDefaultSession(), inputType, inputPredicate, expectedPredicate);
     }
 
     private void testUnwrap(Session session, String inputType, String inputPredicate, String expectedPredicate)

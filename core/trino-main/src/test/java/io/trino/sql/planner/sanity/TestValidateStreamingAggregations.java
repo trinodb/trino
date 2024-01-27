@@ -49,7 +49,7 @@ public class TestValidateStreamingAggregations
     @BeforeAll
     public void setup()
     {
-        plannerContext = getQueryRunner().getPlannerContext();
+        plannerContext = getPlanTester().getPlannerContext();
         typeAnalyzer = createTestingTypeAnalyzer(plannerContext);
 
         CatalogHandle catalogHandle = getCurrentCatalogHandle();
@@ -104,7 +104,7 @@ public class TestValidateStreamingAggregations
 
     private void validatePlan(Function<PlanBuilder, PlanNode> planProvider)
     {
-        getQueryRunner().inTransaction(session -> {
+        getPlanTester().inTransaction(session -> {
             PlanBuilder builder = new PlanBuilder(idAllocator, plannerContext, session);
             PlanNode planNode = planProvider.apply(builder);
             TypeProvider types = builder.getTypes();
