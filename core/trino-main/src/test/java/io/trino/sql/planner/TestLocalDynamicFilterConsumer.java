@@ -226,7 +226,7 @@ public class TestLocalDynamicFilterConsumer
     @Test
     public void testDynamicFilterPruning()
     {
-        PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), getQueryRunner().getPlannerContext(), getQueryRunner().getDefaultSession());
+        PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), getPlanTester().getPlannerContext(), getPlanTester().getDefaultSession());
         Symbol left1 = planBuilder.symbol("left1", BIGINT);
         Symbol left2 = planBuilder.symbol("left2", INTEGER);
         Symbol left3 = planBuilder.symbol("left3", SMALLINT);

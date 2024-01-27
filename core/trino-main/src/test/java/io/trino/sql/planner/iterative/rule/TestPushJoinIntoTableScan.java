@@ -288,7 +288,7 @@ public class TestPushJoinIntoTableScan
                     throw new IllegalStateException("applyJoin should not be called!");
                 });
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(connectorFactory).build()) {
-            ruleTester.getQueryRunner().createCatalog("another_catalog", "mock", ImmutableMap.of());
+            ruleTester.getPlanTester().createCatalog("another_catalog", "mock", ImmutableMap.of());
             TableHandle tableBHandleAnotherCatalog = createTableHandle(new MockConnectorTableHandle(new SchemaTableName(SCHEMA, TABLE_B)), createTestCatalogHandle("another_catalog"));
 
             ruleTester.assertThat(new PushJoinIntoTableScan(ruleTester.getPlannerContext(), ruleTester.getTypeAnalyzer()))

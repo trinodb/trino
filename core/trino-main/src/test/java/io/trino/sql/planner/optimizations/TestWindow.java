@@ -118,7 +118,7 @@ public class TestWindow
     @Test
     public void testWindowAfterJoin()
     {
-        Session disableCbo = Session.builder(getQueryRunner().getDefaultSession())
+        Session disableCbo = Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, ELIMINATE_CROSS_JOINS.name())
                 .build();

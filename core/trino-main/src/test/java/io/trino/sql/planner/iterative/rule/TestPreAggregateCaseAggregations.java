@@ -29,7 +29,7 @@ import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.tree.FunctionCall;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -62,7 +62,7 @@ public class TestPreAggregateCaseAggregations
     private static final SchemaTableName TABLE = new SchemaTableName("default", "t");
 
     @Override
-    protected LocalQueryRunner createLocalQueryRunner()
+    protected PlanTester createPlanTester()
     {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog("local")
@@ -71,7 +71,7 @@ public class TestPreAggregateCaseAggregations
                 .setSystemProperty(PREFER_PARTIAL_AGGREGATION, "false") // remove partial aggregations for simplicity
                 .setSystemProperty(TASK_CONCURRENCY, "1"); // these tests don't handle exchanges from local parallel
 
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(sessionBuilder.build());
+        PlanTester planTester = PlanTester.create(sessionBuilder.build());
 
         // create table with different column types
         MockConnectorFactory.Builder builder = MockConnectorFactory.builder()
@@ -88,9 +88,9 @@ public class TestPreAggregateCaseAggregations
                             new ColumnMetadata("col_long_decimal", DecimalType.createDecimalType(19, 18)),
                             new ColumnMetadata("col_double", DoubleType.DOUBLE));
                 });
-        queryRunner.createCatalog("local", builder.build(), ImmutableMap.of());
+        planTester.createCatalog("local", builder.build(), ImmutableMap.of());
 
-        return queryRunner;
+        return planTester;
     }
 
     @Test

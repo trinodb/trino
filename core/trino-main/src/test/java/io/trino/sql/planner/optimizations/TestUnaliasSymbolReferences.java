@@ -37,7 +37,7 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.tree.Expression;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -65,7 +65,7 @@ public class TestUnaliasSymbolReferences
         String probeTable = "supplier";
         String buildTable = "nation";
         assertOptimizedPlan(
-                new UnaliasSymbolReferences(getQueryRunner().getPlannerContext().getMetadata()),
+                new UnaliasSymbolReferences(getPlanTester().getPlannerContext().getMetadata()),
                 (p, session, metadata) -> {
                     ColumnHandle column = new TpchColumnHandle("nationkey", BIGINT);
                     Symbol buildColumnSymbol = p.symbol("nationkey");
@@ -119,7 +119,7 @@ public class TestUnaliasSymbolReferences
     public void testGroupIdGroupingSetsDeduplicated()
     {
         assertOptimizedPlan(
-                new UnaliasSymbolReferences(getQueryRunner().getPlannerContext().getMetadata()),
+                new UnaliasSymbolReferences(getPlanTester().getPlannerContext().getMetadata()),
                 (p, session, metadata) -> {
                     Symbol symbol = p.symbol("symbol");
                     Symbol alias1 = p.symbol("alias1");
@@ -140,12 +140,12 @@ public class TestUnaliasSymbolReferences
 
     private void assertOptimizedPlan(PlanOptimizer optimizer, PlanCreator planCreator, PlanMatchPattern pattern)
     {
-        LocalQueryRunner queryRunner = getQueryRunner();
-        queryRunner.inTransaction(session -> {
-            Metadata metadata = queryRunner.getPlannerContext().getMetadata();
+        PlanTester planTester = getPlanTester();
+        planTester.inTransaction(session -> {
+            Metadata metadata = planTester.getPlannerContext().getMetadata();
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
             PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
-            PlanBuilder planBuilder = new PlanBuilder(idAllocator, queryRunner.getPlannerContext(), session);
+            PlanBuilder planBuilder = new PlanBuilder(idAllocator, planTester.getPlannerContext(), session);
 
             SymbolAllocator symbolAllocator = new SymbolAllocator();
             PlanNode plan = planCreator.create(planBuilder, session, metadata);
@@ -161,7 +161,7 @@ public class TestUnaliasSymbolReferences
                             new CachingTableStatsProvider(metadata, session)));
 
             Plan actual = new Plan(optimized, planBuilder.getTypes(), StatsAndCosts.empty());
-            PlanAssert.assertPlan(session, queryRunner.getPlannerContext().getMetadata(), queryRunner.getPlannerContext().getFunctionManager(), queryRunner.getStatsCalculator(), actual, pattern);
+            PlanAssert.assertPlan(session, planTester.getPlannerContext().getMetadata(), planTester.getPlannerContext().getFunctionManager(), planTester.getStatsCalculator(), actual, pattern);
             return null;
         });
     }
@@ -173,7 +173,7 @@ public class TestUnaliasSymbolReferences
 
     private TableHandle tableHandle(String tableName)
     {
-        return getQueryRunner().getTableHandle(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, tableName);
+        return getPlanTester().getTableHandle(TEST_CATALOG_NAME, TINY_SCHEMA_NAME, tableName);
     }
 
     interface PlanCreator

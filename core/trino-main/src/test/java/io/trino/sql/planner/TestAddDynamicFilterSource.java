@@ -299,7 +299,7 @@ public class TestAddDynamicFilterSource
 
     private Session noSemiJoinRewrite(JoinDistributionType distributionType)
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(FILTERING_SEMI_JOIN_TO_INNER, "false")
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, distributionType.name())
                 .build();
@@ -307,7 +307,7 @@ public class TestAddDynamicFilterSource
 
     private Session withJoinDistributionType(JoinDistributionType distributionType)
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.NONE.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, distributionType.name())
                 .build();
