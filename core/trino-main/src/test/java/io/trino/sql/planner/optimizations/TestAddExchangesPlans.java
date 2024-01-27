@@ -17,7 +17,6 @@ package io.trino.sql.planner.optimizations;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.connector.MockConnectorColumnHandle;
 import io.trino.connector.MockConnectorFactory;
@@ -109,10 +108,7 @@ public class TestAddExchangesPlans
                 .setCatalog("tpch")
                 .setSchema("tiny")
                 .build();
-        FeaturesConfig featuresConfig = new FeaturesConfig()
-                .setSpillerSpillPaths("/tmp/test_spill_path");
         LocalQueryRunner queryRunner = LocalQueryRunner.builder(session)
-                .withFeaturesConfig(featuresConfig)
                 .withNodeCountForStats(1) // has to be non-zero for prefer parent partitioning test cases to work
                 .build();
         queryRunner.createCatalog("tpch", new TpchConnectorFactory(1), ImmutableMap.of());

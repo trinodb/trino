@@ -314,7 +314,6 @@ public class LocalQueryRunner
     // TODO clean-up constructor signature and construction of many objects https://github.com/trinodb/trino/issues/8996
     private LocalQueryRunner(
             Session defaultSession,
-            FeaturesConfig featuresConfig,
             int nodeCountForStats,
             Function<Metadata, Metadata> metadataDecorator)
     {
@@ -333,7 +332,6 @@ public class LocalQueryRunner
         this.nodeManager = new InMemoryNodeManager();
         PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
         NodeSchedulerConfig nodeSchedulerConfig = new NodeSchedulerConfig().setIncludeCoordinator(true);
-        requireNonNull(featuresConfig, "featuresConfig is null");
         this.optimizerConfig = new OptimizerConfig();
         LazyCatalogFactory catalogFactory = new LazyCatalogFactory();
         this.catalogFactory = catalogFactory;
@@ -345,7 +343,7 @@ public class LocalQueryRunner
                 notificationExecutor);
 
         BlockEncodingManager blockEncodingManager = new BlockEncodingManager();
-        TypeRegistry typeRegistry = new TypeRegistry(typeOperators, featuresConfig);
+        TypeRegistry typeRegistry = new TypeRegistry(typeOperators, new FeaturesConfig());
         TypeManager typeManager = new InternalTypeManager(typeRegistry);
         InternalBlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(blockEncodingManager, typeManager);
 
@@ -354,7 +352,7 @@ public class LocalQueryRunner
                 () -> getPlannerContext().getTypeManager(),
                 () -> getPlannerContext().getFunctionManager());
         globalFunctionCatalog.addFunctions(new InternalFunctionBundle(new LiteralFunction(blockEncodingSerde)));
-        globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(featuresConfig, typeOperators, blockTypeOperators, nodeManager.getCurrentNode().getNodeVersion()));
+        globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(new FeaturesConfig(), typeOperators, blockTypeOperators, nodeManager.getCurrentNode().getNodeVersion()));
         this.groupProvider = new TestingGroupProviderManager();
         LanguageFunctionManager languageFunctionManager = new LanguageFunctionManager(sqlParser, typeManager, groupProvider);
         Metadata metadata = metadataDecorator.apply(new MetadataManager(
@@ -389,7 +387,7 @@ public class LocalQueryRunner
         this.pageSinkManager = new PageSinkManager(createPageSinkProvider(catalogManager));
         this.indexManager = new IndexManager(createIndexProvider(catalogManager));
         NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, new NodeTaskMap(finalizerService)));
-        this.sessionPropertyManager = createSessionPropertyManager(catalogManager, taskManagerConfig, featuresConfig, optimizerConfig);
+        this.sessionPropertyManager = createSessionPropertyManager(catalogManager, taskManagerConfig, optimizerConfig);
         this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, typeOperators, createNodePartitioningProvider(catalogManager));
         TableProceduresRegistry tableProceduresRegistry = new TableProceduresRegistry(createTableProceduresProvider(catalogManager));
         FunctionManager functionManager = new FunctionManager(createFunctionProvider(catalogManager), globalFunctionCatalog, languageFunctionManager);
@@ -502,14 +500,13 @@ public class LocalQueryRunner
     private static SessionPropertyManager createSessionPropertyManager(
             ConnectorServicesProvider connectorServicesProvider,
             TaskManagerConfig taskManagerConfig,
-            FeaturesConfig featuresConfig,
             OptimizerConfig optimizerConfig)
     {
         SystemSessionProperties sessionProperties = new SystemSessionProperties(
                 new QueryManagerConfig(),
                 taskManagerConfig,
                 new MemoryManagerConfig(),
-                featuresConfig,
+                new FeaturesConfig(),
                 optimizerConfig,
                 new NodeMemoryConfig(),
                 new DynamicFilterConfig(),
@@ -1048,19 +1045,12 @@ public class LocalQueryRunner
     public static class Builder
     {
         private final Session defaultSession;
-        private FeaturesConfig featuresConfig = new FeaturesConfig();
         private int nodeCountForStats = 1;
         private Function<Metadata, Metadata> metadataDecorator = Function.identity();
 
         private Builder(Session defaultSession)
         {
             this.defaultSession = requireNonNull(defaultSession, "defaultSession is null");
-        }
-
-        public Builder withFeaturesConfig(FeaturesConfig featuresConfig)
-        {
-            this.featuresConfig = requireNonNull(featuresConfig, "featuresConfig is null");
-            return this;
         }
 
         public Builder withNodeCountForStats(int nodeCountForStats)
@@ -1079,7 +1069,6 @@ public class LocalQueryRunner
         {
             return new LocalQueryRunner(
                     defaultSession,
-                    featuresConfig,
                     nodeCountForStats,
                     metadataDecorator);
         }
