@@ -214,7 +214,7 @@ public final class StandaloneQueryRunner
         return server.getAccessControl();
     }
 
-    public TestingTrinoServer getServer()
+    public TestingTrinoServer getCoordinator()
     {
         return server;
     }

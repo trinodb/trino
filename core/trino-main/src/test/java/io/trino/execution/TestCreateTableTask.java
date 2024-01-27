@@ -127,7 +127,7 @@ class TestCreateTableTask
                 "other_mock",
                 ImmutableMap.of());
 
-        Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks = queryRunner.getServer().getInstance(Key.get(new TypeLiteral<Map<Class<? extends Statement>, DataDefinitionTask<?>>>() {}));
+        Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks = queryRunner.getCoordinator().getInstance(Key.get(new TypeLiteral<Map<Class<? extends Statement>, DataDefinitionTask<?>>>() {}));
         createTableTask = (CreateTableTask) tasks.get(CreateTable.class);
         this.queryRunner = queryRunner;
     }
