@@ -1051,7 +1051,7 @@ public class TestAccessControl
                 .build();
         getQueryRunner().execute(session, "USE tpch.tiny");
         assertThatThrownBy(() -> getQueryRunner().execute("USE not_exists_catalog.tiny"))
-                .hasMessageMatching("Catalog does not exist: not_exists_catalog");
+                .hasMessageMatching("Catalog 'not_exists_catalog' does not exist");
         assertThatThrownBy(() -> getQueryRunner().execute("USE tpch.not_exists_schema"))
                 .hasMessageMatching("Schema does not exist: tpch.not_exists_schema");
     }
