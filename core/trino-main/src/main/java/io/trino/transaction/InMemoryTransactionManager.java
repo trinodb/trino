@@ -232,7 +232,7 @@ public class InMemoryTransactionManager
         TransactionMetadata transactionMetadata = getTransactionMetadata(transactionId);
 
         CatalogHandle catalogHandle = transactionMetadata.tryRegisterCatalog(catalogName)
-                .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog does not exist: " + catalogName));
+                .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog '%s' does not exist".formatted(catalogName)));
 
         return getCatalogMetadataForWrite(transactionId, catalogHandle);
     }
@@ -243,7 +243,7 @@ public class InMemoryTransactionManager
         TransactionMetadata transactionMetadata = getTransactionMetadata(transactionId);
 
         CatalogHandle catalogHandle = transactionMetadata.tryRegisterCatalog(catalogName)
-                .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog does not exist: " + catalogName));
+                .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog '%s' does not exist".formatted(catalogName)));
 
         return transactionMetadata.getTransactionCatalogMetadata(catalogHandle).getTransactionHandleFor(catalogHandle);
     }

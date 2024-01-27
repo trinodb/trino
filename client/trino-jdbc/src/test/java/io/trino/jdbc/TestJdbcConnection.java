@@ -227,7 +227,7 @@ public class TestJdbcConnection
             // invalid catalog
             try (Statement statement = connection.createStatement()) {
                 assertThatThrownBy(() -> statement.execute("USE abc.xyz"))
-                        .hasMessageEndingWith("Catalog does not exist: abc");
+                        .hasMessageEndingWith("Catalog 'abc' does not exist");
             }
 
             // invalid schema

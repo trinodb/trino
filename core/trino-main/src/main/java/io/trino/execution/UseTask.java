@@ -72,7 +72,7 @@ public class UseTask
 
         SecurityContext securityContext = session.toSecurityContext();
         if (metadata.getCatalogHandle(session, catalog).isEmpty()) {
-            throw new TrinoException(NOT_FOUND, "Catalog does not exist: " + catalog);
+            throw new TrinoException(NOT_FOUND, "Catalog '%s' does not exist".formatted(catalog));
         }
         if (!hasCatalogAccess(securityContext, catalog)) {
             denyCatalogAccess(catalog);
