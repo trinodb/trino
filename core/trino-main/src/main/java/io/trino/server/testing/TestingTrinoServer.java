@@ -756,9 +756,9 @@ public class TestingTrinoServer
             return this;
         }
 
-        public Builder setSpanProcessor(Optional<SpanProcessor> spanProcessor)
+        public Builder setSpanProcessor(SpanProcessor spanProcessor)
         {
-            this.spanProcessor = requireNonNull(spanProcessor, "spanProcessor is null");
+            this.spanProcessor = Optional.of(spanProcessor);
             return this;
         }
 
