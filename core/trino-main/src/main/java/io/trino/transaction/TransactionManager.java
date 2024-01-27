@@ -55,7 +55,7 @@ public interface TransactionManager
     default CatalogMetadata getRequiredCatalogMetadata(TransactionId transactionId, String catalogName)
     {
         return getOptionalCatalogMetadata(transactionId, catalogName)
-                .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog '%s' does not exist".formatted(catalogName)));
+                .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog '%s' not found".formatted(catalogName)));
     }
 
     Optional<CatalogMetadata> getOptionalCatalogMetadata(TransactionId transactionId, String catalogName);

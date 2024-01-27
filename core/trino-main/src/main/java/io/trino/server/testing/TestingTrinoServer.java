@@ -673,7 +673,7 @@ public class TestingTrinoServer
     {
         checkState(coordinator, "not a coordinator");
         return catalogManager.orElseThrow().getCatalog(catalogName)
-                .orElseThrow(() -> new IllegalArgumentException("Catalog '%s' does not exist".formatted(catalogName)))
+                .orElseThrow(() -> new IllegalArgumentException("Catalog '%s' not found".formatted(catalogName)))
                 .getCatalogHandle();
     }
 
