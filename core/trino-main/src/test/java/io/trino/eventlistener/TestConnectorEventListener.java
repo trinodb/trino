@@ -35,7 +35,7 @@ public class TestConnectorEventListener
     {
         StandaloneQueryRunner queryRunner = new StandaloneQueryRunner(testSessionBuilder().build());
 
-        queryRunner.getServer().getInstance(Key.get(EventListenerManager.class)).loadEventListeners();
+        queryRunner.getCoordinator().getInstance(Key.get(EventListenerManager.class)).loadEventListeners();
 
         assertThatCode(() -> queryRunner.execute("SELECT 1"))
                 .doesNotThrowAnyException();
@@ -51,7 +51,7 @@ public class TestConnectorEventListener
                 .build()));
         queryRunner.createCatalog("event_listening", "mock", ImmutableMap.of());
 
-        queryRunner.getServer().getInstance(Key.get(EventListenerManager.class)).loadEventListeners();
+        queryRunner.getCoordinator().getInstance(Key.get(EventListenerManager.class)).loadEventListeners();
 
         assertThat(listenerFactory.getEventListenerInvocationCounter).hasValue(1);
     }
