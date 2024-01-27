@@ -337,7 +337,7 @@ public final class Session
                 continue;
             }
             CatalogHandle catalogHandle = transactionManager.getCatalogHandle(transactionId, catalogName)
-                    .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog '%s' not found".formatted(catalogName)));
+                    .orElseThrow(() -> new TrinoException(CATALOG_NOT_FOUND, "Catalog '%s' not found".formatted(catalogName)));
 
             validateCatalogProperties(Optional.of(transactionId), accessControl, catalogName, catalogHandle, catalogProperties);
             connectorProperties.put(catalogName, catalogProperties);
