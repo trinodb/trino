@@ -28,9 +28,8 @@ import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.testing.LocalQueryRunner;
-import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -49,8 +48,7 @@ import static io.trino.operator.RetryPolicy.NONE;
 import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.spi.type.DoubleType.DOUBLE;
-import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
@@ -58,7 +56,6 @@ import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.sql.planner.planprinter.JsonRenderer.JsonRenderedNode;
 import static io.trino.sql.planner.planprinter.NodeRepresentation.TypedSymbol;
 import static io.trino.sql.planner.planprinter.NodeRepresentation.TypedSymbol.typedSymbol;
-import static io.trino.testing.MaterializedResult.resultBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -80,7 +77,7 @@ public class TestJsonRepresentation
     public void setUp()
     {
         // the expected values below simple non-distributed plans
-        queryRunner = LocalQueryRunner.create(TEST_SESSION);
+        queryRunner = new StandaloneQueryRunner(TEST_SESSION);
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog(TEST_SESSION.getCatalog().get(), "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
     }
@@ -93,90 +90,37 @@ public class TestJsonRepresentation
     }
 
     @Test
-    public void testDistributedJsonPlan()
+    public void testJsonPlan()
     {
-        MaterializedResult actualPlan = queryRunner.execute("EXPLAIN (TYPE DISTRIBUTED, FORMAT JSON) SELECT quantity FROM lineitem limit 10");
-        Map<String, JsonRenderedNode> distributedPlan = ImmutableMap.of(
-                "0", new JsonRenderedNode(
-                        "6",
-                        "Output",
-                        ImmutableMap.of("columnNames", "[quantity]"),
-                        ImmutableList.of(typedSymbol("quantity", DOUBLE)),
-                        ImmutableList.of(),
-                        ImmutableList.of(new PlanNodeStatsAndCostSummary(10, 90, 0, 0, 0)),
-                        ImmutableList.of(new JsonRenderedNode(
-                                "100",
-                                "Limit",
-                                ImmutableMap.of("count", "10", "withTies", "", "inputPreSortedBy", "[]"),
-                                ImmutableList.of(typedSymbol("quantity", DOUBLE)),
-                                ImmutableList.of(),
-                                ImmutableList.of(new PlanNodeStatsAndCostSummary(10, 90, 90, 0, 0)),
-                                ImmutableList.of(new JsonRenderedNode(
-                                        "149",
-                                        "LocalExchange",
-                                        ImmutableMap.of(
-                                                "partitioning", "SINGLE",
-                                                "isReplicateNullsAndAny", "",
-                                                "hashColumn", "[]",
-                                                "arguments", "[]"),
-                                        ImmutableList.of(typedSymbol("quantity", DOUBLE)),
-                                        ImmutableList.of(),
-                                        ImmutableList.of(new PlanNodeStatsAndCostSummary(60175, 541575, 0, 0, 0)),
-                                        ImmutableList.of(new JsonRenderedNode(
-                                                "0",
-                                                "TableScan",
-                                                ImmutableMap.of("table", "tpch:tiny:lineitem"),
-                                                ImmutableList.of(typedSymbol("quantity", DOUBLE)),
-                                                ImmutableList.of("quantity := tpch:quantity"),
-                                                ImmutableList.of(new PlanNodeStatsAndCostSummary(60175, 541575, 541575, 0, 0)),
-                                                ImmutableList.of()))))))));
-        MaterializedResult expectedPlan = resultBuilder(queryRunner.getDefaultSession(), createVarcharType(2059))
-                .row(DISTRIBUTED_PLAN_JSON_CODEC.toJson(distributedPlan))
-                .build();
-        assertThat(actualPlan).isEqualTo(expectedPlan);
-    }
-
-    @Test
-    public void testLogicalJsonPlan()
-    {
-        MaterializedResult actualPlan = queryRunner.execute("EXPLAIN (TYPE LOGICAL, FORMAT JSON) SELECT quantity FROM lineitem limit 10");
-        JsonRenderedNode expectedJsonNode = new JsonRenderedNode(
-                "6",
+        String query = "SELECT * FROM (VALUES 1, 2) limit 1";
+        JsonRenderedNode expectedPlan = new JsonRenderedNode(
+                "8",
                 "Output",
-                ImmutableMap.of("columnNames", "[quantity]"),
-                ImmutableList.of(typedSymbol("quantity", DOUBLE)),
-                ImmutableList.of(),
-                ImmutableList.of(new PlanNodeStatsAndCostSummary(10, 90, 0, 0, 0)),
+                ImmutableMap.of("columnNames", "[_col0]"),
+                ImmutableList.of(typedSymbol("field", INTEGER)),
+                ImmutableList.of("_col0 := field"),
+                ImmutableList.of(new PlanNodeStatsAndCostSummary(1, 5, 0, 0, 0)),
                 ImmutableList.of(new JsonRenderedNode(
-                        "100",
+                        "90",
                         "Limit",
-                        ImmutableMap.of("count", "10", "withTies", "", "inputPreSortedBy", "[]"),
-                        ImmutableList.of(typedSymbol("quantity", DOUBLE)),
+                        ImmutableMap.of("count", "1", "withTies", "", "inputPreSortedBy", "[]"),
+                        ImmutableList.of(typedSymbol("field", INTEGER)),
                         ImmutableList.of(),
-                        ImmutableList.of(new PlanNodeStatsAndCostSummary(10, 90, 90, 0, 0)),
+                        ImmutableList.of(new PlanNodeStatsAndCostSummary(1, 5, 5, 0, 0)),
                         ImmutableList.of(new JsonRenderedNode(
-                                "149",
-                                "LocalExchange",
-                                ImmutableMap.of(
-                                        "partitioning", "SINGLE",
-                                        "isReplicateNullsAndAny", "",
-                                        "hashColumn", "[]",
-                                        "arguments", "[]"),
-                                ImmutableList.of(typedSymbol("quantity", DOUBLE)),
-                                ImmutableList.of(),
-                                ImmutableList.of(new PlanNodeStatsAndCostSummary(60175, 541575, 0, 0, 0)),
-                                ImmutableList.of(new JsonRenderedNode(
-                                        "0",
-                                        "TableScan",
-                                        ImmutableMap.of("table", "tpch:tiny:lineitem"),
-                                        ImmutableList.of(typedSymbol("quantity", DOUBLE)),
-                                        ImmutableList.of("quantity := tpch:quantity"),
-                                        ImmutableList.of(new PlanNodeStatsAndCostSummary(60175, 541575, 541575, 0, 0)),
-                                        ImmutableList.of())))))));
-        MaterializedResult expectedPlan = resultBuilder(queryRunner.getDefaultSession(), createVarcharType(1885))
-                .row(JSON_RENDERED_NODE_CODEC.toJson(expectedJsonNode))
-                .build();
-        assertThat(actualPlan).isEqualTo(expectedPlan);
+                                "0",
+                                "Values",
+                                ImmutableMap.of(),
+                                ImmutableList.of(typedSymbol("field", INTEGER)),
+                                ImmutableList.of("(1)", "(2)"),
+                                ImmutableList.of(new PlanNodeStatsAndCostSummary(2, 10, 0, 0, 0)),
+                                ImmutableList.of())))));
+
+        assertThat(queryRunner.execute("EXPLAIN (TYPE DISTRIBUTED, FORMAT JSON) " + query).getOnlyValue())
+                .isEqualTo(DISTRIBUTED_PLAN_JSON_CODEC.toJson(ImmutableMap.of("0", expectedPlan)));
+
+        assertThat(queryRunner.execute("EXPLAIN (TYPE LOGICAL, FORMAT JSON) " + query).getOnlyValue())
+                .isEqualTo(JSON_RENDERED_NODE_CODEC.toJson(expectedPlan));
     }
 
     @Test
