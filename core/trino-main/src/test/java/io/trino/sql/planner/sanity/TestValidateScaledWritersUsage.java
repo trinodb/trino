@@ -37,7 +37,7 @@ import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableScanNode;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import io.trino.testing.TestingTransactionHandle;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -70,7 +70,7 @@ public class TestValidateScaledWritersUsage
             new ConnectorPartitioningHandle() { },
             true);
 
-    private LocalQueryRunner queryRunner;
+    private PlanTester planTester;
     private PlannerContext plannerContext;
     private PlanBuilder planBuilder;
     private Symbol symbol;
@@ -83,9 +83,9 @@ public class TestValidateScaledWritersUsage
     {
         schemaTableName = new SchemaTableName("any", "any");
         catalog = createTestCatalogHandle("catalog");
-        queryRunner = LocalQueryRunner.create(TEST_SESSION);
-        queryRunner.createCatalog(catalog.getCatalogName(), createConnectorFactory(catalog.getCatalogName()), ImmutableMap.of());
-        plannerContext = queryRunner.getPlannerContext();
+        planTester = PlanTester.create(TEST_SESSION);
+        planTester.createCatalog(catalog.getCatalogName(), createConnectorFactory(catalog.getCatalogName()), ImmutableMap.of());
+        plannerContext = planTester.getPlannerContext();
         planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), plannerContext, TEST_SESSION);
         TableHandle nationTableHandle = new TableHandle(
                 catalog,
@@ -99,8 +99,8 @@ public class TestValidateScaledWritersUsage
     @AfterAll
     public void tearDown()
     {
-        queryRunner.close();
-        queryRunner = null;
+        planTester.close();
+        planTester = null;
         plannerContext = null;
         planBuilder = null;
         tableScanNode = null;
@@ -285,7 +285,7 @@ public class TestValidateScaledWritersUsage
 
     private void validatePlan(PlanNode root)
     {
-        queryRunner.inTransaction(session -> {
+        planTester.inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
             plannerContext.getMetadata().getCatalogHandle(session, catalog.getCatalogName());
             new ValidateScaledWritersUsage().validate(

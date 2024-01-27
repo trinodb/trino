@@ -333,23 +333,23 @@ public class TestReorderWindows
     private void assertUnitPlan(@Language("SQL") String sql, PlanMatchPattern pattern)
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
-                new UnaliasSymbolReferences(getQueryRunner().getPlannerContext().getMetadata()),
+                new UnaliasSymbolReferences(getPlanTester().getPlannerContext().getMetadata()),
                 new PredicatePushDown(
-                        getQueryRunner().getPlannerContext(),
-                        createTestingTypeAnalyzer(getQueryRunner().getPlannerContext()),
+                        getPlanTester().getPlannerContext(),
+                        createTestingTypeAnalyzer(getPlanTester().getPlannerContext()),
                         false,
                         false),
                 new IterativeOptimizer(
-                        getQueryRunner().getPlannerContext(),
+                        getPlanTester().getPlannerContext(),
                         new RuleStatsRecorder(),
-                        getQueryRunner().getStatsCalculator(),
-                        getQueryRunner().getEstimatedExchangesCostCalculator(),
+                        getPlanTester().getStatsCalculator(),
+                        getPlanTester().getEstimatedExchangesCostCalculator(),
                         ImmutableSet.<Rule<?>>builder()
                                 .add(new RemoveRedundantIdentityProjections())
                                 .add(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(0))
                                 .add(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(1))
                                 .add(new GatherAndMergeWindows.SwapAdjacentWindowsBySpecifications(2))
-                                .addAll(columnPruningRules(getQueryRunner().getPlannerContext().getMetadata()))
+                                .addAll(columnPruningRules(getPlanTester().getPlannerContext().getMetadata()))
                                 .build()));
         assertPlan(sql, pattern, optimizers);
     }

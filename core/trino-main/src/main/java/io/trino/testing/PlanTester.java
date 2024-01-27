@@ -239,7 +239,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 
-public class LocalQueryRunner
+public class PlanTester
         implements Closeable
 {
     private final Session defaultSession;
@@ -287,17 +287,17 @@ public class LocalQueryRunner
     private final StatementAnalyzerFactory statementAnalyzerFactory;
     private boolean printPlan;
 
-    public static LocalQueryRunner create(Session defaultSession)
+    public static PlanTester create(Session defaultSession)
     {
-        return create(defaultSession, 1);
+        return new PlanTester(defaultSession, 1);
     }
 
-    public static LocalQueryRunner create(Session defaultSession, int nodeCountForStats)
+    public static PlanTester create(Session defaultSession, int nodeCountForStats)
     {
-        return new LocalQueryRunner(defaultSession, nodeCountForStats);
+        return new PlanTester(defaultSession, nodeCountForStats);
     }
 
-    private LocalQueryRunner(Session defaultSession, int nodeCountForStats)
+    private PlanTester(Session defaultSession, int nodeCountForStats)
     {
         requireNonNull(defaultSession, "defaultSession is null");
 
@@ -611,7 +611,7 @@ public class LocalQueryRunner
                 .getConnector();
     }
 
-    public LocalQueryRunner printPlan()
+    public PlanTester printPlan()
     {
         printPlan = true;
         return this;
@@ -853,7 +853,7 @@ public class LocalQueryRunner
                 planOptimizersStatsCollector);
 
         Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
-        // make LocalQueryRunner always compute plan statistics for test purposes
+        // make PlanTester always compute plan statistics for test purposes
         return logicalPlanner.plan(analysis, stage);
     }
 

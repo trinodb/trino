@@ -30,7 +30,7 @@ public class TestLocalEngineOnlyQueries
     @Override
     protected QueryRunner createQueryRunner()
     {
-        QueryRunner queryRunner = TestLocalQueries.createLocalQueryRunner();
+        QueryRunner queryRunner = TestLocalQueries.createTestQueryRunner();
         try {
             queryRunner.addFunctions(CustomFunctionBundle.CUSTOM_FUNCTIONS);
             // for testing session properties
@@ -50,13 +50,13 @@ public class TestLocalEngineOnlyQueries
     @Override
     public void testSetSession()
     {
-        abort("SET SESSION is not supported by LocalQueryRunner");
+        abort("SET SESSION is not supported by PlanTester");
     }
 
     @Test
     @Override
     public void testResetSession()
     {
-        abort("RESET SESSION is not supported by LocalQueryRunner");
+        abort("RESET SESSION is not supported by PlanTester");
     }
 }

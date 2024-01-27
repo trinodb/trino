@@ -22,7 +22,7 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
@@ -135,7 +135,7 @@ public abstract class BaseQueryAssertionsTest
         assertThatThrownBy(() -> queryAssert.matches("VALUES X'001299'"))
                 .hasMessageMatching(
                         // TODO the representation and thus messages should be the same regardless of query runner in use
-                        getQueryRunner() instanceof LocalQueryRunner
+                        getQueryRunner() instanceof PlanTester
                                 ? "(?s).*" +
                                 "\\Q" +
                                 "Expecting actual:\n" +
@@ -170,7 +170,7 @@ public abstract class BaseQueryAssertionsTest
         assertThatThrownBy(() -> queryAssert.matches("SELECT CAST(ROW(X'001299') AS ROW(foo varbinary))"))
                 .hasMessageMatching(
                         // TODO the representation and thus messages should be the same regardless of query runner in use
-                        getQueryRunner() instanceof LocalQueryRunner
+                        getQueryRunner() instanceof PlanTester
                                 ? "(?s).*" +
                                 "\\Q" +
                                 "Expecting actual:\n" +

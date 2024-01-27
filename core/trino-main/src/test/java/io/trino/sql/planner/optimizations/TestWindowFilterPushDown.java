@@ -301,7 +301,7 @@ public class TestWindowFilterPushDown
 
     private Session optimizeTopNRanking(boolean enabled)
     {
-        return Session.builder(this.getQueryRunner().getDefaultSession())
+        return Session.builder(this.getPlanTester().getDefaultSession())
                 .setSystemProperty(OPTIMIZE_TOP_N_RANKING, Boolean.toString(enabled))
                 .build();
     }

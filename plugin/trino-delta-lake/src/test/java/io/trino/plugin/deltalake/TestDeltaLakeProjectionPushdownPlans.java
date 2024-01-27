@@ -27,7 +27,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.PrincipalType;
 import io.trino.sql.planner.assertions.BasePushdownPlanTest;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -69,7 +69,7 @@ public class TestDeltaLakeProjectionPushdownPlans
     private Path baseDir;
 
     @Override
-    protected LocalQueryRunner createLocalQueryRunner()
+    protected PlanTester createPlanTester()
     {
         Session session = testSessionBuilder()
                 .setCatalog(DELTA_CATALOG)
@@ -82,14 +82,14 @@ public class TestDeltaLakeProjectionPushdownPlans
             throw new UncheckedIOException(e);
         }
 
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
-        queryRunner.installPlugin(new TestingDeltaLakePlugin(baseDir));
-        queryRunner.createCatalog(DELTA_CATALOG, "delta_lake", ImmutableMap.<String, String>builder()
+        PlanTester planTester = PlanTester.create(session);
+        planTester.installPlugin(new TestingDeltaLakePlugin(baseDir));
+        planTester.createCatalog(DELTA_CATALOG, "delta_lake", ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")
                 .put("hive.metastore.catalog.dir", baseDir.toString())
                 .buildOrThrow());
 
-        HiveMetastore metastore = TestingDeltaLakeUtils.getConnectorService(queryRunner, HiveMetastoreFactory.class)
+        HiveMetastore metastore = TestingDeltaLakeUtils.getConnectorService(planTester, HiveMetastoreFactory.class)
                 .createMetastore(Optional.empty());
         Database database = Database.builder()
                 .setDatabaseName(SCHEMA)
@@ -99,7 +99,7 @@ public class TestDeltaLakeProjectionPushdownPlans
 
         metastore.createDatabase(database);
 
-        return queryRunner;
+        return planTester;
     }
 
     @AfterAll
@@ -116,11 +116,11 @@ public class TestDeltaLakeProjectionPushdownPlans
     {
         String testTable = "test_pushdown_disabled_" + randomNameSuffix();
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getPlanTester().getDefaultSession())
                 .setCatalogSessionProperty(DELTA_CATALOG, "projection_pushdown_enabled", "false")
                 .build();
 
-        getQueryRunner().executeStatement(format(
+        getPlanTester().executeStatement(format(
                 "CREATE TABLE %s (col0) AS SELECT CAST(row(5, 6) AS row(a bigint, b bigint)) AS col0 WHERE false",
                 testTable));
 
@@ -139,12 +139,12 @@ public class TestDeltaLakeProjectionPushdownPlans
         String testTable = "test_simple_projection_pushdown" + randomNameSuffix();
         QualifiedObjectName completeTableName = new QualifiedObjectName(DELTA_CATALOG, SCHEMA, testTable);
 
-        getQueryRunner().executeStatement(format(
+        getPlanTester().executeStatement(format(
                 "CREATE TABLE %s (col0, col1) WITH (partitioned_by = ARRAY['col1']) AS" +
                         " SELECT CAST(row(5, 6) AS row(x bigint, y bigint)) AS col0, 5 AS col1",
                 testTable));
 
-        Session session = getQueryRunner().getDefaultSession();
+        Session session = getPlanTester().getDefaultSession();
 
         Optional<TableHandle> tableHandle = getTableHandle(session, completeTableName);
         assertThat(tableHandle).as("expected the table handle to be present").isPresent();

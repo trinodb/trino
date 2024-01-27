@@ -56,7 +56,7 @@ public class TestValidateAggregationsWithDefaultValues
     @BeforeAll
     public void setup()
     {
-        plannerContext = getQueryRunner().getPlannerContext();
+        plannerContext = getPlanTester().getPlannerContext();
         builder = new PlanBuilder(new PlanNodeIdAllocator(), plannerContext, TEST_SESSION);
         CatalogHandle catalogHandle = getCurrentCatalogHandle();
         TableHandle nationTableHandle = new TableHandle(
@@ -192,7 +192,7 @@ public class TestValidateAggregationsWithDefaultValues
 
     private void validatePlan(PlanNode root, boolean forceSingleNode)
     {
-        getQueryRunner().inTransaction(session -> {
+        getPlanTester().inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
             session.getCatalog().ifPresent(catalog -> plannerContext.getMetadata().getCatalogHandle(session, catalog));
             new ValidateAggregationsWithDefaultValues(forceSingleNode).validate(

@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.sql.planner.Plan;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -48,8 +48,8 @@ public class BenchmarkReorderChainedJoins
     @Benchmark
     public Plan benchmarkReorderJoins(BenchmarkInfo benchmarkInfo)
     {
-        LocalQueryRunner queryRunner = benchmarkInfo.getQueryRunner();
-        return queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(
+        PlanTester planTester = benchmarkInfo.getPlanTester();
+        return planTester.inTransaction(transactionSession -> planTester.createPlan(
                 transactionSession,
                 """
                 SELECT *
@@ -70,7 +70,7 @@ public class BenchmarkReorderChainedJoins
         @Param({"ELIMINATE_CROSS_JOINS", "AUTOMATIC"})
         private String joinReorderingStrategy;
 
-        private LocalQueryRunner queryRunner;
+        private PlanTester planTester;
 
         @Setup
         public void setup()
@@ -81,20 +81,20 @@ public class BenchmarkReorderChainedJoins
                     .setCatalog("tpch")
                     .setSchema("tiny")
                     .build();
-            queryRunner = LocalQueryRunner.create(session);
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
+            planTester = PlanTester.create(session);
+            planTester.installPlugin(new TpchPlugin());
+            planTester.createCatalog("tpch", "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
         }
 
-        public LocalQueryRunner getQueryRunner()
+        public PlanTester getPlanTester()
         {
-            return queryRunner;
+            return planTester;
         }
 
         @TearDown
         public void tearDown()
         {
-            queryRunner.close();
+            planTester.close();
         }
     }
 

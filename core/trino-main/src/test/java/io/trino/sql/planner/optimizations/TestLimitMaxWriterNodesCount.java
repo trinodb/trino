@@ -33,7 +33,7 @@ import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.plan.TableExecuteNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -71,23 +71,23 @@ public class TestLimitMaxWriterNodesCount
     public static final ConnectorPartitioningHandle SINGLE_BUCKET_HANDLE = new ConnectorPartitioningHandle() {};
 
     @Override
-    protected LocalQueryRunner createLocalQueryRunner()
+    protected PlanTester createPlanTester()
     {
         List<String> tables = ImmutableList.of(partitionedTable, unPartitionedTable, sourceTable, bucketedTable);
         Session session = testSessionBuilder()
                 .setCatalog(catalogName)
                 .setSchema("default")
                 .build();
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
-        queryRunner.createCatalog(
+        PlanTester planTester = PlanTester.create(session);
+        planTester.createCatalog(
                 catalogName,
                 prepareConnectorFactory(catalogName, OptionalInt.empty(), tables),
                 ImmutableMap.of());
-        queryRunner.createCatalog(
+        planTester.createCatalog(
                 catalogNameWithMaxWriterTasksSpecified,
                 prepareConnectorFactory(catalogNameWithMaxWriterTasksSpecified, OptionalInt.of(1), tables),
                 ImmutableMap.of());
-        return queryRunner;
+        return planTester;
     }
 
     private MockConnectorFactory prepareConnectorFactory(String catalogName, OptionalInt maxWriterTasks, List<String> tables)
@@ -143,7 +143,7 @@ public class TestLimitMaxWriterNodesCount
     {
         @Language("SQL") String query = "INSERT INTO unpartitioned_target_table VALUES ('one', 'two')";
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
                 .setSystemProperty(SCALE_WRITERS, "false")
                 .setCatalog(catalogName)
@@ -165,7 +165,7 @@ public class TestLimitMaxWriterNodesCount
     {
         @Language("SQL") String query = "INSERT INTO unpartitioned_target_table VALUES ('one', 'two')";
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
                 .setSystemProperty(SCALE_WRITERS, "true")
                 .setCatalog(catalogName)
@@ -187,7 +187,7 @@ public class TestLimitMaxWriterNodesCount
     {
         @Language("SQL") String query = "INSERT INTO unpartitioned_target_table VALUES ('one', 'two')";
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
                 .setSystemProperty(SCALE_WRITERS, "false")
                 .setSystemProperty(REDISTRIBUTE_WRITES, "false")
@@ -208,7 +208,7 @@ public class TestLimitMaxWriterNodesCount
     {
         @Language("SQL") String query = "INSERT INTO partitioned_target_table VALUES ('one', 'two'), ('three', 'four')";
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
                 .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
                 .setCatalog(catalogName)
@@ -230,7 +230,7 @@ public class TestLimitMaxWriterNodesCount
     {
         @Language("SQL") String query = "INSERT INTO partitioned_bucketed_target_table VALUES ('one', 'two'), ('three', 'four')";
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
                 .setCatalog(catalogName)
                 .build();
@@ -251,7 +251,7 @@ public class TestLimitMaxWriterNodesCount
     {
         @Language("SQL") String query = "INSERT INTO partitioned_target_table VALUES ('one', 'two'), ('three', 'four')";
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
                 .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
                 .setCatalog(catalogNameWithMaxWriterTasksSpecified)
@@ -273,7 +273,7 @@ public class TestLimitMaxWriterNodesCount
     {
         @Language("SQL") String query = "INSERT INTO partitioned_target_table VALUES ('one', 'two'), ('three', 'four')";
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
                 .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
                 .setSystemProperty(RETRY_POLICY, "TASK")
@@ -295,7 +295,7 @@ public class TestLimitMaxWriterNodesCount
     {
         @Language("SQL") String query = "ALTER TABLE unpartitioned_target_table EXECUTE optimize(file_size_threshold => '10MB')";
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
                 .setSystemProperty(SCALE_WRITERS, "false")
                 .setCatalog(catalogName)
@@ -317,7 +317,7 @@ public class TestLimitMaxWriterNodesCount
     {
         @Language("SQL") String query = "ALTER TABLE unpartitioned_target_table EXECUTE optimize(file_size_threshold => '10MB')";
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
                 .setSystemProperty(SCALE_WRITERS, "true")
                 .setCatalog(catalogName)
@@ -339,7 +339,7 @@ public class TestLimitMaxWriterNodesCount
     {
         @Language("SQL") String query = "ALTER TABLE unpartitioned_target_table EXECUTE optimize(file_size_threshold => '10MB')";
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
                 .setSystemProperty(SCALE_WRITERS, "false")
                 .setSystemProperty(REDISTRIBUTE_WRITES, "false")
@@ -360,7 +360,7 @@ public class TestLimitMaxWriterNodesCount
     {
         @Language("SQL") String query = "ALTER TABLE partitioned_target_table EXECUTE optimize(file_size_threshold => '10MB')";
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
                 .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
                 .setCatalog(catalogName)
@@ -382,7 +382,7 @@ public class TestLimitMaxWriterNodesCount
     {
         @Language("SQL") String query = "ALTER TABLE partitioned_target_table EXECUTE optimize(file_size_threshold => '10MB')";
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
                 .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
                 .setCatalog(catalogNameWithMaxWriterTasksSpecified)
@@ -404,7 +404,7 @@ public class TestLimitMaxWriterNodesCount
     {
         @Language("SQL") String query = "ALTER TABLE partitioned_target_table EXECUTE optimize(file_size_threshold => '10MB')";
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(MAX_WRITER_TASK_COUNT, "2")
                 .setSystemProperty(USE_PREFERRED_WRITE_PARTITIONING, "true")
                 .setSystemProperty(RETRY_POLICY, "TASK")
