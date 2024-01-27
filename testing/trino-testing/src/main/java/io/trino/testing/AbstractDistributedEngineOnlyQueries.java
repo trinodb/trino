@@ -96,7 +96,7 @@ public abstract class AbstractDistributedEngineOnlyQueries
     @Test
     public void testUse()
     {
-        assertQueryFails("USE invalid.xyz", "Catalog 'invalid' does not exist");
+        assertQueryFails("USE invalid.xyz", "Catalog 'invalid' not found");
         assertQueryFails("USE tpch.invalid", "Schema does not exist: tpch.invalid");
     }
 
