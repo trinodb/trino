@@ -26,7 +26,6 @@ import io.opentelemetry.api.trace.Tracer;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
-import io.trino.SystemSessionPropertiesProvider;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogFactory;
 import io.trino.connector.CatalogServiceProviderModule;
@@ -212,7 +211,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -331,8 +329,7 @@ public class LocalQueryRunner
             NodeSpillConfig nodeSpillConfig,
             boolean alwaysRevokeMemory,
             int nodeCountForStats,
-            Function<Metadata, Metadata> metadataDecorator,
-            Set<SystemSessionPropertiesProvider> extraSessionProperties)
+            Function<Metadata, Metadata> metadataDecorator)
     {
         requireNonNull(defaultSession, "defaultSession is null");
 
@@ -409,7 +406,7 @@ public class LocalQueryRunner
         this.pageSinkManager = new PageSinkManager(createPageSinkProvider(catalogManager));
         this.indexManager = new IndexManager(createIndexProvider(catalogManager));
         NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, new NodeTaskMap(finalizerService)));
-        this.sessionPropertyManager = createSessionPropertyManager(catalogManager, extraSessionProperties, taskManagerConfig, featuresConfig, optimizerConfig);
+        this.sessionPropertyManager = createSessionPropertyManager(catalogManager, taskManagerConfig, featuresConfig, optimizerConfig);
         this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, typeOperators, createNodePartitioningProvider(catalogManager));
         TableProceduresRegistry tableProceduresRegistry = new TableProceduresRegistry(createTableProceduresProvider(catalogManager));
         FunctionManager functionManager = new FunctionManager(createFunctionProvider(catalogManager), globalFunctionCatalog, languageFunctionManager);
@@ -526,25 +523,20 @@ public class LocalQueryRunner
 
     private static SessionPropertyManager createSessionPropertyManager(
             ConnectorServicesProvider connectorServicesProvider,
-            Set<SystemSessionPropertiesProvider> extraSessionProperties,
             TaskManagerConfig taskManagerConfig,
             FeaturesConfig featuresConfig,
             OptimizerConfig optimizerConfig)
     {
-        Set<SystemSessionPropertiesProvider> systemSessionProperties = ImmutableSet.<SystemSessionPropertiesProvider>builder()
-                .addAll(requireNonNull(extraSessionProperties, "extraSessionProperties is null"))
-                .add(new SystemSessionProperties(
-                        new QueryManagerConfig(),
-                        taskManagerConfig,
-                        new MemoryManagerConfig(),
-                        featuresConfig,
-                        optimizerConfig,
-                        new NodeMemoryConfig(),
-                        new DynamicFilterConfig(),
-                        new NodeSchedulerConfig()))
-                .build();
-
-        return CatalogServiceProviderModule.createSessionPropertyManager(systemSessionProperties, connectorServicesProvider);
+        SystemSessionProperties sessionProperties = new SystemSessionProperties(
+                new QueryManagerConfig(),
+                taskManagerConfig,
+                new MemoryManagerConfig(),
+                featuresConfig,
+                optimizerConfig,
+                new NodeMemoryConfig(),
+                new DynamicFilterConfig(),
+                new NodeSchedulerConfig());
+        return CatalogServiceProviderModule.createSessionPropertyManager(ImmutableSet.of(sessionProperties), connectorServicesProvider);
     }
 
     private static StatsCalculator createNewStatsCalculator(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
@@ -1106,7 +1098,6 @@ public class LocalQueryRunner
         private FeaturesConfig featuresConfig = new FeaturesConfig();
         private NodeSpillConfig nodeSpillConfig = new NodeSpillConfig();
         private boolean alwaysRevokeMemory;
-        private Set<SystemSessionPropertiesProvider> extraSessionProperties = ImmutableSet.of();
         private int nodeCountForStats = 1;
         private Function<Metadata, Metadata> metadataDecorator = Function.identity();
 
@@ -1153,8 +1144,7 @@ public class LocalQueryRunner
                     nodeSpillConfig,
                     alwaysRevokeMemory,
                     nodeCountForStats,
-                    metadataDecorator,
-                    extraSessionProperties);
+                    metadataDecorator);
         }
     }
 }
