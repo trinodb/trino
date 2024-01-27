@@ -647,7 +647,7 @@ public class TestingTrinoServer
     {
         checkState(coordinator, "not a coordinator");
         CatalogHandle catalogHandle = catalogManager.orElseThrow().getCatalog(catalogName)
-                .orElseThrow(() -> new IllegalArgumentException("Catalog '%s' does not exist".formatted(catalogName)))
+                .orElseThrow(() -> new IllegalArgumentException("Catalog '%s' not found".formatted(catalogName)))
                 .getCatalogHandle();
         return injector.getInstance(ConnectorServicesProvider.class)
                 .getConnectorServices(catalogHandle)
