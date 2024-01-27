@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
 import io.airlift.node.NodeInfo;
-import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
 import io.opentelemetry.api.trace.Span;
@@ -118,7 +117,6 @@ import io.trino.metadata.TypeRegistry;
 import io.trino.operator.Driver;
 import io.trino.operator.DriverContext;
 import io.trino.operator.GroupByHashPageIndexerFactory;
-import io.trino.operator.OperatorContext;
 import io.trino.operator.OutputFactory;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexPageSorter;
@@ -150,13 +148,7 @@ import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
-import io.trino.spiller.FileSingleStreamSpillerFactory;
-import io.trino.spiller.GenericPartitioningSpillerFactory;
 import io.trino.spiller.GenericSpillerFactory;
-import io.trino.spiller.NodeSpillConfig;
-import io.trino.spiller.PartitioningSpillerFactory;
-import io.trino.spiller.SpillerFactory;
-import io.trino.spiller.SpillerStats;
 import io.trino.split.AlternativeChooser;
 import io.trino.split.PageSinkManager;
 import io.trino.split.PageSourceManager;
@@ -261,9 +253,12 @@ import static io.trino.execution.querystats.PlanOptimizersStatsCollector.createP
 import static io.trino.execution.warnings.WarningCollector.NOOP;
 import static io.trino.spi.connector.Constraint.alwaysTrue;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
+import static io.trino.spiller.PartitioningSpillerFactory.unsupportedPartitioningSpillerFactory;
+import static io.trino.spiller.SingleStreamSpillerFactory.unsupportedSingleStreamSpillerFactory;
 import static io.trino.sql.planner.LogicalPlanner.Stage.OPTIMIZED_AND_VALIDATED;
 import static io.trino.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.trino.sql.testing.TreeAssertions.assertFormattedSql;
+import static io.trino.testing.TestingTaskContext.createTaskContext;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.util.EmbedVersion.testingVersionEmbedder;
 import static java.util.Objects.requireNonNull;
@@ -300,9 +295,6 @@ public class LocalQueryRunner
     private final NodePartitioningManager nodePartitioningManager;
     private final PageSinkManager pageSinkManager;
     private final TransactionManager transactionManager;
-    private final FileSingleStreamSpillerFactory singleStreamSpillerFactory;
-    private final SpillerFactory spillerFactory;
-    private final PartitioningSpillerFactory partitioningSpillerFactory;
     private final SessionPropertyManager sessionPropertyManager;
     private final SchemaPropertyManager schemaPropertyManager;
     private final ColumnPropertyManager columnPropertyManager;
@@ -322,9 +314,6 @@ public class LocalQueryRunner
     private final CacheManagerRegistry cacheManagerRegistry;
 
     private final TaskManagerConfig taskManagerConfig;
-    private final boolean alwaysRevokeMemory;
-    private final DataSize maxSpillPerNode;
-    private final DataSize queryMaxSpillPerNode;
     private final OptimizerConfig optimizerConfig;
     private final StatementAnalyzerFactory statementAnalyzerFactory;
     private boolean printPlan;
@@ -345,9 +334,7 @@ public class LocalQueryRunner
     private LocalQueryRunner(
             Session defaultSession,
             FeaturesConfig featuresConfig,
-            NodeSpillConfig nodeSpillConfig,
             CacheConfig cacheConfig,
-            boolean alwaysRevokeMemory,
             int nodeCountForStats,
             Function<Metadata, Metadata> metadataDecorator)
     {
@@ -355,10 +342,6 @@ public class LocalQueryRunner
 
         Tracer tracer = noopTracer();
         this.taskManagerConfig = new TaskManagerConfig().setTaskConcurrency(4);
-        requireNonNull(nodeSpillConfig, "nodeSpillConfig is null");
-        this.maxSpillPerNode = nodeSpillConfig.getMaxSpillPerNode();
-        this.queryMaxSpillPerNode = nodeSpillConfig.getQueryMaxSpillPerNode();
-        this.alwaysRevokeMemory = alwaysRevokeMemory;
         this.notificationExecutor = newCachedThreadPool(daemonThreadsNamed("local-query-runner-executor-%s"));
         this.yieldExecutor = newScheduledThreadPool(2, daemonThreadsNamed("local-query-runner-scheduler-%s"));
         this.finalizerService = new FinalizerService();
@@ -542,11 +525,6 @@ public class LocalQueryRunner
                 defaultSession.getProtocolHeaders(),
                 defaultSession.getExchangeEncryptionKey(),
                 defaultSession.getQueryDataEncoding());
-
-        SpillerStats spillerStats = new SpillerStats();
-        this.singleStreamSpillerFactory = new FileSingleStreamSpillerFactory(plannerContext.getBlockEncodingSerde(), spillerStats, featuresConfig, nodeSpillConfig);
-        this.partitioningSpillerFactory = new GenericPartitioningSpillerFactory(this.singleStreamSpillerFactory);
-        this.spillerFactory = new GenericSpillerFactory(singleStreamSpillerFactory);
     }
 
     private static SessionPropertyManager createSessionPropertyManager(
@@ -587,7 +565,6 @@ public class LocalQueryRunner
         yieldExecutor.shutdownNow();
         catalogManager.stop();
         finalizerService.destroy();
-        singleStreamSpillerFactory.destroy();
     }
 
     @Override
@@ -823,10 +800,7 @@ public class LocalQueryRunner
                 return builder.get()::page;
             });
 
-            TaskContext taskContext = TestingTaskContext.builder(notificationExecutor, yieldExecutor, session)
-                    .setMaxSpillSize(maxSpillPerNode)
-                    .setQueryMaxSpillSize(queryMaxSpillPerNode)
-                    .build();
+            TaskContext taskContext = createTaskContext(notificationExecutor, yieldExecutor, session);
 
             Plan plan = createPlan(session, sql);
             List<Driver> drivers = createDrivers(session, plan, outputFactory, taskContext);
@@ -836,14 +810,6 @@ public class LocalQueryRunner
             while (!done) {
                 boolean processed = false;
                 for (Driver driver : drivers) {
-                    if (alwaysRevokeMemory) {
-                        driver.getDriverContext().getOperatorContexts().stream()
-                                .filter(operatorContext -> operatorContext.getNestedOperatorStats().stream()
-                                        .mapToLong(stats -> stats.getRevocableMemoryReservation().toBytes())
-                                        .sum() > 0)
-                                .forEach(OperatorContext::requestMemoryRevoking);
-                    }
-
                     if (!driver.isFinished()) {
                         driver.processForNumberOfIterations(1);
                         processed = true;
@@ -932,9 +898,9 @@ public class LocalQueryRunner
                 new IndexJoinLookupStats(),
                 new CacheStats(),
                 this.taskManagerConfig,
-                spillerFactory,
-                singleStreamSpillerFactory,
-                partitioningSpillerFactory,
+                new GenericSpillerFactory(unsupportedSingleStreamSpillerFactory()),
+                unsupportedSingleStreamSpillerFactory(),
+                unsupportedPartitioningSpillerFactory(),
                 new PagesIndex.TestingFactory(false),
                 joinCompiler,
                 new OrderingCompiler(plannerContext.getTypeOperators()),
@@ -1149,9 +1115,7 @@ public class LocalQueryRunner
     {
         private final Session defaultSession;
         private FeaturesConfig featuresConfig = new FeaturesConfig();
-        private NodeSpillConfig nodeSpillConfig = new NodeSpillConfig();
         private CacheConfig cacheConfig = new CacheConfig();
-        private boolean alwaysRevokeMemory;
         private int nodeCountForStats = 1;
         private Function<Metadata, Metadata> metadataDecorator = Function.identity();
 
@@ -1166,21 +1130,9 @@ public class LocalQueryRunner
             return this;
         }
 
-        public Builder withNodeSpillConfig(NodeSpillConfig nodeSpillConfig)
-        {
-            this.nodeSpillConfig = requireNonNull(nodeSpillConfig, "nodeSpillConfig is null");
-            return this;
-        }
-
         public Builder withCacheConfig(CacheConfig cacheConfig)
         {
             this.cacheConfig = requireNonNull(cacheConfig, "cacheConfig is null");
-            return this;
-        }
-
-        public Builder withAlwaysRevokeMemory()
-        {
-            this.alwaysRevokeMemory = true;
             return this;
         }
 
@@ -1201,9 +1153,7 @@ public class LocalQueryRunner
             return new LocalQueryRunner(
                     defaultSession,
                     featuresConfig,
-                    nodeSpillConfig,
                     cacheConfig,
-                    alwaysRevokeMemory,
                     nodeCountForStats,
                     metadataDecorator);
         }
