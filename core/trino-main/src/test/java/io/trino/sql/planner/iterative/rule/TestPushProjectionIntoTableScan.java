@@ -154,8 +154,8 @@ public class TestPushProjectionIntoTableScan
                     .buildOrThrow();
 
             // Compute expected symbols after applyProjection
-            TransactionId transactionId = ruleTester.getQueryRunner().getTransactionManager().beginTransaction(false);
-            Session session = MOCK_SESSION.beginTransactionId(transactionId, ruleTester.getQueryRunner().getTransactionManager(), ruleTester.getQueryRunner().getAccessControl());
+            TransactionId transactionId = ruleTester.getPlanTester().getTransactionManager().beginTransaction(false);
+            Session session = MOCK_SESSION.beginTransactionId(transactionId, ruleTester.getPlanTester().getTransactionManager(), ruleTester.getPlanTester().getAccessControl());
             ImmutableMap<Symbol, String> connectorNames = inputProjections.entrySet().stream()
                     .collect(toImmutableMap(Map.Entry::getKey, e -> translate(session, e.getValue(), viewOf(types), ruleTester.getPlannerContext(), typeAnalyzer).get().toString()));
             ImmutableMap<Symbol, String> newNames = ImmutableMap.of(

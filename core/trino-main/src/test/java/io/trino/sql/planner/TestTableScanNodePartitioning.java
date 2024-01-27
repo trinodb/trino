@@ -35,7 +35,7 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.assertions.BasePlanTest;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -100,16 +100,16 @@ public class TestTableScanNodePartitioning
     public static final ColumnHandle COLUMN_HANDLE_B = new MockConnectorColumnHandle(COLUMN_B, VARCHAR);
 
     @Override
-    protected LocalQueryRunner createLocalQueryRunner()
+    protected PlanTester createPlanTester()
     {
         Session.SessionBuilder sessionBuilder = testSessionBuilder()
                 .setCatalog(TEST_CATALOG_NAME)
                 .setSchema(TEST_SCHEMA)
                 .setSystemProperty(TASK_CONCURRENCY, "2"); // force parallel plan even on test nodes with single CPU
 
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(sessionBuilder.build(), 10);
-        queryRunner.createCatalog(TEST_CATALOG_NAME, createMockFactory(), ImmutableMap.of());
-        return queryRunner;
+        PlanTester planTester = PlanTester.create(sessionBuilder.build(), 10);
+        planTester.createCatalog(TEST_CATALOG_NAME, createMockFactory(), ImmutableMap.of());
+        return planTester;
     }
 
     @Test

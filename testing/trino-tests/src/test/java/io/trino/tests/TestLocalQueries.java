@@ -36,10 +36,10 @@ public class TestLocalQueries
     @Override
     protected QueryRunner createQueryRunner()
     {
-        return createLocalQueryRunner();
+        return createTestQueryRunner();
     }
 
-    public static QueryRunner createLocalQueryRunner()
+    public static QueryRunner createTestQueryRunner()
     {
         Session defaultSession = testSessionBuilder()
                 .setCatalog("local")

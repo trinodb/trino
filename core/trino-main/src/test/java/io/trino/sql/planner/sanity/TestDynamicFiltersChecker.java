@@ -62,7 +62,7 @@ public class TestDynamicFiltersChecker
     @BeforeAll
     public void setup()
     {
-        plannerContext = getQueryRunner().getPlannerContext();
+        plannerContext = getPlanTester().getPlannerContext();
         metadata = plannerContext.getMetadata();
         builder = new PlanBuilder(new PlanNodeIdAllocator(), plannerContext, TEST_SESSION);
         CatalogHandle catalogHandle = getCurrentCatalogHandle();
@@ -349,7 +349,7 @@ public class TestDynamicFiltersChecker
 
     private void validatePlan(PlanNode root)
     {
-        getQueryRunner().inTransaction(session -> {
+        getPlanTester().inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
             new DynamicFiltersChecker().validate(root, session, plannerContext, createTestingTypeAnalyzer(plannerContext), TypeProvider.empty(), WarningCollector.NOOP);

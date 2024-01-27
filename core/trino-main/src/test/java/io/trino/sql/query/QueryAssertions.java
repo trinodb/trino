@@ -36,9 +36,9 @@ import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.ValuesNode;
-import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
+import io.trino.testing.PlanTester;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
 import io.trino.testing.assertions.TrinoExceptionAssert;
@@ -508,7 +508,7 @@ public class QueryAssertions
         @CanIgnoreReturnValue
         public QueryAssert isFullyPushedDown()
         {
-            checkState(!(runner instanceof LocalQueryRunner), "isFullyPushedDown() currently does not work with LocalQueryRunner");
+            checkState(!(runner instanceof PlanTester), "isFullyPushedDown() currently does not work with PlanTester");
 
             Metadata metadata = runner.getPlannerContext().getMetadata();
             transaction(runner.getTransactionManager(), metadata, runner.getAccessControl())
@@ -537,7 +537,7 @@ public class QueryAssertions
         @CanIgnoreReturnValue
         public QueryAssert isReplacedWithEmptyValues()
         {
-            checkState(!(runner instanceof LocalQueryRunner), "isReplacedWithEmptyValues() currently does not work with LocalQueryRunner");
+            checkState(!(runner instanceof PlanTester), "isReplacedWithEmptyValues() currently does not work with PlanTester");
 
             Metadata metadata = runner.getPlannerContext().getMetadata();
             transaction(runner.getTransactionManager(), metadata, runner.getAccessControl())

@@ -27,7 +27,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.PrincipalType;
 import io.trino.sql.planner.assertions.BasePushdownPlanTest;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 
@@ -64,7 +64,7 @@ public class TestIcebergProjectionPushdownPlans
     private File metastoreDir;
 
     @Override
-    protected LocalQueryRunner createLocalQueryRunner()
+    protected PlanTester createPlanTester()
     {
         Session session = testSessionBuilder()
                 .setCatalog(CATALOG)
@@ -77,11 +77,11 @@ public class TestIcebergProjectionPushdownPlans
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(session);
-        queryRunner.installPlugin(new TestingIcebergPlugin(metastoreDir.toPath()));
-        queryRunner.createCatalog(CATALOG, "iceberg", ImmutableMap.of());
+        PlanTester planTester = PlanTester.create(session);
+        planTester.installPlugin(new TestingIcebergPlugin(metastoreDir.toPath()));
+        planTester.createCatalog(CATALOG, "iceberg", ImmutableMap.of());
 
-        HiveMetastore metastore = ((IcebergConnector) queryRunner.getConnector(CATALOG)).getInjector()
+        HiveMetastore metastore = ((IcebergConnector) planTester.getConnector(CATALOG)).getInjector()
                 .getInstance(HiveMetastoreFactory.class)
                 .createMetastore(Optional.empty());
 
@@ -92,7 +92,7 @@ public class TestIcebergProjectionPushdownPlans
                 .build();
         metastore.createDatabase(database);
 
-        return queryRunner;
+        return planTester;
     }
 
     @AfterAll
@@ -109,11 +109,11 @@ public class TestIcebergProjectionPushdownPlans
     {
         String testTable = "test_disabled_pushdown" + randomNameSuffix();
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getPlanTester().getDefaultSession())
                 .setCatalogSessionProperty(CATALOG, "projection_pushdown_enabled", "false")
                 .build();
 
-        getQueryRunner().executeStatement(format(
+        getPlanTester().executeStatement(format(
                 "CREATE TABLE %s (col0) AS SELECT CAST(row(5, 6) AS row(a bigint, b bigint)) AS col0 WHERE false",
                 testTable));
 
@@ -132,12 +132,12 @@ public class TestIcebergProjectionPushdownPlans
         String testTable = "test_simple_projection_pushdown" + randomNameSuffix();
         QualifiedObjectName completeTableName = new QualifiedObjectName(CATALOG, SCHEMA, testTable);
 
-        getQueryRunner().executeStatement(format(
+        getPlanTester().executeStatement(format(
                 "CREATE TABLE %s (col0, col1) WITH (partitioning = ARRAY['col1']) AS" +
                         " SELECT CAST(row(5, 6) AS row(x bigint, y bigint)) AS col0, 5 AS col1",
                 testTable));
 
-        Session session = getQueryRunner().getDefaultSession();
+        Session session = getPlanTester().getDefaultSession();
 
         Optional<TableHandle> tableHandle = getTableHandle(session, completeTableName);
         assertThat(tableHandle).as("expected the table handle to be present").isPresent();

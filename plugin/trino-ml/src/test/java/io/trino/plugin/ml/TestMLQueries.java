@@ -36,12 +36,12 @@ public class TestMLQueries
                 .setSchema(TINY_SCHEMA_NAME)
                 .build();
 
-        QueryRunner localQueryRunner = new StandaloneQueryRunner(defaultSession);
-        localQueryRunner.installPlugin(new TpchPlugin());
-        localQueryRunner.createCatalog(defaultSession.getCatalog().get(), "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
+        QueryRunner queryRunner = new StandaloneQueryRunner(defaultSession);
+        queryRunner.installPlugin(new TpchPlugin());
+        queryRunner.createCatalog(defaultSession.getCatalog().get(), "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
 
-        localQueryRunner.installPlugin(new MLPlugin());
-        return localQueryRunner;
+        queryRunner.installPlugin(new MLPlugin());
+        return queryRunner;
     }
 
     @Test
