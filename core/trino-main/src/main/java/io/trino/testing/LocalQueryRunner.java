@@ -349,8 +349,7 @@ public class LocalQueryRunner
             CacheConfig cacheConfig,
             boolean alwaysRevokeMemory,
             int nodeCountForStats,
-            Function<Metadata, Metadata> metadataDecorator,
-            Set<SystemSessionPropertiesProvider> extraSessionProperties)
+            Function<Metadata, Metadata> metadataDecorator)
     {
         requireNonNull(defaultSession, "defaultSession is null");
 
@@ -429,7 +428,7 @@ public class LocalQueryRunner
         this.pageSinkManager = new PageSinkManager(createPageSinkProvider(catalogManager));
         this.indexManager = new IndexManager(createIndexProvider(catalogManager));
         NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, nodeSchedulerConfig, new NodeTaskMap(finalizerService)));
-        this.sessionPropertyManager = createSessionPropertyManager(catalogManager, extraSessionProperties, taskManagerConfig, featuresConfig, cacheConfig, optimizerConfig);
+        this.sessionPropertyManager = createSessionPropertyManager(catalogManager, taskManagerConfig, featuresConfig, cacheConfig, optimizerConfig);
         this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, typeOperators, createNodePartitioningProvider(catalogManager));
         TableProceduresRegistry tableProceduresRegistry = new TableProceduresRegistry(createTableProceduresProvider(catalogManager));
         FunctionManager functionManager = new FunctionManager(createFunctionProvider(catalogManager), globalFunctionCatalog, languageFunctionManager);
@@ -552,14 +551,12 @@ public class LocalQueryRunner
 
     private static SessionPropertyManager createSessionPropertyManager(
             ConnectorServicesProvider connectorServicesProvider,
-            Set<SystemSessionPropertiesProvider> extraSessionProperties,
             TaskManagerConfig taskManagerConfig,
             FeaturesConfig featuresConfig,
             CacheConfig cacheConfig,
             OptimizerConfig optimizerConfig)
     {
         Set<SystemSessionPropertiesProvider> systemSessionProperties = ImmutableSet.<SystemSessionPropertiesProvider>builder()
-                .addAll(requireNonNull(extraSessionProperties, "extraSessionProperties is null"))
                 .add(new SystemSessionProperties(
                         new QueryManagerConfig(),
                         taskManagerConfig,
@@ -1168,7 +1165,6 @@ public class LocalQueryRunner
         private NodeSpillConfig nodeSpillConfig = new NodeSpillConfig();
         private CacheConfig cacheConfig = new CacheConfig();
         private boolean alwaysRevokeMemory;
-        private Set<SystemSessionPropertiesProvider> extraSessionProperties = ImmutableSet.of();
         private int nodeCountForStats = 1;
         private Function<Metadata, Metadata> metadataDecorator = Function.identity();
 
@@ -1222,8 +1218,7 @@ public class LocalQueryRunner
                     cacheConfig,
                     alwaysRevokeMemory,
                     nodeCountForStats,
-                    metadataDecorator,
-                    extraSessionProperties);
+                    metadataDecorator);
         }
     }
 }
