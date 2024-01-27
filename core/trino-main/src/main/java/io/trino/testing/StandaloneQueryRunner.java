@@ -16,6 +16,9 @@ package io.trino.testing;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Key;
+import io.opentelemetry.sdk.testing.exporter.InMemorySpanExporter;
+import io.opentelemetry.sdk.trace.data.SpanData;
+import io.opentelemetry.sdk.trace.export.SimpleSpanProcessor;
 import io.trino.Session;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
@@ -59,6 +62,7 @@ public final class StandaloneQueryRunner
     private final Session defaultSession;
     private final TestingTrinoServer server;
     private final DirectTrinoClient trinoClient;
+    private final InMemorySpanExporter spanExporter = InMemorySpanExporter.create();
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
 
@@ -71,6 +75,7 @@ public final class StandaloneQueryRunner
     {
         this.defaultSession = requireNonNull(defaultSession, "defaultSession is null");
         TestingTrinoServer.Builder builder = TestingTrinoServer.builder()
+                .setSpanProcessor(SimpleSpanProcessor.create(spanExporter))
                 .setProperties(ImmutableMap.<String, String>builder()
                         .put("query.client.timeout", "10m")
                         .put("exchange.http-client.idle-timeout", "1h")
@@ -84,6 +89,11 @@ public final class StandaloneQueryRunner
                 server.getQueryManager(),
                 server.getInstance(Key.get(DirectExchangeClientSupplier.class)),
                 server.getInstance(Key.get(BlockEncodingSerde.class)));
+    }
+
+    public List<SpanData> getSpans()
+    {
+        return spanExporter.getFinishedSpanItems();
     }
 
     @Override
@@ -102,6 +112,7 @@ public final class StandaloneQueryRunner
     {
         lock.readLock().lock();
         try {
+            spanExporter.reset();
             DirectTrinoClient.MaterializedResultWithQueryId result = trinoClient.execute(session, sql);
             return new MaterializedResultWithQueryId(result.queryId(), result.result());
         }
@@ -127,6 +138,7 @@ public final class StandaloneQueryRunner
         // session must be in a transaction registered with the transaction manager in this query runner
         getTransactionManager().getTransactionInfo(session.getRequiredTransactionId());
 
+        spanExporter.reset();
         Statement statement = server.getInstance(Key.get(SqlParser.class)).createStatement(sql);
         return server.getQueryExplainer().getLogicalPlan(session, statement, ImmutableList.of(), WarningCollector.NOOP, createPlanOptimizersStatsCollector());
     }

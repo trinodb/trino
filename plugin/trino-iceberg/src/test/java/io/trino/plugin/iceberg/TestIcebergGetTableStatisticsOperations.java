@@ -14,7 +14,6 @@
 package io.trino.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
-import io.opentelemetry.sdk.testing.junit5.OpenTelemetryExtension;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.plugin.hive.metastore.Database;
 import io.trino.plugin.hive.metastore.HiveMetastore;
@@ -22,25 +21,19 @@ import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.security.PrincipalType;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
-import io.trino.tracing.TracingMetadata;
 import org.intellij.lang.annotations.Language;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.parallel.Execution;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 
-import static com.google.common.io.MoreFiles.deleteRecursively;
-import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.trino.plugin.iceberg.IcebergQueryRunner.ICEBERG_CATALOG;
-import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.TestingSession.testSession;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
@@ -52,18 +45,15 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 public class TestIcebergGetTableStatisticsOperations
         extends AbstractTestQueryFramework
 {
-    @RegisterExtension
-    static final OpenTelemetryExtension TELEMETRY = OpenTelemetryExtension.create();
-
-    private LocalQueryRunner queryRunner;
+    private DistributedQueryRunner queryRunner;
     private Path metastoreDir;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        queryRunner = LocalQueryRunner.builder(testSessionBuilder().build())
-                .withMetadataDecorator(metadata -> new TracingMetadata(TELEMETRY.getOpenTelemetry().getTracer("test"), metadata))
+        queryRunner = DistributedQueryRunner.builder(testSession())
+                .setNodeCount(1)
                 .build();
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
@@ -72,7 +62,7 @@ public class TestIcebergGetTableStatisticsOperations
         queryRunner.installPlugin(new TestingIcebergPlugin(metastoreDir));
         queryRunner.createCatalog("iceberg", "iceberg", ImmutableMap.of());
 
-        HiveMetastore metastore = ((IcebergConnector) queryRunner.getConnector(ICEBERG_CATALOG)).getInjector()
+        HiveMetastore metastore = ((IcebergConnector) queryRunner.getCoordinator().getConnector(ICEBERG_CATALOG)).getInjector()
                 .getInstance(HiveMetastoreFactory.class)
                 .createMetastore(Optional.empty());
 
@@ -88,14 +78,6 @@ public class TestIcebergGetTableStatisticsOperations
         queryRunner.execute("CREATE TABLE iceberg.tiny.customer AS SELECT * FROM tpch.tiny.customer");
 
         return queryRunner;
-    }
-
-    @AfterAll
-    public void tearDown()
-            throws IOException
-    {
-        deleteRecursively(metastoreDir, ALLOW_INSECURE);
-        queryRunner.close();
     }
 
     @Test
@@ -121,9 +103,9 @@ public class TestIcebergGetTableStatisticsOperations
         queryRunner.inTransaction(transactionSession -> queryRunner.createPlan(transactionSession, sql));
     }
 
-    private static long getTableStatisticsMethodInvocations()
+    private long getTableStatisticsMethodInvocations()
     {
-        return TELEMETRY.getSpans().stream()
+        return queryRunner.getSpans().stream()
                 .map(SpanData::getName)
                 .filter(name -> name.equals("Metadata.getTableStatistics"))
                 .count();

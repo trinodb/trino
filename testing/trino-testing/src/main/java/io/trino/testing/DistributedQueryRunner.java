@@ -236,7 +236,7 @@ public class DistributedQueryRunner
                 environment,
                 additionalModule,
                 baseDataDir,
-                Optional.of(SimpleSpanProcessor.create(spanExporter)),
+                SimpleSpanProcessor.create(spanExporter),
                 systemAccessControlConfiguration,
                 systemAccessControls,
                 eventListeners));
@@ -265,7 +265,7 @@ public class DistributedQueryRunner
             String environment,
             Module additionalModule,
             Optional<Path> baseDataDir,
-            Optional<SpanProcessor> spanProcessor,
+            SpanProcessor spanProcessor,
             Optional<FactoryConfiguration> systemAccessControlConfiguration,
             Optional<List<SystemAccessControl>> systemAccessControls,
             List<EventListener> eventListeners)
@@ -520,6 +520,7 @@ public class DistributedQueryRunner
         // session must be in a transaction registered with the transaction manager in this query runner
         getTransactionManager().getTransactionInfo(session.getRequiredTransactionId());
 
+        spanExporter.reset();
         return coordinator.getQueryExplainer().getLogicalPlan(
                 session,
                 coordinator.getInstance(Key.get(SqlParser.class)).createStatement(sql),
