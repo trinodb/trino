@@ -65,7 +65,7 @@ public class TestCreateCatalogTask
         StandaloneQueryRunner queryRunner = new StandaloneQueryRunner(TEST_SESSION);
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.installPlugin(new MockConnectorPlugin(new FailConnectorFactory()));
-        Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks = queryRunner.getServer().getInstance(Key.get(new TypeLiteral<Map<Class<? extends Statement>, DataDefinitionTask<?>>>() {}));
+        Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks = queryRunner.getCoordinator().getInstance(Key.get(new TypeLiteral<Map<Class<? extends Statement>, DataDefinitionTask<?>>>() {}));
         task = (CreateCatalogTask) tasks.get(CreateCatalog.class);
         queryStateMachine = QueryStateMachine.begin(
                 Optional.empty(),
