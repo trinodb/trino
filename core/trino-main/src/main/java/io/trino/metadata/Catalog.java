@@ -13,6 +13,7 @@
  */
 package io.trino.metadata;
 
+import io.trino.connector.CatalogName;
 import io.trino.connector.ConnectorName;
 import io.trino.connector.ConnectorServices;
 import io.trino.spi.TrinoException;
@@ -31,7 +32,7 @@ import static java.util.Objects.requireNonNull;
 
 public class Catalog
 {
-    private final String catalogName;
+    private final CatalogName catalogName;
     private final CatalogHandle catalogHandle;
     private final ConnectorName connectorName;
     private final ConnectorServices catalogConnector;
@@ -39,7 +40,7 @@ public class Catalog
     private final ConnectorServices systemConnector;
 
     public Catalog(
-            String catalogName,
+            CatalogName catalogName,
             CatalogHandle catalogHandle,
             ConnectorName connectorName,
             ConnectorServices catalogConnector,
@@ -55,12 +56,12 @@ public class Catalog
         this.systemConnector = requireNonNull(systemConnector, "systemConnector is null");
     }
 
-    public static Catalog failedCatalog(String catalogName, CatalogHandle catalogHandle, ConnectorName connectorName)
+    public static Catalog failedCatalog(CatalogName catalogName, CatalogHandle catalogHandle, ConnectorName connectorName)
     {
         return new Catalog(catalogName, catalogHandle, connectorName);
     }
 
-    private Catalog(String catalogName, CatalogHandle catalogHandle, ConnectorName connectorName)
+    private Catalog(CatalogName catalogName, CatalogHandle catalogHandle, ConnectorName connectorName)
     {
         this.catalogName = catalogName;
         this.catalogHandle = catalogHandle;
@@ -70,7 +71,7 @@ public class Catalog
         this.systemConnector = null;
     }
 
-    public String getCatalogName()
+    public CatalogName getCatalogName()
     {
         return catalogName;
     }

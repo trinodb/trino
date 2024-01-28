@@ -14,6 +14,7 @@
 package io.trino.metadata;
 
 import com.google.common.collect.ImmutableSet;
+import io.trino.connector.CatalogName;
 import io.trino.connector.CatalogProperties;
 import io.trino.connector.ConnectorName;
 import io.trino.spi.connector.CatalogHandle;
@@ -27,13 +28,13 @@ public interface CatalogManager
     CatalogManager NO_CATALOGS = new CatalogManager()
     {
         @Override
-        public Set<String> getCatalogNames()
+        public Set<CatalogName> getCatalogNames()
         {
             return ImmutableSet.of();
         }
 
         @Override
-        public Optional<Catalog> getCatalog(String catalogName)
+        public Optional<Catalog> getCatalog(CatalogName catalogName)
         {
             return Optional.empty();
         }
@@ -51,27 +52,27 @@ public interface CatalogManager
         }
 
         @Override
-        public void createCatalog(String catalogName, ConnectorName connectorName, Map<String, String> properties, boolean notExists)
+        public void createCatalog(CatalogName catalogName, ConnectorName connectorName, Map<String, String> properties, boolean notExists)
         {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        public void dropCatalog(String catalogName, boolean exists)
+        public void dropCatalog(CatalogName catalogName, boolean exists)
         {
             throw new UnsupportedOperationException();
         }
     };
 
-    Set<String> getCatalogNames();
+    Set<CatalogName> getCatalogNames();
 
-    Optional<Catalog> getCatalog(String catalogName);
+    Optional<Catalog> getCatalog(CatalogName catalogName);
 
     Optional<CatalogProperties> getCatalogProperties(CatalogHandle catalogHandle);
 
     Set<CatalogHandle> getActiveCatalogs();
 
-    void createCatalog(String catalogName, ConnectorName connectorName, Map<String, String> properties, boolean notExists);
+    void createCatalog(CatalogName catalogName, ConnectorName connectorName, Map<String, String> properties, boolean notExists);
 
-    void dropCatalog(String catalogName, boolean exists);
+    void dropCatalog(CatalogName catalogName, boolean exists);
 }

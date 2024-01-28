@@ -16,6 +16,7 @@ package io.trino.metadata;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.trino.Session;
+import io.trino.connector.CatalogName;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogHandle.CatalogHandleType;
 import io.trino.spi.connector.CatalogSchemaName;
@@ -31,7 +32,7 @@ import static java.util.Objects.requireNonNull;
 
 public class CatalogMetadata
 {
-    private final String catalogName;
+    private final CatalogName catalogName;
 
     public enum SecurityManagement
     {
@@ -49,7 +50,7 @@ public class CatalogMetadata
     private final Set<ConnectorCapabilities> connectorCapabilities;
 
     public CatalogMetadata(
-            String catalogName,
+            CatalogName catalogName,
             CatalogTransaction catalogTransaction,
             CatalogTransaction informationSchemaTransaction,
             CatalogTransaction systemTransaction,
@@ -64,7 +65,7 @@ public class CatalogMetadata
         this.connectorCapabilities = requireNonNull(connectorCapabilities, "connectorCapabilities is null");
     }
 
-    public String getCatalogName()
+    public CatalogName getCatalogName()
     {
         return catalogName;
     }
