@@ -35,7 +35,7 @@ public class TestGeoSpatialQueries
     {
         Session session = testSessionBuilder().build();
         // Distributed runner exercises the client protocol as well.
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session)
                 .build();
         try {
             queryRunner.installPlugin(new GeoPlugin());

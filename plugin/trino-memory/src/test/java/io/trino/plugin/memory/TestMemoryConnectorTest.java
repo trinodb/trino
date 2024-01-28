@@ -24,7 +24,6 @@ import io.trino.spi.QueryId;
 import io.trino.spi.metrics.Count;
 import io.trino.spi.metrics.Metrics;
 import io.trino.testing.BaseConnectorTest;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.TestingConnectorBehavior;
@@ -169,7 +168,7 @@ public class TestMemoryConnectorTest
 
     private Metrics collectCustomMetrics(String sql)
     {
-        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
+        QueryRunner runner = getQueryRunner();
         MaterializedResultWithPlan result = runner.executeWithPlan(getSession(), sql);
         return runner
                 .getCoordinator()
@@ -479,7 +478,7 @@ public class TestMemoryConnectorTest
                 .build();
     }
 
-    private static List<Integer> getOperatorRowsRead(DistributedQueryRunner runner, QueryId queryId)
+    private static List<Integer> getOperatorRowsRead(QueryRunner runner, QueryId queryId)
     {
         return getScanOperatorStats(runner, queryId).stream()
                 .map(OperatorStats::getInputPositions)
@@ -487,7 +486,7 @@ public class TestMemoryConnectorTest
                 .collect(toImmutableList());
     }
 
-    private static List<OperatorStats> getScanOperatorStats(DistributedQueryRunner runner, QueryId queryId)
+    private static List<OperatorStats> getScanOperatorStats(QueryRunner runner, QueryId queryId)
     {
         QueryStats stats = runner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getQueryStats();
         return stats.getOperatorSummaries()

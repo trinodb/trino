@@ -40,7 +40,7 @@ public class TestDeltaLakeTableWithCustomLocationUsingHiveMetastore
                 .build();
 
         DistributedQueryRunner.Builder<?> builder = DistributedQueryRunner.builder(session);
-        DistributedQueryRunner queryRunner = builder.build();
+        QueryRunner queryRunner = builder.build();
 
         Map<String, String> connectorProperties = new HashMap<>();
         metastoreDir = Files.createTempDirectory("test_delta_lake").toFile();

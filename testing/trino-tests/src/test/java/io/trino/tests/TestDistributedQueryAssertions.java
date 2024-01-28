@@ -28,7 +28,7 @@ public class TestDistributedQueryAssertions
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
+        QueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
                 .build();
         try {
             configureCatalog(queryRunner);

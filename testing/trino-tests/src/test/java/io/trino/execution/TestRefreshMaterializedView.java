@@ -90,7 +90,7 @@ public class TestRefreshMaterializedView
                 .setCatalog("mock")
                 .setSchema("default")
                 .build();
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session)
                 .build();
         queryRunner.installPlugin(
                 new MockConnectorPlugin(

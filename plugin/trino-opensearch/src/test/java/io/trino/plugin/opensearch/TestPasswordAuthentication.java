@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.Resources;
 import com.google.common.net.HostAndPort;
 import io.trino.sql.query.QueryAssertions;
-import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import org.apache.http.HttpHost;
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 import org.junit.jupiter.api.AfterAll;
@@ -76,7 +76,7 @@ public class TestPasswordAuthentication
         client = new RestHighLevelClient(RestClient.builder(new HttpHost(address.getHost(), address.getPort(), "https"))
                 .setHttpClientConfigCallback(this::setupSslContext));
 
-        DistributedQueryRunner runner = createOpenSearchQueryRunner(
+        QueryRunner runner = createOpenSearchQueryRunner(
                 opensearch.getAddress(),
                 ImmutableList.of(),
                 ImmutableMap.of(),

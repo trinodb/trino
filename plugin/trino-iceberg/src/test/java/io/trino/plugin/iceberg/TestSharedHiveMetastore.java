@@ -56,7 +56,7 @@ public class TestSharedHiveMetastore
                 .setSchema(schema)
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(icebergSession).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(icebergSession).build();
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");

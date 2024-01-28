@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.operator.TableScanOperator;
 import io.trino.testing.BaseCacheSubqueriesTest;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.sql.TestTable;
@@ -58,7 +57,7 @@ public class TestDeltaLakeCacheSubqueriesTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createDeltaLakeQueryRunner(DELTA_CATALOG, EXTRA_PROPERTIES,
+        QueryRunner queryRunner = createDeltaLakeQueryRunner(DELTA_CATALOG, EXTRA_PROPERTIES,
                 ImmutableMap.of("delta.register-table-procedure.enabled", "true",
                         "delta.enable-non-concurrent-writes", "true"));
         copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, queryRunner.getDefaultSession(), REQUIRED_TABLES);

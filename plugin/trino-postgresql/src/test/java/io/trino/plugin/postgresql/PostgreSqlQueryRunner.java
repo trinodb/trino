@@ -37,7 +37,7 @@ public final class PostgreSqlQueryRunner
 
     private static final String TPCH_SCHEMA = "tpch";
 
-    public static DistributedQueryRunner createPostgreSqlQueryRunner(
+    public static QueryRunner createPostgreSqlQueryRunner(
             TestingPostgreSqlServer server,
             Map<String, String> extraProperties,
             Map<String, String> connectorProperties,
@@ -47,7 +47,7 @@ public final class PostgreSqlQueryRunner
         return createPostgreSqlQueryRunner(server, extraProperties, Map.of(), connectorProperties, tables, runner -> {});
     }
 
-    public static DistributedQueryRunner createPostgreSqlQueryRunner(
+    public static QueryRunner createPostgreSqlQueryRunner(
             TestingPostgreSqlServer server,
             Map<String, String> extraProperties,
             Map<String, String> coordinatorProperties,
@@ -56,7 +56,7 @@ public final class PostgreSqlQueryRunner
             Consumer<QueryRunner> moreSetup)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = null;
+        QueryRunner queryRunner = null;
         try {
             queryRunner = DistributedQueryRunner.builder(createSession())
                     .setExtraProperties(extraProperties)
@@ -99,7 +99,7 @@ public final class PostgreSqlQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createPostgreSqlQueryRunner(
+        QueryRunner queryRunner = createPostgreSqlQueryRunner(
                 new TestingPostgreSqlServer(true),
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),

@@ -18,6 +18,7 @@ import com.google.inject.Module;
 import io.airlift.log.Level;
 import io.airlift.log.Logging;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.kafka.TestingKafka;
 
 import java.util.ArrayList;
@@ -91,9 +92,9 @@ public abstract class KafkaQueryRunnerBuilder
         }
     }
 
-    protected void preInit(DistributedQueryRunner queryRunner)
+    protected void preInit(QueryRunner queryRunner)
             throws Exception
     {}
 
-    protected void postInit(DistributedQueryRunner queryRunner) {}
+    protected void postInit(QueryRunner queryRunner) {}
 }

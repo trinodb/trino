@@ -45,7 +45,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 public class TestIcebergGetTableStatisticsOperations
         extends AbstractTestQueryFramework
 {
-    private DistributedQueryRunner queryRunner;
+    private QueryRunner queryRunner;
     private Path metastoreDir;
 
     @Override

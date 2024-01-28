@@ -25,6 +25,7 @@ import io.trino.plugin.hudi.testing.HudiTablesInitializer;
 import io.trino.plugin.hudi.testing.ResourceHudiTablesInitializer;
 import io.trino.spi.security.PrincipalType;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 
 import java.util.Map;
 import java.util.Optional;
@@ -42,13 +43,13 @@ public final class HudiQueryRunner
 
     private HudiQueryRunner() {}
 
-    public static DistributedQueryRunner createHudiQueryRunner(
+    public static QueryRunner createHudiQueryRunner(
             Map<String, String> extraProperties,
             Map<String, String> connectorProperties,
             HudiTablesInitializer dataLoader)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner
+        QueryRunner queryRunner = DistributedQueryRunner
                 .builder(createSession())
                 .setExtraProperties(extraProperties)
                 .build();
@@ -84,7 +85,7 @@ public final class HudiQueryRunner
         Logging.initialize();
         Logger log = Logger.get(HudiQueryRunner.class);
 
-        DistributedQueryRunner queryRunner = createHudiQueryRunner(
+        QueryRunner queryRunner = createHudiQueryRunner(
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),
                 new ResourceHudiTablesInitializer());

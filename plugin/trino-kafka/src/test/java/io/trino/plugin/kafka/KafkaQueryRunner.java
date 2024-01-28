@@ -30,7 +30,7 @@ import io.trino.plugin.kafka.util.CodecSupplier;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.type.TypeManager;
-import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.kafka.TestingKafka;
 import io.trino.tpch.TpchTable;
 
@@ -96,7 +96,7 @@ public final class KafkaQueryRunner
         }
 
         @Override
-        public void preInit(DistributedQueryRunner queryRunner)
+        public void preInit(QueryRunner queryRunner)
                 throws Exception
         {
             queryRunner.installPlugin(new TpchPlugin());
@@ -136,7 +136,7 @@ public final class KafkaQueryRunner
         }
 
         @Override
-        public void postInit(DistributedQueryRunner queryRunner)
+        public void postInit(QueryRunner queryRunner)
         {
             log.info("Loading data...");
             long startTime = System.nanoTime();
@@ -197,7 +197,7 @@ public final class KafkaQueryRunner
             throws Exception
     {
         Logging.initialize();
-        DistributedQueryRunner queryRunner = builder(TestingKafka.create())
+        QueryRunner queryRunner = builder(TestingKafka.create())
                 .setTables(TpchTable.getTables())
                 .setCoordinatorProperties(ImmutableMap.of("http-server.http.port", "8080"))
                 .build();

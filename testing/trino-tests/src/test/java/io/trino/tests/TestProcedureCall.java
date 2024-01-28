@@ -17,7 +17,6 @@ import io.trino.Session;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.ProcedureTester;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingProcedures;
@@ -60,7 +59,7 @@ public class TestProcedureCall
     @BeforeAll
     public void setUp()
     {
-        DistributedQueryRunner queryRunner = getDistributedQueryRunner();
+        QueryRunner queryRunner = getDistributedQueryRunner();
         tester = queryRunner.getCoordinator().getProcedureTester();
         session = testSessionBuilder()
                 .setCatalog(TESTING_CATALOG)

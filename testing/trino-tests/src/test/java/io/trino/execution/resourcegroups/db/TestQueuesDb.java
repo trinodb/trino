@@ -27,8 +27,8 @@ import io.trino.server.BasicQueryInfo;
 import io.trino.server.ResourceGroupInfo;
 import io.trino.spi.QueryId;
 import io.trino.spi.resourcegroups.ResourceGroupId;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -76,7 +76,7 @@ public class TestQueuesDb
 {
     // Copy of TestQueues with tests for db reconfiguration of resource groups
     private static final String LONG_LASTING_QUERY = "SELECT COUNT(*) FROM lineitem";
-    private DistributedQueryRunner queryRunner;
+    private QueryRunner queryRunner;
     private H2ResourceGroupsDao dao;
 
     @BeforeEach

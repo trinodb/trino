@@ -66,7 +66,7 @@ public class TestKillQuery
                 .setSchema("tiny")
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(defaultSession).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(defaultSession).build();
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
         return queryRunner;

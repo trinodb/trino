@@ -25,6 +25,7 @@ import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.plugin.hive.metastore.thrift.TestingTokenAwareMetastoreClientFactory;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
 import java.util.Locale;
@@ -46,7 +47,7 @@ public final class S3HiveQueryRunner
 
     private S3HiveQueryRunner() {}
 
-    public static DistributedQueryRunner create(
+    public static QueryRunner create(
             HiveMinioDataLake hiveMinioDataLake,
             Map<String, String> additionalHiveProperties)
             throws Exception
@@ -176,7 +177,7 @@ public final class S3HiveQueryRunner
         HiveMinioDataLake hiveMinioDataLake = new HiveMinioDataLake("tpch");
         hiveMinioDataLake.start();
 
-        DistributedQueryRunner queryRunner = S3HiveQueryRunner.builder(hiveMinioDataLake)
+        QueryRunner queryRunner = S3HiveQueryRunner.builder(hiveMinioDataLake)
                 .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
                 .setHiveProperties(ImmutableMap.of("hive.security", ALLOW_ALL))
                 .setSkipTimezoneSetup(true)

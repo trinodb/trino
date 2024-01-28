@@ -371,7 +371,7 @@ public abstract class AbstractDistributedEngineOnlyQueries
                 // use random marker in query for unique matching below
                 "SELECT count(*) c_%s FROM lineitem CROSS JOIN lineitem CROSS JOIN lineitem",
                 randomNameSuffix());
-        DistributedQueryRunner queryRunner = getDistributedQueryRunner();
+        QueryRunner queryRunner = getDistributedQueryRunner();
         ListenableFuture<?> queryFuture = Futures.submit(
                 () -> queryRunner.execute(getSession(), query), executorService);
 

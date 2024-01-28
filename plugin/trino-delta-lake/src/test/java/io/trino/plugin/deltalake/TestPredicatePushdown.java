@@ -20,7 +20,6 @@ import io.trino.operator.OperatorStats;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.spi.QueryId;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
@@ -142,7 +141,7 @@ public class TestPredicatePushdown
         String table = testTable.register("ignore_parquet_statistics");
         @Language("SQL") String query = "SELECT * FROM " + table + " WHERE custkey = 1450";
 
-        DistributedQueryRunner queryRunner = getDistributedQueryRunner();
+        QueryRunner queryRunner = getDistributedQueryRunner();
         MaterializedResultWithPlan resultWithoutParquetStatistics = queryRunner.executeWithPlan(
                 Session.builder(getSession())
                         .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "parquet_ignore_statistics", "true")

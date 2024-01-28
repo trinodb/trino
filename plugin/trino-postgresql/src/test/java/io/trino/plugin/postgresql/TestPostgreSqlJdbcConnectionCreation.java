@@ -90,13 +90,13 @@ public class TestPostgreSqlJdbcConnectionCreation
         assertJdbcConnections("SHOW STATS FOR nation", 2, Optional.empty());
     }
 
-    private static DistributedQueryRunner createPostgreSqlQueryRunner(
+    private static QueryRunner createPostgreSqlQueryRunner(
             TestingPostgreSqlServer server,
             Iterable<TpchTable<?>> tables,
             ConnectionCountingConnectionFactory connectionCountingConnectionFactory)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
+        QueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
                 // to make sure we always open connections in the same way
                 .setCoordinatorProperties(ImmutableMap.of("node-scheduler.include-coordinator", "false"))
                 .build();

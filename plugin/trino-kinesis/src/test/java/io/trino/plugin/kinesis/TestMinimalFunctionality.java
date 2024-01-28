@@ -26,6 +26,7 @@ import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.QueryId;
 import io.trino.spi.security.Identity;
 import io.trino.sql.query.QueryAssertions;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
@@ -78,7 +79,7 @@ public class TestMinimalFunctionality
 
     private final EmbeddedKinesisStream embeddedKinesisStream;
     private String streamName;
-    private StandaloneQueryRunner queryRunner;
+    private QueryRunner queryRunner;
     private QueryAssertions assertions;
 
     public TestMinimalFunctionality()

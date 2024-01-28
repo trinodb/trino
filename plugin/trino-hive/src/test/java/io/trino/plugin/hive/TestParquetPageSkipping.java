@@ -26,7 +26,6 @@ import io.trino.spi.metrics.Count;
 import io.trino.spi.metrics.Metric;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
@@ -56,7 +55,7 @@ public class TestParquetPageSkipping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
+        QueryRunner queryRunner = HiveQueryRunner.builder()
                 .setHiveProperties(
                         ImmutableMap.of(
                                 "parquet.use-column-index", "true",
@@ -238,7 +237,7 @@ public class TestParquetPageSkipping
 
     private void verifyFilteringWithColumnIndex(@Language("SQL") String query)
     {
-        DistributedQueryRunner queryRunner = getDistributedQueryRunner();
+        QueryRunner queryRunner = getDistributedQueryRunner();
         MaterializedResultWithPlan resultWithoutColumnIndex = queryRunner.executeWithPlan(
                 noParquetColumnIndexFiltering(getSession()),
                 query);

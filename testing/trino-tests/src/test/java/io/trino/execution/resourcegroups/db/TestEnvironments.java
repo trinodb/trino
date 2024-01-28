@@ -15,7 +15,7 @@ package io.trino.execution.resourcegroups.db;
 
 import io.trino.plugin.resourcegroups.db.H2ResourceGroupsDao;
 import io.trino.spi.QueryId;
-import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.parallel.Execution;
@@ -44,7 +44,7 @@ public class TestEnvironments
     {
         String dbConfigUrl = getDbConfigUrl();
         H2ResourceGroupsDao dao = getDao(dbConfigUrl);
-        try (DistributedQueryRunner runner = createQueryRunner(dbConfigUrl, dao, TEST_ENVIRONMENT)) {
+        try (QueryRunner runner = createQueryRunner(dbConfigUrl, dao, TEST_ENVIRONMENT)) {
             QueryId firstQuery = createQuery(runner, adhocSession(), LONG_LASTING_QUERY);
             waitForQueryState(runner, firstQuery, RUNNING);
             QueryId secondQuery = createQuery(runner, adhocSession(), LONG_LASTING_QUERY);
@@ -59,7 +59,7 @@ public class TestEnvironments
     {
         String dbConfigUrl = getDbConfigUrl();
         H2ResourceGroupsDao dao = getDao(dbConfigUrl);
-        try (DistributedQueryRunner runner = createQueryRunner(dbConfigUrl, dao, TEST_ENVIRONMENT_2)) {
+        try (QueryRunner runner = createQueryRunner(dbConfigUrl, dao, TEST_ENVIRONMENT_2)) {
             QueryId firstQuery = createQuery(runner, adhocSession(), LONG_LASTING_QUERY);
             waitForQueryState(runner, firstQuery, RUNNING);
             QueryId secondQuery = createQuery(runner, adhocSession(), LONG_LASTING_QUERY);

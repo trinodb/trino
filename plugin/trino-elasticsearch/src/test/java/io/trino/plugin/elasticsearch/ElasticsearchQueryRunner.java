@@ -59,7 +59,7 @@ public final class ElasticsearchQueryRunner
     private static final Logger LOG = Logger.get(ElasticsearchQueryRunner.class);
     private static final String TPCH_SCHEMA = "tpch";
 
-    public static DistributedQueryRunner createElasticsearchQueryRunner(
+    public static QueryRunner createElasticsearchQueryRunner(
             ElasticsearchServer server,
             Iterable<TpchTable<?>> tables,
             Map<String, String> extraProperties,
@@ -70,7 +70,7 @@ public final class ElasticsearchQueryRunner
         return createElasticsearchQueryRunner(server, tables, extraProperties, extraConnectorProperties, nodeCount, "elasticsearch");
     }
 
-    public static DistributedQueryRunner createElasticsearchQueryRunner(
+    public static QueryRunner createElasticsearchQueryRunner(
             ElasticsearchServer server,
             Iterable<TpchTable<?>> tables,
             Map<String, String> extraProperties,
@@ -179,7 +179,7 @@ public final class ElasticsearchQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createElasticsearchQueryRunner(
+        QueryRunner queryRunner = createElasticsearchQueryRunner(
                 new ElasticsearchServer(ELASTICSEARCH_7_IMAGE),
                 TpchTable.getTables(),
                 ImmutableMap.of("http-server.http.port", "8080"),

@@ -36,7 +36,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 public class TestGetTableStatisticsOperations
         extends AbstractTestQueryFramework
 {
-    private StandaloneQueryRunner queryRunner;
+    private QueryRunner queryRunner;
 
     @Override
     protected QueryRunner createQueryRunner()

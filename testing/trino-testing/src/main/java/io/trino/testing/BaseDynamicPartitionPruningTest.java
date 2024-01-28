@@ -464,7 +464,7 @@ public abstract class BaseDynamicPartitionPruningTest
 
     private long getQueryInputPositions(Session session, @Language("SQL") String sql, int expectedRowCount)
     {
-        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
+        QueryRunner runner = getQueryRunner();
         MaterializedResultWithPlan result = runner.executeWithPlan(session, sql);
         assertThat(result.result().getRowCount()).isEqualTo(expectedRowCount);
         QueryId queryId = result.queryId();

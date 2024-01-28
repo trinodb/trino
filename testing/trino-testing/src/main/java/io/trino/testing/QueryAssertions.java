@@ -462,14 +462,8 @@ public final class QueryAssertions
     protected static void assertQueryFails(QueryRunner queryRunner, Session session, @Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
     {
         try {
-            if (queryRunner instanceof DistributedQueryRunner distributedQueryRunner) {
-                MaterializedResultWithPlan resultWithPlan = distributedQueryRunner.executeWithPlan(session, sql);
-                fail(format("Expected query to fail: %s [QueryId: %s]", sql, resultWithPlan.queryId()));
-            }
-            else {
-                queryRunner.execute(session, sql);
-                fail(format("Expected query to fail: %s", sql));
-            }
+            MaterializedResultWithPlan resultWithPlan = queryRunner.executeWithPlan(session, sql);
+            fail(format("Expected query to fail: %s [QueryId: %s]", sql, resultWithPlan.queryId()));
         }
         catch (RuntimeException exception) {
             exception.addSuppressed(new Exception("Query: " + sql));
@@ -482,15 +476,9 @@ public final class QueryAssertions
     {
         QueryId queryId = null;
         try {
-            MaterializedResult results;
-            if (queryRunner instanceof DistributedQueryRunner distributedQueryRunner) {
-                MaterializedResultWithPlan resultWithPlan = distributedQueryRunner.executeWithPlan(session, sql);
-                queryId = resultWithPlan.queryId();
-                results = resultWithPlan.result().toTestTypes();
-            }
-            else {
-                results = queryRunner.execute(session, sql).toTestTypes();
-            }
+            MaterializedResultWithPlan resultWithPlan = queryRunner.executeWithPlan(session, sql);
+            queryId = resultWithPlan.queryId();
+            MaterializedResult results = resultWithPlan.result().toTestTypes();
             assertThat(results).isNotNull();
             assertThat(results.getRowCount()).isEqualTo(0);
         }

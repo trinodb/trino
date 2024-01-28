@@ -22,7 +22,6 @@ import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
@@ -54,7 +53,7 @@ public abstract class BaseCachingDirectoryListerTest<C extends DirectoryLister>
             throws Exception
     {
         directoryLister = createDirectoryLister();
-        DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
+        QueryRunner queryRunner = HiveQueryRunner.builder()
                 .setHiveProperties(properties)
                 .setDirectoryLister(directoryLister)
                 .build();

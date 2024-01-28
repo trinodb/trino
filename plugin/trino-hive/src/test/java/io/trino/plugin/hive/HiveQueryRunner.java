@@ -82,7 +82,7 @@ public final class HiveQueryRunner
     private static final String TPCH_BUCKETED_SCHEMA = "tpch_bucketed";
     private static final DateTimeZone TIME_ZONE = DateTimeZone.forID("America/Bahia_Banderas");
 
-    public static DistributedQueryRunner create()
+    public static QueryRunner create()
             throws Exception
     {
         return builder().build();
@@ -105,7 +105,7 @@ public final class HiveQueryRunner
         private ImmutableMap.Builder<String, String> hiveProperties = ImmutableMap.builder();
         private List<TpchTable<?>> initialTables = ImmutableList.of();
         private Optional<String> initialSchemasLocationBase = Optional.empty();
-        private Optional<Function<DistributedQueryRunner, HiveMetastore>> metastore = Optional.empty();
+        private Optional<Function<QueryRunner, HiveMetastore>> metastore = Optional.empty();
         private Module module = EMPTY_MODULE;
         private Optional<DirectoryLister> directoryLister = Optional.empty();
         private boolean tpcdsCatalogEnabled;
@@ -162,7 +162,7 @@ public final class HiveQueryRunner
         }
 
         @CanIgnoreReturnValue
-        public SELF setMetastore(Function<DistributedQueryRunner, HiveMetastore> metastore)
+        public SELF setMetastore(Function<QueryRunner, HiveMetastore> metastore)
         {
             this.metastore = Optional.of(metastore);
             return self();
@@ -415,7 +415,7 @@ public final class HiveQueryRunner
             baseDataDir = Optional.of(path);
         }
 
-        DistributedQueryRunner queryRunner = builder()
+        QueryRunner queryRunner = builder()
                 .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
                 .setHiveProperties(ImmutableMap.of("hive.security", ALLOW_ALL))
                 .setSkipTimezoneSetup(true)

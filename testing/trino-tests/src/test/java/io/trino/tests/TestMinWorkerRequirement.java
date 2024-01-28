@@ -21,6 +21,7 @@ import io.trino.Session;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.tests.tpch.TpchQueryRunnerBuilder;
 import org.junit.jupiter.api.Test;
@@ -48,7 +49,7 @@ public class TestMinWorkerRequirement
     public void testInsufficientWorkerNodes()
     {
         assertThatThrownBy(() -> {
-            try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
+            try (QueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
                     .setCoordinatorProperties(ImmutableMap.<String, String>builder()
                             .put("query-manager.required-workers", "5")
                             .put("query-manager.required-workers-max-wait", "1ns")
@@ -67,7 +68,7 @@ public class TestMinWorkerRequirement
     public void testInsufficientWorkerNodesWithCoordinatorExcluded()
     {
         assertThatThrownBy(() -> {
-            try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
+            try (QueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
                     .setCoordinatorProperties(ImmutableMap.<String, String>builder()
                             .put("node-scheduler.include-coordinator", "false")
                             .put("query-manager.required-workers", "4")
@@ -87,7 +88,7 @@ public class TestMinWorkerRequirement
     public void testInsufficientWorkerNodesInternalSystemQuery()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
+        try (QueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
                 .setCoordinatorProperties(ImmutableMap.<String, String>builder()
                         .put("query-manager.required-workers", "5")
                         .put("query-manager.required-workers-max-wait", "1ns")
@@ -131,7 +132,7 @@ public class TestMinWorkerRequirement
     public void testRequiredNodesMaxWaitSessionOverride()
     {
         assertThatThrownBy(() -> {
-            try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
+            try (QueryRunner queryRunner = TpchQueryRunnerBuilder.builder()
                     .setCoordinatorProperties(ImmutableMap.<String, String>builder()
                             .put("query-manager.required-workers", "3")
                             .put("query-manager.required-workers-max-wait", "1ns")

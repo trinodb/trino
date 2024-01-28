@@ -21,6 +21,7 @@ import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.CountingMockConnector;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import io.trino.testng.services.ManageTestResources;
 import io.trino.tests.FailingMockConnectorPlugin;
 import org.intellij.lang.annotations.Language;
@@ -50,12 +51,12 @@ public class TestInformationSchemaConnector
     private CountingMockConnector countingMockConnector;
 
     @Override
-    protected DistributedQueryRunner createQueryRunner()
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         countingMockConnector = closeAfterClass(new CountingMockConnector());
         Session session = testSessionBuilder().build();
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session)
                 .setNodeCount(1)
                 .addCoordinatorProperty("optimizer.experimental-max-prefetched-information-schema-prefixes", Integer.toString(MAX_PREFIXES_COUNT))
                 .build();

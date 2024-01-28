@@ -14,7 +14,7 @@
 package io.trino.plugin.iceberg;
 
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -39,7 +39,7 @@ public class TestIcebergReadVersionedTable
     private long incorrectSnapshotId;
 
     @Override
-    protected DistributedQueryRunner createQueryRunner()
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         return createIcebergQueryRunner();

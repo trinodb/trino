@@ -73,7 +73,7 @@ public class TestIcebergOrcMetricsCollection
                 .setSystemProperty(MAX_DRIVERS_PER_TASK, "1")
                 .setCatalogSessionProperty("iceberg", "orc_string_statistics_limit", Integer.MAX_VALUE + "B")
                 .build();
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session)
                 .setNodeCount(1)
                 .build();
 

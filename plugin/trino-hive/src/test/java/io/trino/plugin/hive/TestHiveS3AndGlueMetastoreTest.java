@@ -18,7 +18,6 @@ import io.trino.Session;
 import io.trino.plugin.base.util.UncheckedCloseable;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
@@ -55,7 +54,7 @@ public class TestHiveS3AndGlueMetastoreTest
         metastore = createTestingGlueHiveMetastore(Path.of(schemaPath()));
 
         Session session = createSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin"))));
-        DistributedQueryRunner queryRunner = HiveQueryRunner.builder(session)
+        QueryRunner queryRunner = HiveQueryRunner.builder(session)
                 .addExtraProperty("sql.path", "hive.functions")
                 .addExtraProperty("sql.default-function-catalog", "hive")
                 .addExtraProperty("sql.default-function-schema", "functions")

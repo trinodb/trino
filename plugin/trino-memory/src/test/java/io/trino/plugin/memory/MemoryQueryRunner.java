@@ -20,6 +20,7 @@ import io.trino.Session;
 import io.trino.plugin.exchange.filesystem.FileSystemExchangePlugin;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchTable;
 
 import java.nio.file.Path;
@@ -39,7 +40,7 @@ public final class MemoryQueryRunner
 
     private MemoryQueryRunner() {}
 
-    public static DistributedQueryRunner createMemoryQueryRunner(
+    public static QueryRunner createMemoryQueryRunner(
             Map<String, String> extraProperties,
             Iterable<TpchTable<?>> tables)
             throws Exception
@@ -127,7 +128,7 @@ public final class MemoryQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createMemoryQueryRunner(
+        QueryRunner queryRunner = createMemoryQueryRunner(
                 ImmutableMap.of("http-server.http.port", "8080"),
                 TpchTable.getTables());
         Thread.sleep(10);
@@ -148,7 +149,7 @@ public final class MemoryQueryRunner
                     .put("exchange.base-directories", exchangeManagerDirectory.toAbsolutePath().toString())
                     .buildOrThrow();
 
-            DistributedQueryRunner queryRunner = MemoryQueryRunner.builder()
+            QueryRunner queryRunner = MemoryQueryRunner.builder()
                     .setExtraProperties(ImmutableMap.<String, String>builder()
                             .put("http-server.http.port", "8080")
                             .put("retry-policy", "TASK")

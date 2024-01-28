@@ -18,6 +18,7 @@ import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.SystemSessionProperties.SPATIAL_PARTITIONING_TABLE_NAME;
@@ -56,7 +57,7 @@ public class TestSpatialJoins
             "(null, 1.2, 4, null, 'null', 4)";
 
     @Override
-    protected DistributedQueryRunner createQueryRunner()
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         Session session = testSessionBuilder()
@@ -64,7 +65,7 @@ public class TestSpatialJoins
                 .setCatalog("hive")
                 .setSchema("default")
                 .build();
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
         queryRunner.installPlugin(new GeoPlugin());
 
         queryRunner.installPlugin(new TestingHivePlugin(queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data")));
