@@ -25,6 +25,7 @@ import io.trino.execution.buffer.PagesSerdeFactory;
 import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.Split;
 import io.trino.spi.Page;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 import io.trino.spi.exchange.ExchangeId;
@@ -43,7 +44,7 @@ import static java.util.Objects.requireNonNull;
 public class ExchangeOperator
         implements SourceOperator
 {
-    public static final CatalogHandle REMOTE_CATALOG_HANDLE = createRootCatalogHandle("$remote", new CatalogVersion("remote"));
+    public static final CatalogHandle REMOTE_CATALOG_HANDLE = createRootCatalogHandle(new CatalogName("$remote"), new CatalogVersion("remote"));
 
     public static class ExchangeOperatorFactory
             implements SourceOperatorFactory

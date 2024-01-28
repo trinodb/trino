@@ -96,7 +96,7 @@ public final class FileCatalogStore
     {
         checkModifiable();
         return new CatalogProperties(
-                createRootCatalogHandle(catalogName.toString(), computeCatalogVersion(catalogName, connectorName, properties)),
+                createRootCatalogHandle(catalogName, computeCatalogVersion(catalogName, connectorName, properties)),
                 connectorName,
                 ImmutableMap.copyOf(properties));
     }
@@ -105,7 +105,7 @@ public final class FileCatalogStore
     public void addOrReplaceCatalog(CatalogProperties catalogProperties)
     {
         checkModifiable();
-        CatalogName catalogName = new CatalogName(catalogProperties.catalogHandle().getCatalogName());
+        CatalogName catalogName = catalogProperties.catalogHandle().getCatalogName();
         File file = toFile(catalogName);
         Properties properties = new Properties();
         properties.setProperty("connector.name", catalogProperties.connectorName().toString());
@@ -232,7 +232,7 @@ public final class FileCatalogStore
             }
             ConnectorName connectorName = new ConnectorName(connectorNameValue);
 
-            CatalogHandle catalogHandle = createRootCatalogHandle(name.toString(), computeCatalogVersion(name, connectorName, properties));
+            CatalogHandle catalogHandle = createRootCatalogHandle(name, computeCatalogVersion(name, connectorName, properties));
             return new CatalogProperties(catalogHandle, connectorName, ImmutableMap.copyOf(properties));
         }
     }

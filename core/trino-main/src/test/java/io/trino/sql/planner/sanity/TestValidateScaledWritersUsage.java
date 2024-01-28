@@ -84,7 +84,7 @@ public class TestValidateScaledWritersUsage
         schemaTableName = new SchemaTableName("any", "any");
         catalog = createTestCatalogHandle("catalog");
         planTester = PlanTester.create(TEST_SESSION);
-        planTester.createCatalog(catalog.getCatalogName(), createConnectorFactory(catalog.getCatalogName()), ImmutableMap.of());
+        planTester.createCatalog(catalog.getCatalogName().toString(), createConnectorFactory(catalog.getCatalogName().toString()), ImmutableMap.of());
         plannerContext = planTester.getPlannerContext();
         planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), plannerContext, TEST_SESSION);
         TableHandle nationTableHandle = new TableHandle(
@@ -287,7 +287,7 @@ public class TestValidateScaledWritersUsage
     {
         planTester.inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
-            plannerContext.getMetadata().getCatalogHandle(session, catalog.getCatalogName());
+            plannerContext.getMetadata().getCatalogHandle(session, catalog.getCatalogName().toString());
             new ValidateScaledWritersUsage().validate(
                     root,
                     session,

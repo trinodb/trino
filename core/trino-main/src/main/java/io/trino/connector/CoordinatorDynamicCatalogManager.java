@@ -139,14 +139,14 @@ public class CoordinatorDynamicCatalogManager
                                 CatalogProperties catalog = null;
                                 try {
                                     catalog = storedCatalog.loadProperties();
-                                    verify(catalog.catalogHandle().getCatalogName().equals(storedCatalog.name().toString()), "Catalog name does not match catalog handle");
+                                    verify(catalog.catalogHandle().getCatalogName().equals(storedCatalog.name()), "Catalog name does not match catalog handle");
                                     CatalogConnector newCatalog = catalogFactory.createCatalog(catalog);
                                     activeCatalogs.put(storedCatalog.name(), newCatalog.getCatalog());
                                     allCatalogs.put(catalog.catalogHandle(), newCatalog);
                                     log.debug("-- Added catalog %s using connector %s --", storedCatalog.name(), catalog.connectorName());
                                 }
                                 catch (Throwable e) {
-                                    CatalogHandle catalogHandle = catalog != null ? catalog.catalogHandle() : createRootCatalogHandle(storedCatalog.name().toString(), new CatalogVersion("failed"));
+                                    CatalogHandle catalogHandle = catalog != null ? catalog.catalogHandle() : createRootCatalogHandle(storedCatalog.name(), new CatalogVersion("failed"));
                                     ConnectorName connectorName = catalog != null ? catalog.connectorName() : new ConnectorName("unknown");
                                     activeCatalogs.put(storedCatalog.name(), failedCatalog(storedCatalog.name(), catalogHandle, connectorName));
                                     log.error(e, "-- Failed to load catalog %s using connector %s --", storedCatalog.name(), connectorName);
@@ -205,7 +205,7 @@ public class CoordinatorDynamicCatalogManager
             while (iterator.hasNext()) {
                 Entry<CatalogHandle, CatalogConnector> entry = iterator.next();
 
-                Catalog activeCatalog = activeCatalogs.get(new CatalogName(entry.getKey().getCatalogName()));
+                Catalog activeCatalog = activeCatalogs.get(entry.getKey().getCatalogName());
                 if (activeCatalog != null && activeCatalog.getCatalogHandle().equals(entry.getKey())) {
                     // catalog is registered with a name, and therefor is available for new queries, and should not be removed
                     continue;
