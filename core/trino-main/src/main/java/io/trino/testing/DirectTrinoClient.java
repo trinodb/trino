@@ -79,12 +79,12 @@ class DirectTrinoClient
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
     }
 
-    public MaterializedResultWithQueryId execute(Session session, @Language("SQL") String sql)
+    public Result execute(Session session, @Language("SQL") String sql)
     {
         return execute(SessionContext.fromSession(session), sql);
     }
 
-    public MaterializedResultWithQueryId execute(SessionContext sessionContext, @Language("SQL") String sql)
+    public Result execute(SessionContext sessionContext, @Language("SQL") String sql)
     {
         // create the query and wait for it to be dispatched
         QueryId queryId = dispatchManager.createQueryId();
@@ -92,7 +92,7 @@ class DirectTrinoClient
         getQueryFuture(dispatchManager.waitForDispatched(queryId));
         DispatchQuery dispatchQuery = dispatchManager.getQuery(queryId);
         if (dispatchQuery.getState().isDone()) {
-            return new MaterializedResultWithQueryId(queryId, toMaterializedRows(dispatchQuery, ImmutableList.of(), ImmutableList.of(), ImmutableList.of()));
+            return new Result(queryId, toMaterializedRows(dispatchQuery, ImmutableList.of(), ImmutableList.of(), ImmutableList.of()));
         }
 
         // read all output data
@@ -132,7 +132,7 @@ class DirectTrinoClient
             getQueryFuture(queryManager.getStateChange(queryId, queryState));
         }
 
-        return new MaterializedResultWithQueryId(queryId, toMaterializedRows(dispatchQuery, columnTypes.get(), columnNames.get(), pages));
+        return new Result(queryId, toMaterializedRows(dispatchQuery, columnTypes.get(), columnNames.get(), pages));
     }
 
     private DirectExchangeClient createExchangeClient(DispatchQuery dispatchQuery)
@@ -215,9 +215,9 @@ class DirectTrinoClient
         }
     }
 
-    record MaterializedResultWithQueryId(QueryId queryId, MaterializedResult result)
+    record Result(QueryId queryId, MaterializedResult result)
     {
-        MaterializedResultWithQueryId
+        Result
         {
             requireNonNull(queryId, "queryId is null");
             requireNonNull(result, "result is null");

@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.errorprone.annotations.CheckReturnValue;
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.Metadata;
 import io.trino.spi.Plugin;
@@ -192,7 +191,7 @@ public class QueryAssertions
     {
         assertQuery(runner.getDefaultSession(), actual, expected);
 
-        Plan plan = runner.executeWithPlan(runner.getDefaultSession(), actual, WarningCollector.NOOP).getQueryPlan();
+        Plan plan = runner.executeWithPlan(runner.getDefaultSession(), actual).queryPlan().orElseThrow();
         assertPlan(runner.getDefaultSession(), runner.getPlannerContext().getMetadata(), runner.getPlannerContext().getFunctionManager(), runner.getStatsCalculator(), plan, pattern);
     }
 

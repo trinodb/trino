@@ -313,7 +313,7 @@ public class TestDeltaLakeAnalyze
 
         // ANALYZE only new data
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("'TIMESTAMP '''yyyy-MM-dd HH:mm:ss.SSS VV''").withZone(UTC);
-        getDistributedQueryRunner().executeWithQueryId(
+        getDistributedQueryRunner().executeWithPlan(
                 getSession(),
                 format("ANALYZE %s WITH(files_modified_after = %s)", tableName, formatter.format(afterInitialDataIngestion)));
 
