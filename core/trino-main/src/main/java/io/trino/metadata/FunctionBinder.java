@@ -343,7 +343,7 @@ class FunctionBinder
     {
         BoundSignature boundSignature = new BoundSignature(
                 new CatalogSchemaFunctionName(
-                        functionMetadata.catalogHandle().getCatalogName(),
+                        functionMetadata.catalogHandle().getCatalogName().toString(),
                         functionMetadata.schemaName(),
                         functionMetadata.functionMetadata().getCanonicalName()),
                 typeManager.getType(signature.getReturnType()),

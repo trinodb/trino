@@ -25,6 +25,7 @@ import io.trino.cache.CanonicalSubplan.TopNRankingKey;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.cache.CacheColumnId;
 import io.trino.spi.cache.CacheTableId;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTransactionHandle;
@@ -179,7 +180,7 @@ public class TestCacheController
         return CanonicalSubplan.builderForTableScan(
                         new ScanFilterProjectKey(TABLE_ID),
                         ImmutableMap.of(),
-                        new TableHandle(createRootCatalogHandle("catalog", new CatalogVersion("version")), new ConnectorTableHandle() {}, new ConnectorTransactionHandle() {}),
+                        new TableHandle(createRootCatalogHandle(new CatalogName("catalog"), new CatalogVersion("version")), new ConnectorTableHandle() {}, new ConnectorTransactionHandle() {}),
                         TABLE_ID,
                         false,
                         PLAN_NODE_ID)

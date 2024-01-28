@@ -43,7 +43,7 @@ public class InMemoryCatalogStore
     public CatalogProperties createCatalogProperties(CatalogName catalogName, ConnectorName connectorName, Map<String, String> properties)
     {
         return new CatalogProperties(
-                createRootCatalogHandle(catalogName.toString(), computeCatalogVersion(catalogName, connectorName, properties)),
+                createRootCatalogHandle(catalogName, computeCatalogVersion(catalogName, connectorName, properties)),
                 connectorName,
                 properties);
     }
@@ -51,7 +51,7 @@ public class InMemoryCatalogStore
     @Override
     public void addOrReplaceCatalog(CatalogProperties catalogProperties)
     {
-        CatalogName catalogName = new CatalogName(catalogProperties.catalogHandle().getCatalogName());
+        CatalogName catalogName = catalogProperties.catalogHandle().getCatalogName();
         catalogs.put(catalogName, new InMemoryStoredCatalog(catalogName, catalogProperties));
     }
 

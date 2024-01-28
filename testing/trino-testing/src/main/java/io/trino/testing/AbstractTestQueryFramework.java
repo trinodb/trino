@@ -722,7 +722,7 @@ public abstract class AbstractTestQueryFramework
     {
         return inTransaction(getSession(), transactionSession -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
-            getQueryRunner().getPlannerContext().getMetadata().getCatalogHandle(transactionSession, tableHandle.getCatalogHandle().getCatalogName());
+            getQueryRunner().getPlannerContext().getMetadata().getCatalogHandle(transactionSession, tableHandle.getCatalogHandle().getCatalogName().toString());
             return getQueryRunner().getPlannerContext().getMetadata().getTableName(transactionSession, tableHandle);
         });
     }

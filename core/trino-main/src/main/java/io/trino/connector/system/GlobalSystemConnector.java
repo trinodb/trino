@@ -18,6 +18,7 @@ import com.google.inject.Inject;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.operator.table.SequenceFunction.SequenceFunctionHandle;
 import io.trino.server.dataframe.AnalyzeLogicalPlan;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -44,7 +45,7 @@ public class GlobalSystemConnector
         implements InternalConnector
 {
     public static final String NAME = "system";
-    public static final CatalogHandle CATALOG_HANDLE = createRootCatalogHandle(NAME, new CatalogVersion("system"));
+    public static final CatalogHandle CATALOG_HANDLE = createRootCatalogHandle(new CatalogName(NAME), new CatalogVersion("system"));
 
     private final Set<SystemTable> systemTables;
     private final Set<Procedure> procedures;

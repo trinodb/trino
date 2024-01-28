@@ -420,7 +420,6 @@ public class InMemoryTransactionManager
         {
             return activeCatalogs.keySet().stream()
                     .map(CatalogHandle::getCatalogName)
-                    .map(CatalogName::new)
                     .distinct()
                     .map(key -> registeredCatalogs.getOrDefault(key, Optional.empty()))
                     .flatMap(Optional::stream)
@@ -457,7 +456,7 @@ public class InMemoryTransactionManager
                 // catalog name will not be an internal catalog (e.g., information schema) because internal
                 // catalog references can only be generated from the main catalog
                 checkArgument(!catalogHandle.getType().isInternal(), "Internal catalog handle not allowed: %s", catalogHandle);
-                Catalog catalog = registeredCatalogs.getOrDefault(new CatalogName(catalogHandle.getCatalogName()), Optional.empty())
+                Catalog catalog = registeredCatalogs.getOrDefault(catalogHandle.getCatalogName(), Optional.empty())
                         .orElseThrow(() -> new IllegalArgumentException("No catalog registered for handle: " + catalogHandle));
 
                 catalogMetadata = catalog.beginTransaction(transactionId, isolationLevel, readOnly, autoCommitContext);
