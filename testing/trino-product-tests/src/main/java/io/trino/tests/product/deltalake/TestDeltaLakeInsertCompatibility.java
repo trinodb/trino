@@ -34,11 +34,9 @@ import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_104;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_113;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_DATABRICKS_122;
-import static io.trino.tests.product.TestGroups.DELTA_LAKE_EXCLUDE_91;
 import static io.trino.tests.product.TestGroups.DELTA_LAKE_OSS;
 import static io.trino.tests.product.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_104_RUNTIME_VERSION;
-import static io.trino.tests.product.deltalake.util.DatabricksVersion.DATABRICKS_133_RUNTIME_VERSION;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_ISSUE;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.DATABRICKS_COMMUNICATION_FAILURE_MATCH;
 import static io.trino.tests.product.deltalake.util.DeltaLakeTestUtils.dropDeltaTableWithRetry;
@@ -141,7 +139,7 @@ public class TestDeltaLakeInsertCompatibility
         }
     }
 
-    @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_EXCLUDE_91, DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
+    @Test(groups = {DELTA_LAKE_OSS, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testTimestampInsertCompatibility()
     {
@@ -159,20 +157,16 @@ public class TestDeltaLakeInsertCompatibility
                                    "(3, TIMESTAMP '2023-03-04 01:02:03.999')," +
                                    "(4, TIMESTAMP '9999-12-31 23:59:59.999')");
 
-            // Databricks returns incorrect results before version 13.3
-            Optional<String> expected = databricksRuntimeVersion.map(version -> version.isAtLeast(DATABRICKS_133_RUNTIME_VERSION) ? "0001-01-01 00:00:00.000" : "0001-01-03 00:00:00.000");
+            List<Row> expected = ImmutableList.<Row>builder()
+                    .add(row(1, "0001-01-01 00:00:00.000"))
+                    .add(row(2, "2023-01-02 01:02:03.999"))
+                    .add(row(3, "2023-03-04 01:02:03.999"))
+                    .add(row(4, "9999-12-31 23:59:59.999"))
+                    .build();
             assertThat(onDelta().executeQuery("SELECT id, date_format(ts, \"yyyy-MM-dd HH:mm:ss.SSS\") FROM default." + tableName))
-                    .containsOnly(
-                            row(1, expected.orElse("0001-01-01 00:00:00.000")),
-                            row(2, "2023-01-02 01:02:03.999"),
-                            row(3, "2023-03-04 01:02:03.999"),
-                            row(4, "9999-12-31 23:59:59.999"));
+                    .containsOnly(expected);
             assertThat(onTrino().executeQuery("SELECT id, format_datetime(ts, 'yyyy-MM-dd HH:mm:ss.SSS') FROM delta.default." + tableName))
-                    .containsOnly(
-                            row(1, "0001-01-01 00:00:00.000"),
-                            row(2, "2023-01-02 01:02:03.999"),
-                            row(3, "2023-03-04 01:02:03.999"),
-                            row(4, "9999-12-31 23:59:59.999"));
+                    .containsOnly(expected);
         }
         finally {
             onTrino().executeQuery("DROP TABLE delta.default." + tableName);
