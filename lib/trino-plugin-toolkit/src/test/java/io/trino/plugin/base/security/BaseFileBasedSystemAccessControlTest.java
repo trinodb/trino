@@ -122,8 +122,6 @@ public abstract class BaseFileBasedSystemAccessControlTest
 
     private static final String SET_SYSTEM_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE = "Cannot set system session property .*";
     private static final String SET_CATALOG_SESSION_PROPERTY_ACCESS_DENIED_MESSAGE = "Cannot set catalog session property .*";
-    private static final String EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE = "Cannot execute function .*";
-    private static final String GRANT_EXECUTE_FUNCTION_ACCESS_DENIED_MESSAGE = ".* cannot grant .*";
     private static final String EXECUTE_PROCEDURE_ACCESS_DENIED_MESSAGE = "Cannot execute procedure .*";
 
     protected abstract SystemAccessControl newFileBasedSystemAccessControl(File configFile, Map<String, String> properties);

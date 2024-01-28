@@ -66,7 +66,6 @@ import static java.util.Objects.requireNonNull;
 public final class LiteralInterpreter
 {
     private final PlannerContext plannerContext;
-    private final Session session;
     private final ConnectorSession connectorSession;
     private final InterpretedFunctionInvoker functionInvoker;
 
@@ -75,7 +74,6 @@ public final class LiteralInterpreter
     public LiteralInterpreter(PlannerContext plannerContext, Session session)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-        this.session = requireNonNull(session, "session is null");
         this.connectorSession = session.toConnectorSession();
         this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
     }

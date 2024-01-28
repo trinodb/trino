@@ -52,7 +52,6 @@ import org.apache.hudi.common.model.HoodieAvroPayload;
 import org.apache.hudi.common.model.HoodieAvroRecord;
 import org.apache.hudi.common.model.HoodieKey;
 import org.apache.hudi.common.model.HoodieRecord;
-import org.apache.hudi.common.model.HoodieTableType;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.marker.MarkerType;
 import org.apache.hudi.common.util.Option;
@@ -111,12 +110,10 @@ public class TpchHudiTablesInitializer
             new Column("_hoodie_file_name", HIVE_STRING, Optional.empty(), Map.of()));
     private static final HdfsContext CONTEXT = new HdfsContext(SESSION);
 
-    private final HoodieTableType tableType;
     private final List<TpchTable<?>> tpchTables;
 
-    public TpchHudiTablesInitializer(HoodieTableType tableType, List<TpchTable<?>> tpchTables)
+    public TpchHudiTablesInitializer(List<TpchTable<?>> tpchTables)
     {
-        this.tableType = requireNonNull(tableType, "tableType is null");
         this.tpchTables = requireNonNull(tpchTables, "tpchTables is null");
     }
 
