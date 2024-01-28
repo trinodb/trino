@@ -654,7 +654,7 @@ class RelationPlanner
             Type type = analysis.getType(measureDefinition.getExpression());
             Symbol symbol = symbolAllocator.newSymbol(measureDefinition.getName().getValue().toLowerCase(ENGLISH), type);
             Expression expression = expressionRewrite.apply(measureDefinition.getExpression());
-            ExpressionAndValuePointers measure = LogicalIndexExtractor.rewrite(expression, rewrittenSubsets.buildOrThrow(), symbolAllocator, session, plannerContext.getMetadata());
+            ExpressionAndValuePointers measure = LogicalIndexExtractor.rewrite(expression, rewrittenSubsets.buildOrThrow(), symbolAllocator, plannerContext.getMetadata());
             rewrittenMeasures.put(symbol, new Measure(measure, type));
             measureOutputs.add(symbol);
         }
@@ -667,7 +667,7 @@ class RelationPlanner
         for (VariableDefinition variableDefinition : variableDefinitions) {
             IrLabel label = irLabel(variableDefinition.getName());
             Expression expression = expressionRewrite.apply(variableDefinition.getExpression());
-            ExpressionAndValuePointers definition = LogicalIndexExtractor.rewrite(expression, rewrittenSubsets.buildOrThrow(), symbolAllocator, session, plannerContext.getMetadata());
+            ExpressionAndValuePointers definition = LogicalIndexExtractor.rewrite(expression, rewrittenSubsets.buildOrThrow(), symbolAllocator, plannerContext.getMetadata());
             rewrittenVariableDefinitions.put(label, definition);
         }
         // add `true` definition for undefined labels

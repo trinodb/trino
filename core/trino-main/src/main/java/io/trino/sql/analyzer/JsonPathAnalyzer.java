@@ -16,7 +16,6 @@ package io.trino.sql.analyzer;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.spi.TrinoException;
@@ -92,15 +91,13 @@ public class JsonPathAnalyzer
     private static final Type TYPE_METHOD_RESULT_TYPE = createVarcharType(27);
 
     private final Metadata metadata;
-    private final Session session;
     private final ExpressionAnalyzer literalAnalyzer;
     private final Map<PathNodeRef<PathNode>, Type> types = new LinkedHashMap<>();
     private final Set<PathNodeRef<PathNode>> jsonParameters = new LinkedHashSet<>();
 
-    public JsonPathAnalyzer(Metadata metadata, Session session, ExpressionAnalyzer literalAnalyzer)
+    public JsonPathAnalyzer(Metadata metadata, ExpressionAnalyzer literalAnalyzer)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
-        this.session = requireNonNull(session, "session is null");
         this.literalAnalyzer = requireNonNull(literalAnalyzer, "literalAnalyzer is null");
     }
 

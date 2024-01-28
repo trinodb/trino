@@ -4052,7 +4052,6 @@ class StatementAnalyzer
         {
             return new JsonPathAnalyzer(
                     plannerContext.getMetadata(),
-                    session,
                     createConstantAnalyzer(plannerContext, accessControl, session, analysis.getParameters(), WarningCollector.NOOP, analysis.isDescribe()))
                     .analyzeJsonPath(path, ImmutableMap.of());
         }
@@ -4061,7 +4060,6 @@ class StatementAnalyzer
         {
             return new JsonPathAnalyzer(
                     plannerContext.getMetadata(),
-                    session,
                     createConstantAnalyzer(plannerContext, accessControl, session, analysis.getParameters(), WarningCollector.NOOP, analysis.isDescribe()))
                     .analyzeImplicitJsonPath(path, columnLocation.orElseThrow(() -> new IllegalStateException("missing NodeLocation for JSON_TABLE column")));
         }
@@ -4306,7 +4304,7 @@ class StatementAnalyzer
         private List<FunctionCall> analyzeWindowFunctions(QuerySpecification node, List<Expression> expressions)
         {
             for (Expression expression : expressions) {
-                new WindowFunctionValidator(session, metadata).process(expression, analysis);
+                new WindowFunctionValidator().process(expression, analysis);
             }
 
             List<FunctionCall> windowFunctions = extractWindowFunctions(expressions);
