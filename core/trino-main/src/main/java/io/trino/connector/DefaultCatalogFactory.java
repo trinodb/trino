@@ -112,18 +112,18 @@ public class DefaultCatalogFactory
     {
         requireNonNull(catalogProperties, "catalogProperties is null");
 
-        ConnectorFactory connectorFactory = connectorFactories.get(catalogProperties.getConnectorName());
-        checkArgument(connectorFactory != null, "No factory for connector '%s'. Available factories: %s", catalogProperties.getConnectorName(), connectorFactories.keySet());
+        ConnectorFactory connectorFactory = connectorFactories.get(catalogProperties.connectorName());
+        checkArgument(connectorFactory != null, "No factory for connector '%s'. Available factories: %s", catalogProperties.connectorName(), connectorFactories.keySet());
 
         Connector connector = createConnector(
-                catalogProperties.getCatalogHandle().getCatalogName(),
-                catalogProperties.getCatalogHandle(),
+                catalogProperties.catalogHandle().getCatalogName(),
+                catalogProperties.catalogHandle(),
                 connectorFactory,
-                catalogProperties.getProperties());
+                catalogProperties.properties());
 
         return createCatalog(
-                catalogProperties.getCatalogHandle(),
-                catalogProperties.getConnectorName(),
+                catalogProperties.catalogHandle(),
+                catalogProperties.connectorName(),
                 connector,
                 Optional.of(catalogProperties));
     }
