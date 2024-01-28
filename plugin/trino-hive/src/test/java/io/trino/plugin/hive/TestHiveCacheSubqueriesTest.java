@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.operator.TableScanOperator;
 import io.trino.testing.BaseCacheSubqueriesTest;
-import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -58,18 +58,18 @@ public class TestHiveCacheSubqueriesTest
                         "'value2'"))) {
             @Language("SQL") String selectQuery = "select name from %s union all select name from %s".formatted(testTable.getName(), testTable.getName());
 
-            MaterializedResultWithQueryId result = executeWithQueryId(withCacheEnabled(), selectQuery);
-            assertThat(result.getResult().getRowCount()).isEqualTo(4);
-            assertThat(getOperatorInputPositions(result.getQueryId(), TableScanOperator.class.getSimpleName())).isPositive();
+            MaterializedResultWithPlan result = executeWithPlan(withCacheEnabled(), selectQuery);
+            assertThat(result.result().getRowCount()).isEqualTo(4);
+            assertThat(getOperatorInputPositions(result.queryId(), TableScanOperator.class.getSimpleName())).isPositive();
 
             assertUpdate("insert into %s(name) values ('value3')".formatted(testTable.getName()), 1);
-            result = executeWithQueryId(withCacheEnabled(), selectQuery);
+            result = executeWithPlan(withCacheEnabled(), selectQuery);
 
             // make sure that if underlying data was changed the second query sees changes
             // and data was read from both table (newly inserted data) and from cache (existing data)
-            assertThat(result.getResult().getRowCount()).isEqualTo(6);
-            assertThat(getLoadCachedDataOperatorInputPositions(result.getQueryId())).isPositive();
-            assertThat(getScanOperatorInputPositions(result.getQueryId())).isPositive();
+            assertThat(result.result().getRowCount()).isEqualTo(6);
+            assertThat(getLoadCachedDataOperatorInputPositions(result.queryId())).isPositive();
+            assertThat(getScanOperatorInputPositions(result.queryId())).isPositive();
         }
     }
 

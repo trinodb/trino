@@ -817,7 +817,7 @@ public class TestIcebergFileOperations
     private void assertFileSystemAccesses(Session session, @Language("SQL") String query, Scope scope, Multiset<FileOperation> expectedAccesses)
     {
         resetCounts();
-        getDistributedQueryRunner().executeWithQueryId(session, query);
+        getDistributedQueryRunner().executeWithPlan(session, query);
         assertMultisetsEqual(
                 getOperations().stream()
                         .filter(scope)

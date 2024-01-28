@@ -31,8 +31,8 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.split.SplitSource;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.tpch.TpchTable;
 import io.trino.transaction.TransactionId;
 import io.trino.transaction.TransactionManager;
@@ -174,10 +174,10 @@ public class TestKuduIntegrationDynamicFilter
     private void assertDynamicFiltering(@Language("SQL") String selectQuery, Session session, int expectedRowCount, int... expectedOperatorRowsRead)
     {
         DistributedQueryRunner runner = getDistributedQueryRunner();
-        MaterializedResultWithQueryId result = runner.executeWithQueryId(session, selectQuery);
+        MaterializedResultWithPlan result = runner.executeWithPlan(session, selectQuery);
 
-        assertThat(result.getResult().getRowCount()).isEqualTo(expectedRowCount);
-        assertThat(getOperatorRowsRead(runner, result.getQueryId())).isEqualTo(Ints.asList(expectedOperatorRowsRead));
+        assertThat(result.result().getRowCount()).isEqualTo(expectedRowCount);
+        assertThat(getOperatorRowsRead(runner, result.queryId())).isEqualTo(Ints.asList(expectedOperatorRowsRead));
     }
 
     private Session withBroadcastJoin()

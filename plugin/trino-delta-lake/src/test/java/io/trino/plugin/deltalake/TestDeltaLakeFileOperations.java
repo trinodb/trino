@@ -828,7 +828,7 @@ public class TestDeltaLakeFileOperations
         assertUpdate("CALL system.flush_metadata_cache()");
 
         trackingFileSystemFactory.reset();
-        getDistributedQueryRunner().executeWithQueryId(session, query);
+        getDistributedQueryRunner().executeWithPlan(session, query);
         assertMultisetsEqual(getOperations(), expectedAccesses);
     }
 

@@ -23,7 +23,6 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.client.FailureException;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
@@ -68,9 +67,9 @@ public final class QueryAssertions
         MaterializedResult results;
         Plan queryPlan;
         if (planAssertion.isPresent()) {
-            MaterializedResultWithPlan resultWithPlan = queryRunner.executeWithPlan(session, sql, WarningCollector.NOOP);
-            queryPlan = resultWithPlan.getQueryPlan();
-            results = resultWithPlan.getMaterializedResult().toTestTypes();
+            MaterializedResultWithPlan resultWithPlan = queryRunner.executeWithPlan(session, sql);
+            queryPlan = resultWithPlan.queryPlan().orElseThrow();
+            results = resultWithPlan.result().toTestTypes();
         }
         else {
             queryPlan = null;
@@ -106,9 +105,9 @@ public final class QueryAssertions
     {
         long start = System.nanoTime();
         Plan queryPlan = null;
-        MaterializedResultWithQueryId resultWithQueryId = distributedQueryRunner.executeWithQueryId(session, sql);
-        QueryId queryId = resultWithQueryId.getQueryId();
-        MaterializedResult results = resultWithQueryId.getResult().toTestTypes();
+        MaterializedResultWithPlan resultWithPlan = distributedQueryRunner.executeWithPlan(session, sql);
+        QueryId queryId = resultWithPlan.queryId();
+        MaterializedResult results = resultWithPlan.result().toTestTypes();
         if (planAssertion.isPresent()) {
             try {
                 queryPlan = distributedQueryRunner.getQueryPlan(queryId);
@@ -194,9 +193,9 @@ public final class QueryAssertions
         Plan queryPlan = null;
         if (planAssertion.isPresent()) {
             try {
-                MaterializedResultWithPlan resultWithPlan = actualQueryRunner.executeWithPlan(session, actual, WarningCollector.NOOP);
-                queryPlan = resultWithPlan.getQueryPlan();
-                actualResults = resultWithPlan.getMaterializedResult().toTestTypes();
+                MaterializedResultWithPlan resultWithPlan = actualQueryRunner.executeWithPlan(session, actual);
+                queryPlan = resultWithPlan.queryPlan().orElseThrow();
+                actualResults = resultWithPlan.result().toTestTypes();
             }
             catch (RuntimeException ex) {
                 fail("Execution of 'actual' query failed: " + actual, ex);
@@ -288,9 +287,9 @@ public final class QueryAssertions
         QueryId queryId = null;
         MaterializedResult actualResults = null;
         try {
-            MaterializedResultWithQueryId resultWithQueryId = distributedQueryRunner.executeWithQueryId(session, actual);
-            queryId = resultWithQueryId.getQueryId();
-            actualResults = resultWithQueryId.getResult().toTestTypes();
+            MaterializedResultWithPlan resultWithPlan = distributedQueryRunner.executeWithPlan(session, actual);
+            queryId = resultWithPlan.queryId();
+            actualResults = resultWithPlan.result().toTestTypes();
         }
         catch (RuntimeException ex) {
             if (queryId == null && ex instanceof QueryFailedException queryFailedException) {
@@ -464,8 +463,8 @@ public final class QueryAssertions
     {
         try {
             if (queryRunner instanceof DistributedQueryRunner distributedQueryRunner) {
-                MaterializedResultWithQueryId resultWithQueryId = distributedQueryRunner.executeWithQueryId(session, sql);
-                fail(format("Expected query to fail: %s [QueryId: %s]", sql, resultWithQueryId.getQueryId()));
+                MaterializedResultWithPlan resultWithPlan = distributedQueryRunner.executeWithPlan(session, sql);
+                fail(format("Expected query to fail: %s [QueryId: %s]", sql, resultWithPlan.queryId()));
             }
             else {
                 queryRunner.execute(session, sql);
@@ -485,9 +484,9 @@ public final class QueryAssertions
         try {
             MaterializedResult results;
             if (queryRunner instanceof DistributedQueryRunner distributedQueryRunner) {
-                MaterializedResultWithQueryId resultWithQueryId = distributedQueryRunner.executeWithQueryId(session, sql);
-                queryId = resultWithQueryId.getQueryId();
-                results = resultWithQueryId.getResult().toTestTypes();
+                MaterializedResultWithPlan resultWithPlan = distributedQueryRunner.executeWithPlan(session, sql);
+                queryId = resultWithPlan.queryId();
+                results = resultWithPlan.result().toTestTypes();
             }
             else {
                 results = queryRunner.execute(session, sql).toTestTypes();

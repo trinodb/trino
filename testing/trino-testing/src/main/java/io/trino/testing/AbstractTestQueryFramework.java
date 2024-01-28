@@ -52,6 +52,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.sql.tree.ExplainType;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.TestingAccessControlManager.TestingPrivilege;
 import io.trino.testng.services.ReportBadTestAnnotations;
 import io.trino.util.AutoCloseableCloser;
@@ -573,13 +574,13 @@ public abstract class AbstractTestQueryFramework
             Consumer<MaterializedResult> resultAssertion)
     {
         DistributedQueryRunner queryRunner = getDistributedQueryRunner();
-        MaterializedResultWithQueryId resultWithQueryId = queryRunner.executeWithQueryId(session, query);
+        MaterializedResultWithPlan result = queryRunner.executeWithPlan(session, query);
         QueryStats queryStats = queryRunner.getCoordinator()
                 .getQueryManager()
-                .getFullQueryInfo(resultWithQueryId.getQueryId())
+                .getFullQueryInfo(result.queryId())
                 .getQueryStats();
         queryStatsAssertion.accept(queryStats);
-        resultAssertion.accept(resultWithQueryId.getResult());
+        resultAssertion.accept(result.result());
     }
 
     protected void assertNoDataRead(@Language("SQL") String sql)

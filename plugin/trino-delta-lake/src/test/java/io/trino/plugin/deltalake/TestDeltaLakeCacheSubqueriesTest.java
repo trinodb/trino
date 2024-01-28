@@ -19,8 +19,8 @@ import io.trino.Session;
 import io.trino.operator.TableScanOperator;
 import io.trino.testing.BaseCacheSubqueriesTest;
 import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeAll;
@@ -85,20 +85,20 @@ public class TestDeltaLakeCacheSubqueriesTest
                 "(name VARCHAR)",
                 ImmutableList.of("'value1'", "'value2'"))) {
             @Language("SQL") String selectQuery = "select name from %s union all select name from %s".formatted(testTable.getName(), testTable.getName());
-            MaterializedResultWithQueryId result = executeWithQueryId(withCacheEnabled(), selectQuery);
-            assertEqualsIgnoreOrder(result.getResult().getMaterializedRows().stream().map(row -> row.getField(0)).toList(), ImmutableList.of("value1", "value2", "value1", "value2"));
-            assertThat(getOperatorInputPositions(result.getQueryId(), TableScanOperator.class.getSimpleName())).isPositive();
+            MaterializedResultWithPlan result = executeWithPlan(withCacheEnabled(), selectQuery);
+            assertEqualsIgnoreOrder(result.result().getMaterializedRows().stream().map(row -> row.getField(0)).toList(), ImmutableList.of("value1", "value2", "value1", "value2"));
+            assertThat(getOperatorInputPositions(result.queryId(), TableScanOperator.class.getSimpleName())).isPositive();
 
             assertUpdate("insert into %s(name) values ('value3')".formatted(testTable.getName()), 1);
-            result = executeWithQueryId(withCacheEnabled(), selectQuery);
+            result = executeWithPlan(withCacheEnabled(), selectQuery);
 
-            assertThat(result.getResult().getRowCount()).isEqualTo(6);
-            assertThat(getScanOperatorInputPositions(result.getQueryId())).isPositive();
-            assertThat(getLoadCachedDataOperatorInputPositions(result.getQueryId())).isPositive();
+            assertThat(result.result().getRowCount()).isEqualTo(6);
+            assertThat(getScanOperatorInputPositions(result.queryId())).isPositive();
+            assertThat(getLoadCachedDataOperatorInputPositions(result.queryId())).isPositive();
 
-            result = executeWithQueryId(withCacheEnabled(), selectQuery);
-            assertThat(getLoadCachedDataOperatorInputPositions(result.getQueryId())).isEqualTo(6);
-            assertThat(getScanOperatorInputPositions(result.getQueryId())).isZero();
+            result = executeWithPlan(withCacheEnabled(), selectQuery);
+            assertThat(getLoadCachedDataOperatorInputPositions(result.queryId())).isEqualTo(6);
+            assertThat(getScanOperatorInputPositions(result.queryId())).isZero();
         }
     }
 
@@ -108,24 +108,24 @@ public class TestDeltaLakeCacheSubqueriesTest
         computeActual("create table orders2 with (column_mapping_mode='name') as select orderkey, orderdate, orderpriority from orders limit 100");
         @Language("SQL") String query = "select * from orders2 union all select * from orders2";
 
-        MaterializedResultWithQueryId result = executeWithQueryId(withCacheEnabled(), query);
-        assertThat(result.getResult().getMaterializedRows().get(0).getFieldCount()).isEqualTo(3);
-        assertThat(getCacheDataOperatorInputPositions(result.getQueryId())).isPositive();
+        MaterializedResultWithPlan result = executeWithPlan(withCacheEnabled(), query);
+        assertThat(result.result().getMaterializedRows().get(0).getFieldCount()).isEqualTo(3);
+        assertThat(getCacheDataOperatorInputPositions(result.queryId())).isPositive();
 
         // add a nullable column - schema will be evolved
         assertUpdate("alter table orders2 add column c varchar");
 
         // should not use cache because of schema was evolved
-        result = executeWithQueryId(withCacheEnabled(), query);
-        assertThat(result.getResult().getMaterializedRows().get(0).getFieldCount()).isEqualTo(4);
-        assertThat(result.getResult().getMaterializedRows().stream().map(row -> row.getField(3))).allMatch(Objects::isNull);
+        result = executeWithPlan(withCacheEnabled(), query);
+        assertThat(result.result().getMaterializedRows().get(0).getFieldCount()).isEqualTo(4);
+        assertThat(result.result().getMaterializedRows().stream().map(row -> row.getField(3))).allMatch(Objects::isNull);
 
         // drop a column - schema will be evolved
         assertUpdate("alter table orders2 drop column c");
 
         // should not use cache because of schema was evolved
-        result = executeWithQueryId(withCacheEnabled(), query);
-        assertThat(result.getResult().getMaterializedRows().get(0).getFieldCount()).isEqualTo(3);
+        result = executeWithPlan(withCacheEnabled(), query);
+        assertThat(result.result().getMaterializedRows().get(0).getFieldCount()).isEqualTo(3);
 
         assertUpdate("drop table orders2");
     }
@@ -135,15 +135,15 @@ public class TestDeltaLakeCacheSubqueriesTest
             throws IOException
     {
         @Language("SQL") String query = "select * from (select * from deletion_vectors union all select * from deletion_vectors) order by 1";
-        MaterializedResultWithQueryId result = executeWithQueryId(withCacheEnabled(), query);
-        assertThat(result.getResult().getRowCount()).isEqualTo(4);
-        assertThat(getCacheDataOperatorInputPositions(result.getQueryId())).isPositive();
+        MaterializedResultWithPlan result = executeWithPlan(withCacheEnabled(), query);
+        assertThat(result.result().getRowCount()).isEqualTo(4);
+        assertThat(getCacheDataOperatorInputPositions(result.queryId())).isPositive();
 
         // should use only cache
-        result = executeWithQueryId(withCacheEnabled(), query);
-        assertThat(result.getResult().getRowCount()).isEqualTo(4);
-        assertThat(getScanOperatorInputPositions(result.getQueryId())).isZero();
-        assertThat(getLoadCachedDataOperatorInputPositions(result.getQueryId())).isPositive();
+        result = executeWithPlan(withCacheEnabled(), query);
+        assertThat(result.result().getRowCount()).isEqualTo(4);
+        assertThat(getScanOperatorInputPositions(result.queryId())).isZero();
+        assertThat(getLoadCachedDataOperatorInputPositions(result.queryId())).isPositive();
 
         // simulate that row was deleted with deletion vector
         Files.copy(
@@ -152,10 +152,10 @@ public class TestDeltaLakeCacheSubqueriesTest
                 REPLACE_EXISTING);
 
         // cache should not be used because of deletion vector presence
-        result = executeWithQueryId(withCacheEnabled(), query);
-        assertThat(result.getResult().getRowCount()).isEqualTo(2);
-        assertThat(result.getResult().getMaterializedRows()).map(row -> row.getField(0)).matches(values -> !values.contains(2));
-        assertThat(getScanOperatorInputPositions(result.getQueryId())).isPositive();
+        result = executeWithPlan(withCacheEnabled(), query);
+        assertThat(result.result().getRowCount()).isEqualTo(2);
+        assertThat(result.result().getMaterializedRows()).map(row -> row.getField(0)).matches(values -> !values.contains(2));
+        assertThat(getScanOperatorInputPositions(result.queryId())).isPositive();
     }
 
     @Override

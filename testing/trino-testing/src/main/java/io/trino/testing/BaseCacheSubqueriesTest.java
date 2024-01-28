@@ -56,6 +56,7 @@ import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.assertions.PlanAssert;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.plan.LoadCachedDataPlanNode;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.tpch.TpchTable;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeEach;
@@ -135,19 +136,19 @@ public abstract class BaseCacheSubqueriesTest
     public void testJoinQuery()
     {
         @Language("SQL") String selectQuery = "select count(l.orderkey) from lineitem l, lineitem r where l.orderkey = r.orderkey";
-        MaterializedResultWithQueryId resultWithCache = executeWithQueryId(withCacheEnabled(), selectQuery);
-        MaterializedResultWithQueryId resultWithoutCache = executeWithQueryId(withCacheDisabled(), selectQuery);
-        assertEqualsIgnoreOrder(resultWithCache.getResult(), resultWithoutCache.getResult());
+        MaterializedResultWithPlan resultWithCache = executeWithPlan(withCacheEnabled(), selectQuery);
+        MaterializedResultWithPlan resultWithoutCache = executeWithPlan(withCacheDisabled(), selectQuery);
+        assertEqualsIgnoreOrder(resultWithCache.result(), resultWithoutCache.result());
 
         // make sure data was read from cache
-        assertThat(getLoadCachedDataOperatorInputPositions(resultWithCache.getQueryId())).isPositive();
+        assertThat(getLoadCachedDataOperatorInputPositions(resultWithCache.queryId())).isPositive();
 
         // make sure data was cached
-        assertThat(getCacheDataOperatorInputPositions(resultWithCache.getQueryId())).isPositive();
+        assertThat(getCacheDataOperatorInputPositions(resultWithCache.queryId())).isPositive();
 
         // make sure less data is read from source when caching is on
-        assertThat(getScanOperatorInputPositions(resultWithCache.getQueryId()))
-                .isLessThan(getScanOperatorInputPositions(resultWithoutCache.getQueryId()));
+        assertThat(getScanOperatorInputPositions(resultWithCache.queryId()))
+                .isLessThan(getScanOperatorInputPositions(resultWithoutCache.queryId()));
     }
 
     @Test
@@ -165,43 +166,43 @@ public abstract class BaseCacheSubqueriesTest
                 JOIN
                     (SELECT sum(orderkey), orderkey FROM lineitem GROUP BY orderkey) b
                 ON a.orderkey = b.orderkey""";
-        MaterializedResultWithQueryId countWithCache = executeWithQueryId(withCacheEnabled(), countQuery);
-        MaterializedResultWithQueryId countWithoutCache = executeWithQueryId(withCacheDisabled(), countQuery);
-        assertEqualsIgnoreOrder(countWithCache.getResult(), countWithoutCache.getResult());
+        MaterializedResultWithPlan countWithCache = executeWithPlan(withCacheEnabled(), countQuery);
+        MaterializedResultWithPlan countWithoutCache = executeWithPlan(withCacheDisabled(), countQuery);
+        assertEqualsIgnoreOrder(countWithCache.result(), countWithoutCache.result());
 
         // make sure data was read from cache
-        assertThat(getLoadCachedDataOperatorInputPositions(countWithCache.getQueryId())).isPositive();
+        assertThat(getLoadCachedDataOperatorInputPositions(countWithCache.queryId())).isPositive();
 
         // make sure data was cached
-        assertThat(getCacheDataOperatorInputPositions(countWithCache.getQueryId())).isPositive();
+        assertThat(getCacheDataOperatorInputPositions(countWithCache.queryId())).isPositive();
 
         // make sure less data is read from source when caching is on
-        assertThat(getScanOperatorInputPositions(countWithCache.getQueryId()))
-                .isLessThan(getScanOperatorInputPositions(countWithoutCache.getQueryId()));
+        assertThat(getScanOperatorInputPositions(countWithCache.queryId()))
+                .isLessThan(getScanOperatorInputPositions(countWithoutCache.queryId()));
 
         // subsequent count aggregation query should use cached data only
-        countWithCache = executeWithQueryId(withCacheEnabled(), countQuery);
-        assertThat(getLoadCachedDataOperatorInputPositions(countWithCache.getQueryId())).isPositive();
-        assertThat(getScanOperatorInputPositions(countWithCache.getQueryId())).isZero();
+        countWithCache = executeWithPlan(withCacheEnabled(), countQuery);
+        assertThat(getLoadCachedDataOperatorInputPositions(countWithCache.queryId())).isPositive();
+        assertThat(getScanOperatorInputPositions(countWithCache.queryId())).isZero();
 
         // subsequent sum aggregation query should read from source as it doesn't match count plan signature
-        MaterializedResultWithQueryId sumWithCache = executeWithQueryId(withCacheEnabled(), sumQuery);
-        assertThat(getScanOperatorInputPositions(sumWithCache.getQueryId())).isPositive();
+        MaterializedResultWithPlan sumWithCache = executeWithPlan(withCacheEnabled(), sumQuery);
+        assertThat(getScanOperatorInputPositions(sumWithCache.queryId())).isPositive();
     }
 
     @Test
     public void testSubsequentQueryReadsFromCache()
     {
         @Language("SQL") String selectQuery = "select orderkey from lineitem union all (select orderkey from lineitem union all select orderkey from lineitem)";
-        MaterializedResultWithQueryId resultWithCache = executeWithQueryId(withCacheEnabled(), selectQuery);
+        MaterializedResultWithPlan resultWithCache = executeWithPlan(withCacheEnabled(), selectQuery);
 
         // make sure data was cached
-        assertThat(getCacheDataOperatorInputPositions(resultWithCache.getQueryId())).isPositive();
+        assertThat(getCacheDataOperatorInputPositions(resultWithCache.queryId())).isPositive();
 
-        resultWithCache = executeWithQueryId(withCacheEnabled(), "select orderkey from lineitem union all select orderkey from lineitem");
+        resultWithCache = executeWithPlan(withCacheEnabled(), "select orderkey from lineitem union all select orderkey from lineitem");
         // make sure data was read from cache as data should be cached across queries
-        assertThat(getLoadCachedDataOperatorInputPositions(resultWithCache.getQueryId())).isPositive();
-        assertThat(getScanOperatorInputPositions(resultWithCache.getQueryId())).isZero();
+        assertThat(getLoadCachedDataOperatorInputPositions(resultWithCache.queryId())).isPositive();
+        assertThat(getScanOperatorInputPositions(resultWithCache.queryId())).isZero();
     }
 
     @ParameterizedTest
@@ -228,29 +229,29 @@ public abstract class BaseCacheSubqueriesTest
 
         Session cacheSubqueriesEnabled = withDynamicRowFiltering(withCacheEnabled(), isDynamicRowFilteringEnabled);
         Session cacheSubqueriesDisabled = withDynamicRowFiltering(withCacheDisabled(), isDynamicRowFilteringEnabled);
-        MaterializedResultWithQueryId totalScanOrdersExecution = executeWithQueryId(cacheSubqueriesDisabled, totalScanOrdersQuery);
-        MaterializedResultWithQueryId firstJoinExecution = executeWithQueryId(cacheSubqueriesEnabled, firstJoinQuery);
-        MaterializedResultWithQueryId anotherFirstJoinExecution = executeWithQueryId(cacheSubqueriesEnabled, firstJoinQuery);
-        MaterializedResultWithQueryId secondJoinExecution = executeWithQueryId(cacheSubqueriesEnabled, secondJoinQuery);
-        MaterializedResultWithQueryId thirdJoinExecution = executeWithQueryId(cacheSubqueriesEnabled, thirdJoinQuery);
+        MaterializedResultWithPlan totalScanOrdersExecution = executeWithPlan(cacheSubqueriesDisabled, totalScanOrdersQuery);
+        MaterializedResultWithPlan firstJoinExecution = executeWithPlan(cacheSubqueriesEnabled, firstJoinQuery);
+        MaterializedResultWithPlan anotherFirstJoinExecution = executeWithPlan(cacheSubqueriesEnabled, firstJoinQuery);
+        MaterializedResultWithPlan secondJoinExecution = executeWithPlan(cacheSubqueriesEnabled, secondJoinQuery);
+        MaterializedResultWithPlan thirdJoinExecution = executeWithPlan(cacheSubqueriesEnabled, thirdJoinQuery);
 
         // firstJoinQuery does not read whole probe side as some splits were pruned by dynamic filters
-        assertThat(getScanOperatorInputPositions(firstJoinExecution.getQueryId())).isLessThan(getScanOperatorInputPositions(totalScanOrdersExecution.getQueryId()));
-        assertThat(getCacheDataOperatorInputPositions(firstJoinExecution.getQueryId())).isPositive();
+        assertThat(getScanOperatorInputPositions(firstJoinExecution.queryId())).isLessThan(getScanOperatorInputPositions(totalScanOrdersExecution.queryId()));
+        assertThat(getCacheDataOperatorInputPositions(firstJoinExecution.queryId())).isPositive();
         // firstJoinQuery reads from table
-        assertThat(getScanOperatorInputPositions(firstJoinExecution.getQueryId())).isPositive();
+        assertThat(getScanOperatorInputPositions(firstJoinExecution.queryId())).isPositive();
         // second run of firstJoinQuery reads only from cache
-        assertThat(getScanOperatorInputPositions(anotherFirstJoinExecution.getQueryId())).isZero();
-        assertThat(getLoadCachedDataOperatorInputPositions(anotherFirstJoinExecution.getQueryId())).isPositive();
+        assertThat(getScanOperatorInputPositions(anotherFirstJoinExecution.queryId())).isZero();
+        assertThat(getLoadCachedDataOperatorInputPositions(anotherFirstJoinExecution.queryId())).isPositive();
 
         // secondJoinQuery reads from table and cache because its predicate is wider that firstJoinQuery's predicate
-        assertThat(getCacheDataOperatorInputPositions(secondJoinExecution.getQueryId())).isPositive();
-        assertThat(getLoadCachedDataOperatorInputPositions(secondJoinExecution.getQueryId())).isPositive();
-        assertThat(getScanOperatorInputPositions(secondJoinExecution.getQueryId())).isPositive();
+        assertThat(getCacheDataOperatorInputPositions(secondJoinExecution.queryId())).isPositive();
+        assertThat(getLoadCachedDataOperatorInputPositions(secondJoinExecution.queryId())).isPositive();
+        assertThat(getScanOperatorInputPositions(secondJoinExecution.queryId())).isPositive();
 
         // thirdJoinQuery reads only from cache
-        assertThat(getLoadCachedDataOperatorInputPositions(thirdJoinExecution.getQueryId())).isPositive();
-        assertThat(getScanOperatorInputPositions(thirdJoinExecution.getQueryId())).isZero();
+        assertThat(getLoadCachedDataOperatorInputPositions(thirdJoinExecution.queryId())).isPositive();
+        assertThat(getScanOperatorInputPositions(thirdJoinExecution.queryId())).isZero();
 
         assertUpdate("drop table orders_part");
     }
@@ -268,12 +269,12 @@ public abstract class BaseCacheSubqueriesTest
                             select orderdate from orders_part where orderkey > 10 and mod(orderkey, 10) = 1 and orderpriority = '3-MEDIUM'
                         ) order by orderdate
                         """;
-        MaterializedResultWithQueryId cacheDisabledResult = executeWithQueryId(withCacheDisabled(), query);
-        executeWithQueryId(withCacheEnabled(), query);
-        MaterializedResultWithQueryId cacheEnabledResult = executeWithQueryId(withCacheEnabled(), query);
+        MaterializedResultWithPlan cacheDisabledResult = executeWithPlan(withCacheDisabled(), query);
+        executeWithPlan(withCacheEnabled(), query);
+        MaterializedResultWithPlan cacheEnabledResult = executeWithPlan(withCacheEnabled(), query);
 
-        assertThat(getLoadCachedDataOperatorInputPositions(cacheEnabledResult.getQueryId())).isPositive();
-        assertThat(cacheDisabledResult.getResult()).isEqualTo(cacheEnabledResult.getResult());
+        assertThat(getLoadCachedDataOperatorInputPositions(cacheEnabledResult.queryId())).isPositive();
+        assertThat(cacheDisabledResult.result()).isEqualTo(cacheEnabledResult.result());
         assertUpdate("drop table orders_part");
     }
 
@@ -288,24 +289,24 @@ public abstract class BaseCacheSubqueriesTest
 
         Session cacheEnabledProjectionDisabled = withProjectionPushdownEnabled(withCacheEnabled(), false);
 
-        MaterializedResultWithQueryId firstRun = executeWithQueryId(withCacheEnabled(), query);
-        assertThat(firstRun.getResult().getRowCount()).isEqualTo(2);
-        assertThat(firstRun.getResult().getMaterializedRows().get(0).getFieldCount()).isEqualTo(2);
-        assertThat(getCacheDataOperatorInputPositions(firstRun.getQueryId())).isPositive();
+        MaterializedResultWithPlan firstRun = executeWithPlan(withCacheEnabled(), query);
+        assertThat(firstRun.result().getRowCount()).isEqualTo(2);
+        assertThat(firstRun.result().getMaterializedRows().get(0).getFieldCount()).isEqualTo(2);
+        assertThat(getCacheDataOperatorInputPositions(firstRun.queryId())).isPositive();
 
         // should use cache
-        MaterializedResultWithQueryId secondRun = executeWithQueryId(withCacheEnabled(), query);
-        assertThat(secondRun.getResult().getRowCount()).isEqualTo(2);
-        assertThat(secondRun.getResult().getMaterializedRows().get(0).getFieldCount()).isEqualTo(2);
-        assertThat(getLoadCachedDataOperatorInputPositions(secondRun.getQueryId())).isPositive();
+        MaterializedResultWithPlan secondRun = executeWithPlan(withCacheEnabled(), query);
+        assertThat(secondRun.result().getRowCount()).isEqualTo(2);
+        assertThat(secondRun.result().getMaterializedRows().get(0).getFieldCount()).isEqualTo(2);
+        assertThat(getLoadCachedDataOperatorInputPositions(secondRun.queryId())).isPositive();
 
         // shouldn't use cache because selected cacheColumnIds were different in the first case as projections were pushed down
-        MaterializedResultWithQueryId pushDownProjectionDisabledRun = executeWithQueryId(cacheEnabledProjectionDisabled, query);
-        assertThat(pushDownProjectionDisabledRun.getResult()).isEqualTo(firstRun.getResult());
+        MaterializedResultWithPlan pushDownProjectionDisabledRun = executeWithPlan(cacheEnabledProjectionDisabled, query);
+        assertThat(pushDownProjectionDisabledRun.result()).isEqualTo(firstRun.result());
 
         // shouldn't use cache because selected columns are different
-        MaterializedResultWithQueryId thirdRun = executeWithQueryId(withCacheEnabled(), secondQuery);
-        assertThat(getLoadCachedDataOperatorInputPositions(thirdRun.getQueryId())).isLessThanOrEqualTo(1);
+        MaterializedResultWithPlan thirdRun = executeWithPlan(withCacheEnabled(), secondQuery);
+        assertThat(getLoadCachedDataOperatorInputPositions(thirdRun.queryId())).isLessThanOrEqualTo(1);
 
         assertUpdate("drop table orders_with_row");
     }
@@ -330,12 +331,12 @@ public abstract class BaseCacheSubqueriesTest
                         select orderkey from orders_part where orderpriority = '3-MEDIUM'
                 """;
 
-        MaterializedResultWithQueryId twoPartitionsQueryFirst = executeWithQueryId(withCacheEnabled(), selectTwoPartitions);
-        Plan twoPartitionsQueryPlan = getDistributedQueryRunner().getQueryPlan(twoPartitionsQueryFirst.getQueryId());
-        MaterializedResultWithQueryId twoPartitionsQuerySecond = executeWithQueryId(withCacheEnabled(), selectTwoPartitions);
+        MaterializedResultWithPlan twoPartitionsQueryFirst = executeWithPlan(withCacheEnabled(), selectTwoPartitions);
+        Plan twoPartitionsQueryPlan = getDistributedQueryRunner().getQueryPlan(twoPartitionsQueryFirst.queryId());
+        MaterializedResultWithPlan twoPartitionsQuerySecond = executeWithPlan(withCacheEnabled(), selectTwoPartitions);
 
-        MaterializedResultWithQueryId allPartitionsQuery = executeWithQueryId(withCacheEnabled(), selectAllPartitions);
-        Plan allPartitionsQueryPlan = getDistributedQueryRunner().getQueryPlan(allPartitionsQuery.getQueryId());
+        MaterializedResultWithPlan allPartitionsQuery = executeWithPlan(withCacheEnabled(), selectAllPartitions);
+        Plan allPartitionsQueryPlan = getDistributedQueryRunner().getQueryPlan(allPartitionsQuery.queryId());
 
         String catalogId = withTransaction(session -> getDistributedQueryRunner().getCoordinator()
                 .getPlannerContext().getMetadata()
@@ -366,30 +367,30 @@ public abstract class BaseCacheSubqueriesTest
 
         // make sure that full scan reads data from table instead of basing on cache even though
         // plan signature is same
-        assertThat(getScanOperatorInputPositions(twoPartitionsQueryFirst.getQueryId())).isPositive();
-        assertThat(getScanOperatorInputPositions(twoPartitionsQuerySecond.getQueryId())).isZero();
-        assertThat(getScanOperatorInputPositions(allPartitionsQuery.getQueryId())).isPositive();
+        assertThat(getScanOperatorInputPositions(twoPartitionsQueryFirst.queryId())).isPositive();
+        assertThat(getScanOperatorInputPositions(twoPartitionsQuerySecond.queryId())).isZero();
+        assertThat(getScanOperatorInputPositions(allPartitionsQuery.queryId())).isPositive();
 
         // notFilteringExecution should read from both cache (for partitions pre-loaded by filtering executions) and
         // from source table
-        assertThat(getLoadCachedDataOperatorInputPositions(allPartitionsQuery.getQueryId())).isPositive();
+        assertThat(getLoadCachedDataOperatorInputPositions(allPartitionsQuery.queryId())).isPositive();
 
         // single partition query should read from cache only because data for all partitions have been pre-loaded
-        MaterializedResultWithQueryId singlePartitionQuery = executeWithQueryId(withCacheEnabled(), selectSinglePartition);
-        assertThat(getScanOperatorInputPositions(singlePartitionQuery.getQueryId())).isZero();
-        assertThat(getLoadCachedDataOperatorInputPositions(singlePartitionQuery.getQueryId())).isPositive();
+        MaterializedResultWithPlan singlePartitionQuery = executeWithPlan(withCacheEnabled(), selectSinglePartition);
+        assertThat(getScanOperatorInputPositions(singlePartitionQuery.queryId())).isZero();
+        assertThat(getLoadCachedDataOperatorInputPositions(singlePartitionQuery.queryId())).isPositive();
 
         // make sure that adding new partition doesn't invalidate existing cache entries
         computeActual("insert into orders_part values (-42, date '1991-01-01', 'foo')");
-        singlePartitionQuery = executeWithQueryId(withCacheEnabled(), selectSinglePartition);
-        assertThat(getScanOperatorInputPositions(singlePartitionQuery.getQueryId())).isZero();
-        assertThat(getLoadCachedDataOperatorInputPositions(singlePartitionQuery.getQueryId())).isPositive();
+        singlePartitionQuery = executeWithPlan(withCacheEnabled(), selectSinglePartition);
+        assertThat(getScanOperatorInputPositions(singlePartitionQuery.queryId())).isZero();
+        assertThat(getLoadCachedDataOperatorInputPositions(singlePartitionQuery.queryId())).isPositive();
 
         // validate results
-        int twoPartitionsRowCount = twoPartitionsQueryFirst.getResult().getRowCount();
-        assertThat(twoPartitionsRowCount).isEqualTo(twoPartitionsQuerySecond.getResult().getRowCount());
-        assertThat(twoPartitionsRowCount).isLessThan(allPartitionsQuery.getResult().getRowCount());
-        assertThat(singlePartitionQuery.getResult().getRowCount()).isLessThan(twoPartitionsRowCount);
+        int twoPartitionsRowCount = twoPartitionsQueryFirst.result().getRowCount();
+        assertThat(twoPartitionsRowCount).isEqualTo(twoPartitionsQuerySecond.result().getRowCount());
+        assertThat(twoPartitionsRowCount).isLessThan(allPartitionsQuery.result().getRowCount());
+        assertThat(singlePartitionQuery.result().getRowCount()).isLessThan(twoPartitionsRowCount);
         assertUpdate("drop table orders_part");
     }
 
@@ -588,9 +589,9 @@ public abstract class BaseCacheSubqueriesTest
         return newTransaction().execute(getSession(), transactionSessionConsumer);
     }
 
-    protected MaterializedResultWithQueryId executeWithQueryId(Session session, @Language("SQL") String sql)
+    protected MaterializedResultWithPlan executeWithPlan(Session session, @Language("SQL") String sql)
     {
-        return getDistributedQueryRunner().executeWithQueryId(session, sql);
+        return getDistributedQueryRunner().executeWithPlan(session, sql);
     }
 
     protected Long getScanOperatorInputPositions(QueryId queryId)

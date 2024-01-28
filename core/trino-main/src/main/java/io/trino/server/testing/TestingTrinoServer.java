@@ -473,7 +473,7 @@ public class TestingTrinoServer
         return queryManager;
     }
 
-    public Plan getQueryPlan(QueryId queryId)
+    public Optional<Plan> getQueryPlan(QueryId queryId)
     {
         return queryManager.getQueryPlan(queryId);
     }

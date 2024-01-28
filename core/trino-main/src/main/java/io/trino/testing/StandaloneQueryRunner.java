@@ -99,24 +99,24 @@ public final class StandaloneQueryRunner
     }
 
     @Override
-    public MaterializedResult execute(@Language("SQL") String sql)
+    public MaterializedResult execute(Session session, @Language("SQL") String sql)
     {
-        return execute(defaultSession, sql);
+        return executeInternal(session, sql).result();
     }
 
     @Override
-    public MaterializedResult execute(Session session, @Language("SQL") String sql)
+    public MaterializedResultWithPlan executeWithPlan(Session session, String sql)
     {
-        return executeWithQueryId(session, sql).getResult();
+        DirectTrinoClient.Result result = executeInternal(session, sql);
+        return new MaterializedResultWithPlan(result.queryId(), server.getQueryPlan(result.queryId()), result.result());
     }
 
-    private MaterializedResultWithQueryId executeWithQueryId(Session session, @Language("SQL") String sql)
+    private DirectTrinoClient.Result executeInternal(Session session, @Language("SQL") String sql)
     {
         lock.readLock().lock();
         try {
             spanExporter.reset();
-            DirectTrinoClient.MaterializedResultWithQueryId result = trinoClient.execute(session, sql);
-            return new MaterializedResultWithQueryId(result.queryId(), result.result());
+            return trinoClient.execute(session, sql);
         }
         catch (Throwable e) {
             e.addSuppressed(new Exception("SQL: " + sql));
@@ -125,13 +125,6 @@ public final class StandaloneQueryRunner
         finally {
             lock.readLock().unlock();
         }
-    }
-
-    @Override
-    public MaterializedResultWithPlan executeWithPlan(Session session, String sql, WarningCollector warningCollector)
-    {
-        MaterializedResultWithQueryId resultWithQueryId = executeWithQueryId(session, sql);
-        return new MaterializedResultWithPlan(resultWithQueryId.getResult().toTestTypes(), server.getQueryPlan(resultWithQueryId.getQueryId()));
     }
 
     @Override

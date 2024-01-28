@@ -14,7 +14,6 @@ import io.trino.Session;
 import io.trino.execution.QueryManager;
 import io.trino.sql.planner.OptimizerConfig;
 import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
@@ -82,13 +81,13 @@ public class TestDistributedSnowflakeConnectorTest
         String sql = "SELECT l.partkey FROM lineitem l JOIN nation n ON n.regionkey = l.orderkey AND n.name < 'B' ";
 
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
-        MaterializedResultWithQueryId dynamicFilter = queryRunner.executeWithQueryId(fixedBroadcastJoinDistribution(true), sql);
-        MaterializedResultWithQueryId noDynamicFilter = queryRunner.executeWithQueryId(fixedBroadcastJoinDistribution(false), sql);
-        assertThat(dynamicFilter.getResult().getOnlyColumnAsSet()).isEqualTo(noDynamicFilter.getResult().getOnlyColumnAsSet());
+        QueryRunner.MaterializedResultWithPlan dynamicFilter = queryRunner.executeWithPlan(fixedBroadcastJoinDistribution(true), sql);
+        QueryRunner.MaterializedResultWithPlan noDynamicFilter = queryRunner.executeWithPlan(fixedBroadcastJoinDistribution(false), sql);
+        assertThat(dynamicFilter.result().getOnlyColumnAsSet()).isEqualTo(noDynamicFilter.result().getOnlyColumnAsSet());
 
         QueryManager queryManager = queryRunner.getCoordinator().getQueryManager();
-        long dynamicFilterProcessedBytes = queryManager.getFullQueryInfo(dynamicFilter.getQueryId()).getQueryStats().getProcessedInputDataSize().toBytes();
-        long noDynamicFilterProcessedBytes = queryManager.getFullQueryInfo(noDynamicFilter.getQueryId()).getQueryStats().getProcessedInputDataSize().toBytes();
+        long dynamicFilterProcessedBytes = queryManager.getFullQueryInfo(dynamicFilter.queryId()).getQueryStats().getProcessedInputDataSize().toBytes();
+        long noDynamicFilterProcessedBytes = queryManager.getFullQueryInfo(noDynamicFilter.queryId()).getQueryStats().getProcessedInputDataSize().toBytes();
         assertThat(dynamicFilterProcessedBytes).as("dynamicFilterProcessedBytes")
                 .isLessThan(noDynamicFilterProcessedBytes);
     }

@@ -43,6 +43,7 @@ import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.query.QueryAssertions.QueryAssert;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.assertions.TrinoExceptionAssert;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
@@ -5181,16 +5182,16 @@ public abstract class BaseConnectorTest
         String tableName = "test_written_stats_" + randomNameSuffix();
         try {
             String sql = "CREATE TABLE " + tableName + " AS SELECT * FROM nation";
-            MaterializedResultWithQueryId resultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
-            QueryInfo queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
+            MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(getSession(), sql);
+            QueryInfo queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(result.queryId());
 
             assertThat(queryInfo.getQueryStats().getOutputPositions()).isEqualTo(1L);
             assertThat(queryInfo.getQueryStats().getWrittenPositions()).isEqualTo(25L);
             assertThat(queryInfo.getQueryStats().getLogicalWrittenDataSize().toBytes() > 0L).isTrue();
 
             sql = "INSERT INTO " + tableName + " SELECT * FROM nation LIMIT 10";
-            resultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
-            queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
+            result = getDistributedQueryRunner().executeWithPlan(getSession(), sql);
+            queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(result.queryId());
 
             assertThat(queryInfo.getQueryStats().getOutputPositions()).isEqualTo(1L);
             assertThat(queryInfo.getQueryStats().getWrittenPositions()).isEqualTo(10L);

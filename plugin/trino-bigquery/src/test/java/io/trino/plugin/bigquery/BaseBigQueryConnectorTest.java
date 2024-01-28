@@ -19,7 +19,7 @@ import io.trino.spi.QueryId;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
-import io.trino.testing.MaterializedResultWithQueryId;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
@@ -683,13 +683,13 @@ public abstract class BaseBigQueryConnectorTest
             @Language("SQL")
             String query = "SELECT * FROM test." + materializedView;
 
-            MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(sessionWithToken.apply("first_token"), query);
-            assertLabelForTable(materializedView, result.getQueryId(), "first_token");
+            MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(sessionWithToken.apply("first_token"), query);
+            assertLabelForTable(materializedView, result.queryId(), "first_token");
 
-            MaterializedResultWithQueryId result2 = getDistributedQueryRunner().executeWithQueryId(sessionWithToken.apply("second_token"), query);
-            assertLabelForTable(materializedView, result2.getQueryId(), "second_token");
+            MaterializedResultWithPlan result2 = getDistributedQueryRunner().executeWithPlan(sessionWithToken.apply("second_token"), query);
+            assertLabelForTable(materializedView, result2.queryId(), "second_token");
 
-            assertThatThrownBy(() -> getDistributedQueryRunner().executeWithQueryId(sessionWithToken.apply("InvalidToken"), query))
+            assertThatThrownBy(() -> getDistributedQueryRunner().executeWithPlan(sessionWithToken.apply("InvalidToken"), query))
                     .hasMessageContaining("BigQuery label value can contain only lowercase letters, numeric characters, underscores, and dashes");
         }
         finally {

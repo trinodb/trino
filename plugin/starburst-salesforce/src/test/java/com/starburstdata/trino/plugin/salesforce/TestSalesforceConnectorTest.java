@@ -35,9 +35,9 @@ import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
-import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import io.trino.tpch.TpchTable;
@@ -1589,16 +1589,16 @@ public class TestSalesforceConnectorTest
 
         String tableName = "test_written_stats_" + randomNameSuffix();
         String sql = "CREATE TABLE " + tableName + " AS SELECT * FROM " + salesforceNationTableName;
-        MaterializedResultWithQueryId resultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
-        QueryInfo queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
+        MaterializedResultWithPlan resultResultWithQueryId = getDistributedQueryRunner().executeWithPlan(getSession(), sql);
+        QueryInfo queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.queryId());
 
         assertThat(queryInfo.getQueryStats().getOutputPositions()).isEqualTo(1L);
         assertThat(queryInfo.getQueryStats().getWrittenPositions()).isEqualTo(25L);
         assertThat(queryInfo.getQueryStats().getLogicalWrittenDataSize().toBytes()).isGreaterThan(0L);
 
         sql = "INSERT INTO " + tableName + " SELECT * FROM " + salesforceNationTableName + " LIMIT 10";
-        resultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
-        queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
+        resultResultWithQueryId = getDistributedQueryRunner().executeWithPlan(getSession(), sql);
+        queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.queryId());
 
         assertThat(queryInfo.getQueryStats().getOutputPositions()).isEqualTo(1L);
         assertThat(queryInfo.getQueryStats().getWrittenPositions()).isEqualTo(10L);
@@ -2852,27 +2852,27 @@ public class TestSalesforceConnectorTest
 
         @Language("SQL") String query = "SELECT * FROM " + salesforceOrdersTableName + " a JOIN " + tableName + "__c b ON a.orderkey__c = b.orderkey__c";
 
-        MaterializedResultWithQueryId dynamicFilteringResult = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan dynamicFilteringResult = getDistributedQueryRunner().executeWithPlan(
                 dynamicFiltering(PARTITIONED, true),
                 query);
-        long filteredInputPositions = getPhysicalInputPositions(dynamicFilteringResult.getQueryId());
+        long filteredInputPositions = getPhysicalInputPositions(dynamicFilteringResult.queryId());
 
-        MaterializedResultWithQueryId dynamicFilteringWithCompactionThresholdResult = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan dynamicFilteringWithCompactionThresholdResult = getDistributedQueryRunner().executeWithPlan(
                 dynamicFilteringWithCompactionThreshold(1),
                 query);
-        long smallCompactionInputPositions = getPhysicalInputPositions(dynamicFilteringWithCompactionThresholdResult.getQueryId());
+        long smallCompactionInputPositions = getPhysicalInputPositions(dynamicFilteringWithCompactionThresholdResult.queryId());
         assertEqualsIgnoreOrder(
-                dynamicFilteringResult.getResult(),
-                dynamicFilteringWithCompactionThresholdResult.getResult(),
+                dynamicFilteringResult.result(),
+                dynamicFilteringWithCompactionThresholdResult.result(),
                 "For query: \n " + query);
 
-        MaterializedResultWithQueryId noDynamicFilteringResult = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan noDynamicFilteringResult = getDistributedQueryRunner().executeWithPlan(
                 dynamicFiltering(PARTITIONED, false),
                 query);
-        long unfilteredInputPositions = getPhysicalInputPositions(noDynamicFilteringResult.getQueryId());
+        long unfilteredInputPositions = getPhysicalInputPositions(noDynamicFilteringResult.queryId());
         assertEqualsIgnoreOrder(
-                dynamicFilteringWithCompactionThresholdResult.getResult(),
-                noDynamicFilteringResult.getResult(),
+                dynamicFilteringWithCompactionThresholdResult.result(),
+                noDynamicFilteringResult.result(),
                 "For query: \n " + query);
 
         assertThat(unfilteredInputPositions)
@@ -2925,22 +2925,22 @@ public class TestSalesforceConnectorTest
 
     private void assertDynamicFiltering(@Language("SQL") String sql, JoinDistributionType joinDistributionType, boolean expectDynamicFiltering)
     {
-        MaterializedResultWithQueryId dynamicFilteringResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan dynamicFilteringResultWithQueryId = getDistributedQueryRunner().executeWithPlan(
                 dynamicFiltering(joinDistributionType, true),
                 sql);
 
-        MaterializedResultWithQueryId noDynamicFilteringResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan noDynamicFilteringResultWithQueryId = getDistributedQueryRunner().executeWithPlan(
                 dynamicFiltering(joinDistributionType, false),
                 sql);
 
         // ensure results are the same
         assertEqualsIgnoreOrder(
-                dynamicFilteringResultWithQueryId.getResult(),
-                noDynamicFilteringResultWithQueryId.getResult(),
+                dynamicFilteringResultWithQueryId.result(),
+                noDynamicFilteringResultWithQueryId.result(),
                 "For query: \n " + sql);
 
-        long dynamicFilteringInputPositions = getPhysicalInputPositions(dynamicFilteringResultWithQueryId.getQueryId());
-        long noDynamicFilteringInputPositions = getPhysicalInputPositions(noDynamicFilteringResultWithQueryId.getQueryId());
+        long dynamicFilteringInputPositions = getPhysicalInputPositions(dynamicFilteringResultWithQueryId.queryId());
+        long noDynamicFilteringInputPositions = getPhysicalInputPositions(noDynamicFilteringResultWithQueryId.queryId());
 
         if (expectDynamicFiltering) {
             // Physical input positions is smaller in dynamic filtering case than in no dynamic filtering case

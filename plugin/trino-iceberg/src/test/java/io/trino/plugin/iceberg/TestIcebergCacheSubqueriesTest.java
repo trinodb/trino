@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableList;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.testing.BaseCacheSubqueriesTest;
-import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -58,23 +58,23 @@ public class TestIcebergCacheSubqueriesTest
             // multi insert to place 2 values in single split
             assertUpdate("insert into %s(name) values ('value3'), ('value4')".formatted(testTable.getName()), 2);
             @Language("SQL") String selectQuery = "select name from %s union all select name from %s".formatted(testTable.getName(), testTable.getName());
-            MaterializedResultWithQueryId result = executeWithQueryId(withCacheEnabled(), selectQuery);
-            assertThat(result.getResult().getRowCount()).isEqualTo(8);
-            assertThat(getScanOperatorInputPositions(result.getQueryId())).isPositive();
+            MaterializedResultWithPlan result = executeWithPlan(withCacheEnabled(), selectQuery);
+            assertThat(result.result().getRowCount()).isEqualTo(8);
+            assertThat(getScanOperatorInputPositions(result.queryId())).isPositive();
 
             assertUpdate("delete from %s where name='value3'".formatted(testTable.getName()), 1);
-            result = executeWithQueryId(withCacheEnabled(), selectQuery);
+            result = executeWithPlan(withCacheEnabled(), selectQuery);
 
-            assertThat(result.getResult().getRowCount()).isEqualTo(6);
-            assertThat(result.getResult().getMaterializedRows().stream().noneMatch(row -> row.getField(0).equals("value3"))).isTrue();
+            assertThat(result.result().getRowCount()).isEqualTo(6);
+            assertThat(result.result().getMaterializedRows().stream().noneMatch(row -> row.getField(0).equals("value3"))).isTrue();
             // split with deleted file should trigger table scan
-            assertThat(getScanOperatorInputPositions(result.getQueryId())).isPositive();
+            assertThat(getScanOperatorInputPositions(result.queryId())).isPositive();
             // after deletion cached data is partially reused
-            assertThat(getLoadCachedDataOperatorInputPositions(result.getQueryId())).isPositive();
+            assertThat(getLoadCachedDataOperatorInputPositions(result.queryId())).isPositive();
 
-            result = executeWithQueryId(withCacheEnabled(), selectQuery);
-            assertThat(getLoadCachedDataOperatorInputPositions(result.getQueryId())).isEqualTo(6);
-            assertThat(getScanOperatorInputPositions(result.getQueryId())).isZero();
+            result = executeWithPlan(withCacheEnabled(), selectQuery);
+            assertThat(getLoadCachedDataOperatorInputPositions(result.queryId())).isEqualTo(6);
+            assertThat(getScanOperatorInputPositions(result.queryId())).isZero();
         }
     }
 
@@ -98,16 +98,16 @@ public class TestIcebergCacheSubqueriesTest
             """.formatted(testTable.getName(), testTable.getName(), icebergTableHandle.getSnapshotId().get());
 
             assertUpdate("insert into %s(year, name) values (2000, 'value3'), (2001, 'value4')".formatted(testTable.getName()), 2);
-            MaterializedResultWithQueryId result = executeWithQueryId(withCacheEnabled(), selectQuery);
+            MaterializedResultWithPlan result = executeWithPlan(withCacheEnabled(), selectQuery);
             // two rows from current snapshot and one row from previous
-            assertThat(result.getResult().getRowCount()).isEqualTo(3);
-            assertThat(getCacheDataOperatorInputPositions(result.getQueryId())).isEqualTo(2);
-            assertThat(getScanOperatorInputPositions(result.getQueryId())).isPositive();
+            assertThat(result.result().getRowCount()).isEqualTo(3);
+            assertThat(getCacheDataOperatorInputPositions(result.queryId())).isEqualTo(2);
+            assertThat(getScanOperatorInputPositions(result.queryId())).isPositive();
 
             assertUpdate("delete from %s where year = 2000".formatted(testTable.getName()), 2);
-            result = executeWithQueryId(withCacheEnabled(), selectQuery);
-            assertThat(result.getResult().getRowCount()).isEqualTo(1);
-            assertThat(getLoadCachedDataOperatorInputPositions(result.getQueryId())).isEqualTo(1);
+            result = executeWithPlan(withCacheEnabled(), selectQuery);
+            assertThat(result.result().getRowCount()).isEqualTo(1);
+            assertThat(getLoadCachedDataOperatorInputPositions(result.queryId())).isEqualTo(1);
         }
     }
 
@@ -120,17 +120,17 @@ public class TestIcebergCacheSubqueriesTest
                 "(year INT, name VARCHAR) with (partitioning = ARRAY['year'])",
                 ImmutableList.of("2000, 'value1'", "2001, 'value2'"))) {
             @Language("SQL") String selectQuery = "select name from %s where year = 2001 and name ='value2' union all select name from %s where year = 2000 and name='value1'".formatted(testTable.getName(), testTable.getName());
-            executeWithQueryId(withCacheEnabled(), selectQuery);
+            executeWithPlan(withCacheEnabled(), selectQuery);
             assertUpdate("insert into %s(year, name) values (2000, 'value3'), (2001, 'value4')".formatted(testTable.getName()), 2);
             assertUpdate("ALTER TABLE %s SET PROPERTIES partitioning = ARRAY['name']".formatted(testTable.getName()));
-            MaterializedResultWithQueryId result = executeWithQueryId(withCacheEnabled(), "select name from %s where year=2000".formatted(testTable.getName()));
-            assertThat(result.getResult().getRowCount()).isEqualTo(2);
-            assertThat(getLoadCachedDataOperatorInputPositions(result.getQueryId())).isZero();
-            assertThat(getScanOperatorInputPositions(result.getQueryId())).isPositive();
+            MaterializedResultWithPlan result = executeWithPlan(withCacheEnabled(), "select name from %s where year=2000".formatted(testTable.getName()));
+            assertThat(result.result().getRowCount()).isEqualTo(2);
+            assertThat(getLoadCachedDataOperatorInputPositions(result.queryId())).isZero();
+            assertThat(getScanOperatorInputPositions(result.queryId())).isPositive();
 
-            result = executeWithQueryId(withCacheEnabled(), selectQuery);
-            assertThat(getLoadCachedDataOperatorInputPositions(result.getQueryId())).isEqualTo(2);
-            assertThat(getScanOperatorInputPositions(result.getQueryId())).isEqualTo(0);
+            result = executeWithPlan(withCacheEnabled(), selectQuery);
+            assertThat(getLoadCachedDataOperatorInputPositions(result.queryId())).isEqualTo(2);
+            assertThat(getScanOperatorInputPositions(result.queryId())).isEqualTo(0);
         }
     }
 

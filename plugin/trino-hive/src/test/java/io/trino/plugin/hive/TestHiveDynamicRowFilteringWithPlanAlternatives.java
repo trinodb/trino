@@ -39,8 +39,8 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
-import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -153,28 +153,28 @@ public class TestHiveDynamicRowFilteringWithPlanAlternatives
     @Override
     protected void assertRowFiltering(@Language("SQL") String sql, JoinDistributionType joinDistributionType, String tableName)
     {
-        MaterializedResultWithQueryId rowFilteringResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan rowFilteringResultWithQueryId = getDistributedQueryRunner().executeWithPlan(
                 dynamicRowFiltering(joinDistributionType),
                 sql);
 
-        MaterializedResultWithQueryId noRowFilteringResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan noRowFilteringResultWithQueryId = getDistributedQueryRunner().executeWithPlan(
                 noDynamicRowFiltering(joinDistributionType),
                 sql);
 
         // ensure results are correct
-        MaterializedResult expected = computeExpected(sql, rowFilteringResultWithQueryId.getResult().getTypes());
-        assertEqualsIgnoreOrder(rowFilteringResultWithQueryId.getResult(), expected, "For query: \n " + sql);
-        assertEqualsIgnoreOrder(noRowFilteringResultWithQueryId.getResult(), expected, "For query: \n " + sql);
+        MaterializedResult expected = computeExpected(sql, rowFilteringResultWithQueryId.result().getTypes());
+        assertEqualsIgnoreOrder(rowFilteringResultWithQueryId.result(), expected, "For query: \n " + sql);
+        assertEqualsIgnoreOrder(noRowFilteringResultWithQueryId.result(), expected, "For query: \n " + sql);
 
         OperatorStats rowFilteringProbeStats = getScanFilterAndProjectOperatorStats(
-                rowFilteringResultWithQueryId.getQueryId(),
+                rowFilteringResultWithQueryId.queryId(),
                 tableName);
         // input positions is smaller than physical input positions due to row filtering
         assertThat(rowFilteringProbeStats.getInputPositions())
                 .isLessThan(rowFilteringProbeStats.getPhysicalInputPositions());
 
         OperatorStats noRowFilteringProbeStats = getScanFilterAndProjectOperatorStats(
-                noRowFilteringResultWithQueryId.getQueryId(),
+                noRowFilteringResultWithQueryId.queryId(),
                 tableName);
 
         Map<String, Metric<?>> noRowFilteringMetrics = noRowFilteringProbeStats.getConnectorMetrics().getMetrics();
@@ -200,16 +200,16 @@ public class TestHiveDynamicRowFilteringWithPlanAlternatives
     @Override
     protected void assertNoRowFiltering(@Language("SQL") String sql, JoinDistributionType joinDistributionType, String tableName)
     {
-        MaterializedResultWithQueryId rowFilteringResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan rowFilteringResultWithQueryId = getDistributedQueryRunner().executeWithPlan(
                 dynamicRowFiltering(joinDistributionType),
                 sql);
 
         // ensure results are correct
-        MaterializedResult expected = computeExpected(sql, rowFilteringResultWithQueryId.getResult().getTypes());
-        assertEqualsIgnoreOrder(rowFilteringResultWithQueryId.getResult(), expected, "For query: \n " + sql);
+        MaterializedResult expected = computeExpected(sql, rowFilteringResultWithQueryId.result().getTypes());
+        assertEqualsIgnoreOrder(rowFilteringResultWithQueryId.result(), expected, "For query: \n " + sql);
 
         OperatorStats rowFilteringProbeStats = getScanFilterAndProjectOperatorStats(
-                rowFilteringResultWithQueryId.getQueryId(),
+                rowFilteringResultWithQueryId.queryId(),
                 tableName);
 
         Map<String, Metric<?>> metrics = rowFilteringProbeStats.getConnectorMetrics().getMetrics();

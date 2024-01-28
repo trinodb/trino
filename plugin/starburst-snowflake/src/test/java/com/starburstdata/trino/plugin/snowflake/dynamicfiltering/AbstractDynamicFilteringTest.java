@@ -207,7 +207,7 @@ public abstract class AbstractDynamicFilteringTest
     protected long getQueryInputPositions(Session session, String sql)
     {
         DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
-        QueryId queryId = runner.executeWithQueryId(session, sql).getQueryId();
+        QueryId queryId = runner.executeWithPlan(session, sql).queryId();
         QueryStats stats = runner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getQueryStats();
         return stats.getPhysicalInputPositions();
     }

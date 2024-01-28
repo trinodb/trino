@@ -34,8 +34,8 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
-import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -76,17 +76,17 @@ public class TestHiveDynamicPartitionPruningTestWithPlanAlternatives
     {
         @Language("SQL") String selectQuery = "SELECT * FROM partitioned_lineitem JOIN supplier ON partitioned_lineitem.suppkey = supplier.suppkey " +
                 "AND supplier.name = 'Supplier#000000001' AND partitioned_lineitem.partkey > 880";
-        MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(
                 getSession(),
                 selectQuery);
         MaterializedResult expected = computeActual(withDynamicFilteringDisabled(), selectQuery);
-        assertEqualsIgnoreOrder(result.getResult(), expected);
+        assertEqualsIgnoreOrder(result.result(), expected);
 
-        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.getQueryId(), getQualifiedTableName(PARTITIONED_LINEITEM));
+        OperatorStats probeStats = searchScanFilterAndProjectOperatorStats(result.queryId(), getQualifiedTableName(PARTITIONED_LINEITEM));
         // Probe-side is partially scanned
         assertEquals(probeStats.getInputPositions(), 369L);
 
-        DynamicFilterService.DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.getQueryId());
+        DynamicFilterService.DynamicFiltersStats dynamicFiltersStats = getDynamicFilteringStats(result.queryId());
         assertEquals(dynamicFiltersStats.getTotalDynamicFilters(), 1L);
         assertEquals(dynamicFiltersStats.getLazyDynamicFilters(), 1L);
         assertEquals(dynamicFiltersStats.getReplicatedDynamicFilters(), 0L);

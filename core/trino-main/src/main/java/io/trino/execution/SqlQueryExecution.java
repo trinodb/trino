@@ -691,9 +691,9 @@ public class SqlQueryExecution
     }
 
     @Override
-    public Plan getQueryPlan()
+    public Optional<Plan> getQueryPlan()
     {
-        return queryPlan.get();
+        return Optional.ofNullable(queryPlan.get());
     }
 
     private QueryInfo buildQueryInfo(QueryScheduler scheduler)

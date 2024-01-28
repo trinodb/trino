@@ -37,8 +37,8 @@ import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
-import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
@@ -2143,11 +2143,11 @@ public abstract class BaseJdbcConnectorTest
     private void testDynamicFilteringWithAggregationAggregateColumnUnsafe()
     {
         skipTestUnless(hasBehavior(SUPPORTS_DYNAMIC_FILTER_PUSHDOWN));
-        MaterializedResultWithQueryId resultWithQueryId = getDistributedQueryRunner()
-                .executeWithQueryId(getSession(), "SELECT custkey, count(*) count FROM orders GROUP BY custkey");
+        MaterializedResultWithPlan resultWithPlan = getDistributedQueryRunner()
+                .executeWithPlan(getSession(), "SELECT custkey, count(*) count FROM orders GROUP BY custkey");
         // Detecting whether above aggregation is fully pushed down explicitly as there are cases where SUPPORTS_AGGREGATION_PUSHDOWN
         // is false as not all aggregations are pushed down but the above aggregation is.
-        boolean isAggregationPushedDown = getPhysicalInputPositions(resultWithQueryId.getQueryId()) == 1000;
+        boolean isAggregationPushedDown = getPhysicalInputPositions(resultWithPlan.queryId()) == 1000;
         assertDynamicFiltering(
                 "SELECT * FROM (SELECT custkey, count(*) count FROM orders GROUP BY custkey) a JOIN orders b " +
                         "ON a.count = b.custkey AND b.totalprice < 1000",
@@ -2189,27 +2189,27 @@ public abstract class BaseJdbcConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " (orderkey) AS VALUES 30000, 60000", 2);
         @Language("SQL") String query = "SELECT * FROM orders a JOIN " + tableName + " b ON a.orderkey = b.orderkey";
 
-        MaterializedResultWithQueryId dynamicFilteringResult = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan dynamicFilteringResult = getDistributedQueryRunner().executeWithPlan(
                 dynamicFiltering(true),
                 query);
-        long filteredInputPositions = getPhysicalInputPositions(dynamicFilteringResult.getQueryId());
+        long filteredInputPositions = getPhysicalInputPositions(dynamicFilteringResult.queryId());
 
-        MaterializedResultWithQueryId dynamicFilteringWithCompactionThresholdResult = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan dynamicFilteringWithCompactionThresholdResult = getDistributedQueryRunner().executeWithPlan(
                 dynamicFilteringWithCompactionThreshold(1),
                 query);
-        long smallCompactionInputPositions = getPhysicalInputPositions(dynamicFilteringWithCompactionThresholdResult.getQueryId());
+        long smallCompactionInputPositions = getPhysicalInputPositions(dynamicFilteringWithCompactionThresholdResult.queryId());
         assertEqualsIgnoreOrder(
-                dynamicFilteringResult.getResult(),
-                dynamicFilteringWithCompactionThresholdResult.getResult(),
+                dynamicFilteringResult.result(),
+                dynamicFilteringWithCompactionThresholdResult.result(),
                 "For query: \n " + query);
 
-        MaterializedResultWithQueryId noDynamicFilteringResult = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan noDynamicFilteringResult = getDistributedQueryRunner().executeWithPlan(
                 dynamicFiltering(false),
                 query);
-        long unfilteredInputPositions = getPhysicalInputPositions(noDynamicFilteringResult.getQueryId());
+        long unfilteredInputPositions = getPhysicalInputPositions(noDynamicFilteringResult.queryId());
         assertEqualsIgnoreOrder(
-                dynamicFilteringWithCompactionThresholdResult.getResult(),
-                noDynamicFilteringResult.getResult(),
+                dynamicFilteringWithCompactionThresholdResult.result(),
+                noDynamicFilteringResult.result(),
                 "For query: \n " + query);
 
         assertThat(unfilteredInputPositions)
@@ -2260,22 +2260,22 @@ public abstract class BaseJdbcConnectorTest
 
     private void assertDynamicFilteringUnsafe(@Language("SQL") String sql, JoinDistributionType joinDistributionType, boolean expectDynamicFiltering)
     {
-        MaterializedResultWithQueryId dynamicFilteringResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan dynamicFilteringResultWithQueryId = getDistributedQueryRunner().executeWithPlan(
                 dynamicFiltering(joinDistributionType, true),
                 sql);
 
-        MaterializedResultWithQueryId noDynamicFilteringResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan noDynamicFilteringResultWithQueryId = getDistributedQueryRunner().executeWithPlan(
                 dynamicFiltering(joinDistributionType, false),
                 sql);
 
         // ensure results are the same
         assertEqualsIgnoreOrder(
-                dynamicFilteringResultWithQueryId.getResult(),
-                noDynamicFilteringResultWithQueryId.getResult(),
+                dynamicFilteringResultWithQueryId.result(),
+                noDynamicFilteringResultWithQueryId.result(),
                 "For query: \n " + sql);
 
-        long dynamicFilteringInputPositions = getPhysicalInputPositions(dynamicFilteringResultWithQueryId.getQueryId());
-        long noDynamicFilteringInputPositions = getPhysicalInputPositions(noDynamicFilteringResultWithQueryId.getQueryId());
+        long dynamicFilteringInputPositions = getPhysicalInputPositions(dynamicFilteringResultWithQueryId.queryId());
+        long noDynamicFilteringInputPositions = getPhysicalInputPositions(noDynamicFilteringResultWithQueryId.queryId());
 
         if (expectDynamicFiltering) {
             // Physical input positions is smaller in dynamic filtering case than in no dynamic filtering case

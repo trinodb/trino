@@ -19,8 +19,8 @@ import io.trino.execution.EventsCollector.QueryEvents;
 import io.trino.spi.QueryId;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
-import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryFailedException;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import org.intellij.lang.annotations.Language;
 
 import java.util.Optional;
@@ -62,9 +62,9 @@ class EventsAwaitingQueries
         QueryId queryId = null;
         MaterializedResult result = null;
         try {
-            MaterializedResultWithQueryId materializedResultWithQueryId = queryRunner.executeWithQueryId(session, sql);
-            queryId = materializedResultWithQueryId.getQueryId();
-            result = materializedResultWithQueryId.getResult();
+            MaterializedResultWithPlan materializedResultWithPlan = queryRunner.executeWithPlan(session, sql);
+            queryId = materializedResultWithPlan.queryId();
+            result = materializedResultWithPlan.result();
         }
         catch (RuntimeException exception) {
             if (expectedExceptionRegEx.isPresent()) {

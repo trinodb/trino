@@ -127,28 +127,28 @@ public abstract class AbstractTestDynamicRowFiltering
 
     protected void assertRowFiltering(@Language("SQL") String sql, JoinDistributionType joinDistributionType, String tableName)
     {
-        MaterializedResultWithQueryId rowFilteringResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(
+        QueryRunner.MaterializedResultWithPlan rowFilteringResultWithQueryId = getDistributedQueryRunner().executeWithPlan(
                 dynamicRowFiltering(joinDistributionType),
                 sql);
 
-        MaterializedResultWithQueryId noRowFilteringResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(
+        QueryRunner.MaterializedResultWithPlan noRowFilteringResultWithQueryId = getDistributedQueryRunner().executeWithPlan(
                 noDynamicRowFiltering(joinDistributionType),
                 sql);
 
         // ensure results are correct
-        MaterializedResult expected = computeExpected(sql, rowFilteringResultWithQueryId.getResult().getTypes());
-        assertEqualsIgnoreOrder(rowFilteringResultWithQueryId.getResult(), expected, "For query: \n " + sql);
-        assertEqualsIgnoreOrder(noRowFilteringResultWithQueryId.getResult(), expected, "For query: \n " + sql);
+        MaterializedResult expected = computeExpected(sql, rowFilteringResultWithQueryId.result().getTypes());
+        assertEqualsIgnoreOrder(rowFilteringResultWithQueryId.result(), expected, "For query: \n " + sql);
+        assertEqualsIgnoreOrder(noRowFilteringResultWithQueryId.result(), expected, "For query: \n " + sql);
 
         OperatorStats rowFilteringProbeStats = getScanFilterAndProjectOperatorStats(
-                rowFilteringResultWithQueryId.getQueryId(),
+                rowFilteringResultWithQueryId.queryId(),
                 tableName);
         // input positions is smaller than physical input positions due to row filtering
         assertThat(rowFilteringProbeStats.getInputPositions())
                 .isLessThan(rowFilteringProbeStats.getPhysicalInputPositions());
 
         OperatorStats noRowFilteringProbeStats = getScanFilterAndProjectOperatorStats(
-                noRowFilteringResultWithQueryId.getQueryId(),
+                noRowFilteringResultWithQueryId.queryId(),
                 tableName);
         assertThat(noRowFilteringProbeStats.getInputPositions())
                 .isEqualTo(noRowFilteringProbeStats.getPhysicalInputPositions());
@@ -171,16 +171,16 @@ public abstract class AbstractTestDynamicRowFiltering
 
     protected void assertNoRowFiltering(@Language("SQL") String sql, JoinDistributionType joinDistributionType, String tableName)
     {
-        MaterializedResultWithQueryId rowFilteringResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(
+        QueryRunner.MaterializedResultWithPlan rowFilteringResultWithQueryId = getDistributedQueryRunner().executeWithPlan(
                 dynamicRowFiltering(joinDistributionType),
                 sql);
 
         // ensure results are correct
-        MaterializedResult expected = computeExpected(sql, rowFilteringResultWithQueryId.getResult().getTypes());
-        assertEqualsIgnoreOrder(rowFilteringResultWithQueryId.getResult(), expected, "For query: \n " + sql);
+        MaterializedResult expected = computeExpected(sql, rowFilteringResultWithQueryId.result().getTypes());
+        assertEqualsIgnoreOrder(rowFilteringResultWithQueryId.result(), expected, "For query: \n " + sql);
 
         OperatorStats rowFilteringProbeStats = getScanFilterAndProjectOperatorStats(
-                rowFilteringResultWithQueryId.getQueryId(),
+                rowFilteringResultWithQueryId.queryId(),
                 tableName);
         // input positions is equal to physical input positions due to no row filtering
         assertThat(rowFilteringProbeStats.getInputPositions())

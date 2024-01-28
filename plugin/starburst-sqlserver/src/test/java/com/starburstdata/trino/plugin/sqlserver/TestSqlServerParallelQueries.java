@@ -16,8 +16,8 @@ import io.trino.plugin.sqlserver.TestingSqlServer;
 import io.trino.spi.QueryId;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
-import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -180,8 +180,8 @@ public class TestSqlServerParallelQueries
 
         Session session = sessionBuilder.build();
 
-        MaterializedResultWithQueryId result = queryRunner.executeWithQueryId(session, format("SELECT * FROM %s", tableName));
-        QueryId queryId = result.getQueryId();
+        MaterializedResultWithPlan result = queryRunner.executeWithPlan(session, format("SELECT * FROM %s", tableName));
+        QueryId queryId = result.queryId();
         QueryInfo fullQueryInfo = queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryId);
 
         // Verify if TableScanOperator has expectedSplitCount split count (totalDrivers)
