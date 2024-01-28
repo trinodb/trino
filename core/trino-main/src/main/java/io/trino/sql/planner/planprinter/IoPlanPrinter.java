@@ -694,25 +694,25 @@ public class IoPlanPrinter
             WriterTarget writerTarget = node.getTarget();
             if (writerTarget instanceof CreateTarget target) {
                 context.setOutputTable(new CatalogSchemaTableName(
-                        target.getHandle().getCatalogHandle().getCatalogName(),
+                        target.getHandle().getCatalogHandle().getCatalogName().toString(),
                         target.getSchemaTableName().getSchemaName(),
                         target.getSchemaTableName().getTableName()));
             }
             else if (writerTarget instanceof InsertTarget target) {
                 context.setOutputTable(new CatalogSchemaTableName(
-                        target.getHandle().getCatalogHandle().getCatalogName(),
+                        target.getHandle().getCatalogHandle().getCatalogName().toString(),
                         target.getSchemaTableName().getSchemaName(),
                         target.getSchemaTableName().getTableName()));
             }
             else if (writerTarget instanceof MergeTarget target) {
                 context.setOutputTable(new CatalogSchemaTableName(
-                        target.getHandle().getCatalogHandle().getCatalogName(),
+                        target.getHandle().getCatalogHandle().getCatalogName().toString(),
                         target.getSchemaTableName().getSchemaName(),
                         target.getSchemaTableName().getTableName()));
             }
             else if (writerTarget instanceof TableWriterNode.RefreshMaterializedViewTarget target) {
                 context.setOutputTable(new CatalogSchemaTableName(
-                        target.getInsertHandle().getCatalogHandle().getCatalogName(),
+                        target.getInsertHandle().getCatalogHandle().getCatalogName().toString(),
                         target.getSchemaTableName().getSchemaName(),
                         target.getSchemaTableName().getTableName()));
             }

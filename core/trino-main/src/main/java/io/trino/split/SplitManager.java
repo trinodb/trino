@@ -136,7 +136,7 @@ public class SplitManager
     {
         return tracer.spanBuilder("split-source")
                 .setParent(Context.current().with(parentSpan))
-                .setAttribute(TrinoAttributes.CATALOG, catalogHandle.getCatalogName())
+                .setAttribute(TrinoAttributes.CATALOG, catalogHandle.getCatalogName().toString())
                 .startSpan();
     }
 }

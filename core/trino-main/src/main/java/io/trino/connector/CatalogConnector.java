@@ -14,7 +14,6 @@
 package io.trino.connector;
 
 import io.trino.metadata.Catalog;
-import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.catalog.CatalogProperties;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogHandle.CatalogHandleType;
@@ -51,7 +50,7 @@ public class CatalogConnector
         this.catalogProperties = requireNonNull(catalogProperties, "catalogProperties is null");
 
         this.catalog = new Catalog(
-                new CatalogName(catalogHandle.getCatalogName()),
+                catalogHandle.getCatalogName(),
                 catalogHandle,
                 connectorName,
                 catalogConnector,

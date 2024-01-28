@@ -389,7 +389,7 @@ public class TableWriterNode
         @Override
         public OptionalInt getMaxWriterTasks(Metadata metadata, Session session)
         {
-            return metadata.getMaxWriterTasks(session, handle.getCatalogHandle().getCatalogName());
+            return metadata.getMaxWriterTasks(session, handle.getCatalogHandle().getCatalogName().toString());
         }
 
         @Override
@@ -528,7 +528,7 @@ public class TableWriterNode
         @Override
         public OptionalInt getMaxWriterTasks(Metadata metadata, Session session)
         {
-            return metadata.getMaxWriterTasks(session, storageTableHandle.getCatalogHandle().getCatalogName());
+            return metadata.getMaxWriterTasks(session, storageTableHandle.getCatalogHandle().getCatalogName().toString());
         }
 
         public List<String> getSourceTableFunctions()
@@ -623,7 +623,7 @@ public class TableWriterNode
         @Override
         public OptionalInt getMaxWriterTasks(Metadata metadata, Session session)
         {
-            return metadata.getMaxWriterTasks(session, tableHandle.getCatalogHandle().getCatalogName());
+            return metadata.getMaxWriterTasks(session, tableHandle.getCatalogHandle().getCatalogName().toString());
         }
 
         @Override
@@ -835,7 +835,7 @@ public class TableWriterNode
         @Override
         public OptionalInt getMaxWriterTasks(Metadata metadata, Session session)
         {
-            return metadata.getMaxWriterTasks(session, executeHandle.getCatalogHandle().getCatalogName());
+            return metadata.getMaxWriterTasks(session, executeHandle.getCatalogHandle().getCatalogName().toString());
         }
 
         @Override

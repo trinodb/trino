@@ -18,6 +18,7 @@ import io.opentelemetry.api.trace.Tracer;
 import io.trino.Session;
 import io.trino.connector.informationschema.InformationSchemaMetadata;
 import io.trino.connector.system.SystemTablesMetadata;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorMetadata;
@@ -93,11 +94,11 @@ public class CatalogTransaction
         }
     }
 
-    private ConnectorMetadata tracingConnectorMetadata(String catalogName, ConnectorMetadata delegate)
+    private ConnectorMetadata tracingConnectorMetadata(CatalogName catalogName, ConnectorMetadata delegate)
     {
         if ((delegate instanceof SystemTablesMetadata) || (delegate instanceof InformationSchemaMetadata)) {
             return delegate;
         }
-        return new TracingConnectorMetadata(tracer, catalogName, delegate);
+        return new TracingConnectorMetadata(tracer, catalogName.toString(), delegate);
     }
 }

@@ -18,8 +18,13 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.Objects;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
+import static io.airlift.slice.SizeOf.instanceSize;
+
 public final class CatalogName
 {
+    private static final int INSTANCE_SIZE = instanceSize(CatalogName.class);
+
     private final String catalogName;
 
     @JsonCreator
@@ -29,6 +34,11 @@ public final class CatalogName
             throw new IllegalArgumentException("catalogName is empty");
         }
         this.catalogName = catalogName;
+    }
+
+    public long getRetainedSizeInBytes()
+    {
+        return INSTANCE_SIZE + estimatedSizeOf(catalogName);
     }
 
     @JsonValue

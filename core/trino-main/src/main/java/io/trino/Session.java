@@ -477,7 +477,7 @@ public final class Session
     {
         requireNonNull(catalogHandle, "catalogHandle is null");
 
-        String catalogName = catalogHandle.getCatalogName();
+        String catalogName = catalogHandle.getCatalogName().toString();
         return new FullConnectorSession(
                 this,
                 identity.toConnectorIdentity(catalogName),
