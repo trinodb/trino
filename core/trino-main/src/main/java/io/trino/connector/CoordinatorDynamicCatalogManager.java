@@ -25,8 +25,12 @@ import io.trino.metadata.Catalog;
 import io.trino.metadata.CatalogManager;
 import io.trino.server.ForStartup;
 import io.trino.spi.TrinoException;
+import io.trino.spi.catalog.CatalogName;
+import io.trino.spi.catalog.CatalogProperties;
+import io.trino.spi.catalog.CatalogStore;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogHandle.CatalogVersion;
+import io.trino.spi.connector.ConnectorName;
 import jakarta.annotation.PreDestroy;
 
 import java.util.ArrayList;

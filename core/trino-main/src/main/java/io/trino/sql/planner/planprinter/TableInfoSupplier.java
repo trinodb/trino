@@ -14,13 +14,13 @@
 package io.trino.sql.planner.planprinter;
 
 import io.trino.Session;
-import io.trino.connector.ConnectorName;
 import io.trino.execution.TableInfo;
 import io.trino.metadata.CatalogInfo;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableProperties;
 import io.trino.spi.connector.CatalogSchemaTableName;
+import io.trino.spi.connector.ConnectorName;
 import io.trino.sql.planner.plan.TableScanNode;
 
 import java.util.Optional;

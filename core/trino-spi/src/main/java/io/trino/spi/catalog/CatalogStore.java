@@ -11,7 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.connector;
+package io.trino.spi.catalog;
+
+import io.trino.spi.connector.ConnectorName;
 
 import java.util.Collection;
 import java.util.Map;
