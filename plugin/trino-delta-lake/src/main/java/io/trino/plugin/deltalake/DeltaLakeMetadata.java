@@ -2086,21 +2086,10 @@ public class DeltaLakeMetadata
                 .map(mergeResultJsonCodec::fromJson)
                 .collect(toImmutableList());
 
-        List<String> oldFiles = mergeResults.stream()
-                .map(DeltaLakeMergeResult::getOldFile)
-                .flatMap(Optional::stream)
-                .collect(toImmutableList());
-
         List<DataFileInfo> allFiles = mergeResults.stream()
                 .map(DeltaLakeMergeResult::getNewFile)
                 .flatMap(Optional::stream)
                 .collect(toImmutableList());
-
-        Map<Boolean, List<DataFileInfo>> split = allFiles.stream()
-                .collect(partitioningBy(dataFile -> dataFile.getDataFileType() == DATA));
-
-        List<DataFileInfo> newFiles = ImmutableList.copyOf(split.get(true));
-        List<DataFileInfo> cdcFiles = ImmutableList.copyOf(split.get(false));
 
         if (mergeHandle.getInsertTableHandle().isRetriesEnabled()) {
             cleanExtraOutputFiles(session, Location.of(handle.getLocation()), allFiles);
@@ -2111,39 +2100,7 @@ public class DeltaLakeMetadata
         String tableLocation = handle.getLocation();
         boolean writeCommitted = false;
         try {
-            TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriter(session, tableLocation);
-
-            long createdTime = Instant.now().toEpochMilli();
-
-            TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-            long currentVersion = getMandatoryCurrentVersion(fileSystem, tableLocation);
-            if (currentVersion != handle.getReadVersion()) {
-                throw new TransactionConflictException(format("Conflicting concurrent writes found. Expected transaction log version: %s, actual version: %s", handle.getReadVersion(), currentVersion));
-            }
-            long commitVersion = currentVersion + 1;
-
-            transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(session, commitVersion, createdTime, MERGE_OPERATION, handle.getReadVersion()));
-            // TODO: Delta writes another field "operationMetrics" (https://github.com/trinodb/trino/issues/12005)
-
-            long writeTimestamp = Instant.now().toEpochMilli();
-
-            ColumnMappingMode columnMappingMode = getColumnMappingMode(handle.getMetadataEntry(), handle.getProtocolEntry());
-            List<String> partitionColumns = getPartitionColumns(
-                    handle.getMetadataEntry().getOriginalPartitionColumns(),
-                    mergeHandle.getInsertTableHandle().getInputColumns(),
-                    columnMappingMode);
-
-            if (!cdcFiles.isEmpty()) {
-                appendCdcFilesInfos(transactionLogWriter, cdcFiles, partitionColumns);
-            }
-
-            for (String file : oldFiles) {
-                transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(toUriFormat(file), writeTimestamp, true));
-            }
-
-            appendAddFileEntries(transactionLogWriter, newFiles, partitionColumns, getExactColumnNames(handle.getMetadataEntry()), true);
-
-            transactionLogWriter.flush();
+            long commitVersion = commitMergeOperation(session, mergeHandle, handle, mergeResults, allFiles);
             writeCommitted = true;
 
             writeCheckpointIfNeeded(session, handle.getSchemaTableName(), handle.getLocation(), handle.getReadVersion(), checkpointInterval, commitVersion);
@@ -2155,6 +2112,62 @@ public class DeltaLakeMetadata
             }
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Failed to write Delta Lake transaction log entry", e);
         }
+    }
+
+    private long commitMergeOperation(
+            ConnectorSession session,
+            DeltaLakeMergeTableHandle mergeHandle,
+            DeltaLakeTableHandle handle,
+            List<DeltaLakeMergeResult> mergeResults,
+            List<DataFileInfo> allFiles)
+            throws IOException
+    {
+        List<String> oldFiles = mergeResults.stream()
+                .map(DeltaLakeMergeResult::getOldFile)
+                .flatMap(Optional::stream)
+                .collect(toImmutableList());
+
+        Map<Boolean, List<DataFileInfo>> split = allFiles.stream()
+                .collect(partitioningBy(dataFile -> dataFile.getDataFileType() == DATA));
+
+        List<DataFileInfo> newFiles = ImmutableList.copyOf(split.get(true));
+        List<DataFileInfo> cdcFiles = ImmutableList.copyOf(split.get(false));
+
+        String tableLocation = handle.getLocation();
+        TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriter(session, tableLocation);
+
+        long createdTime = Instant.now().toEpochMilli();
+
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+        long currentVersion = getMandatoryCurrentVersion(fileSystem, tableLocation);
+        if (currentVersion != handle.getReadVersion()) {
+            throw new TransactionConflictException(format("Conflicting concurrent writes found. Expected transaction log version: %s, actual version: %s", handle.getReadVersion(), currentVersion));
+        }
+        long commitVersion = currentVersion + 1;
+
+        transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(session, commitVersion, createdTime, MERGE_OPERATION, handle.getReadVersion()));
+        // TODO: Delta writes another field "operationMetrics" (https://github.com/trinodb/trino/issues/12005)
+
+        long writeTimestamp = Instant.now().toEpochMilli();
+
+        ColumnMappingMode columnMappingMode = getColumnMappingMode(handle.getMetadataEntry(), handle.getProtocolEntry());
+        List<String> partitionColumns = getPartitionColumns(
+                handle.getMetadataEntry().getOriginalPartitionColumns(),
+                mergeHandle.getInsertTableHandle().getInputColumns(),
+                columnMappingMode);
+
+        if (!cdcFiles.isEmpty()) {
+            appendCdcFilesInfos(transactionLogWriter, cdcFiles, partitionColumns);
+        }
+
+        for (String file : oldFiles) {
+            transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(toUriFormat(file), writeTimestamp, true));
+        }
+
+        appendAddFileEntries(transactionLogWriter, newFiles, partitionColumns, getExactColumnNames(handle.getMetadataEntry()), true);
+
+        transactionLogWriter.flush();
+        return commitVersion;
     }
 
     private static void appendCdcFilesInfos(
