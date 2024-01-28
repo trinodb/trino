@@ -47,9 +47,9 @@ import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
-import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.apache.avro.Schema;
@@ -4747,20 +4747,20 @@ public abstract class BaseIcebergConnectorTest
 
     private void verifySplitCount(String query, int expectedSplitCount)
     {
-        MaterializedResultWithQueryId selectAllPartitionsResult = getDistributedQueryRunner().executeWithQueryId(getSession(), query);
-        assertEqualsIgnoreOrder(selectAllPartitionsResult.getResult().getMaterializedRows(), computeActual(withoutPredicatePushdown(getSession()), query).getMaterializedRows());
-        verifySplitCount(selectAllPartitionsResult.getQueryId(), expectedSplitCount);
+        MaterializedResultWithPlan selectAllPartitionsResult = getDistributedQueryRunner().executeWithPlan(getSession(), query);
+        assertEqualsIgnoreOrder(selectAllPartitionsResult.result().getMaterializedRows(), computeActual(withoutPredicatePushdown(getSession()), query).getMaterializedRows());
+        verifySplitCount(selectAllPartitionsResult.queryId(), expectedSplitCount);
     }
 
     private void verifyPredicatePushdownDataRead(@Language("SQL") String query, boolean supportsPushdown)
     {
-        MaterializedResultWithQueryId resultWithPredicatePushdown = getDistributedQueryRunner().executeWithQueryId(getSession(), query);
-        MaterializedResultWithQueryId resultWithoutPredicatePushdown = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan resultWithPredicatePushdown = getDistributedQueryRunner().executeWithPlan(getSession(), query);
+        MaterializedResultWithPlan resultWithoutPredicatePushdown = getDistributedQueryRunner().executeWithPlan(
                 withoutPredicatePushdown(getSession()),
                 query);
 
-        DataSize withPushdownDataSize = getOperatorStats(resultWithPredicatePushdown.getQueryId()).getInputDataSize();
-        DataSize withoutPushdownDataSize = getOperatorStats(resultWithoutPredicatePushdown.getQueryId()).getInputDataSize();
+        DataSize withPushdownDataSize = getOperatorStats(resultWithPredicatePushdown.queryId()).getInputDataSize();
+        DataSize withoutPushdownDataSize = getOperatorStats(resultWithoutPredicatePushdown.queryId()).getInputDataSize();
         if (supportsPushdown) {
             assertThat(withPushdownDataSize).isLessThan(withoutPushdownDataSize);
         }
@@ -7406,7 +7406,7 @@ public abstract class BaseIcebergConnectorTest
                     WHERE
                         d.following_holiday = true AND
                         d.date BETWEEN DATE '2023-01-01' AND DATE '2024-01-01'""".formatted(salesTable.getName(), dimensionTable.getName());
-            MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
+            MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(
                     Session.builder(getSession())
                             .setCatalogSessionProperty(catalog, DYNAMIC_FILTERING_WAIT_TIMEOUT, "10s")
                             .build(),
@@ -7416,11 +7416,11 @@ public abstract class BaseIcebergConnectorTest
                             .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
                             .build(),
                     selectQuery);
-            assertEqualsIgnoreOrder(result.getResult(), expected);
+            assertEqualsIgnoreOrder(result.result(), expected);
 
             DynamicFilterService.DynamicFiltersStats dynamicFiltersStats = getDistributedQueryRunner().getCoordinator()
                     .getQueryManager()
-                    .getFullQueryInfo(result.getQueryId())
+                    .getFullQueryInfo(result.queryId())
                     .getQueryStats()
                     .getDynamicFiltersStats();
             // The dynamic filter reduces the range specified for the partition column `date` from `date :: [[2023-01-01, 2024-01-01]]` to `date :: {[2023-01-02]}`
@@ -7855,8 +7855,8 @@ public abstract class BaseIcebergConnectorTest
     private QueryId executeWithQueryId(String sql)
     {
         return getDistributedQueryRunner()
-                .executeWithQueryId(getSession(), sql)
-                .getQueryId();
+                .executeWithPlan(getSession(), sql)
+                .queryId();
     }
 
     private void assertQueryIdStored(String tableName, QueryId queryId)
