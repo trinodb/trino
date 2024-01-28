@@ -102,7 +102,6 @@ public abstract class BaseIcebergMaterializedViewTest
     @Test
     public void testMaterializedViewsMetadata()
     {
-        String catalogName = getSession().getCatalog().orElseThrow();
         String schemaName = getSession().getSchema().orElseThrow();
         String materializedViewName = "test_materialized_view_" + randomNameSuffix();
 
@@ -721,9 +720,7 @@ public abstract class BaseIcebergMaterializedViewTest
         String materializedViewName = "test_materialized_view_snapshot_query_ids" + randomNameSuffix();
         String sourceTableName = "test_source_table_for_mat_view" + randomNameSuffix();
         assertUpdate(format("CREATE TABLE %s (a bigint, b bigint)", sourceTableName));
-        QueryId matViewCreateQueryId = getDistributedQueryRunner()
-                .executeWithQueryId(getSession(), format("CREATE MATERIALIZED VIEW %s WITH (partitioning = ARRAY['a']) AS SELECT * FROM %s", materializedViewName, sourceTableName))
-                .getQueryId();
+        assertUpdate(format("CREATE MATERIALIZED VIEW %s WITH (partitioning = ARRAY['a']) AS SELECT * FROM %s", materializedViewName, sourceTableName));
 
         try {
             assertUpdate(format("INSERT INTO %s VALUES (1, 1), (1, 4), (2, 2)", sourceTableName), 3);

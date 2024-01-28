@@ -17,7 +17,6 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.function.FunctionKind;
@@ -75,14 +74,14 @@ import static java.util.Objects.requireNonNull;
  */
 public class LogicalIndexExtractor
 {
-    public static ExpressionAndValuePointers rewrite(Expression expression, Map<IrLabel, Set<IrLabel>> subsets, SymbolAllocator symbolAllocator, Session session, Metadata metadata)
+    public static ExpressionAndValuePointers rewrite(Expression expression, Map<IrLabel, Set<IrLabel>> subsets, SymbolAllocator symbolAllocator, Metadata metadata)
     {
         ImmutableList.Builder<Symbol> layout = ImmutableList.builder();
         ImmutableList.Builder<ValuePointer> valuePointers = ImmutableList.builder();
         ImmutableSet.Builder<Symbol> classifierSymbols = ImmutableSet.builder();
         ImmutableSet.Builder<Symbol> matchNumberSymbols = ImmutableSet.builder();
 
-        Visitor visitor = new Visitor(subsets, layout, valuePointers, classifierSymbols, matchNumberSymbols, symbolAllocator, session, metadata);
+        Visitor visitor = new Visitor(subsets, layout, valuePointers, classifierSymbols, matchNumberSymbols, symbolAllocator, metadata);
         Expression rewritten = ExpressionTreeRewriter.rewriteWith(visitor, expression, LogicalIndexContext.DEFAULT);
 
         return new ExpressionAndValuePointers(rewritten, layout.build(), valuePointers.build(), classifierSymbols.build(), matchNumberSymbols.build());
@@ -99,7 +98,6 @@ public class LogicalIndexExtractor
         private final ImmutableSet.Builder<Symbol> classifierSymbols;
         private final ImmutableSet.Builder<Symbol> matchNumberSymbols;
         private final SymbolAllocator symbolAllocator;
-        private final Session session;
         private final Metadata metadata;
 
         public Visitor(
@@ -109,7 +107,7 @@ public class LogicalIndexExtractor
                 ImmutableSet.Builder<Symbol> classifierSymbols,
                 ImmutableSet.Builder<Symbol> matchNumberSymbols,
                 SymbolAllocator symbolAllocator,
-                Session session, Metadata metadata)
+                Metadata metadata)
         {
             this.subsets = requireNonNull(subsets, "subsets is null");
             this.layout = requireNonNull(layout, "layout is null");
@@ -117,7 +115,6 @@ public class LogicalIndexExtractor
             this.classifierSymbols = requireNonNull(classifierSymbols, "classifierSymbols is null");
             this.matchNumberSymbols = requireNonNull(matchNumberSymbols, "matchNumberSymbols is null");
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
-            this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
         }
 
