@@ -2488,9 +2488,6 @@
                         <injectAllReactorProjects>true</injectAllReactorProjects>
                         <!-- A workaround to make build work in a Git worktree, see https://github.com/git-commit-id/git-commit-id-maven-plugin/issues/215 -->
                         <useNativeGit>true</useNativeGit>
-                        <!-- git-commit-id 6.0.0 incorrectly detects the .git dir, breaking the native-git workaround; see https://github.com/git-commit-id/git-commit-id-maven-plugin/issues/639 -->
-                        <!-- When Maven 4.0 is used, this can be replaced by a native Maven property (see MNG-7038), assuming git-commit-id #639 isn't yet fixed -->
-                        <dotGitDirectory>${air.main.basedir}/.git</dotGitDirectory>
                     </configuration>
                 </plugin>
                 <plugin>
