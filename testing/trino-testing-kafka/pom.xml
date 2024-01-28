@@ -11,10 +11,6 @@
 
     <artifactId>trino-testing-kafka</artifactId>
 
-    <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>

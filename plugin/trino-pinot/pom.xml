@@ -13,7 +13,6 @@
     <description>Trino - Pinot Connector</description>
 
     <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.pinot.version>0.12.1</dep.pinot.version>
     </properties>
 

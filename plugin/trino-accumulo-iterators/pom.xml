@@ -14,7 +14,6 @@
     <description>Accumulo Iterators for the Trino Accumulo Connector</description>
 
     <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <project.build.targetJdk>8</project.build.targetJdk>
     </properties>
 
