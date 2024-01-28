@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.client.NodeVersion;
+import io.trino.connector.CatalogName;
 import io.trino.connector.CatalogServiceProvider;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
@@ -326,7 +327,7 @@ public abstract class BaseDataDefinitionTaskTest
         @Override
         public TableSchema getTableSchema(Session session, TableHandle tableHandle)
         {
-            return new TableSchema(TEST_CATALOG_NAME, getTableMetadata(tableHandle).getTableSchema());
+            return new TableSchema(new CatalogName(TEST_CATALOG_NAME), getTableMetadata(tableHandle).getTableSchema());
         }
 
         @Override
@@ -342,7 +343,7 @@ public abstract class BaseDataDefinitionTaskTest
         @Override
         public TableMetadata getTableMetadata(Session session, TableHandle tableHandle)
         {
-            return new TableMetadata(TEST_CATALOG_NAME, getTableMetadata(tableHandle));
+            return new TableMetadata(new CatalogName(TEST_CATALOG_NAME), getTableMetadata(tableHandle));
         }
 
         @Override

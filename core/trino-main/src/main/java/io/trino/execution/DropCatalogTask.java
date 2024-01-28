@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
+import io.trino.connector.CatalogName;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.CatalogManager;
 import io.trino.security.AccessControl;
@@ -59,7 +60,7 @@ public class DropCatalogTask
         }
 
         accessControl.checkCanDropCatalog(stateMachine.getSession().toSecurityContext(), statement.getCatalogName().toString());
-        catalogManager.dropCatalog(statement.getCatalogName().toString(), statement.isExists());
+        catalogManager.dropCatalog(new CatalogName(statement.getCatalogName().toString()), statement.isExists());
         return immediateVoidFuture();
     }
 }

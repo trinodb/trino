@@ -48,7 +48,7 @@ public class CatalogConnector
         this.catalogProperties = requireNonNull(catalogProperties, "catalogProperties is null");
 
         this.catalog = new Catalog(
-                catalogHandle.getCatalogName(),
+                new CatalogName(catalogHandle.getCatalogName()),
                 catalogHandle,
                 connectorName,
                 catalogConnector,
