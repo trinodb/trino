@@ -146,7 +146,6 @@
         <air.check.skip-jacoco>true</air.check.skip-jacoco>
         <air.java.version>21.0.1</air.java.version>
         <air.javadoc.lint>-missing</air.javadoc.lint>
-        <air.main.basedir>${project.basedir}</air.main.basedir>
         <air.modernizer.java-version>8</air.modernizer.java-version>
         <air.release.preparation-goals>clean verify -DskipTests</air.release.preparation-goals>
         <!--
@@ -2285,9 +2284,6 @@
                     <groupId>org.gaul</groupId>
                     <artifactId>modernizer-maven-plugin</artifactId>
                     <configuration>
-                        <violationsFiles>
-                            <violationsFile>${air.main.basedir}/.mvn/modernizer/violations.xml</violationsFile>
-                        </violationsFiles>
                         <exclusionPatterns>
                             <exclusionPattern>org/joda/time/.*</exclusionPattern>
                         </exclusionPatterns>

@@ -14,7 +14,6 @@
     <description>Trino - Phoenix 5 Connector</description>
 
     <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.hbase.version>2.2.7</dep.hbase.version>
 
         <!-- This is required for JDK 17 to start HBase server due to illegal reflective access -->

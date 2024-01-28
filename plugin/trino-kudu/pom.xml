@@ -13,7 +13,6 @@
     <description>Trino - Kudu Connector</description>
 
     <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <kudu.version>1.17.0</kudu.version>
     </properties>
 

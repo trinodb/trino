@@ -11,7 +11,6 @@
     <artifactId>trino-benchto-benchmarks</artifactId>
 
     <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <air.check.fail-duplicate-finder>false</air.check.fail-duplicate-finder>
     </properties>
 
