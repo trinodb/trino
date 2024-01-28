@@ -13,7 +13,6 @@
     <description>Trino - mongodb Connector</description>
 
     <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <mongo-java.version>4.11.1</mongo-java.version>
     </properties>
 
