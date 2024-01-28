@@ -16,6 +16,7 @@ package io.trino.execution;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.trino.Session;
+import io.trino.connector.CatalogName;
 import io.trino.connector.ConnectorName;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.CatalogManager;
@@ -72,8 +73,8 @@ public class CreateCatalogTask
         }
 
         Session session = stateMachine.getSession();
-        String catalog = statement.getCatalogName().toString();
-        accessControl.checkCanCreateCatalog(session.toSecurityContext(), catalog);
+        CatalogName catalog = new CatalogName(statement.getCatalogName().toString());
+        accessControl.checkCanCreateCatalog(session.toSecurityContext(), catalog.toString());
 
         Map<String, String> properties = new HashMap<>();
         for (Property property : statement.getProperties()) {

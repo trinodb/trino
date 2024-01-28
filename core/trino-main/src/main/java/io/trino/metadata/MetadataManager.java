@@ -444,7 +444,7 @@ public final class MetadataManager
         ConnectorMetadata metadata = catalogMetadata.getMetadataFor(session, catalogHandle);
         SchemaTableName tableName = metadata.getTableName(session.toConnectorSession(catalogHandle), tableHandle.getConnectorHandle());
 
-        return new CatalogSchemaTableName(catalogMetadata.getCatalogName(), tableName);
+        return new CatalogSchemaTableName(catalogMetadata.getCatalogName().toString(), tableName);
     }
 
     @Override

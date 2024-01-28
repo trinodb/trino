@@ -46,6 +46,7 @@ import io.opentelemetry.sdk.trace.SpanProcessor;
 import io.trino.Session;
 import io.trino.SystemSessionPropertiesProvider;
 import io.trino.connector.CatalogManagerModule;
+import io.trino.connector.CatalogName;
 import io.trino.connector.ConnectorName;
 import io.trino.connector.ConnectorServicesProvider;
 import io.trino.cost.StatsCalculator;
@@ -484,7 +485,7 @@ public class TestingTrinoServer
             // this is a worker so catalogs are dynamically registered
             return;
         }
-        catalogManager.get().createCatalog(catalogName, new ConnectorName(connectorName), properties, false);
+        catalogManager.get().createCatalog(new CatalogName(catalogName), new ConnectorName(connectorName), properties, false);
     }
 
     public void loadExchangeManager(String name, Map<String, String> properties)
@@ -647,7 +648,7 @@ public class TestingTrinoServer
     public Connector getConnector(String catalogName)
     {
         checkState(coordinator, "not a coordinator");
-        CatalogHandle catalogHandle = catalogManager.orElseThrow().getCatalog(catalogName)
+        CatalogHandle catalogHandle = catalogManager.orElseThrow().getCatalog(new CatalogName(catalogName))
                 .orElseThrow(() -> new IllegalArgumentException("Catalog '%s' not found".formatted(catalogName)))
                 .getCatalogHandle();
         return injector.getInstance(ConnectorServicesProvider.class)
