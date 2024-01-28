@@ -16,8 +16,8 @@ package io.trino.plugin.iceberg;
 import io.trino.Session;
 import io.trino.filesystem.Location;
 import io.trino.operator.OperatorStats;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
@@ -111,7 +111,7 @@ public class TestIcebergParquetConnectorTest
 
             @Language("SQL") String query = "SELECT * FROM " + table.getName() + " WHERE custkey = 100";
 
-            DistributedQueryRunner queryRunner = getDistributedQueryRunner();
+            QueryRunner queryRunner = getDistributedQueryRunner();
             MaterializedResultWithPlan resultWithoutParquetStatistics = queryRunner.executeWithPlan(
                     Session.builder(getSession())
                             .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "parquet_ignore_statistics", "true")
@@ -144,7 +144,7 @@ public class TestIcebergParquetConnectorTest
 
             assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN custkey TO custkey1");
 
-            DistributedQueryRunner queryRunner = getDistributedQueryRunner();
+            QueryRunner queryRunner = getDistributedQueryRunner();
             MaterializedResultWithPlan resultWithoutPredicate = queryRunner.executeWithPlan(getSession(), "TABLE " + table.getName());
             OperatorStats queryStatsWithoutPredicate = getOperatorStats(resultWithoutPredicate.queryId());
             assertThat(queryStatsWithoutPredicate.getPhysicalInputPositions()).isGreaterThan(0);

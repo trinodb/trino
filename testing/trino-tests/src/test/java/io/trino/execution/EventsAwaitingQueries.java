@@ -17,9 +17,9 @@ import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.execution.EventsCollector.QueryEvents;
 import io.trino.spi.QueryId;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryFailedException;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import org.intellij.lang.annotations.Language;
 
@@ -35,9 +35,9 @@ class EventsAwaitingQueries
 {
     private final EventsCollector eventsCollector;
 
-    private final DistributedQueryRunner queryRunner;
+    private final QueryRunner queryRunner;
 
-    EventsAwaitingQueries(EventsCollector eventsCollector, DistributedQueryRunner queryRunner)
+    EventsAwaitingQueries(EventsCollector eventsCollector, QueryRunner queryRunner)
     {
         this.eventsCollector = requireNonNull(eventsCollector, "eventsCollector is null");
         this.queryRunner = requireNonNull(queryRunner, "queryRunner is null");

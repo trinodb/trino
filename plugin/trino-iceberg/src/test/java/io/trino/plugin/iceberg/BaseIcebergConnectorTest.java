@@ -7018,7 +7018,7 @@ public abstract class BaseIcebergConnectorTest
                 .setSchema(schema)
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(icebergSession)
+        QueryRunner queryRunner = DistributedQueryRunner.builder(icebergSession)
                 .build();
         queryRunner.installPlugin(new IcebergPlugin());
         queryRunner.createCatalog(

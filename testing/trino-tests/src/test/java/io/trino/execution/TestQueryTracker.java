@@ -63,7 +63,7 @@ public class TestQueryTracker
                 .setSystemProperty(QUERY_MAX_PLANNING_TIME, "2s")
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner
+        QueryRunner queryRunner = DistributedQueryRunner
                 .builder(defaultSession)
                 .build();
         queryRunner.installPlugin(new Plugin()

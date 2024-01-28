@@ -126,7 +126,7 @@ public final class DeltaLakeQueryRunner
         }
     }
 
-    public static DistributedQueryRunner createDeltaLakeQueryRunner(String catalogName, Map<String, String> extraProperties, Map<String, String> connectorProperties)
+    public static QueryRunner createDeltaLakeQueryRunner(String catalogName, Map<String, String> extraProperties, Map<String, String> connectorProperties)
             throws Exception
     {
         Map<String, String> deltaProperties = new HashMap<>(connectorProperties);
@@ -137,7 +137,7 @@ public final class DeltaLakeQueryRunner
             deltaProperties.put("hive.metastore.catalog.dir", metastoreDirectory.toUri().toString());
         }
 
-        DistributedQueryRunner queryRunner = builder(createSession())
+        QueryRunner queryRunner = builder(createSession())
                 .setCatalogName(catalogName)
                 .setExtraProperties(extraProperties)
                 .setDeltaProperties(deltaProperties)
@@ -148,13 +148,13 @@ public final class DeltaLakeQueryRunner
         return queryRunner;
     }
 
-    public static DistributedQueryRunner createS3DeltaLakeQueryRunner(String catalogName, String schemaName, Map<String, String> connectorProperties, String minioAddress, HiveHadoop testingHadoop)
+    public static QueryRunner createS3DeltaLakeQueryRunner(String catalogName, String schemaName, Map<String, String> connectorProperties, String minioAddress, HiveHadoop testingHadoop)
             throws Exception
     {
         return createS3DeltaLakeQueryRunner(catalogName, schemaName, ImmutableMap.of(), ImmutableMap.of(), connectorProperties, minioAddress, testingHadoop, queryRunner -> {});
     }
 
-    public static DistributedQueryRunner createS3DeltaLakeQueryRunner(
+    public static QueryRunner createS3DeltaLakeQueryRunner(
             String catalogName,
             String schemaName,
             Map<String, String> extraProperties,
@@ -208,7 +208,7 @@ public final class DeltaLakeQueryRunner
                 queryRunner -> {});
     }
 
-    public static DistributedQueryRunner createDockerizedDeltaLakeQueryRunner(
+    public static QueryRunner createDockerizedDeltaLakeQueryRunner(
             String catalogName,
             String schemaName,
             Map<String, String> coordinatorProperties,
@@ -257,7 +257,7 @@ public final class DeltaLakeQueryRunner
         {
             Path metastoreDirectory = Files.createTempDirectory(DELTA_CATALOG);
             metastoreDirectory.toFile().deleteOnExit();
-            DistributedQueryRunner queryRunner = createDeltaLakeQueryRunner(
+            QueryRunner queryRunner = createDeltaLakeQueryRunner(
                     DELTA_CATALOG,
                     ImmutableMap.of("http-server.http.port", "8080"),
                     ImmutableMap.of(
@@ -281,7 +281,7 @@ public final class DeltaLakeQueryRunner
                 throws Exception
         {
             // Please set Delta Lake connector properties via VM options. e.g. -Dhive.metastore=glue -D..
-            DistributedQueryRunner queryRunner = builder()
+            QueryRunner queryRunner = builder()
                     .setCatalogName(DELTA_CATALOG)
                     .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
                     .build();
@@ -301,7 +301,7 @@ public final class DeltaLakeQueryRunner
 
             HiveMinioDataLake hiveMinioDataLake = new HiveMinioDataLake(bucketName);
             hiveMinioDataLake.start();
-            DistributedQueryRunner queryRunner = createS3DeltaLakeQueryRunner(
+            QueryRunner queryRunner = createS3DeltaLakeQueryRunner(
                     DELTA_CATALOG,
                     TPCH_SCHEMA,
                     ImmutableMap.of("http-server.http.port", "8080"),

@@ -18,7 +18,6 @@ import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.BaseTestParquetWithBloomFilters;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 
 import java.nio.file.Path;
@@ -35,7 +34,7 @@ public class TestIcebergParquetWithBloomFilters
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = IcebergQueryRunner.builder().build();
+        QueryRunner queryRunner = IcebergQueryRunner.builder().build();
         dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
 
         // create hive catalog

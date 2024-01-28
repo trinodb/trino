@@ -25,6 +25,7 @@ import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.plugin.iceberg.catalog.jdbc.TestingIcebergJdbcServer;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.containers.Minio;
 import io.trino.tpch.TpchTable;
 import org.apache.iceberg.catalog.Catalog;
@@ -63,7 +64,7 @@ public final class IcebergQueryRunner
 
     private IcebergQueryRunner() {}
 
-    public static DistributedQueryRunner createIcebergQueryRunner(TpchTable<?>... tables)
+    public static QueryRunner createIcebergQueryRunner(TpchTable<?>... tables)
             throws Exception
     {
         return builder()
@@ -172,7 +173,7 @@ public final class IcebergQueryRunner
             testServer.start();
 
             @SuppressWarnings("resource")
-            DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
+            QueryRunner queryRunner = IcebergQueryRunner.builder()
                     .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
                     .setBaseDataDir(Optional.of(warehouseLocation.toPath()))
                     .setIcebergProperties(ImmutableMap.of(
@@ -197,7 +198,7 @@ public final class IcebergQueryRunner
             // Requires AWS credentials, which can be provided any way supported by the DefaultProviderChain
             // See https://docs.aws.amazon.com/sdk-for-java/v1/developer-guide/credentials.html#credentials-default
             @SuppressWarnings("resource")
-            DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
+            QueryRunner queryRunner = IcebergQueryRunner.builder()
                     .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
                     .setIcebergProperties(ImmutableMap.of("iceberg.catalog.type", "glue"))
                     .build();
@@ -221,7 +222,7 @@ public final class IcebergQueryRunner
             hiveMinioDataLake.start();
 
             @SuppressWarnings("resource")
-            DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
+            QueryRunner queryRunner = IcebergQueryRunner.builder()
                     .setCoordinatorProperties(Map.of(
                             "http-server.http.port", "8080"))
                     .setIcebergProperties(Map.of(
@@ -265,7 +266,7 @@ public final class IcebergQueryRunner
             minio.createBucket(bucketName);
 
             @SuppressWarnings("resource")
-            DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
+            QueryRunner queryRunner = IcebergQueryRunner.builder()
                     .setCoordinatorProperties(Map.of(
                             "http-server.http.port", "8080"))
                     .setIcebergProperties(Map.of(
@@ -326,7 +327,7 @@ public final class IcebergQueryRunner
             hiveHadoop.start();
 
             @SuppressWarnings("resource")
-            DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
+            QueryRunner queryRunner = IcebergQueryRunner.builder()
                     .setCoordinatorProperties(Map.of(
                             "http-server.http.port", "8080"))
                     .setIcebergProperties(Map.of(
@@ -361,7 +362,7 @@ public final class IcebergQueryRunner
             TestingIcebergJdbcServer server = new TestingIcebergJdbcServer();
 
             @SuppressWarnings("resource")
-            DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
+            QueryRunner queryRunner = IcebergQueryRunner.builder()
                     .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
                     .setIcebergProperties(ImmutableMap.<String, String>builder()
                             .put("iceberg.catalog.type", "jdbc")
@@ -390,7 +391,7 @@ public final class IcebergQueryRunner
         {
             Logger log = Logger.get(DefaultIcebergQueryRunnerMain.class);
             @SuppressWarnings("resource")
-            DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
+            QueryRunner queryRunner = IcebergQueryRunner.builder()
                     .setExtraProperties(ImmutableMap.of("http-server.http.port", "8080"))
                     .setInitialTables(TpchTable.getTables())
                     .build();

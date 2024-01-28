@@ -142,7 +142,7 @@ public class TestAccessControl
                 .setSchema("default")
                 .setPath(SqlPath.buildPath("mock.function", Optional.empty()))
                 .build();
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session)
                 .setAdditionalModule(binder -> {
                     newOptionalBinder(binder, SystemSecurityMetadata.class)
                             .setBinding()
