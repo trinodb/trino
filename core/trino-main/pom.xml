@@ -11,10 +11,6 @@
 
     <artifactId>trino-main</artifactId>
 
-    <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>com.clearspring.analytics</groupId>

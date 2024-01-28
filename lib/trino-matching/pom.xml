@@ -12,7 +12,6 @@
     <artifactId>trino-matching</artifactId>
 
     <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <air.compiler.fail-warnings>true</air.compiler.fail-warnings>
     </properties>
 

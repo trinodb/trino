@@ -13,10 +13,6 @@
     <packaging>trino-plugin</packaging>
     <description>Trino - BigQuery Connector</description>
 
-    <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-    </properties>
-
     <dependencyManagement>
         <dependencies>
             <dependency>

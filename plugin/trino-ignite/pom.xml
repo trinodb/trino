@@ -14,7 +14,6 @@
     <description>Trino - Ignite Connector</description>
 
     <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <air.test.jvm.additional-arguments>${air.test.jvm.additional-arguments.default} --add-opens=java.base/java.nio=ALL-UNNAMED</air.test.jvm.additional-arguments>
     </properties>
 

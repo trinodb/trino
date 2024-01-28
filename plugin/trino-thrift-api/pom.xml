@@ -13,10 +13,6 @@
     <packaging>jar</packaging>
     <description>Trino - Thrift Connector API</description>
 
-    <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>

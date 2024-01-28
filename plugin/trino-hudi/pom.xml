@@ -14,7 +14,6 @@
     <description>Trino - Hudi Connector</description>
 
     <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <dep.hudi.version>0.14.0</dep.hudi.version>
         <dep.hbase.version>2.4.9</dep.hbase.version>
     </properties>

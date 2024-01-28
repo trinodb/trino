@@ -13,10 +13,6 @@
     <packaging>trino-plugin</packaging>
     <description>Trino - Redshift Connector</description>
 
-    <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>com.amazon.redshift</groupId>
