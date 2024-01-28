@@ -20,7 +20,7 @@ import com.google.inject.Module;
 import com.google.inject.Provider;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.trino.plugin.base.CatalogName;
+import io.trino.spi.catalog.CatalogName;
 
 import java.util.concurrent.ExecutorService;
 
