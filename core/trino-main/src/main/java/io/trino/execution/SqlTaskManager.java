@@ -534,7 +534,7 @@ public class SqlTaskManager
         fragment.map(PlanFragment::getActiveCatalogs)
                 .ifPresent(activeCatalogs -> {
                     Set<CatalogHandle> catalogHandles = activeCatalogs.stream()
-                            .map(CatalogProperties::getCatalogHandle)
+                            .map(CatalogProperties::catalogHandle)
                             .collect(toImmutableSet());
                     if (sqlTask.setCatalogs(catalogHandles)) {
                         ReentrantReadWriteLock.ReadLock catalogInitLock = catalogsLock.readLock();

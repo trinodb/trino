@@ -47,7 +47,7 @@ public class InMemoryCatalogStore
     @Override
     public void addOrReplaceCatalog(CatalogProperties catalogProperties)
     {
-        CatalogName catalogName = new CatalogName(catalogProperties.getCatalogHandle().getCatalogName());
+        CatalogName catalogName = new CatalogName(catalogProperties.catalogHandle().getCatalogName());
         catalogs.put(catalogName, new InMemoryStoredCatalog(catalogName, catalogProperties));
     }
 

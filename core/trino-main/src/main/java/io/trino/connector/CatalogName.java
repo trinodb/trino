@@ -18,8 +18,6 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 public final class CatalogName
 {
     private final String catalogName;
@@ -27,7 +25,9 @@ public final class CatalogName
     @JsonCreator
     public CatalogName(String catalogName)
     {
-        checkArgument(!catalogName.isEmpty(), "catalogName is empty");
+        if (catalogName.isEmpty()) {
+            throw new IllegalArgumentException("catalogName is empty");
+        }
         this.catalogName = catalogName;
     }
 
@@ -41,14 +41,8 @@ public final class CatalogName
     @Override
     public boolean equals(Object o)
     {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        CatalogName that = (CatalogName) o;
-        return Objects.equals(catalogName, that.catalogName);
+        return o instanceof CatalogName other &&
+                catalogName.equals(other.catalogName);
     }
 
     @Override

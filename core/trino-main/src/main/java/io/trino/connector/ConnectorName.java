@@ -18,10 +18,7 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.regex.Pattern;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Objects.requireNonNull;
-
-public class ConnectorName
+public final class ConnectorName
 {
     private static final Pattern VALID_NAME = Pattern.compile("[a-z][a-z0-9_]*");
 
@@ -30,9 +27,10 @@ public class ConnectorName
     @JsonCreator
     public ConnectorName(String name)
     {
-        requireNonNull(name, "name is null");
-        checkArgument(VALID_NAME.matcher(name).matches(), "Invalid connector name: %s", name);
-        this.name = requireNonNull(name, "name is null");
+        if (!VALID_NAME.matcher(name).matches()) {
+            throw new IllegalArgumentException("Invalid connector name: " + name);
+        }
+        this.name = name;
     }
 
     @JsonValue
@@ -45,14 +43,8 @@ public class ConnectorName
     @Override
     public boolean equals(Object o)
     {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        ConnectorName that = (ConnectorName) o;
-        return name.equals(that.name);
+        return o instanceof ConnectorName other &&
+                name.equals(other.name);
     }
 
     @Override
