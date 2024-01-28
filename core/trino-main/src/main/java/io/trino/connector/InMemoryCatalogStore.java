@@ -14,6 +14,10 @@
 package io.trino.connector;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.spi.catalog.CatalogName;
+import io.trino.spi.catalog.CatalogProperties;
+import io.trino.spi.catalog.CatalogStore;
+import io.trino.spi.connector.ConnectorName;
 
 import java.util.Collection;
 import java.util.Map;
