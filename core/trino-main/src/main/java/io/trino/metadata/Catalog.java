@@ -13,12 +13,12 @@
  */
 package io.trino.metadata;
 
-import io.trino.connector.CatalogName;
-import io.trino.connector.ConnectorName;
 import io.trino.connector.ConnectorServices;
 import io.trino.spi.TrinoException;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.Connector;
+import io.trino.spi.connector.ConnectorName;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.transaction.IsolationLevel;
 import io.trino.transaction.InternalConnector;

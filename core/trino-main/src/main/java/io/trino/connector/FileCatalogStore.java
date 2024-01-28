@@ -22,8 +22,12 @@ import com.google.inject.Inject;
 import io.airlift.log.Logger;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.spi.TrinoException;
+import io.trino.spi.catalog.CatalogName;
+import io.trino.spi.catalog.CatalogProperties;
+import io.trino.spi.catalog.CatalogStore;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogHandle.CatalogVersion;
+import io.trino.spi.connector.ConnectorName;
 
 import java.io.File;
 import java.io.FileOutputStream;

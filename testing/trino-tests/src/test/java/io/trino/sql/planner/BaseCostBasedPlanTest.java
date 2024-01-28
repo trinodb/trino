@@ -20,7 +20,7 @@ import com.google.common.io.Resources;
 import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.log.Logger;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.sql.DynamicFilters;

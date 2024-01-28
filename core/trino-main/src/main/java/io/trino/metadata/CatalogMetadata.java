@@ -16,7 +16,7 @@ package io.trino.metadata;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.trino.Session;
-import io.trino.connector.CatalogName;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogHandle.CatalogHandleType;
 import io.trino.spi.connector.CatalogSchemaName;
