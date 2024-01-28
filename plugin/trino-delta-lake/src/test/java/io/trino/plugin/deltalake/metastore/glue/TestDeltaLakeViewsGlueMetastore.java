@@ -62,7 +62,7 @@ public class TestDeltaLakeViewsGlueMetastore
                 .setSchema(SCHEMA)
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(deltaLakeSession).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(deltaLakeSession).build();
 
         dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("data_delta_lake_views");
         metastore = createTestMetastore(dataDirectory);

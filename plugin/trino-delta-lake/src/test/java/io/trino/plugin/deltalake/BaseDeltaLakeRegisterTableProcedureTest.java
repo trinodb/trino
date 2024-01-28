@@ -66,7 +66,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
                 .setCatalog(DELTA_CATALOG)
                 .setSchema(SCHEMA)
                 .build();
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
 
         this.dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data");
         this.metastore = createTestMetastore(dataDirectory);
@@ -229,7 +229,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
         String tableNameNew = "test_register_table_with_no_transaction_log_new_" + randomNameSuffix();
 
         // Delete files under transaction log directory and put an invalid log file to verify register_table call fails
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
+        QueryRunner queryRunner = getQueryRunner();
         TrinoFileSystem fileSystem = TestingDeltaLakeUtils.getConnectorService(queryRunner, TrinoFileSystemFactory.class)
                 .create(ConnectorIdentity.ofUser("test"));
         fileSystem.deleteDirectory(Location.of(tableLocation));
@@ -257,7 +257,7 @@ public abstract class BaseDeltaLakeRegisterTableProcedureTest
         String tableNameNew = "test_register_table_with_no_transaction_log_new_" + randomNameSuffix();
 
         // Delete files under transaction log directory to verify register_table call fails
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
+        QueryRunner queryRunner = getQueryRunner();
         TrinoFileSystem fileSystem = TestingDeltaLakeUtils.getConnectorService(queryRunner, TrinoFileSystemFactory.class)
                 .create(ConnectorIdentity.ofUser("test"));
         fileSystem.deleteDirectory(Location.of(tableLocation));

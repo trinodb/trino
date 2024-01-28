@@ -27,6 +27,7 @@ import io.trino.spi.security.Privilege;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.sql.query.QueryAssertions;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -55,7 +56,7 @@ public class TestRevokeOnTable
     private static final Session userWithInsert = sessionOf(randomUsername());
     private static final Session userWithUpdate = sessionOf(randomUsername());
     private static final Session userWithDelete = sessionOf(randomUsername());
-    private DistributedQueryRunner queryRunner;
+    private QueryRunner queryRunner;
     private QueryAssertions assertions;
 
     @BeforeAll

@@ -107,7 +107,7 @@ class TestCreateTableTask
     @BeforeEach
     void setUp()
     {
-        StandaloneQueryRunner queryRunner = new StandaloneQueryRunner(testSessionBuilder()
+        QueryRunner queryRunner = new StandaloneQueryRunner(testSessionBuilder()
                 .setCatalog(TEST_CATALOG_NAME)
                 .build());
         metadata = new MockMetadata();

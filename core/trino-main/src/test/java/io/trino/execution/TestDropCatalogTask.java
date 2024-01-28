@@ -56,7 +56,7 @@ public class TestDropCatalogTask
     @BeforeEach
     public void setUp()
     {
-        StandaloneQueryRunner queryRunner = new StandaloneQueryRunner(TEST_SESSION);
+        QueryRunner queryRunner = new StandaloneQueryRunner(TEST_SESSION);
         queryRunner.installPlugin(new TpchPlugin());
         Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks = queryRunner.getCoordinator().getInstance(Key.get(new TypeLiteral<Map<Class<? extends Statement>, DataDefinitionTask<?>>>() {}));
         task = (DropCatalogTask) tasks.get(DropCatalog.class);

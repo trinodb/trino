@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.resourcegroups.ResourceGroupManagerPlugin;
 import io.trino.server.ResourceGroupInfo;
 import io.trino.spi.resourcegroups.ResourceGroupId;
-import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import io.trino.tests.tpch.TpchQueryRunnerBuilder;
 import org.junit.jupiter.api.Test;
 
@@ -35,7 +35,7 @@ public class TestResourceGroupIntegration
     public void testMemoryFraction()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build()) {
+        try (QueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build()) {
             queryRunner.installPlugin(new ResourceGroupManagerPlugin());
             getResourceGroupManager(queryRunner).setConfigurationManager("file", ImmutableMap.of(
                     "resource-groups.config-file", getResourceFilePath("resource_groups_memory_percentage.json")));
@@ -49,7 +49,7 @@ public class TestResourceGroupIntegration
     public void testPathToRoot()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build()) {
+        try (QueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build()) {
             queryRunner.installPlugin(new ResourceGroupManagerPlugin());
             InternalResourceGroupManager<?> manager = getResourceGroupManager(queryRunner);
             manager.setConfigurationManager("file", ImmutableMap.of(
@@ -71,7 +71,7 @@ public class TestResourceGroupIntegration
         return this.getClass().getClassLoader().getResource(fileName).getPath();
     }
 
-    public static void waitForGlobalResourceGroup(DistributedQueryRunner queryRunner)
+    public static void waitForGlobalResourceGroup(QueryRunner queryRunner)
             throws InterruptedException
     {
         long startTime = System.nanoTime();
@@ -86,7 +86,7 @@ public class TestResourceGroupIntegration
         }
     }
 
-    private static InternalResourceGroupManager<?> getResourceGroupManager(DistributedQueryRunner queryRunner)
+    private static InternalResourceGroupManager<?> getResourceGroupManager(QueryRunner queryRunner)
     {
         return queryRunner.getCoordinator().getResourceGroupManager()
                 .orElseThrow(() -> new IllegalArgumentException("no resource group manager"));

@@ -20,7 +20,7 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.plugin.hive.HiveQueryRunner;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.sql.query.QueryAssertions;
-import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
 import java.io.OutputStream;
@@ -38,7 +38,7 @@ public class TestReadingTimeLogicalAnnotation
     public void testReadingTimeLogicalAnnotationAsBigInt()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = HiveQueryRunner.builder().build();
+        try (QueryRunner queryRunner = HiveQueryRunner.builder().build();
                 QueryAssertions assertions = new QueryAssertions(queryRunner)) {
             URL resourceLocation = Resources.getResource("parquet_file_with_time_logical_annotation/time-micros.parquet");
 

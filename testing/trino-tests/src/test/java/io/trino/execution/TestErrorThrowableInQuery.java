@@ -27,6 +27,7 @@ import io.trino.spi.connector.ConnectorFactory;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.spi.StandardErrorCode.NOT_FOUND;
@@ -43,7 +44,7 @@ public class TestErrorThrowableInQuery
         extends AbstractTestQueryFramework
 {
     @Override
-    protected DistributedQueryRunner createQueryRunner()
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         Session session = testSessionBuilder()
@@ -53,7 +54,7 @@ public class TestErrorThrowableInQuery
                 .setClientInfo("{\"clientVersion\":\"testVersion\"}")
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).setNodeCount(1).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session).setNodeCount(1).build();
         try {
             queryRunner.installPlugin(new TpchPlugin());
             queryRunner.installPlugin(new ResourceGroupManagerPlugin());

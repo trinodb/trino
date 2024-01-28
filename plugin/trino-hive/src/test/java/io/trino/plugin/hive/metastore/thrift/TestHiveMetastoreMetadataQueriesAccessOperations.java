@@ -28,7 +28,6 @@ import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
 import io.trino.plugin.hive.metastore.MetastoreMethod;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
@@ -81,7 +80,7 @@ public class TestHiveMetastoreMetadataQueriesAccessOperations
         hiveHadoop = HiveHadoop.builder().build();
         hiveHadoop.start();
 
-        DistributedQueryRunner queryRunner = HiveQueryRunner.builder(SESSION)
+        QueryRunner queryRunner = HiveQueryRunner.builder(SESSION)
                 // metadata queries do not use workers
                 .setNodeCount(1)
                 .addCoordinatorProperty("optimizer.experimental-max-prefetched-information-schema-prefixes", Integer.toString(MAX_PREFIXES_COUNT))

@@ -14,9 +14,9 @@
 package io.trino.plugin.pinot;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.kafka.TestingKafka;
 import io.trino.tpch.TpchTable;
 import org.apache.avro.Schema;
@@ -39,7 +39,7 @@ public final class PinotTpchTables
 
     private PinotTpchTables() {}
 
-    public static void createTpchTables(TestingKafka kafka, TestingPinotCluster pinot, DistributedQueryRunner queryRunner, Iterable<TpchTable<?>> tables)
+    public static void createTpchTables(TestingKafka kafka, TestingPinotCluster pinot, QueryRunner queryRunner, Iterable<TpchTable<?>> tables)
             throws Exception
     {
         for (TpchTable<?> table : tables) {
@@ -52,7 +52,7 @@ public final class PinotTpchTables
         }
     }
 
-    private static void createRegionTable(TestingKafka kafka, TestingPinotCluster pinot, DistributedQueryRunner queryRunner)
+    private static void createRegionTable(TestingKafka kafka, TestingPinotCluster pinot, QueryRunner queryRunner)
             throws Exception
     {
         String regionTableName = "region";
@@ -78,7 +78,7 @@ public final class PinotTpchTables
         pinot.addRealTimeTable(PinotQueryRunner.class.getClassLoader().getResourceAsStream("region_realtimeSpec.json"), regionTableName);
     }
 
-    private static void createNationTable(TestingKafka kafka, TestingPinotCluster pinot, DistributedQueryRunner queryRunner)
+    private static void createNationTable(TestingKafka kafka, TestingPinotCluster pinot, QueryRunner queryRunner)
             throws Exception
     {
         String nationTableName = "nation";
@@ -106,7 +106,7 @@ public final class PinotTpchTables
         pinot.addRealTimeTable(PinotQueryRunner.class.getClassLoader().getResourceAsStream("nation_realtimeSpec.json"), nationTableName);
     }
 
-    private static void createOrdersTable(TestingKafka kafka, TestingPinotCluster pinot, DistributedQueryRunner queryRunner)
+    private static void createOrdersTable(TestingKafka kafka, TestingPinotCluster pinot, QueryRunner queryRunner)
             throws Exception
     {
         String ordersTableName = "orders";
@@ -144,7 +144,7 @@ public final class PinotTpchTables
         pinot.addRealTimeTable(PinotQueryRunner.class.getClassLoader().getResourceAsStream("orders_realtimeSpec.json"), ordersTableName);
     }
 
-    private static void createCustomerTable(TestingKafka kafka, TestingPinotCluster pinot, DistributedQueryRunner queryRunner)
+    private static void createCustomerTable(TestingKafka kafka, TestingPinotCluster pinot, QueryRunner queryRunner)
             throws Exception
     {
         String customerTableName = "customer";

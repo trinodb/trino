@@ -25,6 +25,7 @@ import io.trino.filesystem.local.LocalFileSystemFactory;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import org.apache.iceberg.util.ThreadPools;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -74,7 +75,7 @@ public class TestIcebergFileOperations
     private TrackingFileSystemFactory trackingFileSystemFactory;
 
     @Override
-    protected DistributedQueryRunner createQueryRunner()
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         Session session = testSessionBuilder()
@@ -86,7 +87,7 @@ public class TestIcebergFileOperations
                 .setSystemProperty(MIN_INPUT_SIZE_PER_TASK, "0MB")
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session)
                 // Tests that inspect MBean attributes need to run with just one node, otherwise
                 // the attributes may come from the bound class instance in non-coordinator node
                 .setNodeCount(1)

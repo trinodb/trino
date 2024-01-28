@@ -30,7 +30,7 @@ import io.trino.plugin.hive.metastore.StorageFormat;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hudi.HudiConnector;
 import io.trino.spi.security.ConnectorIdentity;
-import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 
 import java.io.File;
 import java.io.IOException;
@@ -62,7 +62,7 @@ public class ResourceHudiTablesInitializer
         implements HudiTablesInitializer
 {
     @Override
-    public void initializeTables(DistributedQueryRunner queryRunner, Location externalLocation, String schemaName)
+    public void initializeTables(QueryRunner queryRunner, Location externalLocation, String schemaName)
             throws Exception
     {
         TrinoFileSystem fileSystem = ((HudiConnector) queryRunner.getCoordinator().getConnector("hudi")).getInjector()
@@ -86,7 +86,7 @@ public class ResourceHudiTablesInitializer
     }
 
     private void createTable(
-            DistributedQueryRunner queryRunner,
+            QueryRunner queryRunner,
             String schemaName,
             Location tablePath,
             String tableName,

@@ -18,7 +18,7 @@ import com.google.common.collect.Multiset;
 import io.trino.Session;
 import io.trino.plugin.hive.metastore.MetastoreMethod;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
@@ -56,7 +56,7 @@ public class TestIcebergMetastoreAccessOperations
     private static final int MAX_PREFIXES_COUNT = 10;
 
     @Override
-    protected DistributedQueryRunner createQueryRunner()
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         return IcebergQueryRunner.builder()

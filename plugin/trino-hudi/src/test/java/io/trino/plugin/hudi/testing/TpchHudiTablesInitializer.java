@@ -32,9 +32,9 @@ import io.trino.plugin.hudi.HudiConnector;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.spi.connector.CatalogSchemaName;
 import io.trino.spi.security.ConnectorIdentity;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
+import io.trino.testing.QueryRunner;
 import io.trino.tpch.TpchColumn;
 import io.trino.tpch.TpchColumnType;
 import io.trino.tpch.TpchColumnTypes;
@@ -118,7 +118,7 @@ public class TpchHudiTablesInitializer
     }
 
     @Override
-    public void initializeTables(DistributedQueryRunner queryRunner, Location externalLocation, String schemaName)
+    public void initializeTables(QueryRunner queryRunner, Location externalLocation, String schemaName)
             throws Exception
     {
         queryRunner.installPlugin(new TpchPlugin());
@@ -150,7 +150,7 @@ public class TpchHudiTablesInitializer
         }
     }
 
-    public void load(TpchTable<?> tpchTables, DistributedQueryRunner queryRunner, java.nio.file.Path tableDirectory)
+    public void load(TpchTable<?> tpchTables, QueryRunner queryRunner, java.nio.file.Path tableDirectory)
     {
         try (HoodieJavaWriteClient<HoodieAvroPayload> writeClient = createWriteClient(tpchTables, HDFS_ENVIRONMENT, new Path(tableDirectory.toUri()))) {
             RecordConverter recordConverter = createRecordConverter(tpchTables);

@@ -99,7 +99,7 @@ public class TestDeltaLakeConnectorTest
         minio.createBucket(bucketName);
         minioClient = closeAfterClass(minio.createMinioClient());
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder()
+        QueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder()
                         .setCatalog(DELTA_CATALOG)
                         .setSchema(SCHEMA)
                         .build())
@@ -557,7 +557,7 @@ public class TestDeltaLakeConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " (t TIMESTAMP WITH TIME ZONE)");
         assertUpdate("INSERT INTO " + tableName + " VALUES (TIMESTAMP '" + value + "')", 1);
 
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
+        QueryRunner queryRunner = getQueryRunner();
         MaterializedResultWithPlan queryResult = queryRunner.executeWithPlan(
                 getSession(),
                 "SELECT * FROM " + tableName + " WHERE t < TIMESTAMP '" + value + "'");
@@ -750,7 +750,7 @@ public class TestDeltaLakeConnectorTest
         }
     }
 
-    private QueryInfo getQueryInfo(DistributedQueryRunner queryRunner, MaterializedResultWithPlan queryResult)
+    private QueryInfo getQueryInfo(QueryRunner queryRunner, MaterializedResultWithPlan queryResult)
     {
         return queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryResult.queryId());
     }
@@ -3414,7 +3414,7 @@ public class TestDeltaLakeConnectorTest
         assertUpdate("CREATE TABLE " + tableName + "(id, boolean, tinyint) WITH (location = '" + tableLocation + "') AS " + initialValues, 5);
         assertThat(query("SELECT * FROM " + tableName)).matches(initialValues);
 
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
+        QueryRunner queryRunner = getQueryRunner();
         HiveMetastore metastore = TestingDeltaLakeUtils.getConnectorService(queryRunner, HiveMetastoreFactory.class)
                 .createMetastore(Optional.empty());
 

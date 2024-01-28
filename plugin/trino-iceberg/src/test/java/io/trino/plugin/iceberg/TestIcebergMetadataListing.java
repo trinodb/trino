@@ -22,6 +22,7 @@ import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -43,7 +44,7 @@ public class TestIcebergMetadataListing
     private HiveMetastore metastore;
 
     @Override
-    protected DistributedQueryRunner createQueryRunner()
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         Session session = testSessionBuilder()
@@ -51,7 +52,7 @@ public class TestIcebergMetadataListing
                         .withConnectorRole("hive", new SelectedRole(ROLE, Optional.of("admin")))
                         .build())
                 .build();
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
 
         File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data").toFile();
 

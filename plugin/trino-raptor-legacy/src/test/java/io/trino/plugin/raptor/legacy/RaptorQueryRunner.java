@@ -49,14 +49,14 @@ public final class RaptorQueryRunner
 
     private RaptorQueryRunner() {}
 
-    public static DistributedQueryRunner createRaptorQueryRunner(
+    public static QueryRunner createRaptorQueryRunner(
             Map<String, String> extraProperties,
             List<TpchTable<?>> tablesToLoad,
             boolean bucketed,
             Map<String, String> extraRaptorProperties)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession("tpch"))
+        QueryRunner queryRunner = DistributedQueryRunner.builder(createSession("tpch"))
                 .setExtraProperties(extraProperties)
                 .build();
 
@@ -167,7 +167,7 @@ public final class RaptorQueryRunner
             throws Exception
     {
         Map<String, String> properties = ImmutableMap.of("http-server.http.port", "8080");
-        DistributedQueryRunner queryRunner = createRaptorQueryRunner(properties, ImmutableList.of(), false, ImmutableMap.of());
+        QueryRunner queryRunner = createRaptorQueryRunner(properties, ImmutableList.of(), false, ImmutableMap.of());
         Thread.sleep(10);
         Logger log = Logger.get(RaptorQueryRunner.class);
         log.info("======== SERVER STARTED ========");

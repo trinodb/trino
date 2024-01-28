@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.filesystem.Location;
 import io.trino.plugin.hive.metastore.HiveMetastore;
 import io.trino.plugin.hive.metastore.HiveMetastoreFactory;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.TestInstance;
 
@@ -48,7 +47,7 @@ public class TestIcebergConnectorSmokeTest
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
+        QueryRunner queryRunner = IcebergQueryRunner.builder()
                 .setInitialTables(REQUIRED_TPCH_TABLES)
                 .setIcebergProperties(ImmutableMap.of(
                         "iceberg.file-format", format.name(),

@@ -19,6 +19,7 @@ import io.trino.Session;
 import io.trino.plugin.pinot.client.PinotHostMapper;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.kafka.TestingKafka;
 import io.trino.tpch.TpchTable;
 
@@ -42,7 +43,7 @@ public class PinotQueryRunner
 
     private PinotQueryRunner() {}
 
-    public static DistributedQueryRunner createPinotQueryRunner(
+    public static QueryRunner createPinotQueryRunner(
             TestingKafka kafka,
             TestingPinotCluster pinot,
             Map<String, String> extraProperties,
@@ -50,7 +51,7 @@ public class PinotQueryRunner
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
+        QueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
                 .setExtraProperties(extraProperties)
                 .build();
 
@@ -82,7 +83,7 @@ public class PinotQueryRunner
         kafka.start();
         TestingPinotCluster pinot = new TestingPinotCluster(kafka.getNetwork(), false, PINOT_LATEST_IMAGE_NAME);
         pinot.start();
-        DistributedQueryRunner queryRunner = createPinotQueryRunner(
+        QueryRunner queryRunner = createPinotQueryRunner(
                 kafka,
                 pinot,
                 ImmutableMap.of("http-server.http.port", "8080"),
