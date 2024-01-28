@@ -19,6 +19,7 @@ import io.trino.plugin.redis.util.JsonEncoder;
 import io.trino.plugin.redis.util.RedisServer;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.sql.query.QueryAssertions;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -49,7 +50,7 @@ public abstract class AbstractTestMinimalFunctionality
     protected String tableName;
     protected String stringValueTableName;
     protected String hashValueTableName;
-    protected StandaloneQueryRunner queryRunner;
+    protected QueryRunner queryRunner;
     protected QueryAssertions assertions;
 
     protected abstract Map<String, String> connectorProperties();

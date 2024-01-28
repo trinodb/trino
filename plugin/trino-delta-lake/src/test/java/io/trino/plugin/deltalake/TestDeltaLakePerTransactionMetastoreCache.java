@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.Multiset;
 import io.trino.plugin.base.util.Closables;
 import io.trino.plugin.hive.metastore.MetastoreMethod;
-import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -32,7 +32,7 @@ import static io.trino.plugin.hive.metastore.MetastoreMethod.GET_TABLE;
 
 public class TestDeltaLakePerTransactionMetastoreCache
 {
-    private static DistributedQueryRunner createQueryRunner(boolean enablePerTransactionHiveMetastoreCaching)
+    private static QueryRunner createQueryRunner(boolean enablePerTransactionHiveMetastoreCaching)
             throws Exception
     {
         Map<String, String> deltaLakeProperties = new HashMap<>();
@@ -42,7 +42,7 @@ public class TestDeltaLakePerTransactionMetastoreCache
             deltaLakeProperties.put("delta.per-transaction-metastore-cache-maximum-size", "1");
         }
 
-        DistributedQueryRunner queryRunner = createDeltaLakeQueryRunner(DELTA_CATALOG, ImmutableMap.of(), deltaLakeProperties);
+        QueryRunner queryRunner = createDeltaLakeQueryRunner(DELTA_CATALOG, ImmutableMap.of(), deltaLakeProperties);
         try {
             queryRunner.execute("CREATE TABLE nation AS SELECT * FROM tpch.tiny.nation");
             queryRunner.execute("CREATE TABLE region AS SELECT * FROM tpch.tiny.region");
@@ -59,7 +59,7 @@ public class TestDeltaLakePerTransactionMetastoreCache
     public void testPerTransactionHiveMetastoreCachingEnabled()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = createQueryRunner(true)) {
+        try (QueryRunner queryRunner = createQueryRunner(true)) {
             // Verify cache works; we expect only two calls to `getTable` because we have two tables in a query.
             assertMetastoreInvocations(queryRunner, "SELECT * FROM nation JOIN region ON nation.regionkey = region.regionkey",
                     ImmutableMultiset.<MetastoreMethod>builder()
@@ -72,7 +72,7 @@ public class TestDeltaLakePerTransactionMetastoreCache
     public void testPerTransactionHiveMetastoreCachingDisabled()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = createQueryRunner(false)) {
+        try (QueryRunner queryRunner = createQueryRunner(false)) {
             assertMetastoreInvocations(queryRunner, "SELECT * FROM nation JOIN region ON nation.regionkey = region.regionkey",
                     ImmutableMultiset.<MetastoreMethod>builder()
                             .addCopies(GET_TABLE, 2)
@@ -80,7 +80,7 @@ public class TestDeltaLakePerTransactionMetastoreCache
         }
     }
 
-    private static void assertMetastoreInvocations(DistributedQueryRunner queryRunner, @Language("SQL") String query, Multiset<MetastoreMethod> expectedInvocations)
+    private static void assertMetastoreInvocations(QueryRunner queryRunner, @Language("SQL") String query, Multiset<MetastoreMethod> expectedInvocations)
     {
         assertMetastoreInvocationsForQuery(queryRunner, queryRunner.getDefaultSession(), query, expectedInvocations);
     }

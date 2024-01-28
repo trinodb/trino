@@ -16,7 +16,6 @@ package io.trino.plugin.postgresql;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
@@ -38,13 +37,13 @@ public class TestRemoteQueryCommentLoggingDisabledByDefault
             throws Exception
     {
         postgreSqlServer = closeAfterClass(new TestingPostgreSqlServer());
-        DistributedQueryRunner distributedQueryRunner = createPostgreSqlQueryRunner(
+        QueryRunner queryRunner = createPostgreSqlQueryRunner(
                 postgreSqlServer,
                 ImmutableMap.of(),
                 ImmutableMap.of(),
                 ImmutableList.of(CUSTOMER, NATION));
 
-        return distributedQueryRunner;
+        return queryRunner;
     }
 
     @Test

@@ -66,7 +66,7 @@ public class TestHiveConcurrentModificationGlueMetastore
                 .setSchema(SCHEMA)
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(deltaLakeSession).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(deltaLakeSession).build();
 
         dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("data_hive_concurrent");
         GlueMetastoreStats stats = new GlueMetastoreStats();

@@ -17,7 +17,6 @@ package io.trino.plugin.iceberg;
 import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -43,7 +42,7 @@ public class TestIcebergMigrateProcedure
             throws Exception
     {
         dataDirectory = Files.createTempDirectory("_test_hidden");
-        DistributedQueryRunner queryRunner = IcebergQueryRunner.builder().setMetastoreDirectory(dataDirectory.toFile()).build();
+        QueryRunner queryRunner = IcebergQueryRunner.builder().setMetastoreDirectory(dataDirectory.toFile()).build();
         queryRunner.installPlugin(new TestingHivePlugin(dataDirectory));
         queryRunner.createCatalog("hive", "hive", ImmutableMap.<String, String>builder()
                 .put("hive.security", "allow-all")

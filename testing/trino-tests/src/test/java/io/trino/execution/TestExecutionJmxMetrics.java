@@ -18,7 +18,7 @@ import io.trino.Session;
 import io.trino.execution.resourcegroups.InternalResourceGroupManager;
 import io.trino.plugin.resourcegroups.ResourceGroupManagerPlugin;
 import io.trino.spi.QueryId;
-import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import io.trino.tests.tpch.TpchQueryRunnerBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -44,7 +44,7 @@ public class TestExecutionJmxMetrics
     public void testQueryStats()
             throws Exception
     {
-        try (DistributedQueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build()) {
+        try (QueryRunner queryRunner = TpchQueryRunnerBuilder.builder().build()) {
             queryRunner.installPlugin(new ResourceGroupManagerPlugin());
             InternalResourceGroupManager<?> resourceGroupManager = queryRunner.getCoordinator().getResourceGroupManager()
                     .orElseThrow(() -> new IllegalStateException("Resource manager not configured"));

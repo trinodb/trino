@@ -16,6 +16,7 @@ package io.trino.plugin.geospatial;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 
 import java.util.Map;
 
@@ -25,10 +26,10 @@ public final class GeoQueryRunner
 {
     private GeoQueryRunner() {}
 
-    private static DistributedQueryRunner createQueryRunner(Map<String, String> extraProperties)
+    private static QueryRunner createQueryRunner(Map<String, String> extraProperties)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder().build())
+        QueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder().build())
                 .setExtraProperties(extraProperties)
                 .build();
         queryRunner.installPlugin(new GeoPlugin());
@@ -38,7 +39,7 @@ public final class GeoQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createQueryRunner(ImmutableMap.of("http-server.http.port", "8080"));
+        QueryRunner queryRunner = createQueryRunner(ImmutableMap.of("http-server.http.port", "8080"));
         Logger log = Logger.get(GeoQueryRunner.class);
         log.info("======== SERVER STARTED ========");
         log.info("\n====\n%s\n====", queryRunner.getCoordinator().getBaseUrl());

@@ -60,7 +60,7 @@ public abstract class BaseDeltaLakeSharedMetastoreViewsTest
                 .setCatalog(DELTA_CATALOG_NAME)
                 .setSchema(SCHEMA)
                 .build();
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(session).build();
 
         this.dataDirectory = queryRunner.getCoordinator().getBaseDataDir().resolve("shared_data");
         this.metastore = createTestMetastore(dataDirectory);

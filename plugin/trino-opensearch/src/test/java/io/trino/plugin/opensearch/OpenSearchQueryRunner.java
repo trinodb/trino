@@ -52,7 +52,7 @@ public final class OpenSearchQueryRunner
     private static final Logger LOG = Logger.get(OpenSearchQueryRunner.class);
     private static final String TPCH_SCHEMA = "tpch";
 
-    public static DistributedQueryRunner createOpenSearchQueryRunner(
+    public static QueryRunner createOpenSearchQueryRunner(
             HostAndPort address,
             Iterable<TpchTable<?>> tables,
             Map<String, String> extraProperties,
@@ -63,7 +63,7 @@ public final class OpenSearchQueryRunner
         return createOpenSearchQueryRunner(address, tables, extraProperties, extraConnectorProperties, nodeCount, "opensearch");
     }
 
-    public static DistributedQueryRunner createOpenSearchQueryRunner(
+    public static QueryRunner createOpenSearchQueryRunner(
             HostAndPort address,
             Iterable<TpchTable<?>> tables,
             Map<String, String> extraProperties,
@@ -148,7 +148,7 @@ public final class OpenSearchQueryRunner
     public static void main(String[] args)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = createOpenSearchQueryRunner(
+        QueryRunner queryRunner = createOpenSearchQueryRunner(
                 new OpenSearchServer(OPENSEARCH_IMAGE, false, ImmutableMap.of()).getAddress(),
                 TpchTable.getTables(),
                 ImmutableMap.of("http-server.http.port", "8080"),

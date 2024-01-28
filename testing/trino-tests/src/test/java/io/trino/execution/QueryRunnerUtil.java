@@ -21,7 +21,7 @@ import io.trino.server.BasicQueryInfo;
 import io.trino.server.SessionContext;
 import io.trino.server.protocol.Slug;
 import io.trino.spi.QueryId;
-import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 
 import java.util.Set;
 
@@ -33,25 +33,25 @@ public final class QueryRunnerUtil
 {
     private QueryRunnerUtil() {}
 
-    public static QueryId createQuery(DistributedQueryRunner queryRunner, Session session, String sql)
+    public static QueryId createQuery(QueryRunner queryRunner, Session session, String sql)
     {
         DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
         getFutureValue(dispatchManager.createQuery(session.getQueryId(), Span.getInvalid(), Slug.createNew(), SessionContext.fromSession(session), sql));
         return session.getQueryId();
     }
 
-    public static void cancelQuery(DistributedQueryRunner queryRunner, QueryId queryId)
+    public static void cancelQuery(QueryRunner queryRunner, QueryId queryId)
     {
         queryRunner.getCoordinator().getDispatchManager().cancelQuery(queryId);
     }
 
-    public static void waitForQueryState(DistributedQueryRunner queryRunner, QueryId queryId, QueryState expectedQueryState)
+    public static void waitForQueryState(QueryRunner queryRunner, QueryId queryId, QueryState expectedQueryState)
             throws InterruptedException
     {
         waitForQueryState(queryRunner, queryId, ImmutableSet.of(expectedQueryState));
     }
 
-    public static void waitForQueryState(DistributedQueryRunner queryRunner, QueryId queryId, Set<QueryState> expectedQueryStates)
+    public static void waitForQueryState(QueryRunner queryRunner, QueryId queryId, Set<QueryState> expectedQueryStates)
             throws InterruptedException
     {
         DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();

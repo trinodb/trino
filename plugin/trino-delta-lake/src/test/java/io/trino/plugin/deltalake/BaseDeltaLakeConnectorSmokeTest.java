@@ -31,7 +31,6 @@ import io.trino.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.trino.spi.QueryId;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.testing.BaseConnectorSmokeTest;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
@@ -158,7 +157,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
                         .metastoreClient(hiveHadoop.getHiveMetastoreEndpoint())
                         .build());
 
-        DistributedQueryRunner queryRunner = createDeltaLakeQueryRunner();
+        QueryRunner queryRunner = createDeltaLakeQueryRunner();
         try {
             this.transactionLogAccess = getConnectorService(queryRunner, TransactionLogAccess.class);
 
@@ -209,7 +208,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         }
     }
 
-    private DistributedQueryRunner createDeltaLakeQueryRunner()
+    private QueryRunner createDeltaLakeQueryRunner()
             throws Exception
     {
         return createDockerizedDeltaLakeQueryRunner(
@@ -477,7 +476,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     @Test
     public void testInputDataSize()
     {
-        DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
+        QueryRunner queryRunner = getQueryRunner();
 
         String hiveTableName = "foo_hive";
         queryRunner.execute(

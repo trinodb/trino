@@ -37,7 +37,7 @@ public class TestQuerySerializationFailures
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner
+        QueryRunner queryRunner = DistributedQueryRunner
                 .builder(testSessionBuilder().build())
                 .build();
 

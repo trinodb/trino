@@ -18,7 +18,6 @@ import io.trino.Session;
 import io.trino.execution.QueryInfo;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.kafka.TestingKafka;
@@ -152,14 +151,14 @@ public class TestKafkaIntegrationPushDown
 
     private void assertProcessedInputPositions(String sql, long expectedProcessedInputPositions, Session session)
     {
-        DistributedQueryRunner queryRunner = getDistributedQueryRunner();
+        QueryRunner queryRunner = getDistributedQueryRunner();
         assertEventually(() -> {
             MaterializedResultWithPlan queryResult = queryRunner.executeWithPlan(session, sql);
             assertThat(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputPositions()).isEqualTo(expectedProcessedInputPositions);
         });
     }
 
-    private static QueryInfo getQueryInfo(DistributedQueryRunner queryRunner, MaterializedResultWithPlan queryResult)
+    private static QueryInfo getQueryInfo(QueryRunner queryRunner, MaterializedResultWithPlan queryResult)
     {
         return queryRunner.getCoordinator().getQueryManager().getFullQueryInfo(queryResult.queryId());
     }
