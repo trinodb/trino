@@ -726,8 +726,8 @@ public abstract class BaseIcebergMaterializedViewTest
             assertUpdate(format("INSERT INTO %s VALUES (1, 1), (1, 4), (2, 2)", sourceTableName), 3);
 
             QueryId refreshQueryId = getDistributedQueryRunner()
-                    .executeWithQueryId(getSession(), format("REFRESH MATERIALIZED VIEW %s", materializedViewName))
-                    .getQueryId();
+                    .executeWithPlan(getSession(), format("REFRESH MATERIALIZED VIEW %s", materializedViewName))
+                    .queryId();
             String savedQueryId = getStorageTableMetadata(materializedViewName).currentSnapshot().summary().get("trino_query_id");
             assertThat(savedQueryId).isEqualTo(refreshQueryId.getId());
         }
