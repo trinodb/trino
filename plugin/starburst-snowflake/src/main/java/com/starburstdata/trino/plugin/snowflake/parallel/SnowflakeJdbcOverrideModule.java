@@ -11,11 +11,11 @@ package com.starburstdata.trino.plugin.snowflake.parallel;
 
 import com.starburstdata.trino.plugin.jdbc.JdbcConnectionPoolConfig;
 import com.starburstdata.trino.plugin.snowflake.jdbc.SnowflakeJdbcClientModule;
-import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.IdentityCacheMapping;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
+import io.trino.spi.catalog.CatalogName;
 import net.snowflake.client.jdbc.SnowflakeDriver;
 
 import java.util.Properties;

@@ -11,10 +11,10 @@ package com.starburstdata.trino.plugin.snowflake.parallel;
 
 import com.google.inject.Injector;
 import io.airlift.bootstrap.Bootstrap;
-import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.jdbc.JdbcModule;
 import io.trino.spi.NodeManager;
 import io.trino.spi.VersionEmbedder;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorContext;
 import io.trino.spi.connector.ConnectorFactory;

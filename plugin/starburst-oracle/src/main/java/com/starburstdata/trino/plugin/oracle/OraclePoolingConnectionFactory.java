@@ -10,12 +10,12 @@
 package com.starburstdata.trino.plugin.oracle;
 
 import io.airlift.log.Logger;
-import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.oracle.OracleConfig;
 import io.trino.spi.TrinoException;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorSession;
 import oracle.jdbc.pool.OracleDataSource;
 import oracle.ucp.UniversalConnectionPoolAdapter;

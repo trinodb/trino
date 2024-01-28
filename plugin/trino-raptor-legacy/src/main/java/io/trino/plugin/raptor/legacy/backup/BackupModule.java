@@ -23,7 +23,7 @@ import com.google.inject.util.Providers;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.configuration.ConfigurationAwareModule;
-import io.trino.plugin.base.CatalogName;
+import io.trino.spi.catalog.CatalogName;
 import jakarta.annotation.Nullable;
 import org.weakref.jmx.MBeanExporter;
 
