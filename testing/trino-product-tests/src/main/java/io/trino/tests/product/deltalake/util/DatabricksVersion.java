@@ -21,7 +21,6 @@ import java.util.regex.Pattern;
 public record DatabricksVersion(int majorVersion, int minorVersion)
         implements Comparable<DatabricksVersion>
 {
-    public static final DatabricksVersion DATABRICKS_133_RUNTIME_VERSION = new DatabricksVersion(13, 3);
     public static final DatabricksVersion DATABRICKS_122_RUNTIME_VERSION = new DatabricksVersion(12, 2);
     public static final DatabricksVersion DATABRICKS_113_RUNTIME_VERSION = new DatabricksVersion(11, 3);
     public static final DatabricksVersion DATABRICKS_104_RUNTIME_VERSION = new DatabricksVersion(10, 4);
