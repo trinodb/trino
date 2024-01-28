@@ -383,4 +383,53 @@ public class TestDeltaLakeLocalConcurrentWritesTest
 
         queryRunner.execute(format("CALL system.register_table('%s', '%s', '%s')", SCHEMA, table, tableLocation));
     }
+
+    @Test
+    public void testConcurrentDeleteReconciliation()
+            throws Exception
+    {
+        int threads = 3;
+        CyclicBarrier barrier = new CyclicBarrier(threads);
+        ExecutorService executor = newFixedThreadPool(threads);
+        String tableName = "test_concurrent_inserts_table_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + " (a, part)  WITH (partitioned_by = ARRAY['part']) AS VALUES (1, 10), (11, 20), (21, 30), (31, 40)", 4);
+
+        try {
+            // delete data concurrently by using a non-partition predicate
+            executor.invokeAll(ImmutableList.<Callable<Void>>builder()
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("DELETE FROM " + tableName + " WHERE a = 1");
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("DELETE FROM " + tableName + " WHERE a = 11");
+                                return null;
+                            })
+                            .add(() -> {
+                                barrier.await(10, SECONDS);
+                                getQueryRunner().execute("DELETE FROM " + tableName + " WHERE a = 21");
+                                return null;
+                            })
+                            .build())
+                    .forEach(MoreFutures::getDone);
+
+            assertThat(query("SELECT * FROM " + tableName)).matches("VALUES (31, 40)");
+            assertQuery("SELECT version, operation, isolation_level, read_version FROM \"" + tableName + "$history\"",
+                    """
+                            VALUES
+                                (0, 'CREATE TABLE', 'WriteSerializable', 0),
+                                (1, 'MERGE', 'WriteSerializable', 0),
+                                (2, 'MERGE', 'WriteSerializable', 1),
+                                (3, 'MERGE', 'WriteSerializable', 2)
+                            """);
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+            executor.shutdownNow();
+            assertTrue(executor.awaitTermination(10, SECONDS));
+        }
+    }
 }

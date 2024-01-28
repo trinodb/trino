@@ -2076,7 +2076,12 @@ public class DeltaLakeMetadata
     }
 
     @Override
-    public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public void finishMerge(
+            ConnectorSession session,
+            ConnectorMergeTableHandle mergeTableHandle,
+            List<ConnectorTableHandle> sourceTableHandles,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics)
     {
         DeltaLakeMergeTableHandle mergeHandle = (DeltaLakeMergeTableHandle) mergeTableHandle;
         DeltaLakeTableHandle handle = mergeHandle.getTableHandle();
@@ -2100,12 +2105,15 @@ public class DeltaLakeMetadata
         String tableLocation = handle.getLocation();
         boolean writeCommitted = false;
         try {
-            long commitVersion = commitMergeOperation(session, mergeHandle, handle, mergeResults, allFiles);
+            IsolationLevel isolationLevel = getIsolationLevel(handle.getMetadataEntry());
+            AtomicReference<Long> readVersion = new AtomicReference<>(handle.getReadVersion());
+            long commitVersion = Failsafe.with(TRANSACTION_CONFLICT_RETRY_POLICY)
+                    .get(context -> commitMergeOperation(session, mergeHandle, handle, sourceTableHandles, mergeResults, allFiles, isolationLevel, readVersion, context.getAttemptCount()));
             writeCommitted = true;
 
             writeCheckpointIfNeeded(session, handle.getSchemaTableName(), handle.getLocation(), handle.getReadVersion(), checkpointInterval, commitVersion);
         }
-        catch (IOException | RuntimeException e) {
+        catch (RuntimeException e) {
             if (!writeCommitted) {
                 // TODO perhaps it should happen in a background thread (https://github.com/trinodb/trino/issues/12011)
                 cleanupFailedWrite(session, tableLocation, allFiles);
@@ -2118,8 +2126,51 @@ public class DeltaLakeMetadata
             ConnectorSession session,
             DeltaLakeMergeTableHandle mergeHandle,
             DeltaLakeTableHandle handle,
+            List<ConnectorTableHandle> sourceTableHandles,
             List<DeltaLakeMergeResult> mergeResults,
-            List<DataFileInfo> allFiles)
+            List<DataFileInfo> allFiles,
+            IsolationLevel isolationLevel,
+            AtomicReference<Long> readVersion,
+            int attemptCount)
+            throws IOException
+    {
+        String tableLocation = handle.getLocation();
+
+        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
+        long currentVersion = getMandatoryCurrentVersion(fileSystem, tableLocation);
+        if (currentVersion > readVersion.get()) {
+            String transactionLogDirectory = getTransactionLogDir(handle.getLocation());
+            for (long version = readVersion.get() + 1; version <= currentVersion; version++) {
+                List<DeltaLakeTransactionLogEntry> transactionLogEntries;
+                try {
+                    long finalVersion = version;
+                    transactionLogEntries = getEntriesFromJson(version, transactionLogDirectory, fileSystem)
+                            .orElseThrow(() -> new TrinoException(DELTA_LAKE_BAD_DATA, "Delta Lake log entries are missing for version " + finalVersion));
+                }
+                catch (IOException e) {
+                    throw new TrinoException(DELTA_LAKE_FILESYSTEM_ERROR, "Failed to access table metadata", e);
+                }
+                checkForMergeTransactionConflicts(session.getQueryId(), isolationLevel, handle, sourceTableHandles, new DeltaLakeCommitSummary(transactionLogEntries), version, attemptCount);
+            }
+
+            // Avoid re-reading already processed transaction log entries in case of retries
+            readVersion.set(currentVersion);
+        }
+        long commitVersion = currentVersion + 1;
+        writeTransactionLogForMergeOperation(session, mergeHandle, handle, mergeResults, allFiles, isolationLevel, commitVersion, currentVersion);
+
+        return commitVersion;
+    }
+
+    private void writeTransactionLogForMergeOperation(
+            ConnectorSession session,
+            DeltaLakeMergeTableHandle mergeHandle,
+            DeltaLakeTableHandle handle,
+            List<DeltaLakeMergeResult> mergeResults,
+            List<DataFileInfo> allFiles,
+            IsolationLevel isolationLevel,
+            long commitVersion,
+            long currentVersion)
             throws IOException
     {
         List<String> oldFiles = mergeResults.stream()
@@ -2133,19 +2184,11 @@ public class DeltaLakeMetadata
         List<DataFileInfo> newFiles = ImmutableList.copyOf(split.get(true));
         List<DataFileInfo> cdcFiles = ImmutableList.copyOf(split.get(false));
 
-        String tableLocation = handle.getLocation();
-        TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriter(session, tableLocation);
-
         long createdTime = Instant.now().toEpochMilli();
+        String tableLocation = handle.getLocation();
 
-        TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-        long currentVersion = getMandatoryCurrentVersion(fileSystem, tableLocation);
-        if (currentVersion != handle.getReadVersion()) {
-            throw new TransactionConflictException(format("Conflicting concurrent writes found. Expected transaction log version: %s, actual version: %s", handle.getReadVersion(), currentVersion));
-        }
-        long commitVersion = currentVersion + 1;
-
-        transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(session, commitVersion, createdTime, MERGE_OPERATION, handle.getReadVersion()));
+        TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriter(session, tableLocation);
+        transactionLogWriter.appendCommitInfoEntry(getCommitInfoEntry(session, isolationLevel, commitVersion, createdTime, MERGE_OPERATION, currentVersion, false));
         // TODO: Delta writes another field "operationMetrics" (https://github.com/trinodb/trino/issues/12005)
 
         long writeTimestamp = Instant.now().toEpochMilli();
@@ -2167,7 +2210,32 @@ public class DeltaLakeMetadata
         appendAddFileEntries(transactionLogWriter, newFiles, partitionColumns, getExactColumnNames(handle.getMetadataEntry()), true);
 
         transactionLogWriter.flush();
-        return commitVersion;
+    }
+
+    private void checkForMergeTransactionConflicts(
+            String queryId,
+            IsolationLevel isolationLevel,
+            DeltaLakeTableHandle mergeTableHandle,
+            List<ConnectorTableHandle> sourceTableHandles,
+            DeltaLakeCommitSummary commitSummary,
+            long version,
+            int attemptCount)
+    {
+        checkNoMetadataUpdates(commitSummary);
+        checkNoProtocolUpdates(commitSummary);
+
+        List<TupleDomain<DeltaLakeColumnHandle>> enforcedPartitionConstraints = sourceTableHandles.stream()
+                .map(DeltaLakeTableHandle.class::cast)
+                .filter(tableHandle -> mergeTableHandle.getSchemaTableName().equals(tableHandle.getSchemaTableName())
+                        // disregard time travel table handles
+                        && tableHandle.getReadVersion() >= mergeTableHandle.getReadVersion())
+                .map(DeltaLakeTableHandle::getEnforcedPartitionConstraint)
+                .collect(toImmutableList());
+        if (!enforcedPartitionConstraints.isEmpty()) {
+            checkIfCommittedAddedFilesConflictWithCurrentOperation(TupleDomain.columnWiseUnion(enforcedPartitionConstraints), isolationLevel, commitSummary);
+            checkIfCommittedRemovedFilesConflictWithCurrentOperation(isolationLevel, commitSummary);
+        }
+        LOG.debug("Completed checking for conflicts in the query %s for target table version: %s Attempt: %s ", queryId, version, attemptCount);
     }
 
     private static void appendCdcFilesInfos(
