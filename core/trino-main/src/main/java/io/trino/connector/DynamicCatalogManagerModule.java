@@ -20,6 +20,7 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.CatalogManager;
 import io.trino.server.ServerConfig;
+import io.trino.spi.catalog.CatalogStore;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 

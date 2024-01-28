@@ -11,45 +11,43 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.connector;
+package io.trino.spi.catalog;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 
-import java.util.regex.Pattern;
+import java.util.Objects;
 
-public final class ConnectorName
+public final class CatalogName
 {
-    private static final Pattern VALID_NAME = Pattern.compile("[a-z][a-z0-9_]*");
-
-    private final String name;
+    private final String catalogName;
 
     @JsonCreator
-    public ConnectorName(String name)
+    public CatalogName(String catalogName)
     {
-        if (!VALID_NAME.matcher(name).matches()) {
-            throw new IllegalArgumentException("Invalid connector name: " + name);
+        if (catalogName.isEmpty()) {
+            throw new IllegalArgumentException("catalogName is empty");
         }
-        this.name = name;
+        this.catalogName = catalogName;
     }
 
     @JsonValue
     @Override
     public String toString()
     {
-        return name;
+        return catalogName;
     }
 
     @Override
     public boolean equals(Object o)
     {
-        return o instanceof ConnectorName other &&
-                name.equals(other.name);
+        return o instanceof CatalogName other &&
+                catalogName.equals(other.catalogName);
     }
 
     @Override
     public int hashCode()
     {
-        return name.hashCode();
+        return Objects.hash(catalogName);
     }
 }

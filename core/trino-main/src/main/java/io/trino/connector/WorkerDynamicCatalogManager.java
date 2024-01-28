@@ -23,7 +23,9 @@ import io.airlift.log.Logger;
 import io.trino.Session;
 import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.spi.TrinoException;
+import io.trino.spi.catalog.CatalogProperties;
 import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.connector.ConnectorName;
 import jakarta.annotation.PreDestroy;
 
 import java.util.ArrayList;
