@@ -152,11 +152,11 @@ public class StaticCatalogManager
                 executor,
                 catalogProperties.stream()
                         .map(catalog -> (Callable<?>) () -> {
-                            CatalogName catalogName = new CatalogName(catalog.getCatalogHandle().getCatalogName());
+                            CatalogName catalogName = new CatalogName(catalog.catalogHandle().getCatalogName());
                             log.info("-- Loading catalog %s --", catalogName);
                             CatalogConnector newCatalog = catalogFactory.createCatalog(catalog);
                             catalogs.put(catalogName, newCatalog);
-                            log.info("-- Added catalog %s using connector %s --", catalogName, catalog.getConnectorName());
+                            log.info("-- Added catalog %s using connector %s --", catalogName, catalog.connectorName());
                             return null;
                         })
                         .collect(toImmutableList()));
@@ -179,7 +179,7 @@ public class StaticCatalogManager
     public void ensureCatalogsLoaded(Session session, List<CatalogProperties> catalogs)
     {
         List<CatalogProperties> missingCatalogs = catalogs.stream()
-                .filter(catalog -> !this.catalogs.containsKey(new CatalogName(catalog.getCatalogHandle().getCatalogName())))
+                .filter(catalog -> !this.catalogs.containsKey(new CatalogName(catalog.catalogHandle().getCatalogName())))
                 .collect(toImmutableList());
 
         if (!missingCatalogs.isEmpty()) {

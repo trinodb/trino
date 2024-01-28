@@ -101,11 +101,11 @@ public final class FileCatalogStore
     public void addOrReplaceCatalog(CatalogProperties catalogProperties)
     {
         checkModifiable();
-        CatalogName catalogName = new CatalogName(catalogProperties.getCatalogHandle().getCatalogName());
+        CatalogName catalogName = new CatalogName(catalogProperties.catalogHandle().getCatalogName());
         File file = toFile(catalogName);
         Properties properties = new Properties();
-        properties.setProperty("connector.name", catalogProperties.getConnectorName().toString());
-        properties.putAll(catalogProperties.getProperties());
+        properties.setProperty("connector.name", catalogProperties.connectorName().toString());
+        properties.putAll(catalogProperties.properties());
 
         try {
             File temporary = new File(file.getPath() + ".tmp");

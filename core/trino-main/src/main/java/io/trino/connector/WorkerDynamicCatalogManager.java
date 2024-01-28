@@ -111,14 +111,14 @@ public class WorkerDynamicCatalogManager
             }
 
             List<CatalogProperties> missingCatalogs = getMissingCatalogs(expectedCatalogs);
-            missingCatalogs.forEach(catalog -> checkArgument(!catalog.getCatalogHandle().equals(GlobalSystemConnector.CATALOG_HANDLE), "Global system catalog not registered"));
+            missingCatalogs.forEach(catalog -> checkArgument(!catalog.catalogHandle().equals(GlobalSystemConnector.CATALOG_HANDLE), "Global system catalog not registered"));
             List<ListenableFuture<Void>> loadedCatalogs = Futures.inCompletionOrder(
                     missingCatalogs.stream()
                             .map(catalog ->
                                     Futures.submit(() -> {
-                                        catalogs.computeIfAbsent(catalog.getCatalogHandle(), ignore -> {
+                                        catalogs.computeIfAbsent(catalog.catalogHandle(), ignore -> {
                                             CatalogConnector newCatalog = catalogFactory.createCatalog(catalog);
-                                            log.debug("Added catalog: " + catalog.getCatalogHandle());
+                                            log.debug("Added catalog: " + catalog.catalogHandle());
                                             return newCatalog;
                                         });
                                     }, executor))
@@ -196,7 +196,7 @@ public class WorkerDynamicCatalogManager
     private List<CatalogProperties> getMissingCatalogs(List<CatalogProperties> expectedCatalogs)
     {
         return expectedCatalogs.stream()
-                .filter(catalog -> !catalogs.containsKey(catalog.getCatalogHandle()))
+                .filter(catalog -> !catalogs.containsKey(catalog.catalogHandle()))
                 .collect(toImmutableList());
     }
 
