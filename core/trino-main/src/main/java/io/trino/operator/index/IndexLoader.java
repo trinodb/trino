@@ -31,6 +31,7 @@ import io.trino.operator.TaskContext;
 import io.trino.operator.join.LookupSource;
 import io.trino.spi.Page;
 import io.trino.spi.PageBuilder;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.CatalogHandle.CatalogVersion;
 import io.trino.spi.type.Type;
@@ -57,7 +58,7 @@ import static java.util.Objects.requireNonNull;
 @ThreadSafe
 public class IndexLoader
 {
-    private static final CatalogHandle INDEX_CATALOG_HANDLE = createRootCatalogHandle("$index", new CatalogVersion("index"));
+    private static final CatalogHandle INDEX_CATALOG_HANDLE = createRootCatalogHandle(new CatalogName("$index"), new CatalogVersion("index"));
     private final BlockingQueue<UpdateRequest> updateRequests = new LinkedBlockingQueue<>();
 
     private final List<Type> outputTypes;

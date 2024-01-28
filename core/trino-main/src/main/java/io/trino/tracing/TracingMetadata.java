@@ -45,6 +45,7 @@ import io.trino.metadata.TableSchema;
 import io.trino.metadata.TableVersion;
 import io.trino.metadata.ViewDefinition;
 import io.trino.metadata.ViewInfo;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.BeginTableExecuteResult;
@@ -259,7 +260,7 @@ public class TracingMetadata
     {
         Span span = startSpan("getCommonPartitioning");
         if (span.isRecording() && left.getCatalogHandle().equals(right.getCatalogHandle()) && left.getCatalogHandle().isPresent()) {
-            span.setAttribute(TrinoAttributes.CATALOG, left.getCatalogHandle().get().getCatalogName());
+            span.setAttribute(TrinoAttributes.CATALOG, left.getCatalogHandle().get().getCatalogName().toString());
         }
         try (var ignored = scopedSpan(span)) {
             return delegate.getCommonPartitioning(session, left, right);
@@ -623,7 +624,7 @@ public class TracingMetadata
     @Override
     public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(Session session, CatalogHandle catalogHandle, ConnectorTableMetadata tableMetadata)
     {
-        Span span = startSpan("getStatisticsCollectionMetadataForWrite", catalogHandle.getCatalogName(), tableMetadata);
+        Span span = startSpan("getStatisticsCollectionMetadataForWrite", catalogHandle.getCatalogName().toString(), tableMetadata);
         try (var ignored = scopedSpan(span)) {
             return delegate.getStatisticsCollectionMetadataForWrite(session, catalogHandle, tableMetadata);
         }
@@ -1008,7 +1009,7 @@ public class TracingMetadata
     {
         Span span = startSpan("applyJoin");
         if (span.isRecording() && left.getCatalogHandle().equals(right.getCatalogHandle())) {
-            span.setAttribute(TrinoAttributes.CATALOG, left.getCatalogHandle().getCatalogName());
+            span.setAttribute(TrinoAttributes.CATALOG, left.getCatalogHandle().getCatalogName().toString());
         }
         try (var ignored = scopedSpan(span)) {
             return delegate.applyJoin(session, joinType, left, right, joinCondition, leftAssignments, rightAssignments, statistics);
@@ -1028,7 +1029,7 @@ public class TracingMetadata
     public Optional<TableFunctionApplicationResult<TableHandle>> applyTableFunction(Session session, TableFunctionHandle handle)
     {
         Span span = startSpan("applyTableFunction")
-                .setAttribute(TrinoAttributes.CATALOG, handle.getCatalogHandle().getCatalogName())
+                .setAttribute(TrinoAttributes.CATALOG, handle.getCatalogHandle().getCatalogName().toString())
                 .setAttribute(TrinoAttributes.HANDLE, handle.getFunctionHandle().toString());
         try (var ignored = scopedSpan(span)) {
             return delegate.applyTableFunction(session, handle);
@@ -1316,7 +1317,7 @@ public class TracingMetadata
     public AggregationFunctionMetadata getAggregationFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
     {
         Span span = startSpan("getAggregationFunctionMetadata")
-                .setAttribute(TrinoAttributes.CATALOG, resolvedFunction.getCatalogHandle().getCatalogName())
+                .setAttribute(TrinoAttributes.CATALOG, resolvedFunction.getCatalogHandle().getCatalogName().toString())
                 .setAttribute(TrinoAttributes.FUNCTION, resolvedFunction.getSignature().getName().toString());
         try (var ignored = scopedSpan(span)) {
             return delegate.getAggregationFunctionMetadata(session, resolvedFunction);
@@ -1534,6 +1535,11 @@ public class TracingMetadata
                 .startSpan();
     }
 
+    private Span startSpan(String methodName, CatalogName catalogName)
+    {
+        return startSpan(methodName, catalogName.toString());
+    }
+
     private Span startSpan(String methodName, String catalogName)
     {
         return startSpan(methodName)
@@ -1588,7 +1594,7 @@ public class TracingMetadata
     {
         Span span = startSpan(methodName);
         if (span.isRecording()) {
-            span.setAttribute(TrinoAttributes.CATALOG, handle.getCatalogHandle().getCatalogName());
+            span.setAttribute(TrinoAttributes.CATALOG, handle.getCatalogHandle().getCatalogName().toString());
             span.setAttribute(TrinoAttributes.HANDLE, handle.getConnectorHandle().toString());
         }
         return span;
@@ -1598,7 +1604,7 @@ public class TracingMetadata
     {
         Span span = startSpan(methodName);
         if (span.isRecording()) {
-            span.setAttribute(TrinoAttributes.CATALOG, handle.getCatalogHandle().getCatalogName());
+            span.setAttribute(TrinoAttributes.CATALOG, handle.getCatalogHandle().getCatalogName().toString());
             span.setAttribute(TrinoAttributes.HANDLE, handle.getConnectorHandle().toString());
         }
         return span;

@@ -42,6 +42,7 @@ import io.trino.execution.executor.TaskHandle;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.WorkerLanguageFunctionProvider;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.catalog.CatalogProperties;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.Connector;
@@ -117,7 +118,7 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
         @Override
         public CatalogConnector createCatalog(CatalogProperties catalogProperties)
         {
-            Connector connector = MockConnectorFactory.create().create(catalogProperties.catalogHandle().getCatalogName(), catalogProperties.properties(), new TestingConnectorContext());
+            Connector connector = MockConnectorFactory.create().create(catalogProperties.catalogHandle().getCatalogName().toString(), catalogProperties.properties(), new TestingConnectorContext());
             ConnectorServices noOpConnectorService = new ConnectorServices(
                     Tracing.noopTracer(),
                     catalogProperties.catalogHandle(),
@@ -197,7 +198,7 @@ public class TestSqlTaskManagerRaceWithCatalogPrune
         Future<Void> catalogTaskFuture = Futures.submit(() ->
         {
             for (int i = 0; i < NUM_TASKS; i++) {
-                String catalogName = "catalog_" + i;
+                CatalogName catalogName = new CatalogName("catalog_" + i);
                 CatalogHandle catalogHandle = createRootCatalogHandle(catalogName, new CatalogHandle.CatalogVersion(UUID.randomUUID().toString()));
                 TaskId taskId = newTaskId();
                 workerTaskManager.updateTask(

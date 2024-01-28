@@ -1682,7 +1682,7 @@ class StatementAnalyzer
                     session.toConnectorSession(catalogHandle),
                     transactionHandle,
                     argumentsAnalysis.getPassedArguments(),
-                    new InjectedConnectorAccessControl(accessControl, session.toSecurityContext(), catalogHandle.getCatalogName()));
+                    new InjectedConnectorAccessControl(accessControl, session.toSecurityContext(), catalogHandle.getCatalogName().toString()));
 
             List<List<String>> copartitioningLists = analyzeCopartitioning(node.getCopartitioning(), argumentsAnalysis.getTableArgumentAnalyses());
 
