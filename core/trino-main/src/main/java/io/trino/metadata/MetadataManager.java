@@ -1333,11 +1333,15 @@ public final class MetadataManager
     }
 
     @Override
-    public void finishMerge(Session session, MergeHandle mergeHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public void finishMerge(Session session, MergeHandle mergeHandle, List<TableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         CatalogHandle catalogHandle = mergeHandle.tableHandle().catalogHandle();
         ConnectorMetadata metadata = getMetadata(session, catalogHandle);
-        metadata.finishMerge(session.toConnectorSession(catalogHandle), mergeHandle.connectorMergeHandle(), fragments, computedStatistics);
+        List<ConnectorTableHandle> sourceConnectorHandles = sourceTableHandles.stream()
+                .filter(handle -> handle.catalogHandle().equals(catalogHandle))
+                .map(TableHandle::connectorHandle)
+                .collect(toImmutableList());
+        metadata.finishMerge(session.toConnectorSession(catalogHandle), mergeHandle.connectorMergeHandle(), sourceConnectorHandles, fragments, computedStatistics);
     }
 
     @Override

@@ -554,7 +554,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void finishMerge(Session session, MergeHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public void finishMerge(Session session, MergeHandle tableHandle, List<TableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         throw new UnsupportedOperationException();
     }

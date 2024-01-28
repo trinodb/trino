@@ -779,7 +779,8 @@ public class PlanBuilder
                         TestingTransactionHandle.create()),
                 Optional.empty(),
                 schemaTableName,
-                mergeParadigmAndTypes);
+                mergeParadigmAndTypes,
+                List.of());
     }
 
     public ExchangeNode gatheringExchange(ExchangeNode.Scope scope, PlanNode child)
