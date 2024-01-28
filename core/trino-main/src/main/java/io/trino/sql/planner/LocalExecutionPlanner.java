@@ -4129,7 +4129,7 @@ public class LocalExecutionPlanner
             }
             if (target instanceof MergeTarget mergeTarget) {
                 MergeHandle mergeHandle = mergeTarget.getMergeHandle().orElseThrow(() -> new IllegalArgumentException("mergeHandle not present"));
-                metadata.finishMerge(session, mergeHandle, fragments, statistics);
+                metadata.finishMerge(session, mergeHandle, mergeTarget.getSourceTableHandles(), fragments, statistics);
                 return Optional.empty();
             }
             throw new AssertionError("Unhandled target type: " + target.getClass().getName());

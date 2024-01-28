@@ -1245,6 +1245,14 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public void finishMerge(ConnectorSession session, ConnectorMergeTableHandle mergeTableHandle, List<ConnectorTableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.finishMerge(session, mergeTableHandle, sourceTableHandles, fragments, computedStatistics);
+        }
+    }
+
+    @Override
     public Optional<CatalogSchemaTableName> redirectTable(ConnectorSession session, SchemaTableName tableName)
     {
         try (ThreadContextClassLoader _ = new ThreadContextClassLoader(classLoader)) {

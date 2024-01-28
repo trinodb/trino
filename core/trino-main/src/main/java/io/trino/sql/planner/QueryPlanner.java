@@ -54,6 +54,7 @@ import io.trino.sql.ir.Logical;
 import io.trino.sql.ir.Row;
 import io.trino.sql.ir.WhenClause;
 import io.trino.sql.planner.RelationPlanner.PatternRecognitionComponents;
+import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.AssignUniqueId;
@@ -72,6 +73,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
 import io.trino.sql.planner.plan.SortNode;
+import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TableWriterNode.MergeParadigmAndTypes;
 import io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
 import io.trino.sql.planner.plan.UnionNode;
@@ -570,7 +572,8 @@ class QueryPlanner
                         handle,
                         Optional.empty(),
                         tableMetadata.table(),
-                        paradigmAndTypes),
+                        paradigmAndTypes,
+                        findSourceTableHandles(projectNode)),
                 projectNode.getOutputSymbols(),
                 partitioningScheme,
                 outputs);
@@ -934,7 +937,12 @@ class QueryPlanner
                     columnNamesBuilder.add(columnSchema.getName());
                 });
         MergeParadigmAndTypes mergeParadigmAndTypes = new MergeParadigmAndTypes(Optional.of(paradigm), typesBuilder.build(), columnNamesBuilder.build(), rowIdType);
-        MergeTarget mergeTarget = new MergeTarget(handle, Optional.empty(), metadata.getTableName(session, handle).getSchemaTableName(), mergeParadigmAndTypes);
+        MergeTarget mergeTarget = new MergeTarget(
+                handle,
+                Optional.empty(),
+                metadata.getTableName(session, handle).getSchemaTableName(),
+                mergeParadigmAndTypes,
+                findSourceTableHandles(planNode));
 
         ImmutableList.Builder<Symbol> columnSymbolsBuilder = ImmutableList.builder();
         for (ColumnHandle columnHandle : mergeAnalysis.getDataColumnHandles()) {
@@ -987,6 +995,17 @@ class QueryPlanner
                 projectedSymbols,
                 partitioningScheme,
                 outputs);
+    }
+
+    private static List<TableHandle> findSourceTableHandles(PlanNode startNode)
+    {
+        return PlanNodeSearcher.searchFrom(startNode)
+                .where(TableScanNode.class::isInstance)
+                .findAll()
+                .stream()
+                .map(TableScanNode.class::cast)
+                .map(TableScanNode::getTable)
+                .collect(toImmutableList());
     }
 
     private static int getMergeCaseOperationNumber(MergeCase mergeCase)
