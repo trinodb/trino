@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
@@ -69,7 +68,6 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 public class TableWriterOperator
         implements Operator
 {
-    private static final Logger LOG = Logger.get(TableWriterOperator.class);
     public static final int ROW_COUNT_CHANNEL = 0;
     public static final int FRAGMENT_CHANNEL = 1;
     public static final int STATS_START_CHANNEL = 2;

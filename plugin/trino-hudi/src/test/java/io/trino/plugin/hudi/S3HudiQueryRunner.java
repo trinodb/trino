@@ -34,7 +34,6 @@ import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_REGION;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
-import static org.apache.hudi.common.model.HoodieTableType.COPY_ON_WRITE;
 
 public final class S3HudiQueryRunner
 {
@@ -102,7 +101,7 @@ public final class S3HudiQueryRunner
         DistributedQueryRunner queryRunner = create(
                 ImmutableMap.of("http-server.http.port", "8080"),
                 ImmutableMap.of(),
-                new TpchHudiTablesInitializer(COPY_ON_WRITE, TpchTable.getTables()),
+                new TpchHudiTablesInitializer(TpchTable.getTables()),
                 hiveMinioDataLake);
 
         log.info("======== SERVER STARTED ========");
