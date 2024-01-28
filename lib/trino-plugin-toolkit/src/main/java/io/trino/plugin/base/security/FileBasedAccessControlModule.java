@@ -22,7 +22,7 @@ import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-import io.trino.plugin.base.CatalogName;
+import io.trino.spi.catalog.CatalogName;
 import io.trino.spi.connector.ConnectorAccessControl;
 
 import java.io.File;

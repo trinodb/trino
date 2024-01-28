@@ -25,10 +25,10 @@ import io.trino.hdfs.azure.HiveAzureModule;
 import io.trino.hdfs.cos.HiveCosModule;
 import io.trino.hdfs.gcs.HiveGcsModule;
 import io.trino.hdfs.s3.HiveS3Module;
-import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.base.jmx.ConnectorObjectNameGeneratorModule;
 import io.trino.plugin.base.jmx.MBeanServerModule;
 import io.trino.spi.NodeManager;
+import io.trino.spi.catalog.CatalogName;
 import org.weakref.jmx.guice.MBeanModule;
 
 import java.util.ArrayList;
