@@ -60,7 +60,7 @@ public final class FileCatalogStore
 
     private final boolean readOnly;
     private final File catalogsDirectory;
-    private final ConcurrentMap<String, StoredCatalog> catalogs = new ConcurrentHashMap<>();
+    private final ConcurrentMap<CatalogName, StoredCatalog> catalogs = new ConcurrentHashMap<>();
 
     @Inject
     public FileCatalogStore(FileCatalogStoreConfig config)
@@ -77,7 +77,7 @@ public final class FileCatalogStore
                 log.info("Skipping disabled catalog %s", catalogName);
                 continue;
             }
-            catalogs.put(catalogName, new FileStoredCatalog(catalogName, file));
+            catalogs.put(new CatalogName(catalogName), new FileStoredCatalog(new CatalogName(catalogName), file));
         }
     }
 
@@ -88,11 +88,11 @@ public final class FileCatalogStore
     }
 
     @Override
-    public CatalogProperties createCatalogProperties(String catalogName, ConnectorName connectorName, Map<String, String> properties)
+    public CatalogProperties createCatalogProperties(CatalogName catalogName, ConnectorName connectorName, Map<String, String> properties)
     {
         checkModifiable();
         return new CatalogProperties(
-                createRootCatalogHandle(catalogName, computeCatalogVersion(catalogName, connectorName, properties)),
+                createRootCatalogHandle(catalogName.toString(), computeCatalogVersion(catalogName, connectorName, properties)),
                 connectorName,
                 ImmutableMap.copyOf(properties));
     }
@@ -101,7 +101,7 @@ public final class FileCatalogStore
     public void addOrReplaceCatalog(CatalogProperties catalogProperties)
     {
         checkModifiable();
-        String catalogName = catalogProperties.getCatalogHandle().getCatalogName();
+        CatalogName catalogName = new CatalogName(catalogProperties.getCatalogHandle().getCatalogName());
         File file = toFile(catalogName);
         Properties properties = new Properties();
         properties.setProperty("connector.name", catalogProperties.getConnectorName().toString());
@@ -126,7 +126,7 @@ public final class FileCatalogStore
     }
 
     @Override
-    public void removeCatalog(String catalogName)
+    public void removeCatalog(CatalogName catalogName)
     {
         checkModifiable();
         catalogs.remove(catalogName);
@@ -145,9 +145,9 @@ public final class FileCatalogStore
         }
     }
 
-    private File toFile(String catalogName)
+    private File toFile(CatalogName catalogName)
     {
-        return new File(catalogsDirectory, catalogName + ".properties");
+        return new File(catalogsDirectory, catalogName.toString() + ".properties");
     }
 
     private static List<File> listCatalogFiles(File catalogsDirectory)
@@ -170,11 +170,11 @@ public final class FileCatalogStore
      * This is not a generic, universal, or stable version computation, and can and will change from version to version without warning.
      * For places that need a long term stable version, do not use this code.
      */
-    static CatalogVersion computeCatalogVersion(String catalogName, ConnectorName connectorName, Map<String, String> properties)
+    static CatalogVersion computeCatalogVersion(CatalogName catalogName, ConnectorName connectorName, Map<String, String> properties)
     {
         Hasher hasher = Hashing.sha256().newHasher();
         hasher.putUnencodedChars("catalog-hash");
-        hashLengthPrefixedString(hasher, catalogName);
+        hashLengthPrefixedString(hasher, catalogName.toString());
         hashLengthPrefixedString(hasher, connectorName.toString());
         hasher.putInt(properties.size());
         ImmutableSortedMap.copyOf(properties).forEach((key, value) -> {
@@ -193,17 +193,17 @@ public final class FileCatalogStore
     private static class FileStoredCatalog
             implements StoredCatalog
     {
-        private final String name;
+        private final CatalogName name;
         private final File file;
 
-        public FileStoredCatalog(String name, File file)
+        public FileStoredCatalog(CatalogName name, File file)
         {
             this.name = requireNonNull(name, "name is null");
             this.file = requireNonNull(file, "file is null");
         }
 
         @Override
-        public String getName()
+        public CatalogName getName()
         {
             return name;
         }
@@ -228,7 +228,7 @@ public final class FileCatalogStore
             }
             ConnectorName connectorName = new ConnectorName(connectorNameValue);
 
-            CatalogHandle catalogHandle = createRootCatalogHandle(name, computeCatalogVersion(name, connectorName, properties));
+            CatalogHandle catalogHandle = createRootCatalogHandle(name.toString(), computeCatalogVersion(name, connectorName, properties));
             return new CatalogProperties(catalogHandle, connectorName, ImmutableMap.copyOf(properties));
         }
     }

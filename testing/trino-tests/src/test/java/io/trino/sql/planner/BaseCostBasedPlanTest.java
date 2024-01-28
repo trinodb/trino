@@ -20,6 +20,7 @@ import com.google.common.io.Resources;
 import com.google.errorprone.annotations.FormatMethod;
 import io.airlift.log.Logger;
 import io.trino.Session;
+import io.trino.connector.CatalogName;
 import io.trino.spi.connector.CatalogSchemaTableName;
 import io.trino.spi.connector.ConnectorFactory;
 import io.trino.sql.DynamicFilters;
@@ -146,7 +147,7 @@ public abstract class BaseCostBasedPlanTest
     protected String getQueryPlanResourcePath(String queryResourcePath)
     {
         Path queryPath = Paths.get(queryResourcePath);
-        String connectorName = getPlanTester().getCatalogManager().getCatalog(CATALOG_NAME).orElseThrow().getConnectorName().toString();
+        String connectorName = getPlanTester().getCatalogManager().getCatalog(new CatalogName(CATALOG_NAME)).orElseThrow().getConnectorName().toString();
         Path directory = queryPath.getParent();
         directory = directory.resolve(connectorName + (smallFiles ? "_small_files" : ""));
         if (fileFormatName.isPresent()) {

@@ -36,6 +36,7 @@ import io.trino.cache.CacheMetadata;
 import io.trino.cache.CacheStats;
 import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogFactory;
+import io.trino.connector.CatalogName;
 import io.trino.connector.CatalogServiceProviderModule;
 import io.trino.connector.ConnectorName;
 import io.trino.connector.ConnectorServicesProvider;
@@ -649,7 +650,7 @@ public class PlanTester
     public void createCatalog(String catalogName, ConnectorFactory connectorFactory, Map<String, String> properties)
     {
         catalogFactory.addConnectorFactory(connectorFactory);
-        catalogManager.createCatalog(catalogName, new ConnectorName(connectorFactory.getName()), properties, false);
+        catalogManager.createCatalog(new CatalogName(catalogName), new ConnectorName(connectorFactory.getName()), properties, false);
     }
 
     public void installPlugin(Plugin plugin)
@@ -664,7 +665,7 @@ public class PlanTester
 
     public void createCatalog(String catalogName, String connectorName, Map<String, String> properties)
     {
-        catalogManager.createCatalog(catalogName, new ConnectorName(connectorName), properties, false);
+        catalogManager.createCatalog(new CatalogName(catalogName), new ConnectorName(connectorName), properties, false);
     }
 
     public CatalogManager getCatalogManager()

@@ -19,36 +19,23 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Objects.requireNonNull;
 
 public final class CatalogName
 {
-    private static final String INFORMATION_SCHEMA_CONNECTOR_PREFIX = "$info_schema@";
-    private static final String SYSTEM_TABLES_CONNECTOR_PREFIX = "$system@";
-
     private final String catalogName;
 
     @JsonCreator
     public CatalogName(String catalogName)
     {
-        this.catalogName = requireNonNull(catalogName, "catalogName is null");
         checkArgument(!catalogName.isEmpty(), "catalogName is empty");
+        this.catalogName = catalogName;
     }
 
-    public String getCatalogName()
+    @JsonValue
+    @Override
+    public String toString()
     {
         return catalogName;
-    }
-
-    public CatalogName getActualName()
-    {
-        if (catalogName.startsWith(SYSTEM_TABLES_CONNECTOR_PREFIX)) {
-            return new CatalogName(catalogName.substring(SYSTEM_TABLES_CONNECTOR_PREFIX.length()));
-        }
-        if (catalogName.startsWith(INFORMATION_SCHEMA_CONNECTOR_PREFIX)) {
-            return new CatalogName(catalogName.substring(INFORMATION_SCHEMA_CONNECTOR_PREFIX.length()));
-        }
-        return this;
     }
 
     @Override
@@ -68,12 +55,5 @@ public final class CatalogName
     public int hashCode()
     {
         return Objects.hash(catalogName);
-    }
-
-    @JsonValue
-    @Override
-    public String toString()
-    {
-        return catalogName;
     }
 }
