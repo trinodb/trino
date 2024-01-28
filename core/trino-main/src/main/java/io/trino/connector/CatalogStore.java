@@ -13,16 +13,13 @@
  */
 package io.trino.connector;
 
-import io.trino.annotation.NotThreadSafe;
-
 import java.util.Collection;
 import java.util.Map;
 
-@NotThreadSafe
 public interface CatalogStore
 {
     /**
-     * Get all catalogs
+     * Get all catalogs. This is called at startup to load the existing catalogs.
      */
     Collection<StoredCatalog> getCatalogs();
 

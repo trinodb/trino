@@ -13,57 +13,18 @@
  */
 package io.trino.connector;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.CatalogHandle;
 
 import java.util.Map;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public class CatalogProperties
+public record CatalogProperties(CatalogHandle catalogHandle, ConnectorName connectorName, Map<String, String> properties)
 {
-    private final CatalogHandle catalogHandle;
-    private final ConnectorName connectorName;
-    private final Map<String, String> properties;
-
-    @JsonCreator
-    public CatalogProperties(
-            @JsonProperty("catalogHandle") CatalogHandle catalogHandle,
-            @JsonProperty("connectorName") ConnectorName connectorName,
-            @JsonProperty("properties") Map<String, String> properties)
+    public CatalogProperties
     {
-        this.catalogHandle = requireNonNull(catalogHandle, "catalogHandle is null");
-        this.connectorName = requireNonNull(connectorName, "connectorName is null");
-        this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
-    }
-
-    @JsonProperty
-    public CatalogHandle getCatalogHandle()
-    {
-        return catalogHandle;
-    }
-
-    @JsonProperty
-    public ConnectorName getConnectorName()
-    {
-        return connectorName;
-    }
-
-    @JsonProperty
-    public Map<String, String> getProperties()
-    {
-        return properties;
-    }
-
-    @Override
-    public String toString()
-    {
-        return toStringHelper(this)
-                .add("catalogHandle", catalogHandle)
-                .add("connectorName", connectorName)
-                .toString();
+        requireNonNull(catalogHandle, "catalogHandle is null");
+        requireNonNull(connectorName, "connectorName is null");
+        properties = Map.copyOf(requireNonNull(properties, "properties is null"));
     }
 }
