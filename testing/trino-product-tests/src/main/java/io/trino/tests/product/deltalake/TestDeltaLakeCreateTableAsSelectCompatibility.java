@@ -13,11 +13,7 @@
  */
 package io.trino.tests.product.deltalake;
 
-import com.amazonaws.services.s3.AmazonS3;
 import com.google.common.collect.ImmutableList;
-import com.google.inject.Inject;
-import com.google.inject.name.Named;
-import io.trino.tempto.BeforeMethodWithContext;
 import io.trino.tempto.assertions.QueryAssert;
 import io.trino.tempto.query.QueryResult;
 import io.trino.testng.services.Flaky;
@@ -46,19 +42,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class TestDeltaLakeCreateTableAsSelectCompatibility
         extends BaseTestDeltaLakeS3Storage
 {
-    @Inject
-    @Named("s3.server_type")
-    private String s3ServerType;
-
-    private AmazonS3 s3;
-
-    @BeforeMethodWithContext
-    public void setup()
-    {
-        super.setUp();
-        s3 = new S3ClientFactory().createS3Client(s3ServerType);
-    }
-
     @Test(groups = {DELTA_LAKE_DATABRICKS, DELTA_LAKE_DATABRICKS_104, DELTA_LAKE_DATABRICKS_113, DELTA_LAKE_DATABRICKS_122, PROFILE_SPECIFIC_TESTS})
     @Flaky(issue = DATABRICKS_COMMUNICATION_FAILURE_ISSUE, match = DATABRICKS_COMMUNICATION_FAILURE_MATCH)
     public void testPrestoTypesWithDatabricks()

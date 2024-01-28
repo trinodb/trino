@@ -2799,8 +2799,7 @@
                                     -Xep:UnnecessaryParentheses:ERROR \
                                     -Xep:UnnecessaryStringBuilder:ERROR \
                                     -Xep:UnusedMethod:OFF \
-                                    <!-- Enable when https://github.com/google/error-prone/pull/3837 is fixed -->
-                                    <!-- -Xep:UnusedVariable:ERROR \ -->
+                                    -Xep:UnusedVariable:ERROR \
                                     -Xep:UseEnumSwitch:ERROR \
                                     -XepExcludedPaths:.*/target/generated-(|test-)sources/.*
                                 </arg>

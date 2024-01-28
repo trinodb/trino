@@ -23,7 +23,6 @@ import io.trino.execution.QueryStats;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
-import io.trino.operator.OperatorStats;
 import io.trino.plugin.hive.containers.HiveMinioDataLake;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.QueryId;
@@ -107,9 +106,9 @@ public class TestDeltaLakeDynamicFiltering
             MaterializedResultWithQueryId unfilteredResult = getDistributedQueryRunner().executeWithQueryId(sessionWithDynamicFiltering(false, joinDistributionType), query);
             assertEqualsIgnoreOrder(filteredResult.getResult().getMaterializedRows(), unfilteredResult.getResult().getMaterializedRows());
 
-            QueryInputStats filteredStats = getQueryInputStats(filteredResult.getQueryId());
-            QueryInputStats unfilteredStats = getQueryInputStats(unfilteredResult.getQueryId());
-            assertGreaterThan(unfilteredStats.inputPositions, filteredStats.inputPositions);
+            QueryStats filteredStats = getQueryStats(filteredResult.getQueryId());
+            QueryStats unfilteredStats = getQueryStats(unfilteredResult.getQueryId());
+            assertGreaterThan(unfilteredStats.getPhysicalInputPositions(), filteredStats.getPhysicalInputPositions());
         }
     }
 
@@ -146,16 +145,9 @@ public class TestDeltaLakeDynamicFiltering
                 .build();
     }
 
-    private QueryInputStats getQueryInputStats(QueryId queryId)
+    private QueryStats getQueryStats(QueryId queryId)
     {
-        QueryStats stats = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(queryId).getQueryStats();
-        long numberOfSplits = stats.getOperatorSummaries()
-                .stream()
-                .filter(summary -> summary.getOperatorType().equals("ScanFilterAndProjectOperator"))
-                .mapToLong(OperatorStats::getTotalDrivers)
-                .sum();
-        long inputPositions = stats.getPhysicalInputPositions();
-        return new QueryInputStats(numberOfSplits, inputPositions);
+        return getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(queryId).getQueryStats();
     }
 
     private static class IncompleteDynamicFilter
@@ -202,18 +194,6 @@ public class TestDeltaLakeDynamicFiltering
         public OptionalLong getPreferredDynamicFilterTimeout()
         {
             return OptionalLong.of(0L);
-        }
-    }
-
-    private static class QueryInputStats
-    {
-        final long numberOfSplits;
-        final long inputPositions;
-
-        QueryInputStats(long numberOfSplits, long inputPositions)
-        {
-            this.numberOfSplits = numberOfSplits;
-            this.inputPositions = inputPositions;
         }
     }
 }

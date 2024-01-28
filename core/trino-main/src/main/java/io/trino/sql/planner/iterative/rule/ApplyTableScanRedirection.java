@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import io.trino.Session;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.QualifiedObjectName;
@@ -124,7 +123,6 @@ public class ApplyTableScanRedirection
             if (!sourceType.equals(redirectedType)) {
                 Symbol redirectedSymbol = context.getSymbolAllocator().newSymbol(destinationColumn, redirectedType);
                 Cast cast = getCast(
-                        context.getSession(),
                         destinationTable,
                         destinationColumn,
                         redirectedType,
@@ -185,7 +183,6 @@ public class ApplyTableScanRedirection
             if (!domainType.equals(redirectedType)) {
                 Symbol redirectedSymbol = context.getSymbolAllocator().newSymbol(destinationColumn, redirectedType);
                 Cast cast = getCast(
-                        context.getSession(),
                         destinationTable,
                         destinationColumn,
                         redirectedType,
@@ -251,7 +248,6 @@ public class ApplyTableScanRedirection
     }
 
     private Cast getCast(
-            Session session,
             CatalogSchemaTableName destinationTable,
             String destinationColumn,
             Type destinationType,

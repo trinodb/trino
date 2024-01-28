@@ -222,7 +222,6 @@ public class SnowflakeClient
     private final ConnectorExpressionRewriter<ParameterizedExpression> connectorExpressionRewriter;
     private final AggregateFunctionRewriter<JdbcExpression, ?> aggregateFunctionRewriter;
     private final Type jsonType;
-    private final Type jsonPathType;
     private final boolean statisticsEnabled;
     private final SnowflakeConnectorFlavour connectorFlavour;
     private final boolean databasePrefixForSchemaEnabled;
@@ -240,7 +239,6 @@ public class SnowflakeClient
     {
         super(IDENTIFIER_QUOTE, connectionFactory, queryBuilder, config.getJdbcTypesMappedToVarchar(), identifierMapping, queryModifier, true);
         this.jsonType = typeManager.getType(new TypeSignature(JSON));
-        this.jsonPathType = typeManager.getType(new TypeSignature("JsonPath"));
         this.statisticsEnabled = requireNonNull(statisticsConfig, "statisticsConfig is null").isEnabled();
         this.connectorFlavour = connectorFlavour;
         this.databasePrefixForSchemaEnabled = requireNonNull(snowflakeConfig, "snowflakeConfig is null").getDatabasePrefixForSchemaEnabled();

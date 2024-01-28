@@ -2859,7 +2859,6 @@ public class ExpressionAnalyzer
             Map<String, Type> typesMap = types.buildOrThrow();
             JsonPathAnalysis pathAnalysis = new JsonPathAnalyzer(
                     plannerContext.getMetadata(),
-                    session,
                     createConstantAnalyzer(plannerContext, accessControl, session, ExpressionAnalyzer.this.parameters, WarningCollector.NOOP))
                     .analyzeJsonPath(jsonPathInvocation.getJsonPath(), typesMap);
             jsonPathAnalyses.put(NodeRef.of(node), pathAnalysis);

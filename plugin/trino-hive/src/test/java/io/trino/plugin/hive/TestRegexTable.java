@@ -59,8 +59,6 @@ public class TestRegexTable
         MaterializedResult actual = computeActual("SELECT nationkey, name FROM test_regex_data");
         assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
 
-        MaterializedResult x = computeActual("SELECT \"$path\" FROM test_regex_data");
-
         // REGEX table over the text file created data
         createTableSql = """
                 CREATE TABLE test_regex (
