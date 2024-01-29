@@ -29,6 +29,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.OperatorStats;
+import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.server.DynamicFilterService;
@@ -48,6 +49,7 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.MaterializedRow;
+import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
@@ -7430,6 +7432,46 @@ public abstract class BaseIcebergConnectorTest
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageMatching("Table name must be shorter than or equal to '128' characters but got .*");
+    }
+
+    @Test
+    public void testCreateTableWithCompressionCodec()
+    {
+        for (HiveCompressionCodec compressionCodec : HiveCompressionCodec.values()) {
+            testCreateTableWithCompressionCodec(compressionCodec);
+        }
+    }
+
+    private void testCreateTableWithCompressionCodec(HiveCompressionCodec compressionCodec)
+    {
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "compression_codec", compressionCodec.name())
+                .build();
+        String tableName = "test_table_with_compression_" + compressionCodec;
+        String createTableSql = format("CREATE TABLE %s AS TABLE tpch.tiny.nation", tableName);
+        if (format == IcebergFileFormat.PARQUET && compressionCodec == HiveCompressionCodec.LZ4) {
+            // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
+            assertThatThrownBy(() -> computeActual(session, createTableSql))
+                    .hasMessage("Unsupported codec: LZ4")
+                    .isInstanceOf(QueryFailedException.class)
+                    // TODO this should be TrinoException
+                    .cause().hasToString("java.lang.RuntimeException: Unsupported codec: LZ4");
+            return;
+        }
+
+        if (format == AVRO && compressionCodec == HiveCompressionCodec.LZ4) {
+            // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
+            assertThatThrownBy(() -> computeActual(session, createTableSql))
+                    .hasMessage("Unsupported compression codec: LZ4")
+                    .isInstanceOf(QueryFailedException.class)
+                    // TODO this should be TrinoException
+                    .cause().hasToString("java.lang.IllegalArgumentException: Unsupported compression codec: LZ4");
+            return;
+        }
+        assertUpdate(session, createTableSql, 25);
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
+        assertQuery("SELECT count(*) FROM " + tableName, "VALUES 25");
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
