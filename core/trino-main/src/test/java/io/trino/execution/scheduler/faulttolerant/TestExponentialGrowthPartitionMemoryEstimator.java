@@ -55,13 +55,21 @@ public class TestExponentialGrowthPartitionMemoryEstimator
         throw new RuntimeException("should not be used");
     };
 
+    private ExponentialGrowthPartitionMemoryEstimator.Factory makeFactory()
+    {
+        ExponentialGrowthPartitionMemoryEstimator.Factory factory = new ExponentialGrowthPartitionMemoryEstimator.Factory(
+                () -> ImmutableMap.of(
+                        new InternalNode("a-node", URI.create("local://blah"), NodeVersion.UNKNOWN, false).getNodeIdentifier(),
+                        Optional.of(buildWorkerMemoryInfo(DataSize.ofBytes(0)))),
+                true);
+        factory.refreshNodePoolMemoryInfos();
+        return factory;
+    }
+
     @Test
     public void testDefaultInitialEstimation()
     {
-        ExponentialGrowthPartitionMemoryEstimator.Factory estimatorFactory = new ExponentialGrowthPartitionMemoryEstimator.Factory(
-                () -> ImmutableMap.of(new InternalNode("a-node", URI.create("local://blah"), NodeVersion.UNKNOWN, false).getNodeIdentifier(), Optional.of(buildWorkerMemoryInfo(DataSize.ofBytes(0)))),
-                true);
-        estimatorFactory.refreshNodePoolMemoryInfos();
+        ExponentialGrowthPartitionMemoryEstimator.Factory estimatorFactory = makeFactory();
 
         Session session = TestingSession.testSessionBuilder()
                 .setSystemProperty(FAULT_TOLERANT_EXECUTION_COORDINATOR_TASK_MEMORY, "107MB")
@@ -78,10 +86,7 @@ public class TestExponentialGrowthPartitionMemoryEstimator
     @Test
     public void testEstimator()
     {
-        ExponentialGrowthPartitionMemoryEstimator.Factory estimatorFactory = new ExponentialGrowthPartitionMemoryEstimator.Factory(
-                () -> ImmutableMap.of(new InternalNode("a-node", URI.create("local://blah"), NodeVersion.UNKNOWN, false).getNodeIdentifier(), Optional.of(buildWorkerMemoryInfo(DataSize.ofBytes(0)))),
-                true);
-        estimatorFactory.refreshNodePoolMemoryInfos();
+        ExponentialGrowthPartitionMemoryEstimator.Factory estimatorFactory = makeFactory();
 
         Session session = TestingSession.testSessionBuilder()
                 .setSystemProperty(FAULT_TOLERANT_EXECUTION_TASK_MEMORY, "107MB")
@@ -192,10 +197,7 @@ public class TestExponentialGrowthPartitionMemoryEstimator
     @Test
     public void testDefaultInitialEstimationPickedIfLarge()
     {
-        ExponentialGrowthPartitionMemoryEstimator.Factory estimatorFactory = new ExponentialGrowthPartitionMemoryEstimator.Factory(
-                () -> ImmutableMap.of(new InternalNode("a-node", URI.create("local://blah"), NodeVersion.UNKNOWN, false).getNodeIdentifier(), Optional.of(buildWorkerMemoryInfo(DataSize.ofBytes(0)))),
-                true);
-        estimatorFactory.refreshNodePoolMemoryInfos();
+        ExponentialGrowthPartitionMemoryEstimator.Factory estimatorFactory = makeFactory();
 
         testInitialEstimationWithFinishedPartitions(estimatorFactory, DataSize.of(300, MEGABYTE), 10, DataSize.of(500, MEGABYTE), DataSize.of(500, MEGABYTE));
         testInitialEstimationWithFinishedPartitions(estimatorFactory, DataSize.of(300, MEGABYTE), 10, DataSize.of(100, MEGABYTE), DataSize.of(300, MEGABYTE));
