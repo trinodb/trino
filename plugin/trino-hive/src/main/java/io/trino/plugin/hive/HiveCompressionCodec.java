@@ -26,7 +26,7 @@ public enum HiveCompressionCodec
 {
     NONE(null, CompressionKind.NONE, CompressionCodec.UNCOMPRESSED, AvroCompressionKind.NULL),
     SNAPPY(io.trino.hive.formats.compression.CompressionKind.SNAPPY, CompressionKind.SNAPPY, CompressionCodec.SNAPPY, AvroCompressionKind.SNAPPY),
-    LZ4(io.trino.hive.formats.compression.CompressionKind.LZ4, CompressionKind.LZ4, CompressionCodec.LZ4, null),
+    LZ4(io.trino.hive.formats.compression.CompressionKind.LZ4, CompressionKind.LZ4, null, null),
     ZSTD(io.trino.hive.formats.compression.CompressionKind.ZSTD, CompressionKind.ZSTD, CompressionCodec.ZSTD, AvroCompressionKind.ZSTANDARD),
     // Using DEFLATE for GZIP for Avro for now so Avro files can be written in default configuration
     // TODO(https://github.com/trinodb/trino/issues/12580) change GZIP to be unsupported for Avro when we change Trino default compression to be storage format aware
@@ -34,19 +34,19 @@ public enum HiveCompressionCodec
 
     private final Optional<io.trino.hive.formats.compression.CompressionKind> hiveCompressionKind;
     private final CompressionKind orcCompressionKind;
-    private final CompressionCodec parquetCompressionCodec;
+    private final Optional<CompressionCodec> parquetCompressionCodec;
 
     private final Optional<AvroCompressionKind> avroCompressionKind;
 
     HiveCompressionCodec(
             @Nullable io.trino.hive.formats.compression.CompressionKind hiveCompressionKind,
             CompressionKind orcCompressionKind,
-            CompressionCodec parquetCompressionCodec,
+            @Nullable CompressionCodec parquetCompressionCodec,
             @Nullable AvroCompressionKind avroCompressionKind)
     {
         this.hiveCompressionKind = Optional.ofNullable(hiveCompressionKind);
         this.orcCompressionKind = requireNonNull(orcCompressionKind, "orcCompressionKind is null");
-        this.parquetCompressionCodec = requireNonNull(parquetCompressionCodec, "parquetCompressionCodec is null");
+        this.parquetCompressionCodec = Optional.ofNullable(parquetCompressionCodec);
         this.avroCompressionKind = Optional.ofNullable(avroCompressionKind);
     }
 
@@ -60,7 +60,7 @@ public enum HiveCompressionCodec
         return orcCompressionKind;
     }
 
-    public CompressionCodec getParquetCompressionCodec()
+    public Optional<CompressionCodec> getParquetCompressionCodec()
     {
         return parquetCompressionCodec;
     }
