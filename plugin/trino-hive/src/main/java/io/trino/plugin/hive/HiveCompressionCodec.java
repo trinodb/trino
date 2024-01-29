@@ -15,6 +15,7 @@ package io.trino.plugin.hive;
 
 import io.trino.hive.formats.avro.AvroCompressionKind;
 import io.trino.orc.metadata.CompressionKind;
+import jakarta.annotation.Nullable;
 import org.apache.parquet.format.CompressionCodec;
 
 import java.util.Optional;
@@ -38,10 +39,10 @@ public enum HiveCompressionCodec
     private final Optional<AvroCompressionKind> avroCompressionKind;
 
     HiveCompressionCodec(
-            io.trino.hive.formats.compression.CompressionKind hiveCompressionKind,
+            @Nullable io.trino.hive.formats.compression.CompressionKind hiveCompressionKind,
             CompressionKind orcCompressionKind,
             CompressionCodec parquetCompressionCodec,
-            AvroCompressionKind avroCompressionKind)
+            @Nullable AvroCompressionKind avroCompressionKind)
     {
         this.hiveCompressionKind = Optional.ofNullable(hiveCompressionKind);
         this.orcCompressionKind = requireNonNull(orcCompressionKind, "orcCompressionKind is null");
