@@ -1988,11 +1988,6 @@ public class DeltaLakeMetadata
                 .map(mergeResultJsonCodec::fromJson)
                 .collect(toImmutableList());
 
-        List<String> oldFiles = mergeResults.stream()
-                .map(DeltaLakeMergeResult::getOldFile)
-                .flatMap(Optional::stream)
-                .collect(toImmutableList());
-
         List<DataFileInfo> allFiles = mergeResults.stream()
                 .map(DeltaLakeMergeResult::getNewFile)
                 .flatMap(Optional::stream)
@@ -2039,8 +2034,11 @@ public class DeltaLakeMetadata
                 appendCdcFilesInfos(transactionLogWriter, cdcFiles, partitionColumns);
             }
 
-            for (String file : oldFiles) {
-                transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(toUriFormat(file), writeTimestamp, true));
+            for (DeltaLakeMergeResult mergeResult : mergeResults) {
+                if (mergeResult.getOldFile().isEmpty()) {
+                    continue;
+                }
+                transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(toUriFormat(mergeResult.getOldFile().get()), createPartitionValuesMap(partitionColumns, mergeResult.getPartitionValues()), writeTimestamp, true));
             }
 
             appendAddFileEntries(transactionLogWriter, newFiles, partitionColumns, getExactColumnNames(handle.getMetadataEntry()), true);
@@ -2057,6 +2055,27 @@ public class DeltaLakeMetadata
             }
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, "Failed to write Delta Lake transaction log entry", e);
         }
+    }
+
+    private static Map<String, String> createPartitionValuesMap(List<String> partitionColumnNames, List<String> partitionValues)
+    {
+        checkArgument(partitionColumnNames.size() == partitionValues.size(), "partitionColumnNames and partitionValues sizes don't match");
+        // using Hashmap because partition values can be null
+        Map<String, String> partitionValuesMap = new HashMap<>();
+        for (int i = 0; i < partitionColumnNames.size(); i++) {
+            partitionValuesMap.put(partitionColumnNames.get(i), partitionValues.get(i));
+        }
+        return unmodifiableMap(partitionValuesMap);
+    }
+
+    private static Map<String, String> createPartitionValuesMap(Map<String, Optional<String>> canonicalPartitionValues)
+    {
+        // using Hashmap because partition values can be null
+        Map<String, String> partitionValuesMap = new HashMap<>();
+        for (Map.Entry<String, Optional<String>> entry : canonicalPartitionValues.entrySet()) {
+            partitionValuesMap.put(entry.getKey(), entry.getValue().orElse(null));
+        }
+        return unmodifiableMap(partitionValuesMap);
     }
 
     private static void appendCdcFilesInfos(
@@ -2203,8 +2222,8 @@ public class DeltaLakeMetadata
         String tableLocation = executeHandle.getTableLocation();
 
         // paths to be deleted
-        Set<String> scannedPaths = splitSourceInfo.stream()
-                .map(String.class::cast)
+        Set<DeltaLakeScannedDataFile> scannnedDataFiles = splitSourceInfo.stream()
+                .map(DeltaLakeScannedDataFile.class::cast)
                 .collect(toImmutableSet());
 
         // files to be added
@@ -2229,9 +2248,14 @@ public class DeltaLakeMetadata
 
             long writeTimestamp = Instant.now().toEpochMilli();
 
-            for (String scannedPath : scannedPaths) {
-                String relativePath = relativePath(tableLocation, scannedPath);
-                transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(toUriFormat(relativePath), writeTimestamp, false));
+            for (DeltaLakeScannedDataFile scannedFile : scannnedDataFiles) {
+                String relativePath = relativePath(tableLocation, scannedFile.path());
+                Map<String, Optional<String>> canonicalPartitionValues = scannedFile.partitionKeys();
+                transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(
+                        toUriFormat(relativePath),
+                        createPartitionValuesMap(canonicalPartitionValues),
+                        writeTimestamp,
+                        false));
             }
 
             // Note: during writes we want to preserve original case of partition columns
@@ -3537,7 +3561,7 @@ public class DeltaLakeMetadata
             Iterator<AddFileEntry> addFileEntryIterator = activeFiles.iterator();
             while (addFileEntryIterator.hasNext()) {
                 AddFileEntry addFileEntry = addFileEntryIterator.next();
-                transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(addFileEntry.getPath(), writeTimestamp, true));
+                transactionLogWriter.appendRemoveFileEntry(new RemoveFileEntry(addFileEntry.getPath(), addFileEntry.getPartitionValues(), writeTimestamp, true));
 
                 Optional<Long> fileRecords = addFileEntry.getStats().flatMap(DeltaLakeFileStatistics::getNumRecords);
                 allDeletedFilesStatsPresent &= fileRecords.isPresent();

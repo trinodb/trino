@@ -175,6 +175,7 @@ public class TestCheckpointWriter
 
         RemoveFileEntry removeFileEntry = new RemoveFileEntry(
                 "removeFilePath",
+                ImmutableMap.of("part_key", "7.0"),
                 1000,
                 true);
 
@@ -311,6 +312,7 @@ public class TestCheckpointWriter
 
         RemoveFileEntry removeFileEntry = new RemoveFileEntry(
                 "removeFilePath",
+                ImmutableMap.of("part_key", "7.0"),
                 1000,
                 true);
 
