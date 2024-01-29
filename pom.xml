@@ -206,7 +206,7 @@
         <dep.iceberg.version>1.4.3</dep.iceberg.version>
         <dep.jna.version>5.14.0</dep.jna.version>
         <dep.joda.version>2.12.6</dep.joda.version>
-        <dep.jsonwebtoken.version>0.12.3</dep.jsonwebtoken.version>
+        <dep.jsonwebtoken.version>0.12.4</dep.jsonwebtoken.version>
         <dep.kafka-clients.version>3.6.1</dep.kafka-clients.version>
         <dep.kotlin.version>1.9.20</dep.kotlin.version>
         <dep.okio.version>3.6.0</dep.okio.version>
