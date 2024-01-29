@@ -690,6 +690,7 @@ jobs:
             - { modules: plugin/starburst-snowflake, profile: jdbc-integration-tests, cloud: amazon-web-service }
             - { modules: plugin/starburst-snowflake, profile: parallel-integration-tests, cloud: amazon-web-service }
             - { modules: plugin/starburst-snowflake, profile: fte-tests, cloud: amazon-web-service }
+            - { modules: plugin/starburst-sqlserver }
             - { modules: plugin/starburst-stargate }
             - { modules: plugin/starburst-synapse }
             - { modules: plugin/starburst-synapse, profile: fte-tests }
