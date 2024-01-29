@@ -7,10 +7,12 @@
  *
  * Redistribution of this material is strictly prohibited.
  */
-package com.starburstdata.presto.plugin.saphana;
+package com.starburstdata.presto.testing;
 
-public enum SapHanaAuthenticationType
+import org.junit.jupiter.api.Test;
+
+public class TestDummy
 {
-    PASSWORD,
-    PASSWORD_PASS_THROUGH,
+    @Test
+    public void buildRequiresTestToExist() {}
 }
