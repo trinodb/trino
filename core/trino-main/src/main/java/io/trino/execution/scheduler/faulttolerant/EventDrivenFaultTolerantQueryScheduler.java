@@ -40,6 +40,7 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.trace.Tracer;
 import io.trino.Session;
+import io.trino.cost.PlanNodeStatsEstimate;
 import io.trino.exchange.SpoolingExchangeInput;
 import io.trino.execution.BasicStageStats;
 import io.trino.execution.ExecutionFailureInfo;
@@ -93,6 +94,7 @@ import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.PlanFragmentIdAllocator;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.SubPlan;
+import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.LimitNode;
@@ -1960,6 +1962,11 @@ public class EventDrivenFaultTolerantQueryScheduler
             return stage.getStageId();
         }
 
+        public PlanNodeStatsEstimate getStats()
+        {
+            return stage.getFragment().getStatsAndCosts().getStats().get(stage.getFragment().getRoot().getId());
+        }
+
         public PlanFragmentId getStageFragmentId()
         {
             return stage.getFragment().getId();
@@ -1978,6 +1985,11 @@ public class EventDrivenFaultTolerantQueryScheduler
         public Exchange getExchange()
         {
             return exchange;
+        }
+
+        public TypeProvider getTypeProvider()
+        {
+            return TypeProvider.viewOf(stage.getFragment().getSymbols());
         }
 
         public boolean isExchangeClosed()

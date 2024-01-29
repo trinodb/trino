@@ -70,6 +70,7 @@ import io.trino.execution.scheduler.TaskExecutionStats;
 import io.trino.execution.scheduler.faulttolerant.BinPackingNodeAllocatorService;
 import io.trino.execution.scheduler.faulttolerant.ByEagerParentOutputDataSizeEstimator;
 import io.trino.execution.scheduler.faulttolerant.BySmallStageOutputDataSizeEstimator;
+import io.trino.execution.scheduler.faulttolerant.ByStatsOutputDataSizeEstimator;
 import io.trino.execution.scheduler.faulttolerant.ByTaskProgressOutputDataSizeEstimator;
 import io.trino.execution.scheduler.faulttolerant.CompositeOutputDataSizeEstimator;
 import io.trino.execution.scheduler.faulttolerant.EventDrivenTaskSourceFactory;
@@ -253,6 +254,7 @@ public class CoordinatorModule
         binder.bind(ByTaskProgressOutputDataSizeEstimator.Factory.class).in(Scopes.SINGLETON);
         binder.bind(BySmallStageOutputDataSizeEstimator.Factory.class).in(Scopes.SINGLETON);
         binder.bind(ByEagerParentOutputDataSizeEstimator.Factory.class).in(Scopes.SINGLETON);
+        binder.bind(ByStatsOutputDataSizeEstimator.Factory.class).in(Scopes.SINGLETON);
         // use provider method returning list to ensure ordering
         // OutputDataSizeEstimator factories are ordered starting from most accurate
         install(new AbstractConfigurationAwareModule()
@@ -266,9 +268,14 @@ public class CoordinatorModule
             List<OutputDataSizeEstimatorFactory> getCompositeOutputDataSizeEstimatorDelegateFactories(
                     ByTaskProgressOutputDataSizeEstimator.Factory byTaskProgressOutputDataSizeEstimatorFactory,
                     BySmallStageOutputDataSizeEstimator.Factory bySmallStageOutputDataSizeEstimatorFactory,
+                    ByStatsOutputDataSizeEstimator.Factory byStatsOutputDataSizeEstimatorFactory,
                     ByEagerParentOutputDataSizeEstimator.Factory byEagerParentOutputDataSizeEstimatorFactoryy)
             {
-                return ImmutableList.of(byTaskProgressOutputDataSizeEstimatorFactory, bySmallStageOutputDataSizeEstimatorFactory, byEagerParentOutputDataSizeEstimatorFactoryy);
+                return ImmutableList.of(
+                        byTaskProgressOutputDataSizeEstimatorFactory,
+                        bySmallStageOutputDataSizeEstimatorFactory,
+                        byEagerParentOutputDataSizeEstimatorFactoryy,
+                        byStatsOutputDataSizeEstimatorFactory);
             }
         });
 
