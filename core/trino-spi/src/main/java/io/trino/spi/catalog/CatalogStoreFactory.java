@@ -11,25 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.connector;
+package io.trino.spi.catalog;
 
-import io.airlift.configuration.Config;
-import jakarta.validation.constraints.NotNull;
+import java.util.Map;
 
-public class CatalogStoreConfig
+public interface CatalogStoreFactory
 {
-    private String catalogStoreKind = "file";
+    String getName();
 
-    @NotNull
-    public String getCatalogStoreKind()
-    {
-        return catalogStoreKind;
-    }
-
-    @Config("catalog.store")
-    public CatalogStoreConfig setCatalogStoreKind(String catalogStoreKind)
-    {
-        this.catalogStoreKind = catalogStoreKind;
-        return this;
-    }
+    CatalogStore create(Map<String, String> config);
 }
