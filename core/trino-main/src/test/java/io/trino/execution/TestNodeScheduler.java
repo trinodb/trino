@@ -156,10 +156,7 @@ public class TestNodeScheduler
     @Test
     public void testAssignmentWhenNoNodes()
     {
-        Set<Split> splits = new HashSet<>();
-        splits.add(new Split(TEST_CATALOG_HANDLE, new TestSplitRemote()));
-
-        assertTrinoExceptionThrownBy(() -> nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())))
+        assertTrinoExceptionThrownBy(() -> computeSingleAssignment(nodeSelector, new Split(TEST_CATALOG_HANDLE, new TestSplitRemote())))
                 .hasErrorCode(NO_NODES_AVAILABLE)
                 .hasMessageMatching("No nodes available to run query");
     }
@@ -169,9 +166,8 @@ public class TestNodeScheduler
     {
         setUpNodes();
         Split split = new Split(TEST_CATALOG_HANDLE, new TestSplitLocallyAccessible());
-        Set<Split> splits = ImmutableSet.of(split);
 
-        Map.Entry<InternalNode, Split> assignment = getOnlyElement(nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())).getAssignments().entries());
+        Map.Entry<InternalNode, Split> assignment = getOnlyElement(computeSingleAssignment(nodeSelector, split).entries());
         assertThat(assignment.getKey().getHostAndPort()).isEqualTo(split.getAddresses().get(0));
         assertThat(assignment.getValue()).isEqualTo(split);
     }
@@ -334,9 +330,7 @@ public class TestNodeScheduler
     public void testScheduleRemote()
     {
         setUpNodes();
-        Set<Split> splits = new HashSet<>();
-        splits.add(new Split(TEST_CATALOG_HANDLE, new TestSplitRemote()));
-        Multimap<InternalNode, Split> assignments = nodeSelector.computeAssignments(splits, ImmutableList.copyOf(taskMap.values())).getAssignments();
+        Multimap<InternalNode, Split> assignments = computeSingleAssignment(nodeSelector, new Split(TEST_CATALOG_HANDLE, new TestSplitRemote()));
         assertThat(assignments.size()).isEqualTo(1);
     }
 
