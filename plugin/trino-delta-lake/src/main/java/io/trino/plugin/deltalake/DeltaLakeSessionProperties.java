@@ -223,6 +223,7 @@ public final class DeltaLakeSessionProperties
                         deltaLakeConfig.getCompressionCodec(),
                         value -> {
                             if (value == HiveCompressionCodec.LZ4) {
+                                // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
                                 throw new TrinoException(INVALID_SESSION_PROPERTY, "Unsupported codec: LZ4");
                             }
                         },
