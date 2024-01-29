@@ -61,13 +61,9 @@ public class CheckpointSchemaManager
             RowType.field("version", BIGINT),
             RowType.field("lastUpdated", BIGINT)));
 
-    private static final RowType REMOVE_ENTRY_TYPE = RowType.from(ImmutableList.of(
-            RowType.field("path", VARCHAR),
-            RowType.field("deletionTimestamp", BIGINT),
-            RowType.field("dataChange", BOOLEAN)));
-
     private final RowType metadataEntryType;
     private final RowType commitInfoEntryType;
+    private final RowType removeEntryType;
     private final ArrayType stringList;
 
     @Inject
@@ -109,6 +105,12 @@ public class CheckpointSchemaManager
                 RowType.field("readVersion", BIGINT),
                 RowType.field("isolationLevel", VARCHAR),
                 RowType.field("isBlindAppend", BOOLEAN)));
+
+        removeEntryType = RowType.from(ImmutableList.of(
+                RowType.field("path", VARCHAR),
+                RowType.field("partitionValues", stringMap),
+                RowType.field("deletionTimestamp", BIGINT),
+                RowType.field("dataChange", BOOLEAN)));
     }
 
     public RowType getMetadataEntryType()
@@ -209,7 +211,7 @@ public class CheckpointSchemaManager
 
     public RowType getRemoveEntryType()
     {
-        return REMOVE_ENTRY_TYPE;
+        return removeEntryType;
     }
 
     public RowType getTxnEntryType()

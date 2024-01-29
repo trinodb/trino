@@ -61,7 +61,7 @@ public class DeltaLakeSplitSource
     private final SchemaTableName tableName;
     private final AsyncQueue<ConnectorSplit> queue;
     private final boolean recordScannedFiles;
-    private final ImmutableSet.Builder<String> scannedFilePaths = ImmutableSet.builder();
+    private final ImmutableSet.Builder<DeltaLakeScannedDataFile> scannedFilePaths = ImmutableSet.builder();
     private final DynamicFilter dynamicFilter;
     private final long dynamicFilteringWaitTimeoutMillis;
     private final Stopwatch dynamicFilterWaitStopwatch;
@@ -136,7 +136,7 @@ public class DeltaLakeSplitSource
                                     split.getStatisticsPredicate().overlaps(dynamicFilterPredicate))
                             .collect(toImmutableList());
                     if (recordScannedFiles) {
-                        filteredSplits.forEach(split -> scannedFilePaths.add(((DeltaLakeSplit) split).getPath()));
+                        filteredSplits.forEach(split -> scannedFilePaths.add(new DeltaLakeScannedDataFile(((DeltaLakeSplit) split).getPath(), ((DeltaLakeSplit) split).getPartitionKeys())));
                     }
                     return new ConnectorSplitBatch(filteredSplits, noMoreSplits);
                 },
