@@ -1446,8 +1446,8 @@ public class IcebergMetadata
         ImmutableSet.Builder<DataFile> scannedDataFilesBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<DeleteFile> scannedDeleteFilesBuilder = ImmutableSet.builder();
         splitSourceInfo.stream().map(DataFileWithDeleteFiles.class::cast).forEach(dataFileWithDeleteFiles -> {
-            scannedDataFilesBuilder.add(dataFileWithDeleteFiles.getDataFile());
-            scannedDeleteFilesBuilder.addAll(dataFileWithDeleteFiles.getDeleteFiles());
+            scannedDataFilesBuilder.add(dataFileWithDeleteFiles.dataFile());
+            scannedDeleteFilesBuilder.addAll(dataFileWithDeleteFiles.deleteFiles());
         });
 
         Set<DataFile> scannedDataFiles = scannedDataFilesBuilder.build();
