@@ -14,7 +14,6 @@
 package io.trino.connector;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.connector.CatalogStoreConfig.CatalogStoreKind;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -23,22 +22,22 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 
-public class TestCatalogStoreConfig
+public class TestingCatalogStoreConfig
 {
     @Test
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(CatalogStoreConfig.class)
-                .setCatalogStoreKind(CatalogStoreKind.FILE));
+                .setCatalogStoreKind("file"));
     }
 
     @Test
     public void testExplicitPropertyMappings()
     {
-        Map<String, String> properties = ImmutableMap.of("catalog.store", "memory");
+        Map<String, String> properties = ImmutableMap.of("catalog.store", "other");
 
         CatalogStoreConfig expected = new CatalogStoreConfig()
-                .setCatalogStoreKind(CatalogStoreKind.MEMORY);
+                .setCatalogStoreKind("other");
 
         assertFullMapping(properties, expected);
     }
