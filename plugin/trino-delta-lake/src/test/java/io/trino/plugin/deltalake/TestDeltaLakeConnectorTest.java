@@ -148,7 +148,6 @@ public class TestDeltaLakeConnectorTest
                     SUPPORTS_AGGREGATION_PUSHDOWN,
                     SUPPORTS_CREATE_MATERIALIZED_VIEW,
                     SUPPORTS_DROP_FIELD,
-                    SUPPORTS_DROP_NOT_NULL_CONSTRAINT,
                     SUPPORTS_LIMIT_PUSHDOWN,
                     SUPPORTS_PREDICATE_PUSHDOWN,
                     SUPPORTS_RENAME_FIELD,
@@ -823,6 +822,38 @@ public class TestDeltaLakeConnectorTest
                     "SELECT x, a FROM " + table.getName(),
                     "VALUES ('first', 'new column'), ('second', 'new column')");
         }
+    }
+
+    @Test
+    public void testDropNotNullConstraintWithColumnMapping()
+    {
+        testDropNotNullConstraintWithColumnMapping(ColumnMappingMode.ID);
+        testDropNotNullConstraintWithColumnMapping(ColumnMappingMode.NAME);
+        testDropNotNullConstraintWithColumnMapping(ColumnMappingMode.NONE);
+    }
+
+    private void testDropNotNullConstraintWithColumnMapping(ColumnMappingMode mode)
+    {
+        String tableName = "test_drop_not_null_" + randomNameSuffix();
+
+        assertUpdate("CREATE TABLE " + tableName + "(" +
+                " data integer NOT NULL COMMENT 'test comment'," +
+                " part integer NOT NULL COMMENT 'test part comment')" +
+                "WITH (partitioned_by = ARRAY['part'], column_mapping_mode = '" + mode + "')");
+        assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN data DROP NOT NULL");
+        assertThat(columnIsNullable(tableName, "data")).isTrue();
+        assertThat(columnIsNullable(tableName, "part")).isFalse();
+
+        assertUpdate("ALTER TABLE " + tableName + " ALTER COLUMN part DROP NOT NULL");
+        assertThat(columnIsNullable(tableName, "data")).isTrue();
+        assertThat(columnIsNullable(tableName, "part")).isTrue();
+        assertThat(getColumnComment(tableName, "data")).isEqualTo("test comment");
+        assertThat(getColumnComment(tableName, "part")).isEqualTo("test part comment");
+
+        assertUpdate("INSERT INTO " + tableName + " VALUES (NULL, NULL)", 1);
+        assertQuery("SELECT * FROM " + tableName, "VALUES (NULL, NULL)");
+
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test

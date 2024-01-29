@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableTable;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
@@ -1766,6 +1767,46 @@ public class DeltaLakeMetadata
         }
         catch (Exception e) {
             throw new TrinoException(DELTA_LAKE_BAD_WRITE, format("Unable to rename '%s' column for: %s.%s", sourceColumnName, table.getSchemaName(), table.getTableName()), e);
+        }
+    }
+
+    @Override
+    public void dropNotNullConstraint(ConnectorSession session, ConnectorTableHandle tableHandle, ColumnHandle columnHandle)
+    {
+        DeltaLakeTableHandle table = (DeltaLakeTableHandle) tableHandle;
+        DeltaLakeColumnHandle column = (DeltaLakeColumnHandle) columnHandle;
+        verify(column.isBaseColumn(), "Unexpected dereference: %s", column);
+        String columnName = column.getBaseColumnName();
+        MetadataEntry metadataEntry = table.getMetadataEntry();
+        ProtocolEntry protocolEntry = table.getProtocolEntry();
+
+        checkUnsupportedWriterFeatures(protocolEntry);
+        checkSupportedWriterVersion(table);
+
+        Map<String, Boolean> columnsNullability = Maps.transformEntries(
+                getColumnsNullability(metadataEntry),
+                (name, nullable) -> name.equalsIgnoreCase(columnName) ? true : nullable);
+        try {
+            TransactionLogWriter transactionLogWriter = transactionLogWriterFactory.newWriter(session, table.getLocation());
+            appendTableEntries(
+                    table.getReadVersion() + 1,
+                    transactionLogWriter,
+                    metadataEntry.getId(),
+                    getExactColumnNames(metadataEntry),
+                    metadataEntry.getOriginalPartitionColumns(),
+                    getColumnTypes(metadataEntry),
+                    getColumnComments(metadataEntry),
+                    columnsNullability,
+                    getColumnsMetadata(metadataEntry),
+                    metadataEntry.getConfiguration(),
+                    CHANGE_COLUMN_OPERATION,
+                    session,
+                    Optional.ofNullable(metadataEntry.getDescription()),
+                    protocolEntry);
+            transactionLogWriter.flush();
+        }
+        catch (Exception e) {
+            throw new TrinoException(DELTA_LAKE_BAD_WRITE, format("Unable to drop not null constraint from '%s' column in: %s", columnName, table.getSchemaTableName()), e);
         }
     }
 
