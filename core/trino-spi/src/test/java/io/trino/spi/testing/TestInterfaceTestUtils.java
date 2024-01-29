@@ -32,7 +32,7 @@ public class TestInterfaceTestUtils
 
     private interface Interface
     {
-        default void foo(String s) {}
+        default void foo(String unused) {}
     }
 
     private static class Implementation
@@ -46,16 +46,16 @@ public class TestInterfaceTestUtils
 
     private interface InterfaceWithStaticMethod
     {
-        default void foo(String s) {}
+        default void foo(String unused) {}
 
-        static void staticMethod(String s) {}
+        static void staticMethod(String unused) {}
     }
 
     private static class ImplementationOfInterfaceWithStaticMethod
             implements InterfaceWithStaticMethod
     {
         @Override
-        public void foo(String s) {}
+        public void foo(String unused) {}
     }
 
     @Test
@@ -68,7 +68,7 @@ public class TestInterfaceTestUtils
             implements Cloneable, Interface, Serializable
     {
         @Override
-        public void foo(String s) {}
+        public void foo(String unused) {}
     }
 
     @Test
@@ -79,14 +79,14 @@ public class TestInterfaceTestUtils
 
     private abstract static class AbstractClass
     {
-        public void foo(String s) {}
+        public void foo(String unused) {}
     }
 
     private static class ImplementationOfAbstractClass
             extends AbstractClass
     {
         @Override
-        public void foo(String s) {}
+        public void foo(String unused) {}
     }
 
     @Test
