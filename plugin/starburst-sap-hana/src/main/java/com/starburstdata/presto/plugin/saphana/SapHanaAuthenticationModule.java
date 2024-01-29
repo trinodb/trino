@@ -10,26 +10,27 @@
 package com.starburstdata.presto.plugin.saphana;
 
 import com.google.inject.Binder;
+import com.google.inject.BindingAnnotation;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import com.sap.db.jdbc.Driver;
-import com.starburstdata.presto.plugin.jdbc.auth.PasswordPassThroughModule;
-import com.starburstdata.trino.plugins.jdbc.JdbcConnectionPoolConfig;
-import com.starburstdata.trino.plugins.jdbc.PoolingConnectionFactory;
+import com.starburstdata.trino.plugin.jdbc.JdbcConnectionPoolConfig;
+import com.starburstdata.trino.plugin.jdbc.PoolingConnectionFactory;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.base.CatalogName;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.DriverConnectionFactory;
 import io.trino.plugin.jdbc.ExtraCredentialsBasedIdentityCacheMappingModule;
-import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.IdentityCacheMapping;
 import io.trino.plugin.jdbc.credential.CredentialProvider;
 import io.trino.plugin.jdbc.credential.CredentialProviderModule;
 
-import static com.starburstdata.presto.plugin.saphana.SapHanaAuthenticationType.PASSWORD;
-import static com.starburstdata.presto.plugin.saphana.SapHanaAuthenticationType.PASSWORD_PASS_THROUGH;
-import static com.starburstdata.presto.plugin.toolkit.guice.Modules.enumConditionalModule;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class SapHanaAuthenticationModule
@@ -38,14 +39,10 @@ public class SapHanaAuthenticationModule
     @Override
     protected void setup(Binder binder)
     {
-        install(enumConditionalModule(
-                SapHanaAuthenticationConfig.class,
-                SapHanaAuthenticationConfig::getAuthenticationType,
-                PASSWORD, new PasswordModule(),
-                PASSWORD_PASS_THROUGH, new SapHanaPasswordPassThroughModule()));
+        install(new PasswordModule());
     }
 
-    private class PasswordModule
+    private static class PasswordModule
             extends AbstractConfigurationAwareModule
     {
         @Override
@@ -58,37 +55,18 @@ public class SapHanaAuthenticationModule
 
         @Provides
         @Singleton
-        @ForBaseJdbc
+        @DefaultSapHanaBinding
         public ConnectionFactory getConnectionFactory(CatalogName catalogName, BaseJdbcConfig config, JdbcConnectionPoolConfig poolConfig, CredentialProvider credentialProvider, IdentityCacheMapping identityCacheMapping)
         {
-            return createBasicConnectionFactory(catalogName, config, poolConfig, credentialProvider, identityCacheMapping);
+            if (poolConfig.isConnectionPoolEnabled()) {
+                return new PoolingConnectionFactory(catalogName.toString(), Driver.class, config, poolConfig, credentialProvider, identityCacheMapping);
+            }
+            return new DriverConnectionFactory(new Driver(), config, credentialProvider);
         }
     }
 
-    private class SapHanaPasswordPassThroughModule
-            extends AbstractConfigurationAwareModule
-    {
-        @Override
-        protected void setup(Binder binder)
-        {
-            configBinder(binder).bindConfig(JdbcConnectionPoolConfig.class);
-            install(new PasswordPassThroughModule<>(SapHanaAuthenticationConfig.class, config -> false));
-        }
-
-        @Provides
-        @Singleton
-        @ForBaseJdbc
-        public ConnectionFactory getConnectionFactory(CatalogName catalogName, BaseJdbcConfig config, JdbcConnectionPoolConfig poolConfig, CredentialProvider credentialProvider, IdentityCacheMapping identityCacheMapping)
-        {
-            return createBasicConnectionFactory(catalogName, config, poolConfig, credentialProvider, identityCacheMapping);
-        }
-    }
-
-    private ConnectionFactory createBasicConnectionFactory(CatalogName catalogName, BaseJdbcConfig config, JdbcConnectionPoolConfig poolConfig, CredentialProvider credentialProvider, IdentityCacheMapping identityCacheMapping)
-    {
-        if (poolConfig.isConnectionPoolEnabled()) {
-            return new PoolingConnectionFactory(catalogName.toString(), Driver.class, config, poolConfig, credentialProvider, identityCacheMapping);
-        }
-        return new DriverConnectionFactory(new Driver(), config, credentialProvider);
-    }
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
+    @BindingAnnotation
+    public @interface DefaultSapHanaBinding {}
 }

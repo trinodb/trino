@@ -9,17 +9,15 @@
  */
 package com.starburstdata.presto.plugin.saphana;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.spi.connector.ConnectorFactory;
-
-import static com.starburstdata.presto.license.TestingLicenseManager.NOOP_LICENSE_MANAGER;
+import com.starburstdata.trino.plugin.license.LicenseManager;
 
 public class TestingSapHanaPlugin
         extends SapHanaPlugin
 {
-    @Override
-    public Iterable<ConnectorFactory> getConnectorFactories()
+    public static final LicenseManager NOOP_LICENSE_MANAGER = () -> true;
+
+    public TestingSapHanaPlugin()
     {
-        return ImmutableList.of(getConnectorFactory(NOOP_LICENSE_MANAGER));
+        super(NOOP_LICENSE_MANAGER);
     }
 }

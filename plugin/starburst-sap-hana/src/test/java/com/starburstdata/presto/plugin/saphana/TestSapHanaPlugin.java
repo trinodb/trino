@@ -16,20 +16,9 @@ import io.trino.testing.TestingConnectorContext;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestSapHanaPlugin
 {
-    @Test
-    public void testLicenseRequired()
-    {
-        Plugin plugin = new SapHanaPlugin();
-        ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        assertThatThrownBy(() -> factory.create("test", ImmutableMap.of("connection-url", "jdbc:sap:test"), new TestingConnectorContext()))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("Starburst Enterprise requires valid license");
-    }
-
     @Test
     public void testCreateConnector()
     {

@@ -10,9 +10,10 @@
 package com.starburstdata.presto.plugin.saphana;
 
 import com.google.inject.Binder;
+import com.google.inject.Key;
 import com.google.inject.Scopes;
-import com.starburstdata.presto.plugin.jdbc.redirection.JdbcTableScanRedirectionModule;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.jdbc.ConnectionFactory;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
@@ -21,6 +22,7 @@ import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.spi.function.table.ConnectorTableFunction;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 
 public class SapHanaClientModule
@@ -29,13 +31,20 @@ public class SapHanaClientModule
     @Override
     public void setup(Binder binder)
     {
-        binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(SapHanaClient.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, Key.get(JdbcClient.class, ForBaseJdbc.class))
+                .setDefault()
+                .to(SapHanaClient.class)
+                .in(Scopes.SINGLETON);
 
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
 
-        install(new JdbcTableScanRedirectionModule());
         install(new SapHanaAuthenticationModule());
         install(new JdbcJoinPushdownSupportModule());
+
+        newOptionalBinder(binder, Key.get(ConnectionFactory.class, ForBaseJdbc.class))
+                .setDefault()
+                .to(Key.get(ConnectionFactory.class, SapHanaAuthenticationModule.DefaultSapHanaBinding.class))
+                .in(Scopes.SINGLETON);
 
         @SuppressWarnings("TrinoExperimentalSpi")
         Class<ConnectorTableFunction> clazz = ConnectorTableFunction.class;
