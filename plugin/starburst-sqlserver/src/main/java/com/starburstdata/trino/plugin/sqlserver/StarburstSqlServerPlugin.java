@@ -11,23 +11,28 @@ package com.starburstdata.trino.plugin.sqlserver;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.starburstdata.presto.license.LicenseManager;
-import com.starburstdata.presto.license.LicenseManagerProvider;
+import com.starburstdata.trino.plugin.license.LicenseManager;
 import io.trino.plugin.jdbc.JdbcConnectorFactory;
 import io.trino.spi.Plugin;
 import io.trino.spi.connector.ConnectorFactory;
 
-import static com.starburstdata.presto.plugin.jdbc.statistics.ManagedStatisticsJdbcConnector.withManagedStatistics;
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static java.util.Objects.requireNonNull;
 
 public class StarburstSqlServerPlugin
         implements Plugin
 {
+    private final LicenseManager licenseManager;
+
+    public StarburstSqlServerPlugin(LicenseManager licenseManager)
+    {
+        this.licenseManager = licenseManager;
+    }
+
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(withManagedStatistics(getConnectorFactory(new LicenseManagerProvider().get())));
+        return ImmutableList.of(getConnectorFactory(licenseManager));
     }
 
     @VisibleForTesting

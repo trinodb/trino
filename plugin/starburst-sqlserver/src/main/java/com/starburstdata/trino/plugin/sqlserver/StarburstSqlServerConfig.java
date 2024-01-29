@@ -19,42 +19,17 @@ import jakarta.validation.constraints.Min;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
-import static com.starburstdata.trino.plugin.sqlserver.StarburstSqlServerConfig.SqlServerAuthenticationType.PASSWORD;
 
 public class StarburstSqlServerConfig
 {
     static final String SQLSERVER_OVERRIDE_CATALOG_NAME = "sqlserver.override-catalog.name";
     static final String SQLSERVER_OVERRIDE_CATALOG_ENABLED = "sqlserver.override-catalog.enabled";
 
-    private boolean impersonationEnabled;
     private boolean overrideCatalogEnabled;
     @Nullable
     private String overrideCatalogName;
     private boolean databasePrefixForSchemaEnabled;
-    private SqlServerAuthenticationType authenticationType = PASSWORD;
     private int connectionsCount = 1;
-
-    public enum SqlServerAuthenticationType
-    {
-        PASSWORD,
-        PASSWORD_PASS_THROUGH,
-        KERBEROS,
-        KERBEROS_PASS_THROUGH,
-        NTLM_PASSWORD,
-        NTLM_PASSWORD_PASS_THROUGH
-    }
-
-    public boolean isImpersonationEnabled()
-    {
-        return impersonationEnabled;
-    }
-
-    @Config("sqlserver.impersonation.enabled")
-    public StarburstSqlServerConfig setImpersonationEnabled(boolean impersonationEnabled)
-    {
-        this.impersonationEnabled = impersonationEnabled;
-        return this;
-    }
 
     public boolean isOverrideCatalogEnabled()
     {
@@ -79,19 +54,6 @@ public class StarburstSqlServerConfig
     public StarburstSqlServerConfig setOverrideCatalogName(@Nullable String overrideCatalogName)
     {
         this.overrideCatalogName = overrideCatalogName;
-        return this;
-    }
-
-    public SqlServerAuthenticationType getAuthenticationType()
-    {
-        return authenticationType;
-    }
-
-    @Config("sqlserver.authentication.type")
-    @ConfigDescription("SQL Server authentication mechanism")
-    public StarburstSqlServerConfig setAuthenticationType(SqlServerAuthenticationType authenticationType)
-    {
-        this.authenticationType = authenticationType;
         return this;
     }
 

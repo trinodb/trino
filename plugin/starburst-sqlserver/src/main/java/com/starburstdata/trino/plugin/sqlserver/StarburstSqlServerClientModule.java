@@ -10,29 +10,43 @@
 package com.starburstdata.trino.plugin.sqlserver;
 
 import com.google.inject.Binder;
+import com.google.inject.BindingAnnotation;
 import com.google.inject.Key;
+import com.google.inject.Provides;
 import com.google.inject.Scopes;
-import com.starburstdata.managed.statistics.connector.ConnectorStatisticsProvider;
-import com.starburstdata.presto.plugin.jdbc.redirection.JdbcTableScanRedirectionModule;
-import com.starburstdata.presto.plugin.jdbc.statistics.JdbcManagedStatisticsModule;
+import com.google.inject.Singleton;
+import com.microsoft.sqlserver.jdbc.SQLServerDriver;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.trino.plugin.jdbc.BaseJdbcConfig;
+import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.DriverConnectionFactory;
+import io.trino.plugin.jdbc.ExtraCredentialsBasedIdentityCacheMappingModule;
 import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.plugin.jdbc.ForJdbcDynamicFiltering;
 import io.trino.plugin.jdbc.JdbcClient;
 import io.trino.plugin.jdbc.JdbcJoinPushdownSupportModule;
 import io.trino.plugin.jdbc.JdbcStatisticsConfig;
 import io.trino.plugin.jdbc.MaxDomainCompactionThreshold;
+import io.trino.plugin.jdbc.credential.CredentialProvider;
+import io.trino.plugin.jdbc.credential.CredentialProviderModule;
 import io.trino.plugin.jdbc.ptf.Procedure;
 import io.trino.plugin.jdbc.ptf.Query;
 import io.trino.plugin.sqlserver.SqlServerConfig;
+import io.trino.plugin.sqlserver.SqlServerConnectionFactory;
 import io.trino.plugin.sqlserver.SqlServerSessionProperties;
 import io.trino.plugin.sqlserver.SqlServerTableProperties;
 import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.function.table.ConnectorTableFunction;
 
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static com.starburstdata.trino.plugin.sqlserver.CatalogOverridingModule.ForCatalogOverriding;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
@@ -49,6 +63,7 @@ public class StarburstSqlServerClientModule
 
         configBinder(binder).bindConfig(SqlServerConfig.class);
 
+        install(new ExtraCredentialsBasedIdentityCacheMappingModule());
         install(conditionalModule(
                 StarburstSqlServerConfig.class,
                 StarburstSqlServerConfig::getDatabasePrefixForSchemaEnabled,
@@ -70,12 +85,9 @@ public class StarburstSqlServerClientModule
 
         bindTablePropertiesProvider(binder, SqlServerTableProperties.class);
 
-        install(new SqlServerAuthenticationModule());
+        install(new CredentialProviderModule());
         install(new CatalogOverridingModule());
         install(new JdbcJoinPushdownSupportModule());
-        install(new JdbcTableScanRedirectionModule());
-        install(new JdbcManagedStatisticsModule());
-        newOptionalBinder(binder, ConnectorStatisticsProvider.class).setBinding().to(SqlServerCollectingStatisticsProvider.class).in(Scopes.SINGLETON);
 
         @SuppressWarnings("TrinoExperimentalSpi")
         Class<ConnectorTableFunction> clazz = ConnectorTableFunction.class;
@@ -84,5 +96,26 @@ public class StarburstSqlServerClientModule
                 SqlServerConfig.class,
                 SqlServerConfig::isStoredProcedureTableFunctionEnabled,
                 internalBinder -> newSetBinder(internalBinder, clazz).addBinding().toProvider(Procedure.class).in(Scopes.SINGLETON)));
+
+        // Using optional binder for overriding ConnectionFactory in Galaxy
+        newOptionalBinder(binder, Key.get(ConnectionFactory.class, ForCatalogOverriding.class))
+                .setDefault()
+                .to(Key.get(ConnectionFactory.class, DefaultSqlserverBinding.class))
+                .in(Scopes.SINGLETON);
     }
+
+    @Provides
+    @Singleton
+    @DefaultSqlserverBinding
+    public ConnectionFactory getConnectionFactory(BaseJdbcConfig config, SqlServerConfig sqlServerConfig, CredentialProvider credentialProvider)
+    {
+        return new SqlServerConnectionFactory(
+                new DriverConnectionFactory(new SQLServerDriver(), config, credentialProvider),
+                sqlServerConfig.isSnapshotIsolationDisabled());
+    }
+
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
+    @BindingAnnotation
+    public @interface DefaultSqlserverBinding {}
 }

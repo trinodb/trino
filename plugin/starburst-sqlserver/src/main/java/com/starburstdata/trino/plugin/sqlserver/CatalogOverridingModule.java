@@ -13,10 +13,10 @@ import com.google.inject.Binder;
 import com.google.inject.BindingAnnotation;
 import com.google.inject.Inject;
 import com.google.inject.Key;
-import com.starburstdata.presto.plugin.jdbc.auth.ForImpersonation;
 import com.starburstdata.trino.plugin.jdbc.PreparingConnectionFactory;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.jdbc.ConnectionFactory;
+import io.trino.plugin.jdbc.ForBaseJdbc;
 import io.trino.spi.connector.ConnectorSession;
 
 import java.lang.annotation.Retention;
@@ -25,6 +25,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 
 import static com.google.inject.Scopes.SINGLETON;
+import static com.starburstdata.trino.plugin.sqlserver.StarburstSqlServerClientModule.DefaultSqlserverBinding;
 import static com.starburstdata.trino.plugin.sqlserver.StarburstSqlServerSessionProperties.getOverrideCatalog;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static java.lang.annotation.ElementType.FIELD;
@@ -42,12 +43,12 @@ public class CatalogOverridingModule
                 StarburstSqlServerConfig.class,
                 StarburstSqlServerConfig::isOverrideCatalogEnabled,
                 moduleBinder -> moduleBinder.bind(ConnectionFactory.class)
-                        .annotatedWith(ForImpersonation.class)
+                        .annotatedWith(ForBaseJdbc.class)
                         .to(CatalogOverridingConnectionFactory.class)
                         .in(SINGLETON),
                 moduleBinder -> moduleBinder.bind(ConnectionFactory.class)
-                        .annotatedWith(ForImpersonation.class)
-                        .to(Key.get(ConnectionFactory.class, ForCatalogOverriding.class))
+                        .annotatedWith(ForBaseJdbc.class)
+                        .to(Key.get(ConnectionFactory.class, DefaultSqlserverBinding.class))
                         .in(SINGLETON)));
     }
 

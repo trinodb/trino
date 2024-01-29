@@ -67,6 +67,7 @@
         <module>plugin/starburst-oracle</module>
         <module>plugin/starburst-salesforce</module>
         <module>plugin/starburst-snowflake</module>
+        <module>plugin/starburst-sqlserver</module>
         <module>plugin/starburst-stargate</module>
         <module>plugin/starburst-synapse</module>
         <module>plugin/trino-accumulo</module>
@@ -124,6 +125,7 @@
         <module>plugin/trino-tpch</module>
         <module>service/trino-proxy</module>
         <module>service/trino-verifier</module>
+        <module>testing/starburst-testing</module>
         <module>testing/trino-benchmark-queries</module>
         <module>testing/trino-benchto-benchmarks</module>
         <module>testing/trino-faulttolerant-tests</module>
@@ -993,6 +995,12 @@
             <dependency>
                 <groupId>io.trino</groupId>
                 <artifactId>starburst-plugin-toolkit</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.trino</groupId>
+                <artifactId>starburst-testing</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

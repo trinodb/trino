@@ -10,7 +10,7 @@
 package com.starburstdata.trino.plugin.sqlserver;
 
 import com.google.common.collect.ImmutableMap;
-import com.starburstdata.presto.testing.SessionMutator;
+import com.starburstdata.plugin.testing.SessionMutator;
 import io.trino.Session;
 import io.trino.plugin.sqlserver.TestSqlServerConnectorTest;
 import io.trino.plugin.sqlserver.TestingSqlServer;

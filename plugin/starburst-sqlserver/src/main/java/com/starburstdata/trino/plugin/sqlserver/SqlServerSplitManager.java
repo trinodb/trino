@@ -13,7 +13,7 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
 import com.microsoft.sqlserver.jdbc.SQLServerException;
-import com.starburstdata.presto.license.LicenseManager;
+import com.starburstdata.trino.plugin.license.LicenseManager;
 import dev.failsafe.Failsafe;
 import dev.failsafe.RetryPolicy;
 import io.airlift.log.Logger;

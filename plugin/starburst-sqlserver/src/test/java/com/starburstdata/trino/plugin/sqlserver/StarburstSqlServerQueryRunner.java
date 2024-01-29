@@ -11,7 +11,7 @@ package com.starburstdata.trino.plugin.sqlserver;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.starburstdata.presto.server.StarburstEngineQueryRunner;
+import com.starburstdata.trino.plugin.license.LicenseManager;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.trino.Session;
@@ -31,9 +31,6 @@ import java.util.Map;
 import java.util.function.Function;
 
 import static com.google.common.io.Resources.getResource;
-import static com.starburstdata.presto.license.TestingLicenseManager.NOOP_LICENSE_MANAGER;
-import static com.starburstdata.presto.plugin.jdbc.statistics.ManagedStatisticsJdbcConnector.withManagedStatistics;
-import static com.starburstdata.presto.redirection.AbstractTableScanRedirectionTest.redirectionDisabled;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
@@ -52,6 +49,8 @@ public final class StarburstSqlServerQueryRunner
     public static final String CHARLIE_USER = "charlie";
     public static final String UNKNOWN_USER = "non_existing_user";
 
+    public static final LicenseManager NOOP_LICENSE_MANAGER = () -> true;
+
     private StarburstSqlServerQueryRunner() {}
 
     private static DistributedQueryRunner createStarburstSqlServerQueryRunner(
@@ -67,7 +66,7 @@ public final class StarburstSqlServerQueryRunner
             throws Exception
     {
         Session session = createSession(sqlServer.getUsername(), catalogName);
-        DistributedQueryRunner.Builder<?> builder = StarburstEngineQueryRunner.builder(session);
+        DistributedQueryRunner.Builder<?> builder = DistributedQueryRunner.builder(session);
         extraProperties.forEach(builder::addExtraProperty);
         builder.setCoordinatorProperties(coordinatorProperties);
         DistributedQueryRunner queryRunner = builder.build();
@@ -101,10 +100,10 @@ public final class StarburstSqlServerQueryRunner
 
             queryRunner.installPlugin(unlockEnterpriseFeatures
                     ? getPluginWithLicense()
-                    : new StarburstSqlServerPlugin());
+                    : new StarburstSqlServerPlugin(NOOP_LICENSE_MANAGER));
             queryRunner.createCatalog(catalogName, "sqlserver", connectorProperties);
 
-            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, redirectionDisabled(modifiedSession), tables);
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, modifiedSession, tables);
 
             if (shouldPartitionTables) {
                 partitionTables(sqlServer, tables);
@@ -131,12 +130,12 @@ public final class StarburstSqlServerQueryRunner
 
     private static Plugin getPluginWithLicense()
     {
-        return new StarburstSqlServerPlugin()
+        return new StarburstSqlServerPlugin(NOOP_LICENSE_MANAGER)
         {
             @Override
             public Iterable<ConnectorFactory> getConnectorFactories()
             {
-                return List.of(withManagedStatistics(getConnectorFactory(NOOP_LICENSE_MANAGER)));
+                return List.of(getConnectorFactory(NOOP_LICENSE_MANAGER));
             }
         };
     }

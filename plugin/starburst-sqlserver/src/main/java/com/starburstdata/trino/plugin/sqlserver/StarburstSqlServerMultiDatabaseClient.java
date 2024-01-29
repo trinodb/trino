@@ -13,7 +13,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableSet;
 import com.google.inject.Inject;
-import com.starburstdata.presto.plugin.jdbc.redirection.TableScanRedirection;
 import io.trino.plugin.base.mapping.IdentifierMapping;
 import io.trino.plugin.base.mapping.RemoteIdentifiers;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
@@ -59,13 +58,12 @@ public class StarburstSqlServerMultiDatabaseClient
     public StarburstSqlServerMultiDatabaseClient(
             BaseJdbcConfig config,
             JdbcStatisticsConfig statisticsConfig,
-            TableScanRedirection tableScanRedirection,
             ConnectionFactory connectionFactory,
             QueryBuilder queryBuilder,
             IdentifierMapping identifierMapping,
             RemoteQueryModifier queryModifier)
     {
-        super(config, statisticsConfig, tableScanRedirection, connectionFactory, queryBuilder, identifierMapping, queryModifier);
+        super(config, statisticsConfig, connectionFactory, queryBuilder, identifierMapping, queryModifier);
         this.identifierMapping = requireNonNull(identifierMapping, "identifierMapping is null");
     }
 

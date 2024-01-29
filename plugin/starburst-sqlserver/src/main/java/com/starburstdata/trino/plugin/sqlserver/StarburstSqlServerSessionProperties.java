@@ -11,7 +11,7 @@ package com.starburstdata.trino.plugin.sqlserver;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
-import com.starburstdata.presto.license.LicenseManager;
+import com.starburstdata.trino.plugin.license.LicenseManager;
 import io.trino.plugin.base.session.SessionPropertiesProvider;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
