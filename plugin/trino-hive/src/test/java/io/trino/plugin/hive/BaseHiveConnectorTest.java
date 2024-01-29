@@ -8129,39 +8129,28 @@ public abstract class BaseHiveConnectorTest
     public void testCreateTableWithCompressionCodec()
     {
         for (HiveCompressionCodec compressionCodec : HiveCompressionCodec.values()) {
-            testWithAllStorageFormats((session, hiveStorageFormat) -> {
-                if (hiveStorageFormat == HiveStorageFormat.PARQUET && compressionCodec == HiveCompressionCodec.LZ4) {
-                    // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
-                    assertThatThrownBy(() -> testCreateTableWithCompressionCodec(session, hiveStorageFormat, compressionCodec))
-                            .hasMessage("Unsupported codec: LZ4");
-                    return;
-                }
-
-                if (!isSupportedCodec(hiveStorageFormat, compressionCodec)) {
-                    assertThatThrownBy(() -> testCreateTableWithCompressionCodec(session, hiveStorageFormat, compressionCodec))
-                            .hasMessage("Compression codec " + compressionCodec + " not supported for " + hiveStorageFormat);
-                    return;
-                }
-                testCreateTableWithCompressionCodec(session, hiveStorageFormat, compressionCodec);
-            });
+            testWithAllStorageFormats((session, hiveStorageFormat) -> testCreateTableWithCompressionCodec(session, hiveStorageFormat, compressionCodec));
         }
     }
 
-    private boolean isSupportedCodec(HiveStorageFormat storageFormat, HiveCompressionCodec codec)
+    private void testCreateTableWithCompressionCodec(Session baseSession, HiveStorageFormat storageFormat, HiveCompressionCodec compressionCodec)
     {
-        if (storageFormat == HiveStorageFormat.AVRO && codec == HiveCompressionCodec.LZ4) {
-            return false;
-        }
-        return true;
-    }
-
-    private void testCreateTableWithCompressionCodec(Session session, HiveStorageFormat storageFormat, HiveCompressionCodec compressionCodec)
-    {
-        session = Session.builder(session)
-                .setCatalogSessionProperty(session.getCatalog().orElseThrow(), "compression_codec", compressionCodec.name())
+        Session session = Session.builder(baseSession)
+                .setCatalogSessionProperty(baseSession.getCatalog().orElseThrow(), "compression_codec", compressionCodec.name())
                 .build();
         String tableName = "test_table_with_compression_" + compressionCodec;
-        assertUpdate(session, format("CREATE TABLE %s WITH (format = '%s') AS TABLE tpch.tiny.nation", tableName, storageFormat), 25);
+        String createTableSql = format("CREATE TABLE %s WITH (format = '%s') AS TABLE tpch.tiny.nation", tableName, storageFormat);
+        if (storageFormat == HiveStorageFormat.PARQUET && compressionCodec == HiveCompressionCodec.LZ4) {
+            // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
+            assertThatThrownBy(() -> computeActual(session, createTableSql))
+                    .hasMessage("Unsupported codec: LZ4");
+            return;
+        }
+        if (storageFormat == HiveStorageFormat.AVRO && compressionCodec == HiveCompressionCodec.LZ4) {
+            assertQueryFails(session, createTableSql, "Compression codec " + compressionCodec + " not supported for " + storageFormat);
+            return;
+        }
+        assertUpdate(session, createTableSql, 25);
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
         assertQuery("SELECT count(*) FROM " + tableName, "VALUES 25");
         assertUpdate("DROP TABLE " + tableName);
