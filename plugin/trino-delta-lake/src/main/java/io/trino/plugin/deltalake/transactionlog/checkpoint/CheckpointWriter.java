@@ -463,8 +463,9 @@ public class CheckpointWriter
         pageBuilder.declarePosition();
         ((RowBlockBuilder) pageBuilder.getBlockBuilder(REMOVE_BLOCK_CHANNEL)).buildEntry(fieldBuilders -> {
             writeString(fieldBuilders.get(0), entryType, 0, "path", removeFileEntry.getPath());
-            writeLong(fieldBuilders.get(1), entryType, 1, "deletionTimestamp", removeFileEntry.getDeletionTimestamp());
-            writeBoolean(fieldBuilders.get(2), entryType, 2, "dataChange", removeFileEntry.isDataChange());
+            writeStringMap(fieldBuilders.get(1), entryType, 1, "partitionValues", removeFileEntry.getPartitionValues());
+            writeLong(fieldBuilders.get(2), entryType, 2, "deletionTimestamp", removeFileEntry.getDeletionTimestamp());
+            writeBoolean(fieldBuilders.get(3), entryType, 3, "dataChange", removeFileEntry.isDataChange());
         });
 
         // null for others
