@@ -285,6 +285,51 @@ public class TestNodeScheduler
         assertThat(assignments.keySet().size()).isEqualTo(3);
     }
 
+    private Multimap<InternalNode, Split> computeSingleAssignment(NodeSelector nodeSelector, Split split)
+    {
+        return nodeSelector.computeAssignments(ImmutableSet.of(split), ImmutableList.copyOf(taskMap.values())).getAssignments();
+    }
+
+    @Test
+    @Timeout(60)
+    public void testTopologyAwareFailover()
+    {
+        nodeManager = new InMemoryNodeManager(
+                new InternalNode("node1", URI.create("http://host1.rack1:11"), NodeVersion.UNKNOWN, false),
+                new InternalNode("node2", URI.create("http://host2.rack1:12"), NodeVersion.UNKNOWN, false),
+                new InternalNode("node3", URI.create("http://host3.rack2:13"), NodeVersion.UNKNOWN, false));
+        NodeSelectorFactory nodeSelectorFactory = new TopologyAwareNodeSelectorFactory(
+                new TestNetworkTopology(), nodeManager, nodeSchedulerConfig, nodeTaskMap, getNetworkTopologyConfig());
+        NodeScheduler nodeScheduler = new NodeScheduler(nodeSelectorFactory);
+        NodeSelector nodeSelector = nodeScheduler.createNodeSelector(session, Optional.of(TEST_CATALOG_HANDLE));
+
+        Split rigidSplit = new Split(TEST_CATALOG_HANDLE, new TestSplitRemote(HostAddress.fromString("host99.rack1:11"))
+        {
+            @Override
+            public boolean isRemotelyAccessible()
+            {
+                return false;
+            }
+        });
+        assertTrinoExceptionThrownBy(() -> computeSingleAssignment(nodeSelector, rigidSplit)).hasMessageContaining("No nodes available");
+
+        Split flexibleSplit = new Split(TEST_CATALOG_HANDLE, new TestSplitRemote(HostAddress.fromString("host99.rack1:11"))
+        {
+            @Override
+            public boolean isRemotelyAccessible()
+            {
+                return false;
+            }
+
+            @Override
+            public boolean isRemotelyAccessibleIfNodeMissing()
+            {
+                return true;
+            }
+        });
+        org.assertj.guava.api.Assertions.assertThat(computeSingleAssignment(nodeSelector, flexibleSplit)).containsValues(flexibleSplit);
+    }
+
     @Test
     public void testScheduleRemote()
     {

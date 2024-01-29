@@ -142,7 +142,7 @@ public class TopologyAwareNodeSelector
                     }
                     continue;
                 }
-                else {
+                else if (!split.isRemotelyAccessibleIfNodeMissing()) {
                     log.debug("No nodes available to schedule %s. Available nodes %s", split, nodeMap.getNodesByHost().keys());
                     throw new TrinoException(NO_NODES_AVAILABLE, "No nodes available to run query");
                 }
