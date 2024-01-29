@@ -15,7 +15,7 @@ import io.trino.plugin.sqlserver.TestingSqlServer;
 import io.trino.spi.security.Identity;
 import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
 
 import static com.starburstdata.trino.plugin.sqlserver.StarburstSqlServerQueryRunner.ALICE_USER;
 import static com.starburstdata.trino.plugin.sqlserver.StarburstSqlServerQueryRunner.CATALOG;

@@ -17,8 +17,8 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
 
 import static com.starburstdata.trino.plugin.sqlserver.StarburstSqlServerMultiDatabaseClient.DATABASE_SEPARATOR;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -47,7 +47,7 @@ public class TestStarburstSqlServerDatabasePrefixIntegrationSmokeTest
                 .build();
     }
 
-    @AfterClass(alwaysRun = true)
+    @AfterAll
     public void cleanup()
     {
         sqlServer = null;

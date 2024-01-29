@@ -18,8 +18,9 @@ import io.trino.testing.AbstractTestQueryFramework;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
-import org.testng.annotations.DataProvider;
-import org.testng.annotations.Test;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.Optional;
 import java.util.stream.IntStream;
@@ -46,7 +47,8 @@ public class TestSqlServerParallelQueries
                 .build();
     }
 
-    @Test(dataProvider = "partitionRangesDataProvider")
+    @ParameterizedTest
+    @MethodSource("partitionRangesDataProvider")
     public void testReadingPartitionedTable(int range)
     {
         String tableName = "partitioned" + randomNameSuffix();
@@ -59,7 +61,8 @@ public class TestSqlServerParallelQueries
         dropTable(tableName);
     }
 
-    @Test(dataProvider = "partitionRangesDataProvider")
+    @ParameterizedTest
+    @MethodSource("partitionRangesDataProvider")
     public void testReadingPartitionedTableWithIndex(int range)
     {
         String tableName = "partitioned" + randomNameSuffix();
@@ -85,7 +88,8 @@ public class TestSqlServerParallelQueries
         dropTable(tableName);
     }
 
-    @Test(dataProvider = "partitionRangesDataProvider")
+    @ParameterizedTest
+    @MethodSource("partitionRangesDataProvider")
     public void testReadingPartitionedTableWithMaxSplits(int range)
     {
         String tableName = "partitioned" + randomNameSuffix();
@@ -99,7 +103,8 @@ public class TestSqlServerParallelQueries
         dropTable(tableName);
     }
 
-    @Test(dataProvider = "partitionRangesDataProvider")
+    @ParameterizedTest
+    @MethodSource("partitionRangesDataProvider")
     public void testReadingTableWithMaxSplitsPerScan(int range)
     {
         String tableName = "partitioned_big" + randomNameSuffix();
@@ -216,7 +221,6 @@ public class TestSqlServerParallelQueries
         sqlServer.execute(format("CREATE TABLE %s(%s int)", tableName, COLUMN));
     }
 
-    @DataProvider
     public static Object[][] partitionRangesDataProvider()
     {
         return new Object[][] {
