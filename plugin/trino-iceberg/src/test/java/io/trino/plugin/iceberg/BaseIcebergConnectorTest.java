@@ -137,6 +137,7 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.testing.assertions.Assert.assertEventually;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -7451,11 +7452,8 @@ public abstract class BaseIcebergConnectorTest
         String createTableSql = format("CREATE TABLE %s AS TABLE tpch.tiny.nation", tableName);
         if (format == IcebergFileFormat.PARQUET && compressionCodec == HiveCompressionCodec.LZ4) {
             // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
-            assertThatThrownBy(() -> computeActual(session, createTableSql))
-                    .hasMessage("Unsupported codec: LZ4")
-                    .isInstanceOf(QueryFailedException.class)
-                    // TODO this should be TrinoException
-                    .cause().hasToString("java.lang.RuntimeException: Unsupported codec: LZ4");
+            assertTrinoExceptionThrownBy(() -> computeActual(session, createTableSql))
+                    .hasMessage("Compression codec LZ4 not supported for Parquet");
             return;
         }
 

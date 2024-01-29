@@ -150,7 +150,9 @@ public class ParquetFileWriterFactory
                     schemaConverter.getPrimitiveTypes(),
                     parquetWriterOptions,
                     fileInputColumnIndexes,
-                    compressionCodec.getParquetCompressionCodec(),
+                    compressionCodec.getParquetCompressionCodec()
+                            // Ensured by the caller
+                            .orElseThrow(() -> new IllegalArgumentException("Unsupported compression codec for Parquet: " + compressionCodec)),
                     nodeVersion.toString(),
                     Optional.of(parquetTimeZone),
                     validationInputFactory));
