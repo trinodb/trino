@@ -66,7 +66,7 @@ public class TestIdRegistry
         int id3 = Integer.parseInt(registry.allocateId(Integer::toString));
         registry.allocateId(Integer::toString);
         registry.deallocate(id3);
-        registry.allocateId(Integer::toString);
-        assertThat(id3).isEqualTo(id3);
+        int id4 = Integer.parseInt(registry.allocateId(Integer::toString));
+        assertThat(id3).isEqualTo(id4);
     }
 }
