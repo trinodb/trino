@@ -303,7 +303,7 @@ public class DeltaLakeMergeSink
         insertPageSink.finish().join().stream()
                 .map(Slice::getBytes)
                 .map(dataFileInfoCodec::fromJson)
-                .map(info -> new DeltaLakeMergeResult(Optional.empty(), Optional.of(info)))
+                .map(info -> new DeltaLakeMergeResult(info.getPartitionValues(), Optional.empty(), Optional.of(info)))
                 .map(mergeResultJsonCodec::toJsonBytes)
                 .map(Slices::wrappedBuffer)
                 .forEach(fragments::add);
@@ -315,7 +315,7 @@ public class DeltaLakeMergeSink
             MoreFutures.getDone(cdfPageSink.finish()).stream()
                     .map(Slice::getBytes)
                     .map(dataFileInfoCodec::fromJson)
-                    .map(info -> new DeltaLakeMergeResult(Optional.empty(), Optional.of(info)))
+                    .map(info -> new DeltaLakeMergeResult(info.getPartitionValues(), Optional.empty(), Optional.of(info)))
                     .map(mergeResultJsonCodec::toJsonBytes)
                     .map(Slices::wrappedBuffer)
                     .forEach(fragments::add);
@@ -347,7 +347,7 @@ public class DeltaLakeMergeSink
 
             Optional<DataFileInfo> newFileInfo = rewriteParquetFile(sourceLocation, deletion, writer);
 
-            DeltaLakeMergeResult result = new DeltaLakeMergeResult(Optional.of(sourceRelativePath), newFileInfo);
+            DeltaLakeMergeResult result = new DeltaLakeMergeResult(deletion.partitionValues(), Optional.of(sourceRelativePath), newFileInfo);
             return ImmutableList.of(utf8Slice(mergeResultJsonCodec.toJson(result)));
         }
         catch (IOException e) {

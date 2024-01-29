@@ -521,7 +521,7 @@ public class CheckpointEntryIterator
             return null;
         }
         RowType type = removeType.orElseThrow();
-        int removeFields = 3;
+        int removeFields = 4;
         SqlRow removeEntryRow = getRow(block, pagePosition);
         log.debug("Block %s has %s fields", block, removeEntryRow.getFieldCount());
         if (removeEntryRow.getFieldCount() != removeFields) {
@@ -531,6 +531,7 @@ public class CheckpointEntryIterator
         CheckpointFieldReader remove = new CheckpointFieldReader(session, removeEntryRow, type);
         RemoveFileEntry result = new RemoveFileEntry(
                 remove.getString("path"),
+                remove.getMap(stringMap, "partitionValues"),
                 remove.getLong("deletionTimestamp"),
                 remove.getBoolean("dataChange"));
         log.debug("Result: %s", result);
