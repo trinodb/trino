@@ -46,6 +46,7 @@ import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogManagerConfig;
 import io.trino.connector.CatalogManagerConfig.CatalogMangerKind;
 import io.trino.connector.CatalogManagerModule;
+import io.trino.connector.CatalogStoreManager;
 import io.trino.connector.ConnectorServices;
 import io.trino.connector.ConnectorServicesProvider;
 import io.trino.eventlistener.EventListenerManager;
@@ -146,6 +147,11 @@ public class Server
             logLocation(log, "Etc directory", Paths.get("etc"));
 
             injector.getInstance(PluginInstaller.class).loadPlugins();
+
+            var catalogStoreManager = injector.getInstance(optionalKey(CatalogStoreManager.class));
+            if (catalogStoreManager.isPresent()) {
+                catalogStoreManager.get().loadConfiguredCatalogStore();
+            }
 
             ConnectorServicesProvider connectorServicesProvider = injector.getInstance(ConnectorServicesProvider.class);
             connectorServicesProvider.loadInitialCatalogs();

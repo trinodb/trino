@@ -478,6 +478,7 @@ public class PlanTester
         tupleDomainCodec = getTupleDomainJsonCodec(blockEncodingSerde, typeManager);
         this.pluginManager = new PluginManager(
                 (loader, createClassLoader) -> {},
+                Optional.empty(),
                 catalogFactory,
                 globalFunctionCatalog,
                 new NoOpResourceGroupManager(),
