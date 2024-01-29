@@ -293,7 +293,6 @@ public class TestMemoryCacheManager
     public void testMaxChannelsPerColumn()
             throws IOException
     {
-        SignatureKey key = new SignatureKey("sig");
         // store MAX_CACHED_CHANNELS_PER_COLUMN column ids for col1
         for (int i = 1; i <= MAX_CACHED_CHANNELS_PER_COLUMN; i++) {
             List<CacheColumnId> columns = IntStream.range(0, i + 1)
