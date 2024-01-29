@@ -39,7 +39,7 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 @Execution(SAME_THREAD)
 public class TestPrioritizedFifoExecutor
 {
-    private static final Comparator<Runnable> DUMMY_COMPARATOR = (o1, o2) -> 0;
+    private static final Comparator<Runnable> DUMMY_COMPARATOR = (unused, unused2) -> 0;
 
     private ExecutorService executor;
 

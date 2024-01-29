@@ -23,6 +23,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 
+import static io.airlift.testing.EquivalenceTester.equivalenceTester;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -278,12 +279,10 @@ class TestLocation
             assertThat(uriIncompatibilities).isEqualTo(Set.of("skipped"));
         }
 
-        assertThat(location).isEqualTo(location);
-        assertThat(location).isEqualTo(Location.of(locationString));
-        assertThat(location.hashCode()).isEqualTo(location.hashCode());
-        assertThat(location.hashCode()).isEqualTo(Location.of(locationString).hashCode());
-
         assertThat(location.toString()).isEqualTo(locationString);
+        equivalenceTester()
+                .addEquivalentGroup(location, Location.of(locationString))
+                .check();
     }
 
     private static <T> int assertEqualsOrVerifyDeviation(T expected, T actual, String message, Set<String> expectedDifferences)
