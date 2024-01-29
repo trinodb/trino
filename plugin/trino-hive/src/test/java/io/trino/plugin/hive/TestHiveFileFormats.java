@@ -1564,7 +1564,7 @@ public final class TestHiveFileFormats
         }
 
         // For Parquet
-        config.set(ParquetOutputFormat.COMPRESSION, compressionCodec.getParquetCompressionCodec().name());
+        config.set(ParquetOutputFormat.COMPRESSION, compressionCodec.getParquetCompressionCodec().orElseThrow().name());
 
         // For Avro
         compressionCodec.getAvroCompressionKind().ifPresent(kind -> config.set("avro.output.codec", kind.toString()));
