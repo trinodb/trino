@@ -73,7 +73,7 @@ public class PinotSplitManager
     {
         String tableName = tableHandle.getTableName();
         Map<String, Map<String, List<String>>> routingTable = pinotClient.getRoutingTableForTable(tableName);
-        LOG.info("Got routing table for %s: %s", tableName, routingTable);
+        LOG.debug("Got routing table for %s: %s", tableName, routingTable);
         List<ConnectorSplit> splits = new ArrayList<>();
         if (!routingTable.isEmpty()) {
             PinotClient.TimeBoundary timeBoundary = new PinotClient.TimeBoundary(null, null);
