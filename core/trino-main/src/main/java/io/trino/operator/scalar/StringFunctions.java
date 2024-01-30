@@ -102,7 +102,7 @@ public final class StringFunctions
 
     @Description("Count of code points of the given string")
     @ScalarFunction("length")
-    @LiteralParameters("x")
+    @LiteralParameters("x")r
     @SqlType(StandardTypes.BIGINT)
     public static long charLength(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice)
     {
@@ -198,6 +198,15 @@ public final class StringFunctions
     @LiteralParameters("x")
     @SqlType("varchar(x)")
     public static Slice reverse(@SqlType("varchar(x)") Slice slice)
+    {
+        return SliceUtf8.reverse(slice);
+    }
+
+    @Description("Reverse all code points in a given string")
+    @ScalarFunction
+    @LiteralParameters("x")
+    @SqlType("varchar(x)")
+    public static Slice charReverse(@SqlType("varchar(x)") Slice slice)
     {
         return SliceUtf8.reverse(slice);
     }
