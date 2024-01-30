@@ -86,6 +86,8 @@ public class IcebergConfig
     private int splitManagerThreads = Runtime.getRuntime().availableProcessors() * 2;
     private boolean incrementalRefreshEnabled = true;
     private boolean metadataCacheEnabled = true;
+    private boolean objectStoreEnabled;
+    private Optional<String> dataLocation = Optional.empty();
 
     public CatalogType getCatalogType()
     {
@@ -482,5 +484,31 @@ public class IcebergConfig
     {
         this.metadataCacheEnabled = metadataCacheEnabled;
         return this;
+    }
+
+    @Config("iceberg.object-store.enabled")
+    @ConfigDescription("Enable the Iceberg object store file layout")
+    public IcebergConfig setObjectStoreEnabled(boolean objectStoreEnabled)
+    {
+        this.objectStoreEnabled = objectStoreEnabled;
+        return this;
+    }
+
+    public boolean isObjectStoreEnabled()
+    {
+        return objectStoreEnabled;
+    }
+
+    @Config("iceberg.data-location")
+    @ConfigDescription("Path for data files")
+    public IcebergConfig setDataLocation(String dataLocation)
+    {
+        this.dataLocation = Optional.ofNullable(dataLocation);
+        return this;
+    }
+
+    public Optional<String> getDataLocation()
+    {
+        return dataLocation;
     }
 }
