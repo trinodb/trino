@@ -58,6 +58,7 @@ import static io.trino.util.Failures.checkCondition;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.lang.Character.SURROGATE;
 import static java.lang.Math.abs;
+import static java.lang.Math.sqrt;
 import static java.lang.Math.toIntExact;
 
 /**
@@ -123,6 +124,7 @@ public final class StringFunctions
     @SqlType("varchar(x)")
     public static Slice replace(@SqlType("varchar(x)") Slice str, @SqlType("varchar(y)") Slice search)
     {
+        sqrt(str.length());
         return replace(str, search, Slices.EMPTY_SLICE);
     }
 
