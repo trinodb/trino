@@ -326,12 +326,7 @@ public abstract class BaseBigQueryConnectorTest
     {
         // TODO (https://github.com/trinodb/trino/issues/6515): Big Query throws an error when trying to read "some_table$data".
         assertThatThrownBy(super::testNoDataSystemTable)
-                .hasMessageFindingMatch("\\Q" +
-                        "Expecting message:\n" +
-                        "  \"Cannot read partition information from a table that is not partitioned: \\E\\S+\\Q:tpch.nation$data\"\n" +
-                        "to match regex:\n" +
-                        "  \"line 1:1: Table '\\w+.\\w+.\"nation\\$data\"' does not exist\"\n" +
-                        "but did not.");
+                .hasMessageFindingMatch(".*Cannot read partition information from a table that is not partitioned.*");
         abort("TODO");
     }
 
