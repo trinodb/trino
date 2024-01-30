@@ -58,6 +58,7 @@ import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.trino.cost.StatsCalculator.noopStatsCalculator;
 import static io.trino.metadata.OperatorNameUtil.mangleOperatorName;
@@ -733,7 +734,7 @@ public class QueryAssertions
         private Result run(String query)
         {
             MaterializedResult result = runner.execute(session, query);
-            return new Result(result.getTypes().get(0), result.getOnlyColumnAsSet().iterator().next());
+            return new Result(getOnlyElement(result.getTypes()), result.getOnlyColumnAsSet().iterator().next());
         }
 
         @Override
@@ -807,7 +808,7 @@ public class QueryAssertions
         public ExpressionAssert matches(@Language("SQL") String expression)
         {
             MaterializedResult result = runner.execute(session, "VALUES " + expression);
-            Type expectedType = result.getTypes().get(0);
+            Type expectedType = getOnlyElement(result.getTypes());
             Object expectedValue = result.getOnlyColumnAsSet().iterator().next();
 
             return satisfies(actual -> {
