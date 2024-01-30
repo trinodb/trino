@@ -49,7 +49,6 @@ import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.MaterializedRow;
-import io.trino.testing.QueryFailedException;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
@@ -7450,20 +7449,10 @@ public abstract class BaseIcebergConnectorTest
                 .build();
         String tableName = "test_table_with_compression_" + compressionCodec;
         String createTableSql = format("CREATE TABLE %s AS TABLE tpch.tiny.nation", tableName);
-        if (format == IcebergFileFormat.PARQUET && compressionCodec == HiveCompressionCodec.LZ4) {
-            // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
+        // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
+        if ((format == IcebergFileFormat.PARQUET || format == AVRO) && compressionCodec == HiveCompressionCodec.LZ4) {
             assertTrinoExceptionThrownBy(() -> computeActual(session, createTableSql))
-                    .hasMessage("Compression codec LZ4 not supported for Parquet");
-            return;
-        }
-
-        if (format == AVRO && compressionCodec == HiveCompressionCodec.LZ4) {
-            // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
-            assertThatThrownBy(() -> computeActual(session, createTableSql))
-                    .hasMessage("Unsupported compression codec: LZ4")
-                    .isInstanceOf(QueryFailedException.class)
-                    // TODO this should be TrinoException
-                    .cause().hasToString("java.lang.IllegalArgumentException: Unsupported compression codec: LZ4");
+                    .hasMessage("Compression codec LZ4 not supported for " + capitalize(format.name().toLowerCase(ENGLISH)));
             return;
         }
         assertUpdate(session, createTableSql, 25);
@@ -7871,5 +7860,10 @@ public abstract class BaseIcebergConnectorTest
     {
         assertThat(getFieldFromLatestSnapshotSummary(tableName, TRINO_QUERY_ID_NAME))
                 .isEqualTo(queryId.toString());
+    }
+
+    private static String capitalize(String value)
+    {
+        return Character.toUpperCase(value.charAt(0)) + value.substring(1);
     }
 }

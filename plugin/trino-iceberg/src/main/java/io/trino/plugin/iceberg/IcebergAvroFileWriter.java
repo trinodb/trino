@@ -34,6 +34,7 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.iceberg.IcebergAvroDataConversion.toIcebergRecords;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITER_CLOSE_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITER_OPEN_ERROR;
+import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.TableProperties.AVRO_COMPRESSION;
 
@@ -137,7 +138,7 @@ public final class IcebergAvroFileWriter
         return switch (hiveCompressionCodec) {
             case NONE -> "UNCOMPRESSED";
             case SNAPPY -> "SNAPPY";
-            case LZ4 -> "LZ4";
+            case LZ4 -> throw new TrinoException(NOT_SUPPORTED, "Compression codec LZ4 not supported for Avro");
             case ZSTD -> "ZSTD";
             case GZIP -> "GZIP";
         };
