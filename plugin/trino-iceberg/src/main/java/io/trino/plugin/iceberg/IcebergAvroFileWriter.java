@@ -34,7 +34,6 @@ import static io.airlift.slice.SizeOf.instanceSize;
 import static io.trino.plugin.iceberg.IcebergAvroDataConversion.toIcebergRecords;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITER_CLOSE_ERROR;
 import static io.trino.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITER_OPEN_ERROR;
-import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.TableProperties.AVRO_COMPRESSION;
 
@@ -135,19 +134,13 @@ public final class IcebergAvroFileWriter
 
     private static String toIcebergAvroCompressionName(HiveCompressionCodec hiveCompressionCodec)
     {
-        switch (hiveCompressionCodec) {
-            case NONE:
-                return "UNCOMPRESSED";
-            case SNAPPY:
-                return "SNAPPY";
-            case LZ4:
-                return "LZ4";
-            case ZSTD:
-                return "ZSTD";
-            case GZIP:
-                return "GZIP";
-        }
-        throw new TrinoException(GENERIC_INTERNAL_ERROR, "Unexpected hiveCompressionCodec: " + hiveCompressionCodec);
+        return switch (hiveCompressionCodec) {
+            case NONE -> "UNCOMPRESSED";
+            case SNAPPY -> "SNAPPY";
+            case LZ4 -> "LZ4";
+            case ZSTD -> "ZSTD";
+            case GZIP -> "GZIP";
+        };
     }
 
     @Override
