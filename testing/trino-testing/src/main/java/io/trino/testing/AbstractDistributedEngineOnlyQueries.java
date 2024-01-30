@@ -306,8 +306,8 @@ public abstract class AbstractDistributedEngineOnlyQueries
                 .matches("SELECT * FROM tpch.tiny.nation");
 
         // Verify that hidden column is not present in the created table
-        assertThatThrownBy(() -> query("SELECT min(row_number) FROM n"))
-                .hasMessage("line 1:12: Column 'row_number' cannot be resolved");
+        assertThat(query("SELECT min(row_number) FROM n"))
+                .failure().hasMessage("line 1:12: Column 'row_number' cannot be resolved");
         assertUpdate(getSession(), "DROP TABLE n");
     }
 
@@ -328,8 +328,8 @@ public abstract class AbstractDistributedEngineOnlyQueries
                 .matches("SELECT * FROM tpch.tiny.nation LIMIT 0");
 
         // Verify that the hidden column is not present in the created table
-        assertThatThrownBy(() -> query("SELECT row_number FROM n"))
-                .hasMessage("line 1:8: Column 'row_number' cannot be resolved");
+        assertThat(query("SELECT row_number FROM n"))
+                .failure().hasMessage("line 1:8: Column 'row_number' cannot be resolved");
 
         // Insert values from the original table into the created table
         assertUpdate(getSession(), "INSERT INTO n TABLE tpch.tiny.nation", 25);
