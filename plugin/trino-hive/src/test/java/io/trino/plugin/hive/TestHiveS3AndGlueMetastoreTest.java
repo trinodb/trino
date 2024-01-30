@@ -325,6 +325,7 @@ public class TestHiveS3AndGlueMetastoreTest
         assertUpdate("CREATE FUNCTION " + name + "(x double) RETURNS double COMMENT 't88' RETURN x * 8.8");
 
         assertThat(query("SHOW FUNCTIONS"))
+                .result()
                 .skippingTypesCheck()
                 .containsAll(resultBuilder(getSession())
                         .row(name, "bigint", "integer", "scalar", true, "t42")
@@ -343,6 +344,7 @@ public class TestHiveS3AndGlueMetastoreTest
         assertUpdate("CREATE FUNCTION " + name2 + "(s varchar) RETURNS varchar RETURN 'Hello ' || s");
 
         assertThat(query("SHOW FUNCTIONS"))
+                .result()
                 .skippingTypesCheck()
                 .containsAll(resultBuilder(getSession())
                         .row(name, "bigint", "integer", "scalar", true, "t42")

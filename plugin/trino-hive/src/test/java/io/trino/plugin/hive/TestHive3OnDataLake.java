@@ -1826,8 +1826,8 @@ public class TestHive3OnDataLake
                 ")").formatted(getFullyQualifiedTestTableName(tableName)));
 
         // Drop stats for partition which does not exist
-        assertThatThrownBy(() -> query(format("CALL system.drop_stats('%s', '%s', ARRAY[ARRAY['partnotfound', '999']])", HIVE_TEST_SCHEMA, tableName)))
-                .hasMessage("No partition found for name: p_varchar=partnotfound/p_integer=999");
+        assertThat(query(format("CALL system.drop_stats('%s', '%s', ARRAY[ARRAY['partnotfound', '999']])", HIVE_TEST_SCHEMA, tableName)))
+                .failure().hasMessage("No partition found for name: p_varchar=partnotfound/p_integer=999");
 
         assertUpdate("INSERT INTO " + getFullyQualifiedTestTableName(tableName) + " VALUES (1, 'part1', 10) , (2, 'part2', 10), (12, 'part2', 20)", 3);
 
@@ -1857,8 +1857,8 @@ public class TestHive3OnDataLake
         assertUpdate("DELETE FROM " + getFullyQualifiedTestTableName(tableName) + " WHERE p_varchar ='part1' and p_integer = 10");
 
         // Drop stats for partition which does not exist
-        assertThatThrownBy(() -> query(format("CALL system.drop_stats('%s', '%s', ARRAY[ARRAY['part1', '10']])", HIVE_TEST_SCHEMA, tableName)))
-                .hasMessage("No partition found for name: p_varchar=part1/p_integer=10");
+        assertThat(query(format("CALL system.drop_stats('%s', '%s', ARRAY[ARRAY['part1', '10']])", HIVE_TEST_SCHEMA, tableName)))
+                .failure().hasMessage("No partition found for name: p_varchar=part1/p_integer=10");
 
         assertQuery("SHOW STATS FOR " + getFullyQualifiedTestTableName(tableName),
                 """
@@ -1906,6 +1906,7 @@ public class TestHive3OnDataLake
         assertUpdate("CREATE FUNCTION " + name + "(x double) RETURNS double COMMENT 't88' RETURN x * 8.8");
 
         assertThat(query("SHOW FUNCTIONS"))
+                .result()
                 .skippingTypesCheck()
                 .containsAll(resultBuilder(getSession())
                         .row(name, "bigint", "integer", "scalar", true, "t42")
@@ -1924,6 +1925,7 @@ public class TestHive3OnDataLake
         assertUpdate("CREATE FUNCTION " + name2 + "(s varchar) RETURNS varchar RETURN 'Hello ' || s");
 
         assertThat(query("SHOW FUNCTIONS"))
+                .result()
                 .skippingTypesCheck()
                 .containsAll(resultBuilder(getSession())
                         .row(name, "bigint", "integer", "scalar", true, "t42")
@@ -2019,6 +2021,7 @@ public class TestHive3OnDataLake
                         ImmutableList.of("'CZECH'", "'Test Data'", "26", "5"))));
         query(format("SELECT name, comment, nationkey, regionkey FROM %s WHERE regionkey = 5", testTable))
                 .assertThat()
+                .result()
                 .skippingTypesCheck()
                 .containsAll(resultBuilder(getSession())
                         .row("POLAND", "Test Data", 25L, 5L)
@@ -2031,6 +2034,7 @@ public class TestHive3OnDataLake
                         ImmutableList.of("'POLAND'", "'Overwrite'", "25", "5"))));
         query(format("SELECT name, comment, nationkey, regionkey FROM %s WHERE regionkey = 5", testTable))
                 .assertThat()
+                .result()
                 .skippingTypesCheck()
                 .containsAll(resultBuilder(getSession())
                         .row("POLAND", "Overwrite", 25L, 5L)
@@ -2098,12 +2102,14 @@ public class TestHive3OnDataLake
         computeActual(format("INSERT INTO " + testTable + " SELECT %s, %s, regionkey FROM tpch.tiny.nation WHERE nationkey = 9", scaledColumnExpression, scaledColumnExpression));
         query(format("SELECT length(col1) FROM %s", testTable))
                 .assertThat()
+                .result()
                 .skippingTypesCheck()
                 .containsAll(resultBuilder(getSession())
                         .row(114L * scaleFactorInThousands * 1000)
                         .build());
         query(format("SELECT \"$file_size\" BETWEEN %d AND %d FROM %s", fileSizeRangeStart, fileSizeRangeEnd, testTable))
                 .assertThat()
+                .result()
                 .skippingTypesCheck()
                 .containsAll(resultBuilder(getSession())
                         .row(true)

@@ -26,7 +26,6 @@ import static io.trino.spi.StandardErrorCode.JSON_INPUT_CONVERSION_ERROR;
 import static io.trino.spi.StandardErrorCode.PATH_EVALUATION_ERROR;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
-import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -82,8 +81,9 @@ public class TestJsonExistsFunction
                 "SELECT json_exists('" + INPUT + "', 'strict $[100]' UNKNOWN ON ERROR)"))
                 .matches("VALUES cast(null AS boolean)");
 
-        assertTrinoExceptionThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT json_exists('" + INPUT + "', 'strict $[100]' ERROR ON ERROR)"))
+                .failure()
                 .hasErrorCode(PATH_EVALUATION_ERROR)
                 .hasMessage("path evaluation failed: structural error: invalid array subscript: [100, 100] for array of size 3");
     }
@@ -101,8 +101,9 @@ public class TestJsonExistsFunction
                 "SELECT json_exists('" + INPUT + "' FORMAT JSON, 'lax $[1]')"))
                 .matches("VALUES true");
 
-        assertTrinoExceptionThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT json_exists('" + INPUT + "' FORMAT JSON ENCODING UTF8, 'lax $[1]')"))
+                .failure()
                 .hasErrorCode(TYPE_MISMATCH)
                 .hasMessage("line 1:20: Cannot read input of type varchar(15) as JSON using formatting JSON ENCODING UTF8");
 
@@ -138,9 +139,9 @@ public class TestJsonExistsFunction
                 .matches("VALUES true");
 
         // the encoding must match the actual data
-        String finalVarbinaryLiteral = varbinaryLiteral;
-        assertTrinoExceptionThrownBy(() -> assertions.query(
-                "SELECT json_exists(" + finalVarbinaryLiteral + " FORMAT JSON ENCODING UTF8, 'lax $[1]' ERROR ON ERROR)"))
+        assertThat(assertions.query(
+                "SELECT json_exists(" + varbinaryLiteral + " FORMAT JSON ENCODING UTF8, 'lax $[1]' ERROR ON ERROR)"))
+                .failure()
                 .hasErrorCode(JSON_INPUT_CONVERSION_ERROR)
                 .hasMessage("conversion to JSON failed: ");
     }
@@ -167,8 +168,9 @@ public class TestJsonExistsFunction
                 "SELECT json_exists('" + INCORRECT_INPUT + "', 'strict $[1]' UNKNOWN ON ERROR)"))
                 .matches("VALUES cast(null AS boolean)");
 
-        assertTrinoExceptionThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT json_exists('" + INCORRECT_INPUT + "', 'strict $[1]' ERROR ON ERROR)"))
+                .failure()
                 .hasErrorCode(JSON_INPUT_CONVERSION_ERROR)
                 .hasMessage("conversion to JSON failed: ");
     }
@@ -177,8 +179,9 @@ public class TestJsonExistsFunction
     public void testPassingClause()
     {
         // watch out for case sensitive identifiers in JSON path
-        assertTrinoExceptionThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT json_exists('" + INPUT + "', 'lax $number + 1' PASSING 2 AS number)"))
+                .failure()
                 .hasErrorCode(INVALID_PATH)
                 .hasMessage("line 1:39: no value passed for parameter number. Try quoting \"number\" in the PASSING clause to match case");
 
@@ -196,8 +199,9 @@ public class TestJsonExistsFunction
                 "SELECT json_exists('" + INPUT + "', 'lax $array[0]' PASSING '[...' FORMAT JSON AS \"array\")"))
                 .matches("VALUES false");
 
-        assertTrinoExceptionThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT json_exists('" + INPUT + "', 'lax $array[0]' PASSING '[...' FORMAT JSON AS \"array\" ERROR ON ERROR)"))
+                .failure()
                 .hasErrorCode(JSON_INPUT_CONVERSION_ERROR)
                 .hasMessage("conversion to JSON failed: ");
 
@@ -210,8 +214,9 @@ public class TestJsonExistsFunction
     @Test
     public void testIncorrectPath()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT json_exists('" + INPUT + "', 'certainly not a valid path')"))
+                .failure()
                 .hasErrorCode(SYNTAX_ERROR)
                 .hasMessage("line 1:40: mismatched input 'certainly' expecting {'lax', 'strict'}");
     }

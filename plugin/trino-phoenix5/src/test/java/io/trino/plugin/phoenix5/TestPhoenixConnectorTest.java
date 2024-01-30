@@ -150,15 +150,15 @@ public class TestPhoenixConnectorTest
         // multiplication/division/modulo by zero
         assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey * 0 != 0"))
                 .isFullyPushedDown();
-        assertThatThrownBy(() -> query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey / 0 = 0"))
-                .satisfies(this::verifyDivisionByZeroFailure);
-        assertThatThrownBy(() -> query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey % 0 = 0"))
-                .satisfies(this::verifyDivisionByZeroFailure);
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey / 0 = 0"))
+                .failure().satisfies(this::verifyDivisionByZeroFailure);
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey % 0 = 0"))
+                .failure().satisfies(this::verifyDivisionByZeroFailure);
         // Expression that evaluates to 0 for some rows on RHS of modulus
-        assertThatThrownBy(() -> query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) / (regionkey - 1) = 2"))
-                .satisfies(this::verifyDivisionByZeroFailure);
-        assertThatThrownBy(() -> query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % (regionkey - 1) = 2"))
-                .satisfies(this::verifyDivisionByZeroFailure);
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) / (regionkey - 1) = 2"))
+                .failure().satisfies(this::verifyDivisionByZeroFailure);
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % (regionkey - 1) = 2"))
+                .failure().satisfies(this::verifyDivisionByZeroFailure);
 
         // multiplicative/divisive identity
         assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey * 1 = nationkey"))

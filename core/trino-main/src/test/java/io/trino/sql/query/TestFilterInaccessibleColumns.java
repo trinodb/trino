@@ -33,7 +33,6 @@ import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -95,7 +94,7 @@ public class TestFilterInaccessibleColumns
         accessControl.reset();
 
         assertThat(assertions.query("DESCRIBE nation"))
-                .matches(materializedRows -> materializedRows
+                .result().matches(materializedRows -> materializedRows
                         .getMaterializedRows().stream()
                         .anyMatch(materializedRow -> materializedRow.getField(0).equals("comment")));
     }
@@ -107,7 +106,7 @@ public class TestFilterInaccessibleColumns
 
         accessControl.deny(privilege(USER, "nation.comment", SELECT_COLUMN));
         assertThat(assertions.query("DESCRIBE nation"))
-                .matches(materializedRows -> materializedRows
+                .result().matches(materializedRows -> materializedRows
                         .getMaterializedRows().stream()
                         .noneMatch(materializedRow -> materializedRow.getField(0).equals("comment")));
     }
@@ -118,7 +117,7 @@ public class TestFilterInaccessibleColumns
         accessControl.reset();
 
         assertThat(assertions.query("SHOW COLUMNS FROM nation"))
-                .matches(materializedRows -> materializedRows
+                .result().matches(materializedRows -> materializedRows
                         .getMaterializedRows().stream()
                         .anyMatch(materializedRow -> materializedRow.getField(0).equals("comment")));
     }
@@ -130,7 +129,7 @@ public class TestFilterInaccessibleColumns
 
         accessControl.deny(privilege("nation.comment", SELECT_COLUMN));
         assertThat(assertions.query("SHOW COLUMNS FROM nation"))
-                .matches(materializedRows -> materializedRows
+                .result().matches(materializedRows -> materializedRows
                         .getMaterializedRows().stream()
                         .noneMatch(materializedRow -> materializedRow.getField(0).equals("comment")));
     }
@@ -149,8 +148,8 @@ public class TestFilterInaccessibleColumns
                 .matches("VALUES (BIGINT '6', CAST('FRANCE' AS VARCHAR(25)), BIGINT '3')");
 
         // Select all columns explicitly
-        assertThatThrownBy(() -> assertions.query("SELECT nationkey, name, regionkey, comment FROM nation WHERE name = 'FRANCE'"))
-                .hasMessage("Access Denied: Cannot select from columns [nationkey, regionkey, name, comment] in table or view test_catalog.tiny.nation");
+        assertThat(assertions.query("SELECT nationkey, name, regionkey, comment FROM nation WHERE name = 'FRANCE'"))
+                .failure().hasMessage("Access Denied: Cannot select from columns [nationkey, regionkey, name, comment] in table or view test_catalog.tiny.nation");
     }
 
     @Test
@@ -185,8 +184,8 @@ public class TestFilterInaccessibleColumns
                         .expression("comment IS NOT null")
                         .build());
         accessControl.deny(privilege(USER, "nation.comment", SELECT_COLUMN));
-        assertThatThrownBy(() -> assertions.query("SELECT * FROM nation WHERE name = 'FRANCE'"))
-                .hasMessage("Access Denied: Cannot select from columns [nationkey, regionkey, name, comment] in table or view test_catalog.tiny.nation");
+        assertThat(assertions.query("SELECT * FROM nation WHERE name = 'FRANCE'"))
+                .failure().hasMessage("Access Denied: Cannot select from columns [nationkey, regionkey, name, comment] in table or view test_catalog.tiny.nation");
     }
 
     @Test
@@ -204,8 +203,8 @@ public class TestFilterInaccessibleColumns
         accessControl.rowFilter(table, ADMIN, filter);
         accessControl.rowFilter(table, USER, filter);
 
-        assertThatThrownBy(() -> assertions.query(user(USER), "SELECT * FROM nation WHERE name = 'FRANCE'"))
-                .hasMessage("Access Denied: Cannot select from columns [nationkey, regionkey, name, comment] in table or view test_catalog.tiny.nation");
+        assertThat(assertions.query(user(USER), "SELECT * FROM nation WHERE name = 'FRANCE'"))
+                .failure().hasMessage("Access Denied: Cannot select from columns [nationkey, regionkey, name, comment] in table or view test_catalog.tiny.nation");
         assertThat(assertions.query(user(ADMIN), "SELECT * FROM nation WHERE name = 'FRANCE'"))
                 .matches("VALUES (BIGINT '6', CAST('FRANCE' AS VARCHAR(25)), BIGINT '3', CAST('refully final requests. regular, ironi' AS VARCHAR(152)))");
     }
@@ -244,8 +243,8 @@ public class TestFilterInaccessibleColumns
                         .expression("CASE nationkey WHEN 6 THEN 'masked-comment' ELSE comment END")
                         .build());
 
-        assertThatThrownBy(() -> assertions.query("SELECT * FROM nation WHERE name = 'FRANCE'"))
-                .hasMessage("Access Denied: Cannot select from columns [nationkey, regionkey, name, comment] in table or view test_catalog.tiny.nation");
+        assertThat(assertions.query("SELECT * FROM nation WHERE name = 'FRANCE'"))
+                .failure().hasMessage("Access Denied: Cannot select from columns [nationkey, regionkey, name, comment] in table or view test_catalog.tiny.nation");
     }
 
     @Test
@@ -286,8 +285,8 @@ public class TestFilterInaccessibleColumns
         accessControl.columnMask(table, "comment", ADMIN, mask);
         accessControl.columnMask(table, "comment", USER, mask);
 
-        assertThatThrownBy(() -> assertions.query(user(USER), "SELECT * FROM nation WHERE name = 'FRANCE'"))
-                .hasMessage("Access Denied: Cannot select from columns [nationkey, regionkey, name, comment] in table or view test_catalog.tiny.nation");
+        assertThat(assertions.query(user(USER), "SELECT * FROM nation WHERE name = 'FRANCE'"))
+                .failure().hasMessage("Access Denied: Cannot select from columns [nationkey, regionkey, name, comment] in table or view test_catalog.tiny.nation");
         assertThat(assertions.query(user(ADMIN), "SELECT * FROM nation WHERE name = 'CANADA'"))
                 .matches("VALUES (BIGINT '3', CAST('CANADA' AS VARCHAR(25)), BIGINT '1', CAST('masked-comment' AS VARCHAR(152)))");
     }
@@ -299,8 +298,8 @@ public class TestFilterInaccessibleColumns
 
         // Hide name but use it in the query predicate
         accessControl.deny(privilege(USER, "nation.name", SELECT_COLUMN));
-        assertThatThrownBy(() -> assertions.query("SELECT * FROM nation WHERE name = 'FRANCE'"))
-                .hasMessage("Access Denied: Cannot select from columns [nationkey, regionkey, name, comment] in table or view test_catalog.tiny.nation");
+        assertThat(assertions.query("SELECT * FROM nation WHERE name = 'FRANCE'"))
+                .failure().hasMessage("Access Denied: Cannot select from columns [nationkey, regionkey, name, comment] in table or view test_catalog.tiny.nation");
     }
 
     @Test
@@ -309,8 +308,8 @@ public class TestFilterInaccessibleColumns
         accessControl.reset();
 
         assertThat(assertions.query("SELECT * FROM nation,customer WHERE customer.nationkey = nation.nationkey AND nation.name = 'FRANCE' AND customer.name='Customer#000001477'"))
-                .matches(materializedRows ->
-                    materializedRows.getMaterializedRows().get(0).getField(11).equals("ites nag blithely alongside of the ironic accounts. accounts use. carefully silent deposits"));
+                .result().matches(materializedRows ->
+                        materializedRows.getMaterializedRows().get(0).getField(11).equals("ites nag blithely alongside of the ironic accounts. accounts use. carefully silent deposits"));
     }
 
     @Test
@@ -320,7 +319,7 @@ public class TestFilterInaccessibleColumns
 
         accessControl.deny(privilege(USER, "nation.comment", SELECT_COLUMN));
         assertThat(assertions.query("SELECT * FROM nation,customer WHERE customer.nationkey = nation.nationkey AND nation.name = 'FRANCE' AND customer.name='Customer#000001477'"))
-                .matches(materializedRows ->
+                .result().matches(materializedRows ->
                         materializedRows.getMaterializedRows().get(0).getFields().size() == 11);
     }
 
@@ -348,8 +347,8 @@ public class TestFilterInaccessibleColumns
         accessControl.reset();
 
         accessControl.deny(privilege(USER, "nation.name", SELECT_COLUMN));
-        assertThatThrownBy(() -> assertions.query("SELECT * FROM (SELECT concat(name,'-test') FROM nation WHERE name = 'FRANCE')"))
-                .hasMessage("Access Denied: Cannot select from columns [name] in table or view test_catalog.tiny.nation");
+        assertThat(assertions.query("SELECT * FROM (SELECT concat(name,'-test') FROM nation WHERE name = 'FRANCE')"))
+                .failure().hasMessage("Access Denied: Cannot select from columns [name] in table or view test_catalog.tiny.nation");
     }
 
     private Session user(String user)

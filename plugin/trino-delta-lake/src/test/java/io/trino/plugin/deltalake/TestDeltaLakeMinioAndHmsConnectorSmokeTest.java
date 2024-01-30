@@ -189,10 +189,10 @@ public class TestDeltaLakeMinioAndHmsConnectorSmokeTest
         assertUpdate("INSERT INTO " + tableName + " VALUES(2)", 1);
         assertQuery("SELECT * FROM " + tableName, "VALUES (1), (2)");
 
-        assertThatThrownBy(() -> query("INSERT INTO " + tableName + " VALUES(3)"))
-                .hasMessageContaining("Check constraint violation: (\"dummy\" < 3)");
-        assertThatThrownBy(() -> query("UPDATE " + tableName + " SET dummy = 3 WHERE dummy = 1"))
-                .hasMessageContaining("Check constraint violation: (\"dummy\" < 3)");
+        assertThat(query("INSERT INTO " + tableName + " VALUES(3)"))
+                .failure().hasMessageContaining("Check constraint violation: (\"dummy\" < 3)");
+        assertThat(query("UPDATE " + tableName + " SET dummy = 3 WHERE dummy = 1"))
+                .failure().hasMessageContaining("Check constraint violation: (\"dummy\" < 3)");
 
         assertQuery("SELECT * FROM " + tableName, "VALUES (1), (2)");
     }
@@ -211,10 +211,10 @@ public class TestDeltaLakeMinioAndHmsConnectorSmokeTest
         assertUpdate("INSERT INTO " + tableName + " VALUES 2", 1);
         assertQuery("SELECT * FROM " + tableName, "VALUES 1, 2");
 
-        assertThatThrownBy(() -> query("INSERT INTO " + tableName + " VALUES 3"))
-                .hasMessageContaining("Check constraint violation: (\"col_invariants\" < 3)");
-        assertThatThrownBy(() -> query("UPDATE " + tableName + " SET col_invariants = 3 WHERE col_invariants = 1"))
-                .hasMessageContaining("Check constraint violation: (\"col_invariants\" < 3)");
+        assertThat(query("INSERT INTO " + tableName + " VALUES 3"))
+                .failure().hasMessageContaining("Check constraint violation: (\"col_invariants\" < 3)");
+        assertThat(query("UPDATE " + tableName + " SET col_invariants = 3 WHERE col_invariants = 1"))
+                .failure().hasMessageContaining("Check constraint violation: (\"col_invariants\" < 3)");
 
         assertQuery("SELECT * FROM " + tableName, "VALUES 1, 2");
     }
@@ -230,15 +230,15 @@ public class TestDeltaLakeMinioAndHmsConnectorSmokeTest
                 tableName,
                 getLocationForTable(bucketName, tableName)));
 
-        assertThatThrownBy(() -> query("INSERT INTO " + tableName + " VALUES(3)"))
-                .hasMessageContaining("Check constraint violation: (\"dummy\" < 3)");
+        assertThat(query("INSERT INTO " + tableName + " VALUES(3)"))
+                .failure().hasMessageContaining("Check constraint violation: (\"dummy\" < 3)");
 
         assertUpdate("ALTER TABLE " + tableName + " ADD COLUMN c INT");
         assertUpdate("COMMENT ON COLUMN " + tableName + ".c IS 'example column comment'");
         assertUpdate("COMMENT ON TABLE " + tableName + " IS 'example table comment'");
 
-        assertThatThrownBy(() -> query("INSERT INTO " + tableName + " VALUES(3, 30)"))
-                .hasMessageContaining("Check constraint violation: (\"dummy\" < 3)");
+        assertThat(query("INSERT INTO " + tableName + " VALUES(3, 30)"))
+                .failure().hasMessageContaining("Check constraint violation: (\"dummy\" < 3)");
 
         assertUpdate("INSERT INTO " + tableName + " VALUES(2, 20)", 1);
         assertQuery("SELECT * FROM " + tableName, "VALUES (1, NULL), (2, 20)");

@@ -19,7 +19,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -104,21 +103,21 @@ public class TestOrderedAggregation
                 "SELECT x, y, array_agg(z ORDER BY z) FROM (VALUES (1, 2, 3), (1, 2, 1), (2, 1, 3), (2, 1, 4)) t(x, y, z) GROUP BY GROUPING SETS ((x), (x, y))"))
                 .matches("VALUES (1, NULL, ARRAY[1, 3]), (2, NULL, ARRAY[3, 4]), (1, 2, ARRAY[1, 3]), (2, 1, ARRAY[3, 4])");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT array_agg(z ORDER BY z) OVER (PARTITION BY x) FROM (VALUES (1, 2, 3), (1, 2, 1), (2, 1, 3), (2, 1, 4)) t(x, y, z) GROUP BY x, z"))
-                .hasMessageMatching(".* Window function with ORDER BY is not supported");
+                .failure().hasMessageMatching(".* Window function with ORDER BY is not supported");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT array_agg(DISTINCT x ORDER BY y) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)"))
-                .hasMessageMatching(".* For aggregate function with DISTINCT, ORDER BY expressions must appear in arguments");
+                .failure().hasMessageMatching(".* For aggregate function with DISTINCT, ORDER BY expressions must appear in arguments");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT array_agg(DISTINCT x+y ORDER BY y) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)"))
-                .hasMessageMatching(".* For aggregate function with DISTINCT, ORDER BY expressions must appear in arguments");
+                .failure().hasMessageMatching(".* For aggregate function with DISTINCT, ORDER BY expressions must appear in arguments");
 
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT x, array_agg(DISTINCT y ORDER BY z + y DESC) FROM (VALUES (1, 2, 2), (2, 2, 3), (2, 4, 5), (3, 4, 4), (3, 2, 1), (1, 1, 1)) t(x, y, z) GROUP BY x"))
-                .hasMessageMatching(".* For aggregate function with DISTINCT, ORDER BY expressions must appear in arguments");
+                .failure().hasMessageMatching(".* For aggregate function with DISTINCT, ORDER BY expressions must appear in arguments");
 
         assertThat(assertions.query(
                 "SELECT multimap_agg(x, y ORDER BY z) FROM (VALUES (1, 2, 2), (1, 5, 5), (2, 1, 5), (3, 4, 4), (2, 5, 1), (1, 1, 1)) t(x, y, z)"))
