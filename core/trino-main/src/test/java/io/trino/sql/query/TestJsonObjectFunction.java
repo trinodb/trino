@@ -25,7 +25,6 @@ import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.JSON_INPUT_CONVERSION_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -80,8 +79,9 @@ public class TestJsonObjectFunction
     @Test
     public void testNullKey()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT json_object(CAST(null AS varchar) : 1)"))
+                .failure()
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("null value passed for JSON object key to JSON_OBJECT function");
     }
@@ -109,19 +109,22 @@ public class TestJsonObjectFunction
     public void testDuplicateKey()
     {
         // we don't support it because it requires creating a JSON object with duplicate key
-        assertTrinoExceptionThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT json_object('key' : 1, 'key' : 2 WITHOUT UNIQUE KEYS)"))
+                .failure()
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("cannot construct a JSON object with duplicate key");
 
         // WITHOUT UNIQUE KEYS is the default option
-        assertTrinoExceptionThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT json_object('key' : 1, 'key' : 2)"))
+                .failure()
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("cannot construct a JSON object with duplicate key");
 
-        assertTrinoExceptionThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT json_object('key' : 1, 'key' : 2 WITH UNIQUE KEYS)"))
+                .failure()
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
                 .hasMessage("duplicate key passed to JSON_OBJECT function");
     }
@@ -142,8 +145,9 @@ public class TestJsonObjectFunction
                 .matches("VALUES VARCHAR '{\"key\":{\"a\":1}}'");
 
         // malformed string to be read as JSON
-        assertTrinoExceptionThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT json_object('key' : '[...' FORMAT JSON)"))
+                .failure()
                 .hasErrorCode(JSON_INPUT_CONVERSION_ERROR);
 
         // duplicate key inside the formatted value: only one entry is retained
@@ -156,8 +160,9 @@ public class TestJsonObjectFunction
                 .matches("VALUES VARCHAR '{\"key\":{\"a\":1}}'");
 
         // in presence of input value with FORMAT, the option WITH UNIQUE KEYS is not supported, because the input function does not support this semantics
-        assertTrinoExceptionThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT json_object('key' : '{\"a\" : 1, \"a\" : 1}' FORMAT JSON WITH UNIQUE KEYS)"))
+                .failure()
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessage("line 1:8: WITH UNIQUE KEYS behavior is not supported for JSON_OBJECT function when input expression has FORMAT");
     }
@@ -180,8 +185,9 @@ public class TestJsonObjectFunction
                 .matches("VALUES VARCHAR '{\"key\":\"2001-01-31\"}'");
 
         // HyperLogLog cannot be cast to varchar
-        assertTrinoExceptionThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT json_object('key' : (approx_set(1)))"))
+                .failure()
                 .hasErrorCode(NOT_SUPPORTED);
     }
 

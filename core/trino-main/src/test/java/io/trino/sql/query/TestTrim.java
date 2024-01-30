@@ -22,7 +22,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -329,7 +328,8 @@ public class TestTrim
 
     private void assertInvalidFunction(@Language("SQL") String actual, String message)
     {
-        assertTrinoExceptionThrownBy(() -> assertions.query("SELECT " + actual))
+        assertThat(assertions.query("SELECT " + actual))
+                .failure()
                 .hasMessage(message)
                 .hasErrorCode(INVALID_FUNCTION_ARGUMENT);
     }

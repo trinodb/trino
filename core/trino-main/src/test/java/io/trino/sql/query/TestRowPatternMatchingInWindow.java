@@ -20,7 +20,6 @@ import org.junit.jupiter.api.parallel.Execution;
 
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -660,12 +659,12 @@ public class TestRowPatternMatchingInWindow
                         "     (6, null, null) ");
 
         // Exception: trying to resume matching from the first row of the match. If uncaught, it would cause an infinite loop.
-        assertThatThrownBy(() -> assertions.query(format(query, "AFTER MATCH SKIP TO A")))
-                .hasMessage("AFTER MATCH SKIP failed: cannot skip to first row of match");
+        assertThat(assertions.query(format(query, "AFTER MATCH SKIP TO A")))
+                .failure().hasMessage("AFTER MATCH SKIP failed: cannot skip to first row of match");
 
         // Exception: trying to skip to label which was not matched
-        assertThatThrownBy(() -> assertions.query(format(query, "AFTER MATCH SKIP TO D")))
-                .hasMessage("AFTER MATCH SKIP failed: pattern variable is not present in match");
+        assertThat(assertions.query(format(query, "AFTER MATCH SKIP TO D")))
+                .failure().hasMessage("AFTER MATCH SKIP failed: pattern variable is not present in match");
     }
 
     @Test

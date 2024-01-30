@@ -30,7 +30,6 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.containers.Minio.MINIO_ACCESS_KEY;
 import static io.trino.testing.containers.Minio.MINIO_SECRET_KEY;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -111,16 +110,16 @@ public class TestDeltaLakeSharedHiveMetastoreWithViews
         assertQuery("SHOW TABLES FROM delta." + schema, "VALUES 'hive_table', 'hive_view', 'delta_table'");
         assertQuery("SHOW TABLES FROM hive." + schema, "VALUES 'hive_table', 'hive_view', 'delta_table'");
 
-        assertThatThrownBy(() -> query("SHOW CREATE TABLE delta." + schema + ".hive_table"))
-                .hasMessageContaining("not a Delta Lake table");
-        assertThatThrownBy(() -> query("SHOW CREATE TABLE delta." + schema + ".hive_view"))
-                .hasMessageContaining("not a Delta Lake table");
-        assertThatThrownBy(() -> query("SHOW CREATE TABLE hive." + schema + ".delta_table"))
-                .hasMessageContaining("Cannot query Delta Lake table");
+        assertThat(query("SHOW CREATE TABLE delta." + schema + ".hive_table"))
+                .failure().hasMessageContaining("not a Delta Lake table");
+        assertThat(query("SHOW CREATE TABLE delta." + schema + ".hive_view"))
+                .failure().hasMessageContaining("not a Delta Lake table");
+        assertThat(query("SHOW CREATE TABLE hive." + schema + ".delta_table"))
+                .failure().hasMessageContaining("Cannot query Delta Lake table");
 
-        assertThatThrownBy(() -> query("DESCRIBE delta." + schema + ".hive_table"))
-                .hasMessageContaining("not a Delta Lake table");
-        assertThatThrownBy(() -> query("DESCRIBE hive." + schema + ".delta_table"))
-                .hasMessageContaining("Cannot query Delta Lake table");
+        assertThat(query("DESCRIBE delta." + schema + ".hive_table"))
+                .failure().hasMessageContaining("not a Delta Lake table");
+        assertThat(query("DESCRIBE hive." + schema + ".delta_table"))
+                .failure().hasMessageContaining("Cannot query Delta Lake table");
     }
 }

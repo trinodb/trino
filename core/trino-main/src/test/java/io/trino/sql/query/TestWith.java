@@ -29,7 +29,6 @@ import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -85,8 +84,8 @@ public class TestWith
                 .matches("SELECT * FROM nation");
 
         // try access hidden column
-        assertThatThrownBy(() -> assertions.query("WITH t AS (TABLE nation) " +
+        assertThat(assertions.query("WITH t AS (TABLE nation) " +
                 "SELECT min(row_number) FROM t"))
-                .hasMessage("line 1:37: Column 'row_number' cannot be resolved");
+                .failure().hasMessage("line 1:37: Column 'row_number' cannot be resolved");
     }
 }
