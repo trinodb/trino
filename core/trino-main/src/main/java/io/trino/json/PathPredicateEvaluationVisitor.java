@@ -29,7 +29,7 @@ import io.trino.json.ir.IrNegationPredicate;
 import io.trino.json.ir.IrPathNode;
 import io.trino.json.ir.IrPredicate;
 import io.trino.json.ir.IrStartsWithPredicate;
-import io.trino.json.ir.SqlJsonLiteralConverter.JsonLiteralConversionException;
+import io.trino.json.ir.JsonLiteralConversionException;
 import io.trino.json.ir.TypedValue;
 import io.trino.operator.scalar.StringFunctions;
 import io.trino.spi.function.OperatorType;
