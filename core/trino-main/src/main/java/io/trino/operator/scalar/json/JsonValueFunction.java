@@ -22,7 +22,7 @@ import io.trino.json.JsonPathEvaluator;
 import io.trino.json.JsonPathInvocationContext;
 import io.trino.json.PathEvaluationException;
 import io.trino.json.ir.IrJsonPath;
-import io.trino.json.ir.SqlJsonLiteralConverter.JsonLiteralConversionException;
+import io.trino.json.ir.JsonLiteralConversionException;
 import io.trino.json.ir.TypedValue;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
@@ -53,7 +53,6 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.json.JsonInputErrorNode.JSON_ERROR;
 import static io.trino.json.ir.SqlJsonLiteralConverter.getTypedValue;
 import static io.trino.operator.scalar.json.ParameterUtil.getParametersArray;
-import static io.trino.spi.StandardErrorCode.JSON_VALUE_RESULT_ERROR;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -328,19 +327,5 @@ public class JsonValueFunction
                 return defaultValue;
         }
         throw new IllegalStateException("unexpected behavior");
-    }
-
-    public static class JsonValueResultException
-            extends TrinoException
-    {
-        public JsonValueResultException(String message)
-        {
-            super(JSON_VALUE_RESULT_ERROR, "cannot extract SQL scalar from JSON: " + message);
-        }
-
-        public JsonValueResultException(String message, Throwable cause)
-        {
-            super(JSON_VALUE_RESULT_ERROR, "cannot extract SQL scalar from JSON: " + message, cause);
-        }
     }
 }
