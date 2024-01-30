@@ -56,7 +56,7 @@ public final class TrinoExceptionAssert
     {
         Optional<FailureInfo> failureInfo = TestUtil.getFailureInfo(throwable);
         if (failureInfo.isEmpty()) {
-            throw new AssertionError("Expected TrinoException or wrapper, but got: " + throwable.getClass().getName() + " " + throwable);
+            throw new AssertionError("Expected TrinoException or wrapper, but got: " + throwable.getClass().getName() + " " + throwable, throwable);
         }
         return new TrinoExceptionAssert(throwable, failureInfo.get());
     }
