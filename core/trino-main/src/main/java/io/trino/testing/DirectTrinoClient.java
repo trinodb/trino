@@ -153,7 +153,7 @@ class DirectTrinoClient
 
         if (queryInfo.getState() != FINISHED) {
             if (queryInfo.getFailureInfo() == null) {
-                throw new QueryFailedException(queryInfo.getQueryId(), "Query failed with failure info");
+                throw new QueryFailedException(queryInfo.getQueryId(), "Query failed without failure info");
             }
             RuntimeException remoteException = queryInfo.getFailureInfo().toException();
             throw new QueryFailedException(queryInfo.getQueryId(), Optional.ofNullable(remoteException.getMessage()).orElseGet(remoteException::toString), remoteException);
