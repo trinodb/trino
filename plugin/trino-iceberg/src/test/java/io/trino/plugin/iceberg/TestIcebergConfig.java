@@ -66,7 +66,9 @@ public class TestIcebergConfig
                 .setMaterializedViewsStorageSchema(null)
                 .setRegisterTableProcedureEnabled(false)
                 .setSortedWritingEnabled(true)
-                .setQueryPartitionFilterRequired(false));
+                .setQueryPartitionFilterRequired(false)
+                .setObjectStoreEnabled(false)
+                .setDataLocation(null));
     }
 
     @Test
@@ -97,6 +99,8 @@ public class TestIcebergConfig
                 .put("iceberg.register-table-procedure.enabled", "true")
                 .put("iceberg.sorted-writing-enabled", "false")
                 .put("iceberg.query-partition-filter-required", "true")
+                .put("iceberg.object-store.enabled", "true")
+                .put("iceberg.data-location", "data_location")
                 .buildOrThrow();
 
         IcebergConfig expected = new IcebergConfig()
@@ -123,7 +127,9 @@ public class TestIcebergConfig
                 .setMaterializedViewsStorageSchema("mv_storage_schema")
                 .setRegisterTableProcedureEnabled(true)
                 .setSortedWritingEnabled(false)
-                .setQueryPartitionFilterRequired(true);
+                .setQueryPartitionFilterRequired(true)
+                .setObjectStoreEnabled(true)
+                .setDataLocation("data_location");
 
         assertFullMapping(properties, expected);
     }

@@ -1031,10 +1031,7 @@ public class TestIcebergSparkCompatibility
         assertThat(queryResult).hasRowsCount(1).hasColumnsCount(1);
         assertTrue(((String) queryResult.getOnlyValue()).contains(dataPath));
 
-        // TODO: support path override in Iceberg table creation: https://github.com/trinodb/trino/issues/8861
-        assertQueryFailure(() -> onTrino().executeQuery("DROP TABLE " + trinoTableName))
-                .hasMessageContaining("contains Iceberg path override properties and cannot be dropped from Trino");
-        onSpark().executeQuery("DROP TABLE " + sparkTableName);
+        onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }
 
     @Test(groups = {ICEBERG, ICEBERG_JDBC, PROFILE_SPECIFIC_TESTS, ICEBERG_NESSIE}, dataProvider = "storageFormatsWithSpecVersion")
@@ -1063,6 +1060,33 @@ public class TestIcebergSparkCompatibility
         assertQueryFailure(() -> onTrino().executeQuery("DROP TABLE " + trinoTableName))
                 .hasMessageContaining("contains Iceberg path override properties and cannot be dropped from Trino");
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
+    }
+
+    @Test(groups = {ICEBERG, ICEBERG_JDBC, PROFILE_SPECIFIC_TESTS, ICEBERG_NESSIE}, dataProvider = "storageFormatsWithSpecVersion")
+    public void testSparkReadingTrinoObjectStorage(StorageFormat storageFormat, int specVersion)
+    {
+        String baseTableName = toLowerCase("test_trino_object_storage_location_provider_" + storageFormat);
+        String sparkTableName = sparkTableName(baseTableName);
+        String trinoTableName = trinoTableName(baseTableName);
+        String dataPath = "hdfs://hadoop-master:9000/user/hive/warehouse/test_trino_object_storage_location_provider/obj-data";
+
+        onTrino().executeQuery(format("CREATE TABLE %s (_string STRING, _bigint BIGINT) WITH (" +
+                          "object_store_enabled = true," +
+                          "data_location = '%s'," +
+                          "format = '%s'," +
+                          "format_version = %s)",
+                  trinoTableName, dataPath, storageFormat, specVersion));
+        onTrino().executeQuery(format("INSERT INTO %s VALUES ('a_string', 1000000000000000)", trinoTableName));
+
+        Row result = row("a_string", 1000000000000000L);
+        assertThat(onSpark().executeQuery(format("SELECT _string, _bigint FROM %s", sparkTableName))).containsOnly(result);
+        assertThat(onTrino().executeQuery(format("SELECT _string, _bigint FROM %s", trinoTableName))).containsOnly(result);
+
+        QueryResult queryResult = onTrino().executeQuery(format("SELECT file_path FROM %s", trinoTableName("\"" + baseTableName + "$files\"")));
+        assertThat(queryResult).hasRowsCount(1).hasColumnsCount(1);
+        assertTrue(((String) queryResult.getOnlyValue()).contains(dataPath));
+
+        onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }
 
     private static final List<String> SPECIAL_CHARACTER_VALUES = ImmutableList.of(
