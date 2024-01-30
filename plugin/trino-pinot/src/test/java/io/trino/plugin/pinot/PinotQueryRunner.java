@@ -15,17 +15,11 @@ package io.trino.plugin.pinot;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.inject.Module;
 import io.airlift.log.Logger;
 import io.trino.Session;
-import io.trino.SystemSessionProperties;
-import io.trino.connector.CatalogServiceProvider;
-import io.trino.metadata.SessionPropertyManager;
 import io.trino.plugin.pinot.client.PinotHostMapper;
 import io.trino.plugin.tpch.TpchPlugin;
-import io.trino.spi.session.PropertyMetadata;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
@@ -45,7 +39,6 @@ import java.util.Optional;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.trino.plugin.pinot.BasePinotConnectorSmokeTest.schemaRegistryAwareProducer;
 import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_LATEST_IMAGE_NAME;
-import static io.trino.testing.TestingHandles.createTestCatalogHandle;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.time.temporal.ChronoUnit.DAYS;
 
@@ -58,7 +51,7 @@ public class PinotQueryRunner
     public static DistributedQueryRunner createPinotQueryRunner(Map<String, String> extraProperties, Map<String, String> extraPinotProperties, Optional<Module> extension)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession("default"))
+        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession())
                 .setExtraProperties(extraProperties)
                 .build();
         queryRunner.installPlugin(new PinotPlugin(extension));
@@ -66,20 +59,11 @@ public class PinotQueryRunner
         return queryRunner;
     }
 
-    public static Session createSession(String schema)
+    private static Session createSession()
     {
-        return createSession(schema, new PinotConfig());
-    }
-
-    public static Session createSession(String schema, PinotConfig config)
-    {
-        PinotSessionProperties pinotSessionProperties = new PinotSessionProperties(config);
-        SessionPropertyManager sessionPropertyManager = new SessionPropertyManager(
-                ImmutableSet.of(new SystemSessionProperties()),
-                CatalogServiceProvider.singleton(createTestCatalogHandle(PINOT_CATALOG), Maps.uniqueIndex(pinotSessionProperties.getSessionProperties(), PropertyMetadata::getName)));
-        return testSessionBuilder(sessionPropertyManager)
+        return testSessionBuilder()
                 .setCatalog(PINOT_CATALOG)
-                .setSchema(schema)
+                .setSchema("default")
                 .build();
     }
 
