@@ -93,6 +93,6 @@ public class PageSourceManager
         if (!provider.shouldPerformDynamicRowFiltering()) {
             return provider.getUnenforcedPredicate(connectorSession, split.getConnectorSplit(), table.getConnectorHandle(), dynamicFilter);
         }
-        return dynamicRowFilteringPageSourceProvider.simplifyPredicate(provider, session, connectorSession, split.getConnectorSplit(), table.getConnectorHandle(), dynamicFilter);
+        return dynamicRowFilteringPageSourceProvider.getUnenforcedPredicate(provider, session, connectorSession, split.getConnectorSplit(), table.getConnectorHandle(), dynamicFilter);
     }
 }

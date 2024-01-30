@@ -59,21 +59,27 @@ public class DynamicRowFilteringPageSourceProvider
                 dynamicPageFilterCache.getDynamicPageFilter(dynamicFilter, columns));
     }
 
-    public TupleDomain<ColumnHandle> simplifyPredicate(
+    public TupleDomain<ColumnHandle> getUnenforcedPredicate(
             ConnectorPageSourceProvider delegatePageSourceProvider,
             Session session,
             ConnectorSession connectorSession,
             ConnectorSplit split,
             ConnectorTableHandle table,
-            TupleDomain<ColumnHandle> predicate)
+            TupleDomain<ColumnHandle> dynamicFilter)
     {
         if (!isDynamicRowFilteringEnabled(session)) {
-            return delegatePageSourceProvider.getUnenforcedPredicate(connectorSession, split, table, predicate);
+            return delegatePageSourceProvider.getUnenforcedPredicate(connectorSession, split, table, dynamicFilter);
+        }
+
+        TupleDomain<ColumnHandle> unenforcedPredicate = delegatePageSourceProvider.getUnenforcedPredicate(connectorSession, split, table, dynamicFilter);
+        if (unenforcedPredicate.isNone()) {
+            // split is fully filtered out
+            return TupleDomain.none();
         }
 
         // DynamicRowFilteringPageSourceProvider doesn't simplify dynamic predicate,
-        // but we can still prune prefilled columns from predicate, which are ineffective
+        // but we can still prune columns from dynamic filter, which are ineffective
         // in filtering split data
-        return delegatePageSourceProvider.prunePredicate(connectorSession, split, table, predicate);
+        return unenforcedPredicate.intersect(delegatePageSourceProvider.prunePredicate(connectorSession, split, table, dynamicFilter));
     }
 }

@@ -484,7 +484,7 @@ public abstract class BaseCacheSubqueriesTest
                             .isEqualTo(TupleDomain.withColumnDomains(ImmutableMap.of(dataColumn, dataDomain)));
                     if (isDynamicRowFilteringEnabled || simplifyIsPrune()) {
                         // simplifyPredicate should not prune or simplify data column
-                        assertThat(dynamicRowFilteringPageSourceProvider.simplifyPredicate(
+                        assertThat(dynamicRowFilteringPageSourceProvider.getUnenforcedPredicate(
                                 pageSourceProvider,
                                 session,
                                 connectorSession,
@@ -535,7 +535,7 @@ public abstract class BaseCacheSubqueriesTest
             TupleDomain<ColumnHandle> predicate)
     {
         if (isDynamicRowFilteringEnabled) {
-            return dynamicRowFilteringPageSourceProvider.simplifyPredicate(pageSourceProvider, session, connectorSession, split, table, predicate);
+            return dynamicRowFilteringPageSourceProvider.getUnenforcedPredicate(pageSourceProvider, session, connectorSession, split, table, predicate);
         }
         return pageSourceProvider.getUnenforcedPredicate(connectorSession, split, table, predicate);
     }
