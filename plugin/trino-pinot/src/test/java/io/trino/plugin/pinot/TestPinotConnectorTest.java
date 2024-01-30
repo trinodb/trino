@@ -14,10 +14,7 @@
 package io.trino.plugin.pinot;
 
 import com.google.common.collect.ImmutableMap;
-import io.trino.plugin.pinot.client.PinotHostMapper;
-import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.BaseConnectorTest;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
@@ -25,25 +22,15 @@ import io.trino.testing.kafka.TestingKafka;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Optional;
-
-import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.trino.plugin.pinot.PinotQueryRunner.createPinotQueryRunner;
-import static io.trino.plugin.pinot.PinotQueryRunner.createTpchTables;
 import static io.trino.plugin.pinot.TestingPinotCluster.PINOT_LATEST_IMAGE_NAME;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.testing.MaterializedResult.resultBuilder;
-import static java.time.temporal.ChronoUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPinotConnectorTest
         extends BaseConnectorTest
 {
-    // Use a recent value for updated_at to ensure Pinot doesn't clean up records older than retentionTimeValue as defined in the table specs
-    private static final Instant INITIAL_UPDATED_AT = Instant.now().minus(Duration.ofDays(1)).truncatedTo(SECONDS);
-
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
@@ -53,21 +40,12 @@ public class TestPinotConnectorTest
         TestingPinotCluster pinot = closeAfterClass(new TestingPinotCluster(kafka.getNetwork(), false, PINOT_LATEST_IMAGE_NAME));
         pinot.start();
 
-        DistributedQueryRunner queryRunner = createPinotQueryRunner(
+        return createPinotQueryRunner(
+                kafka,
+                pinot,
                 ImmutableMap.of(),
-                ImmutableMap.<String, String>builder()
-                        .put("pinot.controller-urls", pinot.getControllerConnectString())
-                        .put("pinot.grpc.enabled", "true")
-                        .buildOrThrow(),
-                Optional.of(binder -> newOptionalBinder(binder, PinotHostMapper.class).setBinding()
-                        .toInstance(new TestingPinotHostMapper(pinot.getBrokerHostAndPort(), pinot.getServerHostAndPort(), pinot.getServerGrpcHostAndPort()))));
-
-        queryRunner.installPlugin(new TpchPlugin());
-        queryRunner.createCatalog("tpch", "tpch");
-
-        createTpchTables(kafka, pinot, queryRunner, INITIAL_UPDATED_AT);
-
-        return queryRunner;
+                ImmutableMap.of("pinot.grpc.enabled", "true"),
+                REQUIRED_TPCH_TABLES);
     }
 
     @Override

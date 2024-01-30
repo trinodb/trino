@@ -20,8 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.confluent.kafka.serializers.KafkaAvroSerializer;
 import io.trino.Session;
-import io.trino.plugin.pinot.client.PinotHostMapper;
-import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
@@ -31,9 +29,7 @@ import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.testing.BaseConnectorSmokeTest;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
-import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.kafka.TestingKafka;
@@ -74,7 +70,6 @@ import java.util.Arrays;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -82,7 +77,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
-import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG;
 import static io.trino.SystemSessionProperties.DISTINCT_AGGREGATIONS_STRATEGY;
 import static io.trino.plugin.pinot.PinotQueryRunner.createPinotQueryRunner;
@@ -165,19 +159,12 @@ public abstract class BasePinotConnectorSmokeTest
         createAndPopulateHavingQuotesInColumnNames(kafka, pinot);
         createAndPopulateHavingMultipleColumnsWithDuplicateValues(kafka, pinot);
 
-        DistributedQueryRunner queryRunner = createPinotQueryRunner(
+        return createPinotQueryRunner(
+                kafka,
+                pinot,
                 ImmutableMap.of(),
-                pinotProperties(pinot),
-                Optional.of(binder -> newOptionalBinder(binder, PinotHostMapper.class).setBinding()
-                        .toInstance(new TestingPinotHostMapper(pinot.getBrokerHostAndPort(), pinot.getServerHostAndPort(), pinot.getServerGrpcHostAndPort()))));
-
-        queryRunner.installPlugin(new TpchPlugin());
-        queryRunner.createCatalog("tpch", "tpch");
-
-        // We need the query runner to populate nation and region data from tpch schema
-        createAndPopulateNationAndRegionData(kafka, pinot, queryRunner);
-
-        return queryRunner;
+                pinotProperties(),
+                REQUIRED_TPCH_TABLES);
     }
 
     private void createAndPopulateAllTypesTopic(TestingKafka kafka, TestingPinotCluster pinot)
@@ -595,59 +582,6 @@ public abstract class BasePinotConnectorSmokeTest
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("duplicate_values_in_columns_realtimeSpec.json"), DUPLICATE_VALUES_IN_COLUMNS_TABLE);
     }
 
-    private void createAndPopulateNationAndRegionData(TestingKafka kafka, TestingPinotCluster pinot, DistributedQueryRunner queryRunner)
-            throws Exception
-    {
-        // Create and populate table and topic data
-        String regionTableName = "region";
-        kafka.createTopicWithConfig(2, 1, regionTableName, false);
-        Schema regionSchema = SchemaBuilder.record(regionTableName).fields()
-                // regionkey bigint, name varchar, comment varchar
-                .name("regionkey").type().longType().noDefault()
-                .name("name").type().stringType().noDefault()
-                .name("comment").type().stringType().noDefault()
-                .name("updated_at_seconds").type().longType().noDefault()
-                .endRecord();
-        ImmutableList.Builder<ProducerRecord<String, GenericRecord>> regionRowsBuilder = ImmutableList.builder();
-        MaterializedResult regionRows = queryRunner.execute("SELECT * FROM tpch.tiny.region");
-        for (MaterializedRow row : regionRows.getMaterializedRows()) {
-            regionRowsBuilder.add(new ProducerRecord<>(regionTableName, "key" + row.getField(0), new GenericRecordBuilder(regionSchema)
-                    .set("regionkey", row.getField(0))
-                    .set("name", row.getField(1))
-                    .set("comment", row.getField(2))
-                    .set("updated_at_seconds", initialUpdatedAt.plusMillis(1000).toEpochMilli())
-                    .build()));
-        }
-        kafka.sendMessages(regionRowsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
-        pinot.createSchema(getClass().getClassLoader().getResourceAsStream("region_schema.json"), regionTableName);
-        pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("region_realtimeSpec.json"), regionTableName);
-
-        String nationTableName = "nation";
-        kafka.createTopicWithConfig(2, 1, nationTableName, false);
-        Schema nationSchema = SchemaBuilder.record(nationTableName).fields()
-                // nationkey BIGINT, name VARCHAR,  VARCHAR, regionkey BIGINT
-                .name("nationkey").type().longType().noDefault()
-                .name("name").type().stringType().noDefault()
-                .name("comment").type().stringType().noDefault()
-                .name("regionkey").type().longType().noDefault()
-                .name("updated_at_seconds").type().longType().noDefault()
-                .endRecord();
-        ImmutableList.Builder<ProducerRecord<String, GenericRecord>> nationRowsBuilder = ImmutableList.builder();
-        MaterializedResult nationRows = queryRunner.execute("SELECT * FROM tpch.tiny.nation");
-        for (MaterializedRow row : nationRows.getMaterializedRows()) {
-            nationRowsBuilder.add(new ProducerRecord<>(nationTableName, "key" + row.getField(0), new GenericRecordBuilder(nationSchema)
-                    .set("nationkey", row.getField(0))
-                    .set("name", row.getField(1))
-                    .set("comment", row.getField(3))
-                    .set("regionkey", row.getField(2))
-                    .set("updated_at_seconds", initialUpdatedAt.plusMillis(1000).toEpochMilli())
-                    .build()));
-        }
-        kafka.sendMessages(nationRowsBuilder.build().stream(), schemaRegistryAwareProducer(kafka));
-        pinot.createSchema(getClass().getClassLoader().getResourceAsStream("nation_schema.json"), nationTableName);
-        pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("nation_realtimeSpec.json"), nationTableName);
-    }
-
     @Override
     protected boolean hasBehavior(TestingConnectorBehavior connectorBehavior)
     {
@@ -665,10 +599,9 @@ public abstract class BasePinotConnectorSmokeTest
         };
     }
 
-    private Map<String, String> pinotProperties(TestingPinotCluster pinot)
+    private Map<String, String> pinotProperties()
     {
         return ImmutableMap.<String, String>builder()
-                .put("pinot.controller-urls", pinot.getControllerConnectString())
                 .put("pinot.max-rows-per-split-for-segment-queries", String.valueOf(MAX_ROWS_PER_SPLIT_FOR_SEGMENT_QUERIES))
                 .put("pinot.max-rows-for-broker-queries", String.valueOf(MAX_ROWS_PER_SPLIT_FOR_BROKER_QUERIES))
                 .putAll(additionalPinotProperties())
