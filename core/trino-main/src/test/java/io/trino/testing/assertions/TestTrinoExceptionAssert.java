@@ -67,4 +67,15 @@ public class TestTrinoExceptionAssert
                 .isInstanceOf(AssertionError.class)
                 .hasMessage("Expected TrinoException or wrapper, but got: io.trino.testing.QueryFailedException io.trino.testing.QueryFailedException: not a trino exception");
     }
+
+    @Test
+    public void testRejectWeirdRemoteTrinoException()
+    {
+        TrinoException trinoException = new TrinoException(NOT_SUPPORTED, "test exception");
+        assertThatThrownBy(() -> assertTrinoExceptionThrownBy(() -> {
+            throw new QueryFailedException(new QueryId("test"), trinoException.getMessage(), trinoException);
+        }))
+                .isInstanceOf(AssertionError.class)
+                .hasMessage("Expected TrinoException or wrapper, but got: io.trino.testing.QueryFailedException io.trino.testing.QueryFailedException: test exception");
+    }
 }
