@@ -18,13 +18,16 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import io.trino.cache.SafeCaches;
 import io.trino.client.ErrorInfo;
+import io.trino.client.FailureException;
 import io.trino.client.FailureInfo;
+import io.trino.execution.Failure;
 import io.trino.spi.ErrorCode;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.ErrorType;
 import io.trino.spi.Location;
 import io.trino.spi.TrinoException;
 import io.trino.sql.parser.ParsingException;
+import io.trino.testing.QueryFailedException;
 import org.assertj.core.api.AbstractThrowableAssert;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.assertj.core.internal.Failures;
@@ -33,6 +36,7 @@ import org.assertj.core.util.CheckReturnValue;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+import static io.trino.util.Failures.toFailure;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -72,7 +76,7 @@ public final class TrinoExceptionAssert
     @CheckReturnValue
     public static TrinoExceptionAssert assertThatTrinoException(Throwable throwable)
     {
-        Optional<FailureInfo> failureInfo = TestUtil.getFailureInfo(throwable);
+        Optional<FailureInfo> failureInfo = getFailureInfo(throwable);
         if (failureInfo.isEmpty() || !isTrinoException(failureInfo.get().getType())) {
             throw new AssertionError("Expected TrinoException or wrapper, but got: " + throwable.getClass().getName() + " " + throwable, throwable);
         }
@@ -82,6 +86,27 @@ public final class TrinoExceptionAssert
     private static boolean isTrinoException(String type)
     {
         return isTrinoExceptionCache.getUnchecked(type);
+    }
+
+    private static Optional<FailureInfo> getFailureInfo(Throwable throwable)
+    {
+        return switch (throwable) {
+            case TrinoException trinoException -> Optional.of(toFailure(trinoException).toFailureInfo());
+
+            case QueryFailedException queryFailedException -> {
+                if (queryFailedException.getCause() == null) {
+                    yield Optional.empty();
+                }
+                Optional<FailureInfo> failureInfo = switch (queryFailedException.getCause()) {
+                    case Failure failure -> Optional.of(failure.getFailureInfo().toFailureInfo());
+                    case FailureException failure -> Optional.of(failure.getFailureInfo());
+                    default -> Optional.empty();
+                };
+                yield failureInfo;
+            }
+
+            default -> Optional.empty();
+        };
     }
 
     private TrinoExceptionAssert(Throwable actual, FailureInfo failureInfo)
