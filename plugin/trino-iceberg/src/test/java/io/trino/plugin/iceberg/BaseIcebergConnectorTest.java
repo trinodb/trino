@@ -8536,6 +8536,34 @@ public abstract class BaseIcebergConnectorTest
         }
     }
 
+    @Test
+    public void testObjectStoreEnabledAndDataLocation()
+            throws Exception
+    {
+        String tableName = "test_object_store_enabled_data_location" + randomNameSuffix();
+        assertUpdate("CREATE TABLE " + tableName + " WITH (object_store_enabled = true, data_location = 'local:///data-location/xyz') AS SELECT 1 AS val", 1);
+
+        Location tableLocation = Location.of(getTableLocation(tableName));
+        assertThat(fileSystem.directoryExists(tableLocation).get()).isTrue();
+
+        String filePath = (String) computeScalar("SELECT file_path FROM \"" + tableName + "$files\"");
+        Location dataFileLocation = Location.of(filePath);
+        assertThat(fileSystem.newInputFile(dataFileLocation).exists()).isTrue();
+        assertThat(filePath).matches("local:///data-location/xyz/.{6}/tpch/%s.*".formatted(tableName));
+
+        assertUpdate("DROP TABLE " + tableName);
+        assertThat(fileSystem.newInputFile(dataFileLocation).exists()).isFalse();
+        assertThat(fileSystem.newInputFile(tableLocation).exists()).isFalse();
+    }
+
+    @Test
+    public void testCreateTableWithDataLocationButObjectStoreDisabled()
+    {
+        assertQueryFails(
+                "CREATE TABLE test_data_location WITH (data_location = 'local:///data-location/xyz') AS SELECT 1 AS val",
+                "Data location can only be set when object store is enabled");
+    }
+
     @Override
     protected Optional<SetColumnTypeSetup> filterSetColumnTypesDataProvider(SetColumnTypeSetup setup)
     {
