@@ -20,7 +20,6 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.SystemSessionProperties.MARK_DISTINCT_STRATEGY;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
 
 public abstract class BaseStargateConnectorTest
@@ -139,8 +138,8 @@ public abstract class BaseStargateConnectorTest
         // The test ensures that we do not inherit CREATE VIEW capabilities from trino-base-jdbc.
         // While generic VIEW support in base JDBC is feasible, Stargate connector would require special
         // considerations, see https://starburstdata.atlassian.net/browse/SEP-4795.
-        assertThatThrownBy(() -> query("CREATE VIEW v AS SELECT 1 a"))
-                .hasMessage("This connector does not support creating views");
+        assertThat(query("CREATE VIEW v AS SELECT 1 a"))
+                .failure().hasMessage("This connector does not support creating views");
     }
 
     @Test

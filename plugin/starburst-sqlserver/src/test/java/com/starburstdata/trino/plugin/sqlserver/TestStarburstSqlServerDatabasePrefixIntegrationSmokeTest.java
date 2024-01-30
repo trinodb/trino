@@ -27,7 +27,6 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestStarburstSqlServerDatabasePrefixIntegrationSmokeTest
         extends AbstractTestQueryFramework
@@ -154,27 +153,27 @@ public class TestStarburstSqlServerDatabasePrefixIntegrationSmokeTest
     @Test
     public void testOnSchemaWithSingleIdentifier()
     {
-        assertThatThrownBy(() -> query("CREATE SCHEMA test_schema_create_"))
-                .hasMessageMatching("The expected format is '<database name>.<schema name>': .*");
+        assertThat(query("CREATE SCHEMA test_schema_create_"))
+                .failure().hasMessageMatching("The expected format is '<database name>.<schema name>': .*");
 
-        assertThatThrownBy(() -> query("CREATE TABLE test_schema_create_.unknown_table (columna BIGINT)"))
-                .hasMessageMatching(".*The expected format is '<database name>.<schema name>': .*");
+        assertThat(query("CREATE TABLE test_schema_create_.unknown_table (columna BIGINT)"))
+                .failure().hasMessageMatching(".*The expected format is '<database name>.<schema name>': .*");
 
-        assertThatThrownBy(() -> query("SELECT * FROM test_schema_create_.unknown_table"))
-                .hasMessageMatching(".*The expected format is '<database name>.<schema name>': .*");
+        assertThat(query("SELECT * FROM test_schema_create_.unknown_table"))
+                .failure().hasMessageMatching(".*The expected format is '<database name>.<schema name>': .*");
     }
 
     @Test
     public void testOnSchemaWithMultipleIdentifier()
     {
-        assertThatThrownBy(() -> query("CREATE SCHEMA \"test_schema_create.part_1.part_2\""))
-                .hasMessage("Too many identifier parts found");
+        assertThat(query("CREATE SCHEMA \"test_schema_create.part_1.part_2\""))
+                .failure().hasMessage("Too many identifier parts found");
 
-        assertThatThrownBy(() -> query("CREATE TABLE \"test_schema_create.part_1.part_2\".unknown_table (columna BIGINT)"))
-                .hasMessageMatching(".*Too many identifier parts found");
+        assertThat(query("CREATE TABLE \"test_schema_create.part_1.part_2\".unknown_table (columna BIGINT)"))
+                .failure().hasMessageMatching(".*Too many identifier parts found");
 
-        assertThatThrownBy(() -> query("SELECT * FROM \"test_schema_create.part_1.part_2\".unknown_table"))
-                .hasMessageMatching(".*Too many identifier parts found");
+        assertThat(query("SELECT * FROM \"test_schema_create.part_1.part_2\".unknown_table"))
+                .failure().hasMessageMatching(".*Too many identifier parts found");
     }
 
     @Test

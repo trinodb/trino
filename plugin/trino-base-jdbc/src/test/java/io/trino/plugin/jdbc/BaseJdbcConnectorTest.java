@@ -1131,12 +1131,12 @@ public abstract class BaseJdbcConnectorTest
                 .isFullyPushedDown()
                 .matches("VALUES (BIGINT '3', CAST('CANADA' AS varchar(25)), BIGINT '1')");
 
-        assertThatThrownBy(() -> query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % 0 = 2"))
-                .hasMessageContaining("by zero");
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % 0 = 2"))
+                .failure().hasMessageContaining("by zero");
 
         // Expression that evaluates to 0 for some rows on RHS of modulus
-        assertThatThrownBy(() -> query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % (regionkey - 1) = 2"))
-                .hasMessageContaining("by zero");
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % (regionkey - 1) = 2"))
+                .failure().hasMessageContaining("by zero");
 
         // TODO add coverage for other arithmetic pushdowns https://github.com/trinodb/trino/issues/14808
     }
@@ -2039,8 +2039,9 @@ public abstract class BaseJdbcConnectorTest
             // Check that column 'two' is not supported.
             assertQuery("SELECT column_name FROM information_schema.columns WHERE table_name = '" + unqualifiedTableName + "'", "VALUES 'one', 'three'");
             assertUpdate("INSERT INTO " + testTable.getName() + " (one, three) VALUES (123, 'test')", 1);
-            assertThatThrownBy(() -> query(format("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM %s'))", testTable.getName())))
-                    .hasMessageContaining("Unsupported type");
+            assertThat(query(format("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM %s'))", testTable.getName())))
+                    // TODO should be TrinoException
+                    .nonTrinoExceptionFailure().hasMessageContaining("Unsupported type");
         }
     }
 
@@ -2049,8 +2050,9 @@ public abstract class BaseJdbcConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE numbers(n INTEGER)'))"))
-                .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: CREATE TABLE numbers(n INTEGER)");
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE numbers(n INTEGER)'))"))
+                // TODO should be TrinoException
+                .nonTrinoExceptionFailure().hasMessageContaining("Query not supported: ResultSetMetaData not available for query: CREATE TABLE numbers(n INTEGER)");
         assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
     }
 
@@ -2059,8 +2061,8 @@ public abstract class BaseJdbcConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         assertThat(getQueryRunner().tableExists(getSession(), "non_existent_table")).isFalse();
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
-                .hasMessageContaining("Failed to get table handle for prepared query");
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
+                .failure().hasMessageContaining("Failed to get table handle for prepared query");
     }
 
     @Test
@@ -2068,8 +2070,9 @@ public abstract class BaseJdbcConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         try (TestTable testTable = simpleTable()) {
-            assertThatThrownBy(() -> query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
-                    .hasMessageContaining(format("Query not supported: ResultSetMetaData not available for query: INSERT INTO %s VALUES (3)", testTable.getName()));
+            assertThat(query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
+                    // TODO should be TrinoException
+                    .nonTrinoExceptionFailure().hasMessageContaining(format("Query not supported: ResultSetMetaData not available for query: INSERT INTO %s VALUES (3)", testTable.getName()));
             assertQuery("SELECT * FROM " + testTable.getName(), "VALUES 1, 2");
         }
     }
@@ -2078,8 +2081,8 @@ public abstract class BaseJdbcConnectorTest
     public void testNativeQueryIncorrectSyntax()
     {
         skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
-                .hasMessageContaining("Failed to get table handle for prepared query");
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
+                .failure().hasMessageContaining("Failed to get table handle for prepared query");
     }
 
     protected TestTable simpleTable()

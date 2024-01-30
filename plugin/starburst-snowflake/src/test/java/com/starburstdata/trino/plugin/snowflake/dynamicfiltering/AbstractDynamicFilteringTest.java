@@ -55,6 +55,7 @@ public abstract class AbstractDynamicFilteringTest
         }
         else {
             assertThat(query("SHOW SESSION LIKE '%.join_pushdown_strategy'"))
+                    .result()
                     .skippingTypesCheck()
                     .matches(result -> result.getRowCount() == 1)
                     .matches(result -> {

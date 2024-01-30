@@ -21,7 +21,6 @@ import org.junit.jupiter.api.parallel.Execution;
 import static io.trino.spi.StandardErrorCode.EXCEEDED_FUNCTION_MEMORY_LIMIT;
 import static io.trino.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
-import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
@@ -168,51 +167,58 @@ public class TestListagg
     public void testListaggQueryIncorrectSyntax()
     {
         // missing WITHIN GROUP (ORDER BY ...)
-        assertTrinoExceptionThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT listagg(v, ',') " +
                         "FROM (VALUES 'a') t(v)"))
+                .failure()
                 .hasErrorCode(SYNTAX_ERROR)
                 .hasMessage("line 1:24: mismatched input 'FROM'. Expecting: 'WITHIN'");
 
         // missing WITHIN GROUP (ORDER BY ...)
-        assertTrinoExceptionThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT listagg(v) " +
                         "FROM (VALUES 'a') t(v)"))
+                .failure()
                 .hasErrorCode(SYNTAX_ERROR)
                 .hasMessage("line 1:19: mismatched input 'FROM'. Expecting: 'WITHIN'");
 
         // too many arguments
-        assertTrinoExceptionThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT listagg(v, ',', '...') WITHIN GROUP (ORDER BY v)" +
                         "FROM (VALUES 'a') t(v)"))
+                .failure()
                 .hasErrorCode(SYNTAX_ERROR)
                 .hasMessage("line 1:22: mismatched input ','. Expecting: ')', 'ON'");
 
         // window frames are not supported
-        assertTrinoExceptionThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT listagg(v, ',') WITHIN GROUP (ORDER BY v) OVER (PARTITION BY id)" +
                         "FROM (VALUES (1, 'a')) t(id, v)"))
+                .failure()
                 .hasErrorCode(SYNTAX_ERROR)
                 .hasMessage("line 1:55: mismatched input '('. Expecting: ',', 'EXCEPT', 'FETCH', 'FROM', 'GROUP', 'HAVING', 'INTERSECT', 'LIMIT', 'OFFSET', 'ORDER', 'UNION', 'WHERE', 'WINDOW', <EOF>");
 
         // invalid argument for ON OVERFLOW clause
-        assertTrinoExceptionThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT listagg(v, ',' ON OVERFLOW COLLAPSE) WITHIN GROUP (ORDER BY v)" +
                         "FROM (VALUES 'a') t(v)"))
+                .failure()
                 .hasErrorCode(SYNTAX_ERROR)
                 .hasMessage("line 1:35: mismatched input 'COLLAPSE'. Expecting: 'ERROR', 'TRUNCATE'");
 
         // invalid separator type (integer instead of varchar)
-        assertTrinoExceptionThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT LISTAGG(v, 123) WITHIN GROUP (ORDER BY v) " +
                         "FROM (VALUES 'Trino', 'SQL', 'everything') t(v) "))
+                .failure()
                 .hasErrorCode(SYNTAX_ERROR)
                 .hasMessage("line 1:19: mismatched input '123'. Expecting: <string>");
 
         // invalid truncation filler type (integer instead of varchar)
-        assertTrinoExceptionThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT LISTAGG(v, ',' ON OVERFLOW TRUNCATE 1234567890 WITHOUT COUNT) WITHIN GROUP (ORDER BY v) " +
                         "FROM (VALUES 'Trino', 'SQL', 'everything') t(v) "))
+                .failure()
                 .hasErrorCode(SYNTAX_ERROR)
                 .hasMessage("line 1:44: mismatched input '1234567890'. Expecting: 'WITH', 'WITHOUT', <string>");
     }
@@ -221,31 +227,31 @@ public class TestListagg
     public void testListaggQueryIncorrectExpression()
     {
         // integer values
-        assertTrinoExceptionThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT listagg(value, ',') WITHIN GROUP (ORDER BY value)" +
                         "FROM (VALUES 1, NULL, 2, 3, 4) t(value)"))
-                .hasMessage("line 1:8: Expected expression of varchar, but 'value' has integer type");
+                .failure().hasMessage("line 1:8: Expected expression of varchar, but 'value' has integer type");
 
         // boolean values
-        assertTrinoExceptionThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT listagg(value, ',') WITHIN GROUP (ORDER BY value)" +
                         "FROM (VALUES TRUE, NULL, FALSE, FALSE, TRUE) t(value)"))
-                .hasMessage("line 1:8: Expected expression of varchar, but 'value' has boolean type");
+                .failure().hasMessage("line 1:8: Expected expression of varchar, but 'value' has boolean type");
 
         // array values
-        assertTrinoExceptionThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT listagg(value, ',') WITHIN GROUP (ORDER BY value)" +
                         "FROM (VALUES array['abc', 'def'], array['sql']) t(value)"))
-                .hasMessage("line 1:8: Expected expression of varchar, but 'value' has array(varchar(3)) type");
+                .failure().hasMessage("line 1:8: Expected expression of varchar, but 'value' has array(varchar(3)) type");
     }
 
     @Test
     public void testListaaggQueryIncorrectOrderByExpression()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT listagg(label, ',') WITHIN GROUP (ORDER BY rgb) " +
                         "FROM (VALUES ('red', rgb(255, 0, 0)), ('green', rgb(0, 128, 0)), ('blue', rgb(0, 0, 255))) color(label, rgb) "))
-                .hasMessage("line 1:8: ORDER BY can only be applied to orderable types (actual: color)");
+                .failure().hasMessage("line 1:8: ORDER BY can only be applied to orderable types (actual: color)");
     }
 
     @Test
@@ -319,9 +325,10 @@ public class TestListagg
     @Test
     public void testListaggQueryOverflowError()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT LISTAGG(value, ',' ON OVERFLOW ERROR) WITHIN GROUP (ORDER BY value) " +
                         "FROM (VALUES lpad('a', " + DEFAULT_MAX_PAGE_SIZE_IN_BYTES + ", 'a'),'Trino') t(value) "))
+                .failure()
                 .hasMessage("Concatenated string has the length in bytes larger than the maximum output length 1048576")
                 .hasErrorCode(EXCEEDED_FUNCTION_MEMORY_LIMIT);
     }
@@ -329,7 +336,7 @@ public class TestListagg
     @Test
     public void testListaggQueryOverflowErrorGrouping()
     {
-        assertTrinoExceptionThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT id, LISTAGG(value, ',' ON OVERFLOW ERROR) WITHIN GROUP (ORDER BY value) " +
                         "FROM (VALUES " +
                         "           (1, lpad('a', " + DEFAULT_MAX_PAGE_SIZE_IN_BYTES + ", 'a'))," +
@@ -338,6 +345,7 @@ public class TestListagg
                         "     ) t(id, value) " +
                         "GROUP BY id " +
                         "ORDER BY id "))
+                .failure()
                 .hasCauseMessageContaining("Concatenated string has the length in bytes larger than the maximum output length 1048576")
                 .hasErrorCode(EXCEEDED_FUNCTION_MEMORY_LIMIT);
     }

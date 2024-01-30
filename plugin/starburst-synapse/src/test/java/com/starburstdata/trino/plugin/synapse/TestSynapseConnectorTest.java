@@ -867,8 +867,8 @@ public class TestSynapseConnectorTest
     public void testNativeQueryInsertStatementTableDoesNotExist()
     {
         assertThat(getQueryRunner().tableExists(getSession(), "non_existent_table")).isFalse();
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
-                .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: INSERT INTO non_existent_table VALUES (1)");
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
+                .failure().hasMessageContaining("Query not supported: ResultSetMetaData not available for query: INSERT INTO non_existent_table VALUES (1)");
     }
 
     @Test

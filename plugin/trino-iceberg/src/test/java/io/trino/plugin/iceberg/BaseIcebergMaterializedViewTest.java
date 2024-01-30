@@ -542,10 +542,10 @@ public abstract class BaseIcebergMaterializedViewTest
     {
         String schema = getSession().getSchema().orElseThrow();
         assertUpdate("CREATE TABLE test_create_materialized_view_when_table_exists (a INT, b INT)");
-        assertThatThrownBy(() -> query("CREATE OR REPLACE MATERIALIZED VIEW test_create_materialized_view_when_table_exists AS SELECT sum(1) AS num_rows FROM base_table2"))
-                .hasMessage("Existing table is not a Materialized View: " + schema + ".test_create_materialized_view_when_table_exists");
-        assertThatThrownBy(() -> query("CREATE MATERIALIZED VIEW IF NOT EXISTS test_create_materialized_view_when_table_exists AS SELECT sum(1) AS num_rows FROM base_table2"))
-                .hasMessage("Existing table is not a Materialized View: " + schema + ".test_create_materialized_view_when_table_exists");
+        assertThat(query("CREATE OR REPLACE MATERIALIZED VIEW test_create_materialized_view_when_table_exists AS SELECT sum(1) AS num_rows FROM base_table2"))
+                .failure().hasMessage("Existing table is not a Materialized View: " + schema + ".test_create_materialized_view_when_table_exists");
+        assertThat(query("CREATE MATERIALIZED VIEW IF NOT EXISTS test_create_materialized_view_when_table_exists AS SELECT sum(1) AS num_rows FROM base_table2"))
+                .failure().hasMessage("Existing table is not a Materialized View: " + schema + ".test_create_materialized_view_when_table_exists");
         assertUpdate("DROP TABLE test_create_materialized_view_when_table_exists");
     }
 
@@ -554,8 +554,8 @@ public abstract class BaseIcebergMaterializedViewTest
     {
         String schema = getSession().getSchema().orElseThrow();
         assertUpdate("CREATE TABLE test_drop_materialized_view_cannot_drop_table (a INT, b INT)");
-        assertThatThrownBy(() -> query("DROP MATERIALIZED VIEW test_drop_materialized_view_cannot_drop_table"))
-                .hasMessageContaining("Materialized view 'iceberg." + schema + ".test_drop_materialized_view_cannot_drop_table' does not exist, but a table with that name exists");
+        assertThat(query("DROP MATERIALIZED VIEW test_drop_materialized_view_cannot_drop_table"))
+                .failure().hasMessageContaining("Materialized view 'iceberg." + schema + ".test_drop_materialized_view_cannot_drop_table' does not exist, but a table with that name exists");
         assertUpdate("DROP TABLE test_drop_materialized_view_cannot_drop_table");
     }
 
@@ -564,8 +564,8 @@ public abstract class BaseIcebergMaterializedViewTest
     {
         String schema = getSession().getSchema().orElseThrow();
         assertUpdate("CREATE TABLE test_rename_materialized_view_cannot_rename_table (a INT, b INT)");
-        assertThatThrownBy(() -> query("ALTER MATERIALIZED VIEW test_rename_materialized_view_cannot_rename_table RENAME TO new_materialized_view_name"))
-                .hasMessageContaining("Materialized View 'iceberg." + schema + ".test_rename_materialized_view_cannot_rename_table' does not exist, but a table with that name exists");
+        assertThat(query("ALTER MATERIALIZED VIEW test_rename_materialized_view_cannot_rename_table RENAME TO new_materialized_view_name"))
+                .failure().hasMessageContaining("Materialized View 'iceberg." + schema + ".test_rename_materialized_view_cannot_rename_table' does not exist, but a table with that name exists");
         assertUpdate("DROP TABLE test_rename_materialized_view_cannot_rename_table");
     }
 

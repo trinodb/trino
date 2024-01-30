@@ -19,7 +19,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.parallel.Execution;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -566,91 +565,91 @@ public class TestWindowFrameRange
     @Test
     public void testInvalidOffset()
     {
-        assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a ASC RANGE x PRECEDING) " +
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a ASC RANGE x PRECEDING) " +
                 "FROM (VALUES (1, 0.1), (2, -0.2)) t(a, x)"))
-                .hasMessage("Window frame offset value must not be negative or null");
+                .failure().hasMessage("Window frame offset value must not be negative or null");
 
-        assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a ASC RANGE BETWEEN 1 PRECEDING AND x FOLLOWING) " +
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a ASC RANGE BETWEEN 1 PRECEDING AND x FOLLOWING) " +
                 "FROM (VALUES (1, 0.1), (2, -0.2)) t(a, x)"))
-                .hasMessage("Window frame offset value must not be negative or null");
+                .failure().hasMessage("Window frame offset value must not be negative or null");
 
-        assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a DESC RANGE x PRECEDING) " +
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a DESC RANGE x PRECEDING) " +
                 "FROM (VALUES (1, 0.1), (2, -0.2)) t(a, x)"))
-                .hasMessage("Window frame offset value must not be negative or null");
+                .failure().hasMessage("Window frame offset value must not be negative or null");
 
-        assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a DESC RANGE BETWEEN 1 PRECEDING AND x FOLLOWING) " +
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a DESC RANGE BETWEEN 1 PRECEDING AND x FOLLOWING) " +
                 "FROM (VALUES (1, 0.1), (2, -0.2)) t(a, x)"))
-                .hasMessage("Window frame offset value must not be negative or null");
+                .failure().hasMessage("Window frame offset value must not be negative or null");
 
-        assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a DESC RANGE x PRECEDING) " +
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a DESC RANGE x PRECEDING) " +
                 "FROM (VALUES (1, 0.1), (2, null)) t(a, x)"))
-                .hasMessage("Window frame offset value must not be negative or null");
+                .failure().hasMessage("Window frame offset value must not be negative or null");
 
-        assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a DESC RANGE BETWEEN 1 PRECEDING AND x FOLLOWING) " +
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a DESC RANGE BETWEEN 1 PRECEDING AND x FOLLOWING) " +
                 "FROM (VALUES (1, 0.1), (2, null)) t(a, x)"))
-                .hasMessage("Window frame offset value must not be negative or null");
+                .failure().hasMessage("Window frame offset value must not be negative or null");
 
         // fail if offset is invalid for null sort key
-        assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a DESC RANGE BETWEEN 1 PRECEDING AND x FOLLOWING) " +
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a DESC RANGE BETWEEN 1 PRECEDING AND x FOLLOWING) " +
                 "FROM (VALUES (1, 0.1), (null, null)) t(a, x)"))
-                .hasMessage("Window frame offset value must not be negative or null");
+                .failure().hasMessage("Window frame offset value must not be negative or null");
 
-        assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a DESC RANGE BETWEEN 1 PRECEDING AND x FOLLOWING) " +
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a DESC RANGE BETWEEN 1 PRECEDING AND x FOLLOWING) " +
                 "FROM (VALUES (1, 0.1), (null, -0.1)) t(a, x)"))
-                .hasMessage("Window frame offset value must not be negative or null");
+                .failure().hasMessage("Window frame offset value must not be negative or null");
 
         // test invalid offset of different types
-        assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
                 "FROM (VALUES (1, BIGINT '-1')) t(a, x)"))
-                .hasMessage("Window frame offset value must not be negative or null");
+                .failure().hasMessage("Window frame offset value must not be negative or null");
 
-        assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
                 "FROM (VALUES (1, INTEGER '-1')) t(a, x)"))
-                .hasMessage("Window frame offset value must not be negative or null");
+                .failure().hasMessage("Window frame offset value must not be negative or null");
 
-        assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
                 "FROM (VALUES (SMALLINT '1', SMALLINT '-1')) t(a, x)"))
-                .hasMessage("Window frame offset value must not be negative or null");
+                .failure().hasMessage("Window frame offset value must not be negative or null");
 
-        assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
                 "FROM (VALUES (TINYINT '1', TINYINT '-1')) t(a, x)"))
-                .hasMessage("Window frame offset value must not be negative or null");
+                .failure().hasMessage("Window frame offset value must not be negative or null");
 
-        assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
                 "FROM (VALUES (1, -1.1e0)) t(a, x)"))
-                .hasMessage("Window frame offset value must not be negative or null");
+                .failure().hasMessage("Window frame offset value must not be negative or null");
 
-        assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
                 "FROM (VALUES (1, REAL '-1.1')) t(a, x)"))
-                .hasMessage("Window frame offset value must not be negative or null");
+                .failure().hasMessage("Window frame offset value must not be negative or null");
 
-        assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
                 "FROM (VALUES (1, -1.0001)) t(a, x)"))
-                .hasMessage("Window frame offset value must not be negative or null");
+                .failure().hasMessage("Window frame offset value must not be negative or null");
 
-        assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
                 "FROM (VALUES (DATE '2001-01-31', INTERVAL '-1' YEAR)) t(a, x)"))
-                .hasMessage("Window frame offset value must not be negative or null");
+                .failure().hasMessage("Window frame offset value must not be negative or null");
 
-        assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
                 "FROM (VALUES (DATE '2001-01-31', INTERVAL '-1' MONTH)) t(a, x)"))
-                .hasMessage("Window frame offset value must not be negative or null");
+                .failure().hasMessage("Window frame offset value must not be negative or null");
 
-        assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
                 "FROM (VALUES (DATE '2001-01-31', INTERVAL '-1' DAY)) t(a, x)"))
-                .hasMessage("Window frame offset value must not be negative or null");
+                .failure().hasMessage("Window frame offset value must not be negative or null");
 
-        assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
                 "FROM (VALUES (DATE '2001-01-31', INTERVAL '-1' HOUR)) t(a, x)"))
-                .hasMessage("Window frame offset value must not be negative or null");
+                .failure().hasMessage("Window frame offset value must not be negative or null");
 
-        assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
                 "FROM (VALUES (DATE '2001-01-31', INTERVAL '-1' MINUTE)) t(a, x)"))
-                .hasMessage("Window frame offset value must not be negative or null");
+                .failure().hasMessage("Window frame offset value must not be negative or null");
 
-        assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a RANGE x PRECEDING) " +
                 "FROM (VALUES (DATE '2001-01-31', INTERVAL '-1' SECOND)) t(a, x)"))
-                .hasMessage("Window frame offset value must not be negative or null");
+                .failure().hasMessage("Window frame offset value must not be negative or null");
     }
 
     @Test

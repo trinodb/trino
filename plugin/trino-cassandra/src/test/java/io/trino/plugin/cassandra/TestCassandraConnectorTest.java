@@ -1435,8 +1435,8 @@ public class TestCassandraConnectorTest
     {
         String tableName = "test_create" + randomNameSuffix();
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(cassandra.system.query(query => 'CREATE TABLE tpch." + tableName + "(col INT PRIMARY KEY)'))"))
-                .hasMessage("Handle doesn't have columns info");
+        assertThat(query("SELECT * FROM TABLE(cassandra.system.query(query => 'CREATE TABLE tpch." + tableName + "(col INT PRIMARY KEY)'))"))
+                .nonTrinoExceptionFailure().hasMessage("Handle doesn't have columns info");
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
     }
 
@@ -1445,7 +1445,8 @@ public class TestCassandraConnectorTest
     {
         String tableName = "test_insert" + randomNameSuffix();
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(cassandra.system.query(query => 'INSERT INTO tpch." + tableName + "(col) VALUES (1)'))"))
+        assertThat(query("SELECT * FROM TABLE(cassandra.system.query(query => 'INSERT INTO tpch." + tableName + "(col) VALUES (1)'))"))
+                .failure()
                 .hasMessage("Cannot get column definition")
                 .hasStackTraceContaining("unconfigured table");
     }
@@ -1460,10 +1461,10 @@ public class TestCassandraConnectorTest
                 .row(tableName)
                 .build(), new Duration(1, MINUTES));
 
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(cassandra.system.query(query => 'INSERT INTO tpch." + tableName + "(col) VALUES (3)'))"))
-                .hasMessage("Handle doesn't have columns info");
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(cassandra.system.query(query => 'DELETE FROM tpch." + tableName + " WHERE col = 1'))"))
-                .hasMessage("Handle doesn't have columns info");
+        assertThat(query("SELECT * FROM TABLE(cassandra.system.query(query => 'INSERT INTO tpch." + tableName + "(col) VALUES (3)'))"))
+                .nonTrinoExceptionFailure().hasMessage("Handle doesn't have columns info");
+        assertThat(query("SELECT * FROM TABLE(cassandra.system.query(query => 'DELETE FROM tpch." + tableName + " WHERE col = 1'))"))
+                .nonTrinoExceptionFailure().hasMessage("Handle doesn't have columns info");
 
         assertQuery("SELECT * FROM " + tableName, "VALUES 1");
 
@@ -1473,7 +1474,8 @@ public class TestCassandraConnectorTest
     @Test
     public void testNativeQueryIncorrectSyntax()
     {
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
+                .failure()
                 .hasMessage("Cannot get column definition")
                 .hasStackTraceContaining("no viable alternative at input 'some'");
     }

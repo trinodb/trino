@@ -32,7 +32,6 @@ import static io.trino.plugin.iceberg.IcebergFileFormat.AVRO;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestIcebergMigrateProcedure
         extends AbstractTestQueryFramework
@@ -437,8 +436,8 @@ public class TestIcebergMigrateProcedure
 
         assertUpdate("CREATE TABLE " + hiveTableName + " WITH (format = 'RCBINARY') AS SELECT 1 x", 1);
 
-        assertThatThrownBy(() -> query("CALL iceberg.system.migrate('tpch', '" + tableName + "')"))
-                .hasStackTraceContaining("Unsupported storage format: RCBINARY");
+        assertThat(query("CALL iceberg.system.migrate('tpch', '" + tableName + "')"))
+                .failure().hasStackTraceContaining("Unsupported storage format: RCBINARY");
 
         assertQuery("SELECT * FROM " + hiveTableName, "VALUES 1");
         assertQueryFails("SELECT * FROM " + icebergTableName, "Not an Iceberg table: .*");

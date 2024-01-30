@@ -96,8 +96,8 @@ class TestUnloadFunction
                 "compression => '" + compression.name() + "'))";
 
         if ((format == PARQUET || format == AVRO) && compression == HiveCompressionOption.LZ4) {
-            assertThatThrownBy(() -> query(unload))
-                    .hasMessageMatching("Compression codec LZ4 not supported for (PARQUET|AVRO)");
+            assertThat(query(unload))
+                    .failure().hasMessageMatching("Compression codec LZ4 not supported for (PARQUET|AVRO)");
             abort();
         }
 

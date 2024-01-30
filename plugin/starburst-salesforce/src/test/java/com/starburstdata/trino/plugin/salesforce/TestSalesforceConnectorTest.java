@@ -1144,9 +1144,9 @@ public class TestSalesforceConnectorTest
 
         String tableName = "test_insert_array_" + randomNameSuffix();
         if (!supportsArrays()) {
-            assertThatThrownBy(() -> query("CREATE TABLE " + tableName + " (a array(bigint))"))
+            assertThat(query("CREATE TABLE " + tableName + " (a array(bigint))"))
                     // TODO Unify failure message across connectors
-                    .hasMessageMatching("[Uu]nsupported (column )?type: \\Qarray(bigint)");
+                    .failure().hasMessageMatching("[Uu]nsupported (column )?type: \\Qarray(bigint)");
             abort("not supported");
         }
 

@@ -171,7 +171,7 @@ public class TestSapHanaColumnViews
         MaterializedResult expected = MaterializedResult.resultBuilder(session, createVarcharType(9), createVarcharType(7), createVarcharType(8), createVarcharType(26), createVarcharType(6), INTEGER, BOOLEAN)
                 .row("nationkey", "saphana", "_sys_bic", viewName, "bigint", 8, false)
                 .build();
-        assertThat(query(session, "DESCRIBE OUTPUT test_query")).containsAll(expected);
+        assertThat(query(session, "DESCRIBE OUTPUT test_query")).result().containsAll(expected);
 
         assertThat(computeActual("SHOW TABLES FROM _SYS_BIC").getOnlyColumnAsSet()).contains(viewName);
     }
@@ -220,7 +220,7 @@ public class TestSapHanaColumnViews
         MaterializedResult expected = MaterializedResult.resultBuilder(session, createVarcharType(10), createVarcharType(7), createVarcharType(8), createVarcharType(36), createVarcharType(6), INTEGER, BOOLEAN)
                 .row("nationkey", "saphana", "_sys_bic", viewName, "bigint", 8, false)
                 .build();
-        assertThat(query(session, "DESCRIBE OUTPUT test_query")).containsAll(expected);
+        assertThat(query(session, "DESCRIBE OUTPUT test_query")).result().containsAll(expected);
 
         assertThat(computeActual("SHOW TABLES FROM _SYS_BIC").getOnlyColumnAsSet()).contains(viewName);
     }
@@ -281,7 +281,7 @@ public class TestSapHanaColumnViews
                 .row("regionkey", "saphana", "_sys_bic", viewName, "bigint", 8, false)
                 .row("nationkey2", "", "", "", "decimal(38,0)", 16, true)
                 .build();
-        assertThat(query(session, "DESCRIBE OUTPUT test_query")).containsAll(expected);
+        assertThat(query(session, "DESCRIBE OUTPUT test_query")).result().containsAll(expected);
 
         assertThat(computeActual("SHOW TABLES FROM _SYS_BIC").getOnlyColumnAsSet()).contains(viewName);
     }

@@ -1169,15 +1169,15 @@ public class TestDeltaLakeConnectorTest
         assertUpdate("CREATE TABLE " + tableName + "(col1 INTEGER NOT NULL, col2 INTEGER, col3 INTEGER) WITH (column_mapping_mode='" + mode + "')");
         assertUpdate("INSERT INTO " + tableName + " VALUES(1, 10, 100)", 1);
         assertUpdate("INSERT INTO " + tableName + " VALUES(2, 20, 200)", 1);
-        assertThatThrownBy(() -> query("INSERT INTO " + tableName + " VALUES(null, 30, 300)"))
-                .hasMessageContaining("NULL value not allowed for NOT NULL column: col1");
-        assertThatThrownBy(() -> query("INSERT INTO " + tableName + " VALUES(TRY(5/0), 40, 400)"))
-                .hasMessageContaining("NULL value not allowed for NOT NULL column: col1");
+        assertThat(query("INSERT INTO " + tableName + " VALUES(null, 30, 300)"))
+                .failure().hasMessageContaining("NULL value not allowed for NOT NULL column: col1");
+        assertThat(query("INSERT INTO " + tableName + " VALUES(TRY(5/0), 40, 400)"))
+                .failure().hasMessageContaining("NULL value not allowed for NOT NULL column: col1");
 
-        assertThatThrownBy(() -> query("UPDATE " + tableName + " SET col1 = NULL where col3 = 100"))
-                .hasMessageContaining("NULL value not allowed for NOT NULL column: col1");
-        assertThatThrownBy(() -> query("UPDATE " + tableName + " SET col1 = TRY(5/0) where col3 = 200"))
-                .hasMessageContaining("NULL value not allowed for NOT NULL column: col1");
+        assertThat(query("UPDATE " + tableName + " SET col1 = NULL where col3 = 100"))
+                .failure().hasMessageContaining("NULL value not allowed for NOT NULL column: col1");
+        assertThat(query("UPDATE " + tableName + " SET col1 = TRY(5/0) where col3 = 200"))
+                .failure().hasMessageContaining("NULL value not allowed for NOT NULL column: col1");
 
         assertQuery("SELECT * FROM " + tableName, "VALUES(1, 10, 100), (2, 20, 200)");
     }

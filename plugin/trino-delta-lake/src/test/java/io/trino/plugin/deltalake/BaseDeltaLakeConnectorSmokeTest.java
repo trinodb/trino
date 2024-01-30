@@ -662,13 +662,13 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         assertThat(getTableFiles(controlTableName)).isNotEmpty();
 
         String tableName = "test_cleanup_for_failed_create_table_as_" + randomNameSuffix();
-        assertThatThrownBy(() -> query(
+        assertThat(query(
                 format("CREATE TABLE " + tableName + " WITH (location = '%s') AS " +
                                 "SELECT nationkey from tpch.sf1.nation " + // writer for this part finishes quickly
                                 "UNION ALL " +
                                 "SELECT 10/(max(orderkey)-max(orderkey)) from tpch.sf10.orders", // writer takes longer to complete and fails at the end
                         getLocationForTable(bucketName, tableName))))
-                .hasMessageContaining("Division by zero");
+                .failure().hasMessageContaining("Division by zero");
         assertEventually(new Duration(5, SECONDS), () -> assertThat(getTableFiles(tableName)).isEmpty());
     }
 
@@ -676,13 +676,13 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
     public void testCleanupForFailedPartitionedCreateTableAs()
     {
         String tableName = "test_cleanup_for_failed_partitioned_create_table_as_" + randomNameSuffix();
-        assertThatThrownBy(() -> query(
+        assertThat(query(
                 format("CREATE TABLE " + tableName + "(a, b) WITH (location = '%s', partitioned_by = ARRAY['b']) AS " +
                                 "SELECT nationkey, regionkey from tpch.sf1.nation " + // writer for this part finishes quickly
                                 "UNION ALL " +
                                 "SELECT 10/(max(orderkey)-max(orderkey)), orderkey %% 5 from tpch.sf10.orders group by orderkey %% 5", // writer takes longer to complete and fails at the end
                         getLocationForTable(bucketName, tableName))))
-                .hasMessageContaining("Division by zero");
+                .failure().hasMessageContaining("Division by zero");
         assertEventually(new Duration(5, SECONDS), () -> assertThat(getTableFiles(tableName)).isEmpty());
     }
 
@@ -703,7 +703,7 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         assertThat(getTableFiles(tableName)).as("remaining table files").isNotEmpty();
 
         // crate with non-empty target directory should fail
-        assertThatThrownBy(() -> query(createTableStatement)).hasMessageContaining("Target location cannot contain any files");
+        assertThat(query(createTableStatement)).failure().hasMessageContaining("Target location cannot contain any files");
     }
 
     @Test

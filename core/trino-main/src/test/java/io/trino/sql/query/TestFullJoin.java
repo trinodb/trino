@@ -39,9 +39,9 @@ public class TestFullJoin
     {
         assertThat(assertions.query(
                 "SELECT * FROM (VALUES 1, 2) AS l(v) FULL OUTER JOIN (VALUES 2, 1) AS r(v) ON l.v = r.v LIMIT 1"))
-                .satisfies(actual -> assertThat(actual.getMaterializedRows())
-                        .hasSize(1)
-                        .containsAnyElementsOf(assertions.execute("VALUES (1,1), (2,2)").getMaterializedRows()));
+                .result().rows()
+                .hasSize(1)
+                .containsAnyElementsOf(assertions.execute("VALUES (1,1), (2,2)").getMaterializedRows());
 
         assertThat(assertions.query(
                 "SELECT * FROM (VALUES 1, 2) AS l(v) FULL OUTER JOIN (VALUES 2) AS r(v) ON l.v = r.v " +

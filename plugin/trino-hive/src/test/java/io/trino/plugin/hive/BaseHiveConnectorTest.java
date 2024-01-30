@@ -3588,10 +3588,10 @@ public abstract class BaseHiveConnectorTest
                 .matches("VALUES BIGINT '1000'");
 
         // verify cannot query more than 1000 partitions
-        assertThatThrownBy(() -> query("SELECT count(*) FROM " + tableName + " WHERE part1 IS NULL AND part2 <= 1001"))
-                .hasMessage("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName);
-        assertThatThrownBy(() -> query("SELECT count(*) FROM " + tableName))
-                .hasMessage("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName);
+        assertThat(query("SELECT count(*) FROM " + tableName + " WHERE part1 IS NULL AND part2 <= 1001"))
+                .failure().hasMessage("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName);
+        assertThat(query("SELECT count(*) FROM " + tableName))
+                .failure().hasMessage("Query over table 'tpch.%s' can potentially read more than 1000 partitions", tableName);
 
         // verify we can query with a predicate that is not representable as a TupleDomain
         assertThat(query("SELECT * FROM " + tableName + " WHERE part1 % 400 = 3")) // may be translated to Domain.all
@@ -8827,8 +8827,8 @@ public abstract class BaseHiveConnectorTest
                 getQueryRunner()::execute,
                 "test_hidden_column_name_conflict",
                 format("(\"%s\" int, _bucket int, _partition int) WITH (partitioned_by = ARRAY['_partition'], bucketed_by = ARRAY['_bucket'], bucket_count = 10)", columnName))) {
-            assertThatThrownBy(() -> query("SELECT * FROM " + table.getName()))
-                    .hasMessageContaining("Multiple entries with same key: " + columnName);
+            assertThat(query("SELECT * FROM " + table.getName()))
+                    .nonTrinoExceptionFailure().hasMessageContaining("Multiple entries with same key: " + columnName);
         }
     }
 
@@ -9095,9 +9095,8 @@ public abstract class BaseHiveConnectorTest
 
         assertUpdate("CREATE TABLE %s (c1 integer) WITH (extra_properties = MAP(ARRAY['one', 'ONE'], ARRAY['one', 'ONE']))".formatted(tableName));
         // TODO: (https://github.com/trinodb/trino/issues/17) This should run successfully
-        assertThatThrownBy(() -> query("SELECT * FROM \"%s$properties\"".formatted(tableName)))
-                .isInstanceOf(QueryFailedException.class)
-                .hasMessageContaining("Multiple entries with same key: one=one and one=one");
+        assertThat(query("SELECT * FROM \"%s$properties\"".formatted(tableName)))
+                .nonTrinoExceptionFailure().hasMessageContaining("Multiple entries with same key: one=one and one=one");
 
         assertUpdate("DROP TABLE %s".formatted(tableName));
     }
@@ -9120,7 +9119,8 @@ public abstract class BaseHiveConnectorTest
                 getQueryRunner()::execute,
                 "test_select_with_short_zone_id_",
                 "(id INT, firstName VARCHAR, lastName VARCHAR) WITH (external_location = '%s')".formatted(tempDir))) {
-            assertThatThrownBy(() -> query("SELECT * FROM %s".formatted(testTable.getName())))
+            assertThat(query("SELECT * FROM %s".formatted(testTable.getName())))
+                    .failure()
                     .hasMessageMatching(".*Failed to read ORC file: .*")
                     .hasStackTraceContaining("Unknown time-zone ID: EST");
 

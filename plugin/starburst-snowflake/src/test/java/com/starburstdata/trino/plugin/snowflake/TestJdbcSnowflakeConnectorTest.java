@@ -26,7 +26,6 @@ import static com.starburstdata.trino.plugin.snowflake.SnowflakeQueryRunner.jdbc
 import static com.starburstdata.trino.plugin.snowflake.SnowflakeServer.TEST_DATABASE;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assumptions.abort;
 
 public class TestJdbcSnowflakeConnectorTest
@@ -106,8 +105,8 @@ public class TestJdbcSnowflakeConnectorTest
     {
         String tableName = getSession().getSchema().orElseThrow() + ".numbers";
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
-        assertThatThrownBy(() -> query(format("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE %s(n INTEGER)'))", tableName)))
-                .hasMessageContaining("unexpected 'CREATE'");
+        assertThat(query(format("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE %s(n INTEGER)'))", tableName)))
+                .failure().hasMessageContaining("unexpected 'CREATE'");
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
     }
 
@@ -119,8 +118,8 @@ public class TestJdbcSnowflakeConnectorTest
     public void testNativeQueryInsertStatementTableExists()
     {
         try (TestTable testTable = simpleTable()) {
-            assertThatThrownBy(() -> query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
-                    .hasMessageContaining("unexpected 'INSERT'");
+            assertThat(query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
+                    .failure().hasMessageContaining("unexpected 'INSERT'");
             assertQuery("SELECT * FROM " + testTable.getName(), "VALUES 1, 2");
         }
     }

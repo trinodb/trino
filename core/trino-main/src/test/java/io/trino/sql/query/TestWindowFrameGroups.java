@@ -23,7 +23,6 @@ import java.math.BigInteger;
 import static java.lang.String.format;
 import static java.math.BigInteger.ONE;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -404,47 +403,47 @@ public class TestWindowFrameGroups
     @Test
     public void testInvalidOffset()
     {
-        assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a ASC GROUPS x PRECEDING) " +
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a ASC GROUPS x PRECEDING) " +
                 "FROM (VALUES (1, 1), (2, -2)) t(a, x)"))
-                .hasMessage("Window frame offset value must not be negative or null");
+                .failure().hasMessage("Window frame offset value must not be negative or null");
 
-        assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a ASC GROUPS BETWEEN 1 PRECEDING AND x FOLLOWING) " +
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a ASC GROUPS BETWEEN 1 PRECEDING AND x FOLLOWING) " +
                 "FROM (VALUES (1, 1), (2, -2)) t(a, x)"))
-                .hasMessage("Window frame offset value must not be negative or null");
+                .failure().hasMessage("Window frame offset value must not be negative or null");
 
-        assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a DESC GROUPS x PRECEDING) " +
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a DESC GROUPS x PRECEDING) " +
                 "FROM (VALUES (1, 1), (2, -2)) t(a, x)"))
-                .hasMessage("Window frame offset value must not be negative or null");
+                .failure().hasMessage("Window frame offset value must not be negative or null");
 
-        assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a DESC GROUPS BETWEEN 1 PRECEDING AND x FOLLOWING) " +
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a DESC GROUPS BETWEEN 1 PRECEDING AND x FOLLOWING) " +
                 "FROM (VALUES (1, 1), (2, -2)) t(a, x)"))
-                .hasMessage("Window frame offset value must not be negative or null");
+                .failure().hasMessage("Window frame offset value must not be negative or null");
 
-        assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a DESC GROUPS x PRECEDING) " +
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a DESC GROUPS x PRECEDING) " +
                 "FROM (VALUES (1, 1), (2, null)) t(a, x)"))
-                .hasMessage("Window frame offset value must not be negative or null");
+                .failure().hasMessage("Window frame offset value must not be negative or null");
 
-        assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a DESC GROUPS BETWEEN 1 PRECEDING AND x FOLLOWING) " +
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a DESC GROUPS BETWEEN 1 PRECEDING AND x FOLLOWING) " +
                 "FROM (VALUES (1, 1), (2, null)) t(a, x)"))
-                .hasMessage("Window frame offset value must not be negative or null");
+                .failure().hasMessage("Window frame offset value must not be negative or null");
 
         // fail if offset is invalid for null sort key
-        assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a DESC GROUPS BETWEEN 1 PRECEDING AND x FOLLOWING) " +
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a DESC GROUPS BETWEEN 1 PRECEDING AND x FOLLOWING) " +
                 "FROM (VALUES (1, 1), (null, null)) t(a, x)"))
-                .hasMessage("Window frame offset value must not be negative or null");
+                .failure().hasMessage("Window frame offset value must not be negative or null");
 
-        assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a DESC GROUPS BETWEEN 1 PRECEDING AND x FOLLOWING) " +
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a DESC GROUPS BETWEEN 1 PRECEDING AND x FOLLOWING) " +
                 "FROM (VALUES (1, 1), (null, -1)) t(a, x)"))
-                .hasMessage("Window frame offset value must not be negative or null");
+                .failure().hasMessage("Window frame offset value must not be negative or null");
 
         // test invalid offset of different types
-        assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a GROUPS x PRECEDING) " +
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a GROUPS x PRECEDING) " +
                 "FROM (VALUES (1, BIGINT '-1')) t(a, x)"))
-                .hasMessage("Window frame offset value must not be negative or null");
+                .failure().hasMessage("Window frame offset value must not be negative or null");
 
-        assertThatThrownBy(() -> assertions.query("SELECT array_agg(a) OVER(ORDER BY a GROUPS x PRECEDING) " +
+        assertThat(assertions.query("SELECT array_agg(a) OVER(ORDER BY a GROUPS x PRECEDING) " +
                 "FROM (VALUES (1, INTEGER '-1')) t(a, x)"))
-                .hasMessage("Window frame offset value must not be negative or null");
+                .failure().hasMessage("Window frame offset value must not be negative or null");
     }
 
     @Test

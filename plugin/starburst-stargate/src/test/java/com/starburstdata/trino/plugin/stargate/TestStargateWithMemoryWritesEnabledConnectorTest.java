@@ -226,8 +226,8 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
         // The query fails because there are no columns, but even if columns were not required, the query would fail
         // to execute in this connector because the connector wraps it in additional syntax, which causes syntax error.
         assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE numbers(n INTEGER)'))"))
-                .hasMessageContaining("descriptor has no fields");
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE numbers(n INTEGER)'))"))
+                .nonTrinoExceptionFailure().hasMessageContaining("descriptor has no fields");
         assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
     }
 
@@ -236,8 +236,8 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
     public void testUpdateNotNullColumn()
     {
         // Required because Stargate connector adds additional `Query failed (...):` prefix to the error message and uses remote catalog name
-        assertThatThrownBy(() -> query("CREATE TABLE not_null_constraint (not_null_col INTEGER NOT NULL)"))
-                .hasMessageContaining(format("Catalog '%s' does not support non-null column for column name '\"not_null_col\"'", getRemoteCatalogName()));
+        assertThat(query("CREATE TABLE not_null_constraint (not_null_col INTEGER NOT NULL)"))
+                .failure().hasMessageContaining(format("Catalog '%s' does not support non-null column for column name '\"not_null_col\"'", getRemoteCatalogName()));
     }
 
     @Test
@@ -245,8 +245,8 @@ public class TestStargateWithMemoryWritesEnabledConnectorTest
     public void testNativeQueryInsertStatementTableExists()
     {
         try (TestTable testTable = simpleTable()) {
-            assertThatThrownBy(() -> query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
-                    .hasMessageContaining("mismatched input 'INSERT'");
+            assertThat(query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
+                    .failure().hasMessageContaining("mismatched input 'INSERT'");
             assertQuery("SELECT * FROM " + testTable.getName(), "VALUES 1, 2");
         }
     }

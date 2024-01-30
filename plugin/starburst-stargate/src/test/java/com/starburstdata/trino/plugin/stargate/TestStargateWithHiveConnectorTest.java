@@ -483,8 +483,8 @@ public class TestStargateWithHiveConnectorTest
         // The query fails because there are no columns, but even if columns were not required, the query would fail
         // to execute in this connector because the connector wraps it in additional syntax, which causes syntax error.
         assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE numbers(n INTEGER)'))"))
-                .hasMessageContaining("descriptor has no fields");
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE numbers(n INTEGER)'))"))
+                .nonTrinoExceptionFailure().hasMessageContaining("descriptor has no fields");
         assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
     }
 
@@ -493,8 +493,8 @@ public class TestStargateWithHiveConnectorTest
     public void testNativeQueryInsertStatementTableExists()
     {
         try (TestTable testTable = simpleTable()) {
-            assertThatThrownBy(() -> query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
-                    .hasMessageContaining("mismatched input 'INSERT'");
+            assertThat(query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
+                    .failure().hasMessageContaining("mismatched input 'INSERT'");
             assertQuery("SELECT * FROM " + testTable.getName(), "VALUES 1, 2");
         }
     }

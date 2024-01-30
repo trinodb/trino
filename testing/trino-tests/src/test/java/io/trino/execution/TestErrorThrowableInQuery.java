@@ -34,7 +34,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Test scenarios where query fails unexpected {@link Error} during execution. This is worth testing
@@ -102,19 +101,19 @@ public class TestErrorThrowableInQuery
         // This tests simulates case when StackOverflowError is throwing during planning because of size and shape of
         // the query. It is possible to construct query such that it makes its way through parsed and then fail during
         // planning but it is hard to do that in a predictable way, hence we use mock connector here.
-        assertThatThrownBy(() -> query("EXPLAIN SELECT test_varchar FROM stack_overflow_during_planning"))
-                .hasMessageContaining("statement is too large (stack overflow during analysis)");
+        assertThat(query("EXPLAIN SELECT test_varchar FROM stack_overflow_during_planning"))
+                .failure().hasMessageContaining("statement is too large (stack overflow during analysis)");
 
-        assertThat(query("SELECT * FROM system.runtime.queries")).matches(result -> result.getRowCount() > 0);
+        assertThat(query("SELECT * FROM system.runtime.queries")).result().rowCount().isGreaterThan(0);
     }
 
     @Test
     public void testSystemRuntimeQueriesWorksAfterClassFormatErrorDuringAnalyzeInExplain()
             throws Exception
     {
-        assertThatThrownBy(() -> query("EXPLAIN SELECT test_varchar FROM class_format_error_during_planning"))
-                .hasMessageContaining("java.lang.ClassFormatError: Bad class format!!!!!!!!!!");
+        assertThat(query("EXPLAIN SELECT test_varchar FROM class_format_error_during_planning"))
+                .nonTrinoExceptionFailure().hasMessageContaining("java.lang.ClassFormatError: Bad class format!!!!!!!!!!");
 
-        assertThat(query("SELECT * FROM system.runtime.queries")).matches(result -> result.getRowCount() > 0);
+        assertThat(query("SELECT * FROM system.runtime.queries")).result().rowCount().isGreaterThan(0);
     }
 }

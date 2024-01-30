@@ -29,7 +29,6 @@ import java.util.Map;
 
 import static java.lang.Runtime.getRuntime;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 // TestTaskSplitting is memory hunger and can cause other tests to fail with "Cannot allocate enough memory for task" error
 @Isolated
@@ -87,7 +86,7 @@ public class TestTaskSplitting
         Session taskSplittingDisabled = Session.builder(getSession())
                 .setSystemProperty("fault_tolerant_execution_task_split_memory_threshold", "100GB")
                 .build();
-        assertThatThrownBy(() -> query(taskSplittingDisabled, testQuery))
-                .hasMessageContaining("Cannot allocate enough memory for task");
+        assertThat(query(taskSplittingDisabled, testQuery))
+                .failure().hasMessageContaining("Cannot allocate enough memory for task");
     }
 }

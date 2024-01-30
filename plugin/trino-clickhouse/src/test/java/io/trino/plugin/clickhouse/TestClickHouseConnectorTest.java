@@ -715,8 +715,8 @@ public class TestClickHouseConnectorTest
                 .hasMessageMatching("(?s).*(Bad path syntax|File name too long).*");
 
         String invalidTableName = baseTableName + "z".repeat(maxTableNameLength().orElseThrow() - baseTableName.length() + 1);
-        assertThatThrownBy(() -> query("CREATE TABLE " + invalidTableName + " (a bigint)"))
-                .hasMessageMatching("(?s).*(Cannot open file|File name too long).*");
+        assertThat(query("CREATE TABLE " + invalidTableName + " (a bigint)"))
+                .failure().hasMessageMatching("(?s).*(Cannot open file|File name too long).*");
         // ClickHouse lefts a table even if the above statement failed
         assertThat(getQueryRunner().tableExists(getSession(), validTableName)).isTrue();
     }

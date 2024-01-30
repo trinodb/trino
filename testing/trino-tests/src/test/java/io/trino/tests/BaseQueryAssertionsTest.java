@@ -119,11 +119,11 @@ public abstract class BaseQueryAssertionsTest
 
         QueryAssert queryAssert = assertThat(query("VALUES 'foobar'"));
         assertThatThrownBy(queryAssert::returnsEmptyResult)
-                .hasMessageContaining("[Rows for query [VALUES 'foobar']] \nExpecting empty but was: [[foobar]]");
+                .hasMessageContaining("[Rows for query [VALUES 'foobar']] \nExpecting empty but was: (foobar)");
 
         queryAssert = assertThat(query("VALUES 'foo', 'bar'"));
         assertThatThrownBy(queryAssert::returnsEmptyResult)
-                .hasMessageContaining("[Rows for query [VALUES 'foo', 'bar']] \nExpecting empty but was: [[foo], [bar]]");
+                .hasMessageContaining("[Rows for query [VALUES 'foo', 'bar']] \nExpecting empty but was: (foo), (bar)");
     }
 
     @Test

@@ -2050,13 +2050,15 @@ public abstract class BasePinotConnectorSmokeTest
 
         // Ensure that count(<column name>) is not pushed down even if the query contains a matching grouping column
         assertThatExceptionOfType(RuntimeException.class)
-                .isThrownBy(() -> query("SELECT COUNT(long_col) FROM \"SELECT long_col FROM " + ALL_TYPES_TABLE + " GROUP BY long_col\""))
+                // TODO verify the failure is TrinoException (eg. asserThat(query(....)).failure()...)
+                .isThrownBy(() -> computeActual("SELECT COUNT(long_col) FROM \"SELECT long_col FROM " + ALL_TYPES_TABLE + " GROUP BY long_col\""))
                 .withRootCauseInstanceOf(RuntimeException.class)
                 .withMessage("Operation not supported for DISTINCT aggregation function");
 
         // Ensure that count(<column name>) with grouping columns is not pushed down even if the query contains a matching grouping column
         assertThatExceptionOfType(RuntimeException.class)
-                .isThrownBy(() -> query("SELECT bool_col, COUNT(long_col) FROM \"SELECT bool_col, long_col FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col, long_col\""))
+                // TODO verify the failure is TrinoException (eg. asserThat(query(....)).failure()...)
+                .isThrownBy(() -> computeActual("SELECT bool_col, COUNT(long_col) FROM \"SELECT bool_col, long_col FROM " + ALL_TYPES_TABLE + " GROUP BY bool_col, long_col\""))
                 .withRootCauseInstanceOf(RuntimeException.class)
                 .withMessage("Operation not supported for DISTINCT aggregation function");
 

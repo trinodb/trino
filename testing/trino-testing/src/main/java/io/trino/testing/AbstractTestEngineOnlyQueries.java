@@ -71,7 +71,6 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public abstract class AbstractTestEngineOnlyQueries
         extends AbstractTestQueryFramework
@@ -6692,21 +6691,21 @@ public abstract class AbstractTestEngineOnlyQueries
                 .matches("VALUES 'cba'");
 
         // inline functions must be declared before they are used
-        assertThatThrownBy(() -> query("""
+        assertThat(query("""
                 WITH
                   FUNCTION a(x integer) RETURNS integer RETURN b(x),
                   FUNCTION b(x integer) RETURNS integer RETURN x * 2
                 SELECT a(10)
                 """))
-                .hasMessage("line 3:8: Function 'b' not registered");
+                .failure().hasMessage("line 3:8: Function 'b' not registered");
 
         // inline function cannot be recursive
         // note: mutual recursion is not supported either, but it is not tested due to the forward declaration limitation above
-        assertThatThrownBy(() -> query("""
+        assertThat(query("""
                 WITH FUNCTION a(x integer) RETURNS integer RETURN a(x)
                 SELECT a(10)
                 """))
-                .hasMessage("line 3:8: Recursive language functions are not supported: a(integer):integer");
+                .failure().hasMessage("line 3:8: Recursive language functions are not supported: a(integer):integer");
     }
 
     // ensure that JSON_TABLE runs properly in distributed mode (i.e., serialization of handles works correctly, etc)
