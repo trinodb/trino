@@ -183,6 +183,46 @@ public class TestIcebergV2
     }
 
     @Test
+    public void testSetPropertiesObjectStoreEnabled()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_object_store", "(x int) WITH (object_store_enabled = false)")) {
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .doesNotContain("object_store_enabled");
+            assertThat(loadTable(table.getName()).properties())
+                    .doesNotContainKey("write.object-storage.enabled");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES object_store_enabled = true");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("object_store_enabled = true");
+            assertThat(loadTable(table.getName()).properties())
+                    .containsEntry("write.object-storage.enabled", "true");
+        }
+    }
+
+    @Test
+    public void testSetPropertiesDataLocation()
+    {
+        try (TestTable table = new TestTable(getQueryRunner()::execute, "test_data_location", "(x int)")) {
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .doesNotContain("data_location =");
+            assertThat(loadTable(table.getName()).properties())
+                    .doesNotContainKey("write.data.path");
+
+            assertQueryFails(
+                    "ALTER TABLE " + table.getName() + " SET PROPERTIES data_location = 'local:///data-location'",
+                    "Data location can only be set when object store is enabled");
+
+            assertUpdate("ALTER TABLE " + table.getName() + " SET PROPERTIES object_store_enabled = true, data_location = 'local:///data-location'");
+            assertThat((String) computeScalar("SHOW CREATE TABLE " + table.getName()))
+                    .contains("object_store_enabled = true")
+                    .contains("data_location = 'local:///data-location'");
+            assertThat(loadTable(table.getName()).properties())
+                    .containsEntry("write.object-storage.enabled", "true")
+                    .containsEntry("write.data.path", "local:///data-location");
+        }
+    }
+
+    @Test
     public void testV2TableRead()
     {
         String tableName = "test_v2_table_read" + randomNameSuffix();

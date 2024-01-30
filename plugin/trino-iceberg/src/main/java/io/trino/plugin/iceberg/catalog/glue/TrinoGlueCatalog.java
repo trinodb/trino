@@ -149,7 +149,6 @@ import static io.trino.plugin.iceberg.IcebergUtil.getColumnMetadatas;
 import static io.trino.plugin.iceberg.IcebergUtil.getIcebergTableWithMetadata;
 import static io.trino.plugin.iceberg.IcebergUtil.getTableComment;
 import static io.trino.plugin.iceberg.IcebergUtil.quotedTableName;
-import static io.trino.plugin.iceberg.IcebergUtil.validateTableCanBeDropped;
 import static io.trino.plugin.iceberg.TableType.MATERIALIZED_VIEW_STORAGE;
 import static io.trino.plugin.iceberg.TrinoMetricsReporter.TRINO_METRICS_REPORTER;
 import static io.trino.plugin.iceberg.catalog.glue.GlueIcebergUtil.getMaterializedViewTableInput;
@@ -674,7 +673,6 @@ public class TrinoGlueCatalog
     public void dropTable(ConnectorSession session, SchemaTableName schemaTableName)
     {
         BaseTable table = (BaseTable) loadTable(session, schemaTableName);
-        validateTableCanBeDropped(table);
         try {
             deleteTable(schemaTableName.getSchemaName(), schemaTableName.getTableName());
         }

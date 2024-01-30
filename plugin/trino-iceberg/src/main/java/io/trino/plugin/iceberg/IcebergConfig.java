@@ -91,6 +91,7 @@ public class IcebergConfig
     private List<String> allowedExtraProperties = ImmutableList.of();
     private boolean incrementalRefreshEnabled = true;
     private boolean metadataCacheEnabled = true;
+    private boolean objectStoreEnabled;
 
     public CatalogType getCatalogType()
     {
@@ -517,6 +518,19 @@ public class IcebergConfig
     public IcebergConfig setMetadataCacheEnabled(boolean metadataCacheEnabled)
     {
         this.metadataCacheEnabled = metadataCacheEnabled;
+        return this;
+    }
+
+    public boolean isObjectStoreEnabled()
+    {
+        return objectStoreEnabled;
+    }
+
+    @Config("iceberg.object-store.enabled")
+    @ConfigDescription("Enable the Iceberg object store file layout")
+    public IcebergConfig setObjectStoreEnabled(boolean objectStoreEnabled)
+    {
+        this.objectStoreEnabled = objectStoreEnabled;
         return this;
     }
 }
