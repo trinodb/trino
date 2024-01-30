@@ -171,13 +171,13 @@ public class QueryAssertions
             @Language("SQL") String expected,
             PlanMatchPattern pattern)
     {
-        assertQuery(runner.getDefaultSession(), actual, expected, false);
+        assertQuery(runner.getDefaultSession(), actual, expected);
 
         Plan plan = runner.executeWithPlan(runner.getDefaultSession(), actual, WarningCollector.NOOP).getQueryPlan();
         assertPlan(runner.getDefaultSession(), runner.getPlannerContext().getMetadata(), runner.getPlannerContext().getFunctionManager(), runner.getStatsCalculator(), plan, pattern);
     }
 
-    private void assertQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected, boolean ensureOrdering)
+    private void assertQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
     {
         MaterializedResult actualResults = null;
         try {
@@ -200,14 +200,7 @@ public class QueryAssertions
         List<MaterializedRow> actualRows = actualResults.getMaterializedRows();
         List<MaterializedRow> expectedRows = expectedResults.getMaterializedRows();
 
-        if (ensureOrdering) {
-            if (!actualRows.equals(expectedRows)) {
-                assertEquals(expectedRows, actualRows, "For query: \n " + actual + "\n:");
-            }
-        }
-        else {
-            assertEqualsIgnoreOrder(actualRows, expectedRows, "For query: \n " + actual);
-        }
+        assertEqualsIgnoreOrder(actualRows, expectedRows, "For query: \n " + actual);
     }
 
     public void assertQueryReturnsEmptyResult(@Language("SQL") String actual)
