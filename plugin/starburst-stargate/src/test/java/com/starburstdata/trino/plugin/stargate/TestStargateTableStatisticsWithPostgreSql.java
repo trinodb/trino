@@ -21,7 +21,6 @@ import io.trino.testing.sql.TestTable;
 import org.jdbi.v3.core.HandleConsumer;
 import org.jdbi.v3.core.Jdbi;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -29,7 +28,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
-import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.sql.TestTable.fromColumns;
 import static io.trino.tpch.TpchTable.NATION;
@@ -81,30 +79,10 @@ public class TestStargateTableStatisticsWithPostgreSql
     }
 
     @Override
-    @RepeatedTest(value = 10, failureThreshold = 5) // PostgreSQL can auto-analyze data before we SHOW STATS
+    @Test
     public void testNotAnalyzed()
     {
-        String tableName = "test_stats_not_analyzed_" + randomNameSuffix();
-        assertUpdate("DROP TABLE IF EXISTS " + tableName);
-        executeInRemoteStarburst(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders", tableName));
-        try {
-            assertLocalAndRemoteStatistics(
-                    "SHOW STATS FOR " + tableName,
-                    "VALUES " +
-                            "('orderkey', null, null, null, null, null, null)," +
-                            "('custkey', null, null, null, null, null, null)," +
-                            "('orderstatus', null, null, null, null, null, null)," +
-                            "('totalprice', null, null, null, null, null, null)," +
-                            "('orderdate', null, null, null, null, null, null)," +
-                            "('orderpriority', null, null, null, null, null, null)," +
-                            "('clerk', null, null, null, null, null, null)," +
-                            "('shippriority', null, null, null, null, null, null)," +
-                            "('comment', null, null, null, null, null, null)," +
-                            "(null, null, null, null, 15000, null, null)");
-        }
-        finally {
-            assertUpdate("DROP TABLE " + tableName);
-        }
+        abort("Skipping due to flakiness. Test coverage in Hive's testNotAnalyzedWithCollectStatsDisabled should be sufficient");
     }
 
     @Override

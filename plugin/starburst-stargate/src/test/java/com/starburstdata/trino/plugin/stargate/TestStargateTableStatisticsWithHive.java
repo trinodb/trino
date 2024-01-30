@@ -102,6 +102,35 @@ public class TestStargateTableStatisticsWithHive
         }
     }
 
+    @Test
+    public void testNotAnalyzedWithCollectStatsDisabled()
+    {
+        String tableName = "test_stats_not_analyzed_with_disabled_collect_on_write";
+        assertUpdate("DROP TABLE IF EXISTS " + tableName);
+        Session session = Session.builder(remoteSession)
+                .setCatalogSessionProperty(remoteSession.getCatalog().orElseThrow(), "collect_column_statistics_on_write", "false")
+                .build();
+        executeInRemoteStarburst(format("CREATE TABLE %s AS SELECT * FROM tpch.tiny.orders", tableName), session);
+        try {
+            assertLocalAndRemoteStatistics(
+                    "SHOW STATS FOR " + tableName,
+                    "VALUES " +
+                            "('orderkey', null, null, null, null, null, null)," +
+                            "('custkey', null, null, null, null, null, null)," +
+                            "('orderstatus', null, null, null, null, null, null)," +
+                            "('totalprice', null, null, null, null, null, null)," +
+                            "('orderdate', null, null, null, null, null, null)," +
+                            "('orderpriority', null, null, null, null, null, null)," +
+                            "('clerk', null, null, null, null, null, null)," +
+                            "('shippriority', null, null, null, null, null, null)," +
+                            "('comment', null, null, null, null, null, null)," +
+                            "(null, null, null, null, 15000, null, null)");
+        }
+        finally {
+            assertUpdate("DROP TABLE " + tableName);
+        }
+    }
+
     @Override
     @Test
     public void testBasic()
@@ -540,7 +569,12 @@ public class TestStargateTableStatisticsWithHive
 
     private void executeInRemoteStarburst(String sql)
     {
-        remoteStarburst.execute(remoteSession, sql);
+        executeInRemoteStarburst(sql, remoteSession);
+    }
+
+    private void executeInRemoteStarburst(String sql, Session session)
+    {
+        remoteStarburst.execute(session, sql);
     }
 
     @Override
