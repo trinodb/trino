@@ -102,7 +102,7 @@ public final class StringFunctions
 
     @Description("Count of code points of the given string")
     @ScalarFunction("length")
-    @LiteralParameters("x")r
+    @LiteralParameters("x")
     @SqlType(StandardTypes.BIGINT)
     public static long charLength(@LiteralParameter("x") long x, @SqlType("char(x)") Slice slice)
     {
