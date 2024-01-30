@@ -45,7 +45,6 @@ import static io.trino.plugin.tpch.TpchConnectorFactory.TPCH_SPLITS_PER_NODE;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_SCALAR;
-import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_ROW_FILTER;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.PERMISSION_DENIED;
@@ -53,6 +52,7 @@ import static io.trino.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 
@@ -838,9 +838,9 @@ public class TestRowFilter
                 .skippingTypesCheck()
                 .matches("VALUES BIGINT '25'");
         // TODO https://github.com/trinodb/trino/issues/10006 - support insert into a table with row filter that is using hidden columns
-        assertTrinoExceptionThrownBy(() -> assertions.query("INSERT INTO mock.tiny.nation_with_hidden_column VALUES (101, 'POLAND', 0, 'No comment')"))
-                .hasErrorCode(GENERIC_INTERNAL_ERROR)
-                .hasMessage("Index 4 out of bounds for length 4");
+        assertThatThrownBy(() -> assertions.query("INSERT INTO mock.tiny.nation_with_hidden_column VALUES (101, 'POLAND', 0, 'No comment')"))
+                // TODO this should be TrinoException (assertTrinoExceptionThrownBy)
+                .hasStackTraceContaining("ArrayIndexOutOfBoundsException: Index 4 out of bounds for length 4");
         assertTrinoExceptionThrownBy(() -> assertions.query("UPDATE mock.tiny.nation_with_hidden_column SET name = 'POLAND'"))
                 .hasErrorCode(NOT_SUPPORTED)
                 .hasMessageContaining("Updating a table with a row filter is not supported");

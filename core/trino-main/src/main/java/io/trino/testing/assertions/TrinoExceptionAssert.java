@@ -13,6 +13,10 @@
  */
 package io.trino.testing.assertions;
 
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
+import io.trino.cache.SafeCaches;
 import io.trino.client.ErrorInfo;
 import io.trino.client.FailureInfo;
 import io.trino.spi.ErrorCode;
@@ -20,6 +24,7 @@ import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.ErrorType;
 import io.trino.spi.Location;
 import io.trino.spi.TrinoException;
+import io.trino.sql.parser.ParsingException;
 import org.assertj.core.api.AbstractThrowableAssert;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.assertj.core.internal.Failures;
@@ -39,6 +44,19 @@ import static org.assertj.core.error.ShouldHaveMessageMatchingRegex.shouldHaveMe
 public final class TrinoExceptionAssert
         extends AbstractThrowableAssert<TrinoExceptionAssert, Throwable>
 {
+    private static final LoadingCache<String, Boolean> isTrinoExceptionCache = SafeCaches.buildNonEvictableCache(
+            CacheBuilder.newBuilder().maximumSize(100),
+            CacheLoader.from(type -> {
+                try {
+                    Class<?> exceptionClass = Class.forName(type);
+                    return TrinoException.class.isAssignableFrom(exceptionClass) ||
+                            ParsingException.class.isAssignableFrom(exceptionClass);
+                }
+                catch (ClassNotFoundException e) {
+                    return false;
+                }
+            }));
+
     private final FailureInfo failureInfo;
 
     @CheckReturnValue
@@ -55,10 +73,15 @@ public final class TrinoExceptionAssert
     public static TrinoExceptionAssert assertThatTrinoException(Throwable throwable)
     {
         Optional<FailureInfo> failureInfo = TestUtil.getFailureInfo(throwable);
-        if (failureInfo.isEmpty()) {
+        if (failureInfo.isEmpty() || !isTrinoException(failureInfo.get().getType())) {
             throw new AssertionError("Expected TrinoException or wrapper, but got: " + throwable.getClass().getName() + " " + throwable, throwable);
         }
         return new TrinoExceptionAssert(throwable, failureInfo.get());
+    }
+
+    private static boolean isTrinoException(String type)
+    {
+        return isTrinoExceptionCache.getUnchecked(type);
     }
 
     private TrinoExceptionAssert(Throwable actual, FailureInfo failureInfo)
