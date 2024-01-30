@@ -53,7 +53,7 @@ runs:
           path: |
             ~/.m2/repository
             /tmp/pt_java_downloads
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          key: ${{ runner.os }}-maven-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-maven-
       - name: Restore local Maven repo
@@ -62,7 +62,7 @@ runs:
         uses: actions/cache/restore@v3
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          key: ${{ runner.os }}-maven-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-maven-
       - name: Fetch any missing dependencies
