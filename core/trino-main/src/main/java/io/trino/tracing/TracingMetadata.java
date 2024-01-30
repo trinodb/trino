@@ -73,7 +73,6 @@ import io.trino.spi.connector.SampleType;
 import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SortItem;
-import io.trino.spi.connector.SortOrder;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableFunctionApplicationResult;
@@ -1024,11 +1023,15 @@ public class TracingMetadata
     }
 
     @Override
-    public Optional<PartialSortApplicationResult<TableHandle>> applyPartialSort(Session session, TableHandle tableHandle, Map<ColumnHandle, SortOrder> columnHandleSortOrderMap)
+    public Optional<PartialSortApplicationResult<TableHandle>> applyPartialSort(
+            Session session,
+            TableHandle tableHandle,
+            List<SortItem> sortItems,
+            Map<String, ColumnHandle> assignments)
     {
         Span span = startSpan("applyPartialSort", tableHandle);
         try (var ignored = scopedSpan(span)) {
-            return delegate.applyPartialSort(session, tableHandle, columnHandleSortOrderMap);
+            return delegate.applyPartialSort(session, tableHandle, sortItems, assignments);
         }
     }
 

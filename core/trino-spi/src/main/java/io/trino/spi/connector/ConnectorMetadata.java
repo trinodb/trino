@@ -1643,12 +1643,23 @@ public interface ConnectorMetadata
     }
 
     /**
-     * If the file is ordered, attempt to push down sort or topN to connector.
+     * Attempt to push down the partial sort into the table scan.
+     * <p>
+     * Connectors can indicate whether they don't support partial sort pushdown or that the action had no effect
+     * by returning {@link Optional#empty()}. Connectors should expect this method may be called multiple times.
+     * </p>
+     * <b>Note</b>: it's critical for connectors to return {@link Optional#empty()} if calling this method has no effect for that
+     * invocation, even if the connector generally supports partial sort pushdown. Doing otherwise can cause the optimizer
+     * to loop indefinitely.
+     * <p>
+     * If the connector can handle partial sort pushdown then it should return a non-empty result with "partial sort guaranteed"
+     * flag set to true.
      */
     default Optional<PartialSortApplicationResult<ConnectorTableHandle>> applyPartialSort(
             ConnectorSession session,
             ConnectorTableHandle tableHandle,
-            Map<ColumnHandle, SortOrder> columnHandleSortOrderMap)
+            List<SortItem> sortItems,
+            Map<String, ColumnHandle> assignments)
     {
         return Optional.empty();
     }

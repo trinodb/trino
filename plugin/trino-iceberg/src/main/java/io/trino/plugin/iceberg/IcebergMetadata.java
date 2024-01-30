@@ -89,6 +89,7 @@ import io.trino.spi.connector.SaveMode;
 import io.trino.spi.connector.SchemaNotFoundException;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.SchemaTablePrefix;
+import io.trino.spi.connector.SortItem;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableNotFoundException;
@@ -2718,11 +2719,14 @@ public class IcebergMetadata
     public Optional<PartialSortApplicationResult<ConnectorTableHandle>> applyPartialSort(
             ConnectorSession session,
             ConnectorTableHandle tableHandle,
-            Map<ColumnHandle, io.trino.spi.connector.SortOrder> columnHandleSortOrderMap)
+            List<SortItem> sortItems,
+            Map<String, ColumnHandle> assignments)
     {
-        if (columnHandleSortOrderMap.size() != 1) {
+        // TODO support multi-field sorting
+        if (sortItems.size() != 1) {
             return Optional.empty();
         }
+        SortItem sortItem = sortItems.get(0);
         IcebergTableHandle originalTableHandle = (IcebergTableHandle) tableHandle;
         if (originalTableHandle.isSort()) {
             return Optional.empty();
@@ -2730,7 +2734,10 @@ public class IcebergMetadata
         IcebergTableHandle icebergTableHandle = (IcebergTableHandle) tableHandle;
         Table table;
         table = catalog.loadTable(session, icebergTableHandle.getSchemaTableName());
-        IcebergColumnHandle sortOrderColumn = (IcebergColumnHandle) columnHandleSortOrderMap.keySet().stream().toList().get(0);
+        if (!assignments.containsKey(sortItem.getName())) {
+            return Optional.empty();
+        }
+        IcebergColumnHandle sortOrderColumn = (IcebergColumnHandle) assignments.get(sortItem.getName());
         Set<Integer> specIdNotMatching = new HashSet<>();
 
         // partition specs are {0:f1, 1:f1,f2, 2:f3}
@@ -2783,7 +2790,7 @@ public class IcebergMetadata
             return Optional.empty();
         }
 
-        io.trino.spi.connector.SortOrder trinoSortOrder = columnHandleSortOrderMap.values().stream().toList().get(0);
+        io.trino.spi.connector.SortOrder trinoSortOrder = sortItem.getSortOrder();
         io.trino.spi.connector.SortOrder icebergSortOrder = toSortOrder(sortField);
         boolean allSorted = true;
         TupleDomain<IcebergColumnHandle> effectivePredicate =

@@ -18,14 +18,14 @@ public class PartialSortApplicationResult<T>
     private final T handle;
     private final boolean sameSortDirection;
     private final boolean sameNullOrdering;
-    private final boolean allSorted;
+    private final boolean partialSortGuaranteed;
 
-    public PartialSortApplicationResult(T handle, boolean sortDirection, boolean nullOrdering, boolean allSorted)
+    public PartialSortApplicationResult(T handle, boolean sortDirection, boolean nullOrdering, boolean partialSortGuaranteed)
     {
         this.handle = handle;
         this.sameSortDirection = sortDirection;
         this.sameNullOrdering = nullOrdering;
-        this.allSorted = allSorted;
+        this.partialSortGuaranteed = partialSortGuaranteed;
     }
 
     public T getHandle()
@@ -43,8 +43,8 @@ public class PartialSortApplicationResult<T>
         return sameNullOrdering;
     }
 
-    public boolean allSorted()
+    public boolean isPartialSortGuaranteed()
     {
-        return allSorted;
+        return partialSortGuaranteed;
     }
 }

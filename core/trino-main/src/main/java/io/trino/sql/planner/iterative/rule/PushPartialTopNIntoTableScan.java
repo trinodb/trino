@@ -22,9 +22,8 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.PartialSortApplicationResult;
-import io.trino.spi.connector.SortOrder;
+import io.trino.spi.connector.SortItem;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.GroupReference;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.iterative.Rule;
@@ -40,10 +39,11 @@ import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.TopNNode;
 
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.SystemSessionProperties.isPushPartialTopNIntoTableScan;
 import static io.trino.sql.planner.plan.Patterns.TopN.step;
 import static io.trino.sql.planner.plan.Patterns.exchange;
@@ -120,8 +120,13 @@ public class PushPartialTopNIntoTableScan
         if (!accept) {
             return Result.empty();
         }
-        Optional<PartialSortApplicationResult<TableHandle>> result = metadata.applyPartialSort(session, table, visitor.getColumnHandleSortOrderMap());
-        if (result.isEmpty() || !result.get().allSorted()) {
+        List<SortItem> sortItems = topNNode.getOrderingScheme().toSortItems();
+
+        Map<String, ColumnHandle> assignments = tableScanNode.get().getAssignments().entrySet().stream()
+                .collect(toImmutableMap(entry -> entry.getKey().getName(), Map.Entry::getValue));
+
+        Optional<PartialSortApplicationResult<TableHandle>> result = metadata.applyPartialSort(session, table, sortItems, assignments);
+        if (result.isEmpty() || !result.get().isPartialSortGuaranteed()) {
             return Result.empty();
         }
         PartialSortApplicationResult<TableHandle> partialSortResult = result.get();
@@ -207,41 +212,20 @@ public class PushPartialTopNIntoTableScan
     {
         private final Lookup lookup;
 
-        private Map<Symbol, ColumnHandle> assignments;
-
-        private final Map<ColumnHandle, SortOrder> columnHandleSortOrderMap;
-
         private Visitor(Lookup lookup)
         {
             this.lookup = lookup;
-            this.assignments = new HashMap<>();
-            this.columnHandleSortOrderMap = new HashMap<>();
-        }
-
-        public Map<ColumnHandle, SortOrder> getColumnHandleSortOrderMap()
-        {
-            return columnHandleSortOrderMap;
         }
 
         @Override
         public Boolean visitTopN(TopNNode node, Void context)
         {
-            if (node.getOrderingScheme().getOrderBy().size() != 1 || !node.getSource().accept(this, context)) {
-                return false;
-            }
-            Symbol symbol = node.getOrderingScheme().getOrderBy().get(0);
-            if (!assignments.containsKey(symbol)) {
-                return false;
-            }
-            SortOrder ordering = node.getOrderingScheme().getOrdering(symbol);
-            columnHandleSortOrderMap.put(assignments.get(symbol), ordering);
-            return true;
+            return node.getOrderingScheme().getOrderBy().size() == 1 && node.getSource().accept(this, context);
         }
 
         @Override
         public Boolean visitTableScan(TableScanNode node, Void context)
         {
-            this.assignments = node.getAssignments();
             return true;
         }
 
