@@ -151,7 +151,6 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TRUNCATE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_UPDATE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static io.trino.testing.assertions.TestUtil.verifyResultOrFailure;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static java.lang.String.format;
 import static java.lang.String.join;
@@ -650,6 +649,23 @@ public abstract class BaseConnectorTest
                     .skippingTypesCheck()
                     .matches("VALUES '2005-09-10'");
         }
+    }
+
+    private static <T> void verifyResultOrFailure(Supplier<T> callback, Consumer<T> verifyResults, Consumer<Throwable> verifyFailure)
+    {
+        requireNonNull(callback, "callback is null");
+        requireNonNull(verifyResults, "verifyResults is null");
+        requireNonNull(verifyFailure, "verifyFailure is null");
+
+        T result;
+        try {
+            result = callback.get();
+        }
+        catch (Throwable t) {
+            verifyFailure.accept(t);
+            return;
+        }
+        verifyResults.accept(result);
     }
 
     @Test
