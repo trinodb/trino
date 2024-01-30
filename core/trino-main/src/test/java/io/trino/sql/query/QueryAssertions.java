@@ -42,6 +42,8 @@ import io.trino.testing.StandaloneQueryRunner;
 import org.assertj.core.api.AbstractAssert;
 import org.assertj.core.api.AssertProvider;
 import org.assertj.core.api.ListAssert;
+import org.assertj.core.description.Description;
+import org.assertj.core.description.TextDescription;
 import org.assertj.core.presentation.Representation;
 import org.assertj.core.presentation.StandardRepresentation;
 import org.assertj.core.util.CanIgnoreReturnValue;
@@ -53,6 +55,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -67,7 +70,6 @@ import static io.trino.sql.query.QueryAssertions.QueryAssert.newQueryAssert;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TransactionBuilder.transaction;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -288,7 +290,8 @@ public class QueryAssertions
 
         private final QueryRunner runner;
         private final Session session;
-        private final String query;
+        private final Optional<String> query;
+        private final Description description;
         private boolean ordered;
         private boolean skipTypesCheck;
         private boolean skipResultsCorrectnessCheckForPushdown;
@@ -296,13 +299,22 @@ public class QueryAssertions
         static AssertProvider<QueryAssert> newQueryAssert(String query, QueryRunner runner, Session session)
         {
             MaterializedResult result = runner.execute(session, query);
-            return () -> new QueryAssert(runner, session, query, result, false, false, false);
+            return () -> new QueryAssert(
+                    runner,
+                    session,
+                    Optional.of(query),
+                    new TextDescription("%s", query),
+                    result,
+                    false,
+                    false,
+                    false);
         }
 
         private QueryAssert(
                 QueryRunner runner,
                 Session session,
-                String query,
+                Optional<String> query,
+                Description description,
                 MaterializedResult actual,
                 boolean ordered,
                 boolean skipTypesCheck,
@@ -312,6 +324,7 @@ public class QueryAssertions
             this.runner = requireNonNull(runner, "runner is null");
             this.session = requireNonNull(session, "session is null");
             this.query = requireNonNull(query, "query is null");
+            this.description = requireNonNull(description, "description is null");
             this.ordered = ordered;
             this.skipTypesCheck = skipTypesCheck;
             this.skipResultsCorrectnessCheckForPushdown = skipResultsCorrectnessCheckForPushdown;
@@ -322,7 +335,8 @@ public class QueryAssertions
             return new QueryAssert(
                     runner,
                     session,
-                    format("%s except columns %s", query, Arrays.toString(columnNamesToExclude)),
+                    Optional.empty(), // original query would not produce projected result
+                    new TextDescription("%s except columns %s", description, Arrays.toString(columnNamesToExclude)),
                     actual.exceptColumns(columnNamesToExclude),
                     ordered,
                     skipTypesCheck,
@@ -334,7 +348,8 @@ public class QueryAssertions
             return new QueryAssert(
                     runner,
                     session,
-                    format("%s projected with %s", query, Arrays.toString(columnNamesToInclude)),
+                    Optional.empty(), // original query would not produce projected result
+                    new TextDescription("%s projected with %s", description, Arrays.toString(columnNamesToInclude)),
                     actual.project(columnNamesToInclude),
                     ordered,
                     skipTypesCheck,
@@ -382,11 +397,11 @@ public class QueryAssertions
         {
             return satisfies(actual -> {
                 if (!skipTypesCheck) {
-                    assertTypes(query, actual, expected.getTypes());
+                    assertTypes(description, actual, expected.getTypes());
                 }
 
                 ListAssert<MaterializedRow> assertion = assertThat(actual.getMaterializedRows())
-                        .as("Rows for query [%s]", query)
+                        .as("Rows for query [%s]", description)
                         .withRepresentation(ROWS_REPRESENTATION);
 
                 if (ordered) {
@@ -404,7 +419,7 @@ public class QueryAssertions
             Metadata metadata = runner.getPlannerContext().getMetadata();
             transaction(runner.getTransactionManager(), metadata, runner.getAccessControl())
                     .execute(session, session -> {
-                        Plan plan = runner.createPlan(session, query);
+                        Plan plan = runner.createPlan(session, query());
                         assertPlan(
                                 session,
                                 metadata,
@@ -428,11 +443,11 @@ public class QueryAssertions
         {
             return satisfies(actual -> {
                 if (!skipTypesCheck) {
-                    assertTypes(query, actual, expected.getTypes());
+                    assertTypes(description, actual, expected.getTypes());
                 }
 
                 assertThat(actual.getMaterializedRows())
-                        .as("Rows for query [%s]", query)
+                        .as("Rows for query [%s]", description)
                         .withRepresentation(ROWS_REPRESENTATION)
                         .containsAll(expected.getMaterializedRows());
             });
@@ -442,7 +457,7 @@ public class QueryAssertions
         public QueryAssert hasOutputTypes(List<Type> expectedTypes)
         {
             return satisfies(actual -> {
-                assertTypes(query, actual, expectedTypes);
+                assertTypes(description, actual, expectedTypes);
             });
         }
 
@@ -451,15 +466,15 @@ public class QueryAssertions
         {
             return satisfies(actual -> {
                 assertThat(actual.getTypes())
-                        .as("Output types for query [%s]", query)
+                        .as("Output types for query [%s]", description)
                         .element(index).isEqualTo(expectedType);
             });
         }
 
-        private static void assertTypes(String query, MaterializedResult actual, List<Type> expectedTypes)
+        private static void assertTypes(Description queryDescription, MaterializedResult actual, List<Type> expectedTypes)
         {
             assertThat(actual.getTypes())
-                    .as("Output types for query [%s]", query)
+                    .as("Output types for query [%s]", queryDescription)
                     .isEqualTo(expectedTypes);
         }
 
@@ -467,7 +482,7 @@ public class QueryAssertions
         public QueryAssert returnsEmptyResult()
         {
             return satisfies(actual -> {
-                assertThat(actual.getMaterializedRows()).as("Rows for query [%s]", query).isEmpty();
+                assertThat(actual.getMaterializedRows()).as("Rows for query [%s]", description).isEmpty();
             });
         }
 
@@ -482,7 +497,7 @@ public class QueryAssertions
             Metadata metadata = runner.getPlannerContext().getMetadata();
             transaction(runner.getTransactionManager(), metadata, runner.getAccessControl())
                     .execute(session, session -> {
-                        Plan plan = runner.createPlan(session, query);
+                        Plan plan = runner.createPlan(session, query());
                         assertPlan(
                                 session,
                                 metadata,
@@ -511,7 +526,7 @@ public class QueryAssertions
             Metadata metadata = runner.getPlannerContext().getMetadata();
             transaction(runner.getTransactionManager(), metadata, runner.getAccessControl())
                     .execute(session, session -> {
-                        Plan plan = runner.createPlan(session, query);
+                        Plan plan = runner.createPlan(session, query());
                         assertPlan(
                                 session,
                                 metadata,
@@ -601,7 +616,7 @@ public class QueryAssertions
             Metadata metadata = runner.getPlannerContext().getMetadata();
             transaction(runner.getTransactionManager(), metadata, runner.getAccessControl())
                     .execute(session, session -> {
-                        Plan plan = runner.createPlan(session, query);
+                        Plan plan = runner.createPlan(session, query());
                         assertPlan(
                                 session,
                                 metadata,
@@ -623,7 +638,7 @@ public class QueryAssertions
         {
             transaction(runner.getTransactionManager(), runner.getPlannerContext().getMetadata(), runner.getAccessControl())
                     .execute(session, session -> {
-                        Plan plan = runner.createPlan(session, query);
+                        Plan plan = runner.createPlan(session, query());
                         planVerification.accept(plan);
                     });
 
@@ -640,8 +655,13 @@ public class QueryAssertions
             Session withoutPushdown = Session.builder(session)
                     .setSystemProperty("allow_pushdown_into_connectors", "false")
                     .build();
-            matches(runner.execute(withoutPushdown, query));
+            matches(runner.execute(withoutPushdown, query()));
             return this;
+        }
+
+        private String query()
+        {
+            return query.orElseThrow(() -> new IllegalStateException("Original query is not available"));
         }
     }
 
