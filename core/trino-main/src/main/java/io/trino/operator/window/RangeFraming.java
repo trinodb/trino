@@ -22,10 +22,10 @@ import io.trino.sql.tree.WindowFrame;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
-import static io.trino.sql.tree.FrameBound.Type.PRECEDING;
-import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
-import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
+import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
+import static io.trino.sql.planner.plan.FrameBoundType.PRECEDING;
+import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
+import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.trino.sql.tree.SortItem.Ordering.DESCENDING;
 

@@ -47,6 +47,7 @@ import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.ExceptNode;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.FrameBoundType;
 import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.IndexSourceNode;
@@ -74,7 +75,6 @@ import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.FrameBound;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.QualifiedName;
@@ -417,9 +417,9 @@ public final class PlanMatchPattern
 
     public static ExpectedValueProvider<WindowNode.Frame> windowFrame(
             WindowFrame.Type type,
-            FrameBound.Type startType,
+            FrameBoundType startType,
             Optional<String> startValue,
-            FrameBound.Type endType,
+            FrameBoundType endType,
             Optional<String> endValue,
             Optional<String> sortKey)
     {
@@ -428,10 +428,10 @@ public final class PlanMatchPattern
 
     public static ExpectedValueProvider<WindowNode.Frame> windowFrame(
             WindowFrame.Type type,
-            FrameBound.Type startType,
+            FrameBoundType startType,
             Optional<String> startValue,
             Optional<String> sortKeyForStartComparison,
-            FrameBound.Type endType,
+            FrameBoundType endType,
             Optional<String> endValue,
             Optional<String> sortKeyForEndComparison)
     {

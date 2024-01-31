@@ -48,6 +48,7 @@ import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.FilterNode;
+import io.trino.sql.planner.plan.FrameBoundType;
 import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
@@ -163,6 +164,7 @@ import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUT
 import static io.trino.sql.planner.plan.AggregationNode.groupingSets;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
 import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
@@ -1712,8 +1714,8 @@ class QueryPlanner
             Optional<Symbol> sortKeyCoercedForFrameEndComparison)
     {
         WindowFrame.Type frameType = WindowFrame.Type.RANGE;
-        FrameBound.Type frameStartType = FrameBound.Type.UNBOUNDED_PRECEDING;
-        FrameBound.Type frameEndType = FrameBound.Type.CURRENT_ROW;
+        FrameBoundType frameStartType = FrameBoundType.UNBOUNDED_PRECEDING;
+        FrameBoundType frameEndType = CURRENT_ROW;
 
         Optional<Expression> frameStartExpression = Optional.empty();
         Optional<Expression> frameEndExpression = Optional.empty();
@@ -1722,11 +1724,11 @@ class QueryPlanner
             WindowFrame frame = window.getFrame().get();
             frameType = frame.getType();
 
-            frameStartType = frame.getStart().getType();
+            frameStartType = mapFrameBoundType(frame.getStart().getType());
             frameStartExpression = frame.getStart().getValue();
 
             if (frame.getEnd().isPresent()) {
-                frameEndType = frame.getEnd().get().getType();
+                frameEndType = mapFrameBoundType(frame.getEnd().get().getType());
                 frameEndExpression = frame.getEnd().get().getValue();
             }
         }
@@ -1785,6 +1787,17 @@ class QueryPlanner
                         0));
     }
 
+    private FrameBoundType mapFrameBoundType(FrameBound.Type type)
+    {
+        return switch (type) {
+            case UNBOUNDED_PRECEDING -> FrameBoundType.UNBOUNDED_PRECEDING;
+            case PRECEDING -> FrameBoundType.PRECEDING;
+            case CURRENT_ROW -> CURRENT_ROW;
+            case FOLLOWING -> FrameBoundType.FOLLOWING;
+            case UNBOUNDED_FOLLOWING -> FrameBoundType.UNBOUNDED_FOLLOWING;
+        };
+    }
+
     private PlanBuilder planPatternRecognition(
             PlanBuilder subPlan,
             List<FunctionCall> windowFunctions,
@@ -1799,10 +1812,10 @@ class QueryPlanner
         FrameBound frameEnd = frame.getEnd().orElseThrow();
         WindowNode.Frame baseFrame = new WindowNode.Frame(
                 WindowFrame.Type.ROWS,
-                FrameBound.Type.CURRENT_ROW,
+                CURRENT_ROW,
                 Optional.empty(),
                 Optional.empty(),
-                frameEnd.getType(),
+                mapFrameBoundType(frameEnd.getType()),
                 frameEndSymbol,
                 Optional.empty(),
                 Optional.empty(),
@@ -1956,10 +1969,10 @@ class QueryPlanner
         FrameBound frameEnd = frame.getEnd().orElseThrow();
         WindowNode.Frame baseFrame = new WindowNode.Frame(
                 WindowFrame.Type.ROWS,
-                FrameBound.Type.CURRENT_ROW,
+                CURRENT_ROW,
                 Optional.empty(),
                 Optional.empty(),
-                frameEnd.getType(),
+                mapFrameBoundType(frameEnd.getType()),
                 frameEndSymbol,
                 Optional.empty(),
                 Optional.empty(),

@@ -43,9 +43,9 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFrame;
-import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
-import static io.trino.sql.tree.FrameBound.Type.FOLLOWING;
-import static io.trino.sql.tree.FrameBound.Type.PRECEDING;
+import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
+import static io.trino.sql.planner.plan.FrameBoundType.FOLLOWING;
+import static io.trino.sql.planner.plan.FrameBoundType.PRECEDING;
 import static io.trino.sql.tree.WindowFrame.Type.RANGE;
 import static java.lang.String.format;
 
