@@ -49,6 +49,6 @@ public class ByEagerParentOutputDataSizeEstimator
         for (int i = 0; i < outputPartitionsCount; ++i) {
             estimateBuilder.add(0);
         }
-        return Optional.of(new OutputDataSizeEstimateResult(estimateBuilder.build(), OutputDataSizeEstimateStatus.ESTIMATED_FOR_EAGER_PARENT));
+        return Optional.of(new OutputDataSizeEstimateResult(estimateBuilder.build(), "FOR_EAGER_PARENT"));
     }
 }

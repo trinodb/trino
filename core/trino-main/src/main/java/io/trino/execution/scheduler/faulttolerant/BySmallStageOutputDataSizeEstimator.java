@@ -142,6 +142,6 @@ public class BySmallStageOutputDataSizeEstimator
             // TODO; should we use distribution as in this.outputDataSize if we have some data there already?
             estimateBuilder.add(inputSizeEstimate / outputPartitionsCount);
         }
-        return Optional.of(new OutputDataSizeEstimateResult(estimateBuilder.build(), OutputDataSizeEstimateStatus.ESTIMATED_BY_SMALL_INPUT));
+        return Optional.of(new OutputDataSizeEstimateResult(estimateBuilder.build(), "BY_SMALL_INPUT"));
     }
 }

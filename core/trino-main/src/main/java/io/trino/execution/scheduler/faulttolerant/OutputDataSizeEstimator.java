@@ -38,9 +38,9 @@ public interface OutputDataSizeEstimator
 
     record OutputDataSizeEstimateResult(
             OutputDataSizeEstimate outputDataSizeEstimate,
-            OutputDataSizeEstimateStatus status)
+            String status)
     {
-        OutputDataSizeEstimateResult(ImmutableLongArray partitionDataSizes, OutputDataSizeEstimateStatus status)
+        OutputDataSizeEstimateResult(ImmutableLongArray partitionDataSizes, String status)
         {
             this(new OutputDataSizeEstimate(partitionDataSizes), status);
         }

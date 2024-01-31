@@ -67,7 +67,6 @@ import io.trino.execution.scheduler.SplitSchedulerStats;
 import io.trino.execution.scheduler.TaskExecutionStats;
 import io.trino.execution.scheduler.faulttolerant.NodeAllocator.NodeLease;
 import io.trino.execution.scheduler.faulttolerant.OutputDataSizeEstimator.OutputDataSizeEstimateResult;
-import io.trino.execution.scheduler.faulttolerant.OutputDataSizeEstimator.OutputDataSizeEstimateStatus;
 import io.trino.execution.scheduler.faulttolerant.PartitionMemoryEstimator.MemoryRequirements;
 import io.trino.execution.scheduler.faulttolerant.SplitAssigner.AssignmentResult;
 import io.trino.execution.scheduler.faulttolerant.SplitAssigner.Partition;
@@ -119,6 +118,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
@@ -1269,7 +1269,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 else {
                     // source stage finished; no more checks needed
                     OutputDataSizeEstimateResult result = sourceStageExecution.getOutputDataSize(stageExecutions::get, eager).orElseThrow();
-                    verify(result.status() == OutputDataSizeEstimateStatus.FINISHED, "expected FINISHED status but got %s", result.status());
+                    verify(Objects.equals(result.status(), "FINISHED"), "expected FINISHED status but got %s", result.status());
                     finishedSourcesCount++;
                     sourceOutputSizeEstimates.put(sourceStageExecution.getStageId(), result.outputDataSizeEstimate());
                     someSourcesMadeProgress = true;
@@ -1291,7 +1291,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                     return IsReadyForExecutionResult.notReady();
                 }
 
-                estimateCountByKind.compute(result.orElseThrow().status().toString(), (k, v) -> v == null ? 0 : v + 1);
+                estimateCountByKind.compute(result.orElseThrow().status(), (k, v) -> v == null ? 0 : v + 1);
 
                 sourceOutputSizeEstimates.put(sourceStageExecution.getStageId(), result.orElseThrow().outputDataSizeEstimate());
                 someSourcesMadeProgress = someSourcesMadeProgress || sourceStageExecution.isSomeProgressMade();
@@ -2526,7 +2526,7 @@ public class EventDrivenFaultTolerantQueryScheduler
         {
             if (stage.getState() == StageState.FINISHED) {
                 return Optional.of(new OutputDataSizeEstimateResult(
-                        new OutputDataSizeEstimate(ImmutableLongArray.copyOf(outputDataSize)), OutputDataSizeEstimateStatus.FINISHED));
+                        new OutputDataSizeEstimate(ImmutableLongArray.copyOf(outputDataSize)), "FINISHED"));
             }
             return outputDataSizeEstimator.getEstimatedOutputDataSize(this, stageExecutionLookup, parentEager);
         }

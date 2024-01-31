@@ -71,6 +71,6 @@ public class ByTaskProgressOutputDataSizeEstimator
         for (long partitionSize : currentOutputDataSize) {
             estimateBuilder.add((long) (partitionSize / progress));
         }
-        return Optional.of(new OutputDataSizeEstimateResult(new OutputDataSizeEstimate(estimateBuilder.build()), OutputDataSizeEstimateStatus.ESTIMATED_BY_PROGRESS));
+        return Optional.of(new OutputDataSizeEstimateResult(new OutputDataSizeEstimate(estimateBuilder.build()), "BY_PROGRESS"));
     }
 }
