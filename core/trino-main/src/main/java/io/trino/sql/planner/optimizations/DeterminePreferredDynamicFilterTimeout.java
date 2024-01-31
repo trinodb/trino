@@ -20,15 +20,9 @@ import io.trino.cost.CachingStatsProvider;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
 import io.trino.cost.SymbolStatsEstimate;
-import io.trino.cost.TableStatsProvider;
-import io.trino.execution.querystats.PlanOptimizersStatsCollector;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.DynamicFilterSourceNode;
 import io.trino.sql.planner.plan.ExchangeNode;
@@ -77,20 +71,10 @@ public class DeterminePreferredDynamicFilterTimeout
     }
 
     @Override
-    public PlanNode optimize(
-            PlanNode plan,
-            Session session,
-            TypeProvider types,
-            SymbolAllocator symbolAllocator,
-            PlanNodeIdAllocator idAllocator,
-            WarningCollector warningCollector,
-            PlanOptimizersStatsCollector planOptimizersStatsCollector,
-            TableStatsProvider tableStatsProvider)
+    public PlanNode optimize(PlanNode plan, Context context)
     {
         requireNonNull(plan, "plan is null");
-        requireNonNull(session, "session is null");
-        requireNonNull(types, "types is null");
-        requireNonNull(idAllocator, "idAllocator is null");
+        Session session = context.session();
 
         Duration smallDynamicFilterWaitTimeout = getSmallDynamicFilterWaitTimeout(session);
         long smallDynamicFilterMaxRowCount = getSmallDynamicFilterMaxRowCount(session);
@@ -105,7 +89,7 @@ public class DeterminePreferredDynamicFilterTimeout
         if (dynamicFilters.isEmpty()) {
             return plan;
         }
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types, tableStatsProvider);
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, context.types(), context.tableStatsProvider());
 
         return SimplePlanRewriter.rewriteWith(
                 new DeterminePreferredDynamicFilterTimeout.Rewriter(

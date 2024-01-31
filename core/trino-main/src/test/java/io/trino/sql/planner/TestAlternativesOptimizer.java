@@ -37,6 +37,7 @@ import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
+import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ChooseAlternativeNode;
 import io.trino.sql.planner.plan.ChooseAlternativeNode.FilteredTableScan;
@@ -301,13 +302,14 @@ public class TestAlternativesOptimizer
 
         return optimizer.optimize(
                 plan,
-                session,
-                types,
-                new SymbolAllocator(),
-                new PlanNodeIdAllocator(),
-                WarningCollector.NOOP,
-                createPlanOptimizersStatsCollector(),
-                new CachingTableStatsProvider(getQueryRunner().getPlannerContext().getMetadata(), session));
+                new PlanOptimizer.Context(
+                        session,
+                        types,
+                        new SymbolAllocator(),
+                        new PlanNodeIdAllocator(),
+                        WarningCollector.NOOP,
+                        createPlanOptimizersStatsCollector(),
+                        new CachingTableStatsProvider(getQueryRunner().getPlannerContext().getMetadata(), session)));
     }
 
     private void assertPlan(PlanNode actual, PlanMatchPattern pattern, TypeProvider types)

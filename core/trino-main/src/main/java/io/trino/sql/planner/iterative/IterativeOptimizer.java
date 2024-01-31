@@ -37,7 +37,6 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.planprinter.PlanPrinter;
@@ -96,33 +95,33 @@ public class IterativeOptimizer
     }
 
     @Override
-    public PlanNode optimize(
-            PlanNode plan,
-            Session session,
-            TypeProvider types,
-            SymbolAllocator symbolAllocator,
-            PlanNodeIdAllocator idAllocator,
-            WarningCollector warningCollector,
-            PlanOptimizersStatsCollector planOptimizersStatsCollector,
-            TableStatsProvider tableStatsProvider)
+    public PlanNode optimize(PlanNode plan, PlanOptimizer.Context context)
     {
         // only disable new rules if we have legacy rules to fall back to
-        if (useLegacyRules.test(session) && !legacyRules.isEmpty()) {
+        if (useLegacyRules.test(context.session()) && !legacyRules.isEmpty()) {
             for (PlanOptimizer optimizer : legacyRules) {
-                plan = optimizer.optimize(plan, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator, warningCollector, planOptimizersStatsCollector, tableStatsProvider);
+                plan = optimizer.optimize(plan, context);
             }
 
             return plan;
         }
 
-        Memo memo = new Memo(idAllocator, plan);
+        Memo memo = new Memo(context.idAllocator(), plan);
         Lookup lookup = Lookup.from(planNode -> Stream.of(memo.resolve(planNode)));
 
-        Duration timeout = SystemSessionProperties.getOptimizerTimeout(session);
-        Context context = new Context(memo, lookup, idAllocator, symbolAllocator, nanoTime(), timeout.toMillis(), session, warningCollector, tableStatsProvider);
-        exploreGroup(memo.getRootGroup(), context);
-        planOptimizersStatsCollector.add(context.getIterativeOptimizerStatsCollector());
-
+        Duration timeout = SystemSessionProperties.getOptimizerTimeout(context.session());
+        Context optimizerContext = new Context(
+                memo,
+                lookup,
+                context.idAllocator(),
+                context.symbolAllocator(),
+                nanoTime(),
+                timeout.toMillis(),
+                context.session(),
+                context.warningCollector(),
+                context.tableStatsProvider());
+        exploreGroup(memo.getRootGroup(), optimizerContext);
+        context.planOptimizersStatsCollector().add(optimizerContext.getIterativeOptimizerStatsCollector());
         return memo.extract();
     }
 

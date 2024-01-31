@@ -348,7 +348,7 @@ public class LogicalPlanner
     {
         PlanNode result;
         try (var ignored = optimizerSpan(optimizer)) {
-            result = optimizer.optimize(root, session, symbolAllocator.getTypes(), symbolAllocator, idAllocator, warningCollector, planOptimizersStatsCollector, tableStatsProvider);
+            result = optimizer.optimize(root, new PlanOptimizer.Context(session, symbolAllocator.getTypes(), symbolAllocator, idAllocator, warningCollector, planOptimizersStatsCollector, tableStatsProvider));
         }
         if (result == null) {
             throw new NullPointerException(optimizer.getClass().getName() + " returned a null plan");

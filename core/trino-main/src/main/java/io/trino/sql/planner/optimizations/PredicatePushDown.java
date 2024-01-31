@@ -20,9 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Streams;
 import io.trino.Session;
-import io.trino.cost.TableStatsProvider;
-import io.trino.execution.querystats.PlanOptimizersStatsCollector;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
@@ -146,23 +143,12 @@ public class PredicatePushDown
     }
 
     @Override
-    public PlanNode optimize(
-            PlanNode plan,
-            Session session,
-            TypeProvider types,
-            SymbolAllocator symbolAllocator,
-            PlanNodeIdAllocator idAllocator,
-            WarningCollector warningCollector,
-            PlanOptimizersStatsCollector planOptimizersStatsCollector,
-            TableStatsProvider tableStatsProvider)
+    public PlanNode optimize(PlanNode plan, Context context)
     {
         requireNonNull(plan, "plan is null");
-        requireNonNull(session, "session is null");
-        requireNonNull(types, "types is null");
-        requireNonNull(idAllocator, "idAllocator is null");
 
         return SimplePlanRewriter.rewriteWith(
-                new Rewriter(symbolAllocator, idAllocator, plannerContext, typeAnalyzer, session, types, useTableProperties, dynamicFiltering),
+                new Rewriter(context.symbolAllocator(), context.idAllocator(), plannerContext, typeAnalyzer, context.session(), context.types(), useTableProperties, dynamicFiltering),
                 plan,
                 TRUE_LITERAL);
     }

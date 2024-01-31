@@ -24,7 +24,6 @@ import io.trino.cost.CostProvider;
 import io.trino.cost.StatsAndCosts;
 import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
-import io.trino.cost.TableStatsProvider;
 import io.trino.execution.querystats.PlanOptimizersStatsCollector;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.matching.Capture;
@@ -108,23 +107,15 @@ public class AlternativesOptimizer
     }
 
     @Override
-    public PlanNode optimize(
-            PlanNode plan,
-            Session session,
-            TypeProvider types,
-            SymbolAllocator symbolAllocator,
-            PlanNodeIdAllocator idAllocator,
-            WarningCollector warningCollector,
-            PlanOptimizersStatsCollector planOptimizersStatsCollector,
-            TableStatsProvider tableStatsProvider)
+    public PlanNode optimize(PlanNode plan, PlanOptimizer.Context optimizerContext)
     {
-        Memo memo = new Memo(idAllocator, plan);
+        Memo memo = new Memo(optimizerContext.idAllocator(), plan);
         Lookup lookup = Lookup.from(planNode -> Stream.of(memo.resolve(planNode)));
 
-        Duration timeout = SystemSessionProperties.getOptimizerTimeout(session);
-        Context context = new Context(memo, lookup, idAllocator, symbolAllocator, nanoTime(), timeout.toMillis(), session, warningCollector, tableStatsProvider);
+        Duration timeout = SystemSessionProperties.getOptimizerTimeout(optimizerContext.session());
+        Context context = new Context(memo, lookup, optimizerContext, nanoTime(), timeout.toMillis());
         exploreGroup(memo.getRootGroup(), context, Optional.empty());
-        planOptimizersStatsCollector.add(context.getStatsCollector());
+        optimizerContext.planOptimizersStatsCollector().add(context.getStatsCollector());
 
         return memo.extract();
     }
@@ -196,7 +187,7 @@ public class AlternativesOptimizer
         if (resolvedChild instanceof ChooseAlternativeNode chooseAlternativeNode) {
             for (PlanNode alternative : chooseAlternativeNode.getSources()) {
                 // node is copied so plan won't contain several nodes with the same id
-                PlanNode branch = PlanCopier.copyPlan(node, context.idAllocator, context.lookup)
+                PlanNode branch = PlanCopier.copyPlan(node, context.optimizerContext.idAllocator(), context.lookup)
                         .replaceChildren(List.of(alternative));
 
                 List<PlanNode> newAlternatives = exploreNode(branch, originalTableScan, context);
@@ -215,7 +206,7 @@ public class AlternativesOptimizer
         if (alternatives.size() > 1) {
             context.memo.replace(
                     group,
-                    new ChooseAlternativeNode(context.idAllocator.getNextId(), alternatives, originalTableScan),
+                    new ChooseAlternativeNode(context.optimizerContext.idAllocator().getNextId(), alternatives, originalTableScan),
                     this.getClass().getName());
         }
     }
@@ -253,7 +244,7 @@ public class AlternativesOptimizer
             boolean invoked = false;
             boolean applied = false;
 
-            if (rule.isEnabled(context.session)) {
+            if (rule.isEnabled(context.optimizerContext.session())) {
                 invoked = true;
                 List<PlanNode> currentAlternatives = transform(node, originalTableScan, rule, context);
                 timeEnd = nanoTime();
@@ -357,20 +348,20 @@ public class AlternativesOptimizer
                     rule.getClass().getName(),
                     PlanPrinter.textLogicalPlan(
                             node,
-                            context.symbolAllocator.getTypes(),
+                            context.optimizerContext.symbolAllocator().getTypes(),
                             plannerContext.getMetadata(),
                             plannerContext.getFunctionManager(),
                             StatsAndCosts.empty(),
-                            context.session,
+                            context.optimizerContext.session(),
                             0,
                             false),
                     PlanPrinter.textLogicalPlan(
                             new ChooseAlternativeNode(new PlanNodeId("<TRANSIENT>"), alternatives, originalTableScan),
-                            context.symbolAllocator.getTypes(),
+                            context.optimizerContext.symbolAllocator().getTypes(),
                             plannerContext.getMetadata(),
                             plannerContext.getFunctionManager(),
                             StatsAndCosts.empty(),
-                            context.session,
+                            context.optimizerContext.session(),
                             0,
                             false));
         }
@@ -379,8 +370,8 @@ public class AlternativesOptimizer
     // Copied from io.trino.sql.planner.iterative.IterativeOptimizer
     private Rule.Context ruleContext(Context context)
     {
-        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(context.memo), context.lookup, context.session, context.symbolAllocator.getTypes(), context.tableStatsProvider);
-        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(context.memo), context.session, context.symbolAllocator.getTypes());
+        StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, Optional.of(context.memo), context.lookup, context.optimizerContext.session(), context.optimizerContext.symbolAllocator().getTypes(), context.optimizerContext.tableStatsProvider());
+        CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, Optional.of(context.memo), context.optimizerContext.session(), context.optimizerContext.symbolAllocator().getTypes());
 
         return new Rule.Context()
         {
@@ -393,19 +384,19 @@ public class AlternativesOptimizer
             @Override
             public PlanNodeIdAllocator getIdAllocator()
             {
-                return context.idAllocator;
+                return context.optimizerContext.idAllocator();
             }
 
             @Override
             public SymbolAllocator getSymbolAllocator()
             {
-                return context.symbolAllocator;
+                return context.optimizerContext.symbolAllocator();
             }
 
             @Override
             public Session getSession()
             {
-                return context.session;
+                return context.optimizerContext.session();
             }
 
             @Override
@@ -429,7 +420,7 @@ public class AlternativesOptimizer
             @Override
             public WarningCollector getWarningCollector()
             {
-                return context.warningCollector;
+                return context.optimizerContext.warningCollector();
             }
         };
     }
@@ -439,39 +430,27 @@ public class AlternativesOptimizer
     {
         private final Memo memo;
         private final Lookup lookup;
-        private final PlanNodeIdAllocator idAllocator;
-        private final SymbolAllocator symbolAllocator;
+        private final PlanOptimizer.Context optimizerContext;
         private final long startTimeInNanos;
         private final long timeoutInMilliseconds;
-        private final Session session;
-        private final WarningCollector warningCollector;
-        private final TableStatsProvider tableStatsProvider;
 
         private final PlanOptimizersStatsCollector statsCollector;
 
         public Context(
                 Memo memo,
                 Lookup lookup,
-                PlanNodeIdAllocator idAllocator,
-                SymbolAllocator symbolAllocator,
+                PlanOptimizer.Context optimizerContext,
                 long startTimeInNanos,
-                long timeoutInMilliseconds,
-                Session session,
-                WarningCollector warningCollector,
-                TableStatsProvider tableStatsProvider)
+                long timeoutInMilliseconds)
         {
             checkArgument(timeoutInMilliseconds >= 0, "Timeout has to be a non-negative number [milliseconds]");
 
             this.memo = memo;
             this.lookup = lookup;
-            this.idAllocator = idAllocator;
-            this.symbolAllocator = symbolAllocator;
+            this.optimizerContext = optimizerContext;
             this.startTimeInNanos = startTimeInNanos;
             this.timeoutInMilliseconds = timeoutInMilliseconds;
-            this.session = session;
-            this.warningCollector = warningCollector;
             this.statsCollector = createPlanOptimizersStatsCollector();
-            this.tableStatsProvider = tableStatsProvider;
         }
 
         public void checkTimeoutNotExhausted()

@@ -151,13 +151,14 @@ public class TestUnaliasSymbolReferences
             PlanNode plan = planCreator.create(planBuilder, session, metadata);
             PlanNode optimized = optimizer.optimize(
                     plan,
-                    session,
-                    planBuilder.getTypes(),
-                    symbolAllocator,
-                    idAllocator,
-                    WarningCollector.NOOP,
-                    createPlanOptimizersStatsCollector(),
-                    new CachingTableStatsProvider(metadata, session));
+                    new PlanOptimizer.Context(
+                            session,
+                            planBuilder.getTypes(),
+                            symbolAllocator,
+                            idAllocator,
+                            WarningCollector.NOOP,
+                            createPlanOptimizersStatsCollector(),
+                            new CachingTableStatsProvider(metadata, session)));
 
             Plan actual = new Plan(optimized, planBuilder.getTypes(), StatsAndCosts.empty());
             PlanAssert.assertPlan(session, queryRunner.getPlannerContext().getMetadata(), queryRunner.getPlannerContext().getFunctionManager(), queryRunner.getStatsCalculator(), actual, pattern);
