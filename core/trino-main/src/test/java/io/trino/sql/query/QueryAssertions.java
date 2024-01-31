@@ -71,6 +71,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.base.Suppliers.memoize;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
@@ -484,8 +485,17 @@ public class QueryAssertions
             // TODO provide useful exception message when query does not fail
             return assertThatThrownBy(result::get)
                     .satisfies(throwable -> {
-                        assertThatThrownBy(() -> assertThatTrinoException(throwable))
-                                .hasMessageStartingWith("Expected TrinoException or wrapper, but got: ");
+                        try {
+                            var ignored = assertThatTrinoException(throwable);
+                        }
+                        catch (AssertionError expected) {
+                            if (!nullToEmpty(expected.getMessage()).startsWith("Expected TrinoException or wrapper, but got: ")) {
+                                expected.addSuppressed(throwable);
+                                throw expected;
+                            }
+                            return;
+                        }
+                        throw new AssertionError("Expected non-TrinoException failure, but got: " + throwable, throwable);
                     });
         }
 
