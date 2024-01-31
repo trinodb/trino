@@ -270,12 +270,12 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         hiveHadoop.executeInContainerFailOnError("hdfs", "dfs", "-mkdir", "-p", subDir);
         hiveHadoop.executeInContainerFailOnError("hdfs", "dfs", "-touchz", externalFile);
 
-        query(format("CREATE SCHEMA %s WITH (location = '%s')", schemaName, schemaDir));
+        assertUpdate(format("CREATE SCHEMA %s WITH (location = '%s')", schemaName, schemaDir));
         assertThat(hiveHadoop.executeInContainer("hdfs", "dfs", "-test", "-e", externalFile).getExitCode())
                 .as("external file exists after creating schema")
                 .isEqualTo(0);
 
-        query("DROP SCHEMA " + schemaName);
+        assertUpdate("DROP SCHEMA " + schemaName);
         assertThat(hiveHadoop.executeInContainer("hdfs", "dfs", "-test", "-e", externalFile).getExitCode())
                 .as("external file exists after dropping schema")
                 .isEqualTo(0);
@@ -283,12 +283,12 @@ public abstract class BaseDeltaLakeConnectorSmokeTest
         // Test behavior without external file
         hiveHadoop.executeInContainerFailOnError("hdfs", "dfs", "-rm", "-r", subDir);
 
-        query(format("CREATE SCHEMA %s WITH (location = '%s')", schemaName, schemaDir));
+        assertUpdate(format("CREATE SCHEMA %s WITH (location = '%s')", schemaName, schemaDir));
         assertThat(hiveHadoop.executeInContainer("hdfs", "dfs", "-test", "-d", schemaDir).getExitCode())
                 .as("schema directory exists after creating schema")
                 .isEqualTo(0);
 
-        query("DROP SCHEMA " + schemaName);
+        assertUpdate("DROP SCHEMA " + schemaName);
         assertThat(hiveHadoop.executeInContainer("hdfs", "dfs", "-test", "-e", externalFile).getExitCode())
                 .as("schema directory deleted after dropping schema without external file")
                 .isEqualTo(1);
