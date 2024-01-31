@@ -30,7 +30,7 @@ import java.util.List;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPlanNodeSearcher

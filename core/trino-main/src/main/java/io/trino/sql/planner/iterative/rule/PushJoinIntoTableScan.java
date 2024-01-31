@@ -56,9 +56,9 @@ import static io.trino.matching.Capture.newCapture;
 import static io.trino.spi.predicate.Domain.onlyNull;
 import static io.trino.sql.ExpressionUtils.and;
 import static io.trino.sql.planner.iterative.rule.Rules.deriveTableStatisticsForPushdown;
-import static io.trino.sql.planner.plan.JoinNode.Type.FULL;
-import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
-import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
+import static io.trino.sql.planner.plan.JoinType.FULL;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
+import static io.trino.sql.planner.plan.JoinType.RIGHT;
 import static io.trino.sql.planner.plan.Patterns.Join.left;
 import static io.trino.sql.planner.plan.Patterns.Join.right;
 import static io.trino.sql.planner.plan.Patterns.tableScan;
@@ -176,7 +176,7 @@ public class PushJoinIntoTableScan
         Map<Symbol, ColumnHandle> assignments = assignmentsBuilder.buildOrThrow();
 
         // convert enforced constraint
-        JoinNode.Type joinType = joinNode.getType();
+        io.trino.sql.planner.plan.JoinType joinType = joinNode.getType();
         TupleDomain<ColumnHandle> leftConstraint = deriveConstraint(left.getEnforcedConstraint(), leftColumnHandlesMapping, joinType == RIGHT || joinType == FULL);
         TupleDomain<ColumnHandle> rightConstraint = deriveConstraint(right.getEnforcedConstraint(), rightColumnHandlesMapping, joinType == LEFT || joinType == FULL);
 

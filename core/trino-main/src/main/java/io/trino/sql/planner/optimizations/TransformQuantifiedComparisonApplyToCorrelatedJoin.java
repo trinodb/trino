@@ -27,6 +27,7 @@ import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.SimplePlanRewriter;
@@ -168,7 +169,7 @@ public class TransformQuantifiedComparisonApplyToCorrelatedJoin
                     context.rewrite(node.getInput()),
                     subqueryPlan,
                     node.getCorrelation(),
-                    CorrelatedJoinNode.Type.INNER,
+                    JoinType.INNER,
                     TRUE_LITERAL,
                     node.getOriginSubquery());
 

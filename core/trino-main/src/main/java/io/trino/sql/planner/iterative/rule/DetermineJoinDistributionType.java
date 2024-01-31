@@ -31,6 +31,7 @@ import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.planner.plan.UnnestNode;
@@ -47,10 +48,10 @@ import static io.trino.sql.planner.OptimizerConfig.JoinDistributionType.AUTOMATI
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
-import static io.trino.sql.planner.plan.JoinNode.Type.FULL;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
-import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
-import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
+import static io.trino.sql.planner.plan.JoinType.FULL;
+import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
+import static io.trino.sql.planner.plan.JoinType.RIGHT;
 import static io.trino.sql.planner.plan.Patterns.join;
 import static java.lang.Double.NaN;
 import static java.lang.Double.isNaN;
@@ -264,14 +265,14 @@ public class DetermineJoinDistributionType
 
     private static boolean mustPartition(JoinNode joinNode)
     {
-        JoinNode.Type type = joinNode.getType();
+        JoinType type = joinNode.getType();
         // With REPLICATED, the unmatched rows from right-side would be duplicated.
         return type == RIGHT || type == FULL;
     }
 
     private static boolean mustReplicate(JoinNode joinNode, Context context)
     {
-        JoinNode.Type type = joinNode.getType();
+        JoinType type = joinNode.getType();
         if (joinNode.getCriteria().isEmpty() && (type == INNER || type == LEFT)) {
             // There is nothing to partition on
             return true;

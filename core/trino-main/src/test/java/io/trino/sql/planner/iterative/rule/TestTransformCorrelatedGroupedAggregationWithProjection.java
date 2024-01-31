@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.planner.plan.JoinNode.Type;
+import io.trino.sql.planner.plan.JoinType;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -34,7 +34,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
-import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 
 public class TestTransformCorrelatedGroupedAggregationWithProjection
         extends BaseRuleTest
@@ -91,7 +91,7 @@ public class TestTransformCorrelatedGroupedAggregationWithProjection
                                         ImmutableMap.of(Optional.of("sum_agg"), functionCall("sum", ImmutableList.of("a")), Optional.of("count_agg"), functionCall("count", ImmutableList.of())),
                                         Optional.empty(),
                                         SINGLE,
-                                        join(Type.INNER, builder -> builder
+                                        join(JoinType.INNER, builder -> builder
                                                 .filter("b > corr")
                                                 .left(
                                                         assignUniqueId(
@@ -135,7 +135,7 @@ public class TestTransformCorrelatedGroupedAggregationWithProjection
                                                 ImmutableMap.of(),
                                                 Optional.empty(),
                                                 SINGLE,
-                                                join(Type.INNER, builder -> builder
+                                                join(JoinType.INNER, builder -> builder
                                                         .filter("b > corr")
                                                         .left(
                                                                 assignUniqueId(
@@ -176,7 +176,7 @@ public class TestTransformCorrelatedGroupedAggregationWithProjection
                                         ImmutableMap.of(Optional.of("sum_agg"), functionCall("sum", ImmutableList.of("a")), Optional.of("count_agg"), functionCall("count", ImmutableList.of())),
                                         Optional.empty(),
                                         SINGLE,
-                                        join(Type.INNER, builder -> builder
+                                        join(JoinType.INNER, builder -> builder
                                                 .filter("b = corr")
                                                 .left(
                                                         assignUniqueId(

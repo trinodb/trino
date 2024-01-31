@@ -53,6 +53,7 @@ import io.trino.sql.planner.plan.GroupIdNode;
 import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.IndexSourceNode;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
 import io.trino.sql.planner.plan.MergeProcessorNode;
@@ -933,7 +934,7 @@ public final class PropertyDerivations
         }
     }
 
-    static boolean spillPossible(Session session, JoinNode.Type joinType)
+    static boolean spillPossible(Session session, JoinType joinType)
     {
         if (!SystemSessionProperties.isSpillEnabled(session)) {
             return false;
