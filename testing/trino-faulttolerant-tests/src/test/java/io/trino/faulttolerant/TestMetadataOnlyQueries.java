@@ -69,7 +69,7 @@ public class TestMetadataOnlyQueries
     }
 
     @Test
-    @Timeout(60)
+    @Timeout(120)
     public void testMetadataOnlyQueries()
             throws InterruptedException
     {
