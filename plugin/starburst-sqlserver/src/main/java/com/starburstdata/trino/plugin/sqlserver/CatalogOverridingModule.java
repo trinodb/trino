@@ -25,7 +25,6 @@ import java.sql.Connection;
 import java.sql.SQLException;
 
 import static com.google.inject.Scopes.SINGLETON;
-import static com.starburstdata.trino.plugin.sqlserver.StarburstSqlServerClientModule.DefaultSqlserverBinding;
 import static com.starburstdata.trino.plugin.sqlserver.StarburstSqlServerSessionProperties.getOverrideCatalog;
 import static io.airlift.configuration.ConditionalModule.conditionalModule;
 import static java.lang.annotation.ElementType.FIELD;
@@ -48,7 +47,7 @@ public class CatalogOverridingModule
                         .in(SINGLETON),
                 moduleBinder -> moduleBinder.bind(ConnectionFactory.class)
                         .annotatedWith(ForBaseJdbc.class)
-                        .to(Key.get(ConnectionFactory.class, DefaultSqlserverBinding.class))
+                        .to(Key.get(ConnectionFactory.class, ForCatalogOverriding.class))
                         .in(SINGLETON)));
     }
 
