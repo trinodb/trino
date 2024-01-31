@@ -2051,8 +2051,7 @@ public abstract class BaseJdbcConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
         assertThat(query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE numbers(n INTEGER)'))"))
-                // TODO should be TrinoException
-                .nonTrinoExceptionFailure().hasMessageContaining("Query not supported: ResultSetMetaData not available for query: CREATE TABLE numbers(n INTEGER)");
+                .failure().hasMessageContaining("Query not supported: ResultSetMetaData not available for query: CREATE TABLE numbers(n INTEGER)");
         assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
     }
 
@@ -2071,8 +2070,7 @@ public abstract class BaseJdbcConnectorTest
         skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         try (TestTable testTable = simpleTable()) {
             assertThat(query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
-                    // TODO should be TrinoException
-                    .nonTrinoExceptionFailure().hasMessageContaining(format("Query not supported: ResultSetMetaData not available for query: INSERT INTO %s VALUES (3)", testTable.getName()));
+                    .failure().hasMessageContaining(format("Query not supported: ResultSetMetaData not available for query: INSERT INTO %s VALUES (3)", testTable.getName()));
             assertQuery("SELECT * FROM " + testTable.getName(), "VALUES 1, 2");
         }
     }
