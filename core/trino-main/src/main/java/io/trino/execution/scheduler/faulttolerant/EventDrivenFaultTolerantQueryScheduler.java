@@ -1243,9 +1243,7 @@ public class EventDrivenFaultTolerantQueryScheduler
             boolean eager = stageEstimationForEagerParentEnabled && shouldScheduleEagerly(subPlan);
             boolean speculative = false;
             int finishedSourcesCount = 0;
-            int estimatedByProgressSourcesCount = 0;
-            int estimatedBySmallInputSourcesCount = 0;
-            int estimatedForEagerParent = 0;
+            Map<String, Integer> estimateCountByKind = new HashMap<>();
 
             ImmutableMap.Builder<StageId, OutputDataSizeEstimate> sourceOutputStatsEstimates = ImmutableMap.builder();
 
@@ -1302,12 +1300,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                     return IsReadyForExecutionResult.notReady();
                 }
 
-                switch (result.orElseThrow().status()) {
-                    case ESTIMATED_BY_PROGRESS -> estimatedByProgressSourcesCount++;
-                    case ESTIMATED_BY_SMALL_INPUT -> estimatedBySmallInputSourcesCount++;
-                    case ESTIMATED_FOR_EAGER_PARENT -> estimatedForEagerParent++;
-                    default -> throw new IllegalStateException(format("unexpected status %s", result.orElseThrow().status())); // FINISHED handled above
-                }
+                estimateCountByKind.compute(result.orElseThrow().status().toString(), (k, v) -> v == null ? 0 : v + 1);
 
                 sourceOutputStatsEstimates.put(sourceStageExecution.getStageId(), result.orElseThrow().outputDataSizeEstimate());
                 someSourcesMadeProgress = someSourcesMadeProgress || sourceStageExecution.isSomeProgressMade();
@@ -1318,13 +1311,11 @@ public class EventDrivenFaultTolerantQueryScheduler
             }
 
             if (speculative) {
-                log.debug("scheduling speculative %s/%s; sources: finished=%s; estimatedByProgress=%s; estimatedSmall=%s; estimatedForEagerParent=%s",
+                log.debug("scheduling speculative %s/%s; sources: finished=%s; kinds=%s",
                         queryStateMachine.getQueryId(),
                         subPlan.getFragment().getId(),
                         finishedSourcesCount,
-                        estimatedByProgressSourcesCount,
-                        estimatedBySmallInputSourcesCount,
-                        estimatedForEagerParent);
+                        estimateCountByKind);
             }
             return IsReadyForExecutionResult.ready(sourceOutputStatsEstimates.buildOrThrow(), eager);
         }
