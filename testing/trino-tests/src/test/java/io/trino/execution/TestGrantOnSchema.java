@@ -38,7 +38,6 @@ import static io.trino.spi.security.PrincipalType.USER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.CONCURRENT;
 
@@ -138,34 +137,34 @@ public class TestGrantOnSchema
     @Test
     public void testGrantOnNonExistingCatalog()
     {
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT SELECT ON SCHEMA missing_catalog.missing_schema TO %s", randomUsername())))
-                .hasMessageContaining("Schema 'missing_catalog.missing_schema' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT CREATE ON SCHEMA missing_catalog.missing_schema TO %s", randomUsername())))
-                .hasMessageContaining("Schema 'missing_catalog.missing_schema' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT ALL PRIVILEGES ON SCHEMA missing_catalog.missing_schema TO %s", randomUsername())))
-                .hasMessageContaining("Schema 'missing_catalog.missing_schema' does not exist");
+        assertThat(assertions.query(admin, format("GRANT SELECT ON SCHEMA missing_catalog.missing_schema TO %s", randomUsername())))
+                .failure().hasMessageContaining("Schema 'missing_catalog.missing_schema' does not exist");
+        assertThat(assertions.query(admin, format("GRANT CREATE ON SCHEMA missing_catalog.missing_schema TO %s", randomUsername())))
+                .failure().hasMessageContaining("Schema 'missing_catalog.missing_schema' does not exist");
+        assertThat(assertions.query(admin, format("GRANT ALL PRIVILEGES ON SCHEMA missing_catalog.missing_schema TO %s", randomUsername())))
+                .failure().hasMessageContaining("Schema 'missing_catalog.missing_schema' does not exist");
     }
 
     @Test
     public void testGrantOnNonExistingSchema()
     {
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT SELECT ON SCHEMA missing_schema TO %s", randomUsername())))
-                .hasMessageContaining("Schema 'local.missing_schema' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT CREATE ON SCHEMA missing_schema TO %s", randomUsername())))
-                .hasMessageContaining("Schema 'local.missing_schema' does not exist");
-        assertThatThrownBy(() -> queryRunner.execute(admin, format("GRANT ALL PRIVILEGES ON SCHEMA missing_schema TO %s", randomUsername())))
-                .hasMessageContaining("Schema 'local.missing_schema' does not exist");
+        assertThat(assertions.query(admin, format("GRANT SELECT ON SCHEMA missing_schema TO %s", randomUsername())))
+                .failure().hasMessageContaining("Schema 'local.missing_schema' does not exist");
+        assertThat(assertions.query(admin, format("GRANT CREATE ON SCHEMA missing_schema TO %s", randomUsername())))
+                .failure().hasMessageContaining("Schema 'local.missing_schema' does not exist");
+        assertThat(assertions.query(admin, format("GRANT ALL PRIVILEGES ON SCHEMA missing_schema TO %s", randomUsername())))
+                .failure().hasMessageContaining("Schema 'local.missing_schema' does not exist");
     }
 
     @Test
     public void testAccessDenied()
     {
-        assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), format("GRANT SELECT ON SCHEMA default TO %s", randomUsername())))
-                .hasMessageContaining("Access Denied: Cannot grant privilege SELECT on schema default");
-        assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), format("GRANT CREATE ON SCHEMA default TO %s", randomUsername())))
-                .hasMessageContaining("Access Denied: Cannot grant privilege CREATE on schema default");
-        assertThatThrownBy(() -> queryRunner.execute(sessionOf(randomUsername()), format("GRANT ALL PRIVILEGES ON SCHEMA default TO %s", randomUsername())))
-                .hasMessageContaining("Access Denied: Cannot grant privilege CREATE on schema default");
+        assertThat(assertions.query(sessionOf(randomUsername()), format("GRANT SELECT ON SCHEMA default TO %s", randomUsername())))
+                .failure().hasMessageContaining("Access Denied: Cannot grant privilege SELECT on schema default");
+        assertThat(assertions.query(sessionOf(randomUsername()), format("GRANT CREATE ON SCHEMA default TO %s", randomUsername())))
+                .failure().hasMessageContaining("Access Denied: Cannot grant privilege CREATE on schema default");
+        assertThat(assertions.query(sessionOf(randomUsername()), format("GRANT ALL PRIVILEGES ON SCHEMA default TO %s", randomUsername())))
+                .failure().hasMessageContaining("Access Denied: Cannot grant privilege CREATE on schema default");
     }
 
     private static Session sessionOf(String username)
