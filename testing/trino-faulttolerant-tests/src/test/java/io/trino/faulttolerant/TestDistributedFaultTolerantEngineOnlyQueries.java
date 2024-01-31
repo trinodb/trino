@@ -138,7 +138,7 @@ public class TestDistributedFaultTolerantEngineOnlyQueries
         ExecutorService backgroundExecutor = newCachedThreadPool();
         try {
             backgroundExecutor.submit(() -> {
-                query(highTaskMemorySession, slowQuery);
+                assertUpdate(highTaskMemorySession, slowQuery);
             });
             assertEventually(() -> queryIsInState(slowQuery, QueryState.RUNNING));
 
@@ -158,7 +158,7 @@ public class TestDistributedFaultTolerantEngineOnlyQueries
 
             // check non-metadata queries still wait for resources
             backgroundExecutor.submit(() -> {
-                query(nonMetadataQuery);
+                assertUpdate(nonMetadataQuery);
             });
             assertEventually(() -> queryIsInState(nonMetadataQuery, QueryState.STARTING));
             Thread.sleep(1000); // wait a bit longer and query should be still STARTING

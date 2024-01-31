@@ -16,6 +16,7 @@ package io.trino.sql.query;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
+import com.google.errorprone.annotations.CheckReturnValue;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionBundle;
@@ -119,11 +120,13 @@ public class QueryAssertions
         runner.installPlugin(plugin);
     }
 
+    @CheckReturnValue
     public AssertProvider<QueryAssert> query(@Language("SQL") String query)
     {
         return query(runner.getDefaultSession(), query);
     }
 
+    @CheckReturnValue
     public AssertProvider<QueryAssert> query(Session session, @Language("SQL") String query)
     {
         return newQueryAssert(query, runner, session);

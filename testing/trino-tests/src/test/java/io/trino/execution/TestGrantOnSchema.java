@@ -130,8 +130,8 @@ public class TestGrantOnSchema
         queryRunner.execute(admin, format("GRANT %s ON SCHEMA default TO %s WITH GRANT OPTION", privilege, username));
 
         assertThat(assertions.query(user, "SHOW SCHEMAS FROM local")).matches("VALUES (VARCHAR 'information_schema'), (VARCHAR 'default')");
-        assertions.query(user, format("GRANT %s ON SCHEMA default TO %s", privilege, randomUsername()));
-        assertions.query(user, format("GRANT %s ON SCHEMA default TO %s WITH GRANT OPTION", privilege, randomUsername()));
+        assertions.execute(user, format("GRANT %s ON SCHEMA default TO %s", privilege, randomUsername()));
+        assertions.execute(user, format("GRANT %s ON SCHEMA default TO %s WITH GRANT OPTION", privilege, randomUsername()));
     }
 
     @Test
