@@ -239,6 +239,14 @@ class RelationPlanner
         };
     }
 
+    public static SampleNode.Type mapSampleType(SampledRelation.Type sampleType)
+    {
+        return switch (sampleType) {
+            case BERNOULLI -> SampleNode.Type.BERNOULLI;
+            case SYSTEM -> SampleNode.Type.SYSTEM;
+        };
+    }
+
     @Override
     protected RelationPlan visitNode(Node node, Void context)
     {
@@ -715,7 +723,7 @@ class RelationPlanner
         PlanNode planNode = new SampleNode(idAllocator.getNextId(),
                 subPlan.getRoot(),
                 ratio,
-                SampleNode.Type.fromType(node.getType()));
+                mapSampleType(node.getType()));
         return new RelationPlan(planNode, analysis.getScope(node), subPlan.getFieldMappings(), outerContext);
     }
 
