@@ -64,6 +64,7 @@ import io.trino.sql.planner.plan.TableWriterNode.MergeParadigmAndTypes;
 import io.trino.sql.planner.plan.TableWriterNode.MergeTarget;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.sql.planner.plan.WindowFrameType;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.CoalesceExpression;
@@ -1713,7 +1714,7 @@ class QueryPlanner
             Optional<Symbol> frameEndSymbol,
             Optional<Symbol> sortKeyCoercedForFrameEndComparison)
     {
-        WindowFrame.Type frameType = WindowFrame.Type.RANGE;
+        WindowFrameType frameType = WindowFrameType.RANGE;
         FrameBoundType frameStartType = FrameBoundType.UNBOUNDED_PRECEDING;
         FrameBoundType frameEndType = CURRENT_ROW;
 
@@ -1722,7 +1723,7 @@ class QueryPlanner
 
         if (window.getFrame().isPresent()) {
             WindowFrame frame = window.getFrame().get();
-            frameType = frame.getType();
+            frameType = mapWindowFrameType(frame.getType());
 
             frameStartType = mapFrameBoundType(frame.getStart().getType());
             frameStartExpression = frame.getStart().getValue();
@@ -1787,6 +1788,15 @@ class QueryPlanner
                         0));
     }
 
+    private WindowFrameType mapWindowFrameType(WindowFrame.Type type)
+    {
+        return switch (type) {
+            case RANGE -> WindowFrameType.RANGE;
+            case ROWS -> WindowFrameType.ROWS;
+            case GROUPS -> WindowFrameType.GROUPS;
+        };
+    }
+
     private FrameBoundType mapFrameBoundType(FrameBound.Type type)
     {
         return switch (type) {
@@ -1811,7 +1821,7 @@ class QueryPlanner
         WindowFrame frame = window.getFrame().orElseThrow();
         FrameBound frameEnd = frame.getEnd().orElseThrow();
         WindowNode.Frame baseFrame = new WindowNode.Frame(
-                WindowFrame.Type.ROWS,
+                WindowFrameType.ROWS,
                 CURRENT_ROW,
                 Optional.empty(),
                 Optional.empty(),
@@ -1968,7 +1978,7 @@ class QueryPlanner
         WindowFrame frame = window.getFrame().orElseThrow();
         FrameBound frameEnd = frame.getEnd().orElseThrow();
         WindowNode.Frame baseFrame = new WindowNode.Frame(
-                WindowFrame.Type.ROWS,
+                WindowFrameType.ROWS,
                 CURRENT_ROW,
                 Optional.empty(),
                 Optional.empty(),

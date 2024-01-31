@@ -32,7 +32,6 @@ import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.SortItem;
-import io.trino.sql.tree.WindowFrame;
 import io.trino.testing.TestingTransactionHandle;
 import org.junit.jupiter.api.Test;
 
@@ -68,6 +67,7 @@ import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
 import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
+import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
 import static io.trino.sql.tree.SortItem.NullOrdering.FIRST;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
@@ -601,7 +601,7 @@ public class TestPushDownDereferencesRules
                                                         createTestMetadataManager().resolveBuiltinFunction("min", fromTypes(ROW_TYPE)),
                                                         ImmutableList.of(p.symbol("msg3", ROW_TYPE).toSymbolReference()),
                                                         new WindowNode.Frame(
-                                                                WindowFrame.Type.RANGE,
+                                                                RANGE,
                                                                 UNBOUNDED_PRECEDING,
                                                                 Optional.empty(),
                                                                 Optional.empty(),

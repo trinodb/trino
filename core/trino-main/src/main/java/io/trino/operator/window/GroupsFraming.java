@@ -16,12 +16,12 @@ package io.trino.operator.window;
 import io.trino.operator.PagesHashStrategy;
 import io.trino.operator.PagesIndex;
 import io.trino.sql.planner.plan.FrameBoundType;
-import io.trino.sql.tree.WindowFrame;
 
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.sql.planner.plan.WindowFrameType.GROUPS;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -53,7 +53,7 @@ public class GroupsFraming
             PagesHashStrategy peerGroupHashStrategy,
             int initialEnd)
     {
-        checkArgument(frameInfo.getType() == WindowFrame.Type.GROUPS, "Frame must be of type GROUPS, actual: %s", frameInfo.getType());
+        checkArgument(frameInfo.getType() == GROUPS, "Frame must be of type GROUPS, actual: %s", frameInfo.getType());
 
         this.frameInfo = frameInfo;
         this.partitionStart = partitionStart;

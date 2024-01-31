@@ -66,6 +66,7 @@ import io.trino.sql.planner.plan.TopNNode;
 import io.trino.sql.planner.plan.UnionNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.ValuesNode;
+import io.trino.sql.planner.plan.WindowFrameType;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
@@ -358,7 +359,7 @@ public final class PlanMatchPattern
     }
 
     public static ExpectedValueProvider<WindowNode.Frame> windowFrame(
-            WindowFrame.Type type,
+            WindowFrameType type,
             FrameBoundType startType,
             Optional<String> startValue,
             FrameBoundType endType,
@@ -369,7 +370,7 @@ public final class PlanMatchPattern
     }
 
     public static ExpectedValueProvider<WindowNode.Frame> windowFrame(
-            WindowFrame.Type type,
+            WindowFrameType type,
             FrameBoundType startType,
             Optional<String> startValue,
             Optional<String> sortKeyForStartComparison,

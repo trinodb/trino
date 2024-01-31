@@ -31,7 +31,6 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.WindowFrame;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -51,6 +50,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFrame;
 import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
+import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
 
 public class TestPruneWindowColumns
         extends BaseRuleTest
@@ -62,7 +62,7 @@ public class TestPruneWindowColumns
     private static final Set<String> inputSymbolNameSet = ImmutableSet.copyOf(inputSymbolNameList);
 
     private static final ExpectedValueProvider<WindowNode.Frame> frameProvider1 = windowFrame(
-            WindowFrame.Type.RANGE,
+            RANGE,
             UNBOUNDED_PRECEDING,
             Optional.of("startValue1"),
             CURRENT_ROW,
@@ -70,7 +70,7 @@ public class TestPruneWindowColumns
             Optional.of("orderKey"));
 
     private static final ExpectedValueProvider<WindowNode.Frame> frameProvider2 = windowFrame(
-            WindowFrame.Type.RANGE,
+            RANGE,
             UNBOUNDED_PRECEDING,
             Optional.of("startValue2"),
             CURRENT_ROW,
@@ -218,7 +218,7 @@ public class TestPruneWindowColumns
                                         MIN_FUNCTION,
                                         ImmutableList.of(input1.toSymbolReference()),
                                         new WindowNode.Frame(
-                                                WindowFrame.Type.RANGE,
+                                                RANGE,
                                                 UNBOUNDED_PRECEDING,
                                                 Optional.of(startValue1),
                                                 Optional.of(orderKey),
@@ -233,7 +233,7 @@ public class TestPruneWindowColumns
                                         MIN_FUNCTION,
                                         ImmutableList.of(input2.toSymbolReference()),
                                         new WindowNode.Frame(
-                                                WindowFrame.Type.RANGE,
+                                                RANGE,
                                                 UNBOUNDED_PRECEDING,
                                                 Optional.of(startValue2),
                                                 Optional.of(orderKey),
