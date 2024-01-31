@@ -518,7 +518,7 @@ public abstract class BaseMySqlConnectorTest
         // override because MySQL succeeds in preparing query, and then fails because of no metadata available
         assertThat(getQueryRunner().tableExists(getSession(), "non_existent_table")).isFalse();
         assertThat(query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
-                .nonTrinoExceptionFailure().hasMessageContaining("Query not supported: ResultSetMetaData not available for query: INSERT INTO non_existent_table VALUES (1)");
+                .failure().hasMessageContaining("Query not supported: ResultSetMetaData not available for query: INSERT INTO non_existent_table VALUES (1)");
     }
 
     @Test
@@ -527,7 +527,7 @@ public abstract class BaseMySqlConnectorTest
     {
         // override because MySQL succeeds in preparing query, and then fails because of no metadata available
         assertThat(query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
-                .nonTrinoExceptionFailure().hasMessageContaining("Query not supported: ResultSetMetaData not available for query: some wrong syntax");
+                .failure().hasMessageContaining("Query not supported: ResultSetMetaData not available for query: some wrong syntax");
     }
 
     @Test
