@@ -83,7 +83,7 @@ public class TestMetadataOnlyQueries
                 .build();
 
         String slowTableName = "blackhole.default.testMetadataOnlyQueries_" + randomNameSuffix();
-        assertUpdate("CREATE TABLE " + slowTableName + " (a INT, b INT) WITH (split_count = 3, pages_per_split = 1, rows_per_page = 1, page_processing_delay = '60s')");
+        assertUpdate("CREATE TABLE " + slowTableName + " (a INT, b INT) WITH (split_count = 3, pages_per_split = 1, rows_per_page = 1, page_processing_delay = '1d')");
 
         String slowQuery = "select count(*) FROM " + slowTableName;
         String nonMetadataQuery = "select count(*) non_metadata_query_count_" + System.currentTimeMillis() + " from nation";
