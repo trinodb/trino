@@ -17,7 +17,6 @@ import io.trino.operator.PagesHashStrategy;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.PagesIndexComparator;
 import io.trino.sql.tree.SortItem;
-import io.trino.sql.tree.WindowFrame;
 
 import java.util.function.Predicate;
 
@@ -26,6 +25,7 @@ import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
 import static io.trino.sql.planner.plan.FrameBoundType.PRECEDING;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
+import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.trino.sql.tree.SortItem.Ordering.DESCENDING;
 
@@ -59,7 +59,7 @@ public class RangeFraming
             PagesHashStrategy peerGroupHashStrategy,
             Range initialRange)
     {
-        checkArgument(frameInfo.getType() == WindowFrame.Type.RANGE, "Frame must be of type RANGE, actual: %s", frameInfo.getType());
+        checkArgument(frameInfo.getType() == RANGE, "Frame must be of type RANGE, actual: %s", frameInfo.getType());
 
         this.frameInfo = frameInfo;
         this.partitionStart = partitionStart;

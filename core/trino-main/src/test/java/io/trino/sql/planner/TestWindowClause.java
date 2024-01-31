@@ -45,9 +45,9 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.windowFrame;
 import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
 import static io.trino.sql.planner.plan.FrameBoundType.FOLLOWING;
 import static io.trino.sql.planner.plan.FrameBoundType.PRECEDING;
+import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
 import static io.trino.sql.tree.SortItem.NullOrdering.LAST;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
-import static io.trino.sql.tree.WindowFrame.Type.RANGE;
 
 public class TestWindowClause
         extends BasePlanTest

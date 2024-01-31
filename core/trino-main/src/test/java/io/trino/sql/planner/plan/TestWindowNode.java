@@ -30,7 +30,6 @@ import io.trino.sql.planner.OrderingScheme;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.WindowFrame;
 import io.trino.type.TypeDeserializer;
 import io.trino.type.TypeSignatureDeserializer;
 import io.trino.type.TypeSignatureKeyDeserializer;
@@ -45,6 +44,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
 import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
+import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestWindowNode
@@ -87,7 +87,7 @@ public class TestWindowNode
         Symbol windowSymbol = symbolAllocator.newSymbol("sum", BIGINT);
         ResolvedFunction resolvedFunction = functionResolution.resolveFunction("sum", fromTypes(BIGINT));
         WindowNode.Frame frame = new WindowNode.Frame(
-                WindowFrame.Type.RANGE,
+                RANGE,
                 UNBOUNDED_PRECEDING,
                 Optional.empty(),
                 Optional.empty(),
