@@ -15,7 +15,7 @@ package io.trino.operator.window;
 
 import io.trino.operator.PagesHashStrategy;
 import io.trino.operator.PagesIndex;
-import io.trino.sql.tree.FrameBound;
+import io.trino.sql.planner.plan.FrameBoundType;
 import io.trino.sql.tree.WindowFrame;
 
 import java.util.function.Function;
@@ -94,8 +94,8 @@ public class GroupsFraming
 
     private GroupsFrame getFrameRange(int currentPosition, int currentGroup, int peerGroupStart, int peerGroupEnd)
     {
-        FrameBound.Type startType = frameInfo.getStartType();
-        FrameBound.Type endType = frameInfo.getEndType();
+        FrameBoundType startType = frameInfo.getStartType();
+        FrameBoundType endType = frameInfo.getEndType();
 
         int start;
         int end;
