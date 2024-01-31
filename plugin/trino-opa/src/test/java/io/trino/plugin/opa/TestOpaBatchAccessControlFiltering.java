@@ -16,62 +16,46 @@ package io.trino.plugin.opa;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.trino.plugin.opa.FunctionalHelpers.Pair;
 import io.trino.plugin.opa.HttpClientUtils.InstrumentedHttpClient;
 import io.trino.plugin.opa.HttpClientUtils.MockResponse;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SystemSecurityContext;
-import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 
-import java.net.URI;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.opa.RequestTestUtilities.assertStringRequestsEqual;
 import static io.trino.plugin.opa.RequestTestUtilities.buildValidatingRequestHandler;
-import static io.trino.plugin.opa.TestHelpers.OK_RESPONSE;
+import static io.trino.plugin.opa.TestConstants.OK_RESPONSE;
+import static io.trino.plugin.opa.TestConstants.OPA_SERVER_BATCH_URI;
+import static io.trino.plugin.opa.TestConstants.OPA_SERVER_URI;
+import static io.trino.plugin.opa.TestConstants.TEST_IDENTITY;
+import static io.trino.plugin.opa.TestConstants.TEST_SECURITY_CONTEXT;
+import static io.trino.plugin.opa.TestHelpers.assertAccessControlMethodThrows;
+import static io.trino.plugin.opa.TestHelpers.assertBatchAccessControlMethodThrowsForIllegalResponses;
+import static io.trino.plugin.opa.TestHelpers.buildBatchAuthorizerWithPredefinedResponse;
 import static io.trino.plugin.opa.TestHelpers.createMockHttpClient;
 import static io.trino.plugin.opa.TestHelpers.createOpaAuthorizer;
-import static io.trino.plugin.opa.TestHelpers.systemSecurityContextFromIdentity;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestOpaBatchAccessControlFiltering
 {
-    private static final URI OPA_SERVER_URI = URI.create("http://my-uri/");
-    private static final URI OPA_BATCH_SERVER_URI = URI.create("http://my-uri/batchAllow");
-    private final Identity requestingIdentity = Identity.ofUser("source-user");
-    private final SystemSecurityContext requestingSecurityContext = systemSecurityContextFromIdentity(requestingIdentity);
-
-    @ParameterizedTest(name = "{index}: {0}")
-    @MethodSource("io.trino.plugin.opa.TestOpaBatchAccessControlFiltering#subsetProvider")
-    public void testFilterViewQueryOwnedBy(
-            MockResponse response,
-            List<Integer> expectedItems)
+    @Test
+    public void testFilterViewQueryOwnedBy()
     {
-        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_BATCH_SERVER_URI, buildValidatingRequestHandler(requestingIdentity, response));
-        OpaAccessControl authorizer = createOpaAuthorizer(OPA_SERVER_URI, OPA_BATCH_SERVER_URI, mockClient);
-
         Identity identityOne = Identity.ofUser("user-one");
         Identity identityTwo = Identity.ofUser("user-two");
         Identity identityThree = Identity.ofUser("user-three");
-        List<Identity> requestedIdentities = ImmutableList.of(identityOne, identityTwo, identityThree);
-
-        Collection<Identity> result = authorizer.filterViewQueryOwnedBy(requestingIdentity, requestedIdentities);
-        assertThat(result).containsExactlyInAnyOrderElementsOf(getSubset(requestedIdentities, expectedItems));
 
         String expectedRequest = """
                 {
@@ -97,25 +81,17 @@ public class TestOpaBatchAccessControlFiltering
                         }
                     ]
                 }""";
-        assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input/action");
+        assertAccessControlMethodBehaviour(
+                (accessControl, systemSecurityContext, identities) -> accessControl.filterViewQueryOwnedBy(systemSecurityContext.getIdentity(), identities),
+                identityOne,
+                identityTwo,
+                identityThree,
+                ImmutableSet.of(expectedRequest));
     }
 
-    @ParameterizedTest(name = "{index}: {0}")
-    @MethodSource("io.trino.plugin.opa.TestOpaBatchAccessControlFiltering#subsetProvider")
-    public void testFilterCatalogs(
-            MockResponse response,
-            List<Integer> expectedItems)
+    @Test
+    public void testFilterCatalogs()
     {
-        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_BATCH_SERVER_URI, buildValidatingRequestHandler(requestingIdentity, response));
-        OpaAccessControl authorizer = createOpaAuthorizer(OPA_SERVER_URI, OPA_BATCH_SERVER_URI, mockClient);
-
-        List<String> requestedCatalogs = ImmutableList.of("catalog_one", "catalog_two", "catalog_three");
-
-        Set<String> result = authorizer.filterCatalogs(
-                requestingSecurityContext,
-                new LinkedHashSet<>(requestedCatalogs));
-        assertThat(result).containsExactlyInAnyOrderElementsOf(getSubset(requestedCatalogs, expectedItems));
-
         String expectedRequest = """
                 {
                     "operation": "FilterCatalogs",
@@ -137,25 +113,13 @@ public class TestOpaBatchAccessControlFiltering
                         }
                     ]
                 }""";
-        assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input/action");
+        assertAccessControlMethodBehaviour(
+                OpaAccessControl::filterCatalogs, "catalog_one", "catalog_two", "catalog_three", ImmutableSet.of(expectedRequest));
     }
 
-    @ParameterizedTest(name = "{index}: {0}")
-    @MethodSource("io.trino.plugin.opa.TestOpaBatchAccessControlFiltering#subsetProvider")
-    public void testFilterSchemas(
-            MockResponse response,
-            List<Integer> expectedItems)
+    @Test
+    public void testFilterSchemas()
     {
-        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_BATCH_SERVER_URI, buildValidatingRequestHandler(requestingIdentity, response));
-        OpaAccessControl authorizer = createOpaAuthorizer(OPA_SERVER_URI, OPA_BATCH_SERVER_URI, mockClient);
-        List<String> requestedSchemas = ImmutableList.of("schema_one", "schema_two", "schema_three");
-
-        Set<String> result = authorizer.filterSchemas(
-                requestingSecurityContext,
-                "my_catalog",
-                new LinkedHashSet<>(requestedSchemas));
-        assertThat(result).containsExactlyInAnyOrderElementsOf(getSubset(requestedSchemas, expectedItems));
-
         String expectedRequest = """
                 {
                     "operation": "FilterSchemas",
@@ -180,29 +144,17 @@ public class TestOpaBatchAccessControlFiltering
                         }
                     ]
                 }""";
-        assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input/action");
+        assertAccessControlMethodBehaviour(
+                (accessControl, systemSecurityContext, items) -> accessControl.filterSchemas(systemSecurityContext, "my_catalog", items),
+                "schema_one",
+                "schema_two",
+                "schema_three",
+                ImmutableSet.of(expectedRequest));
     }
 
-    @ParameterizedTest(name = "{index}: {0}")
-    @MethodSource("io.trino.plugin.opa.TestOpaBatchAccessControlFiltering#subsetProvider")
-    public void testFilterTables(
-            MockResponse response,
-            List<Integer> expectedItems)
+    @Test
+    public void testFilterTables()
     {
-        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_BATCH_SERVER_URI, buildValidatingRequestHandler(requestingIdentity, response));
-        OpaAccessControl authorizer = createOpaAuthorizer(OPA_SERVER_URI, OPA_BATCH_SERVER_URI, mockClient);
-        List<SchemaTableName> tables = ImmutableList.<SchemaTableName>builder()
-                .add(new SchemaTableName("schema_one", "table_one"))
-                .add(new SchemaTableName("schema_one", "table_two"))
-                .add(new SchemaTableName("schema_two", "table_one"))
-                .build();
-
-        Set<SchemaTableName> result = authorizer.filterTables(
-                requestingSecurityContext,
-                "my_catalog",
-                new LinkedHashSet<>(tables));
-        assertThat(result).containsExactlyInAnyOrderElementsOf(getSubset(tables, expectedItems));
-
         String expectedRequest = """
                 {
                     "operation": "FilterTables",
@@ -230,12 +182,12 @@ public class TestOpaBatchAccessControlFiltering
                         }
                     ]
                 }""";
-        assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input/action");
-    }
-
-    private static Function<String, MockResponse> buildHandler(Function<String, String> dataBuilder)
-    {
-        return request -> new MockResponse(dataBuilder.apply(request), 200);
+        assertAccessControlMethodBehaviour(
+                (accessControl, systemSecurityContext, items) -> accessControl.filterTables(systemSecurityContext, "my_catalog", items),
+                new SchemaTableName("schema_one", "table_one"),
+                new SchemaTableName("schema_one", "table_two"),
+                new SchemaTableName("schema_two", "table_one"),
+                ImmutableSet.of(expectedRequest));
     }
 
     @Test
@@ -252,9 +204,9 @@ public class TestOpaBatchAccessControlFiltering
 
         // Allow both columns from one table, one column from another one and no columns from the last one
         InstrumentedHttpClient mockClient = createMockHttpClient(
-                OPA_BATCH_SERVER_URI,
+                OPA_SERVER_BATCH_URI,
                 buildValidatingRequestHandler(
-                        requestingIdentity,
+                        TEST_IDENTITY,
                         parsedRequest -> {
                             String tableName = parsedRequest.at("/input/action/filterResources/0/table/tableName").asText();
                             String responseContents = switch(tableName) {
@@ -264,9 +216,9 @@ public class TestOpaBatchAccessControlFiltering
                             };
                             return new MockResponse(responseContents, 200);
                         }));
-        OpaAccessControl authorizer = createOpaAuthorizer(OPA_SERVER_URI, OPA_BATCH_SERVER_URI, mockClient);
+        OpaAccessControl authorizer = createOpaAuthorizer(OPA_SERVER_URI, OPA_SERVER_BATCH_URI, mockClient);
         Map<SchemaTableName, Set<String>> result = authorizer.filterColumns(
-                requestingSecurityContext,
+                TEST_SECURITY_CONTEXT,
                 "my_catalog",
                 requestedColumns);
 
@@ -295,26 +247,35 @@ public class TestOpaBatchAccessControlFiltering
                         .buildOrThrow());
     }
 
-    @ParameterizedTest(name = "{index}: {0}")
-    @MethodSource("io.trino.plugin.opa.TestOpaBatchAccessControlFiltering#subsetProvider")
-    public void testFilterFunctions(
-            MockResponse response,
-            List<Integer> expectedItems)
+    @Test
+    public void testEmptyFilterColumns()
     {
-        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_BATCH_SERVER_URI, buildValidatingRequestHandler(requestingIdentity, response));
-        OpaAccessControl authorizer = createOpaAuthorizer(OPA_SERVER_URI, OPA_BATCH_SERVER_URI, mockClient);
-        List<SchemaFunctionName> requestedFunctions = ImmutableList.<SchemaFunctionName>builder()
-                .add(new SchemaFunctionName("my_schema", "function_one"))
-                .add(new SchemaFunctionName("my_schema", "function_two"))
-                .add(new SchemaFunctionName("my_schema", "function_three"))
-                .build();
+        assertFilteringAccessControlMethodDoesNotSendRequests(
+                accessControl -> accessControl.filterColumns(TEST_SECURITY_CONTEXT, "my_catalog", ImmutableMap.of()).entrySet());
 
-        Set<SchemaFunctionName> result = authorizer.filterFunctions(
-                requestingSecurityContext,
-                "my_catalog",
-                new LinkedHashSet<>(requestedFunctions));
-        assertThat(result).containsExactlyInAnyOrderElementsOf(getSubset(requestedFunctions, expectedItems));
+        SchemaTableName tableOne = SchemaTableName.schemaTableName("my_schema", "table_one");
+        SchemaTableName tableTwo = SchemaTableName.schemaTableName("my_schema", "table_two");
+        Map<SchemaTableName, Set<String>> requestedColumns = ImmutableMap.<SchemaTableName, Set<String>>builder()
+                .put(tableOne, ImmutableSet.of())
+                .put(tableTwo, ImmutableSet.of())
+                .buildOrThrow();
+        assertFilteringAccessControlMethodDoesNotSendRequests(
+                accessControl -> accessControl.filterColumns(TEST_SECURITY_CONTEXT, "my_catalog", requestedColumns).entrySet());
+    }
 
+    @Test
+    public void testFilterColumnErrorCases()
+    {
+        assertBatchAccessControlMethodThrowsForIllegalResponses(
+                accessControl -> accessControl.filterColumns(
+                        TEST_SECURITY_CONTEXT,
+                        "my_catalog",
+                        ImmutableMap.of(new SchemaTableName("some_schema", "some_table"), ImmutableSet.of("column_one", "column_two"))));
+    }
+
+    @Test
+    public void testFilterFunctions()
+    {
         String expectedRequest = """
                 {
                     "operation": "FilterFunctions",
@@ -342,108 +303,48 @@ public class TestOpaBatchAccessControlFiltering
                         }
                     ]
                 }""";
-        assertStringRequestsEqual(ImmutableSet.of(expectedRequest), mockClient.getRequests(), "/input/action");
+        assertAccessControlMethodBehaviour(
+                (authorizer, systemSecurityContext, items) -> authorizer.filterFunctions(systemSecurityContext, "my_catalog", items),
+                new SchemaFunctionName("my_schema", "function_one"),
+                new SchemaFunctionName("my_schema", "function_two"),
+                new SchemaFunctionName("my_schema", "function_three"),
+                ImmutableSet.of(expectedRequest));
     }
 
-    @Test
-    public void testEmptyFilterColumns()
+    private static <T> void assertAccessControlMethodBehaviour(
+            FunctionalHelpers.Function3<OpaAccessControl, SystemSecurityContext, Set<T>, Collection<T>> method, T obj1, T obj2, T obj3, Set<String> expectedRequests)
     {
-        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_BATCH_SERVER_URI, request -> OK_RESPONSE);
-        OpaAccessControl authorizer = createOpaAuthorizer(OPA_SERVER_URI, OPA_BATCH_SERVER_URI, mockClient);
+        assertFilteringAccessControlMethodDoesNotSendRequests(accessControl -> method.apply(accessControl, TEST_SECURITY_CONTEXT, ImmutableSet.of()));
 
-        SchemaTableName tableOne = SchemaTableName.schemaTableName("my_schema", "table_one");
-        SchemaTableName tableTwo = SchemaTableName.schemaTableName("my_schema", "table_two");
-        Map<SchemaTableName, Set<String>> requestedColumns = ImmutableMap.<SchemaTableName, Set<String>>builder()
-                .put(tableOne, ImmutableSet.of())
-                .put(tableTwo, ImmutableSet.of())
-                .buildOrThrow();
-
-        Map<SchemaTableName, Set<String>> result = authorizer.filterColumns(
-                requestingSecurityContext,
-                "my_catalog",
-                requestedColumns);
-        assertThat(mockClient.getRequests()).isEmpty();
-        assertThat(result).isEmpty();
-    }
-
-    @ParameterizedTest(name = "{index}: {0}")
-    @MethodSource("io.trino.plugin.opa.FilteringTestHelpers#emptyInputTestCases")
-    public void testEmptyRequests(
-            BiFunction<OpaAccessControl, SystemSecurityContext, Collection> callable)
-    {
-        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_BATCH_SERVER_URI, request -> OK_RESPONSE);
-        OpaAccessControl authorizer = createOpaAuthorizer(OPA_SERVER_URI, OPA_BATCH_SERVER_URI, mockClient);
-
-        Collection result = callable.apply(authorizer, requestingSecurityContext);
-        assertThat(result).isEmpty();
-        assertThat(mockClient.getRequests()).isEmpty();
-    }
-
-    @ParameterizedTest(name = "{index}: {0} - {1}")
-    @MethodSource("io.trino.plugin.opa.FilteringTestHelpers#prepopulatedErrorCases")
-    public void testIllegalResponseThrows(
-            BiFunction<OpaAccessControl, SystemSecurityContext, ?> callable,
-            MockResponse failureResponse,
-            Class<? extends Throwable> expectedException,
-            String expectedErrorMessage)
-    {
-        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_BATCH_SERVER_URI, buildValidatingRequestHandler(requestingIdentity, failureResponse));
-        OpaAccessControl authorizer = createOpaAuthorizer(OPA_SERVER_URI, OPA_BATCH_SERVER_URI, mockClient);
-
-        assertThatThrownBy(() -> callable.apply(authorizer, requestingSecurityContext))
-                .isInstanceOf(expectedException)
-                .hasMessageContaining(expectedErrorMessage);
-        assertThat(mockClient.getRequests()).isNotEmpty();
-    }
-
-    @Test
-    public void testResponseOutOfBoundsThrows()
-    {
-        InstrumentedHttpClient mockClient = createMockHttpClient(OPA_BATCH_SERVER_URI, buildValidatingRequestHandler(requestingIdentity, 200, "{\"result\": [0, 1, 2]}"));
-        OpaAccessControl authorizer = createOpaAuthorizer(OPA_SERVER_URI, OPA_BATCH_SERVER_URI, mockClient);
-
-        assertThatThrownBy(() -> authorizer.filterCatalogs(requestingSecurityContext, ImmutableSet.of("catalog_one", "catalog_two")))
-                .isInstanceOf(OpaQueryException.QueryFailed.class);
-        assertThatThrownBy(() -> authorizer.filterSchemas(requestingSecurityContext, "some_catalog", ImmutableSet.of("schema_one", "schema_two")))
-                .isInstanceOf(OpaQueryException.QueryFailed.class);
-        assertThatThrownBy(() -> authorizer.filterTables(
-                requestingSecurityContext,
-                "some_catalog",
-                        ImmutableSet.of(
-                                new SchemaTableName("some_schema", "table_one"),
-                                new SchemaTableName("some_schema", "table_two"))))
-                .isInstanceOf(OpaQueryException.QueryFailed.class);
-        assertThatThrownBy(() -> authorizer.filterColumns(
-                requestingSecurityContext,
-                "some_catalog",
-                ImmutableMap.<SchemaTableName, Set<String>>builder()
-                        .put(new SchemaTableName("some_schema", "some_table"), ImmutableSet.of("column_one", "column_two"))
-                        .buildOrThrow()))
-                .isInstanceOf(OpaQueryException.QueryFailed.class);
-        assertThatThrownBy(() -> authorizer.filterViewQueryOwnedBy(
-                requestingIdentity,
-                ImmutableSet.of(Identity.ofUser("identity_one"), Identity.ofUser("identity_two"))))
-                .isInstanceOf(OpaQueryException.QueryFailed.class);
-    }
-
-    private static Stream<Arguments> subsetProvider()
-    {
-        return Stream.of(
-                Arguments.of(Named.of("All-3-resources", new MockResponse("{\"result\": [0, 1, 2]}", 200)), ImmutableList.of(0, 1, 2)),
-                Arguments.of(Named.of("First-and-last-resources", new MockResponse("{\"result\": [0, 2]}", 200)), ImmutableList.of(0, 2)),
-                Arguments.of(Named.of("Only-one-resource", new MockResponse("{\"result\": [2]}", 200)), ImmutableList.of(2)),
-                Arguments.of(Named.of("No-resources", new MockResponse("{\"result\": []}", 200)), ImmutableList.of()));
-    }
-
-    private <T> List<T> getSubset(List<T> allItems, List<Integer> subsetPositions)
-    {
-        List<T> result = new ArrayList<>();
-        for (int i : subsetPositions) {
-            if (i < 0 || i >= allItems.size()) {
-                throw new IllegalArgumentException("Invalid subset of items provided");
-            }
-            result.add(allItems.get(i));
+        Set<T> objectsToFilter = ImmutableSet.of(obj1, obj2, obj3);
+        List<Pair<String, List<T>>> responsesAndExpectedFilteredObjects = ImmutableList.<Pair<String, List<T>>>builder()
+                .add(Pair.of("{\"result\": []}", ImmutableList.of()))
+                .add(Pair.of("{\"result\": [0]}", ImmutableList.of(obj1)))
+                .add(Pair.of("{\"result\": [1]}", ImmutableList.of(obj2)))
+                .add(Pair.of("{\"result\": [2]}", ImmutableList.of(obj3)))
+                .add(Pair.of("{\"result\": [0, 2]}", ImmutableList.of(obj1, obj3)))
+                .add(Pair.of("{\"result\": [1, 2]}", ImmutableList.of(obj2, obj3)))
+                .add(Pair.of("{\"result\": [0, 1, 2]}", ImmutableList.of(obj1, obj2, obj3)))
+                .build();
+        for (Pair<String, List<T>> testCase : responsesAndExpectedFilteredObjects) {
+            InstrumentedHttpClient httpClient = createMockHttpClient(OPA_SERVER_BATCH_URI, buildValidatingRequestHandler(TEST_IDENTITY, 200, testCase.first()));
+            OpaAccessControl accessControl = createOpaAuthorizer(OPA_SERVER_URI, OPA_SERVER_BATCH_URI, httpClient);
+            assertThat(method.apply(accessControl, TEST_SECURITY_CONTEXT, objectsToFilter)).containsExactlyInAnyOrderElementsOf(testCase.second());
+            assertStringRequestsEqual(expectedRequests, httpClient.getRequests(), "/input/action");
         }
-        return result;
+
+        Consumer<OpaAccessControl> methodWithItems = accessControl -> method.apply(accessControl, TEST_SECURITY_CONTEXT, objectsToFilter);
+        assertBatchAccessControlMethodThrowsForIllegalResponses(methodWithItems);
+        assertAccessControlMethodThrows(
+                () -> methodWithItems.accept(buildBatchAuthorizerWithPredefinedResponse(new MockResponse("{\"result\": [0, 1, 2, 3]}", 200))),
+                OpaQueryException.QueryFailed.class,
+                "Failed to query OPA backend");
+    }
+
+    private static void assertFilteringAccessControlMethodDoesNotSendRequests(Function<OpaAccessControl, Collection<?>> method)
+    {
+        InstrumentedHttpClient httpClientForEmptyRequest = createMockHttpClient(OPA_SERVER_BATCH_URI, request -> OK_RESPONSE);
+        assertThat(method.apply(createOpaAuthorizer(OPA_SERVER_URI, OPA_SERVER_BATCH_URI, httpClientForEmptyRequest))).isEmpty();
+        assertThat(httpClientForEmptyRequest.getRequests()).isEmpty();
     }
 }
