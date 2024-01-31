@@ -229,6 +229,16 @@ class RelationPlanner
         this.recursiveSubqueries = recursiveSubqueries;
     }
 
+    public static JoinType mapJoinType(Join.Type joinType)
+    {
+        return switch (joinType) {
+            case CROSS, IMPLICIT, INNER -> JoinType.INNER;
+            case LEFT -> JoinType.LEFT;
+            case RIGHT -> JoinType.RIGHT;
+            case FULL -> JoinType.FULL;
+        };
+    }
+
     @Override
     protected RelationPlan visitNode(Node node, Void context)
     {
@@ -845,7 +855,7 @@ class RelationPlanner
         }
 
         PlanNode root = new JoinNode(idAllocator.getNextId(),
-                JoinType.typeConvert(type),
+                mapJoinType(type),
                 leftPlanBuilder.getRoot(),
                 rightPlanBuilder.getRoot(),
                 equiClauses.build(),
@@ -887,7 +897,7 @@ class RelationPlanner
             Expression joinedFilterCondition = ExpressionUtils.and(complexJoinExpressions);
             Expression rewrittenFilterCondition = translationMap.rewrite(joinedFilterCondition);
             root = new JoinNode(idAllocator.getNextId(),
-                    JoinType.typeConvert(type),
+                    mapJoinType(type),
                     leftPlanBuilder.getRoot(),
                     rightPlanBuilder.getRoot(),
                     equiClauses.build(),
@@ -996,7 +1006,7 @@ class RelationPlanner
 
         JoinNode join = new JoinNode(
                 idAllocator.getNextId(),
-                JoinType.typeConvert(node.getType()),
+                mapJoinType(node.getType()),
                 leftCoercion,
                 rightCoercion,
                 clauses.build(),
@@ -1111,7 +1121,7 @@ class RelationPlanner
                 leftPlanBuilder,
                 rightPlanBuilder.getRoot(),
                 lateral.getQuery(),
-                JoinType.typeConvert(join.getType()),
+                mapJoinType(join.getType()),
                 rewrittenFilterCondition,
                 ImmutableMap.of());
 
@@ -1178,7 +1188,7 @@ class RelationPlanner
                 replicatedColumns,
                 mappings.build(),
                 unnestAnalysis.getOrdinalityField().map(allocations::get),
-                JoinType.typeConvert(type),
+                mapJoinType(type),
                 filter);
 
         // TODO: Technically, we should derive the field mappings from the layout of fields and how they relate to the output symbols of the Unnest node.

@@ -13,8 +13,6 @@
  */
 package io.trino.sql.planner.plan;
 
-import io.trino.sql.tree.Join;
-
 public enum JoinType
 {
     INNER("InnerJoin"),
@@ -32,15 +30,5 @@ public enum JoinType
     public String getJoinLabel()
     {
         return joinLabel;
-    }
-
-    public static JoinType typeConvert(Join.Type joinType)
-    {
-        return switch (joinType) {
-            case CROSS, IMPLICIT, INNER -> JoinType.INNER;
-            case LEFT -> JoinType.LEFT;
-            case RIGHT -> JoinType.RIGHT;
-            case FULL -> JoinType.FULL;
-        };
     }
 }
