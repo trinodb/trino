@@ -1262,20 +1262,20 @@ public class TestCassandraConnectorTest
             assertThat(execute("SELECT * FROM " + keyspaceAndTable).getRowCount()).isEqualTo(15);
 
             // error
-            assertThatThrownBy(() -> execute("DELETE FROM " + keyspaceAndTable))
-                    .isInstanceOf(RuntimeException.class);
+            assertThat(query("DELETE FROM " + keyspaceAndTable))
+                    .failure().hasMessage("Deleting without partition key is not supported");
             assertThat(execute("SELECT * FROM " + keyspaceAndTable).getRowCount()).isEqualTo(15);
 
             String whereClusteringKeyOnly = " WHERE clust_one='clust_one_2'";
-            assertThatThrownBy(() -> execute("DELETE FROM " + keyspaceAndTable + whereClusteringKeyOnly))
-                    .isInstanceOf(RuntimeException.class);
+            assertThat(query("DELETE FROM " + keyspaceAndTable + whereClusteringKeyOnly))
+                    .failure().hasMessage("Delete without primary key or partition key is not supported");
             assertThat(execute("SELECT * FROM " + keyspaceAndTable).getRowCount()).isEqualTo(15);
 
             String whereMultiplePartitionKeyWithClusteringKey = " WHERE " +
                     " (partition_one=1 AND partition_two=1 AND clust_one='clust_one_1') OR " +
                     " (partition_one=1 AND partition_two=2 AND clust_one='clust_one_2') ";
-            assertThatThrownBy(() -> execute("DELETE FROM " + keyspaceAndTable + whereMultiplePartitionKeyWithClusteringKey))
-                    .isInstanceOf(RuntimeException.class);
+            assertThat(query("DELETE FROM " + keyspaceAndTable + whereMultiplePartitionKeyWithClusteringKey))
+                    .failure().hasMessage("Delete without primary key or partition key is not supported");
             assertThat(execute("SELECT * FROM " + keyspaceAndTable).getRowCount()).isEqualTo(15);
 
             // success
