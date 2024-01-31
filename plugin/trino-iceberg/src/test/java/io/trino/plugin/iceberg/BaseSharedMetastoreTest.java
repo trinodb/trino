@@ -164,8 +164,8 @@ public abstract class BaseSharedMetastoreTest
                     "\\QThis connector does not support versioned tables");
         }
         finally {
-            query("DROP TABLE IF EXISTS iceberg." + testLocalSchema + ".nation_test");
-            query("DROP SCHEMA IF EXISTS iceberg." + testLocalSchema);
+            assertUpdate("DROP TABLE IF EXISTS iceberg." + testLocalSchema + ".nation_test");
+            assertUpdate("DROP SCHEMA IF EXISTS iceberg." + testLocalSchema);
         }
     }
 

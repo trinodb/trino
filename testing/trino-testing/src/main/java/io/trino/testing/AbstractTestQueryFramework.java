@@ -16,6 +16,7 @@ package io.trino.testing;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.MoreCollectors;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.CheckReturnValue;
 import io.airlift.log.Level;
 import io.airlift.log.Logging;
 import io.airlift.units.Duration;
@@ -323,11 +324,13 @@ public abstract class AbstractTestQueryFramework
         return computeActual(session, sql).getOnlyValue();
     }
 
+    @CheckReturnValue
     protected AssertProvider<QueryAssert> query(@Language("SQL") String sql)
     {
         return query(getSession(), sql);
     }
 
+    @CheckReturnValue
     protected AssertProvider<QueryAssert> query(Session session, @Language("SQL") String sql)
     {
         return queryAssertions.query(session, sql);
