@@ -40,9 +40,9 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.concat;
 import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
+import static io.trino.sql.planner.plan.WindowFrameType.ROWS;
 import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ONE;
 import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
-import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 import static java.util.Objects.requireNonNull;
 
 @Immutable
