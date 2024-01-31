@@ -305,7 +305,7 @@ jobs:
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
       - name: Upload heap dump
         uses: actions/upload-artifact@v3
-        if: failure() && env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        if: failure()
         with:
           name: heap dump ${{ github.job }}
           if-no-files-found: 'ignore'
@@ -383,7 +383,7 @@ jobs:
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
       - name: Upload heap dump
         uses: actions/upload-artifact@v3
-        if: failure() && env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        if: failure()
         with:
           name: heap dump ${{ github.job }} (${{ matrix.config }})
           if-no-files-found: 'ignore'
@@ -609,7 +609,7 @@ jobs:
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
       - name: Upload heap dump
         uses: actions/upload-artifact@v3
-        if: failure() && env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        if: failure()
         with:
           name: heap dump ${{ github.job }}
           if-no-files-found: 'ignore'
@@ -1049,7 +1049,7 @@ jobs:
           retention-days: ${{ env.TEST_REPORT_RETENTION_DAYS }}
       - name: Upload heap dump
         uses: actions/upload-artifact@v3
-        if: failure() && env.SECRETS_PRESENT == '' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        if: failure()
         with:
           name: heap dump ${{ github.job }} (${{ env.ARTIFACT_NAME }})
           if-no-files-found: 'ignore'
