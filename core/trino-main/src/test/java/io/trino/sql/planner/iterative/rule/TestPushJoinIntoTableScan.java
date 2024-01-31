@@ -614,17 +614,12 @@ public class TestPushJoinIntoTableScan
 
     private JoinType toSpiJoinType(io.trino.sql.planner.plan.JoinType joinType)
     {
-        switch (joinType) {
-            case INNER:
-                return JoinType.INNER;
-            case LEFT:
-                return JoinType.LEFT_OUTER;
-            case RIGHT:
-                return JoinType.RIGHT_OUTER;
-            case FULL:
-                return JoinType.FULL_OUTER;
-        }
-        throw new IllegalArgumentException("Unknown join type: " + joinType);
+        return switch (joinType) {
+            case INNER -> JoinType.INNER;
+            case LEFT -> JoinType.LEFT_OUTER;
+            case RIGHT -> JoinType.RIGHT_OUTER;
+            case FULL -> JoinType.FULL_OUTER;
+        };
     }
 
     private JoinCondition.Operator getConditionOperator(ComparisonExpression.Operator operator)
