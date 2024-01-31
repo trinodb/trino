@@ -17,6 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Closer;
+import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
+import io.airlift.json.ObjectMapperProvider;
 import io.airlift.node.NodeInfo;
 import io.airlift.units.Duration;
 import io.opentelemetry.api.OpenTelemetry;
@@ -26,6 +29,7 @@ import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.SystemSessionProperties;
 import io.trino.SystemSessionPropertiesProvider;
+import io.trino.block.BlockJsonSerde;
 import io.trino.cache.CacheConfig;
 import io.trino.cache.CacheManagerRegistry;
 import io.trino.cache.CacheMetadata;
@@ -138,9 +142,13 @@ import io.trino.server.security.PasswordAuthenticatorManager;
 import io.trino.spi.PageIndexerFactory;
 import io.trino.spi.PageSorter;
 import io.trino.spi.Plugin;
+import io.trino.spi.block.Block;
+import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.spi.connector.Connector;
 import io.trino.spi.connector.ConnectorFactory;
+import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spiller.GenericSpillerFactory;
@@ -301,6 +309,7 @@ public class PlanTester
     private final PluginManager pluginManager;
     private final ExchangeManagerRegistry exchangeManagerRegistry;
     private final CacheManagerRegistry cacheManagerRegistry;
+    private final JsonCodec<TupleDomain> tupleDomainCodec;
 
     private final TaskManagerConfig taskManagerConfig;
     private final OptimizerConfig optimizerConfig;
@@ -460,6 +469,7 @@ public class PlanTester
 
         exchangeManagerRegistry = new ExchangeManagerRegistry(OpenTelemetry.noop(), noopTracer());
         cacheManagerRegistry = new CacheManagerRegistry(cacheConfig, new LocalMemoryManager(new NodeMemoryConfig()), plannerContext.getBlockEncodingSerde(), new CacheStats());
+        tupleDomainCodec = getTupleDomainJsonCodec(blockEncodingSerde, typeManager);
         this.pluginManager = new PluginManager(
                 (loader, createClassLoader) -> {},
                 catalogFactory,
@@ -510,6 +520,17 @@ public class PlanTester
                 defaultSession.getProtocolHeaders(),
                 defaultSession.getExchangeEncryptionKey(),
                 defaultSession.getQueryDataEncoding());
+    }
+
+    public static JsonCodec<TupleDomain> getTupleDomainJsonCodec(BlockEncodingSerde blockEncodingSerde, TypeManager typeManager)
+    {
+        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
+        objectMapperProvider.setJsonDeserializers(ImmutableMap.of(
+                Block.class, new BlockJsonSerde.Deserializer(blockEncodingSerde),
+                Type.class, new TypeDeserializer(typeManager)));
+        objectMapperProvider.setJsonSerializers(ImmutableMap.of(
+                Block.class, new BlockJsonSerde.Serializer(blockEncodingSerde)));
+        return new JsonCodecFactory(objectMapperProvider).jsonCodec(TupleDomain.class);
     }
 
     private static SessionPropertyManager createSessionPropertyManager(
@@ -772,6 +793,7 @@ public class PlanTester
                 tableExecuteContextManager,
                 exchangeManagerRegistry,
                 cacheManagerRegistry,
+                tupleDomainCodec,
                 nodeManager.getCurrentNode().getNodeVersion(),
                 new CompilerConfig());
 

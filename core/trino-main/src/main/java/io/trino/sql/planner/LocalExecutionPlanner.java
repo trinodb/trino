@@ -29,6 +29,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.common.primitives.Ints;
 import com.google.inject.Inject;
+import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.trino.Session;
@@ -185,6 +186,7 @@ import io.trino.spi.function.WindowFunctionSupplier;
 import io.trino.spi.function.table.TableFunctionProcessorProvider;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.NullableValue;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
@@ -425,6 +427,7 @@ public class LocalExecutionPlanner
     private final PageSourceProvider pageSourceProvider;
     private final DynamicRowFilteringPageSourceProvider dynamicRowFilteringPageSourceProvider;
     private final CacheManagerRegistry cacheManagerRegistry;
+    private final JsonCodec<TupleDomain> tupleDomainCodec;
     private final AlternativeChooser alternativeChooser;
     private final IndexManager indexManager;
     private final NodePartitioningManager nodePartitioningManager;
@@ -506,6 +509,7 @@ public class LocalExecutionPlanner
             TableExecuteContextManager tableExecuteContextManager,
             ExchangeManagerRegistry exchangeManagerRegistry,
             CacheManagerRegistry cacheManagerRegistry,
+            JsonCodec<TupleDomain> tupleDomainCodec,
             NodeVersion version,
             CompilerConfig compilerConfig)
     {
@@ -556,6 +560,7 @@ public class LocalExecutionPlanner
         this.tableExecuteContextManager = requireNonNull(tableExecuteContextManager, "tableExecuteContextManager is null");
         this.exchangeManagerRegistry = requireNonNull(exchangeManagerRegistry, "exchangeManagerRegistry is null");
         this.cacheManagerRegistry = requireNonNull(cacheManagerRegistry, "cacheManagerRegistry is null");
+        this.tupleDomainCodec = requireNonNull(tupleDomainCodec, "tupleDomainCodec is null");
         this.positionsAppenderFactory = new PositionsAppenderFactory(blockTypeOperators);
         this.version = requireNonNull(version, "version is null");
         this.specializeAggregationLoops = compilerConfig.isSpecializeAggregationLoops();
@@ -775,6 +780,7 @@ public class LocalExecutionPlanner
                                 taskContext.getSession(),
                                 pageSourceProvider,
                                 cacheManagerRegistry,
+                                tupleDomainCodec,
                                 cacheContext.getOriginalTableHandle(),
                                 cacheContext.getPlanSignature(),
                                 cacheContext.getDynamicFilterColumnMapping(),

@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.json.JsonCodec;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -66,6 +67,7 @@ public class CacheDriverFactory
     private final Session session;
     private final PageSourceProvider pageSourceProvider;
     private final SplitCache splitCache;
+    private final JsonCodec<TupleDomain> tupleDomainCodec;
     private final TableHandle originalTableHandle;
     private final TupleDomain<CacheColumnId> signaturePredicate;
     private final Map<ColumnHandle, CacheColumnId> dynamicFilterColumnMapping;
@@ -80,6 +82,7 @@ public class CacheDriverFactory
             Session session,
             PageSourceProvider pageSourceProvider,
             CacheManagerRegistry cacheManagerRegistry,
+            JsonCodec<TupleDomain> tupleDomainCodec,
             TableHandle originalTableHandle,
             PlanSignatureWithPredicate planSignature,
             Map<CacheColumnId, ColumnHandle> dynamicFilterColumnMapping,
@@ -92,6 +95,7 @@ public class CacheDriverFactory
         this.session = requireNonNull(session, "session is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
         this.splitCache = requireNonNull(cacheManagerRegistry, "cacheManagerRegistry is null").getCacheManager().getSplitCache(planSignature.signature());
+        this.tupleDomainCodec = requireNonNull(tupleDomainCodec, "tupleDomainCodec is null");
         this.originalTableHandle = requireNonNull(originalTableHandle, "originalTableHandle is null");
         this.signaturePredicate = normalizeTupleDomain(planSignature.predicate());
         this.dynamicFilterColumnMapping = ImmutableBiMap.copyOf(requireNonNull(dynamicFilterColumnMapping, "dynamicFilterColumnMapping is null")).inverse();

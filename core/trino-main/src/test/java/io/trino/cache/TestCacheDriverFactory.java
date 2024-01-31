@@ -16,12 +16,15 @@ package io.trino.cache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.trino.Session;
 import io.trino.cache.CommonPlanAdaptation.PlanSignatureWithPredicate;
 import io.trino.execution.ScheduledSplit;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.NodeMemoryConfig;
+import io.trino.metadata.BlockEncodingManager;
+import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.DevNullOperator;
@@ -49,6 +52,8 @@ import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.predicate.ValueSet;
+import io.trino.spi.type.TestingTypeManager;
+import io.trino.spi.type.TypeManager;
 import io.trino.split.PageSourceProvider;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.testing.TestingSplit;
@@ -83,6 +88,7 @@ import static io.trino.cache.StaticDynamicFilter.createStaticDynamicFilter;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
+import static io.trino.testing.PlanTester.getTupleDomainJsonCodec;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -98,6 +104,7 @@ public class TestCacheDriverFactory
     private final PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
     private TestSplitCache splitCache;
     private CacheManagerRegistry registry;
+    private JsonCodec<TupleDomain> tupleDomainCodec;
     private ScheduledExecutorService scheduledExecutor;
 
     @BeforeEach
@@ -112,6 +119,8 @@ public class TestCacheDriverFactory
         TestCacheManagerFactory cacheManagerFactory = new TestCacheManagerFactory();
         registry.loadCacheManager(cacheManagerFactory, ImmutableMap.of());
         splitCache = cacheManagerFactory.getCacheManager().getSplitCache();
+        TypeManager typeManager = new TestingTypeManager();
+        tupleDomainCodec = getTupleDomainJsonCodec(new InternalBlockEncodingSerde(new BlockEncodingManager(), typeManager), typeManager);
         scheduledExecutor = Executors.newScheduledThreadPool(1);
     }
 
@@ -168,6 +177,7 @@ public class TestCacheDriverFactory
                 TEST_SESSION,
                 pageSourceProvider,
                 registry,
+                tupleDomainCodec,
                 TEST_TABLE_HANDLE,
                 signature,
                 ImmutableMap.of(new CacheColumnId("column"), new TestingColumnHandle("column")),
@@ -206,6 +216,7 @@ public class TestCacheDriverFactory
                 TEST_SESSION,
                 new TestPageSourceProvider(),
                 registry,
+                tupleDomainCodec,
                 TEST_TABLE_HANDLE,
                 signature,
                 ImmutableMap.of(columnId, columnHandle),

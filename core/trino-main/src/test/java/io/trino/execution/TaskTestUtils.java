@@ -15,6 +15,7 @@ package io.trino.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
 import io.airlift.tracing.Tracing;
 import io.opentelemetry.api.OpenTelemetry;
@@ -45,6 +46,7 @@ import io.trino.operator.index.IndexJoinLookupStats;
 import io.trino.operator.index.IndexManager;
 import io.trino.spi.block.TestingBlockEncodingSerde;
 import io.trino.spi.connector.CatalogHandle;
+import io.trino.spi.predicate.TupleDomain;
 import io.trino.spiller.GenericSpillerFactory;
 import io.trino.split.AlternativeChooser;
 import io.trino.split.PageSinkManager;
@@ -203,6 +205,7 @@ public final class TaskTestUtils
                 new TableExecuteContextManager(),
                 new ExchangeManagerRegistry(OpenTelemetry.noop(), Tracing.noopTracer()),
                 new CacheManagerRegistry(new CacheConfig(), new LocalMemoryManager(new NodeMemoryConfig()), new TestingBlockEncodingSerde(), cacheStats),
+                new JsonCodecFactory(new ObjectMapperProvider()).jsonCodec(TupleDomain.class),
                 new NodeVersion("test"),
                 new CompilerConfig());
     }

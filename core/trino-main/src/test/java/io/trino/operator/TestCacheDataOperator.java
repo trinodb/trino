@@ -15,6 +15,7 @@ package io.trino.operator;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.json.JsonCodec;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
@@ -29,6 +30,8 @@ import io.trino.cache.CommonPlanAdaptation.PlanSignatureWithPredicate;
 import io.trino.execution.ScheduledSplit;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.memory.NodeMemoryConfig;
+import io.trino.metadata.BlockEncodingManager;
+import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.metadata.Split;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.Page;
@@ -45,6 +48,8 @@ import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.connector.FixedPageSource;
 import io.trino.spi.metrics.Metrics;
 import io.trino.spi.predicate.TupleDomain;
+import io.trino.spi.type.TestingTypeManager;
+import io.trino.spi.type.TypeManager;
 import io.trino.split.PageSourceProvider;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -73,6 +78,7 @@ import static io.trino.operator.PageTestUtils.createPage;
 import static io.trino.spi.connector.DynamicFilter.EMPTY;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static io.trino.testing.PlanTester.getTupleDomainJsonCodec;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -89,6 +95,7 @@ public class TestCacheDataOperator
     private static final Session TEST_SESSION = testSessionBuilder().build();
     private final PlanNodeIdAllocator planNodeIdAllocator = new PlanNodeIdAllocator();
     private CacheManagerRegistry registry;
+    private JsonCodec<TupleDomain> tupleDomainCodec;
 
     @BeforeEach
     public void setUp()
@@ -101,6 +108,8 @@ public class TestCacheDataOperator
         cacheConfig.setEnabled(true);
         registry = new CacheManagerRegistry(cacheConfig, memoryManager, new TestingBlockEncodingSerde(), new CacheStats());
         registry.loadCacheManager();
+        TypeManager typeManager = new TestingTypeManager();
+        tupleDomainCodec = getTupleDomainJsonCodec(new InternalBlockEncodingSerde(new BlockEncodingManager(), typeManager), typeManager);
     }
 
     @Test
@@ -179,6 +188,7 @@ public class TestCacheDataOperator
                 TEST_SESSION,
                 new TestPageSourceProvider(),
                 registry,
+                tupleDomainCodec,
                 TEST_TABLE_HANDLE,
                 new PlanSignatureWithPredicate(signature, TupleDomain.all()),
                 ImmutableMap.of(),
