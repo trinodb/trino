@@ -227,7 +227,7 @@ public class TestUnnest
     public void testNullRows()
     {
         // This query tries to simulate testArrayOfRowsUnnesterWithNulls e2e
-        assertions.query("SELECT "
+        assertions.execute("SELECT "
                 + "     x, y "
                 + "FROM "
                 + "     (VALUES "
