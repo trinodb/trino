@@ -16,6 +16,7 @@ import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
 import com.microsoft.sqlserver.jdbc.SQLServerDriver;
+import com.starburstdata.trino.plugin.license.LicenseManager;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.plugin.jdbc.BaseJdbcConfig;
 import io.trino.plugin.jdbc.ConnectionFactory;
@@ -52,16 +53,25 @@ import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.trino.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 import static io.trino.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
 import static io.trino.plugin.sqlserver.SqlServerClient.SQL_SERVER_MAX_LIST_EXPRESSIONS;
+import static java.util.Objects.requireNonNull;
 
 public class StarburstSqlServerClientModule
         extends AbstractConfigurationAwareModule
 {
+    private final LicenseManager licenseManager;
+
+    public StarburstSqlServerClientModule(LicenseManager licenseManager)
+    {
+        this.licenseManager = requireNonNull(licenseManager, "licenseManager is null");
+    }
+
     @Override
     protected void setup(Binder binder)
     {
         newOptionalBinder(binder, Key.get(ConnectorSplitManager.class, ForJdbcDynamicFiltering.class)).setBinding().to(SqlServerSplitManager.class).in(SINGLETON);
 
         configBinder(binder).bindConfig(SqlServerConfig.class);
+        binder.bind(LicenseManager.class).toInstance(licenseManager);
 
         install(new ExtraCredentialsBasedIdentityCacheMappingModule());
         install(conditionalModule(

@@ -43,6 +43,6 @@ public class StarburstSqlServerPlugin
                 "sqlserver",
                 combine(
                         binder -> binder.bind(LicenseManager.class).toInstance(licenseManager),
-                        new StarburstSqlServerClientModule()));
+                        new StarburstSqlServerClientModule(licenseManager)));
     }
 }
