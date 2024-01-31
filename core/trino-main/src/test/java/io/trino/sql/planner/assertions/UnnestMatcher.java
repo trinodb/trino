@@ -17,7 +17,7 @@ import io.trino.Session;
 import io.trino.cost.StatsProvider;
 import io.trino.metadata.Metadata;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.UnnestNode.Mapping;
@@ -39,10 +39,10 @@ final class UnnestMatcher
     private final List<String> replicateSymbols;
     private final List<PlanMatchPattern.UnnestMapping> unnestMappings;
     private final Optional<String> ordinalitySymbol;
-    private final JoinNode.Type type;
+    private final JoinType type;
     private final Optional<Expression> filter;
 
-    public UnnestMatcher(List<String> replicateSymbols, List<PlanMatchPattern.UnnestMapping> unnestMappings, Optional<String> ordinalitySymbol, JoinNode.Type type, Optional<Expression> filter)
+    public UnnestMatcher(List<String> replicateSymbols, List<PlanMatchPattern.UnnestMapping> unnestMappings, Optional<String> ordinalitySymbol, JoinType type, Optional<Expression> filter)
     {
         this.replicateSymbols = requireNonNull(replicateSymbols, "replicateSymbols is null");
         this.unnestMappings = requireNonNull(unnestMappings, "unnestMappings is null");
