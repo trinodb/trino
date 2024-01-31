@@ -50,12 +50,12 @@ import io.trino.sql.analyzer.Scope;
 import io.trino.sql.planner.QueryPlanner.PlanAndMappings;
 import io.trino.sql.planner.TranslationMap.ParametersRow;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.ExceptNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.IntersectNode;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode.Measure;
 import io.trino.sql.planner.plan.PlanNode;
@@ -845,7 +845,7 @@ class RelationPlanner
         }
 
         PlanNode root = new JoinNode(idAllocator.getNextId(),
-                JoinNode.Type.typeConvert(type),
+                JoinType.typeConvert(type),
                 leftPlanBuilder.getRoot(),
                 rightPlanBuilder.getRoot(),
                 equiClauses.build(),
@@ -887,7 +887,7 @@ class RelationPlanner
             Expression joinedFilterCondition = ExpressionUtils.and(complexJoinExpressions);
             Expression rewrittenFilterCondition = translationMap.rewrite(joinedFilterCondition);
             root = new JoinNode(idAllocator.getNextId(),
-                    JoinNode.Type.typeConvert(type),
+                    JoinType.typeConvert(type),
                     leftPlanBuilder.getRoot(),
                     rightPlanBuilder.getRoot(),
                     equiClauses.build(),
@@ -996,7 +996,7 @@ class RelationPlanner
 
         JoinNode join = new JoinNode(
                 idAllocator.getNextId(),
-                JoinNode.Type.typeConvert(node.getType()),
+                JoinType.typeConvert(node.getType()),
                 leftCoercion,
                 rightCoercion,
                 clauses.build(),
@@ -1111,7 +1111,7 @@ class RelationPlanner
                 leftPlanBuilder,
                 rightPlanBuilder.getRoot(),
                 lateral.getQuery(),
-                CorrelatedJoinNode.Type.typeConvert(join.getType()),
+                JoinType.typeConvert(join.getType()),
                 rewrittenFilterCondition,
                 ImmutableMap.of());
 
@@ -1178,7 +1178,7 @@ class RelationPlanner
                 replicatedColumns,
                 mappings.build(),
                 unnestAnalysis.getOrdinalityField().map(allocations::get),
-                JoinNode.Type.typeConvert(type),
+                JoinType.typeConvert(type),
                 filter);
 
         // TODO: Technically, we should derive the field mappings from the layout of fields and how they relate to the output symbols of the Unnest node.

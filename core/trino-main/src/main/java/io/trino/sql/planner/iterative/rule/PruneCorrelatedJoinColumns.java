@@ -26,9 +26,9 @@ import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isAtMostScalar;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
-import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
-import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
-import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.RIGHT;
+import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
+import static io.trino.sql.planner.plan.JoinType.RIGHT;
 import static io.trino.sql.planner.plan.Patterns.correlatedJoin;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 

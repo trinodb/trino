@@ -32,7 +32,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.singleGroupingSet
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 
 public class TestPushPartialAggregationThroughJoin
         extends BaseRuleTest

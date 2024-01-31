@@ -27,6 +27,7 @@ import io.trino.sql.planner.optimizations.joins.JoinGraph;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.JoinNode.EquiJoinClause;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.ValuesNode;
@@ -52,7 +53,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.strictProject;
 import static io.trino.sql.planner.iterative.Lookup.noLookup;
 import static io.trino.sql.planner.iterative.rule.EliminateCrossJoins.getJoinOrder;
 import static io.trino.sql.planner.iterative.rule.EliminateCrossJoins.isOriginalOrder;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static io.trino.sql.tree.ArithmeticUnaryExpression.Sign.MINUS;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -99,7 +100,7 @@ public class TestEliminateCrossJoins
     {
         tester().assertThat(new EliminateCrossJoins(tester().getPlannerContext(), tester().getTypeAnalyzer()))
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, "ELIMINATE_CROSS_JOINS")
-                .on(crossJoinAndJoin(JoinNode.Type.LEFT))
+                .on(crossJoinAndJoin(JoinType.LEFT))
                 .doesNotFire();
     }
 
@@ -301,7 +302,7 @@ public class TestEliminateCrossJoins
         assertThat(JoinGraph.buildFrom(tester().getPlannerContext(), plan, noLookup(), new PlanNodeIdAllocator(), session, createTestingTypeAnalyzer(tester().getPlannerContext()), TypeProvider.empty()).size()).isEqualTo(2);
     }
 
-    private Function<PlanBuilder, PlanNode> crossJoinAndJoin(JoinNode.Type secondJoinType)
+    private Function<PlanBuilder, PlanNode> crossJoinAndJoin(JoinType secondJoinType)
     {
         return p -> {
             Symbol axSymbol = p.symbol("axSymbol");
@@ -341,7 +342,7 @@ public class TestEliminateCrossJoins
 
         return new JoinNode(
                 idAllocator.getNextId(),
-                JoinNode.Type.INNER,
+                JoinType.INNER,
                 left,
                 right,
                 criteria.build(),

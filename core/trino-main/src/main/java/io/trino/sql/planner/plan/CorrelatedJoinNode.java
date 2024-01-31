@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.errorprone.annotations.Immutable;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.Join;
 import io.trino.sql.tree.Node;
 import io.trino.sql.tree.NullLiteral;
 
@@ -39,36 +38,6 @@ import static java.util.Objects.requireNonNull;
 public class CorrelatedJoinNode
         extends PlanNode
 {
-    public enum Type
-    {
-        INNER(JoinNode.Type.INNER),
-        LEFT(JoinNode.Type.LEFT),
-        RIGHT(JoinNode.Type.RIGHT),
-        FULL(JoinNode.Type.FULL);
-
-        Type(JoinNode.Type joinNodeType)
-        {
-            this.joinNodeType = joinNodeType;
-        }
-
-        private final JoinNode.Type joinNodeType;
-
-        public JoinNode.Type toJoinNodeType()
-        {
-            return joinNodeType;
-        }
-
-        public static Type typeConvert(Join.Type joinType)
-        {
-            return switch (joinType) {
-                case CROSS, IMPLICIT, INNER -> Type.INNER;
-                case LEFT -> Type.LEFT;
-                case RIGHT -> Type.RIGHT;
-                case FULL -> Type.FULL;
-            };
-        }
-    }
-
     private final PlanNode input;
     private final PlanNode subquery;
 
@@ -76,7 +45,7 @@ public class CorrelatedJoinNode
      * Correlation symbols, returned from input (outer plan) used in subquery (inner plan)
      */
     private final List<Symbol> correlation;
-    private final Type type;
+    private final JoinType type;
     private final Expression filter;
 
     /**
@@ -91,7 +60,7 @@ public class CorrelatedJoinNode
             @JsonProperty("input") PlanNode input,
             @JsonProperty("subquery") PlanNode subquery,
             @JsonProperty("correlation") List<Symbol> correlation,
-            @JsonProperty("type") Type type,
+            @JsonProperty("type") JoinType type,
             @JsonProperty("filter") Expression filter,
             @JsonProperty("originSubquery") Node originSubquery)
     {
@@ -134,7 +103,7 @@ public class CorrelatedJoinNode
     }
 
     @JsonProperty("type")
-    public Type getType()
+    public JoinType getType()
     {
         return type;
     }
