@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
-import io.trino.sql.planner.plan.JoinNode.Type;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.LongLiteral;
 import org.junit.jupiter.api.Test;
@@ -25,8 +25,8 @@ import org.junit.jupiter.api.Test;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
-import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
+import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
@@ -52,7 +52,7 @@ public class TestTransformCorrelatedJoinToJoin
                                     p.values(b)));
                 })
                 .matches(
-                        join(Type.INNER, builder -> builder
+                        join(JoinType.INNER, builder -> builder
                                 .filter("b > a")
                                 .left(values("a"))
                                 .right(
@@ -80,7 +80,7 @@ public class TestTransformCorrelatedJoinToJoin
                                     p.values(b)));
                 })
                 .matches(
-                        join(Type.INNER, builder -> builder
+                        join(JoinType.INNER, builder -> builder
                                 .filter("b > a AND b < 3")
                                 .left(values("a"))
                                 .right(
@@ -109,7 +109,7 @@ public class TestTransformCorrelatedJoinToJoin
                                     p.values(b)));
                 })
                 .matches(
-                        join(Type.LEFT, builder -> builder
+                        join(JoinType.LEFT, builder -> builder
                                 .filter("b > a")
                                 .left(values("a"))
                                 .right(
@@ -137,7 +137,7 @@ public class TestTransformCorrelatedJoinToJoin
                                     p.values(b)));
                 })
                 .matches(
-                        join(Type.LEFT, builder -> builder
+                        join(JoinType.LEFT, builder -> builder
                                 .filter("b > a AND b < 3")
                                 .left(values("a"))
                                 .right(

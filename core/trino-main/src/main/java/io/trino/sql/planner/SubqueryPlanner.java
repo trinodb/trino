@@ -30,6 +30,7 @@ import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.tree.Cast;
@@ -270,12 +271,12 @@ class SubqueryPlanner
                 scalarSubquery.getQuery(),
                 // Scalar subquery always contains EnforceSingleRowNode. Therefore, it's guaranteed
                 // that subquery will return single row. Hence, correlated join can be of INNER type.
-                CorrelatedJoinNode.Type.INNER,
+                JoinType.INNER,
                 TRUE_LITERAL,
                 mapAll(cluster, subPlan.getScope(), column));
     }
 
-    public PlanBuilder appendCorrelatedJoin(PlanBuilder subPlan, PlanNode subquery, Query query, CorrelatedJoinNode.Type type, Expression filterCondition, Map<ScopeAware<Expression>, Symbol> mappings)
+    public PlanBuilder appendCorrelatedJoin(PlanBuilder subPlan, PlanNode subquery, Query query, JoinType type, Expression filterCondition, Map<ScopeAware<Expression>, Symbol> mappings)
     {
         return new PlanBuilder(
                 subPlan.getTranslations()

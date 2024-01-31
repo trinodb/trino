@@ -46,8 +46,8 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.markDistinct;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expressions;
-import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
-import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
+import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 public class TestTransformCorrelatedScalarSubquery

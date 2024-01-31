@@ -61,10 +61,10 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static io.trino.sql.planner.plan.JoinNode.Type.FULL;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
-import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
-import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
+import static io.trino.sql.planner.plan.JoinType.FULL;
+import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
+import static io.trino.sql.planner.plan.JoinType.RIGHT;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingHandles.createTestCatalogHandle;
@@ -130,7 +130,7 @@ public class TestPushJoinIntoTableScan
 
     @ParameterizedTest
     @MethodSource("testPushJoinIntoTableScanParams")
-    public void testPushJoinIntoTableScan(JoinNode.Type joinType, Optional<ComparisonExpression.Operator> filterComparisonOperator)
+    public void testPushJoinIntoTableScan(io.trino.sql.planner.plan.JoinType joinType, Optional<ComparisonExpression.Operator> filterComparisonOperator)
     {
         MockConnectorFactory connectorFactory = createMockConnectorFactory((session, applyJoinType, left, right, joinConditions, leftAssignments, rightAssignments) -> {
             assertThat(((MockConnectorTableHandle) left).getTableName()).isEqualTo(TABLE_A_SCHEMA_TABLE_NAME);
@@ -194,32 +194,32 @@ public class TestPushJoinIntoTableScan
                 Arguments.of(INNER, Optional.of(ComparisonExpression.Operator.NOT_EQUAL)),
                 Arguments.of(INNER, Optional.of(ComparisonExpression.Operator.IS_DISTINCT_FROM)),
 
-                Arguments.of(JoinNode.Type.LEFT, Optional.empty()),
-                Arguments.of(JoinNode.Type.LEFT, Optional.of(ComparisonExpression.Operator.EQUAL)),
-                Arguments.of(JoinNode.Type.LEFT, Optional.of(ComparisonExpression.Operator.LESS_THAN)),
-                Arguments.of(JoinNode.Type.LEFT, Optional.of(ComparisonExpression.Operator.LESS_THAN_OR_EQUAL)),
-                Arguments.of(JoinNode.Type.LEFT, Optional.of(ComparisonExpression.Operator.GREATER_THAN)),
-                Arguments.of(JoinNode.Type.LEFT, Optional.of(ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL)),
-                Arguments.of(JoinNode.Type.LEFT, Optional.of(ComparisonExpression.Operator.NOT_EQUAL)),
-                Arguments.of(JoinNode.Type.LEFT, Optional.of(ComparisonExpression.Operator.IS_DISTINCT_FROM)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.LEFT, Optional.empty()),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.LEFT, Optional.of(ComparisonExpression.Operator.EQUAL)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.LEFT, Optional.of(ComparisonExpression.Operator.LESS_THAN)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.LEFT, Optional.of(ComparisonExpression.Operator.LESS_THAN_OR_EQUAL)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.LEFT, Optional.of(ComparisonExpression.Operator.GREATER_THAN)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.LEFT, Optional.of(ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.LEFT, Optional.of(ComparisonExpression.Operator.NOT_EQUAL)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.LEFT, Optional.of(ComparisonExpression.Operator.IS_DISTINCT_FROM)),
 
-                Arguments.of(JoinNode.Type.RIGHT, Optional.empty()),
-                Arguments.of(JoinNode.Type.RIGHT, Optional.of(ComparisonExpression.Operator.EQUAL)),
-                Arguments.of(JoinNode.Type.RIGHT, Optional.of(ComparisonExpression.Operator.LESS_THAN)),
-                Arguments.of(JoinNode.Type.RIGHT, Optional.of(ComparisonExpression.Operator.LESS_THAN_OR_EQUAL)),
-                Arguments.of(JoinNode.Type.RIGHT, Optional.of(ComparisonExpression.Operator.GREATER_THAN)),
-                Arguments.of(JoinNode.Type.RIGHT, Optional.of(ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL)),
-                Arguments.of(JoinNode.Type.RIGHT, Optional.of(ComparisonExpression.Operator.NOT_EQUAL)),
-                Arguments.of(JoinNode.Type.RIGHT, Optional.of(ComparisonExpression.Operator.IS_DISTINCT_FROM)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.RIGHT, Optional.empty()),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.RIGHT, Optional.of(ComparisonExpression.Operator.EQUAL)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.RIGHT, Optional.of(ComparisonExpression.Operator.LESS_THAN)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.RIGHT, Optional.of(ComparisonExpression.Operator.LESS_THAN_OR_EQUAL)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.RIGHT, Optional.of(ComparisonExpression.Operator.GREATER_THAN)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.RIGHT, Optional.of(ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.RIGHT, Optional.of(ComparisonExpression.Operator.NOT_EQUAL)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.RIGHT, Optional.of(ComparisonExpression.Operator.IS_DISTINCT_FROM)),
 
-                Arguments.of(JoinNode.Type.FULL, Optional.empty()),
-                Arguments.of(JoinNode.Type.FULL, Optional.of(ComparisonExpression.Operator.EQUAL)),
-                Arguments.of(JoinNode.Type.FULL, Optional.of(ComparisonExpression.Operator.LESS_THAN)),
-                Arguments.of(JoinNode.Type.FULL, Optional.of(ComparisonExpression.Operator.LESS_THAN_OR_EQUAL)),
-                Arguments.of(JoinNode.Type.FULL, Optional.of(ComparisonExpression.Operator.GREATER_THAN)),
-                Arguments.of(JoinNode.Type.FULL, Optional.of(ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL)),
-                Arguments.of(JoinNode.Type.FULL, Optional.of(ComparisonExpression.Operator.NOT_EQUAL)),
-                Arguments.of(JoinNode.Type.FULL, Optional.of(ComparisonExpression.Operator.IS_DISTINCT_FROM)));
+                Arguments.of(io.trino.sql.planner.plan.JoinType.FULL, Optional.empty()),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.FULL, Optional.of(ComparisonExpression.Operator.EQUAL)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.FULL, Optional.of(ComparisonExpression.Operator.LESS_THAN)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.FULL, Optional.of(ComparisonExpression.Operator.LESS_THAN_OR_EQUAL)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.FULL, Optional.of(ComparisonExpression.Operator.GREATER_THAN)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.FULL, Optional.of(ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.FULL, Optional.of(ComparisonExpression.Operator.NOT_EQUAL)),
+                Arguments.of(io.trino.sql.planner.plan.JoinType.FULL, Optional.of(ComparisonExpression.Operator.IS_DISTINCT_FROM)));
     }
 
     /**
@@ -398,7 +398,7 @@ public class TestPushJoinIntoTableScan
 
     @ParameterizedTest
     @MethodSource("testPushJoinIntoTableScanPreservesEnforcedConstraintParams")
-    public void testPushJoinIntoTableScanPreservesEnforcedConstraint(JoinNode.Type joinType, TupleDomain<ColumnHandle> leftConstraint, TupleDomain<ColumnHandle> rightConstraint, TupleDomain<Predicate<ColumnHandle>> expectedConstraint)
+    public void testPushJoinIntoTableScanPreservesEnforcedConstraint(io.trino.sql.planner.plan.JoinType joinType, TupleDomain<ColumnHandle> leftConstraint, TupleDomain<ColumnHandle> rightConstraint, TupleDomain<Predicate<ColumnHandle>> expectedConstraint)
     {
         MockConnectorFactory connectorFactory = createMockConnectorFactory((session, applyJoinType, left, right, joinConditions, leftAssignments, rightAssignments) -> Optional.of(new JoinApplicationResult<>(
                 JOIN_CONNECTOR_TABLE_HANDLE,
@@ -612,7 +612,7 @@ public class TestPushJoinIntoTableScan
                 .build();
     }
 
-    private JoinType toSpiJoinType(JoinNode.Type joinType)
+    private JoinType toSpiJoinType(io.trino.sql.planner.plan.JoinType joinType)
     {
         switch (joinType) {
             case INNER:

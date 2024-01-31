@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.tree.ComparisonExpression;
 import org.junit.jupiter.api.Test;
 
@@ -24,10 +25,9 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.FULL;
-import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
-import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.RIGHT;
-import static io.trino.sql.planner.plan.JoinNode.Type;
+import static io.trino.sql.planner.plan.JoinType.FULL;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
+import static io.trino.sql.planner.plan.JoinType.RIGHT;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static java.util.Collections.emptyList;
@@ -50,7 +50,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
                             p.values(1, b));
                 })
                 .matches(
-                        join(Type.INNER, builder -> builder
+                        join(JoinType.INNER, builder -> builder
                                 .left(values("a"))
                                 .right(values("b"))));
     }
@@ -73,7 +73,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
                             p.values(b));
                 })
                 .matches(
-                        join(Type.LEFT, builder -> builder
+                        join(JoinType.LEFT, builder -> builder
                                 .filter("b > a")
                                 .left(values("a"))
                                 .right(values("b"))));
@@ -97,7 +97,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
                             p.values(b));
                 })
                 .matches(
-                        join(Type.LEFT, builder -> builder
+                        join(JoinType.LEFT, builder -> builder
                                 .filter("b > a")
                                 .left(values("a"))
                                 .right(values("b"))));
@@ -118,7 +118,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
                             p.values(b));
                 })
                 .matches(
-                        join(Type.INNER, builder -> builder
+                        join(JoinType.INNER, builder -> builder
                                 .left(values("a"))
                                 .right(values("b"))));
 
@@ -141,7 +141,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
                                 ImmutableMap.of(
                                         "a", expression("if(b > a, a, cast(null AS BIGINT))"),
                                         "b", expression("b")),
-                                join(Type.INNER, builder -> builder
+                                join(JoinType.INNER, builder -> builder
                                         .left(values("a"))
                                         .right(values("b")))));
     }
@@ -161,7 +161,7 @@ public class TestTransformUncorrelatedSubqueryToJoin
                             p.values(b));
                 })
                 .matches(
-                        join(Type.LEFT, builder -> builder
+                        join(JoinType.LEFT, builder -> builder
                                 .left(values("a"))
                                 .right(values("b"))));
 

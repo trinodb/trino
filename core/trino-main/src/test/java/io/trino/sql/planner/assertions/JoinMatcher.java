@@ -26,6 +26,7 @@ import io.trino.sql.planner.plan.DynamicFilterId;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.JoinNode.DistributionType;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
@@ -58,7 +59,7 @@ import static java.util.Objects.requireNonNull;
 public final class JoinMatcher
         implements Matcher
 {
-    private final JoinNode.Type joinType;
+    private final JoinType joinType;
     private final List<ExpectedValueProvider<JoinNode.EquiJoinClause>> equiCriteria;
     private final boolean ignoreEquiCriteria;
     private final Optional<Expression> filter;
@@ -68,7 +69,7 @@ public final class JoinMatcher
     private final Optional<List<DynamicFilterPattern>> expectedDynamicFilter;
 
     JoinMatcher(
-            JoinNode.Type joinType,
+            JoinType joinType,
             List<ExpectedValueProvider<JoinNode.EquiJoinClause>> equiCriteria,
             boolean ignoreEquiCriteria,
             Optional<Expression> filter,
@@ -221,7 +222,7 @@ public final class JoinMatcher
 
     public static class Builder
     {
-        private final JoinNode.Type joinType;
+        private final JoinType joinType;
         private Optional<List<ExpectedValueProvider<JoinNode.EquiJoinClause>>> equiCriteria = Optional.empty();
         private Optional<List<PlanMatchPattern.DynamicFilterPattern>> dynamicFilter = Optional.empty();
         private Optional<DistributionType> distributionType = Optional.empty();
@@ -231,7 +232,7 @@ public final class JoinMatcher
         private Optional<String> filter = Optional.empty();
         private boolean ignoreEquiCriteria;
 
-        public Builder(JoinNode.Type joinType)
+        public Builder(JoinType joinType)
         {
             this.joinType = joinType;
         }

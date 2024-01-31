@@ -20,7 +20,7 @@ import io.trino.sql.planner.assertions.RowNumberSymbolMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.planner.plan.CorrelatedJoinNode;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.StringLiteral;
@@ -42,8 +42,8 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.specification;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.unnest;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
-import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
+import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 public class TestDecorrelateUnnest
@@ -83,7 +83,7 @@ public class TestDecorrelateUnnest
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
-                        CorrelatedJoinNode.Type.LEFT,
+                        JoinType.LEFT,
                         TRUE_LITERAL,
                         p.unnest(
                                 ImmutableList.of(),
@@ -110,7 +110,7 @@ public class TestDecorrelateUnnest
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
-                        CorrelatedJoinNode.Type.INNER,
+                        JoinType.INNER,
                         TRUE_LITERAL,
                         p.unnest(
                                 ImmutableList.of(),
@@ -137,7 +137,7 @@ public class TestDecorrelateUnnest
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
-                        CorrelatedJoinNode.Type.INNER,
+                        JoinType.INNER,
                         TRUE_LITERAL,
                         p.unnest(
                                 ImmutableList.of(),
@@ -164,7 +164,7 @@ public class TestDecorrelateUnnest
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
-                        CorrelatedJoinNode.Type.LEFT,
+                        JoinType.LEFT,
                         TRUE_LITERAL,
                         p.unnest(
                                 ImmutableList.of(),
@@ -192,7 +192,7 @@ public class TestDecorrelateUnnest
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
-                        CorrelatedJoinNode.Type.INNER,
+                        JoinType.INNER,
                         TRUE_LITERAL,
                         p.enforceSingleRow(
                                 p.unnest(
@@ -228,7 +228,7 @@ public class TestDecorrelateUnnest
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
-                        CorrelatedJoinNode.Type.LEFT,
+                        JoinType.LEFT,
                         TRUE_LITERAL,
                         p.limit(
                                 5,
@@ -264,7 +264,7 @@ public class TestDecorrelateUnnest
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
-                        CorrelatedJoinNode.Type.LEFT,
+                        JoinType.LEFT,
                         TRUE_LITERAL,
                         p.limit(
                                 5,
@@ -302,7 +302,7 @@ public class TestDecorrelateUnnest
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
-                        CorrelatedJoinNode.Type.LEFT,
+                        JoinType.LEFT,
                         TRUE_LITERAL,
                         p.topN(
                                 5,
@@ -340,7 +340,7 @@ public class TestDecorrelateUnnest
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
-                        CorrelatedJoinNode.Type.LEFT,
+                        JoinType.LEFT,
                         TRUE_LITERAL,
                         p.project(
                                 Assignments.of(p.symbol("boolean_result"), PlanBuilder.expression("unnested_corr IS NULL")),
@@ -367,7 +367,7 @@ public class TestDecorrelateUnnest
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
-                        CorrelatedJoinNode.Type.LEFT,
+                        JoinType.LEFT,
                         TRUE_LITERAL,
                         p.project(
                                 Assignments.of(p.symbol("boolean_result"), PlanBuilder.expression("unnested_corr IS NULL")),
@@ -399,7 +399,7 @@ public class TestDecorrelateUnnest
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
-                        CorrelatedJoinNode.Type.LEFT,
+                        JoinType.LEFT,
                         TRUE_LITERAL,
                         p.enforceSingleRow(
                                 p.project(
@@ -452,7 +452,7 @@ public class TestDecorrelateUnnest
                 .on(p -> p.correlatedJoin(
                         ImmutableList.of(p.symbol("corr")),
                         p.values(p.symbol("corr")),
-                        CorrelatedJoinNode.Type.LEFT,
+                        JoinType.LEFT,
                         TRUE_LITERAL,
                         p.unnest(
                                 ImmutableList.of(),
@@ -486,7 +486,7 @@ public class TestDecorrelateUnnest
                     return p.correlatedJoin(
                             ImmutableList.of(corr),
                             p.values(corr),
-                            CorrelatedJoinNode.Type.LEFT,
+                            JoinType.LEFT,
                             TRUE_LITERAL,
                             p.unnest(
                                     ImmutableList.of(),

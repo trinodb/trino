@@ -31,6 +31,7 @@ import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
 import io.trino.sql.planner.plan.ProjectNode;
@@ -238,7 +239,7 @@ public class TransformCorrelatedInPredicateToJoin
     {
         return new JoinNode(
                 idAllocator.getNextId(),
-                JoinNode.Type.LEFT,
+                JoinType.LEFT,
                 probeSide,
                 buildSide,
                 ImmutableList.of(),

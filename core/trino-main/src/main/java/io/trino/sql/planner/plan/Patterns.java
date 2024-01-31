@@ -17,7 +17,6 @@ import io.trino.matching.Pattern;
 import io.trino.matching.Property;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.iterative.Lookup;
-import io.trino.sql.planner.plan.CorrelatedJoinNode.Type;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch;
 
@@ -311,7 +310,7 @@ public final class Patterns
 
     public static final class Join
     {
-        public static Property<JoinNode, Lookup, JoinNode.Type> type()
+        public static Property<JoinNode, Lookup, JoinType> type()
         {
             return property("type", JoinNode::getType);
         }
@@ -344,7 +343,7 @@ public final class Patterns
             return property("filter", CorrelatedJoinNode::getFilter);
         }
 
-        public static Property<CorrelatedJoinNode, Lookup, Type> type()
+        public static Property<CorrelatedJoinNode, Lookup, JoinType> type()
         {
             return property("type", CorrelatedJoinNode::getType);
         }

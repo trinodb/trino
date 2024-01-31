@@ -33,7 +33,7 @@ import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.EnforceSingleRowNode;
 import io.trino.sql.planner.plan.FilterNode;
-import io.trino.sql.planner.plan.JoinNode.Type;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanVisitor;
@@ -63,8 +63,8 @@ import static io.trino.sql.planner.LogicalPlanner.failFunction;
 import static io.trino.sql.planner.iterative.rule.ImplementLimitWithTies.rewriteLimitWithTiesWithPartitioning;
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
 import static io.trino.sql.planner.optimizations.QueryCardinalityUtil.isScalar;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
-import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
+import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.planner.plan.Patterns.CorrelatedJoin.correlation;
 import static io.trino.sql.planner.plan.Patterns.CorrelatedJoin.filter;
 import static io.trino.sql.planner.plan.Patterns.correlatedJoin;
@@ -149,7 +149,7 @@ public class DecorrelateUnnest
     private static final Pattern<CorrelatedJoinNode> PATTERN = correlatedJoin()
             .with(nonEmpty(correlation()))
             .with(filter().equalTo(TRUE_LITERAL))
-            .matching(node -> node.getType() == CorrelatedJoinNode.Type.INNER || node.getType() == CorrelatedJoinNode.Type.LEFT);
+            .matching(node -> node.getType() == JoinType.INNER || node.getType() == JoinType.LEFT);
 
     private final Metadata metadata;
 
@@ -217,8 +217,8 @@ public class DecorrelateUnnest
         }
 
         // determine join type for rewritten UnnestNode
-        Type unnestJoinType = LEFT;
-        if (enforceSingleRow.isEmpty() && correlatedJoinNode.getType() == CorrelatedJoinNode.Type.INNER && unnestNode.getJoinType() == INNER) {
+        JoinType unnestJoinType = LEFT;
+        if (enforceSingleRow.isEmpty() && correlatedJoinNode.getType() == JoinType.INNER && unnestNode.getJoinType() == INNER) {
             unnestJoinType = INNER;
         }
 

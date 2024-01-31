@@ -24,6 +24,7 @@ import io.trino.sql.planner.PlanFragment;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PlanFragmentId;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
@@ -42,7 +43,7 @@ import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingHandles.TEST_TABLE_HANDLE;
 
 final class PlanUtils
@@ -97,12 +98,12 @@ final class PlanUtils
         return createFragment(join);
     }
 
-    static PlanFragment createJoinPlanFragment(JoinNode.Type joinType, String name, PlanFragment buildFragment, PlanFragment probeFragment)
+    static PlanFragment createJoinPlanFragment(JoinType joinType, String name, PlanFragment buildFragment, PlanFragment probeFragment)
     {
         return createJoinPlanFragment(joinType, PARTITIONED, name, buildFragment, probeFragment);
     }
 
-    static PlanFragment createJoinPlanFragment(JoinNode.Type joinType, JoinNode.DistributionType distributionType, String name, PlanFragment buildFragment, PlanFragment probeFragment)
+    static PlanFragment createJoinPlanFragment(JoinType joinType, JoinNode.DistributionType distributionType, String name, PlanFragment buildFragment, PlanFragment probeFragment)
     {
         RemoteSourceNode probe = new RemoteSourceNode(new PlanNodeId("probe_id"), probeFragment.getId(), ImmutableList.of(), Optional.empty(), REPARTITION, RetryPolicy.NONE);
         RemoteSourceNode build = new RemoteSourceNode(new PlanNodeId("build_id"), buildFragment.getId(), ImmutableList.of(), Optional.empty(), REPARTITION, RetryPolicy.NONE);

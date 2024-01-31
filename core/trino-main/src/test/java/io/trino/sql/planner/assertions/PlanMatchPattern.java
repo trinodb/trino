@@ -52,7 +52,7 @@ import io.trino.sql.planner.plan.IndexJoinNode;
 import io.trino.sql.planner.plan.IndexSourceNode;
 import io.trino.sql.planner.plan.IntersectNode;
 import io.trino.sql.planner.plan.JoinNode;
-import io.trino.sql.planner.plan.JoinNode.Type;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.LoadCachedDataPlanNode;
 import io.trino.sql.planner.plan.MarkDistinctNode;
@@ -108,7 +108,7 @@ import static io.trino.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.trino.sql.planner.assertions.MatchResult.match;
 import static io.trino.sql.planner.assertions.StrictAssignedSymbolsMatcher.actualAssignments;
 import static io.trino.sql.planner.assertions.StrictSymbolsMatcher.actualOutputs;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
 import static io.trino.sql.tree.SortItem.NullOrdering.FIRST;
 import static io.trino.sql.tree.SortItem.NullOrdering.UNDEFINED;
@@ -473,7 +473,7 @@ public final class PlanMatchPattern
         return builder.build();
     }
 
-    public static PlanMatchPattern join(JoinNode.Type type, Consumer<JoinMatcher.Builder> handler)
+    public static PlanMatchPattern join(JoinType type, Consumer<JoinMatcher.Builder> handler)
     {
         JoinMatcher.Builder builder = new JoinMatcher.Builder(type);
         handler.accept(builder);
@@ -603,7 +603,7 @@ public final class PlanMatchPattern
             List<String> replicateSymbols,
             List<UnnestMapping> mappings,
             Optional<String> ordinalitySymbol,
-            Type type,
+            JoinType type,
             Optional<String> filter,
             PlanMatchPattern source)
     {

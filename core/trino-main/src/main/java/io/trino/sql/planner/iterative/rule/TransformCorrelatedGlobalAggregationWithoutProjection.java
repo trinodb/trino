@@ -29,6 +29,7 @@ import io.trino.sql.planner.plan.AssignUniqueId;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.Patterns;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
@@ -49,8 +50,8 @@ import static io.trino.sql.planner.iterative.rule.AggregationDecorrelation.resto
 import static io.trino.sql.planner.iterative.rule.AggregationDecorrelation.rewriteWithMasks;
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
-import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.INNER;
-import static io.trino.sql.planner.plan.CorrelatedJoinNode.Type.LEFT;
+import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.planner.plan.Patterns.Aggregation.groupingColumns;
 import static io.trino.sql.planner.plan.Patterns.CorrelatedJoin.filter;
 import static io.trino.sql.planner.plan.Patterns.CorrelatedJoin.subquery;
@@ -185,7 +186,7 @@ public class TransformCorrelatedGlobalAggregationWithoutProjection
 
         JoinNode join = new JoinNode(
                 context.getIdAllocator().getNextId(),
-                JoinNode.Type.LEFT,
+                JoinType.LEFT,
                 inputWithUniqueId,
                 source,
                 ImmutableList.of(),

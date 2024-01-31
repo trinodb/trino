@@ -28,6 +28,7 @@ import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.optimizations.joins.JoinGraph;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.tree.Expression;
@@ -182,7 +183,7 @@ public class EliminateCrossJoins
 
             result = new JoinNode(
                     idAllocator.getNextId(),
-                    JoinNode.Type.INNER,
+                    JoinType.INNER,
                     result,
                     rightNode,
                     criteria.build(),

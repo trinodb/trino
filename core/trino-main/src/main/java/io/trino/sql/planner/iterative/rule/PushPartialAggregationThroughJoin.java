@@ -31,6 +31,7 @@ import io.trino.sql.planner.iterative.Rule.Result;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.tree.Expression;
@@ -167,7 +168,7 @@ public class PushPartialAggregationThroughJoin
     {
         JoinNode joinNode = (JoinNode) context.getLookup().resolve(aggregationNode.getSource());
 
-        if (joinNode.getType() != JoinNode.Type.INNER) {
+        if (joinNode.getType() != JoinType.INNER) {
             return Result.empty();
         }
 
