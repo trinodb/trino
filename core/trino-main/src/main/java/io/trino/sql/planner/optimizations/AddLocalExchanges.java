@@ -17,9 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import io.trino.Session;
-import io.trino.cost.TableStatsProvider;
-import io.trino.execution.querystats.PlanOptimizersStatsCollector;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.connector.ConstantProperty;
 import io.trino.spi.connector.GroupingProperty;
 import io.trino.spi.connector.LocalProperty;
@@ -127,17 +124,9 @@ public class AddLocalExchanges
     }
 
     @Override
-    public PlanNode optimize(
-            PlanNode plan,
-            Session session,
-            TypeProvider types,
-            SymbolAllocator symbolAllocator,
-            PlanNodeIdAllocator idAllocator,
-            WarningCollector warningCollector,
-            PlanOptimizersStatsCollector planOptimizersStatsCollector,
-            TableStatsProvider tableStatsProvider)
+    public PlanNode optimize(PlanNode plan, Context context)
     {
-        PlanWithProperties result = plan.accept(new Rewriter(symbolAllocator, idAllocator, session), any());
+        PlanWithProperties result = plan.accept(new Rewriter(context.symbolAllocator(), context.idAllocator(), context.session()), any());
         return result.getNode();
     }
 
