@@ -21,13 +21,9 @@ import io.trino.cost.StatsCalculator;
 import io.trino.cost.StatsProvider;
 import io.trino.cost.TableStatsProvider;
 import io.trino.cost.TaskCountEstimator;
-import io.trino.execution.querystats.PlanOptimizersStatsCollector;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.operator.RetryPolicy;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PartitioningScheme;
-import io.trino.sql.planner.PlanNodeIdAllocator;
-import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.SystemPartitioningHandle;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.ExchangeNode;
@@ -105,24 +101,12 @@ public class DeterminePartitionCount
     }
 
     @Override
-    public PlanNode optimize(
-            PlanNode plan,
-            Session session,
-            TypeProvider types,
-            SymbolAllocator symbolAllocator,
-            PlanNodeIdAllocator idAllocator,
-            WarningCollector warningCollector,
-            PlanOptimizersStatsCollector planOptimizersStatsCollector,
-            TableStatsProvider tableStatsProvider)
+    public PlanNode optimize(PlanNode plan, Context context)
     {
         requireNonNull(plan, "plan is null");
-        requireNonNull(session, "session is null");
-        requireNonNull(types, "types is null");
-        requireNonNull(tableStatsProvider, "tableStatsProvider is null");
-        requireNonNull(taskCountEstimator, "taskCountEstimator is null");
 
         // Skip partition count determination if no partitioned remote exchanges exist in the plan anyway
-        boolean taskRetries = getRetryPolicy(session).equals(RetryPolicy.TASK);
+        boolean taskRetries = getRetryPolicy(context.session()).equals(RetryPolicy.TASK);
         if (!isEligibleRemoteExchangePresent(plan, taskRetries)) {
             return plan;
         }
@@ -130,11 +114,11 @@ public class DeterminePartitionCount
         // Unless enabled, skip for write nodes since writing partitioned data with small amount of nodes could cause
         // memory related issues even when the amount of data is small.
         boolean isWriteQuery = PlanNodeSearcher.searchFrom(plan).whereIsInstanceOfAny(INSERT_NODES).matches();
-        if (isWriteQuery && !isDeterminePartitionCountForWriteEnabled(session)) {
+        if (isWriteQuery && !isDeterminePartitionCountForWriteEnabled(context.session())) {
             return plan;
         }
 
-        return determinePartitionCount(plan, session, types, tableStatsProvider, isWriteQuery)
+        return determinePartitionCount(plan, context.session(), context.types(), context.tableStatsProvider(), isWriteQuery)
                 .map(partitionCount -> rewriteWith(new Rewriter(partitionCount, taskRetries), plan))
                 .orElse(plan);
     }

@@ -15,18 +15,12 @@ package io.trino.sql.planner.optimizations;
 
 import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
-import io.trino.cost.TableStatsProvider;
-import io.trino.execution.querystats.PlanOptimizersStatsCollector;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.MergeHandle;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableExecuteHandle;
 import io.trino.metadata.TableHandle;
 import io.trino.spi.connector.BeginTableExecuteResult;
-import io.trino.sql.planner.PlanNodeIdAllocator;
-import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.ExchangeNode;
 import io.trino.sql.planner.plan.MergeWriterNode;
 import io.trino.sql.planner.plan.PlanNode;
@@ -77,23 +71,15 @@ public class BeginTableWrite
     }
 
     @Override
-    public PlanNode optimize(
-            PlanNode plan,
-            Session session,
-            TypeProvider types,
-            SymbolAllocator symbolAllocator,
-            PlanNodeIdAllocator idAllocator,
-            WarningCollector warningCollector,
-            PlanOptimizersStatsCollector planOptimizersStatsCollector,
-            TableStatsProvider tableStatsProvider)
+    public PlanNode optimize(PlanNode plan, Context context)
     {
         try {
-            return SimplePlanRewriter.rewriteWith(new Rewriter(session), plan, Optional.empty());
+            return SimplePlanRewriter.rewriteWith(new Rewriter(context.session()), plan, Optional.empty());
         }
         catch (RuntimeException e) {
             try {
                 int nestLevel = 4; // so that it renders reasonably within exception stacktrace
-                String explain = textLogicalPlan(plan, types, metadata, functionManager, StatsAndCosts.empty(), session, nestLevel, false);
+                String explain = textLogicalPlan(plan, context.types(), metadata, functionManager, StatsAndCosts.empty(), context.session(), nestLevel, false);
                 e.addSuppressed(new Exception("Current plan:\n" + explain));
             }
             catch (RuntimeException ignore) {

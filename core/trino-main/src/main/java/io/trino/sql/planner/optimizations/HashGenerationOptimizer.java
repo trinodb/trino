@@ -23,11 +23,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
-import io.trino.Session;
 import io.trino.SystemSessionProperties;
-import io.trino.cost.TableStatsProvider;
-import io.trino.execution.querystats.PlanOptimizersStatsCollector;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.StandardTypes;
@@ -109,22 +105,11 @@ public class HashGenerationOptimizer
     }
 
     @Override
-    public PlanNode optimize(
-            PlanNode plan,
-            Session session,
-            TypeProvider types,
-            SymbolAllocator symbolAllocator,
-            PlanNodeIdAllocator idAllocator,
-            WarningCollector warningCollector,
-            PlanOptimizersStatsCollector planOptimizersStatsCollector,
-            TableStatsProvider tableStatsProvider)
+    public PlanNode optimize(PlanNode plan, Context context)
     {
         requireNonNull(plan, "plan is null");
-        requireNonNull(types, "types is null");
-        requireNonNull(symbolAllocator, "symbolAllocator is null");
-        requireNonNull(idAllocator, "idAllocator is null");
-        if (SystemSessionProperties.isOptimizeHashGenerationEnabled(session)) {
-            PlanWithProperties result = plan.accept(new Rewriter(metadata, idAllocator, symbolAllocator, types), new HashComputationSet());
+        if (SystemSessionProperties.isOptimizeHashGenerationEnabled(context.session())) {
+            PlanWithProperties result = plan.accept(new Rewriter(metadata, context.idAllocator(), context.symbolAllocator(), context.types()), new HashComputationSet());
             return result.getNode();
         }
         return plan;
