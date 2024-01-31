@@ -93,7 +93,7 @@ public class TestMetadataOnlyQueries
             backgroundExecutor.submit(() -> {
                 assertUpdate(highTaskMemorySession, slowQuery);
             });
-            assertEventually(() -> queryIsInState(slowQuery, QueryState.RUNNING));
+            assertEventually(() -> assertThat(queryState(slowQuery).orElseThrow()).isEqualTo(QueryState.RUNNING));
 
             assertThat(query("DESCRIBE lineitem")).succeeds();
             assertThat(query("SHOW TABLES")).succeeds();
@@ -113,7 +113,7 @@ public class TestMetadataOnlyQueries
             backgroundExecutor.submit(() -> {
                 assertUpdate(nonMetadataQuery);
             });
-            assertEventually(() -> queryIsInState(nonMetadataQuery, QueryState.STARTING));
+            assertEventually(() -> assertThat(queryState(nonMetadataQuery).orElseThrow()).isEqualTo(QueryState.STARTING));
             Thread.sleep(1000); // wait a bit longer and query should be still STARTING
             assertThat(queryState(nonMetadataQuery).orElseThrow()).isEqualTo(QueryState.STARTING);
 
@@ -133,11 +133,6 @@ public class TestMetadataOnlyQueries
                 .filter(query -> query.getQuery().equals(queryText))
                 .collect(MoreCollectors.toOptional())
                 .map(BasicQueryInfo::getState);
-    }
-
-    private boolean queryIsInState(String queryText, QueryState queryState)
-    {
-        return queryState(queryText).map(state -> state == queryState).orElse(false);
     }
 
     private void cancelQuery(String queryText)
