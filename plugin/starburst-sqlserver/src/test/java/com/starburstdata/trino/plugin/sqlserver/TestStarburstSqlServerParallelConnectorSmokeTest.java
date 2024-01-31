@@ -13,6 +13,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.plugin.sqlserver.BaseSqlServerConnectorSmokeTest;
 import io.trino.plugin.sqlserver.TestingSqlServer;
 import io.trino.testing.QueryRunner;
+import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -33,6 +34,7 @@ public class TestStarburstSqlServerParallelConnectorSmokeTest
     }
 
     @Override
+    @Test
     public void testShowCreateTable()
     {
         assertThat((String) computeScalar("SHOW CREATE TABLE region"))
