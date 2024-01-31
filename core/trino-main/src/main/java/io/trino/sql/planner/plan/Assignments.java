@@ -24,8 +24,6 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.ExpressionRewriter;
-import io.trino.sql.tree.ExpressionTreeRewriter;
 import io.trino.sql.tree.SymbolReference;
 
 import java.util.Collection;
@@ -111,11 +109,6 @@ public class Assignments
     public Map<Symbol, Expression> getMap()
     {
         return assignments;
-    }
-
-    public Assignments rewrite(ExpressionRewriter<Void> rewriter)
-    {
-        return rewrite(expression -> ExpressionTreeRewriter.rewriteWith(rewriter, expression));
     }
 
     public Assignments rewrite(Function<Expression, Expression> rewrite)
