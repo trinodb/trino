@@ -7,18 +7,18 @@
  *
  * Redistribution of this material is strictly prohibited.
  */
-package com.starburstdata.presto.plugin.saphana;
+package com.starburstdata.trino.plugin.saphana;
 
 import static java.lang.String.format;
 
-public class TestSapHanaHistogramTableStatistics
+public class TestSapHanaSimpleTableStatistics
         extends AbstractTestSapHanaTableStatistics
 {
     @Override
     protected void gatherStats(String tableName)
     {
         String schemaTableName = format("%s.%s", getSession().getSchema().orElseThrow(), tableName);
-        sapHanaServer.execute("CREATE STATISTICS ON " + schemaTableName + " TYPE HISTOGRAM");
+        sapHanaServer.execute("CREATE STATISTICS ON " + schemaTableName + " TYPE SIMPLE");
         // MERGE DELTA is required to force a stats refresh and ensure stats are up to date.
         // If not invoked explicitly, MERGE DELTA happens periodically about every 2 minutes, unless disabled for a table.
         // If disabled, stats are never updated automatically.

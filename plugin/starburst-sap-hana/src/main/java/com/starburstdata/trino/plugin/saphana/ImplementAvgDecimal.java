@@ -7,7 +7,7 @@
  *
  * Redistribution of this material is strictly prohibited.
  */
-package com.starburstdata.presto.plugin.saphana;
+package com.starburstdata.trino.plugin.saphana;
 
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
@@ -23,7 +23,7 @@ import io.trino.spi.type.DecimalType;
 import java.util.Optional;
 
 import static com.google.common.base.Verify.verify;
-import static com.starburstdata.presto.plugin.saphana.SapHanaClient.SAP_HANA_MAX_DECIMAL_PRECISION;
+import static com.starburstdata.trino.plugin.saphana.SapHanaClient.SAP_HANA_MAX_DECIMAL_PRECISION;
 import static io.trino.matching.Capture.newCapture;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.basicAggregation;
 import static io.trino.plugin.base.aggregation.AggregateFunctionPatterns.expressionType;

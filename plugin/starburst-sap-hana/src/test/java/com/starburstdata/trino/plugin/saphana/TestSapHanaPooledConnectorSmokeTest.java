@@ -7,7 +7,7 @@
  *
  * Redistribution of this material is strictly prohibited.
  */
-package com.starburstdata.presto.plugin.saphana;
+package com.starburstdata.trino.plugin.saphana;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.testing.BaseConnectorSmokeTest;
@@ -15,7 +15,7 @@ import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.tpch.TpchTable;
 
-import static com.starburstdata.presto.plugin.saphana.SapHanaQueryRunner.createSapHanaQueryRunner;
+import static com.starburstdata.trino.plugin.saphana.SapHanaQueryRunner.createSapHanaQueryRunner;
 
 public class TestSapHanaPooledConnectorSmokeTest
         extends BaseConnectorSmokeTest
