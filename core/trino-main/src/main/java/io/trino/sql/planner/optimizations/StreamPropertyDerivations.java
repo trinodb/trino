@@ -102,7 +102,7 @@ import static io.trino.sql.planner.optimizations.StreamPropertyDerivations.Strea
 import static io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties.StreamDistribution.SINGLE;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
-import static io.trino.sql.tree.SkipTo.Position.PAST_LAST;
+import static io.trino.sql.planner.plan.SkipToPosition.PAST_LAST;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 

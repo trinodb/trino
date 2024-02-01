@@ -104,6 +104,7 @@ import io.trino.sql.planner.plan.RowsPerMatch;
 import io.trino.sql.planner.plan.SampleNode;
 import io.trino.sql.planner.plan.SemiJoinNode;
 import io.trino.sql.planner.plan.SimpleTableExecuteNode;
+import io.trino.sql.planner.plan.SkipToPosition;
 import io.trino.sql.planner.plan.SortNode;
 import io.trino.sql.planner.plan.SpatialJoinNode;
 import io.trino.sql.planner.plan.StatisticAggregations;
@@ -138,7 +139,6 @@ import io.trino.sql.tree.ExpressionTreeRewriter;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.sql.tree.Row;
-import io.trino.sql.tree.SkipTo.Position;
 import io.trino.sql.tree.SymbolReference;
 
 import java.util.ArrayList;
@@ -1152,7 +1152,7 @@ public class PlanPrinter
             };
         }
 
-        private String formatSkipTo(Position position, Optional<IrLabel> label)
+        private String formatSkipTo(SkipToPosition position, Optional<IrLabel> label)
         {
             return switch (position) {
                 case PAST_LAST -> "AFTER MATCH SKIP PAST LAST ROW";

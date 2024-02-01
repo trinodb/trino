@@ -31,7 +31,7 @@ import static com.google.common.collect.Maps.filterKeys;
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
 import static io.trino.sql.planner.plan.Patterns.patternRecognition;
 import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
-import static io.trino.sql.tree.SkipTo.Position.PAST_LAST;
+import static io.trino.sql.planner.plan.SkipToPosition.PAST_LAST;
 
 public class PrunePattenRecognitionColumns
         extends ProjectOffPushDownRule<PatternRecognitionNode>
