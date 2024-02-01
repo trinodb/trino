@@ -297,6 +297,23 @@ public final class RunLengthEncodedBlock
     }
 
     @Override
+    public boolean isLoaded()
+    {
+        return value.isLoaded();
+    }
+
+    @Override
+    public Block getLoadedBlock()
+    {
+        Block loadedValueBlock = value.getLoadedBlock();
+
+        if (loadedValueBlock == value) {
+            return this;
+        }
+        return create(loadedValueBlock, positionCount);
+    }
+
+    @Override
     public ValueBlock getUnderlyingValueBlock()
     {
         return value;
