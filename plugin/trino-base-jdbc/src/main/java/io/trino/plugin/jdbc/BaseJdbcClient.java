@@ -13,6 +13,7 @@
  */
 package io.trino.plugin.jdbc;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
@@ -33,6 +34,7 @@ import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplitSource;
+import io.trino.spi.connector.ConnectorTableHandle;
 import io.trino.spi.connector.ConnectorTableMetadata;
 import io.trino.spi.connector.FixedSplitSource;
 import io.trino.spi.connector.JoinStatistics;
@@ -47,6 +49,7 @@ import io.trino.spi.security.ConnectorIdentity;
 import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.BigintType;
 import io.trino.spi.type.CharType;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import jakarta.annotation.Nullable;
@@ -88,6 +91,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.plugin.base.TemporaryTables.generateTemporaryTableName;
 import static io.trino.plugin.jdbc.CaseSensitivity.CASE_INSENSITIVE;
 import static io.trino.plugin.jdbc.CaseSensitivity.CASE_SENSITIVE;
+import static io.trino.plugin.jdbc.DefaultJdbcMetadata.MERGE_ROW_ID;
 import static io.trino.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.getWriteBatchSize;
 import static io.trino.plugin.jdbc.JdbcWriteSessionProperties.getWriteParallelism;
@@ -1772,6 +1776,88 @@ public abstract class BaseJdbcClient
                 Optional.ofNullable(resultSet.getString("TABLE_CAT")),
                 Optional.ofNullable(resultSet.getString("TABLE_SCHEM")),
                 resultSet.getString("TABLE_NAME"));
+    }
+
+    @Override
+    public JdbcTableHandle updatedScanColumnsForMerge(ConnectorSession session, ConnectorTableHandle table, Optional<List<JdbcColumnHandle>> originalColumns, JdbcColumnHandle mergeRowIdColumnHandle)
+    {
+        JdbcTableHandle tableHandle = (JdbcTableHandle) table;
+        if (originalColumns.isEmpty()) {
+            return tableHandle;
+        }
+        List<JdbcColumnHandle> scanColumnHandles = originalColumns.get();
+        checkArgument(!scanColumnHandles.isEmpty(), "Scan columns should not empty");
+        checkArgument(scanColumnHandles.stream().anyMatch(column -> MERGE_ROW_ID.equalsIgnoreCase(column.getColumnName())), "Merge row id column must exist in original columns");
+
+        return new JdbcTableHandle(
+                tableHandle.getRelationHandle(),
+                tableHandle.getConstraint(),
+                tableHandle.getConstraintExpressions(),
+                tableHandle.getSortOrder(),
+                tableHandle.getLimit(),
+                Optional.of(getUpdatedScanColumnHandles(session, tableHandle, scanColumnHandles, mergeRowIdColumnHandle)),
+                tableHandle.getOtherReferencedTables(),
+                tableHandle.getNextSyntheticColumnId(),
+                tableHandle.getAuthorization(),
+                tableHandle.getUpdateAssignments());
+    }
+
+    protected List<JdbcColumnHandle> getUpdatedScanColumnHandles(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> scanColumnHandles, JdbcColumnHandle mergeRowIdColumnHandle)
+    {
+        RowType columnType = (RowType) mergeRowIdColumnHandle.getColumnType();
+        List<JdbcColumnHandle> primaryKeyColumnHandles = getPrimaryKeys(session, tableHandle);
+        Set<String> mergeRowIdFieldNames = columnType.getFields().stream()
+                .map(RowType.Field::getName)
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(toImmutableSet());
+        Set<String> primaryKeyColumnNames = primaryKeyColumnHandles.stream()
+                .map(JdbcColumnHandle::getColumnName)
+                .collect(toImmutableSet());
+        checkArgument(mergeRowIdFieldNames.containsAll(primaryKeyColumnNames), "Merge row id fields should contains all primary keys");
+
+        ImmutableList.Builder<JdbcColumnHandle> columnHandleBuilder = ImmutableList.builder();
+        scanColumnHandles.stream()
+                .filter(jdbcColumnHandle -> !MERGE_ROW_ID.equalsIgnoreCase(jdbcColumnHandle.getColumnName()))
+                .forEach(columnHandleBuilder::add);
+
+        // Add merge row id fields
+        for (JdbcColumnHandle columnHandle : primaryKeyColumnHandles) {
+            String columnName = columnHandle.getColumnName();
+
+            if (scanColumnHandles.stream().noneMatch(column -> column.getColumnName().equalsIgnoreCase(columnName))) {
+                columnHandleBuilder.add(columnHandle);
+            }
+        }
+
+        return columnHandleBuilder.build();
+    }
+
+    @Override
+    public String buildMergeRowIdConjuncts(ConnectorSession session, List<String> mergeRowIdFieldNames, List<Type> mergeRowIdFieldTypes)
+    {
+        List<WriteFunction> mergeRowIdColumnWriters = mergeRowIdFieldTypes.stream()
+                .map(type -> {
+                    WriteMapping writeMapping = toWriteMapping(session, type);
+                    WriteFunction writeFunction = writeMapping.getWriteFunction();
+                    verify(
+                            type.getJavaType() == writeFunction.getJavaType(),
+                            "Trino type %s is not compatible with write function %s accepting %s",
+                            type,
+                            writeFunction,
+                            writeFunction.getJavaType());
+                    return writeMapping;
+                })
+                .map(WriteMapping::getWriteFunction)
+                .collect(toImmutableList());
+        verify(!mergeRowIdColumnWriters.isEmpty() && mergeRowIdFieldNames.size() == mergeRowIdColumnWriters.size());
+
+        ImmutableList.Builder<String> conjunctsBuilder = ImmutableList.builder();
+        for (int i = 0; i < mergeRowIdFieldNames.size(); i++) {
+            conjunctsBuilder.add(quoted(mergeRowIdFieldNames.get(i)) + " = " + mergeRowIdColumnWriters.get(i).getBindExpression());
+        }
+
+        return Joiner.on(" AND ").join(conjunctsBuilder.build());
     }
 
     @FunctionalInterface
