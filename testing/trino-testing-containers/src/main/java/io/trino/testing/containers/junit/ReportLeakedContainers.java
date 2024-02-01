@@ -28,6 +28,7 @@ import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.trino.testing.services.junit.Listeners.reportListenerFailure;
 import static java.lang.Boolean.getBoolean;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -70,17 +71,13 @@ public final class ReportLeakedContainers
                     .collect(toImmutableList());
 
             if (!containers.isEmpty()) {
-                log.error("Leaked containers: %s", containers.stream()
+                reportListenerFailure(getClass(), "Leaked containers: %s", containers.stream()
                         .map(container -> toStringHelper("container")
                                 .add("id", container.getId())
                                 .add("image", container.getImage())
                                 .add("imageId", container.getImageId())
                                 .toString())
                         .collect(joining(", ", "[", "]")));
-
-                // JUnit does not fail on a listener exception.
-                System.err.println("JVM will be terminated");
-                System.exit(1);
             }
         }
     }
