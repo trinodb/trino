@@ -31,17 +31,17 @@ public interface OutputDataSizeEstimator
 
     record OutputDataSizeEstimateResult(
             OutputDataSizeEstimate outputDataSizeEstimate,
-            String status)
+            String kind)
     {
-        OutputDataSizeEstimateResult(ImmutableLongArray partitionDataSizes, String status)
+        OutputDataSizeEstimateResult(ImmutableLongArray partitionDataSizes, String kind)
         {
-            this(new OutputDataSizeEstimate(partitionDataSizes), status);
+            this(new OutputDataSizeEstimate(partitionDataSizes), kind);
         }
 
         public OutputDataSizeEstimateResult
         {
             requireNonNull(outputDataSizeEstimate, "outputDataSizeEstimate is null");
-            requireNonNull(status, "status is null");
+            requireNonNull(kind, "kind is null");
         }
     }
 }
