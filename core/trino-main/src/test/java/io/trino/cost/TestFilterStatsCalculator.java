@@ -108,7 +108,7 @@ public class TestFilterStatsCalculator
             .setHighValue(POSITIVE_INFINITY)
             .setNullsFraction(0.34)
             .build();
-    private final FilterStatsCalculator statsCalculator = new FilterStatsCalculator(PLANNER_CONTEXT, new ScalarStatsCalculator(PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT)), new StatsNormalizer());
+    private final FilterStatsCalculator statsCalculator = new FilterStatsCalculator(PLANNER_CONTEXT, new ScalarStatsCalculator(PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT)), new StatsNormalizer(), createTestingTypeAnalyzer(PLANNER_CONTEXT));
     private final PlanNodeStatsEstimate standardInputStatistics = PlanNodeStatsEstimate.builder()
             .addSymbolStatistics(new Symbol("x"), xStats)
             .addSymbolStatistics(new Symbol("y"), yStats)
