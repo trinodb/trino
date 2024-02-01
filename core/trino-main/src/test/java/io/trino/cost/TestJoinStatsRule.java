@@ -91,7 +91,7 @@ public class TestJoinStatsRule
 
     private static final StatsNormalizer NORMALIZER = new StatsNormalizer();
     private static final JoinStatsRule JOIN_STATS_RULE = new JoinStatsRule(
-            new FilterStatsCalculator(PLANNER_CONTEXT, new ScalarStatsCalculator(PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT)), NORMALIZER),
+            new FilterStatsCalculator(PLANNER_CONTEXT, new ScalarStatsCalculator(PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT)), NORMALIZER, createTestingTypeAnalyzer(PLANNER_CONTEXT)),
             NORMALIZER,
             1.0);
     private static final TypeProvider TYPES = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()

@@ -19,6 +19,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.NoOpSymbolResolver;
+import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SqlToRowExpressionTranslator;
@@ -103,6 +104,6 @@ public class TestSqlToRowExpressionTranslator
 
     private Map<NodeRef<Expression>, Type> getExpressionTypes(Expression expression)
     {
-        return ExpressionUtils.getExpressionTypes(PLANNER_CONTEXT, TEST_SESSION, expression, TypeProvider.empty());
+        return TypeAnalyzer.createTestingTypeAnalyzer(PLANNER_CONTEXT).getTypes(TEST_SESSION, TypeProvider.empty(), expression);
     }
 }
