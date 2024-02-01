@@ -59,6 +59,8 @@ public class TestHttpRequestSessionContextFactory
                 .put(protocolHeaders.requestTimeZone(), "Asia/Taipei")
                 .put(protocolHeaders.requestClientInfo(), "client-info")
                 .put(protocolHeaders.requestSession(), QUERY_MAX_MEMORY + "=1GB")
+                .put(protocolHeaders.requestSession(), "catalog.some_session_property=1GB")
+                .put(protocolHeaders.requestSession(), "catalog.with.a.dot.some_session_property=1GB")
                 .put(protocolHeaders.requestSession(), JOIN_DISTRIBUTION_TYPE + "=partitioned," + MAX_HASH_PARTITION_COUNT + " = 43")
                 .put(protocolHeaders.requestSession(), "some_session_property=some value with %2C comma")
                 .put(protocolHeaders.requestPreparedStatement(), "query1=select * from foo,query2=select * from bar")
@@ -89,6 +91,9 @@ public class TestHttpRequestSessionContextFactory
         assertThat(context.getClientInfo().orElse(null)).isEqualTo("client-info");
         assertThat(context.getLanguage().orElse(null)).isEqualTo("zh-TW");
         assertThat(context.getTimeZoneId().orElse(null)).isEqualTo("Asia/Taipei");
+        assertThat(context.getCatalogSessionProperties()).isEqualTo(ImmutableMap.of(
+                "catalog", ImmutableMap.of("some_session_property", "1GB"),
+                "catalog.with.a.dot", ImmutableMap.of("some_session_property", "1GB")));
         assertThat(context.getSystemProperties()).isEqualTo(ImmutableMap.of(
                 QUERY_MAX_MEMORY, "1GB",
                 JOIN_DISTRIBUTION_TYPE, "partitioned",
