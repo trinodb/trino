@@ -69,6 +69,7 @@ public final class JdbcClientStats
     private final JdbcApiStats delete = new JdbcApiStats();
     private final JdbcApiStats update = new JdbcApiStats();
     private final JdbcApiStats truncateTable = new JdbcApiStats();
+    private final JdbcApiStats getPrimaryKeys = new JdbcApiStats();
 
     @Managed
     @Nested
@@ -425,5 +426,12 @@ public final class JdbcClientStats
     public JdbcApiStats getTruncateTable()
     {
         return truncateTable;
+    }
+
+    @Managed
+    @Nested
+    public JdbcApiStats getGetPrimaryKeys()
+    {
+        return getPrimaryKeys;
     }
 }
