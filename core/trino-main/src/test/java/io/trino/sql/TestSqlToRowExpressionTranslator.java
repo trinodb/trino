@@ -16,7 +16,7 @@ package io.trino.sql;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.Decimals;
 import io.trino.spi.type.Type;
-import io.trino.sql.planner.ExpressionInterpreter;
+import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.TypeAnalyzer;
@@ -97,7 +97,7 @@ public class TestSqlToRowExpressionTranslator
         // Testing simplified expressions is important, since simplification may create CASTs or function calls that cannot be simplified by the ExpressionOptimizer
 
         Map<NodeRef<Expression>, Type> expressionTypes = getExpressionTypes(expression);
-        ExpressionInterpreter interpreter = new ExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
+        IrExpressionInterpreter interpreter = new IrExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
         Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
         return literalEncoder.toExpression(value, expressionTypes.get(NodeRef.of(expression)));
     }

@@ -23,7 +23,7 @@ import io.trino.spi.type.SqlTimestampWithTimeZone;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.sql.parser.SqlParser;
-import io.trino.sql.planner.ExpressionInterpreter;
+import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolResolver;
 import io.trino.sql.planner.TypeProvider;
@@ -40,7 +40,6 @@ import org.joda.time.DateTime;
 import org.joda.time.LocalDate;
 import org.joda.time.LocalTime;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Timeout;
 
 import java.util.Map;
 import java.util.Optional;
@@ -602,12 +601,6 @@ public class TestExpressionInterpreter
 
         assertTrinoExceptionThrownBy(() -> evaluate("CAST(ROW(0 / 0, true) AS ROW(id DOUBLE, value BOOLEAN)).value"))
                 .hasErrorCode(DIVISION_BY_ZERO);
-    }
-
-    @Test
-    public void testCurrentUser()
-    {
-        assertOptimizedEquals("current_user", "'" + TEST_SESSION.getUser() + "'");
     }
 
     @Test
@@ -1553,199 +1546,6 @@ public class TestExpressionInterpreter
     }
 
     @Test
-    public void testLike()
-    {
-        assertOptimizedEquals("'a' LIKE 'a'", "true");
-        assertOptimizedEquals("'' LIKE 'a'", "false");
-        assertOptimizedEquals("'abc' LIKE 'a'", "false");
-
-        assertOptimizedEquals("'a' LIKE '_'", "true");
-        assertOptimizedEquals("'' LIKE '_'", "false");
-        assertOptimizedEquals("'abc' LIKE '_'", "false");
-
-        assertOptimizedEquals("'a' LIKE '%'", "true");
-        assertOptimizedEquals("'' LIKE '%'", "true");
-        assertOptimizedEquals("'abc' LIKE '%'", "true");
-
-        assertOptimizedEquals("'abc' LIKE '___'", "true");
-        assertOptimizedEquals("'ab' LIKE '___'", "false");
-        assertOptimizedEquals("'abcd' LIKE '___'", "false");
-
-        assertOptimizedEquals("'abc' LIKE 'abc'", "true");
-        assertOptimizedEquals("'xyz' LIKE 'abc'", "false");
-        assertOptimizedEquals("'abc0' LIKE 'abc'", "false");
-        assertOptimizedEquals("'0abc' LIKE 'abc'", "false");
-
-        assertOptimizedEquals("'abc' LIKE 'abc%'", "true");
-        assertOptimizedEquals("'abc0' LIKE 'abc%'", "true");
-        assertOptimizedEquals("'0abc' LIKE 'abc%'", "false");
-
-        assertOptimizedEquals("'abc' LIKE '%abc'", "true");
-        assertOptimizedEquals("'0abc' LIKE '%abc'", "true");
-        assertOptimizedEquals("'abc0' LIKE '%abc'", "false");
-
-        assertOptimizedEquals("'abc' LIKE '%abc%'", "true");
-        assertOptimizedEquals("'0abc' LIKE '%abc%'", "true");
-        assertOptimizedEquals("'abc0' LIKE '%abc%'", "true");
-        assertOptimizedEquals("'0abc0' LIKE '%abc%'", "true");
-        assertOptimizedEquals("'xyzw' LIKE '%abc%'", "false");
-
-        assertOptimizedEquals("'abc' LIKE '%ab%c%'", "true");
-        assertOptimizedEquals("'0abc' LIKE '%ab%c%'", "true");
-        assertOptimizedEquals("'abc0' LIKE '%ab%c%'", "true");
-        assertOptimizedEquals("'0abc0' LIKE '%ab%c%'", "true");
-        assertOptimizedEquals("'ab01c' LIKE '%ab%c%'", "true");
-        assertOptimizedEquals("'0ab01c' LIKE '%ab%c%'", "true");
-        assertOptimizedEquals("'ab01c0' LIKE '%ab%c%'", "true");
-        assertOptimizedEquals("'0ab01c0' LIKE '%ab%c%'", "true");
-
-        assertOptimizedEquals("'xyzw' LIKE '%ab%c%'", "false");
-
-        // ensure regex chars are escaped
-        assertOptimizedEquals("'\' LIKE '\'", "true");
-        assertOptimizedEquals("'.*' LIKE '.*'", "true");
-        assertOptimizedEquals("'[' LIKE '['", "true");
-        assertOptimizedEquals("']' LIKE ']'", "true");
-        assertOptimizedEquals("'{' LIKE '{'", "true");
-        assertOptimizedEquals("'}' LIKE '}'", "true");
-        assertOptimizedEquals("'?' LIKE '?'", "true");
-        assertOptimizedEquals("'+' LIKE '+'", "true");
-        assertOptimizedEquals("'(' LIKE '('", "true");
-        assertOptimizedEquals("')' LIKE ')'", "true");
-        assertOptimizedEquals("'|' LIKE '|'", "true");
-        assertOptimizedEquals("'^' LIKE '^'", "true");
-        assertOptimizedEquals("'$' LIKE '$'", "true");
-
-        assertOptimizedEquals("NULL LIKE '%'", "NULL");
-        assertOptimizedEquals("'a' LIKE NULL", "NULL");
-        assertOptimizedEquals("'a' LIKE '%' ESCAPE NULL", "NULL");
-
-        assertOptimizedEquals("'%' LIKE 'z%' ESCAPE 'z'", "true");
-    }
-
-    @Test
-    public void testLikeChar()
-    {
-        assertOptimizedEquals("CAST('abc' AS char(3)) LIKE 'abc'", "true");
-        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE 'abc'", "false");
-        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE 'abc '", "true");
-
-        assertOptimizedEquals("CAST('abc' AS char(3)) LIKE '%abc'", "true");
-        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE '%abc'", "false");
-        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE '%abc '", "true");
-
-        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE '%c'", "false");
-        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE '%c '", "true");
-
-        assertOptimizedEquals("CAST('abc' AS char(3)) LIKE '%a%b%c'", "true");
-        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE '%a%b%c'", "false");
-        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE '%a%b%c '", "true");
-        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE '%a%b%c_'", "true");
-        assertOptimizedEquals("CAST('abc' AS char(4)) LIKE '%a%b%c%'", "true");
-    }
-
-    @Test
-    public void testLikeOptimization()
-    {
-        assertOptimizedEquals("unbound_string LIKE 'abc'", "unbound_string = VARCHAR 'abc'");
-
-        assertOptimizedEquals("unbound_string LIKE '' ESCAPE '#'", "unbound_string LIKE '' ESCAPE '#'");
-        assertOptimizedEquals("unbound_string LIKE 'abc' ESCAPE '#'", "unbound_string = VARCHAR 'abc'");
-        assertOptimizedEquals("unbound_string LIKE 'a#_b' ESCAPE '#'", "unbound_string = VARCHAR 'a_b'");
-        assertOptimizedEquals("unbound_string LIKE 'a#%b' ESCAPE '#'", "unbound_string = VARCHAR 'a%b'");
-        assertOptimizedEquals("unbound_string LIKE 'a#_##b' ESCAPE '#'", "unbound_string = VARCHAR 'a_#b'");
-        assertOptimizedEquals("unbound_string LIKE 'a#__b' ESCAPE '#'", "unbound_string LIKE 'a#__b' ESCAPE '#'");
-        assertOptimizedEquals("unbound_string LIKE 'a##%b' ESCAPE '#'", "unbound_string LIKE 'a##%b' ESCAPE '#'");
-
-        assertOptimizedEquals("bound_string LIKE bound_pattern", "true");
-        assertOptimizedEquals("'abc' LIKE bound_pattern", "false");
-
-        assertOptimizedEquals("unbound_string LIKE bound_pattern", "unbound_string LIKE bound_pattern");
-
-        assertOptimizedEquals("unbound_string LIKE unbound_pattern ESCAPE unbound_string", "unbound_string LIKE unbound_pattern ESCAPE unbound_string");
-    }
-
-    @Test
-    public void testLikeCharOptimization()
-    {
-        // constant literal pattern of length shorter than value length
-        assertOptimizedEquals("unbound_char LIKE 'abc'", "false");
-        assertOptimizedEquals("unbound_char LIKE 'abc' ESCAPE '#'", "false");
-        assertOptimizedEquals("unbound_char LIKE 'ab#_' ESCAPE '#'", "false");
-        assertOptimizedEquals("unbound_char LIKE 'ab#%' ESCAPE '#'", "false");
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'abc'", "false");
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'abc' ESCAPE '#'", "false");
-
-        // constant non-literal pattern of length shorter than value length
-        assertOptimizedEquals("unbound_char LIKE 'ab_'", "unbound_char LIKE 'ab_'");
-        assertOptimizedEquals("unbound_char LIKE 'ab%'", "unbound_char LIKE 'ab%'");
-        assertOptimizedEquals("unbound_char LIKE 'ab%' ESCAPE '#'", "unbound_char LIKE 'ab%' ESCAPE '#'");
-
-        // constant literal pattern of length equal to value length
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'abcd'", "CAST(unbound_char AS char(4)) = CAST('abcd' AS char(4))");
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'abcd' ESCAPE '#'", "CAST(unbound_char AS char(4)) = CAST('abcd' AS char(4))");
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'jaźń'", "CAST(unbound_char AS char(4)) = CAST('jaźń' AS char(4))");
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'ab#_' ESCAPE '#'", "false");
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'ab#%' ESCAPE '#'", "false");
-
-        // constant non-literal pattern of length equal to value length
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'ab#%' ESCAPE '\\'", "CAST(unbound_char AS char(4)) LIKE 'ab#%' ESCAPE '\\'");
-
-        // constant pattern of length longer than value length
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'abcde'", "false");
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE 'abcde' ESCAPE '#'", "false");
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE '#%a#%b#%c#%d#%' ESCAPE '#'", "false");
-
-        // constant non-literal pattern of length longer than value length
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE '%a%b%c%d%'", "CAST(unbound_char AS char(4)) LIKE '%a%b%c%d%'");
-        assertOptimizedEquals("CAST(unbound_char AS char(4)) LIKE '%a%b%c%d%' ESCAPE '#'", "CAST(unbound_char AS char(4)) LIKE '%a%b%c%d%' ESCAPE '#'");
-
-        // without explicit CAST on value, constant pattern of equal length
-        assertOptimizedEquals(
-                "unbound_char LIKE CAST(CAST('abc' AS char( " + TEST_CHAR_TYPE_LENGTH + ")) AS varchar(" + TEST_CHAR_TYPE_LENGTH + "))",
-                "unbound_char = CAST('abc' AS char(17))");
-        assertOptimizedEquals(
-                "unbound_char LIKE CAST(CAST('abc' AS char( " + TEST_CHAR_TYPE_LENGTH + ")) AS varchar)",
-                "unbound_char = CAST('abc' AS char(17))");
-
-        assertOptimizedEquals(
-                "unbound_char LIKE CAST(CAST('' AS char(" + TEST_CHAR_TYPE_LENGTH + ")) AS varchar(" + TEST_CHAR_TYPE_LENGTH + ")) ESCAPE '#'",
-                "unbound_char LIKE CAST('                 ' AS varchar(17)) ESCAPE '#'");
-        assertOptimizedEquals(
-                "unbound_char LIKE CAST(CAST('' AS char(" + TEST_CHAR_TYPE_LENGTH + ")) AS varchar) ESCAPE '#'",
-                "unbound_char LIKE CAST('                 ' AS varchar(17)) ESCAPE '#'");
-
-        assertOptimizedEquals("unbound_char LIKE bound_pattern", "unbound_char LIKE VARCHAR '%el%'");
-        assertOptimizedEquals("unbound_char LIKE unbound_pattern", "unbound_char LIKE unbound_pattern");
-        assertOptimizedEquals("unbound_char LIKE unbound_pattern ESCAPE unbound_string", "unbound_char LIKE unbound_pattern ESCAPE unbound_string");
-    }
-
-    @Test
-    public void testEvaluateInvalidLike()
-    {
-        // TODO This doesn't fail (https://github.com/trinodb/trino/issues/7273)
-        /*assertTrinoExceptionThrownBy(() -> evaluate("'some_string' LIKE 'abc' ESCAPE ''"))
-                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
-                .hasMessage("Escape string must be a single character");*/
-
-        assertTrinoExceptionThrownBy(() -> evaluate("unbound_string LIKE 'abc' ESCAPE 'bc'"))
-                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
-                .hasMessage("Escape string must be a single character");
-
-        assertTrinoExceptionThrownBy(() -> evaluate("unbound_string LIKE '#' ESCAPE '#'"))
-                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
-                .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
-
-        assertTrinoExceptionThrownBy(() -> evaluate("unbound_string LIKE '#abc' ESCAPE '#'"))
-                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
-                .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
-
-        assertTrinoExceptionThrownBy(() -> evaluate("unbound_string LIKE 'ab#' ESCAPE '#'"))
-                .hasErrorCode(INVALID_FUNCTION_ARGUMENT)
-                .hasMessage("Escape character must be followed by '%', '_' or the escape character itself");
-    }
-
-    @Test
     public void testFailedExpressionOptimization()
     {
         assertOptimizedEquals("IF(unbound_boolean, 1, 0 / 0)", "CASE WHEN unbound_boolean THEN 1 ELSE 0 / 0 END");
@@ -1876,14 +1676,6 @@ public class TestExpressionInterpreter
     }
 
     @Test
-    @Timeout(60)
-    public void testLikeInvalidUtf8()
-    {
-        assertLike(new byte[] {'a', 'b', 'c'}, "%b%", true);
-        assertLike(new byte[] {'a', 'b', 'c', (byte) 0xFF, 'x', 'y'}, "%b%", true);
-    }
-
-    @Test
     public void testLiterals()
     {
         optimize("DATE '2013-04-03' + unbound_interval");
@@ -1940,7 +1732,7 @@ public class TestExpressionInterpreter
     static Object optimize(Expression parsedExpression)
     {
         Map<NodeRef<Expression>, Type> expressionTypes = getTypes(TEST_SESSION, PLANNER_CONTEXT, SYMBOL_TYPES, parsedExpression);
-        ExpressionInterpreter interpreter = new ExpressionInterpreter(parsedExpression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
+        IrExpressionInterpreter interpreter = new IrExpressionInterpreter(parsedExpression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
         return interpreter.optimize(INPUTS);
     }
 
@@ -1987,7 +1779,7 @@ public class TestExpressionInterpreter
     private static Object evaluate(Expression expression)
     {
         Map<NodeRef<Expression>, Type> expressionTypes = getTypes(TEST_SESSION, PLANNER_CONTEXT, SYMBOL_TYPES, expression);
-        ExpressionInterpreter interpreter = new ExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
+        IrExpressionInterpreter interpreter = new IrExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION, expressionTypes);
 
         return interpreter.evaluate(INPUTS);
     }
