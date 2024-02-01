@@ -301,7 +301,7 @@
             <dependency>
                 <groupId>org.eclipse.jetty</groupId>
                 <artifactId>jetty-bom</artifactId>
-                <version>11.0.19</version>
+                <version>11.0.20</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
