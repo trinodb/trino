@@ -310,7 +310,7 @@ jobs:
           S3_BUCKET: ${{ vars.TRINO_S3_BUCKET }}
           S3_BUCKET_ENDPOINT: "s3.${{ vars.TRINO_AWS_REGION }}.amazonaws.com"
         run: |
-          if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
+          if [ "${AWS_ACCESS_KEY_ID}" != "" ] && ( [ ! -f gib-impacted.log ] || grep -q plugin/trino-hive gib-impacted.log ); then
             $MAVEN test ${MAVEN_TEST} -pl :trino-hive -P aws-tests
           fi
       - name: Upload test results
