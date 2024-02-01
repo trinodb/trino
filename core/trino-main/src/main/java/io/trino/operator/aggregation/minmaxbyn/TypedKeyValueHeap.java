@@ -56,7 +56,7 @@ public final class TypedKeyValueHeap
      * The fixed chunk contains an array of records. The records are laid out as follows:
      * <ul>
      *     <li>12 byte optional pointer to variable width data (only present if the key or value is variable width)</li>
-     *     <li>1 byte null flag for the value</li>
+     *     <li>1 byte null flag for the value. 0 means the value is not-null</li>
      *     <li>N byte fixed size data for the key type</li>
      *     <li>N byte fixed size data for the value type</li>
      * </ul>
@@ -260,7 +260,7 @@ public final class TypedKeyValueHeap
                 positionCount,
                 (fixedSizeOffset, variableWidthChunk, variableWidthChunkOffset) -> {
                     int keyVariableWidth = keyType.relocateFlatVariableWidthOffsets(fixedChunk, fixedSizeOffset + recordKeyOffset, variableWidthChunk, variableWidthChunkOffset);
-                    if (fixedChunk[fixedSizeOffset + recordKeyOffset - 1] != 0) {
+                    if (fixedChunk[fixedSizeOffset + recordKeyOffset - 1] == 0) {
                         valueType.relocateFlatVariableWidthOffsets(fixedChunk, fixedSizeOffset + recordValueOffset, variableWidthChunk, variableWidthChunkOffset + keyVariableWidth);
                     }
                 });
