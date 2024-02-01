@@ -454,7 +454,7 @@ public class PlanOptimizers
                                         new PruneCountAggregationOverScalar(metadata),
                                         new PruneOrderByInAggregation(metadata),
                                         new RewriteSpatialPartitioningAggregation(plannerContext),
-                                        new SimplifyCountOverConstant(plannerContext),
+                                        new SimplifyCountOverConstant(plannerContext, typeAnalyzer),
                                         new PreAggregateCaseAggregations(plannerContext, typeAnalyzer)))
                                 .build()),
                 // MergeUnion and related projection pruning rules must run before limit pushdown rules, otherwise
