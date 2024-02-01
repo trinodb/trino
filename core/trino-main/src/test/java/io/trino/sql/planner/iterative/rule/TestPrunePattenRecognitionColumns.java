@@ -46,11 +46,11 @@ import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
 import static io.trino.sql.planner.plan.RowsPerMatch.ALL_SHOW_EMPTY;
 import static io.trino.sql.planner.plan.RowsPerMatch.ALL_WITH_UNMATCHED;
 import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
+import static io.trino.sql.planner.plan.SkipToPosition.NEXT;
+import static io.trino.sql.planner.plan.SkipToPosition.PAST_LAST;
 import static io.trino.sql.planner.plan.WindowFrameType.ROWS;
 import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
-import static io.trino.sql.tree.SkipTo.Position.NEXT;
-import static io.trino.sql.tree.SkipTo.Position.PAST_LAST;
 
 public class TestPrunePattenRecognitionColumns
         extends BaseRuleTest
