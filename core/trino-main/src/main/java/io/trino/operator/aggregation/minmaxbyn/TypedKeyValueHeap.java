@@ -56,7 +56,6 @@ public final class TypedKeyValueHeap
      * The fixed chunk contains an array of records. The records are laid out as follows:
      * <ul>
      *     <li>12 byte optional pointer to variable width data (only present if the key or value is variable width)</li>
-     *     <li>4 byte optional integer for variable size of the key (only present if the key is variable width)</li>
      *     <li>1 byte null flag for the value</li>
      *     <li>N byte fixed size data for the key type</li>
      *     <li>N byte fixed size data for the value type</li>
@@ -105,7 +104,7 @@ public final class TypedKeyValueHeap
         recordValueOffset = recordKeyOffset + keyType.getFlatFixedSize();
         recordSize = recordValueOffset + valueType.getFlatFixedSize();
 
-        // allocate the fixed chunk with on extra slow for use in swap
+        // allocate the fixed chunk with on extra slot for use in swap
         fixedChunk = new byte[recordSize * (capacity + 1)];
     }
 
