@@ -25,12 +25,12 @@ import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode.Measure;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.RowsPerMatch;
+import io.trino.sql.planner.plan.SkipToPosition;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.SkipTo;
 
 import java.util.AbstractMap;
 import java.util.HashMap;
@@ -42,7 +42,7 @@ import java.util.Set;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.sql.planner.assertions.PatternRecognitionExpressionRewriter.rewrite;
 import static io.trino.sql.planner.plan.RowsPerMatch.ONE;
-import static io.trino.sql.tree.SkipTo.Position.PAST_LAST;
+import static io.trino.sql.planner.plan.SkipToPosition.PAST_LAST;
 
 public class PatternRecognitionBuilder
 {
@@ -54,7 +54,7 @@ public class PatternRecognitionBuilder
     private Optional<WindowNode.Frame> commonBaseFrame = Optional.empty();
     private RowsPerMatch rowsPerMatch = ONE;
     private Optional<IrLabel> skipToLabel = Optional.empty();
-    private SkipTo.Position skipToPosition = PAST_LAST;
+    private SkipToPosition skipToPosition = PAST_LAST;
     private boolean initial = true;
     private IrRowPattern pattern;
     private final Map<IrLabel, Set<IrLabel>> subsets = new HashMap<>();
@@ -103,14 +103,14 @@ public class PatternRecognitionBuilder
         return this;
     }
 
-    public PatternRecognitionBuilder skipTo(SkipTo.Position position, IrLabel label)
+    public PatternRecognitionBuilder skipTo(SkipToPosition position, IrLabel label)
     {
         this.skipToPosition = position;
         this.skipToLabel = Optional.of(label);
         return this;
     }
 
-    public PatternRecognitionBuilder skipTo(SkipTo.Position position)
+    public PatternRecognitionBuilder skipTo(SkipToPosition position)
     {
         this.skipToPosition = position;
         return this;

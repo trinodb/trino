@@ -36,7 +36,7 @@ import io.trino.spi.block.Block;
 import io.trino.spi.function.WindowFunction;
 import io.trino.spi.function.WindowIndex;
 import io.trino.sql.planner.plan.RowsPerMatch;
-import io.trino.sql.tree.SkipTo;
+import io.trino.sql.planner.plan.SkipToPosition;
 
 import java.util.List;
 import java.util.Optional;
@@ -74,7 +74,7 @@ public final class PatternRecognitionPartition
     private final Optional<RowsFraming> framing;
     private final RowsPerMatch rowsPerMatch;
     private final Optional<LogicalIndexNavigation> skipToNavigation;
-    private final SkipTo.Position skipToPosition;
+    private final SkipToPosition skipToPosition;
     private final boolean initial;
     private final Matcher matcher;
     private final List<Evaluation> labelEvaluations;
@@ -98,7 +98,7 @@ public final class PatternRecognitionPartition
             Optional<FrameInfo> commonBaseFrame,
             RowsPerMatch rowsPerMatch,
             Optional<LogicalIndexNavigation> skipToNavigation,
-            SkipTo.Position skipToPosition,
+            SkipToPosition skipToPosition,
             boolean initial,
             Matcher matcher,
             List<Evaluation> labelEvaluations,

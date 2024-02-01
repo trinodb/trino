@@ -23,6 +23,7 @@ import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.RowsPerMatch;
+import io.trino.sql.planner.plan.SkipToPosition;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.rowpattern.ExpressionAndValuePointersEquivalence;
 import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
@@ -30,7 +31,6 @@ import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
-import io.trino.sql.tree.SkipTo;
 
 import java.util.AbstractMap;
 import java.util.HashMap;
@@ -48,7 +48,7 @@ import static io.trino.sql.planner.assertions.MatchResult.match;
 import static io.trino.sql.planner.assertions.PatternRecognitionExpressionRewriter.rewrite;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.plan.RowsPerMatch.ONE;
-import static io.trino.sql.tree.SkipTo.Position.PAST_LAST;
+import static io.trino.sql.planner.plan.SkipToPosition.PAST_LAST;
 import static java.util.Objects.requireNonNull;
 
 public class PatternRecognitionMatcher
@@ -58,7 +58,7 @@ public class PatternRecognitionMatcher
     private final Optional<ExpectedValueProvider<WindowNode.Frame>> frame;
     private final RowsPerMatch rowsPerMatch;
     private final Optional<IrLabel> skipToLabel;
-    private final SkipTo.Position skipToPosition;
+    private final SkipToPosition skipToPosition;
     private final boolean initial;
     private final IrRowPattern pattern;
     private final Map<IrLabel, Set<IrLabel>> subsets;
@@ -69,7 +69,7 @@ public class PatternRecognitionMatcher
             Optional<ExpectedValueProvider<WindowNode.Frame>> frame,
             RowsPerMatch rowsPerMatch,
             Optional<IrLabel> skipToLabel,
-            SkipTo.Position skipToPosition,
+            SkipToPosition skipToPosition,
             boolean initial,
             IrRowPattern pattern,
             Map<IrLabel, Set<IrLabel>> subsets,
@@ -186,7 +186,7 @@ public class PatternRecognitionMatcher
         private Optional<ExpectedValueProvider<WindowNode.Frame>> frame = Optional.empty();
         private RowsPerMatch rowsPerMatch = ONE;
         private Optional<IrLabel> skipToLabel = Optional.empty();
-        private SkipTo.Position skipToPosition = PAST_LAST;
+        private SkipToPosition skipToPosition = PAST_LAST;
         private boolean initial = true;
         private IrRowPattern pattern;
         private final Map<IrLabel, Set<IrLabel>> subsets = new HashMap<>();
@@ -234,7 +234,7 @@ public class PatternRecognitionMatcher
         }
 
         @CanIgnoreReturnValue
-        public Builder skipTo(SkipTo.Position position, IrLabel label)
+        public Builder skipTo(SkipToPosition position, IrLabel label)
         {
             this.skipToLabel = Optional.of(label);
             this.skipToPosition = position;
@@ -242,7 +242,7 @@ public class PatternRecognitionMatcher
         }
 
         @CanIgnoreReturnValue
-        public Builder skipTo(SkipTo.Position position)
+        public Builder skipTo(SkipToPosition position)
         {
             this.skipToPosition = position;
             return this;

@@ -62,6 +62,7 @@ import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.RowsPerMatch;
 import io.trino.sql.planner.plan.SampleNode;
+import io.trino.sql.planner.plan.SkipToPosition;
 import io.trino.sql.planner.plan.TableFunctionNode;
 import io.trino.sql.planner.plan.TableFunctionNode.PassThroughColumn;
 import io.trino.sql.planner.plan.TableFunctionNode.PassThroughSpecification;
@@ -711,10 +712,20 @@ class RelationPlanner
                 rewrittenMeasures.buildOrThrow(),
                 measureOutputs.build(),
                 skipTo.flatMap(SkipTo::getIdentifier).map(RelationPlanner::irLabel),
-                skipTo.map(SkipTo::getPosition).orElse(PAST_LAST),
+                mapSkipToPosition(skipTo.map(SkipTo::getPosition).orElse(PAST_LAST)),
                 searchMode.map(mode -> mode.getMode() == INITIAL).orElse(TRUE),
                 rewrittenPattern,
                 rewrittenVariableDefinitions.buildOrThrow());
+    }
+
+    private SkipToPosition mapSkipToPosition(SkipTo.Position position)
+    {
+        return switch (position) {
+            case NEXT -> SkipToPosition.NEXT;
+            case PAST_LAST -> SkipToPosition.PAST_LAST;
+            case FIRST -> SkipToPosition.FIRST;
+            case LAST -> SkipToPosition.LAST;
+        };
     }
 
     private static IrLabel irLabel(Identifier identifier)
@@ -1806,7 +1817,7 @@ class RelationPlanner
         private final Map<Symbol, Measure> measures;
         private final List<Symbol> measureOutputs;
         private final Optional<IrLabel> skipToLabel;
-        private final SkipTo.Position skipToPosition;
+        private final SkipToPosition skipToPosition;
         private final boolean initial;
         private final IrRowPattern pattern;
         private final Map<IrLabel, ExpressionAndValuePointers> variableDefinitions;
@@ -1816,7 +1827,7 @@ class RelationPlanner
                 Map<Symbol, Measure> measures,
                 List<Symbol> measureOutputs,
                 Optional<IrLabel> skipToLabel,
-                SkipTo.Position skipToPosition,
+                SkipToPosition skipToPosition,
                 boolean initial,
                 IrRowPattern pattern,
                 Map<IrLabel, ExpressionAndValuePointers> variableDefinitions)
@@ -1851,7 +1862,7 @@ class RelationPlanner
             return skipToLabel;
         }
 
-        public SkipTo.Position getSkipToPosition()
+        public SkipToPosition getSkipToPosition()
         {
             return skipToPosition;
         }

@@ -27,7 +27,6 @@ import io.trino.sql.planner.plan.WindowNode.Frame;
 import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
-import io.trino.sql.tree.SkipTo.Position;
 
 import java.util.List;
 import java.util.Map;
@@ -68,7 +67,7 @@ public class PatternRecognitionNode
     private final Optional<Frame> commonBaseFrame;
     private final RowsPerMatch rowsPerMatch;
     private final Optional<IrLabel> skipToLabel;
-    private final Position skipToPosition;
+    private final SkipToPosition skipToPosition;
     private final boolean initial;
     private final IrRowPattern pattern;
     private final Map<IrLabel, Set<IrLabel>> subsets;
@@ -87,7 +86,7 @@ public class PatternRecognitionNode
             @JsonProperty("commonBaseFrame") Optional<Frame> commonBaseFrame,
             @JsonProperty("rowsPerMatch") RowsPerMatch rowsPerMatch,
             @JsonProperty("skipToLabel") Optional<IrLabel> skipToLabel,
-            @JsonProperty("skipToPosition") Position skipToPosition,
+            @JsonProperty("skipToPosition") SkipToPosition skipToPosition,
             @JsonProperty("initial") boolean initial,
             @JsonProperty("pattern") IrRowPattern pattern,
             @JsonProperty("subsets") Map<IrLabel, Set<IrLabel>> subsets,
@@ -234,7 +233,7 @@ public class PatternRecognitionNode
     }
 
     @JsonProperty
-    public Position getSkipToPosition()
+    public SkipToPosition getSkipToPosition()
     {
         return skipToPosition;
     }
