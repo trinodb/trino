@@ -28,7 +28,6 @@ import io.trino.operator.scalar.ArraySubscriptOperator;
 import io.trino.operator.scalar.FormatFunction;
 import io.trino.security.AccessControl;
 import io.trino.spi.TrinoException;
-import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.SqlRow;
 import io.trino.spi.connector.ConnectorSession;
@@ -306,7 +305,7 @@ public class ExpressionInterpreter
 
     public Object evaluate()
     {
-        Object result = new Visitor(false).processWithExceptionHandling(expression, new NoPagePositionContext());
+        Object result = new Visitor(false).processWithExceptionHandling(expression, null);
         verify(!(result instanceof Expression), "Expression interpreter returned an unresolved expression");
         return result;
     }
@@ -1658,29 +1657,6 @@ public class ExpressionInterpreter
         private List<Expression> toExpressions(List<Object> values, List<Type> types)
         {
             return literalEncoder.toExpressions(values, types);
-        }
-    }
-
-    private interface PagePositionContext
-    {
-        Block getBlock(int channel);
-
-        int getPosition(int channel);
-    }
-
-    private static class NoPagePositionContext
-            implements PagePositionContext
-    {
-        @Override
-        public Block getBlock(int channel)
-        {
-            throw new IllegalArgumentException("Context does not contain any blocks");
-        }
-
-        @Override
-        public int getPosition(int channel)
-        {
-            throw new IllegalArgumentException("Context does not have a position");
         }
     }
 
