@@ -327,7 +327,6 @@ public class FileHiveMetastore
             String prefix = catalogDirectory.toString();
             Set<String> databases = new HashSet<>();
 
-            // TODO this lists files recursively and may fail if e.g. table data being modified by other threads/processes
             FileIterator iterator = fileSystem.listFiles(catalogDirectory);
             while (iterator.hasNext()) {
                 Location location = iterator.next().location();
