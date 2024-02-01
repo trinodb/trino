@@ -25,7 +25,7 @@ import io.trino.operator.window.pattern.LogicalIndexNavigation;
 import io.trino.operator.window.pattern.MatchAggregation;
 import io.trino.operator.window.pattern.MeasureComputation;
 import io.trino.spi.function.WindowFunction;
-import io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch;
+import io.trino.sql.planner.plan.RowsPerMatch;
 import io.trino.sql.tree.SkipTo;
 
 import java.util.List;
