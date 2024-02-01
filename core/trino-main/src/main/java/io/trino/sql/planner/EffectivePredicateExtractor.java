@@ -376,7 +376,7 @@ public class EffectivePredicateExtractor
                             nonDeterministic[i] = true;
                         }
                         else {
-                            ExpressionInterpreter interpreter = new ExpressionInterpreter(value, plannerContext, session, expressionTypes);
+                            IrExpressionInterpreter interpreter = new IrExpressionInterpreter(value, plannerContext, session, expressionTypes);
                             Object item = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
                             if (item instanceof Expression) {
                                 return TRUE_LITERAL;
@@ -406,7 +406,7 @@ public class EffectivePredicateExtractor
                     if (!DeterminismEvaluator.isDeterministic(row, metadata)) {
                         return TRUE_LITERAL;
                     }
-                    ExpressionInterpreter interpreter = new ExpressionInterpreter(row, plannerContext, session, expressionTypes);
+                    IrExpressionInterpreter interpreter = new IrExpressionInterpreter(row, plannerContext, session, expressionTypes);
                     Object evaluated = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
                     if (evaluated instanceof Expression) {
                         return TRUE_LITERAL;

@@ -27,7 +27,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.analyzer.ExpressionAnalyzer;
 import io.trino.sql.analyzer.Scope;
-import io.trino.sql.planner.ExpressionInterpreter;
+import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.LiteralInterpreter;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
@@ -134,7 +134,7 @@ public class ScalarStatsCalculator
         protected SymbolStatsEstimate visitFunctionCall(FunctionCall node, Void context)
         {
             Map<NodeRef<Expression>, Type> expressionTypes = typeAnalyzer.getTypes(session, types, node);
-            ExpressionInterpreter interpreter = new ExpressionInterpreter(node, plannerContext, session, expressionTypes);
+            IrExpressionInterpreter interpreter = new IrExpressionInterpreter(node, plannerContext, session, expressionTypes);
             Object value = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
 
             if (value == null || value instanceof NullLiteral) {

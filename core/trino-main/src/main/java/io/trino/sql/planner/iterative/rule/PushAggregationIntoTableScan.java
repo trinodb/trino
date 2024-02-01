@@ -32,7 +32,7 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
-import io.trino.sql.planner.ExpressionInterpreter;
+import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.OrderingScheme;
@@ -198,7 +198,7 @@ public class PushAggregationIntoTableScan
                     // by ensuring expression is optimized.
                     Map<NodeRef<Expression>, Type> translatedExpressionTypes = typeAnalyzer.getTypes(session, context.getSymbolAllocator().getTypes(), translated);
                     translated = literalEncoder.toExpression(
-                            new ExpressionInterpreter(translated, plannerContext, session, translatedExpressionTypes)
+                            new IrExpressionInterpreter(translated, plannerContext, session, translatedExpressionTypes)
                                     .optimize(NoOpSymbolResolver.INSTANCE),
                             translatedExpressionTypes.get(NodeRef.of(translated)));
                     return translated;
