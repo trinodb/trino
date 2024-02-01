@@ -534,6 +534,23 @@ public final class DictionaryBlock
     }
 
     @Override
+    public boolean isLoaded()
+    {
+        return dictionary.isLoaded();
+    }
+
+    @Override
+    public Block getLoadedBlock()
+    {
+        Block loadedDictionary = dictionary.getLoadedBlock();
+
+        if (loadedDictionary == dictionary) {
+            return this;
+        }
+        return createInternal(idsOffset, getPositionCount(), loadedDictionary, ids, randomDictionaryId());
+    }
+
+    @Override
     public List<Block> getChildren()
     {
         return singletonList(getDictionary());
