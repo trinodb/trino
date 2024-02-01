@@ -35,14 +35,14 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.function.WindowFunction;
 import io.trino.spi.function.WindowIndex;
-import io.trino.sql.tree.PatternRecognitionRelation;
+import io.trino.sql.planner.plan.RowsPerMatch;
 import io.trino.sql.tree.SkipTo;
 
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
+import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
 import static java.lang.Math.max;
 
 public final class PatternRecognitionPartition
@@ -72,7 +72,7 @@ public final class PatternRecognitionPartition
     // and uses them to compute the result values
     private final MatchAggregation[] measureAggregations;
     private final Optional<RowsFraming> framing;
-    private final PatternRecognitionRelation.RowsPerMatch rowsPerMatch;
+    private final RowsPerMatch rowsPerMatch;
     private final Optional<LogicalIndexNavigation> skipToNavigation;
     private final SkipTo.Position skipToPosition;
     private final boolean initial;
@@ -96,7 +96,7 @@ public final class PatternRecognitionPartition
             List<MatchAggregation> measureAggregations,
             List<ArgumentComputation> measureComputationsAggregationArguments,
             Optional<FrameInfo> commonBaseFrame,
-            PatternRecognitionRelation.RowsPerMatch rowsPerMatch,
+            RowsPerMatch rowsPerMatch,
             Optional<LogicalIndexNavigation> skipToNavigation,
             SkipTo.Position skipToPosition,
             boolean initial,

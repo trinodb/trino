@@ -54,6 +54,8 @@ import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
+import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ALL_WITH_UNMATCHED;
+import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
 import static io.trino.sql.tree.ProcessingMode.Mode.FINAL;
 import static io.trino.sql.util.AstUtils.preOrder;
 import static java.util.Objects.requireNonNull;
@@ -190,7 +192,7 @@ public class PatternRecognitionAnalyzer
     public static void validatePatternExclusions(Optional<RowsPerMatch> rowsPerMatch, RowPattern pattern)
     {
         // exclusion syntax is not allowed in row pattern if ALL ROWS PER MATCH WITH UNMATCHED ROWS is specified
-        if (rowsPerMatch.isPresent() && rowsPerMatch.get().isUnmatchedRows()) {
+        if (rowsPerMatch.isPresent() && (rowsPerMatch.get() == ALL_WITH_UNMATCHED || rowsPerMatch.get() == WINDOW)) {
             preOrder(pattern)
                     .filter(ExcludedPattern.class::isInstance)
                     .findFirst()
