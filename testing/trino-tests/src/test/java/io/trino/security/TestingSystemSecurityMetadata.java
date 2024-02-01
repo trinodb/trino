@@ -284,4 +284,7 @@ class TestingSystemSecurityMetadata
     {
         throw new UnsupportedOperationException();
     }
+
+    @Override
+    public void columnTypeChanged(Session session, CatalogSchemaTableName table, String column, String oldType, String newType) {}
 }
