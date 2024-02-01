@@ -99,7 +99,6 @@ import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.Offset;
 import io.trino.sql.tree.OrderBy;
-import io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch;
 import io.trino.sql.tree.Query;
 import io.trino.sql.tree.QuerySpecification;
 import io.trino.sql.tree.Relation;
@@ -166,6 +165,7 @@ import static io.trino.sql.planner.plan.AggregationNode.groupingSets;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
+import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
 import static io.trino.sql.planner.plan.WindowNode.Frame.DEFAULT_FRAME;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN_OR_EQUAL;
@@ -1881,7 +1881,7 @@ class QueryPlanner
                         functions.buildOrThrow(),
                         components.getMeasures(),
                         Optional.of(baseFrame),
-                        RowsPerMatch.WINDOW,
+                        WINDOW,
                         components.getSkipToLabel(),
                         components.getSkipToPosition(),
                         components.isInitial(),
@@ -2014,7 +2014,7 @@ class QueryPlanner
                         ImmutableMap.of(),
                         components.getMeasures(),
                         Optional.of(baseFrame),
-                        RowsPerMatch.WINDOW,
+                        WINDOW,
                         components.getSkipToLabel(),
                         components.getSkipToPosition(),
                         components.isInitial(),

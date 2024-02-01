@@ -24,12 +24,12 @@ import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode.Measure;
 import io.trino.sql.planner.plan.PlanNode;
+import io.trino.sql.planner.plan.RowsPerMatch;
 import io.trino.sql.planner.plan.WindowNode;
 import io.trino.sql.planner.rowpattern.LogicalIndexExtractor.ExpressionAndValuePointers;
 import io.trino.sql.planner.rowpattern.ir.IrLabel;
 import io.trino.sql.planner.rowpattern.ir.IrRowPattern;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch;
 import io.trino.sql.tree.SkipTo;
 
 import java.util.AbstractMap;
@@ -41,7 +41,7 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.sql.planner.assertions.PatternRecognitionExpressionRewriter.rewrite;
-import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ONE;
+import static io.trino.sql.planner.plan.RowsPerMatch.ONE;
 import static io.trino.sql.tree.SkipTo.Position.PAST_LAST;
 
 public class PatternRecognitionBuilder

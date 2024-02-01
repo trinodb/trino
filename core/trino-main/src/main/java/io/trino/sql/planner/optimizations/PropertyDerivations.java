@@ -110,8 +110,8 @@ import static io.trino.sql.planner.optimizations.ActualProperties.Global.singleP
 import static io.trino.sql.planner.optimizations.StreamPropertyDerivations.isLocalExchangesSourceSingleStreamDistributed;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
-import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ONE;
-import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
+import static io.trino.sql.planner.plan.RowsPerMatch.ONE;
+import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
 import static io.trino.sql.tree.SkipTo.Position.PAST_LAST;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
