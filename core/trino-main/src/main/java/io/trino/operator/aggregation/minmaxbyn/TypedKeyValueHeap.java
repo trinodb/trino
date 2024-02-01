@@ -48,6 +48,7 @@ public final class TypedKeyValueHeap
     private final Type valueType;
     private final int capacity;
 
+    private final int recordValueNullOffset;
     private final int recordKeyOffset;
     private final int recordValueOffset;
 
@@ -100,7 +101,8 @@ public final class TypedKeyValueHeap
         boolean variableWidth = keyVariableWidth || valueVariableWidth;
         variableWidthData = variableWidth ? new VariableWidthData() : null;
 
-        recordKeyOffset = (variableWidth ? POINTER_SIZE : 0) + 1;
+        recordValueNullOffset = (variableWidth ? POINTER_SIZE : 0);
+        recordKeyOffset = recordValueNullOffset + 1;
         recordValueOffset = recordKeyOffset + keyType.getFlatFixedSize();
         recordSize = recordValueOffset + valueType.getFlatFixedSize();
 
@@ -125,6 +127,7 @@ public final class TypedKeyValueHeap
         this.keyVariableWidth = typedHeap.keyVariableWidth;
         this.valueVariableWidth = typedHeap.valueVariableWidth;
 
+        this.recordValueNullOffset = typedHeap.recordValueNullOffset;
         this.recordKeyOffset = typedHeap.recordKeyOffset;
         this.recordValueOffset = typedHeap.recordValueOffset;
         this.recordSize = typedHeap.recordSize;
@@ -208,7 +211,7 @@ public final class TypedKeyValueHeap
                 throw new RuntimeException(throwable);
             }
         }
-        if (fixedChunk[recordOffset + recordKeyOffset - 1] != 0) {
+        if (fixedChunk[recordOffset + recordValueNullOffset] != 0) {
             valueBlockBuilder.appendNull();
         }
         else {
@@ -260,7 +263,7 @@ public final class TypedKeyValueHeap
                 positionCount,
                 (fixedSizeOffset, variableWidthChunk, variableWidthChunkOffset) -> {
                     int keyVariableWidth = keyType.relocateFlatVariableWidthOffsets(fixedChunk, fixedSizeOffset + recordKeyOffset, variableWidthChunk, variableWidthChunkOffset);
-                    if (fixedChunk[fixedSizeOffset + recordKeyOffset - 1] == 0) {
+                    if (fixedChunk[fixedSizeOffset + recordValueNullOffset] == 0) {
                         valueType.relocateFlatVariableWidthOffsets(fixedChunk, fixedSizeOffset + recordValueOffset, variableWidthChunk, variableWidthChunkOffset + keyVariableWidth);
                     }
                 });
@@ -290,7 +293,7 @@ public final class TypedKeyValueHeap
             throw new RuntimeException(throwable);
         }
         if (valueBlock.isNull(valuePosition)) {
-            fixedChunk[recordOffset + recordKeyOffset - 1] = 1;
+            fixedChunk[recordOffset + recordValueNullOffset] = 1;
         }
         else {
             try {
