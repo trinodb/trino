@@ -30,7 +30,7 @@ import io.trino.sql.analyzer.Field;
 import io.trino.sql.analyzer.RelationId;
 import io.trino.sql.analyzer.RelationType;
 import io.trino.sql.analyzer.Scope;
-import io.trino.sql.planner.ExpressionInterpreter;
+import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
@@ -349,7 +349,7 @@ public final class SqlRoutinePlanner
             analyzer.analyze(lambdaCaptureDesugared, scope);
 
             // optimize the expression
-            ExpressionInterpreter interpreter = new ExpressionInterpreter(lambdaCaptureDesugared, plannerContext, session, analyzer.getExpressionTypes());
+            IrExpressionInterpreter interpreter = new IrExpressionInterpreter(lambdaCaptureDesugared, plannerContext, session, analyzer.getExpressionTypes());
             Expression optimized = new LiteralEncoder(plannerContext)
                     .toExpression(interpreter.optimize(NoOpSymbolResolver.INSTANCE), analyzer.getExpressionTypes().get(NodeRef.of(lambdaCaptureDesugared)));
 

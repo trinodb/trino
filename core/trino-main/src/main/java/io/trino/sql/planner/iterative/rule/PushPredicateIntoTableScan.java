@@ -36,7 +36,7 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
 import io.trino.sql.planner.ConnectorExpressionTranslator.ConnectorExpressionTranslation;
 import io.trino.sql.planner.DomainTranslator;
-import io.trino.sql.planner.ExpressionInterpreter;
+import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.LayoutConstraintEvaluator;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.NoOpSymbolResolver;
@@ -294,7 +294,7 @@ public class PushPredicateIntoTableScan
                 // by ensuring expression is optimized.
                 Map<NodeRef<Expression>, Type> translatedExpressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), translatedExpression);
                 translatedExpression = literalEncoder.toExpression(
-                        new ExpressionInterpreter(translatedExpression, plannerContext, session, translatedExpressionTypes)
+                        new IrExpressionInterpreter(translatedExpression, plannerContext, session, translatedExpressionTypes)
                                 .optimize(NoOpSymbolResolver.INSTANCE),
                         translatedExpressionTypes.get(NodeRef.of(translatedExpression)));
                 remainingDecomposedPredicate = combineConjuncts(plannerContext.getMetadata(), translatedExpression, expressionTranslation.remainingExpression());

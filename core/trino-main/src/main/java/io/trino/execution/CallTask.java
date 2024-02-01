@@ -62,8 +62,8 @@ import static io.trino.spi.StandardErrorCode.INVALID_PROCEDURE_ARGUMENT;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.StandardErrorCode.PROCEDURE_CALL_FAILED;
 import static io.trino.spi.type.TypeUtils.writeNativeValue;
+import static io.trino.sql.analyzer.ExpressionInterpreter.evaluateConstantExpression;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
-import static io.trino.sql.planner.ExpressionInterpreter.evaluateConstantExpression;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
