@@ -60,6 +60,7 @@ import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode.Measure;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.planner.plan.RowsPerMatch;
 import io.trino.sql.planner.plan.SampleNode;
 import io.trino.sql.planner.plan.TableFunctionNode;
 import io.trino.sql.planner.plan.TableFunctionNode.PassThroughColumn;
@@ -584,7 +585,8 @@ class RelationPlanner
         planBuilder = planBuilder.appendProjections(inputs, symbolAllocator, idAllocator);
 
         ImmutableList.Builder<Symbol> outputLayout = ImmutableList.builder();
-        boolean oneRowOutput = node.getRowsPerMatch().isEmpty() || node.getRowsPerMatch().get().isOneRow();
+        RowsPerMatch rowsPerMatch = mapRowsPerMatch(node.getRowsPerMatch().orElse(ONE));
+        boolean oneRowOutput = rowsPerMatch.isOneRow();
 
         DataOrganizationSpecification specification = planWindowSpecification(node.getPartitionBy(), node.getOrderBy(), planBuilder::translate);
         outputLayout.addAll(specification.getPartitionBy());
@@ -625,7 +627,7 @@ class RelationPlanner
                 ImmutableMap.of(),
                 components.getMeasures(),
                 Optional.empty(),
-                node.getRowsPerMatch().orElse(ONE),
+                rowsPerMatch,
                 components.getSkipToLabel(),
                 components.getSkipToPosition(),
                 components.isInitial(),
@@ -634,6 +636,17 @@ class RelationPlanner
                 components.getVariableDefinitions());
 
         return new RelationPlan(planNode, analysis.getScope(node), outputLayout.build(), outerContext);
+    }
+
+    private RowsPerMatch mapRowsPerMatch(PatternRecognitionRelation.RowsPerMatch rowsPerMatch)
+    {
+        return switch (rowsPerMatch) {
+            case ONE -> RowsPerMatch.ONE;
+            case ALL_SHOW_EMPTY -> RowsPerMatch.ALL_SHOW_EMPTY;
+            case ALL_OMIT_EMPTY -> RowsPerMatch.ALL_OMIT_EMPTY;
+            case ALL_WITH_UNMATCHED -> RowsPerMatch.ALL_WITH_UNMATCHED;
+            case WINDOW -> RowsPerMatch.WINDOW;
+        };
     }
 
     public PatternRecognitionComponents planPatternRecognitionComponents(
@@ -841,9 +854,9 @@ class RelationPlanner
             leftPlanBuilder = leftPlanBuilder.appendProjections(leftComparisonExpressions, symbolAllocator, idAllocator);
             rightPlanBuilder = rightPlanBuilder.appendProjections(rightComparisonExpressions, symbolAllocator, idAllocator);
 
-            QueryPlanner.PlanAndMappings leftCoercions = coerce(leftPlanBuilder, leftComparisonExpressions, analysis, idAllocator, symbolAllocator, typeCoercion);
+            PlanAndMappings leftCoercions = coerce(leftPlanBuilder, leftComparisonExpressions, analysis, idAllocator, symbolAllocator, typeCoercion);
             leftPlanBuilder = leftCoercions.getSubPlan();
-            QueryPlanner.PlanAndMappings rightCoercions = coerce(rightPlanBuilder, rightComparisonExpressions, analysis, idAllocator, symbolAllocator, typeCoercion);
+            PlanAndMappings rightCoercions = coerce(rightPlanBuilder, rightComparisonExpressions, analysis, idAllocator, symbolAllocator, typeCoercion);
             rightPlanBuilder = rightCoercions.getSubPlan();
 
             for (int i = 0; i < leftComparisonExpressions.size(); i++) {
