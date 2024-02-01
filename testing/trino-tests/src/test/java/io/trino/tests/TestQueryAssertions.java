@@ -22,6 +22,7 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.testing.AbstractTestQueryFramework;
+import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.PlanTester;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
@@ -33,6 +34,7 @@ import java.sql.Statement;
 import java.util.List;
 import java.util.Map;
 
+import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.jdbc.JdbcMetadataSessionProperties.AGGREGATION_PUSHDOWN_ENABLED;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
@@ -44,15 +46,27 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * Test {@link io.trino.sql.query.QueryAssertions}.
  */
-public abstract class BaseQueryAssertionsTest
+public class TestQueryAssertions
         extends AbstractTestQueryFramework
 {
-    protected static Session createSession()
+    @Override
+    protected QueryRunner createQueryRunner()
+            throws Exception
     {
-        return testSessionBuilder()
-                .setCatalog("jdbc")
-                .setSchema("public")
+        QueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder()
+                        .setCatalog("jdbc")
+                        .setSchema("public")
+                        .build())
                 .build();
+        try {
+            configureCatalog(queryRunner);
+        }
+        catch (Throwable e) {
+            closeAllSuppress(e, queryRunner);
+            throw e;
+        }
+
+        return queryRunner;
     }
 
     protected void configureCatalog(QueryRunner queryRunner)
