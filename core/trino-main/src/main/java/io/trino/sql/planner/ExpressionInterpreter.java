@@ -15,7 +15,6 @@ package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -153,7 +152,6 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.DynamicFilters.isDynamicFilter;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
-import static io.trino.sql.analyzer.ConstantExpressionVerifier.verifyExpressionIsConstant;
 import static io.trino.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
@@ -168,6 +166,7 @@ import static io.trino.sql.tree.DereferenceExpression.isQualifiedAllFieldsRefere
 import static io.trino.type.LikeFunctions.isLikePattern;
 import static io.trino.type.LikeFunctions.isMatchAllPattern;
 import static io.trino.type.LikeFunctions.unescapeLiteralLikePattern;
+import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
 import static java.util.Collections.singletonList;
@@ -216,6 +215,10 @@ public class ExpressionInterpreter
             AccessControl accessControl,
             Map<NodeRef<Parameter>, Expression> parameters)
     {
+        if (expression == null || expectedType == UNKNOWN) {
+            return null;
+        }
+
         Analysis analysis = new Analysis(null, ImmutableMap.of(), QueryType.OTHERS);
         Scope scope = Scope.create();
         ExpressionAnalyzer.analyzeExpressionWithoutSubqueries(
@@ -248,28 +251,12 @@ public class ExpressionInterpreter
                 .putAll(analyzer.getExpressionCoercions())
                 .put(NodeRef.of(expression), expectedType)
                 .buildOrThrow();
-        return evaluateConstantExpression(expression, coercions, analyzer.getTypeOnlyCoercions(), plannerContext, session, accessControl, ImmutableSet.of(), parameters);
-    }
-
-    public static Object evaluateConstantExpression(
-            Expression expression,
-            Map<NodeRef<Expression>, Type> coercions,
-            Set<NodeRef<Expression>> typeOnlyCoercions,
-            PlannerContext plannerContext,
-            Session session,
-            AccessControl accessControl,
-            Set<NodeRef<Expression>> columnReferences,
-            Map<NodeRef<Parameter>, Expression> parameters)
-    {
-        requireNonNull(columnReferences, "columnReferences is null");
-
-        verifyExpressionIsConstant(columnReferences, expression);
 
         // add coercions
-        Expression rewrite = Coercer.addCoercions(expression, coercions, typeOnlyCoercions);
+        Expression rewrite = Coercer.addCoercions(expression, coercions, analyzer.getTypeOnlyCoercions());
 
         // redo the analysis since above expression rewriter might create new expressions which do not have entries in the type map
-        ExpressionAnalyzer analyzer = createConstantAnalyzer(plannerContext, accessControl, session, parameters, WarningCollector.NOOP);
+        analyzer = createConstantAnalyzer(plannerContext, accessControl, session, parameters, WarningCollector.NOOP);
         analyzer.analyze(rewrite, Scope.create());
 
         // The optimization above may have rewritten the expression tree which breaks all the identity maps, so redo the analysis
