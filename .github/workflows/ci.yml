@@ -358,7 +358,7 @@ jobs:
           GCP_CREDENTIALS_KEY: ${{ secrets.GCP_CREDENTIALS_KEY }}
           GCP_STORAGE_BUCKET: ${{ vars.GCP_STORAGE_BUCKET }}
         run: |
-          if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
+          if [ "${AWS_ACCESS_KEY_ID}" != "" ] && ( [ ! -f gib-impacted.log ] || grep -q plugin/trino-hive gib-impacted.log ); then
             $MAVEN test ${MAVEN_TEST} -pl :trino-hive -P cloud-tests
           fi
       - name: Upload test results
