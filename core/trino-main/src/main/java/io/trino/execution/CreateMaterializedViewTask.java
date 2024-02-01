@@ -147,12 +147,10 @@ public class CreateMaterializedViewTask
                     }
                     Long milliseconds = (Long) evaluateConstantExpression(
                             expression,
-                            analysis.getCoercions(),
-                            analysis.getTypeOnlyCoercions(),
+                            type,
                             plannerContext,
                             session,
                             accessControl,
-                            analysis.getColumnReferences(),
                             parameterLookup);
                     // Sanity check. Impossible per grammar.
                     verify(milliseconds != null, "Grace period cannot be null");
