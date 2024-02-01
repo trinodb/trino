@@ -32,6 +32,7 @@ import io.trino.spi.connector.Assignment;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.ColumnMetadata;
 import io.trino.spi.connector.ConnectorInsertTableHandle;
+import io.trino.spi.connector.ConnectorMergeTableHandle;
 import io.trino.spi.connector.ConnectorOutputMetadata;
 import io.trino.spi.connector.ConnectorOutputTableHandle;
 import io.trino.spi.connector.ConnectorSession;
@@ -70,6 +71,7 @@ import io.trino.spi.security.AccessDeniedException;
 import io.trino.spi.security.TrinoPrincipal;
 import io.trino.spi.statistics.ComputedStatistics;
 import io.trino.spi.statistics.TableStatistics;
+import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 
 import java.sql.Types;
@@ -120,9 +122,9 @@ import static java.util.Objects.requireNonNull;
 public class DefaultJdbcMetadata
         implements JdbcMetadata
 {
+    public static final String MERGE_ROW_ID = "$merge_row_id";
     private static final String SYNTHETIC_COLUMN_NAME_PREFIX = "_pfgnrtd_";
     private static final String DELETE_ROW_ID = "_trino_artificial_column_handle_for_delete_row_id_";
-    private static final String MERGE_ROW_ID = "$merge_row_id";
 
     private final JdbcClient jdbcClient;
     private final TimestampTimeZoneDomain timestampTimeZoneDomain;
@@ -1247,14 +1249,56 @@ public class DefaultJdbcMetadata
     }
 
     @Override
-    public ColumnHandle getMergeRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    public JdbcColumnHandle getMergeRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         verify(!isTableHandleForProcedure(tableHandle), "Not a table reference: %s", tableHandle);
-        // The column is used for row-level merge, which is not supported, but it's required during analysis anyway.
+
+        JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
+        List<RowType.Field> primaryKeys = jdbcClient.getPrimaryKeys(session, handle).stream()
+                .map(columnHandle -> new RowType.Field(Optional.of(columnHandle.getColumnName()), columnHandle.getColumnType()))
+                .collect(toImmutableList());
+        if (!primaryKeys.isEmpty()) {
+            return new JdbcColumnHandle(
+                    MERGE_ROW_ID,
+                    new JdbcTypeHandle(Types.ROWID, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
+                    RowType.from(primaryKeys));
+        }
+
         return new JdbcColumnHandle(
                 MERGE_ROW_ID,
                 new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()),
                 BIGINT);
+    }
+
+    @Override
+    public ConnectorMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
+    {
+        JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
+        checkArgument(handle.isNamedRelation(), "Merge target must be named relation table");
+        JdbcTableHandle plainTable = handle.toPlainTableWithoutColumns();
+        JdbcColumnHandle mergeRowIdColumnHandle = getMergeRowIdColumnHandle(session, plainTable);
+        if (jdbcClient.getPrimaryKeys(session, plainTable).isEmpty()) {
+            throw new TrinoException(NOT_SUPPORTED, MODIFYING_ROWS_MESSAGE);
+        }
+
+        List<JdbcColumnHandle> columns = jdbcClient.getColumns(session, plainTable);
+        JdbcOutputTableHandle jdbcOutputTableHandle = (JdbcOutputTableHandle) beginInsert(session, plainTable, ImmutableList.copyOf(columns), retryMode);
+
+        return new JdbcMergeTableHandle(
+                jdbcClient.updatedScanColumnsForMerge(session, handle, handle.getColumns(), mergeRowIdColumnHandle),
+                jdbcOutputTableHandle,
+                mergeRowIdColumnHandle);
+    }
+
+    @Override
+    public void finishMerge(ConnectorSession session,
+            ConnectorMergeTableHandle mergeTableHandle,
+            List<ConnectorTableHandle> sourceTableHandles,
+            Collection<Slice> fragments,
+            Collection<ComputedStatistics> computedStatistics)
+    {
+        JdbcMergeTableHandle handle = (JdbcMergeTableHandle) mergeTableHandle;
+        finishInsert(session, handle.getOutputTableHandle(), sourceTableHandles, fragments, computedStatistics);
     }
 
     @Override

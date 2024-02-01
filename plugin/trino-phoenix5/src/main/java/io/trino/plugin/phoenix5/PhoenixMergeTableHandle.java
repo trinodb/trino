@@ -16,41 +16,27 @@ package io.trino.plugin.phoenix5;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.trino.plugin.jdbc.JdbcColumnHandle;
+import io.trino.plugin.jdbc.JdbcMergeTableHandle;
 import io.trino.plugin.jdbc.JdbcTableHandle;
-import io.trino.spi.connector.ConnectorMergeTableHandle;
 
-public record PhoenixMergeTableHandle(JdbcTableHandle tableHandle, PhoenixOutputTableHandle phoenixOutputTableHandle, JdbcColumnHandle mergeRowIdColumnHandle)
-        implements ConnectorMergeTableHandle
+public class PhoenixMergeTableHandle
+        extends JdbcMergeTableHandle
 {
+    private final boolean hasRowKey;
+
     @JsonCreator
     public PhoenixMergeTableHandle(
             @JsonProperty("tableHandle") JdbcTableHandle tableHandle,
-            @JsonProperty("phoenixOutputTableHandle") PhoenixOutputTableHandle phoenixOutputTableHandle,
+            @JsonProperty("outputTableHandle") PhoenixOutputTableHandle outputTableHandle,
             @JsonProperty("mergeRowIdColumnHandle") JdbcColumnHandle mergeRowIdColumnHandle)
     {
-        this.tableHandle = tableHandle;
-        this.phoenixOutputTableHandle = phoenixOutputTableHandle;
-        this.mergeRowIdColumnHandle = mergeRowIdColumnHandle;
+        super(tableHandle, outputTableHandle, mergeRowIdColumnHandle);
+        this.hasRowKey = outputTableHandle.rowkeyColumn().isPresent();
     }
 
     @JsonProperty
-    @Override
-    public JdbcTableHandle getTableHandle()
+    public boolean isHasRowKey()
     {
-        return tableHandle;
-    }
-
-    @Override
-    @JsonProperty
-    public PhoenixOutputTableHandle phoenixOutputTableHandle()
-    {
-        return phoenixOutputTableHandle;
-    }
-
-    @Override
-    @JsonProperty
-    public JdbcColumnHandle mergeRowIdColumnHandle()
-    {
-        return mergeRowIdColumnHandle;
+        return hasRowKey;
     }
 }
