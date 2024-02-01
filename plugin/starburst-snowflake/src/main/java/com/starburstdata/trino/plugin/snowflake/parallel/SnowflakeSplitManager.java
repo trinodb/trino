@@ -9,6 +9,9 @@
  */
 package com.starburstdata.trino.plugin.snowflake.parallel;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Inject;
@@ -48,9 +51,6 @@ import net.snowflake.client.core.SFException;
 import net.snowflake.client.core.SFStatement;
 import net.snowflake.client.jdbc.SnowflakeConnectionV1;
 import net.snowflake.client.jdbc.StarburstSnowflakeStatementV1;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.JsonNodeFactory;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.sql.Connection;
 import java.sql.SQLException;

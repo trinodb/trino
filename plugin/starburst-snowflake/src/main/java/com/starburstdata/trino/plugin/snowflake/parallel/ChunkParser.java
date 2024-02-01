@@ -9,12 +9,12 @@
  */
 package com.starburstdata.trino.plugin.snowflake.parallel;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorSplit;
 import net.snowflake.client.core.SessionUtil;
-import net.snowflake.client.jdbc.internal.fasterxml.jackson.databind.JsonNode;
 
 import java.util.HashMap;
 import java.util.Iterator;

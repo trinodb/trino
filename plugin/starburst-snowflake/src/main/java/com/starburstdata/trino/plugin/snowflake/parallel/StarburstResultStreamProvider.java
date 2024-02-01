@@ -14,12 +14,12 @@ import io.trino.spi.TrinoException;
 import net.snowflake.client.core.ExecTimeTelemetryData;
 import net.snowflake.client.jdbc.RestRequest;
 import net.snowflake.client.jdbc.SnowflakeSQLException;
-import net.snowflake.client.jdbc.internal.apache.http.Header;
-import net.snowflake.client.jdbc.internal.apache.http.HttpEntity;
-import net.snowflake.client.jdbc.internal.apache.http.HttpResponse;
-import net.snowflake.client.jdbc.internal.apache.http.client.methods.HttpGet;
-import net.snowflake.client.jdbc.internal.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.Header;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.utils.URIBuilder;
+import org.apache.http.impl.client.CloseableHttpClient;
 
 import java.io.Closeable;
 import java.io.IOException;

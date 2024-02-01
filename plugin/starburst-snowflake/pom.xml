@@ -28,6 +28,11 @@
         </dependency>
 
         <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.google.errorprone</groupId>
             <artifactId>error_prone_annotations</artifactId>
             <optional>true</optional>
@@ -161,14 +166,46 @@
 
         <dependency>
             <groupId>net.snowflake</groupId>
-            <artifactId>snowflake-jdbc</artifactId>
+            <artifactId>snowflake-jdbc-thin</artifactId>
             <version>3.14.5</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.guava</groupId>
+                    <artifactId>listenablefuture</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>javax.annotation</groupId>
+                    <artifactId>javax.annotation-api</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>javax.servlet</groupId>
+                    <artifactId>javax.servlet-api</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpclient</artifactId>
-            <version>4.5.13</version>
+            <version>4.5.14</version>
+            <exclusions>
+                <!-- commons-logging:commons-logging:1.2 conflicts with io.trino:trino-base-jdbc     -->
+                <!-- > io.trino:trino-base-jdbc > org.slf4j:jcl-over-slf4j:2.0.7 (duplicate classes) -->
+                <exclusion>
+                    <groupId>commons-logging</groupId>
+                    <artifactId>commons-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpcore</artifactId>
+            <version>4.4.16</version>
             <exclusions>
                 <!-- commons-logging:commons-logging:1.2 conflicts with io.trino:trino-base-jdbc     -->
                 <!-- > io.trino:trino-base-jdbc > org.slf4j:jcl-over-slf4j:2.0.7 (duplicate classes) -->
@@ -450,10 +487,6 @@
                         <exceptions>
                             <exception>
                                 <conflictingDependencies>
-                                    <dependency>
-                                        <groupId>net.snowflake</groupId>
-                                        <artifactId>snowflake-jdbc</artifactId>
-                                    </dependency>
                                     <dependency>
                                         <groupId>com.amazonaws</groupId>
                                         <artifactId>aws-java-sdk-s3</artifactId>

@@ -2408,10 +2408,6 @@
                                         <artifactId>httpclient</artifactId>
                                     </dependency>
                                     <dependency>
-                                        <groupId>net.snowflake</groupId>
-                                        <artifactId>snowflake-jdbc</artifactId>
-                                    </dependency>
-                                    <dependency>
                                         <groupId>org.apache.httpcomponents.client5</groupId>
                                         <artifactId>httpclient5</artifactId>
                                     </dependency>
