@@ -138,62 +138,24 @@ public class TestComments
     @Test
     public void testCommentColumn()
     {
-        String createTableSql = format("" +
-                        "CREATE TABLE hive.default.%s (\n" +
-                        "   c1 bigint COMMENT 'test comment',\n" +
-                        "   c2 bigint COMMENT '',\n" +
-                        "   c3 bigint\n" +
-                        ")\n" +
-                        "WITH (\n" +
-                        "   format = 'RCBINARY'\n" +
-                        ")",
-                COMMENT_COLUMN_NAME);
-        onTrino().executeQuery(createTableSql);
-
-        String createTableSqlPattern = format("\\Q" +
-                        "CREATE TABLE hive.default.%s (\n" +
-                        "   c1 bigint COMMENT 'test comment',\n" +
-                        "   c2 bigint COMMENT '',\n" +
-                        "   c3 bigint\n" +
-                        ")\\E(?s:.*)",
-                COMMENT_COLUMN_NAME);
-        assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE " + COMMENT_COLUMN_NAME).getOnlyValue())
-                .matches(createTableSqlPattern);
-
-        createTableSqlPattern = format("\\Q" +
-                        "CREATE TABLE hive.default.%s (\n" +
-                        "   c1 bigint COMMENT 'new comment',\n" +
-                        "   c2 bigint COMMENT '',\n" +
-                        "   c3 bigint\n" +
-                        ")\\E(?s:.*)",
-                COMMENT_COLUMN_NAME);
+        onTrino().executeQuery("""
+                CREATE TABLE hive.default.%s (
+                   c1 bigint COMMENT 'test comment',
+                   c2 bigint COMMENT '',
+                   c3 bigint
+                )
+                """.formatted(COMMENT_COLUMN_NAME));
+        assertThat(getColumnComment("default", COMMENT_COLUMN_NAME, "c1")).isEqualTo("test comment");
+        assertThat(getColumnComment("default", COMMENT_COLUMN_NAME, "c2")).isEmpty();
+        assertThat(getColumnComment("default", COMMENT_COLUMN_NAME, "c3")).isNull();
 
         onTrino().executeQuery(format("COMMENT ON COLUMN %s.c1 IS 'new comment'", COMMENT_COLUMN_NAME));
-        assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE " + COMMENT_COLUMN_NAME).getOnlyValue())
-                .matches(createTableSqlPattern);
-
-        createTableSqlPattern = format("\\Q" +
-                        "CREATE TABLE hive.default.%s (\n" +
-                        "   c1 bigint COMMENT '',\n" +
-                        "   c2 bigint COMMENT '',\n" +
-                        "   c3 bigint\n" +
-                        ")\\E(?s:.*)",
-                COMMENT_COLUMN_NAME);
+        assertThat(getColumnComment("default", COMMENT_COLUMN_NAME, "c1")).isEqualTo("new comment");
 
         onTrino().executeQuery(format("COMMENT ON COLUMN %s.c1 IS ''", COMMENT_COLUMN_NAME));
-        assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE " + COMMENT_COLUMN_NAME).getOnlyValue())
-                .matches(createTableSqlPattern);
-
-        createTableSqlPattern = format("\\Q" +
-                        "CREATE TABLE hive.default.%s (\n" +
-                        "   c1 bigint,\n" +
-                        "   c2 bigint COMMENT '',\n" +
-                        "   c3 bigint\n" +
-                        ")\\E(?s:.*)",
-                COMMENT_COLUMN_NAME);
+        assertThat(getColumnComment("default", COMMENT_COLUMN_NAME, "c1")).isEmpty();
 
         onTrino().executeQuery(format("COMMENT ON COLUMN %s.c1 IS NULL", COMMENT_COLUMN_NAME));
-        assertThat((String) onTrino().executeQuery("SHOW CREATE TABLE " + COMMENT_COLUMN_NAME).getOnlyValue())
-                .matches(createTableSqlPattern);
+        assertThat(getColumnComment("default", COMMENT_COLUMN_NAME, "c1")).isNull();
     }
 }
