@@ -9198,12 +9198,12 @@ public abstract class BaseHiveConnectorTest
     {
         requireNonNull(storageFormat, "storageFormat is null");
         requireNonNull(test, "test is null");
-        Session session = storageFormat.getSession();
+        Session session = storageFormat.session();
         try {
-            test.accept(session, storageFormat.getFormat());
+            test.accept(session, storageFormat.format());
         }
         catch (Exception | AssertionError e) {
-            throw new AssertionError(format("Failure for format %s with properties %s", storageFormat.getFormat(), session.getCatalogProperties()), e);
+            throw new AssertionError(format("Failure for format %s with properties %s", storageFormat.format(), session.getCatalogProperties()), e);
         }
     }
 
@@ -9232,37 +9232,21 @@ public abstract class BaseHiveConnectorTest
         return new JsonCodecFactory(objectMapperProvider).jsonCodec(IoPlan.class);
     }
 
-    private static class TestingHiveStorageFormat
+    private record TestingHiveStorageFormat(Session session, HiveStorageFormat format)
     {
-        private final Session session;
-        private final HiveStorageFormat format;
-
-        TestingHiveStorageFormat(Session session, HiveStorageFormat format)
+        private TestingHiveStorageFormat
         {
-            this.session = requireNonNull(session, "session is null");
-            this.format = requireNonNull(format, "format is null");
-        }
-
-        public Session getSession()
-        {
-            return session;
-        }
-
-        public HiveStorageFormat getFormat()
-        {
-            return format;
+            requireNonNull(session, "session is null");
+            requireNonNull(format, "format is null");
         }
     }
 
-    private static class TypeAndEstimate
+    private record TypeAndEstimate(Type type, EstimatedStatsAndCost estimate)
     {
-        public final Type type;
-        public final EstimatedStatsAndCost estimate;
-
-        public TypeAndEstimate(Type type, EstimatedStatsAndCost estimate)
+        private TypeAndEstimate
         {
-            this.type = requireNonNull(type, "type is null");
-            this.estimate = requireNonNull(estimate, "estimate is null");
+            requireNonNull(type, "type is null");
+            requireNonNull(estimate, "estimate is null");
         }
     }
 
