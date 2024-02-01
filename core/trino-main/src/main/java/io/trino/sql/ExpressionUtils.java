@@ -20,7 +20,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.DeterminismEvaluator;
-import io.trino.sql.planner.ExpressionInterpreter;
+import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
@@ -299,7 +299,7 @@ public final class ExpressionUtils
     private static boolean constantExpressionEvaluatesSuccessfully(PlannerContext plannerContext, Session session, Expression constantExpression)
     {
         Map<NodeRef<Expression>, Type> types = TypeAnalyzer.createTestingTypeAnalyzer(plannerContext).getTypes(session, TypeProvider.empty(), constantExpression);
-        ExpressionInterpreter interpreter = new ExpressionInterpreter(constantExpression, plannerContext, session, types);
+        IrExpressionInterpreter interpreter = new IrExpressionInterpreter(constantExpression, plannerContext, session, types);
         Object literalValue = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
         return !(literalValue instanceof Expression);
     }

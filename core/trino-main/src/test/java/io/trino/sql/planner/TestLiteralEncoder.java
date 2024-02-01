@@ -316,7 +316,7 @@ public class TestLiteralEncoder
 
     private Object getExpressionValue(Expression expression)
     {
-        return new ExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION, getExpressionTypes(expression)).evaluate();
+        return new IrExpressionInterpreter(expression, PLANNER_CONTEXT, TEST_SESSION, getExpressionTypes(expression)).evaluate();
     }
 
     private Type getExpressionType(Expression expression)

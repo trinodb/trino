@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.ExpressionInterpreter;
+import io.trino.sql.planner.IrExpressionInterpreter;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.SymbolAllocator;
@@ -50,7 +50,7 @@ public class SimplifyExpressions
         expression = extractCommonPredicates(plannerContext.getMetadata(), expression);
         expression = normalizeOrExpression(expression);
         expressionTypes = typeAnalyzer.getTypes(session, symbolAllocator.getTypes(), expression);
-        ExpressionInterpreter interpreter = new ExpressionInterpreter(expression, plannerContext, session, expressionTypes);
+        IrExpressionInterpreter interpreter = new IrExpressionInterpreter(expression, plannerContext, session, expressionTypes);
         Object optimized = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
         return new LiteralEncoder(plannerContext).toExpression(optimized, expressionTypes.get(NodeRef.of(expression)));
     }
