@@ -16,41 +16,24 @@ package io.trino.plugin.phoenix5;
 import com.google.inject.Inject;
 import io.trino.plugin.jdbc.JdbcPageSinkProvider;
 import io.trino.plugin.jdbc.logging.RemoteQueryModifier;
-import io.trino.spi.connector.ConnectorInsertTableHandle;
 import io.trino.spi.connector.ConnectorMergeSink;
 import io.trino.spi.connector.ConnectorMergeTableHandle;
-import io.trino.spi.connector.ConnectorOutputTableHandle;
-import io.trino.spi.connector.ConnectorPageSink;
 import io.trino.spi.connector.ConnectorPageSinkId;
-import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.connector.ConnectorTransactionHandle;
 
 public class PhoenixPageSinkProvider
-        implements ConnectorPageSinkProvider
+        extends JdbcPageSinkProvider
 {
-    private final JdbcPageSinkProvider delegate;
     private final PhoenixClient jdbcClient;
     private final RemoteQueryModifier remoteQueryModifier;
 
     @Inject
     public PhoenixPageSinkProvider(PhoenixClient jdbcClient, RemoteQueryModifier remoteQueryModifier)
     {
-        this.delegate = new JdbcPageSinkProvider(jdbcClient, remoteQueryModifier);
+        super(jdbcClient, remoteQueryModifier);
         this.jdbcClient = jdbcClient;
         this.remoteQueryModifier = remoteQueryModifier;
-    }
-
-    @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorOutputTableHandle outputTableHandle, ConnectorPageSinkId pageSinkId)
-    {
-        return delegate.createPageSink(transactionHandle, session, outputTableHandle, pageSinkId);
-    }
-
-    @Override
-    public ConnectorPageSink createPageSink(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorInsertTableHandle insertTableHandle, ConnectorPageSinkId pageSinkId)
-    {
-        return delegate.createPageSink(transactionHandle, session, insertTableHandle, pageSinkId);
     }
 
     @Override
