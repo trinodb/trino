@@ -9441,54 +9441,6 @@ public abstract class BaseHiveConnectorTest
                 .build();
     }
 
-    protected static class BucketedFilterTestSetup
-    {
-        private final String typeName;
-        private final List<String> values;
-        private final String filterValue;
-        private final long expectedPhysicalInputRows;
-        private final long expectedResult;
-
-        private BucketedFilterTestSetup(
-                String typeName,
-                List<String> values,
-                String filterValue,
-                long expectedPhysicalInputRows,
-                long expectedResult)
-        {
-            this.typeName = requireNonNull(typeName, "typeName is null");
-            this.values = requireNonNull(values, "values is null");
-            this.filterValue = requireNonNull(filterValue, "filterValue is null");
-            this.expectedPhysicalInputRows = expectedPhysicalInputRows;
-            this.expectedResult = expectedResult;
-        }
-
-        protected String getTypeName()
-        {
-            return typeName;
-        }
-
-        protected List<String> getValues()
-        {
-            return values;
-        }
-
-        protected String getFilterValue()
-        {
-            return filterValue;
-        }
-
-        protected long getExpectedPhysicalInputRows()
-        {
-            return expectedPhysicalInputRows;
-        }
-
-        protected long getExpectedResult()
-        {
-            return expectedResult;
-        }
-    }
-
     private static Session withColumnarFilterEvaluation(Session session, boolean columnarFilterEvaluationEnabled)
     {
         return Session.builder(session)
