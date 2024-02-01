@@ -46,16 +46,18 @@ public class TestGrantOnSchema
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(admin).build();
-        MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
-                .withListSchemaNames(session -> ImmutableList.of("information_schema", "default"))
-                .withListTables((session, schema) ->
-                        "default".equalsIgnoreCase(schema) ? ImmutableList.of("table_one") : ImmutableList.of())
-                .withSchemaGrants(schemaGrants)
+        return DistributedQueryRunner.builder(admin)
+                .setAdditionalSetup(queryRunner -> {
+                    MockConnectorFactory connectorFactory = MockConnectorFactory.builder()
+                            .withListSchemaNames(session -> ImmutableList.of("information_schema", "default"))
+                            .withListTables((session, schema) ->
+                                    "default".equalsIgnoreCase(schema) ? ImmutableList.of("table_one") : ImmutableList.of())
+                            .withSchemaGrants(schemaGrants)
+                            .build();
+                    queryRunner.installPlugin(new MockConnectorPlugin(connectorFactory));
+                    queryRunner.createCatalog("local", "mock");
+                })
                 .build();
-        queryRunner.installPlugin(new MockConnectorPlugin(connectorFactory));
-        queryRunner.createCatalog("local", "mock");
-        return queryRunner;
     }
 
     @BeforeAll
