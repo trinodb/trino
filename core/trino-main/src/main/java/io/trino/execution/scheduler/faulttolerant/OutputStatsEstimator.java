@@ -29,13 +29,6 @@ public interface OutputStatsEstimator
             Function<StageId, EventDrivenFaultTolerantQueryScheduler.StageExecution> stageExecutionLookup,
             boolean parentEager);
 
-    enum OutputStatsEstimateStatus {
-        FINISHED,
-        ESTIMATED_BY_PROGRESS,
-        ESTIMATED_BY_SMALL_INPUT,
-        ESTIMATED_FOR_EAGER_PARENT
-    }
-
     record OutputStatsEstimateResult(
             OutputDataSizeEstimate outputDataSizeEstimate,
             long outputRowCountEstimate,
