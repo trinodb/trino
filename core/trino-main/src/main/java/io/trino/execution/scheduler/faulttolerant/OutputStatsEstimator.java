@@ -32,17 +32,17 @@ public interface OutputStatsEstimator
     record OutputStatsEstimateResult(
             OutputDataSizeEstimate outputDataSizeEstimate,
             long outputRowCountEstimate,
-            String status)
+            String kind)
     {
-        OutputStatsEstimateResult(ImmutableLongArray partitionDataSizes, long outputRowCountEstimate, String status)
+        OutputStatsEstimateResult(ImmutableLongArray partitionDataSizes, long outputRowCountEstimate, String kind)
         {
-            this(new OutputDataSizeEstimate(partitionDataSizes), outputRowCountEstimate, status);
+            this(new OutputDataSizeEstimate(partitionDataSizes), outputRowCountEstimate, kind);
         }
 
         public OutputStatsEstimateResult
         {
             requireNonNull(outputDataSizeEstimate, "outputDataSizeEstimate is null");
-            requireNonNull(status, "status is null");
+            requireNonNull(kind, "kind is null");
         }
     }
 }

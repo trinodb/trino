@@ -1279,7 +1279,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                 else {
                     // source stage finished; no more checks needed
                     OutputStatsEstimateResult result = sourceStageExecution.getOutputStats(stageExecutions::get, eager).orElseThrow();
-                    verify(Objects.equals(result.status(), "FINISHED"), "expected FINISHED status but got %s", result.status());
+                    verify(Objects.equals(result.kind(), "FINISHED"), "expected FINISHED status but got %s", result.kind());
                     finishedSourcesCount++;
                     sourceOutputStatsEstimates.put(sourceStageExecution.getStageId(), result.outputDataSizeEstimate());
                     someSourcesMadeProgress = true;
@@ -1300,7 +1300,7 @@ public class EventDrivenFaultTolerantQueryScheduler
                     return IsReadyForExecutionResult.notReady();
                 }
 
-                estimateCountByKind.compute(result.orElseThrow().status(), (k, v) -> v == null ? 0 : v + 1);
+                estimateCountByKind.compute(result.orElseThrow().kind(), (k, v) -> v == null ? 0 : v + 1);
 
                 sourceOutputStatsEstimates.put(sourceStageExecution.getStageId(), result.orElseThrow().outputDataSizeEstimate());
                 someSourcesMadeProgress = someSourcesMadeProgress || sourceStageExecution.isSomeProgressMade();
