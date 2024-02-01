@@ -188,4 +188,9 @@ public interface SystemSecurityMetadata
      * A column was dropped
      */
     void columnDropped(Session session, CatalogSchemaTableName table, String column);
+
+    /**
+     * Column type was changed
+     */
+    void columnTypeChanged(Session session, CatalogSchemaTableName table, String column, String oldType, String newType);
 }

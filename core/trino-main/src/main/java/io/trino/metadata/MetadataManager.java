@@ -949,8 +949,18 @@ public final class MetadataManager
     public void setColumnType(Session session, TableHandle tableHandle, ColumnHandle column, Type type)
     {
         CatalogHandle catalogHandle = tableHandle.getCatalogHandle();
+        CatalogMetadata catalogMetadata = getCatalogMetadataForWrite(session, catalogHandle.getCatalogName());
         ConnectorMetadata metadata = getMetadataForWrite(session, catalogHandle);
+        ColumnMetadata columnMetadata = getColumnMetadata(session, tableHandle, column);
         metadata.setColumnType(session.toConnectorSession(catalogHandle), tableHandle.getConnectorHandle(), column, type);
+        if (catalogMetadata.getSecurityManagement() == SYSTEM) {
+            systemSecurityMetadata.columnTypeChanged(
+                    session,
+                    getTableName(session, tableHandle),
+                    columnMetadata.getName(),
+                    columnMetadata.getType().getDisplayName(),
+                    type.getDisplayName());
+        }
     }
 
     @Override
