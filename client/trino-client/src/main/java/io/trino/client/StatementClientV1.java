@@ -376,7 +376,11 @@ class StatementClientV1
         }
 
         Request request = prepareRequest(HttpUrl.get(nextUri)).build();
+        return executeRequest(request, "fetching next", OptionalLong.of(MAX_MATERIALIZED_JSON_RESPONSE_SIZE));
+    }
 
+    private boolean executeRequest(Request request, String taskName, OptionalLong materializedJsonSizeLimit)
+    {
         Exception cause = null;
         long start = System.nanoTime();
         long attempts = 0;
@@ -411,7 +415,7 @@ class StatementClientV1
 
             JsonResponse<QueryResults> response;
             try {
-                response = JsonResponse.execute(jsonCodec, httpCallFactory, request, OptionalLong.of(MAX_MATERIALIZED_JSON_RESPONSE_SIZE));
+                response = JsonResponse.execute(jsonCodec, httpCallFactory, request, materializedJsonSizeLimit);
             }
             catch (RuntimeException e) {
                 cause = e;
@@ -421,16 +425,16 @@ class StatementClientV1
                 cause = response.getException();
                 continue;
             }
-
-            if ((response.getStatusCode() == HTTP_OK) && response.hasValue()) {
-                processResponse(response.getHeaders(), response.getValue());
-                return true;
+            if (response.getStatusCode() != HTTP_OK || !response.hasValue()) {
+                if (!shouldRetry(response.getStatusCode())) {
+                    state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
+                    throw requestFailedException(taskName, request, response);
+                }
+                continue;
             }
 
-            if (!shouldRetry(response.getStatusCode())) {
-                state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
-                throw requestFailedException("fetching next", request, response);
-            }
+            processResponse(response.getHeaders(), response.getValue());
+            return true;
         }
     }
 
