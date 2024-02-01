@@ -58,7 +58,7 @@ import static java.util.stream.Collectors.joining;
 
 public class TestComparisonStatsCalculator
 {
-    private final FilterStatsCalculator filterStatsCalculator = new FilterStatsCalculator(PLANNER_CONTEXT, new ScalarStatsCalculator(PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT)), new StatsNormalizer());
+    private final FilterStatsCalculator filterStatsCalculator = new FilterStatsCalculator(PLANNER_CONTEXT, new ScalarStatsCalculator(PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT)), new StatsNormalizer(), createTestingTypeAnalyzer(PLANNER_CONTEXT));
     private final Session session = testSessionBuilder().build();
     private final TypeProvider types = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
             .put(new Symbol("u"), DoubleType.DOUBLE)

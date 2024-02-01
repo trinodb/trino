@@ -34,7 +34,6 @@ import io.trino.spi.type.TimeZoneKey;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
-import io.trino.sql.ExpressionUtils;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
 import io.trino.transaction.TestingTransactionManager;
@@ -335,7 +334,7 @@ public class TestLiteralEncoder
         return transaction(transactionManager, metadata, new AllowAllAccessControl())
                 .singleStatement()
                 .execute(TEST_SESSION, transactionSession -> {
-                    return ExpressionUtils.getExpressionTypes(PLANNER_CONTEXT, transactionSession, expression, TypeProvider.empty());
+                    return TypeAnalyzer.createTestingTypeAnalyzer(PLANNER_CONTEXT).getTypes(transactionSession, TypeProvider.empty(), expression);
                 });
     }
 
