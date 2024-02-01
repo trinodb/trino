@@ -46,6 +46,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -137,14 +138,9 @@ class StatementClientV1
 
         Request request = buildQueryRequest(session, query);
 
-        // Always materialize the first response to avoid losing the response body if the initial response parsing fails
-        JsonResponse<QueryResults> response = JsonResponse.execute(jsonCodec, httpCallFactory, request, OptionalLong.empty());
-        if ((response.getStatusCode() != HTTP_OK) || !response.hasValue()) {
-            state.compareAndSet(State.RUNNING, State.CLIENT_ERROR);
-            throw requestFailedException("starting query", request, response);
-        }
-
-        processResponse(response.getHeaders(), response.getValue());
+        // Pass empty as materializedJsonSizeLimit to always materialize the first response
+        // to avoid losing the response body if the initial response parsing fails
+        executeRequest(request, "starting query", OptionalLong.empty(), this::isTransient);
     }
 
     private Request buildQueryRequest(ClientSession session, String query)
@@ -376,10 +372,10 @@ class StatementClientV1
         }
 
         Request request = prepareRequest(HttpUrl.get(nextUri)).build();
-        return executeRequest(request, "fetching next", OptionalLong.of(MAX_MATERIALIZED_JSON_RESPONSE_SIZE));
+        return executeRequest(request, "fetching next", OptionalLong.of(MAX_MATERIALIZED_JSON_RESPONSE_SIZE), (e) -> true);
     }
 
-    private boolean executeRequest(Request request, String taskName, OptionalLong materializedJsonSizeLimit)
+    private boolean executeRequest(Request request, String taskName, OptionalLong materializedJsonSizeLimit, Function<Exception, Boolean> isRetryable)
     {
         Exception cause = null;
         long start = System.nanoTime();
@@ -418,6 +414,9 @@ class StatementClientV1
                 response = JsonResponse.execute(jsonCodec, httpCallFactory, request, materializedJsonSizeLimit);
             }
             catch (RuntimeException e) {
+                if (!isRetryable.apply(e)) {
+                    throw e;
+                }
                 cause = e;
                 continue;
             }
