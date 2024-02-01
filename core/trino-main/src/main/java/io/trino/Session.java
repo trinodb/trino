@@ -337,7 +337,7 @@ public final class Session
                 continue;
             }
             CatalogHandle catalogHandle = transactionManager.getCatalogHandle(transactionId, catalogName)
-                    .orElseThrow(() -> new TrinoException(NOT_FOUND, "Session property catalog '%s' does not exist".formatted(catalogName)));
+                    .orElseThrow(() -> new TrinoException(NOT_FOUND, "Catalog '%s' does not exist".formatted(catalogName)));
 
             validateCatalogProperties(Optional.of(transactionId), accessControl, catalogName, catalogHandle, catalogProperties);
             connectorProperties.put(catalogName, catalogProperties);
@@ -348,7 +348,7 @@ public final class Session
             String catalogName = entry.getKey();
             SelectedRole role = entry.getValue();
             if (transactionManager.getCatalogHandle(transactionId, catalogName).isEmpty()) {
-                throw new TrinoException(CATALOG_NOT_FOUND, "Catalog '%s' for role not found".formatted(catalogName));
+                throw new TrinoException(CATALOG_NOT_FOUND, "Catalog '%s' not found".formatted(catalogName));
             }
             if (role.getType() == SelectedRole.Type.ROLE) {
                 accessControl.checkCanSetCatalogRole(new SecurityContext(transactionId, identity, queryId, start), role.getRole().orElseThrow(), catalogName);
