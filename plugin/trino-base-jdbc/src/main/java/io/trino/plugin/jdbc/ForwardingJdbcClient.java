@@ -495,4 +495,16 @@ public abstract class ForwardingJdbcClient
     {
         return delegate().buildMergeRowIdConjuncts(session, mergeRowIdFieldNames, mergeRowIdFieldTypes);
     }
+
+    @Override
+    public JdbcOutputTableHandle beginDeleteTableForMerge(ConnectorSession session, JdbcTableHandle tableHandle)
+    {
+        return delegate().beginDeleteTableForMerge(session, tableHandle);
+    }
+
+    @Override
+    public void finishDeleteTableForMerge(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds)
+    {
+        delegate().finishDeleteTableForMerge(session, handle, pageSinkIds);
+    }
 }

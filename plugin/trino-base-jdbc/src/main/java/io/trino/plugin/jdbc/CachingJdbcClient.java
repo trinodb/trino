@@ -89,6 +89,7 @@ public class CachingJdbcClient
     private final Cache<ColumnsCacheKey, List<JdbcColumnHandle>> columnsCache;
     private final Cache<TableListingCacheKey, List<RelationCommentMetadata>> tableCommentsCache;
     private final Cache<JdbcTableHandle, TableStatistics> statisticsCache;
+    private final Cache<JdbcTableHandle, List<JdbcColumnHandle>> tablePrimaryKeysCache;
 
     @Inject
     public CachingJdbcClient(
@@ -137,6 +138,7 @@ public class CachingJdbcClient
         columnsCache = buildCache(ticker, cacheMaximumSize, metadataCachingTtl);
         tableCommentsCache = buildCache(ticker, cacheMaximumSize, metadataCachingTtl);
         statisticsCache = buildCache(ticker, cacheMaximumSize, statisticsCachingTtl);
+        tablePrimaryKeysCache = buildCache(ticker, cacheMaximumSize, statisticsCachingTtl);
     }
 
     private static <K, V> Cache<K, V> buildCache(Ticker ticker, long cacheSize, Duration cachingTtl)
@@ -595,9 +597,22 @@ public class CachingJdbcClient
     }
 
     @Override
+    public JdbcOutputTableHandle beginDeleteTableForMerge(ConnectorSession session, JdbcTableHandle tableHandle)
+    {
+        return delegate.beginDeleteTableForMerge(session, tableHandle);
+    }
+
+    @Override
+    public void finishDeleteTableForMerge(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds)
+    {
+        delegate.finishDeleteTableForMerge(session, handle, pageSinkIds);
+        onDataChanged(new SchemaTableName(handle.getSchemaName(), handle.getTableName()));
+    }
+
+    @Override
     public List<JdbcColumnHandle> getPrimaryKeys(ConnectorSession session, JdbcTableHandle tableHandle)
     {
-        return delegate.getPrimaryKeys(session, tableHandle);
+        return get(tablePrimaryKeysCache, tableHandle, () -> delegate.getPrimaryKeys(session, tableHandle));
     }
 
     @Override
