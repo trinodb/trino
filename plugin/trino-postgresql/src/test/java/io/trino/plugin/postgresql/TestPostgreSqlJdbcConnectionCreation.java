@@ -39,7 +39,6 @@ import java.util.Properties;
 import static io.airlift.configuration.ConfigurationAwareModule.combine;
 import static io.airlift.testing.Closeables.closeAllSuppress;
 import static io.trino.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
-import static io.trino.spi.connector.ConnectorMetadata.MODIFYING_ROWS_MESSAGE;
 import static io.trino.testing.QueryAssertions.copyTpchTables;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.tpch.TpchTable.NATION;
@@ -84,7 +83,7 @@ public class TestPostgreSqlJdbcConnectionCreation
         assertJdbcConnections("INSERT INTO copy_of_nation SELECT * FROM nation", 6, Optional.empty());
         assertJdbcConnections("DELETE FROM copy_of_nation WHERE nationkey = 3", 1, Optional.empty());
         assertJdbcConnections("UPDATE copy_of_nation SET name = 'POLAND' WHERE nationkey = 1", 1, Optional.empty());
-        assertJdbcConnections("MERGE INTO copy_of_nation n USING region r ON r.regionkey= n.regionkey WHEN MATCHED THEN DELETE", 1, Optional.of(MODIFYING_ROWS_MESSAGE));
+        assertJdbcConnections("MERGE INTO copy_of_nation n USING region r ON r.regionkey= n.regionkey WHEN MATCHED THEN DELETE", 15, Optional.empty());
         assertJdbcConnections("DROP TABLE copy_of_nation", 1, Optional.empty());
         assertJdbcConnections("SHOW SCHEMAS", 1, Optional.empty());
         assertJdbcConnections("SHOW TABLES", 1, Optional.empty());

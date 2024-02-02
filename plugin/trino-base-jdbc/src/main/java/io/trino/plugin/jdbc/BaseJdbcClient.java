@@ -1176,52 +1176,98 @@ public abstract class BaseJdbcClient
             return;
         }
 
+        RemoteTableName targetTable = new RemoteTableName(
+                Optional.ofNullable(handle.getCatalogName()),
+                Optional.ofNullable(handle.getSchemaName()),
+                handle.getTableName());
+        String columns = handle.getColumnNames().stream()
+                .map(this::quoted)
+                .collect(joining(", "));
+
+        try (Closer closer = Closer.create();
+                Connection connection = getConnection(session, handle)) {
+            verify(connection.getAutoCommit());
+            String insertSql = "INSERT INTO %s (%s) %s".formatted(
+                    postProcessInsertTableNameClause(session, quoted(targetTable)),
+                    columns,
+                    buildTempTableDataSql(session, connection, handle, pageSinkIds, closer));
+            execute(session, connection, insertSql);
+        }
+        catch (SQLException | IOException e) {
+            throw new TrinoException(JDBC_ERROR, e);
+        }
+    }
+
+    private String buildTempTableDataSql(ConnectorSession session, Connection connection, JdbcOutputTableHandle handle, Set<Long> pageSinkIds, Closer closer)
+            throws SQLException
+    {
         RemoteTableName temporaryTable = new RemoteTableName(
                 Optional.ofNullable(handle.getCatalogName()),
                 Optional.ofNullable(handle.getSchemaName()),
                 handle.getTemporaryTableName().orElseThrow());
+
+        // We conditionally create more than the one table, so keep a list of the tables that need to be dropped.
+        closer.register(() -> dropTable(session, temporaryTable, true));
+
+        String columns = handle.getColumnNames().stream()
+                .map(this::quoted)
+                .collect(joining(", "));
+
+        String tempTableDataSql = "SELECT %s FROM %s temp_table".formatted(columns, quoted(temporaryTable));
+
+        if (handle.getPageSinkIdColumnName().isPresent()) {
+            RemoteTableName pageSinkTable = constructPageSinkIdsTable(session, connection, handle, pageSinkIds, closer);
+
+            tempTableDataSql += format(" WHERE EXISTS (SELECT 1 FROM %s page_sink_table WHERE page_sink_table.%s = temp_table.%s)",
+                    quoted(pageSinkTable),
+                    handle.getPageSinkIdColumnName().get(),
+                    handle.getPageSinkIdColumnName().get());
+        }
+        return tempTableDataSql;
+    }
+
+    @Override
+    public JdbcOutputTableHandle beginDeleteTableForMerge(ConnectorSession session, JdbcTableHandle tableHandle)
+    {
+        verify(shouldUseFaultTolerantExecution(session));
+        return beginInsertTable(session, tableHandle, getPrimaryKeys(session, tableHandle));
+    }
+
+    protected String getConjunctsBetweenTargetAndTemporaryTable(JdbcOutputTableHandle handle)
+    {
+        StringBuilder conjuncts = new StringBuilder();
+        String conjunct = "merge_target.%s = temp.%$1s";
+        for (String column : handle.getColumnNames()) {
+            conjuncts.append(conjunct.formatted(column));
+        }
+        return conjuncts.toString();
+    }
+
+    @Override
+    public void finishDeleteTableForMerge(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds)
+    {
+        if (isNonTransactionalInsert(session)) {
+            checkState(handle.getTemporaryTableName().isEmpty(), "Unexpected use of temporary table when non transactional inserts are enabled");
+            return;
+        }
+
+        verify(shouldUseFaultTolerantExecution(session));
         RemoteTableName targetTable = new RemoteTableName(
                 Optional.ofNullable(handle.getCatalogName()),
                 Optional.ofNullable(handle.getSchemaName()),
                 handle.getTableName());
 
-        // We conditionally create more than the one table, so keep a list of the tables that need to be dropped.
-        Closer closer = Closer.create();
-        closer.register(() -> dropTable(session, temporaryTable, true));
-
-        try (Connection connection = getConnection(session, handle)) {
+        try (Closer closer = Closer.create();
+                Connection connection = getConnection(session, handle)) {
             verify(connection.getAutoCommit());
-            String columns = handle.getColumnNames().stream()
-                    .map(this::quoted)
-                    .collect(joining(", "));
-
-            String insertSql = format("INSERT INTO %s (%s) SELECT %s FROM %s temp_table",
+            String deleteSql = "DELETE FROM %s merge_target WHERE EXISTS (SELECT 1 FROM (%s) temp WHERE %s)".formatted(
                     postProcessInsertTableNameClause(session, quoted(targetTable)),
-                    columns,
-                    columns,
-                    quoted(temporaryTable));
-
-            if (handle.getPageSinkIdColumnName().isPresent()) {
-                RemoteTableName pageSinkTable = constructPageSinkIdsTable(session, connection, handle, pageSinkIds, closer);
-
-                insertSql += format(" WHERE EXISTS (SELECT 1 FROM %s page_sink_table WHERE page_sink_table.%s = temp_table.%s)",
-                        quoted(pageSinkTable),
-                        handle.getPageSinkIdColumnName().get(),
-                        handle.getPageSinkIdColumnName().get());
-            }
-
-            execute(session, connection, insertSql);
+                    buildTempTableDataSql(session, connection, handle, pageSinkIds, closer),
+                    getConjunctsBetweenTargetAndTemporaryTable(handle));
+            execute(session, connection, deleteSql);
         }
-        catch (SQLException e) {
+        catch (SQLException | IOException e) {
             throw new TrinoException(JDBC_ERROR, e);
-        }
-        finally {
-            try {
-                closer.close();
-            }
-            catch (IOException e) {
-                throw new TrinoException(JDBC_ERROR, e);
-            }
         }
     }
 
@@ -1881,7 +1927,7 @@ public abstract class BaseJdbcClient
         }
     }
 
-    private static ColumnMetadata getPageSinkIdColumn(List<String> otherColumnNames)
+    public static ColumnMetadata getPageSinkIdColumn(List<String> otherColumnNames)
     {
         // While it's unlikely this column name will collide with client table columns,
         // guarantee it will not by appending a deterministic suffix to it.
