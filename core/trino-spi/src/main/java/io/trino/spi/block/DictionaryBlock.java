@@ -542,7 +542,7 @@ public final class DictionaryBlock
     @Override
     public Block getLoadedBlock()
     {
-        ValueBlock loadedDictionary = (ValueBlock) dictionary.getLoadedBlock();
+        Block loadedDictionary = dictionary.getLoadedBlock();
 
         if (loadedDictionary == dictionary) {
             return this;
