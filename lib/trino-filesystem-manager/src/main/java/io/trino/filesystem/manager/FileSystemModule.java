@@ -128,7 +128,7 @@ public class FileSystemModule
 
         TrinoFileSystemFactory delegate = new SwitchingFileSystemFactory(hdfsFactory, factories);
         if (fileSystemCache.isPresent()) {
-            delegate = new CacheFileSystemFactory(delegate, fileSystemCache.orElseThrow(), keyProvider.orElseThrow());
+            delegate = new CacheFileSystemFactory(tracer, delegate, fileSystemCache.orElseThrow(), keyProvider.orElseThrow());
         }
         return new TracingFileSystemFactory(tracer, delegate);
     }

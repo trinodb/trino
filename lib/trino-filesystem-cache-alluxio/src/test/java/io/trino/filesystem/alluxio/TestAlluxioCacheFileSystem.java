@@ -13,7 +13,6 @@
  */
 package io.trino.filesystem.alluxio;
 
-import alluxio.conf.AlluxioConfiguration;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.AbstractTestTrinoFileSystem;
 import io.trino.filesystem.Location;
@@ -22,7 +21,6 @@ import io.trino.filesystem.cache.CacheFileSystem;
 import io.trino.filesystem.cache.DefaultCacheKeyProvider;
 import io.trino.filesystem.memory.MemoryFileSystem;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 
 import java.io.IOException;
@@ -32,15 +30,16 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.stream.Stream;
 
+import static io.airlift.tracing.Tracing.noopTracer;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestAlluxioCacheFileSystem
         extends AbstractTestTrinoFileSystem
 {
-    private CacheFileSystem fileSystem;
-    private Path tempDirectory;
-    private TestingAlluxioFileSystemCache cache;
     private MemoryFileSystem memoryFileSystem;
+    private CacheFileSystem fileSystem;
+    private AlluxioFileSystemCache cache;
+    private Path tempDirectory;
 
     @BeforeAll
     void beforeAll()
@@ -54,24 +53,9 @@ public class TestAlluxioCacheFileSystem
                 .setCachePageSize(DataSize.valueOf("32003B"))
                 .disableTTL()
                 .setMaxCacheSizes("100MB");
-        AlluxioConfiguration alluxioConfiguration = AlluxioConfigurationFactory.create(configuration);
-        cache = new TestingAlluxioFileSystemCache(alluxioConfiguration, new DefaultCacheKeyProvider()) {
-            @Override
-            public void expire(Location location)
-            {
-                // Expire the entire cache on a single invalidation
-                clear();
-            }
-        };
         memoryFileSystem = new MemoryFileSystem();
-        fileSystem = new CacheFileSystem(memoryFileSystem, cache, cache.getCacheKeyProvider());
-    }
-
-    @AfterEach
-    void afterEach()
-            throws IOException
-    {
-        cache.clear();
+        cache = new AlluxioFileSystemCache(noopTracer(), configuration, new AlluxioCacheStats());
+        fileSystem = new CacheFileSystem(memoryFileSystem, cache, new DefaultCacheKeyProvider());
     }
 
     @AfterAll

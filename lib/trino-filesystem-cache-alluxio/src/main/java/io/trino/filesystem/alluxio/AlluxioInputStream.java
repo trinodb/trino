@@ -17,6 +17,8 @@ import alluxio.client.file.URIStatus;
 import alluxio.client.file.cache.CacheManager;
 import alluxio.conf.AlluxioConfiguration;
 import com.google.common.primitives.Longs;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInputFile;
 import io.trino.filesystem.TrinoInputStream;
@@ -24,7 +26,13 @@ import io.trino.filesystem.TrinoInputStream;
 import java.io.EOFException;
 import java.io.IOException;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.primitives.Ints.saturatedCast;
+import static io.trino.filesystem.alluxio.AlluxioTracing.withTracing;
+import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_LOCATION;
+import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_READ_POSITION;
+import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_READ_SIZE;
+import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_KEY;
 import static java.lang.Integer.max;
 import static java.lang.Math.addExact;
 import static java.lang.Math.min;
@@ -39,19 +47,22 @@ public class AlluxioInputStream
     private final long fileLength;
     private final Location location;
     private final AlluxioCacheStats statistics;
+    private final String key;
     private final AlluxioInputHelper helper;
-
+    private final Tracer tracer;
     private TrinoInputStream externalStream;
     private long position;
     private boolean closed;
 
-    public AlluxioInputStream(TrinoInputFile inputFile, URIStatus status, CacheManager cacheManager, AlluxioConfiguration configuration, AlluxioCacheStats statistics)
+    public AlluxioInputStream(Tracer tracer, TrinoInputFile inputFile, String key, URIStatus status, CacheManager cacheManager, AlluxioConfiguration configuration, AlluxioCacheStats statistics)
     {
+        this.tracer = requireNonNull(tracer, "tracer is null");
         this.inputFile = requireNonNull(inputFile, "inputFile is null");
         this.fileLength = requireNonNull(status, "status is null").getLength();
         this.location = inputFile.location();
         this.statistics = requireNonNull(statistics, "statistics is null");
-        this.helper = new AlluxioInputHelper(inputFile.location(), status, cacheManager, configuration, statistics);
+        this.key = requireNonNull(key, "key is null");
+        this.helper = new AlluxioInputHelper(tracer, inputFile.location(), key, status, cacheManager, configuration, statistics);
     }
 
     @Override
@@ -114,15 +125,30 @@ public class AlluxioInputStream
             throws IOException
     {
         int bytesRead = helper.doCacheRead(position, bytes, offset, length);
-        return addExact(bytesRead, doExternalRead(position + bytesRead, bytes, offset + bytesRead, length - bytesRead));
+        return addExact(bytesRead, doExternalRead0(position + bytesRead, bytes, offset + bytesRead, length - bytesRead));
     }
 
-    private int doExternalRead(long readPosition, byte[] buffer, int offset, int length)
+    private int doExternalRead0(long readPosition, byte[] buffer, int offset, int length)
             throws IOException
     {
         if (length == 0) {
             return 0;
         }
+
+        Span span = tracer.spanBuilder("Alluxio.readExternal")
+                .setAttribute(CACHE_KEY, key)
+                .setAttribute(CACHE_FILE_LOCATION, inputFile.location().toString())
+                .setAttribute(CACHE_FILE_READ_SIZE, (long) length)
+                .setAttribute(CACHE_FILE_READ_POSITION, readPosition)
+                .startSpan();
+
+        return withTracing(span, () -> doExternalReadInternal(readPosition, buffer, offset, length));
+    }
+
+    private int doExternalReadInternal(long readPosition, byte[] buffer, int offset, int length)
+            throws IOException
+    {
+        verify(length > 0, "zero-length or negative read");
         AlluxioInputHelper.PageAlignedRead aligned = helper.alignRead(readPosition, length);
         if (externalStream == null) {
             externalStream = inputFile.newStream();
@@ -136,7 +162,7 @@ public class AlluxioInputStream
         helper.putCache(aligned.pageStart(), aligned.pageEnd(), readBuffer, externalBytesRead);
         int bytesToCopy = min(length, max(externalBytesRead - aligned.pageOffset(), 0));
         System.arraycopy(readBuffer, aligned.pageOffset(), buffer, offset, bytesToCopy);
-        statistics.recordExternalRead(inputFile.location(), externalBytesRead);
+        statistics.recordExternalRead(externalBytesRead);
         return bytesToCopy;
     }
 
