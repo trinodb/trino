@@ -86,7 +86,13 @@ public final class S3FileSystemFactory
         }
 
         ApacheHttpClient.Builder httpClient = ApacheHttpClient.builder()
-                .maxConnections(config.getMaxConnections());
+                .maxConnections(config.getMaxConnections())
+                .tcpKeepAlive(config.getTcpKeepAlive());
+
+        config.getConnectionTtl().ifPresent(connectionTtl -> httpClient.connectionTimeToLive(connectionTtl.toJavaTime()));
+        config.getConnectionMaxIdleTime().ifPresent(connectionMaxIdleTime -> httpClient.connectionMaxIdleTime(connectionMaxIdleTime.toJavaTime()));
+        config.getSocketConnectTimeout().ifPresent(socketConnectTimeout -> httpClient.connectionTimeout(socketConnectTimeout.toJavaTime()));
+        config.getSocketReadTimeout().ifPresent(socketReadTimeout -> httpClient.socketTimeout(socketReadTimeout.toJavaTime()));
 
         if (config.getHttpProxy() != null) {
             URI endpoint = URI.create("%s://%s".formatted(
