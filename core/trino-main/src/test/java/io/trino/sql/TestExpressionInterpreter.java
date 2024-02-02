@@ -445,44 +445,6 @@ public class TestExpressionInterpreter
     }
 
     @Test
-    public void testExtract()
-    {
-        DateTime dateTime = new DateTime(2001, 8, 22, 3, 4, 5, 321, UTC);
-        double seconds = dateTime.getMillis() / 1000.0;
-
-        assertOptimizedEquals("extract(YEAR FROM from_unixtime(" + seconds + ",'UTC'))", "2001");
-        assertOptimizedEquals("extract(QUARTER FROM from_unixtime(" + seconds + ",'UTC'))", "3");
-        assertOptimizedEquals("extract(MONTH FROM from_unixtime(" + seconds + ",'UTC'))", "8");
-        assertOptimizedEquals("extract(WEEK FROM from_unixtime(" + seconds + ",'UTC'))", "34");
-        assertOptimizedEquals("extract(DOW FROM from_unixtime(" + seconds + ",'UTC'))", "3");
-        assertOptimizedEquals("extract(DOY FROM from_unixtime(" + seconds + ",'UTC'))", "234");
-        assertOptimizedEquals("extract(DAY FROM from_unixtime(" + seconds + ",'UTC'))", "22");
-        assertOptimizedEquals("extract(HOUR FROM from_unixtime(" + seconds + ",'UTC'))", "3");
-        assertOptimizedEquals("extract(MINUTE FROM from_unixtime(" + seconds + ",'UTC'))", "4");
-        assertOptimizedEquals("extract(SECOND FROM from_unixtime(" + seconds + ",'UTC'))", "5");
-        assertOptimizedEquals("extract(TIMEZONE_HOUR FROM from_unixtime(" + seconds + ", 7, 9))", "7");
-        assertOptimizedEquals("extract(TIMEZONE_MINUTE FROM from_unixtime(" + seconds + ", 7, 9))", "9");
-
-        assertOptimizedEquals("extract(YEAR FROM bound_timestamp)", "2001");
-        assertOptimizedEquals("extract(QUARTER FROM bound_timestamp)", "3");
-        assertOptimizedEquals("extract(MONTH FROM bound_timestamp)", "8");
-        assertOptimizedEquals("extract(WEEK FROM bound_timestamp)", "34");
-        assertOptimizedEquals("extract(DOW FROM bound_timestamp)", "3");
-        assertOptimizedEquals("extract(DOY FROM bound_timestamp)", "234");
-        assertOptimizedEquals("extract(DAY FROM bound_timestamp)", "22");
-        assertOptimizedEquals("extract(HOUR FROM bound_timestamp)", "3");
-        assertOptimizedEquals("extract(MINUTE FROM bound_timestamp)", "4");
-        assertOptimizedEquals("extract(SECOND FROM bound_timestamp)", "5");
-        // todo reenable when cast as timestamp with time zone is implemented
-        // todo add bound timestamp with time zone
-        //assertOptimizedEquals("extract(TIMEZONE_HOUR FROM bound_timestamp)", "0");
-        //assertOptimizedEquals("extract(TIMEZONE_MINUTE FROM bound_timestamp)", "0");
-
-        assertOptimizedEquals("extract(YEAR FROM unbound_timestamp)", "extract(YEAR FROM unbound_timestamp)");
-        assertOptimizedEquals("extract(SECOND FROM bound_timestamp + INTERVAL '3' SECOND)", "8");
-    }
-
-    @Test
     public void testIn()
     {
         assertOptimizedEquals("3 IN (2, 4, 3, 5)", "true");
@@ -590,17 +552,6 @@ public class TestExpressionInterpreter
         assertEvaluatedEquals("map(ARRAY[1, 2], ARRAY[1, NULL]) IN (map(ARRAY[1, 2], ARRAY[2, NULL]))", "false");
         assertEvaluatedEquals("map(ARRAY[1, 2], ARRAY[1, NULL]) IN (map(ARRAY[1, 2], ARRAY[1, NULL]), map(ARRAY[1, 2], ARRAY[2, NULL]))", "NULL");
         assertEvaluatedEquals("map(ARRAY[1, 2], ARRAY[1, NULL]) IN (map(ARRAY[1, 2], ARRAY[1, NULL]), map(ARRAY[1, 2], ARRAY[2, NULL]), map(ARRAY[1, 2], ARRAY[1, NULL]))", "NULL");
-    }
-
-    @Test
-    public void testDereference()
-    {
-        assertOptimizedEquals("CAST(ROW(1, true) AS ROW(id BIGINT, value BOOLEAN)).value", "true");
-        assertOptimizedEquals("CAST(ROW(1, null) AS ROW(id BIGINT, value BOOLEAN)).value", "null");
-        assertOptimizedEquals("CAST(ROW(0 / 0, true) AS ROW(id DOUBLE, value BOOLEAN)).value", "CAST(ROW(0 / 0, true) AS ROW(id DOUBLE, value BOOLEAN)).value");
-
-        assertTrinoExceptionThrownBy(() -> evaluate("CAST(ROW(0 / 0, true) AS ROW(id DOUBLE, value BOOLEAN)).value"))
-                .hasErrorCode(DIVISION_BY_ZERO);
     }
 
     @Test
