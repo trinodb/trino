@@ -38,12 +38,10 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
-import static io.trino.spi.type.CharType.createCharType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ExpressionUtils.extractPredicates;
 import static io.trino.sql.ExpressionUtils.logicalExpression;
 import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
@@ -76,45 +74,6 @@ public class TestSimplifyExpressions
         assertSimplifies("NOT (X IS DISTINCT FROM Y)", "NOT (X IS DISTINCT FROM Y)", ImmutableMap.of("X", BIGINT, "Y", BIGINT));
         assertSimplifies("NOT (X IS DISTINCT FROM Y)", "NOT (X IS DISTINCT FROM Y)", ImmutableMap.of("X", DOUBLE, "Y", DOUBLE));
         assertSimplifies("NOT (X IS DISTINCT FROM Y)", "NOT (X IS DISTINCT FROM Y)", ImmutableMap.of("X", VARCHAR, "Y", VARCHAR));
-    }
-
-    @Test
-    public void testLikeExpressions()
-    {
-        assertSimplifies("name LIKE '%'", "name IS NOT NULL", ImmutableMap.of("name", createCharType(2)));
-        assertSimplifies("name LIKE '%%'", "name IS NOT NULL", ImmutableMap.of("name", createCharType(2)));
-        assertSimplifies("name LIKE '%%%%'", "name IS NOT NULL", ImmutableMap.of("name", createCharType(10)));
-        assertSimplifies("name LIKE '%%%%' ESCAPE '\\'", "name IS NOT NULL", ImmutableMap.of("name", createCharType(10)));
-        assertSimplifies("name LIKE '中文%abc字母😂'", "name LIKE '中文%abc字母😂'", ImmutableMap.of("name", createCharType(10)));
-        assertSimplifies("name LIKE '中文%abc字母😂' ESCAPE '\\'", "name LIKE '中文%abc字母😂' ESCAPE '\\'", ImmutableMap.of("name", createCharType(10)));
-
-        assertSimplifies("name LIKE '%'", "name IS NOT NULL", ImmutableMap.of("name", createVarcharType(2)));
-        assertSimplifies("name LIKE '%%'", "name IS NOT NULL", ImmutableMap.of("name", createVarcharType(2)));
-        assertSimplifies("name LIKE '%%%%'", "name IS NOT NULL", ImmutableMap.of("name", createVarcharType(10)));
-        assertSimplifies("name LIKE '%%%%' ESCAPE '\\'", "name IS NOT NULL", ImmutableMap.of("name", createVarcharType(10)));
-        assertSimplifies("name LIKE '中文%abc字母😂'", "name LIKE '中文%abc字母😂'", ImmutableMap.of("name", createVarcharType(10)));
-        assertSimplifies("name LIKE '中文%abc字母😂' ESCAPE '\\'", "name LIKE '中文%abc字母😂' ESCAPE '\\'", ImmutableMap.of("name", createVarcharType(10)));
-
-        assertSimplifies("name LIKE '%'", "name IS NOT NULL", ImmutableMap.of("name", VARCHAR));
-        assertSimplifies("name LIKE '%%'", "name IS NOT NULL", ImmutableMap.of("name", VARCHAR));
-        assertSimplifies("name LIKE '%%%%'", "name IS NOT NULL", ImmutableMap.of("name", VARCHAR));
-        assertSimplifies("name LIKE '%%%%' ESCAPE '\\'", "name IS NOT NULL", ImmutableMap.of("name", VARCHAR));
-        assertSimplifies("name LIKE '中文%abc字母😂'", "name LIKE '中文%abc字母😂'", ImmutableMap.of("name", VARCHAR));
-        assertSimplifies("name LIKE '中文%abc字母😂' ESCAPE '\\'", "name LIKE '中文%abc字母😂' ESCAPE '\\'", ImmutableMap.of("name", VARCHAR));
-
-        // test with the like constant
-        assertSimplifies("name LIKE 'This is a constant'", "name = VARCHAR 'This is a constant'", ImmutableMap.of("name", VARCHAR));
-        assertSimplifies("name LIKE '!@#$#!'", "name = VARCHAR '!@#$#!'", ImmutableMap.of("name", VARCHAR));
-        assertSimplifies("name LIKE '中文abc字母😂'", "name = VARCHAR '中文abc字母😂'", ImmutableMap.of("name", VARCHAR));
-
-        // test with the escape char
-        assertSimplifies("name LIKE '\\%' ESCAPE '\\'", "name = VARCHAR '%'", ImmutableMap.of("name", VARCHAR));
-        assertSimplifies("name LIKE 'abc\\%' ESCAPE '\\'", "name = VARCHAR 'abc%'", ImmutableMap.of("name", VARCHAR));
-        assertSimplifies("name LIKE '\\%%%%' ESCAPE '\\'", "name LIKE '\\%%%%' ESCAPE '\\'", ImmutableMap.of("name", VARCHAR));
-        assertSimplifies("name LIKE '%\\%\\%%%%' ESCAPE '\\'", "name LIKE '%\\%\\%%%%' ESCAPE '\\'", ImmutableMap.of("name", VARCHAR));
-        assertSimplifies("name LIKE '%%' ESCAPE '%'", "name = VARCHAR '%'", ImmutableMap.of("name", VARCHAR));
-        assertSimplifies("name LIKE '%%%%' ESCAPE '%'", "name = VARCHAR '%%'", ImmutableMap.of("name", VARCHAR));
-        assertSimplifies("name LIKE '中文%%abc字母😂' ESCAPE '%'", "name = VARCHAR '中文%abc字母😂'", ImmutableMap.of("name", VARCHAR));
     }
 
     @Test
@@ -375,29 +334,6 @@ public class TestSimplifyExpressions
         assertSimplifiesNumericTypes("NOT (1 > D2)", "NOT (1 > D2)");
         assertSimplifiesNumericTypes("NOT (R1 > 1)", "NOT (R1 > 1)");
         assertSimplifiesNumericTypes("NOT (1 > R2)", "NOT (1 > R2)");
-    }
-
-    @Test
-    public void testRewriteOrExpression()
-    {
-        assertSimplifiesNumericTypes("I1 = 1 OR I1 = 2 ", "I1 IN (1, 2)");
-        assertSimplifiesNumericTypes("I1 = 1 OR I1 = 2 OR I1 IN (3, 4)", "I1 IN (1, 2, 3, 4)");
-        assertSimplifiesNumericTypes("I1 = 1 OR I1 = 2 OR I1 = I2", "I1 IN (1, 2, I2)");
-        assertSimplifiesNumericTypes("I1 = 1 OR I1 = 2 OR I2 = 3 OR I2 = 4", "I1 IN (1, 2) OR I2 IN (3, 4)");
-        assertSimplifiesNumericTypes("I1 = 1 OR I1 IN (1, 2)", "I1 IN (1, 2)");
-        assertSimplifiesNumericTypes("I1 = 1 OR I2 IN (1, 2) OR I2 IN (2, 3)", "I1 = 1 OR I2 IN (1, 2, 3)");
-        assertSimplifiesNumericTypes("I1 IN (1)", "I1 = 1");
-        assertSimplifiesNumericTypes("I1 = 1 OR I1 IN (1)", "I1 = 1");
-        assertSimplifiesNumericTypes("I1 = 1 OR I1 IN (2)", "I1 IN (1, 2)");
-        assertSimplifiesNumericTypes("I1 IN (1, 2) OR I1 = 1", "I1 IN (1, 2)");
-        assertSimplifiesNumericTypes("I1 IN (1, 2) OR I2 = 1 OR I1 = 3 OR I2 = 4", "I1 IN (1, 2, 3) OR I2 IN (1, 4)");
-        assertSimplifiesNumericTypes("I1 IN (1, 2) OR I1 = 3 OR I1 IN (4, 5, 6) OR I2 = 3 OR I2 IN (3, 4)", "I1 IN (1, 2, 3, 4, 5, 6) OR I2 IN (3, 4)");
-
-        assertSimplifiesNumericTypes("I1 = 1 OR I1 = 2 OR I1 IN (3, 4) OR I1 IN (SELECT 1)", "I1 IN (1, 2, 3, 4) OR I1 IN (SELECT 1)");
-        assertSimplifiesNumericTypes("I1 = 1 OR I2 = 2 OR I1 = 3 OR I2 = 4", "I1 IN (1, 3) OR I2 IN (2, 4)");
-        assertSimplifiesNumericTypes("I1 = 1 OR I2 = 2 OR I1 = 3 OR I2 IS NULL", "I1 IN(1, 3) OR I2 = 2 OR I2 IS NULL");
-        assertSimplifiesNumericTypes("I1 = 1 OR I2 IN (2, 3) OR I1 = 4 OR I2 IN (5, 6)", "I1 IN (1, 4) OR I2 IN (2, 3, 5, 6)");
-        assertSimplifiesNumericTypes("I1 = 1 OR I2 = 2 OR I1 = 3 OR I2 = I1", "I1 IN (1, 3) OR I2 IN (2, I1)");
     }
 
     private static void assertSimplifiesNumericTypes(String expression, String expected)
