@@ -143,7 +143,7 @@ public class IgniteMetadata
     }
 
     @Override
-    public IgniteMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
+    public JdbcMergeTableHandle beginMerge(ConnectorSession session, ConnectorTableHandle tableHandle, RetryMode retryMode)
     {
         JdbcMergeTableHandle mergeTableHandle = (JdbcMergeTableHandle) super.beginMerge(session, tableHandle, retryMode);
         return new IgniteMergeTableHandle(mergeTableHandle.getTableHandle(), (IgniteOutputTableHandle) mergeTableHandle.getOutputTableHandle(), mergeTableHandle.mergeRowIdColumnHandle());

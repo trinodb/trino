@@ -37,6 +37,12 @@ public abstract class BasePostgresFailureRecoveryTest
     }
 
     @Override
+    protected boolean supportMerge()
+    {
+        return true;
+    }
+
+    @Override
     protected QueryRunner createQueryRunner(
             List<TpchTable<?>> requiredTpchTables,
             Map<String, String> configProperties,

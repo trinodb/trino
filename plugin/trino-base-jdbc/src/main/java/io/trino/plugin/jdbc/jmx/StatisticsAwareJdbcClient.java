@@ -536,4 +536,16 @@ public final class StatisticsAwareJdbcClient
     {
         return delegate().getMaxColumnNameLength(session);
     }
+
+    @Override
+    public JdbcOutputTableHandle beginDeleteTableForMerge(ConnectorSession session, JdbcTableHandle tableHandle)
+    {
+        return stats.getBeginDeleteTableForMerge().wrap(() -> delegate().beginDeleteTableForMerge(session, tableHandle));
+    }
+
+    @Override
+    public void finishDeleteTableForMerge(ConnectorSession session, JdbcOutputTableHandle handle, Set<Long> pageSinkIds)
+    {
+        stats.getFinishDeleteTableForMerge().wrap(() -> delegate().finishDeleteTableForMerge(session, handle, pageSinkIds));
+    }
 }
