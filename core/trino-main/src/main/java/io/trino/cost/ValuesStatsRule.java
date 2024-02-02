@@ -16,6 +16,7 @@ package io.trino.cost;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.cost.ComposableStatsCalculator.Rule;
+import io.trino.cost.StatsCalculator.Context;
 import io.trino.matching.Pattern;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.block.SqlRow;
@@ -24,7 +25,6 @@ import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
-import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.plan.ValuesNode;
 
 import java.util.List;
@@ -63,10 +63,11 @@ public class ValuesStatsRule
     }
 
     @Override
-    public Optional<PlanNodeStatsEstimate> calculate(ValuesNode node, StatsProvider sourceStats, Lookup lookup, Session session, TypeProvider types, TableStatsProvider tableStatsProvider)
+    public Optional<PlanNodeStatsEstimate> calculate(ValuesNode node, Context context)
     {
         PlanNodeStatsEstimate.Builder statsBuilder = PlanNodeStatsEstimate.builder();
         statsBuilder.setOutputRowCount(node.getRowCount());
+        TypeProvider types = context.types();
 
         try {
             for (int symbolId = 0; symbolId < node.getOutputSymbols().size(); ++symbolId) {
@@ -74,7 +75,7 @@ public class ValuesStatsRule
                 List<Object> symbolValues = getSymbolValues(
                         node,
                         symbolId,
-                        session,
+                        context.session(),
                         RowType.anonymous(node.getOutputSymbols().stream()
                                 .map(types::get)
                                 .collect(toImmutableList())));

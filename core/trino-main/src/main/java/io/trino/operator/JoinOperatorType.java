@@ -14,7 +14,7 @@
 package io.trino.operator;
 
 import io.trino.operator.join.LookupJoinOperatorFactory;
-import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinType;
 
 import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.FULL_OUTER;
 import static io.trino.operator.join.LookupJoinOperatorFactory.JoinType.INNER;
@@ -28,7 +28,7 @@ public class JoinOperatorType
     private final boolean outputSingleMatch;
     private final boolean waitForBuild;
 
-    public static JoinOperatorType ofJoinNodeType(JoinNode.Type joinNodeType, boolean outputSingleMatch, boolean waitForBuild)
+    public static JoinOperatorType ofJoinNodeType(JoinType joinNodeType, boolean outputSingleMatch, boolean waitForBuild)
     {
         return switch (joinNodeType) {
             case INNER -> innerJoin(outputSingleMatch, waitForBuild);

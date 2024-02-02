@@ -28,6 +28,7 @@ import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableFunctionNode;
@@ -62,19 +63,19 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
-import static io.trino.sql.planner.plan.JoinNode.Type.FULL;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
-import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
-import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
+import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
+import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
+import static io.trino.sql.planner.plan.JoinType.FULL;
+import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
+import static io.trino.sql.planner.plan.JoinType.RIGHT;
 import static io.trino.sql.planner.plan.Patterns.tableFunction;
+import static io.trino.sql.planner.plan.WindowFrameType.ROWS;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.tree.ComparisonExpression.Operator.IS_DISTINCT_FROM;
-import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
-import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 import static io.trino.sql.tree.LogicalExpression.Operator.AND;
 import static io.trino.sql.tree.LogicalExpression.Operator.OR;
-import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
@@ -444,7 +445,7 @@ public class ImplementTableFunctionSource
         //   1      'a'    null   null
         //   2      'b'    2      'c'
         //   null   null   3      'd'
-        JoinNode.Type joinType;
+        JoinType joinType;
         if (left.pruneWhenEmpty() && right.pruneWhenEmpty()) {
             joinType = INNER;
         }
@@ -579,7 +580,7 @@ public class ImplementTableFunctionSource
                         new ComparisonExpression(GREATER_THAN, rightRowNumber, leftPartitionSize),
                         new ComparisonExpression(EQUAL, leftRowNumber, new GenericLiteral("BIGINT", "1"))))));
 
-        JoinNode.Type joinType;
+        JoinType joinType;
         if (left.pruneWhenEmpty() && right.pruneWhenEmpty()) {
             joinType = INNER;
         }

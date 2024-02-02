@@ -62,7 +62,7 @@ public class TestRaptorMySqlConnectorTest
     private static QueryRunner createRaptorMySqlQueryRunner(String mysqlUrl)
             throws Exception
     {
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession("tpch")).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(createSession("tpch")).build();
 
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");

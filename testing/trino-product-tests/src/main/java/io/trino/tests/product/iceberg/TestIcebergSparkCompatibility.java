@@ -1496,12 +1496,12 @@ public class TestIcebergSparkCompatibility
         if (storageFormat == StorageFormat.PARQUET && "LZ4".equals(compressionCodec)) {
             // TODO (https://github.com/trinodb/trino/issues/9142) LZ4 is not supported with native Parquet writer
             assertQueryFailure(() -> onTrino().executeQuery(createTable))
-                    .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Unsupported codec: LZ4");
+                    .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Compression codec LZ4 not supported for Parquet");
             return;
         }
         if (storageFormat == StorageFormat.AVRO && compressionCodec.equals("LZ4")) {
             assertQueryFailure(() -> onTrino().executeQuery(createTable))
-                    .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Unsupported compression codec: " + compressionCodec);
+                    .hasMessageMatching("\\QQuery failed (#\\E\\S+\\Q): Compression codec LZ4 not supported for Avro");
             return;
         }
         onTrino().executeQuery(createTable);

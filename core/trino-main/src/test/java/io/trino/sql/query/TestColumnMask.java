@@ -51,7 +51,6 @@ import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_NAME;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -533,8 +532,8 @@ public class TestColumnMask
                         .expression("(SELECT orderkey FROM orders)")
                         .build());
 
-        assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
-                .hasMessageMatching(".*\\QColumn mask for 'local.tiny.orders.orderkey' is recursive\\E.*");
+        assertThat(assertions.query("SELECT orderkey FROM orders"))
+                .failure().hasMessageMatching(".*\\QColumn mask for 'local.tiny.orders.orderkey' is recursive\\E.*");
 
         // different reference style to same table
         accessControl.reset();
@@ -549,8 +548,8 @@ public class TestColumnMask
                         .expression("(SELECT orderkey FROM local.tiny.orders)")
                         .build());
 
-        assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
-                .hasMessageMatching(".*\\QColumn mask for 'local.tiny.orders.orderkey' is recursive\\E.*");
+        assertThat(assertions.query("SELECT orderkey FROM orders"))
+                .failure().hasMessageMatching(".*\\QColumn mask for 'local.tiny.orders.orderkey' is recursive\\E.*");
 
         // mutual recursion
         accessControl.reset();
@@ -576,8 +575,8 @@ public class TestColumnMask
                         .expression("(SELECT orderkey FROM orders)")
                         .build());
 
-        assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
-                .hasMessageMatching(".*\\QColumn mask for 'local.tiny.orders.orderkey' is recursive\\E.*");
+        assertThat(assertions.query("SELECT orderkey FROM orders"))
+                .failure().hasMessageMatching(".*\\QColumn mask for 'local.tiny.orders.orderkey' is recursive\\E.*");
     }
 
     @Test
@@ -594,9 +593,9 @@ public class TestColumnMask
                         .schema("tiny")
                         .expression("orderkey")
                         .build());
-        assertThatThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT (SELECT min(custkey) FROM customer WHERE customer.custkey = orders.custkey) FROM orders"))
-                .hasMessage("line 1:34: Invalid column mask for 'local.tiny.customer.custkey': Column 'orderkey' cannot be resolved");
+                .failure().hasMessage("line 1:34: Invalid column mask for 'local.tiny.customer.custkey': Column 'orderkey' cannot be resolved");
     }
 
     @Test
@@ -635,8 +634,8 @@ public class TestColumnMask
                         .expression("$$$")
                         .build());
 
-        assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
-                .hasMessage("line 1:22: Invalid column mask for 'local.tiny.orders.orderkey': mismatched input '$'. Expecting: <expression>");
+        assertThat(assertions.query("SELECT orderkey FROM orders"))
+                .failure().hasMessage("line 1:22: Invalid column mask for 'local.tiny.orders.orderkey': mismatched input '$'. Expecting: <expression>");
 
         // unknown column
         accessControl.reset();
@@ -651,8 +650,8 @@ public class TestColumnMask
                         .expression("unknown_column")
                         .build());
 
-        assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
-                .hasMessage("line 1:22: Invalid column mask for 'local.tiny.orders.orderkey': Column 'unknown_column' cannot be resolved");
+        assertThat(assertions.query("SELECT orderkey FROM orders"))
+                .failure().hasMessage("line 1:22: Invalid column mask for 'local.tiny.orders.orderkey': Column 'unknown_column' cannot be resolved");
 
         // invalid type
         accessControl.reset();
@@ -667,8 +666,8 @@ public class TestColumnMask
                         .expression("'foo'")
                         .build());
 
-        assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
-                .hasMessage("line 1:22: Expected column mask for 'local.tiny.orders.orderkey' to be of type bigint, but was varchar(3)");
+        assertThat(assertions.query("SELECT orderkey FROM orders"))
+                .failure().hasMessage("line 1:22: Expected column mask for 'local.tiny.orders.orderkey' to be of type bigint, but was varchar(3)");
 
         // aggregation
         accessControl.reset();
@@ -683,8 +682,8 @@ public class TestColumnMask
                         .expression("count(*) > 0")
                         .build());
 
-        assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
-                .hasMessage("line 1:10: Column mask for 'orders.orderkey' cannot contain aggregations, window functions or grouping operations: [count(*)]");
+        assertThat(assertions.query("SELECT orderkey FROM orders"))
+                .failure().hasMessage("line 1:10: Column mask for 'orders.orderkey' cannot contain aggregations, window functions or grouping operations: [count(*)]");
 
         // window function
         accessControl.reset();
@@ -699,8 +698,8 @@ public class TestColumnMask
                         .expression("row_number() OVER () > 0")
                         .build());
 
-        assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
-                .hasMessage("line 1:22: Column mask for 'orders.orderkey' cannot contain aggregations, window functions or grouping operations: [row_number() OVER ()]");
+        assertThat(assertions.query("SELECT orderkey FROM orders"))
+                .failure().hasMessage("line 1:22: Column mask for 'orders.orderkey' cannot contain aggregations, window functions or grouping operations: [row_number() OVER ()]");
 
         // grouping function
         accessControl.reset();
@@ -715,8 +714,8 @@ public class TestColumnMask
                         .expression("grouping(orderkey) = 0")
                         .build());
 
-        assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
-                .hasMessage("line 1:20: Column mask for 'orders.orderkey' cannot contain aggregations, window functions or grouping operations: [GROUPING (orderkey)]");
+        assertThat(assertions.query("SELECT orderkey FROM orders"))
+                .failure().hasMessage("line 1:20: Column mask for 'orders.orderkey' cannot contain aggregations, window functions or grouping operations: [GROUPING (orderkey)]");
     }
 
     @Test
@@ -785,8 +784,8 @@ public class TestColumnMask
                         .identity(USER)
                         .expression("custkey")
                         .build());
-        assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
-                .hasMessage("Access Denied: Cannot select from columns [orderkey, custkey] in table or view local.tiny.orders");
+        assertThat(assertions.query("SELECT orderkey FROM orders"))
+                .failure().hasMessage("Access Denied: Cannot select from columns [orderkey, custkey] in table or view local.tiny.orders");
     }
 
     @Test
@@ -801,8 +800,8 @@ public class TestColumnMask
                         .identity(USER)
                         .expression("clerk")
                         .build());
-        assertThatThrownBy(() -> assertions.query("INSERT INTO orders SELECT * FROM orders"))
-                .hasMessage("Insert into table with column masks is not supported");
+        assertThat(assertions.query("INSERT INTO orders SELECT * FROM orders"))
+                .failure().hasMessage("Insert into table with column masks is not supported");
     }
 
     @Test
@@ -817,8 +816,8 @@ public class TestColumnMask
                         .identity(USER)
                         .expression("clerk")
                         .build());
-        assertThatThrownBy(() -> assertions.query("DELETE FROM orders"))
-                .hasMessage("line 1:1: Delete from table with column mask");
+        assertThat(assertions.query("DELETE FROM orders"))
+                .failure().hasMessage("line 1:1: Delete from table with column mask");
     }
 
     @Test
@@ -833,12 +832,12 @@ public class TestColumnMask
                         .identity(USER)
                         .expression("clerk")
                         .build());
-        assertThatThrownBy(() -> assertions.query("UPDATE orders SET clerk = 'X'"))
-                .hasMessage("line 1:1: Updating a table with column masks is not supported");
-        assertThatThrownBy(() -> assertions.query("UPDATE orders SET orderkey = -orderkey"))
-                .hasMessage("line 1:1: Updating a table with column masks is not supported");
-        assertThatThrownBy(() -> assertions.query("UPDATE orders SET clerk = 'X', orderkey = -orderkey"))
-                .hasMessage("line 1:1: Updating a table with column masks is not supported");
+        assertThat(assertions.query("UPDATE orders SET clerk = 'X'"))
+                .failure().hasMessage("line 1:1: Updating a table with column masks is not supported");
+        assertThat(assertions.query("UPDATE orders SET orderkey = -orderkey"))
+                .failure().hasMessage("line 1:1: Updating a table with column masks is not supported");
+        assertThat(assertions.query("UPDATE orders SET clerk = 'X', orderkey = -orderkey"))
+                .failure().hasMessage("line 1:1: Updating a table with column masks is not supported");
     }
 
     @Test
@@ -906,12 +905,12 @@ public class TestColumnMask
                 .assertThat()
                 .skippingTypesCheck()
                 .matches("VALUES 'POLAND'");
-        assertThatThrownBy(() -> assertions.query("INSERT INTO mock.tiny.nation_with_hidden_column SELECT * FROM mock.tiny.nation_with_hidden_column"))
-                .hasMessage("Insert into table with column masks is not supported");
-        assertThatThrownBy(() -> assertions.query("DELETE FROM mock.tiny.nation_with_hidden_column"))
-                .hasMessage("line 1:1: Delete from table with column mask");
-        assertThatThrownBy(() -> assertions.query("UPDATE mock.tiny.nation_with_hidden_column SET name = 'X'"))
-                .hasMessage("line 1:1: Updating a table with column masks is not supported");
+        assertThat(assertions.query("INSERT INTO mock.tiny.nation_with_hidden_column SELECT * FROM mock.tiny.nation_with_hidden_column"))
+                .failure().hasMessage("Insert into table with column masks is not supported");
+        assertThat(assertions.query("DELETE FROM mock.tiny.nation_with_hidden_column"))
+                .failure().hasMessage("line 1:1: Delete from table with column mask");
+        assertThat(assertions.query("UPDATE mock.tiny.nation_with_hidden_column SET name = 'X'"))
+                .failure().hasMessage("line 1:1: Updating a table with column masks is not supported");
     }
 
     @Test

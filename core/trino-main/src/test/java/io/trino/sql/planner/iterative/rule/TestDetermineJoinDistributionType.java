@@ -30,7 +30,7 @@ import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.JoinNode;
 import io.trino.sql.planner.plan.JoinNode.DistributionType;
-import io.trino.sql.planner.plan.JoinNode.Type;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.PlanNodeId;
 import io.trino.sql.planner.plan.TableScanNode;
@@ -60,10 +60,10 @@ import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expressions;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
-import static io.trino.sql.planner.plan.JoinNode.Type.FULL;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
-import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
-import static io.trino.sql.planner.plan.JoinNode.Type.RIGHT;
+import static io.trino.sql.planner.plan.JoinType.FULL;
+import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
+import static io.trino.sql.planner.plan.JoinType.RIGHT;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -109,7 +109,7 @@ public class TestDetermineJoinDistributionType
         testDetermineDistributionType(JoinDistributionType.AUTOMATIC, LEFT, DistributionType.PARTITIONED);
     }
 
-    private void testDetermineDistributionType(JoinDistributionType sessionDistributedJoin, Type joinType, DistributionType expectedDistribution)
+    private void testDetermineDistributionType(JoinDistributionType sessionDistributedJoin, JoinType joinType, DistributionType expectedDistribution)
     {
         assertDetermineJoinDistributionType()
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, sessionDistributedJoin.name())
@@ -141,7 +141,7 @@ public class TestDetermineJoinDistributionType
         testRepartitionRightOuter(JoinDistributionType.AUTOMATIC, RIGHT);
     }
 
-    private void testRepartitionRightOuter(JoinDistributionType sessionDistributedJoin, Type joinType)
+    private void testRepartitionRightOuter(JoinDistributionType sessionDistributedJoin, JoinType joinType)
     {
         assertDetermineJoinDistributionType()
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, sessionDistributedJoin.name())
@@ -192,7 +192,7 @@ public class TestDetermineJoinDistributionType
         testReplicateNoEquiCriteria(LEFT);
     }
 
-    private void testReplicateNoEquiCriteria(Type joinType)
+    private void testReplicateNoEquiCriteria(JoinType joinType)
     {
         assertDetermineJoinDistributionType()
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name())

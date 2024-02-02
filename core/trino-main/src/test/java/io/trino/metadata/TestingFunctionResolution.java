@@ -64,9 +64,9 @@ public class TestingFunctionResolution
         metadata = plannerContext.getMetadata();
     }
 
-    public TestingFunctionResolution(QueryRunner localQueryRunner)
+    public TestingFunctionResolution(QueryRunner queryRunner)
     {
-        this(localQueryRunner.getTransactionManager(), localQueryRunner.getPlannerContext());
+        this(queryRunner.getTransactionManager(), queryRunner.getPlannerContext());
     }
 
     public TestingFunctionResolution(TransactionManager transactionManager, PlannerContext plannerContext)

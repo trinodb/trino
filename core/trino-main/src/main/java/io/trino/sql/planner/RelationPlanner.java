@@ -50,17 +50,19 @@ import io.trino.sql.analyzer.Scope;
 import io.trino.sql.planner.QueryPlanner.PlanAndMappings;
 import io.trino.sql.planner.TranslationMap.ParametersRow;
 import io.trino.sql.planner.plan.Assignments;
-import io.trino.sql.planner.plan.CorrelatedJoinNode;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.ExceptNode;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.planner.plan.IntersectNode;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PatternRecognitionNode;
 import io.trino.sql.planner.plan.PatternRecognitionNode.Measure;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
+import io.trino.sql.planner.plan.RowsPerMatch;
 import io.trino.sql.planner.plan.SampleNode;
+import io.trino.sql.planner.plan.SkipToPosition;
 import io.trino.sql.planner.plan.TableFunctionNode;
 import io.trino.sql.planner.plan.TableFunctionNode.PassThroughColumn;
 import io.trino.sql.planner.plan.TableFunctionNode.PassThroughSpecification;
@@ -227,6 +229,24 @@ class RelationPlanner
         this.session = session;
         this.subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, plannerContext, typeCoercion, outerContext, session, recursiveSubqueries);
         this.recursiveSubqueries = recursiveSubqueries;
+    }
+
+    public static JoinType mapJoinType(Join.Type joinType)
+    {
+        return switch (joinType) {
+            case CROSS, IMPLICIT, INNER -> JoinType.INNER;
+            case LEFT -> JoinType.LEFT;
+            case RIGHT -> JoinType.RIGHT;
+            case FULL -> JoinType.FULL;
+        };
+    }
+
+    public static SampleNode.Type mapSampleType(SampledRelation.Type sampleType)
+    {
+        return switch (sampleType) {
+            case BERNOULLI -> SampleNode.Type.BERNOULLI;
+            case SYSTEM -> SampleNode.Type.SYSTEM;
+        };
     }
 
     @Override
@@ -566,7 +586,8 @@ class RelationPlanner
         planBuilder = planBuilder.appendProjections(inputs, symbolAllocator, idAllocator);
 
         ImmutableList.Builder<Symbol> outputLayout = ImmutableList.builder();
-        boolean oneRowOutput = node.getRowsPerMatch().isEmpty() || node.getRowsPerMatch().get().isOneRow();
+        RowsPerMatch rowsPerMatch = mapRowsPerMatch(node.getRowsPerMatch().orElse(ONE));
+        boolean oneRowOutput = rowsPerMatch.isOneRow();
 
         DataOrganizationSpecification specification = planWindowSpecification(node.getPartitionBy(), node.getOrderBy(), planBuilder::translate);
         outputLayout.addAll(specification.getPartitionBy());
@@ -607,7 +628,7 @@ class RelationPlanner
                 ImmutableMap.of(),
                 components.getMeasures(),
                 Optional.empty(),
-                node.getRowsPerMatch().orElse(ONE),
+                rowsPerMatch,
                 components.getSkipToLabel(),
                 components.getSkipToPosition(),
                 components.isInitial(),
@@ -616,6 +637,17 @@ class RelationPlanner
                 components.getVariableDefinitions());
 
         return new RelationPlan(planNode, analysis.getScope(node), outputLayout.build(), outerContext);
+    }
+
+    private RowsPerMatch mapRowsPerMatch(PatternRecognitionRelation.RowsPerMatch rowsPerMatch)
+    {
+        return switch (rowsPerMatch) {
+            case ONE -> RowsPerMatch.ONE;
+            case ALL_SHOW_EMPTY -> RowsPerMatch.ALL_SHOW_EMPTY;
+            case ALL_OMIT_EMPTY -> RowsPerMatch.ALL_OMIT_EMPTY;
+            case ALL_WITH_UNMATCHED -> RowsPerMatch.ALL_WITH_UNMATCHED;
+            case WINDOW -> RowsPerMatch.WINDOW;
+        };
     }
 
     public PatternRecognitionComponents planPatternRecognitionComponents(
@@ -680,10 +712,20 @@ class RelationPlanner
                 rewrittenMeasures.buildOrThrow(),
                 measureOutputs.build(),
                 skipTo.flatMap(SkipTo::getIdentifier).map(RelationPlanner::irLabel),
-                skipTo.map(SkipTo::getPosition).orElse(PAST_LAST),
+                mapSkipToPosition(skipTo.map(SkipTo::getPosition).orElse(PAST_LAST)),
                 searchMode.map(mode -> mode.getMode() == INITIAL).orElse(TRUE),
                 rewrittenPattern,
                 rewrittenVariableDefinitions.buildOrThrow());
+    }
+
+    private SkipToPosition mapSkipToPosition(SkipTo.Position position)
+    {
+        return switch (position) {
+            case NEXT -> SkipToPosition.NEXT;
+            case PAST_LAST -> SkipToPosition.PAST_LAST;
+            case FIRST -> SkipToPosition.FIRST;
+            case LAST -> SkipToPosition.LAST;
+        };
     }
 
     private static IrLabel irLabel(Identifier identifier)
@@ -705,7 +747,7 @@ class RelationPlanner
         PlanNode planNode = new SampleNode(idAllocator.getNextId(),
                 subPlan.getRoot(),
                 ratio,
-                SampleNode.Type.fromType(node.getType()));
+                mapSampleType(node.getType()));
         return new RelationPlan(planNode, analysis.getScope(node), subPlan.getFieldMappings(), outerContext);
     }
 
@@ -823,9 +865,9 @@ class RelationPlanner
             leftPlanBuilder = leftPlanBuilder.appendProjections(leftComparisonExpressions, symbolAllocator, idAllocator);
             rightPlanBuilder = rightPlanBuilder.appendProjections(rightComparisonExpressions, symbolAllocator, idAllocator);
 
-            QueryPlanner.PlanAndMappings leftCoercions = coerce(leftPlanBuilder, leftComparisonExpressions, analysis, idAllocator, symbolAllocator, typeCoercion);
+            PlanAndMappings leftCoercions = coerce(leftPlanBuilder, leftComparisonExpressions, analysis, idAllocator, symbolAllocator, typeCoercion);
             leftPlanBuilder = leftCoercions.getSubPlan();
-            QueryPlanner.PlanAndMappings rightCoercions = coerce(rightPlanBuilder, rightComparisonExpressions, analysis, idAllocator, symbolAllocator, typeCoercion);
+            PlanAndMappings rightCoercions = coerce(rightPlanBuilder, rightComparisonExpressions, analysis, idAllocator, symbolAllocator, typeCoercion);
             rightPlanBuilder = rightCoercions.getSubPlan();
 
             for (int i = 0; i < leftComparisonExpressions.size(); i++) {
@@ -845,7 +887,7 @@ class RelationPlanner
         }
 
         PlanNode root = new JoinNode(idAllocator.getNextId(),
-                JoinNode.Type.typeConvert(type),
+                mapJoinType(type),
                 leftPlanBuilder.getRoot(),
                 rightPlanBuilder.getRoot(),
                 equiClauses.build(),
@@ -887,7 +929,7 @@ class RelationPlanner
             Expression joinedFilterCondition = ExpressionUtils.and(complexJoinExpressions);
             Expression rewrittenFilterCondition = translationMap.rewrite(joinedFilterCondition);
             root = new JoinNode(idAllocator.getNextId(),
-                    JoinNode.Type.typeConvert(type),
+                    mapJoinType(type),
                     leftPlanBuilder.getRoot(),
                     rightPlanBuilder.getRoot(),
                     equiClauses.build(),
@@ -996,7 +1038,7 @@ class RelationPlanner
 
         JoinNode join = new JoinNode(
                 idAllocator.getNextId(),
-                JoinNode.Type.typeConvert(node.getType()),
+                mapJoinType(node.getType()),
                 leftCoercion,
                 rightCoercion,
                 clauses.build(),
@@ -1111,7 +1153,7 @@ class RelationPlanner
                 leftPlanBuilder,
                 rightPlanBuilder.getRoot(),
                 lateral.getQuery(),
-                CorrelatedJoinNode.Type.typeConvert(join.getType()),
+                mapJoinType(join.getType()),
                 rewrittenFilterCondition,
                 ImmutableMap.of());
 
@@ -1178,7 +1220,7 @@ class RelationPlanner
                 replicatedColumns,
                 mappings.build(),
                 unnestAnalysis.getOrdinalityField().map(allocations::get),
-                JoinNode.Type.typeConvert(type),
+                mapJoinType(type),
                 filter);
 
         // TODO: Technically, we should derive the field mappings from the layout of fields and how they relate to the output symbols of the Unnest node.
@@ -1775,7 +1817,7 @@ class RelationPlanner
         private final Map<Symbol, Measure> measures;
         private final List<Symbol> measureOutputs;
         private final Optional<IrLabel> skipToLabel;
-        private final SkipTo.Position skipToPosition;
+        private final SkipToPosition skipToPosition;
         private final boolean initial;
         private final IrRowPattern pattern;
         private final Map<IrLabel, ExpressionAndValuePointers> variableDefinitions;
@@ -1785,7 +1827,7 @@ class RelationPlanner
                 Map<Symbol, Measure> measures,
                 List<Symbol> measureOutputs,
                 Optional<IrLabel> skipToLabel,
-                SkipTo.Position skipToPosition,
+                SkipToPosition skipToPosition,
                 boolean initial,
                 IrRowPattern pattern,
                 Map<IrLabel, ExpressionAndValuePointers> variableDefinitions)
@@ -1820,7 +1862,7 @@ class RelationPlanner
             return skipToLabel;
         }
 
-        public SkipTo.Position getSkipToPosition()
+        public SkipToPosition getSkipToPosition()
         {
             return skipToPosition;
         }

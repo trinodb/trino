@@ -410,6 +410,7 @@ import static io.trino.sql.tree.Join.Type.FULL;
 import static io.trino.sql.tree.Join.Type.INNER;
 import static io.trino.sql.tree.Join.Type.LEFT;
 import static io.trino.sql.tree.Join.Type.RIGHT;
+import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.ONE;
 import static io.trino.sql.tree.SaveMode.IGNORE;
 import static io.trino.sql.tree.SaveMode.REPLACE;
 import static io.trino.sql.util.AstUtils.preOrder;
@@ -2756,7 +2757,10 @@ class StatementAnalyzer
             // ONE ROW PER MATCH: PARTITION BY columns, then MEASURES columns in order of declaration
             // ALL ROWS PER MATCH: PARTITION BY columns, ORDER BY columns, MEASURES columns, then any remaining input table columns in order of declaration
             // Note: row pattern input table name should not be exposed on output
-            boolean oneRowPerMatch = relation.getRowsPerMatch().isEmpty() || relation.getRowsPerMatch().get().isOneRow();
+            PatternRecognitionRelation.RowsPerMatch rowsPerMatch = relation.getRowsPerMatch().orElse(ONE);
+            boolean oneRowPerMatch = rowsPerMatch == PatternRecognitionRelation.RowsPerMatch.ONE ||
+                    rowsPerMatch == PatternRecognitionRelation.RowsPerMatch.WINDOW;
+
             ImmutableSet.Builder<Field> inputFieldsOnOutputBuilder = ImmutableSet.builder();
             ImmutableList.Builder<Field> outputFieldsBuilder = ImmutableList.builder();
 
@@ -3005,12 +3009,11 @@ class StatementAnalyzer
                 throw semanticException(TYPE_MISMATCH, samplePercentage, "Sample percentage should be a numeric expression");
             }
 
-            ExpressionInterpreter samplePercentageEval = new ExpressionInterpreter(samplePercentage, plannerContext, session, expressionTypes);
+            if (samplePercentageType == UNKNOWN) {
+                throw semanticException(INVALID_ARGUMENTS, samplePercentage, "Sample percentage cannot be NULL");
+            }
 
-            Object samplePercentageObject = samplePercentageEval.optimize(symbol -> {
-                throw semanticException(EXPRESSION_NOT_CONSTANT, samplePercentage, "Sample percentage cannot contain column references");
-            });
-
+            Object samplePercentageObject = evaluateConstantExpression(samplePercentage, samplePercentageType, plannerContext, session, accessControl, analysis.getParameters());
             if (samplePercentageObject == null) {
                 throw semanticException(INVALID_ARGUMENTS, samplePercentage, "Sample percentage cannot be NULL");
             }

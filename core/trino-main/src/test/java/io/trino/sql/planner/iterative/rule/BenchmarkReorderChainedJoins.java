@@ -16,9 +16,8 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.tpch.TpchPlugin;
-import io.trino.testing.LocalQueryRunner;
-import io.trino.testing.MaterializedResult;
-import io.trino.testing.QueryRunner;
+import io.trino.sql.planner.Plan;
+import io.trino.testing.PlanTester;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -47,17 +46,22 @@ import static org.openjdk.jmh.annotations.Scope.Thread;
 public class BenchmarkReorderChainedJoins
 {
     @Benchmark
-    public MaterializedResult benchmarkReorderJoins(BenchmarkInfo benchmarkInfo)
+    public Plan benchmarkReorderJoins(BenchmarkInfo benchmarkInfo)
     {
-        return benchmarkInfo.getQueryRunner().execute(
-                "EXPLAIN SELECT * FROM " +
-                        "nation n1 JOIN nation n2 ON n1.nationkey = n2.nationkey " +
-                        "JOIN nation n3 ON n2.comment = n3.comment " +
-                        "JOIN nation n4 ON n3.name = n4.name " +
-                        "JOIN region r1 ON n4.regionkey = r1.regionkey " +
-                        "JOIN region r2 ON r1.name = r2.name " +
-                        "JOIN region r3 ON r3.comment = r2.comment " +
-                        "JOIN region r4 ON r4.regionkey = r3.regionkey");
+        PlanTester planTester = benchmarkInfo.getPlanTester();
+        return planTester.inTransaction(transactionSession -> planTester.createPlan(
+                transactionSession,
+                """
+                SELECT *
+                FROM nation n1
+                JOIN nation n2 ON n1.nationkey = n2.nationkey
+                JOIN nation n3 ON n2.comment = n3.comment
+                JOIN nation n4 ON n3.name = n4.name
+                JOIN region r1 ON n4.regionkey = r1.regionkey
+                JOIN region r2 ON r1.name = r2.name
+                JOIN region r3 ON r3.comment = r2.comment
+                JOIN region r4 ON r4.regionkey = r3.regionkey
+                """));
     }
 
     @State(Thread)
@@ -66,7 +70,7 @@ public class BenchmarkReorderChainedJoins
         @Param({"ELIMINATE_CROSS_JOINS", "AUTOMATIC"})
         private String joinReorderingStrategy;
 
-        private QueryRunner queryRunner;
+        private PlanTester planTester;
 
         @Setup
         public void setup()
@@ -77,20 +81,20 @@ public class BenchmarkReorderChainedJoins
                     .setCatalog("tpch")
                     .setSchema("tiny")
                     .build();
-            queryRunner = LocalQueryRunner.create(session);
-            queryRunner.installPlugin(new TpchPlugin());
-            queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
+            planTester = PlanTester.create(session);
+            planTester.installPlugin(new TpchPlugin());
+            planTester.createCatalog("tpch", "tpch", ImmutableMap.of(TPCH_SPLITS_PER_NODE, "1"));
         }
 
-        public QueryRunner getQueryRunner()
+        public PlanTester getPlanTester()
         {
-            return queryRunner;
+            return planTester;
         }
 
         @TearDown
         public void tearDown()
         {
-            queryRunner.close();
+            planTester.close();
         }
     }
 

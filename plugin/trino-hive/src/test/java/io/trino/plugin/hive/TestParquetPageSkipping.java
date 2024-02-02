@@ -26,10 +26,9 @@ import io.trino.spi.metrics.Count;
 import io.trino.spi.metrics.Metric;
 import io.trino.spi.security.ConnectorIdentity;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
-import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
 
@@ -56,7 +55,7 @@ public class TestParquetPageSkipping
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = HiveQueryRunner.builder()
+        QueryRunner queryRunner = HiveQueryRunner.builder()
                 .setHiveProperties(
                         ImmutableMap.of(
                                 "parquet.use-column-index", "true",
@@ -238,30 +237,30 @@ public class TestParquetPageSkipping
 
     private void verifyFilteringWithColumnIndex(@Language("SQL") String query)
     {
-        DistributedQueryRunner queryRunner = getDistributedQueryRunner();
-        MaterializedResultWithQueryId resultWithoutColumnIndex = queryRunner.executeWithQueryId(
+        QueryRunner queryRunner = getDistributedQueryRunner();
+        MaterializedResultWithPlan resultWithoutColumnIndex = queryRunner.executeWithPlan(
                 noParquetColumnIndexFiltering(getSession()),
                 query);
-        QueryStats queryStatsWithoutColumnIndex = getQueryStats(resultWithoutColumnIndex.getQueryId());
+        QueryStats queryStatsWithoutColumnIndex = getQueryStats(resultWithoutColumnIndex.queryId());
         assertThat(queryStatsWithoutColumnIndex.getPhysicalInputPositions()).isGreaterThan(0);
-        Map<String, Metric<?>> metricsWithoutColumnIndex = getScanOperatorStats(resultWithoutColumnIndex.getQueryId())
+        Map<String, Metric<?>> metricsWithoutColumnIndex = getScanOperatorStats(resultWithoutColumnIndex.queryId())
                 .getConnectorMetrics()
                 .getMetrics();
         assertThat(metricsWithoutColumnIndex).doesNotContainKey(COLUMN_INDEX_ROWS_FILTERED);
 
-        MaterializedResultWithQueryId resultWithColumnIndex = queryRunner.executeWithQueryId(getSession(), query);
-        QueryStats queryStatsWithColumnIndex = getQueryStats(resultWithColumnIndex.getQueryId());
+        MaterializedResultWithPlan resultWithColumnIndex = queryRunner.executeWithPlan(getSession(), query);
+        QueryStats queryStatsWithColumnIndex = getQueryStats(resultWithColumnIndex.queryId());
         assertThat(queryStatsWithColumnIndex.getPhysicalInputPositions()).isGreaterThan(0);
         assertThat(queryStatsWithColumnIndex.getPhysicalInputPositions())
                 .isLessThan(queryStatsWithoutColumnIndex.getPhysicalInputPositions());
-        Map<String, Metric<?>> metricsWithColumnIndex = getScanOperatorStats(resultWithColumnIndex.getQueryId())
+        Map<String, Metric<?>> metricsWithColumnIndex = getScanOperatorStats(resultWithColumnIndex.queryId())
                 .getConnectorMetrics()
                 .getMetrics();
         assertThat(metricsWithColumnIndex).containsKey(COLUMN_INDEX_ROWS_FILTERED);
         assertThat(((Count<?>) metricsWithColumnIndex.get(COLUMN_INDEX_ROWS_FILTERED)).getTotal())
                 .isGreaterThan(0);
 
-        assertEqualsIgnoreOrder(resultWithColumnIndex.getResult(), resultWithoutColumnIndex.getResult());
+        assertEqualsIgnoreOrder(resultWithColumnIndex.result(), resultWithoutColumnIndex.result());
     }
 
     private int assertColumnIndexResults(String query)

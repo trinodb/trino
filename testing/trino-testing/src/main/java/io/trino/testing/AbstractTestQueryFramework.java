@@ -16,6 +16,7 @@ package io.trino.testing;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.MoreCollectors;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.CheckReturnValue;
 import io.airlift.log.Level;
 import io.airlift.log.Logging;
 import io.airlift.units.Duration;
@@ -51,6 +52,7 @@ import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
 import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.sql.tree.ExplainType;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.TestingAccessControlManager.TestingPrivilege;
 import io.trino.testng.services.ReportBadTestAnnotations;
 import io.trino.util.AutoCloseableCloser;
@@ -70,7 +72,6 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
@@ -323,11 +324,13 @@ public abstract class AbstractTestQueryFramework
         return computeActual(session, sql).getOnlyValue();
     }
 
+    @CheckReturnValue
     protected AssertProvider<QueryAssert> query(@Language("SQL") String sql)
     {
         return query(getSession(), sql);
     }
 
+    @CheckReturnValue
     protected AssertProvider<QueryAssert> query(Session session, @Language("SQL") String sql)
     {
         return queryAssertions.query(session, sql);
@@ -360,7 +363,6 @@ public abstract class AbstractTestQueryFramework
 
     protected void assertQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected, Consumer<Plan> planAssertion)
     {
-        checkArgument(queryRunner instanceof DistributedQueryRunner, "pattern assertion is only supported for DistributedQueryRunner");
         QueryAssertions.assertQuery(queryRunner, session, actual, h2QueryRunner, expected, false, false, planAssertion);
     }
 
@@ -569,14 +571,14 @@ public abstract class AbstractTestQueryFramework
             Consumer<QueryStats> queryStatsAssertion,
             Consumer<MaterializedResult> resultAssertion)
     {
-        DistributedQueryRunner queryRunner = getDistributedQueryRunner();
-        MaterializedResultWithQueryId resultWithQueryId = queryRunner.executeWithQueryId(session, query);
+        QueryRunner queryRunner = getDistributedQueryRunner();
+        MaterializedResultWithPlan result = queryRunner.executeWithPlan(session, query);
         QueryStats queryStats = queryRunner.getCoordinator()
                 .getQueryManager()
-                .getFullQueryInfo(resultWithQueryId.getQueryId())
+                .getFullQueryInfo(result.queryId())
                 .getQueryStats();
         queryStatsAssertion.accept(queryStats);
-        resultAssertion.accept(resultWithQueryId.getResult());
+        resultAssertion.accept(result.result());
     }
 
     protected void assertNoDataRead(@Language("SQL") String sql)

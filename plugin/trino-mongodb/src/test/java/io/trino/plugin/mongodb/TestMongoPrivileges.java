@@ -48,7 +48,7 @@ public class TestMongoPrivileges
             throws Exception
     {
         AuthenticatedMongoServer mongoServer = closeAfterClass(setupMongoServer());
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder()
+        QueryRunner queryRunner = DistributedQueryRunner.builder(testSessionBuilder()
                         .setCatalog(Optional.empty())
                         .setSchema(Optional.empty())
                         .build())

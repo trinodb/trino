@@ -1887,12 +1887,12 @@ public abstract class BaseElasticsearchConnectorTest
                 "VALUES '[]'");
 
         // syntax error
-        assertThatThrownBy(() -> query("SELECT * " +
+        assertThat(query("SELECT * " +
                 format("FROM TABLE(%s.system.raw_query(", catalogName) +
                 "schema => 'tpch', " +
                 "index => 'nation', " +
                 "query => 'wrong syntax')) t(result)"))
-                .hasMessageContaining("json_parse_exception");
+                .failure().hasMessageContaining("json_parse_exception");
     }
 
     protected void assertTableDoesNotExist(String name)

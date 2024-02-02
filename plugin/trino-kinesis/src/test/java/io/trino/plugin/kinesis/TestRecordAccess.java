@@ -27,6 +27,7 @@ import io.trino.spi.type.BigintType;
 import io.trino.spi.type.Type;
 import io.trino.testing.MaterializedResult;
 import io.trino.testing.MaterializedRow;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -73,7 +74,7 @@ public class TestRecordAccess
     private String jsonStreamName;
     private String jsonGzipCompressStreamName;
     private String jsonAutomaticCompressStreamName;
-    private StandaloneQueryRunner queryRunner;
+    private QueryRunner queryRunner;
     private MockKinesisClient mockClient;
 
     @BeforeAll

@@ -22,8 +22,7 @@ import io.trino.spi.security.PrincipalType;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.OptimizerConfig.JoinReorderingStrategy;
 import io.trino.sql.planner.assertions.BasePlanTest;
-import io.trino.testing.LocalQueryRunner;
-import io.trino.testing.QueryRunner;
+import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -49,7 +48,7 @@ import static io.trino.sql.planner.plan.ExchangeNode.Scope.LOCAL;
 import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 
 public class TestHivePlans
@@ -66,7 +65,7 @@ public class TestHivePlans
     private File baseDir;
 
     @Override
-    protected LocalQueryRunner createLocalQueryRunner()
+    protected PlanTester createPlanTester()
     {
         try {
             baseDir = Files.createTempDirectory(null).toFile();
@@ -75,10 +74,10 @@ public class TestHivePlans
             throw new UncheckedIOException(e);
         }
 
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(HIVE_SESSION);
-        queryRunner.createCatalog(HIVE_CATALOG_NAME, new TestingHiveConnectorFactory(baseDir.toPath()), Map.of("hive.max-partitions-for-eager-load", "5"));
+        PlanTester planTester = PlanTester.create(HIVE_SESSION);
+        planTester.createCatalog(HIVE_CATALOG_NAME, new TestingHiveConnectorFactory(baseDir.toPath()), Map.of("hive.max-partitions-for-eager-load", "5"));
 
-        HiveMetastore metastore = getConnectorService(queryRunner, HiveMetastoreFactory.class)
+        HiveMetastore metastore = getConnectorService(planTester, HiveMetastoreFactory.class)
                 .createMetastore(Optional.empty());
 
         metastore.createDatabase(Database.builder()
@@ -87,28 +86,28 @@ public class TestHivePlans
                 .setOwnerType(Optional.of(PrincipalType.ROLE))
                 .build());
 
-        return queryRunner;
+        return planTester;
     }
 
     @BeforeAll
     public void setUp()
     {
-        QueryRunner queryRunner = getQueryRunner();
+        PlanTester planTester = getPlanTester();
 
         // Use common VALUES for setup so that types are the same and there are no coercions.
         String values = "VALUES ('one', 1), ('two', 2), ('three', 3), ('four', 4), ('five', 5)";
 
         // partitioned on integer
-        queryRunner.execute("CREATE TABLE table_int_partitioned WITH (partitioned_by = ARRAY['int_part']) AS SELECT str_col, int_part FROM (" + values + ") t(str_col, int_part)");
+        planTester.executeStatement("CREATE TABLE table_int_partitioned WITH (partitioned_by = ARRAY['int_part']) AS SELECT str_col, int_part FROM (" + values + ") t(str_col, int_part)");
 
         // partitioned on varchar
-        queryRunner.execute("CREATE TABLE table_str_partitioned WITH (partitioned_by = ARRAY['str_part']) AS SELECT int_col, str_part FROM (" + values + ") t(str_part, int_col)");
+        planTester.executeStatement("CREATE TABLE table_str_partitioned WITH (partitioned_by = ARRAY['str_part']) AS SELECT int_col, str_part FROM (" + values + ") t(str_part, int_col)");
 
         // with too many partitions
-        queryRunner.execute("CREATE TABLE table_int_with_too_many_partitions WITH (partitioned_by = ARRAY['int_part']) AS SELECT str_col, int_part FROM (" + values + ", ('six', 6)) t(str_col, int_part)");
+        planTester.executeStatement("CREATE TABLE table_int_with_too_many_partitions WITH (partitioned_by = ARRAY['int_part']) AS SELECT str_col, int_part FROM (" + values + ", ('six', 6)) t(str_col, int_part)");
 
         // unpartitioned
-        queryRunner.execute("CREATE TABLE table_unpartitioned AS SELECT str_col, int_col FROM (" + values + ") t(str_col, int_col)");
+        planTester.executeStatement("CREATE TABLE table_unpartitioned AS SELECT str_col, int_col FROM (" + values + ") t(str_col, int_col)");
     }
 
     @AfterAll
@@ -292,7 +291,7 @@ public class TestHivePlans
     // Disable join ordering so that expected plans are well defined.
     private Session noJoinReordering()
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.NONE.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name())
                 .build();

@@ -45,7 +45,7 @@ import static io.trino.sql.ExpressionUtils.combineConjuncts;
 import static io.trino.sql.ExpressionUtils.combineDisjuncts;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDynamicFiltersChecker
@@ -62,7 +62,7 @@ public class TestDynamicFiltersChecker
     @BeforeAll
     public void setup()
     {
-        plannerContext = getQueryRunner().getPlannerContext();
+        plannerContext = getPlanTester().getPlannerContext();
         metadata = plannerContext.getMetadata();
         builder = new PlanBuilder(new PlanNodeIdAllocator(), plannerContext, TEST_SESSION);
         CatalogHandle catalogHandle = getCurrentCatalogHandle();
@@ -349,7 +349,7 @@ public class TestDynamicFiltersChecker
 
     private void validatePlan(PlanNode root)
     {
-        getQueryRunner().inTransaction(session -> {
+        getPlanTester().inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
             new DynamicFiltersChecker().validate(root, session, plannerContext, createTestingTypeAnalyzer(plannerContext), TypeProvider.empty(), WarningCollector.NOOP);

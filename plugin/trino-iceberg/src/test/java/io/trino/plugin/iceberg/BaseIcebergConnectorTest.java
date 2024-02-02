@@ -29,6 +29,7 @@ import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.OperatorStats;
+import io.trino.plugin.hive.HiveCompressionCodec;
 import io.trino.plugin.hive.TestingHivePlugin;
 import io.trino.plugin.iceberg.fileio.ForwardingFileIo;
 import io.trino.server.DynamicFilterService;
@@ -46,9 +47,9 @@ import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
-import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.MaterializedRow;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.TestTable;
 import org.apache.avro.Schema;
@@ -135,6 +136,7 @@ import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.testing.assertions.Assert.assertEventually;
+import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -1276,8 +1278,9 @@ public abstract class BaseIcebergConnectorTest
     private void testCreateSortedTableWithSortTransform(String columnName, String sortField)
     {
         String tableName = "test_sort_with_transform_" + randomNameSuffix();
-        assertThatThrownBy(() -> query(format("CREATE TABLE %s (%s TIMESTAMP(6)) WITH (sorted_by = ARRAY['%s'])", tableName, columnName, sortField)))
-                .hasMessageContaining("Unable to parse sort field");
+        assertThat(query(format("CREATE TABLE %s (%s TIMESTAMP(6)) WITH (sorted_by = ARRAY['%s'])", tableName, columnName, sortField)))
+                // TODO throw TrinoException indicating user error
+                .nonTrinoExceptionFailure().hasMessageContaining("Unable to parse sort field");
     }
 
     @Test
@@ -1379,15 +1382,17 @@ public abstract class BaseIcebergConnectorTest
     public void testSortingOnNestedField()
     {
         String tableName = "test_sorting_on_nested_field" + randomNameSuffix();
-        assertThatThrownBy(() -> query("CREATE TABLE " + tableName + " (nationkey BIGINT, row_t ROW(name VARCHAR, regionkey BIGINT, comment VARCHAR)) " +
+        assertThat(query("CREATE TABLE " + tableName + " (nationkey BIGINT, row_t ROW(name VARCHAR, regionkey BIGINT, comment VARCHAR)) " +
                 "WITH (sorted_by = ARRAY['row_t.comment'])"))
-                .hasMessageContaining("Unable to parse sort field: [row_t.comment]");
-        assertThatThrownBy(() -> query("CREATE TABLE " + tableName + " (nationkey BIGINT, row_t ROW(name VARCHAR, regionkey BIGINT, comment VARCHAR)) " +
+                // TODO throw TrinoException indicating user error
+                .nonTrinoExceptionFailure().hasMessageContaining("Unable to parse sort field: [row_t.comment]");
+        assertThat(query("CREATE TABLE " + tableName + " (nationkey BIGINT, row_t ROW(name VARCHAR, regionkey BIGINT, comment VARCHAR)) " +
                 "WITH (sorted_by = ARRAY['\"row_t\".\"comment\"'])"))
-                .hasMessageContaining("Unable to parse sort field: [\"row_t\".\"comment\"]");
-        assertThatThrownBy(() -> query("CREATE TABLE " + tableName + " (nationkey BIGINT, row_t ROW(name VARCHAR, regionkey BIGINT, comment VARCHAR)) " +
+                // TODO throw TrinoException indicating user error
+                .nonTrinoExceptionFailure().hasMessageContaining("Unable to parse sort field: [\"row_t\".\"comment\"]");
+        assertThat(query("CREATE TABLE " + tableName + " (nationkey BIGINT, row_t ROW(name VARCHAR, regionkey BIGINT, comment VARCHAR)) " +
                 "WITH (sorted_by = ARRAY['\"row_t.comment\"'])"))
-                .hasMessageContaining("Column not found: row_t.comment");
+                .failure().hasMessageContaining("Column not found: row_t.comment");
     }
 
     @Test
@@ -1399,8 +1404,8 @@ public abstract class BaseIcebergConnectorTest
                 "test_dropping_sort_column",
                 "WITH (sorted_by = ARRAY['comment']) AS SELECT * FROM nation WITH NO DATA")) {
             assertUpdate(withSmallRowGroups, "INSERT INTO " + table.getName() + " SELECT * FROM nation", 25);
-            assertThatThrownBy(() -> query("ALTER TABLE " + table.getName() + " DROP COLUMN comment"))
-                    .hasMessageContaining("Cannot find source column for sort field");
+            assertThat(query("ALTER TABLE " + table.getName() + " DROP COLUMN comment"))
+                    .failure().hasMessageContaining("Cannot find source column for sort field");
         }
     }
 
@@ -4743,20 +4748,20 @@ public abstract class BaseIcebergConnectorTest
 
     private void verifySplitCount(String query, int expectedSplitCount)
     {
-        MaterializedResultWithQueryId selectAllPartitionsResult = getDistributedQueryRunner().executeWithQueryId(getSession(), query);
-        assertEqualsIgnoreOrder(selectAllPartitionsResult.getResult().getMaterializedRows(), computeActual(withoutPredicatePushdown(getSession()), query).getMaterializedRows());
-        verifySplitCount(selectAllPartitionsResult.getQueryId(), expectedSplitCount);
+        MaterializedResultWithPlan selectAllPartitionsResult = getDistributedQueryRunner().executeWithPlan(getSession(), query);
+        assertEqualsIgnoreOrder(selectAllPartitionsResult.result().getMaterializedRows(), computeActual(withoutPredicatePushdown(getSession()), query).getMaterializedRows());
+        verifySplitCount(selectAllPartitionsResult.queryId(), expectedSplitCount);
     }
 
     private void verifyPredicatePushdownDataRead(@Language("SQL") String query, boolean supportsPushdown)
     {
-        MaterializedResultWithQueryId resultWithPredicatePushdown = getDistributedQueryRunner().executeWithQueryId(getSession(), query);
-        MaterializedResultWithQueryId resultWithoutPredicatePushdown = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan resultWithPredicatePushdown = getDistributedQueryRunner().executeWithPlan(getSession(), query);
+        MaterializedResultWithPlan resultWithoutPredicatePushdown = getDistributedQueryRunner().executeWithPlan(
                 withoutPredicatePushdown(getSession()),
                 query);
 
-        DataSize withPushdownDataSize = getOperatorStats(resultWithPredicatePushdown.getQueryId()).getInputDataSize();
-        DataSize withoutPushdownDataSize = getOperatorStats(resultWithoutPredicatePushdown.getQueryId()).getInputDataSize();
+        DataSize withPushdownDataSize = getOperatorStats(resultWithPredicatePushdown.queryId()).getInputDataSize();
+        DataSize withoutPushdownDataSize = getOperatorStats(resultWithoutPredicatePushdown.queryId()).getInputDataSize();
         if (supportsPushdown) {
             assertThat(withPushdownDataSize).isLessThan(withoutPushdownDataSize);
         }
@@ -5201,8 +5206,8 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " (a) AS VALUES 11", 1);
         long snapshotId = getCurrentSnapshotId(tableName);
         assertUpdate("INSERT INTO " + tableName + " VALUES 22", 1);
-        assertThatThrownBy(() -> query("ALTER TABLE \"%s@%d\" EXECUTE OPTIMIZE".formatted(tableName, snapshotId)))
-                .hasMessage(format("line 1:7: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, snapshotId));
+        assertThat(query("ALTER TABLE \"%s@%d\" EXECUTE OPTIMIZE".formatted(tableName, snapshotId)))
+                .failure().hasMessage(format("line 1:7: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, snapshotId));
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES 11, 22");
 
@@ -5212,10 +5217,10 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testOptimizeSystemTable()
     {
-        assertThatThrownBy(() -> query("ALTER TABLE \"nation$files\" EXECUTE OPTIMIZE"))
-                .hasMessage("This connector does not support table procedures");
-        assertThatThrownBy(() -> query("ALTER TABLE \"nation$snapshots\" EXECUTE OPTIMIZE"))
-                .hasMessage("This connector does not support table procedures");
+        assertThat(query("ALTER TABLE \"nation$files\" EXECUTE OPTIMIZE"))
+                .failure().hasMessage("This connector does not support table procedures");
+        assertThat(query("ALTER TABLE \"nation$snapshots\" EXECUTE OPTIMIZE"))
+                .failure().hasMessage("This connector does not support table procedures");
     }
 
     private List<String> getActiveFiles(String tableName)
@@ -5613,8 +5618,8 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " (a) AS VALUES 11", 1);
         long snapshotId = getCurrentSnapshotId(tableName);
         assertUpdate("INSERT INTO " + tableName + " VALUES 22", 1);
-        assertThatThrownBy(() -> query("ALTER TABLE \"%s@%d\" EXECUTE EXPIRE_SNAPSHOTS".formatted(tableName, snapshotId)))
-                .hasMessage(format("line 1:7: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, snapshotId));
+        assertThat(query("ALTER TABLE \"%s@%d\" EXECUTE EXPIRE_SNAPSHOTS".formatted(tableName, snapshotId)))
+                .failure().hasMessage(format("line 1:7: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, snapshotId));
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES 11, 22");
 
@@ -5624,10 +5629,10 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testExpireSnapshotsSystemTable()
     {
-        assertThatThrownBy(() -> query("ALTER TABLE \"nation$files\" EXECUTE EXPIRE_SNAPSHOTS"))
-                .hasMessage("This connector does not support table procedures");
-        assertThatThrownBy(() -> query("ALTER TABLE \"nation$snapshots\" EXECUTE EXPIRE_SNAPSHOTS"))
-                .hasMessage("This connector does not support table procedures");
+        assertThat(query("ALTER TABLE \"nation$files\" EXECUTE EXPIRE_SNAPSHOTS"))
+                .failure().hasMessage("This connector does not support table procedures");
+        assertThat(query("ALTER TABLE \"nation$snapshots\" EXECUTE EXPIRE_SNAPSHOTS"))
+                .failure().hasMessage("This connector does not support table procedures");
     }
 
     @Test
@@ -5805,8 +5810,8 @@ public abstract class BaseIcebergConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " (a) AS VALUES 11", 1);
         long snapshotId = getCurrentSnapshotId(tableName);
         assertUpdate("INSERT INTO " + tableName + " VALUES 22", 1);
-        assertThatThrownBy(() -> query("ALTER TABLE \"%s@%d\" EXECUTE REMOVE_ORPHAN_FILES".formatted(tableName, snapshotId)))
-                .hasMessage(format("line 1:7: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, snapshotId));
+        assertThat(query("ALTER TABLE \"%s@%d\" EXECUTE REMOVE_ORPHAN_FILES".formatted(tableName, snapshotId)))
+                .failure().hasMessage(format("line 1:7: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, snapshotId));
         assertThat(query("SELECT * FROM " + tableName))
                 .matches("VALUES 11, 22");
 
@@ -5816,10 +5821,10 @@ public abstract class BaseIcebergConnectorTest
     @Test
     public void testRemoveOrphanFilesSystemTable()
     {
-        assertThatThrownBy(() -> query("ALTER TABLE \"nation$files\" EXECUTE REMOVE_ORPHAN_FILES"))
-                .hasMessage("This connector does not support table procedures");
-        assertThatThrownBy(() -> query("ALTER TABLE \"nation$snapshots\" EXECUTE REMOVE_ORPHAN_FILES"))
-                .hasMessage("This connector does not support table procedures");
+        assertThat(query("ALTER TABLE \"nation$files\" EXECUTE REMOVE_ORPHAN_FILES"))
+                .failure().hasMessage("This connector does not support table procedures");
+        assertThat(query("ALTER TABLE \"nation$snapshots\" EXECUTE REMOVE_ORPHAN_FILES"))
+                .failure().hasMessage("This connector does not support table procedures");
     }
 
     @Test
@@ -5862,8 +5867,8 @@ public abstract class BaseIcebergConnectorTest
     {
         String tableName = "test_updating_invalid_table_property_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " (a INT, b INT)");
-        assertThatThrownBy(() -> query("ALTER TABLE " + tableName + " SET PROPERTIES not_a_valid_table_property = 'a value'"))
-                .hasMessage("Catalog 'iceberg' table property 'not_a_valid_table_property' does not exist");
+        assertThat(query("ALTER TABLE " + tableName + " SET PROPERTIES not_a_valid_table_property = 'a value'"))
+                .failure().hasMessage("Catalog 'iceberg' table property 'not_a_valid_table_property' does not exist");
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -5948,20 +5953,20 @@ public abstract class BaseIcebergConnectorTest
         long oldSnapshotId = getCurrentSnapshotId(tableName);
         assertUpdate(format("INSERT INTO %s VALUES 4,5,6", tableName), 3);
         assertQuery(format("SELECT * FROM %s FOR VERSION AS OF %d", tableName, oldSnapshotId), "VALUES 1,2,3");
-        assertThatThrownBy(() -> query(format("INSERT INTO \"%s@%d\" VALUES 7,8,9", tableName, oldSnapshotId)))
-                .hasMessage(format("Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, oldSnapshotId));
-        assertThatThrownBy(() -> query(format("DELETE FROM \"%s@%d\" WHERE col = 5", tableName, oldSnapshotId)))
-                .hasMessage(format("line 1:1: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, oldSnapshotId));
-        assertThatThrownBy(() -> query(format("UPDATE \"%s@%d\" SET col = 50 WHERE col = 5", tableName, oldSnapshotId)))
-                .hasMessage(format("line 1:1: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, oldSnapshotId));
-        assertThatThrownBy(() -> query(format("INSERT INTO \"%s@%d\" VALUES 7,8,9", tableName, getCurrentSnapshotId(tableName))))
-                .hasMessage(format("Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, getCurrentSnapshotId(tableName)));
-        assertThatThrownBy(() -> query(format("DELETE FROM \"%s@%d\" WHERE col = 9", tableName, getCurrentSnapshotId(tableName))))
-                .hasMessage(format("line 1:1: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, getCurrentSnapshotId(tableName)));
+        assertThat(query(format("INSERT INTO \"%s@%d\" VALUES 7,8,9", tableName, oldSnapshotId)))
+                .failure().hasMessage(format("Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, oldSnapshotId));
+        assertThat(query(format("DELETE FROM \"%s@%d\" WHERE col = 5", tableName, oldSnapshotId)))
+                .failure().hasMessage(format("line 1:1: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, oldSnapshotId));
+        assertThat(query(format("UPDATE \"%s@%d\" SET col = 50 WHERE col = 5", tableName, oldSnapshotId)))
+                .failure().hasMessage(format("line 1:1: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, oldSnapshotId));
+        assertThat(query(format("INSERT INTO \"%s@%d\" VALUES 7,8,9", tableName, getCurrentSnapshotId(tableName))))
+                .failure().hasMessage(format("Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, getCurrentSnapshotId(tableName)));
+        assertThat(query(format("DELETE FROM \"%s@%d\" WHERE col = 9", tableName, getCurrentSnapshotId(tableName))))
+                .failure().hasMessage(format("line 1:1: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, getCurrentSnapshotId(tableName)));
         assertThatThrownBy(() -> assertUpdate(format("UPDATE \"%s@%d\" set col = 50 WHERE col = 5", tableName, getCurrentSnapshotId(tableName))))
                 .hasMessage(format("line 1:1: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, getCurrentSnapshotId(tableName)));
-        assertThatThrownBy(() -> query(format("ALTER TABLE \"%s@%d\" EXECUTE OPTIMIZE", tableName, oldSnapshotId)))
-                .hasMessage(format("line 1:7: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, oldSnapshotId));
+        assertThat(query(format("ALTER TABLE \"%s@%d\" EXECUTE OPTIMIZE", tableName, oldSnapshotId)))
+                .failure().hasMessage(format("line 1:7: Table 'iceberg.tpch.\"%s@%s\"' does not exist", tableName, oldSnapshotId));
         assertQuery(format("SELECT * FROM %s", tableName), "VALUES 1,2,3,4,5,6");
 
         assertUpdate("DROP TABLE " + tableName);
@@ -7014,7 +7019,7 @@ public abstract class BaseIcebergConnectorTest
                 .setSchema(schema)
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(icebergSession)
+        QueryRunner queryRunner = DistributedQueryRunner.builder(icebergSession)
                 .build();
         queryRunner.installPlugin(new IcebergPlugin());
         queryRunner.createCatalog(
@@ -7078,8 +7083,8 @@ public abstract class BaseIcebergConnectorTest
             // Corrupt metadata file by overwriting the invalid metadata content
             outputStream.write(modifiedJson.getBytes(UTF_8));
         }
-        assertThatThrownBy(() -> query("SELECT * FROM " + tableName))
-                .hasMessage("Invalid metadata file for table tpch.%s".formatted(tableName));
+        assertThat(query("SELECT * FROM " + tableName))
+                .failure().hasMessage("Invalid metadata file for table tpch.%s".formatted(tableName));
 
         assertUpdate("DROP TABLE " + tableName);
     }
@@ -7402,7 +7407,7 @@ public abstract class BaseIcebergConnectorTest
                     WHERE
                         d.following_holiday = true AND
                         d.date BETWEEN DATE '2023-01-01' AND DATE '2024-01-01'""".formatted(salesTable.getName(), dimensionTable.getName());
-            MaterializedResultWithQueryId result = getDistributedQueryRunner().executeWithQueryId(
+            MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(
                     Session.builder(getSession())
                             .setCatalogSessionProperty(catalog, DYNAMIC_FILTERING_WAIT_TIMEOUT, "10s")
                             .build(),
@@ -7412,11 +7417,11 @@ public abstract class BaseIcebergConnectorTest
                             .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "false")
                             .build(),
                     selectQuery);
-            assertEqualsIgnoreOrder(result.getResult(), expected);
+            assertEqualsIgnoreOrder(result.result(), expected);
 
             DynamicFilterService.DynamicFiltersStats dynamicFiltersStats = getDistributedQueryRunner().getCoordinator()
                     .getQueryManager()
-                    .getFullQueryInfo(result.getQueryId())
+                    .getFullQueryInfo(result.queryId())
                     .getQueryStats()
                     .getDynamicFiltersStats();
             // The dynamic filter reduces the range specified for the partition column `date` from `date :: [[2023-01-01, 2024-01-01]]` to `date :: {[2023-01-02]}`
@@ -7431,6 +7436,33 @@ public abstract class BaseIcebergConnectorTest
     protected void verifyTableNameLengthFailurePermissible(Throwable e)
     {
         assertThat(e).hasMessageMatching("Table name must be shorter than or equal to '128' characters but got .*");
+    }
+
+    @Test
+    public void testCreateTableWithCompressionCodec()
+    {
+        for (HiveCompressionCodec compressionCodec : HiveCompressionCodec.values()) {
+            testCreateTableWithCompressionCodec(compressionCodec);
+        }
+    }
+
+    private void testCreateTableWithCompressionCodec(HiveCompressionCodec compressionCodec)
+    {
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "compression_codec", compressionCodec.name())
+                .build();
+        String tableName = "test_table_with_compression_" + compressionCodec;
+        String createTableSql = format("CREATE TABLE %s AS TABLE tpch.tiny.nation", tableName);
+        // TODO (https://github.com/trinodb/trino/issues/9142) Support LZ4 compression with native Parquet writer
+        if ((format == IcebergFileFormat.PARQUET || format == AVRO) && compressionCodec == HiveCompressionCodec.LZ4) {
+            assertTrinoExceptionThrownBy(() -> computeActual(session, createTableSql))
+                    .hasMessage("Compression codec LZ4 not supported for " + capitalize(format.name().toLowerCase(ENGLISH)));
+            return;
+        }
+        assertUpdate(session, createTableSql, 25);
+        assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation");
+        assertQuery("SELECT count(*) FROM " + tableName, "VALUES 25");
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test
@@ -7824,13 +7856,18 @@ public abstract class BaseIcebergConnectorTest
     private QueryId executeWithQueryId(String sql)
     {
         return getDistributedQueryRunner()
-                .executeWithQueryId(getSession(), sql)
-                .getQueryId();
+                .executeWithPlan(getSession(), sql)
+                .queryId();
     }
 
     private void assertQueryIdStored(String tableName, QueryId queryId)
     {
         assertThat(getFieldFromLatestSnapshotSummary(tableName, TRINO_QUERY_ID_NAME))
                 .isEqualTo(queryId.toString());
+    }
+
+    private static String capitalize(String value)
+    {
+        return Character.toUpperCase(value.charAt(0)) + value.substring(1);
     }
 }

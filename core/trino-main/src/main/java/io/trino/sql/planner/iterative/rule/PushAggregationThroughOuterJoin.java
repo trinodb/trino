@@ -31,6 +31,7 @@ import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.JoinNode;
+import io.trino.sql.planner.plan.JoinType;
 import io.trino.sql.planner.plan.PlanNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.ValuesNode;
@@ -128,7 +129,7 @@ public class PushAggregationThroughOuterJoin
         JoinNode join = captures.get(JOIN);
 
         if (join.getFilter().isPresent()
-                || !(join.getType() == JoinNode.Type.LEFT || join.getType() == JoinNode.Type.RIGHT)
+                || !(join.getType() == JoinType.LEFT || join.getType() == JoinType.RIGHT)
                 || !groupsOnAllColumns(aggregation, getOuterTable(join).getOutputSymbols())
                 || !isDistinct(context.getLookup().resolve(getOuterTable(join)), context.getLookup()::resolve)
                 || !isAggregationOnSymbols(aggregation, getInnerTable(join))) {
@@ -136,7 +137,7 @@ public class PushAggregationThroughOuterJoin
         }
 
         List<Symbol> groupingKeys = join.getCriteria().stream()
-                .map(join.getType() == JoinNode.Type.RIGHT ? JoinNode.EquiJoinClause::getLeft : JoinNode.EquiJoinClause::getRight)
+                .map(join.getType() == JoinType.RIGHT ? JoinNode.EquiJoinClause::getLeft : JoinNode.EquiJoinClause::getRight)
                 .collect(toImmutableList());
         AggregationNode rewrittenAggregation = AggregationNode.builderFrom(aggregation)
                 .setSource(getInnerTable(join))
@@ -145,7 +146,7 @@ public class PushAggregationThroughOuterJoin
                 .build();
 
         JoinNode rewrittenJoin;
-        if (join.getType() == JoinNode.Type.LEFT) {
+        if (join.getType() == JoinType.LEFT) {
             rewrittenJoin = new JoinNode(
                     join.getId(),
                     join.getType(),
@@ -194,9 +195,9 @@ public class PushAggregationThroughOuterJoin
 
     private static PlanNode getInnerTable(JoinNode join)
     {
-        checkState(join.getType() == JoinNode.Type.LEFT || join.getType() == JoinNode.Type.RIGHT, "expected LEFT or RIGHT JOIN");
+        checkState(join.getType() == JoinType.LEFT || join.getType() == JoinType.RIGHT, "expected LEFT or RIGHT JOIN");
         PlanNode innerNode;
-        if (join.getType() == JoinNode.Type.LEFT) {
+        if (join.getType() == JoinType.LEFT) {
             innerNode = join.getRight();
         }
         else {
@@ -207,9 +208,9 @@ public class PushAggregationThroughOuterJoin
 
     private static PlanNode getOuterTable(JoinNode join)
     {
-        checkState(join.getType() == JoinNode.Type.LEFT || join.getType() == JoinNode.Type.RIGHT, "expected LEFT or RIGHT JOIN");
+        checkState(join.getType() == JoinType.LEFT || join.getType() == JoinType.RIGHT, "expected LEFT or RIGHT JOIN");
         PlanNode outerNode;
-        if (join.getType() == JoinNode.Type.LEFT) {
+        if (join.getType() == JoinType.LEFT) {
             outerNode = join.getLeft();
         }
         else {
@@ -242,7 +243,7 @@ public class PushAggregationThroughOuterJoin
         // Do a cross join with the aggregation over null
         JoinNode crossJoin = new JoinNode(
                 idAllocator.getNextId(),
-                JoinNode.Type.INNER,
+                JoinType.INNER,
                 outerJoin,
                 aggregationOverNull,
                 ImmutableList.of(),

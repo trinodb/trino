@@ -142,24 +142,24 @@ import static io.trino.sql.planner.plan.ExchangeNode.Scope.REMOTE;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.GATHER;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPARTITION;
 import static io.trino.sql.planner.plan.ExchangeNode.Type.REPLICATE;
+import static io.trino.sql.planner.plan.FrameBoundType.CURRENT_ROW;
+import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
-import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
+import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
+import static io.trino.sql.planner.plan.RowsPerMatch.WINDOW;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.RANK;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
+import static io.trino.sql.planner.plan.WindowFrameType.ROWS;
 import static io.trino.sql.planner.rowpattern.ir.IrQuantifier.oneOrMore;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 import static io.trino.sql.tree.ComparisonExpression.Operator.LESS_THAN;
-import static io.trino.sql.tree.FrameBound.Type.CURRENT_ROW;
-import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
-import static io.trino.sql.tree.PatternRecognitionRelation.RowsPerMatch.WINDOW;
 import static io.trino.sql.tree.SortItem.NullOrdering.LAST;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.trino.sql.tree.SortItem.Ordering.DESCENDING;
-import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 import static io.trino.tests.QueryTemplate.queryTemplate;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -272,7 +272,7 @@ public class TestLogicalPlanner
     public void testAllFieldsDereferenceFromNonDeterministic()
     {
         FunctionCall randomFunction = new FunctionCall(
-                getQueryRunner().getPlannerContext().getMetadata().resolveBuiltinFunction("rand", ImmutableList.of()).toQualifiedName(),
+                getPlanTester().getPlannerContext().getMetadata().resolveBuiltinFunction("rand", ImmutableList.of()).toQualifiedName(),
                 ImmutableList.of());
 
         assertPlan("SELECT (x, x).* FROM (SELECT rand()) T(x)",
@@ -1244,7 +1244,7 @@ public class TestLogicalPlanner
     @Test
     public void testBroadcastCorrelatedSubqueryAvoidsRemoteExchangeBeforeAggregation()
     {
-        Session broadcastJoin = Session.builder(this.getQueryRunner().getDefaultSession())
+        Session broadcastJoin = Session.builder(this.getPlanTester().getDefaultSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.BROADCAST.name())
                 .build();
 
@@ -1292,7 +1292,7 @@ public class TestLogicalPlanner
     @Test
     public void testUsesDistributedJoinIfNaturallyPartitionedOnProbeSymbols()
     {
-        Session broadcastJoin = Session.builder(this.getQueryRunner().getDefaultSession())
+        Session broadcastJoin = Session.builder(this.getPlanTester().getDefaultSession())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.BROADCAST.name())
                 .setSystemProperty(OPTIMIZE_HASH_GENERATION, Boolean.toString(false))
                 .build();
@@ -1369,7 +1369,7 @@ public class TestLogicalPlanner
 
         assertDistributedPlan(
                 "SELECT orderkey FROM orders ORDER BY orderkey DESC",
-                Session.builder(this.getQueryRunner().getDefaultSession())
+                Session.builder(this.getPlanTester().getDefaultSession())
                         .setSystemProperty(DISTRIBUTED_SORT, Boolean.toString(false))
                         .build(),
                 output(
@@ -1795,7 +1795,7 @@ public class TestLogicalPlanner
     {
         assertPlan(
                 "SELECT count(*) FROM ((SELECT nationkey FROM customer) UNION ALL (SELECT nationkey FROM customer)) GROUP BY nationkey",
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(OPTIMIZE_HASH_GENERATION, "true")
                         .build(),
                 output(
@@ -1815,7 +1815,7 @@ public class TestLogicalPlanner
     {
         assertDistributedPlan(
                 "select count(*), count(distinct orderkey), count(distinct partkey), count(distinct suppkey) from lineitem",
-                Session.builder(this.getQueryRunner().getDefaultSession())
+                Session.builder(this.getPlanTester().getDefaultSession())
                         .setSystemProperty(OPTIMIZE_HASH_GENERATION, "true")
                         .setSystemProperty(TASK_CONCURRENCY, "16")
                         .build(),
@@ -1836,7 +1836,7 @@ public class TestLogicalPlanner
     {
         assertDistributedPlan(
                 "SELECT count(distinct(custkey)), count(distinct(nationkey)) FROM ((SELECT custkey, nationkey FROM customer) UNION ALL ( SELECT custkey, custkey FROM customer))",
-                Session.builder(getQueryRunner().getDefaultSession())
+                Session.builder(getPlanTester().getDefaultSession())
                         .setSystemProperty(OPTIMIZE_HASH_GENERATION, "true")
                         .build(),
                 output(
@@ -2378,7 +2378,7 @@ public class TestLogicalPlanner
 
     private Session noJoinReordering()
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.NONE.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.PARTITIONED.name())
                 .build();
@@ -2386,7 +2386,7 @@ public class TestLogicalPlanner
 
     private Session automaticJoinDistribution()
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.NONE.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
                 .build();
@@ -2394,7 +2394,7 @@ public class TestLogicalPlanner
 
     private Session noSemiJoinRewrite()
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(FILTERING_SEMI_JOIN_TO_INNER, "false")
                 .build();
     }

@@ -50,10 +50,10 @@ import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.plan.AggregationNode.singleAggregation;
 import static io.trino.sql.planner.plan.AggregationNode.singleGroupingSet;
+import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
+import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
+import static io.trino.sql.planner.plan.WindowFrameType.ROWS;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
-import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
-import static io.trino.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
-import static io.trino.sql.tree.WindowFrame.Type.ROWS;
 import static java.util.Objects.requireNonNull;
 
 public class SetOperationNodeTranslator
@@ -63,15 +63,6 @@ public class SetOperationNodeTranslator
     private final PlanNodeIdAllocator idAllocator;
     private final ResolvedFunction countFunction;
     private final ResolvedFunction rowNumberFunction;
-
-    public SetOperationNodeTranslator(Session session, Metadata metadata, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
-    {
-        this.symbolAllocator = requireNonNull(symbolAllocator, "SymbolAllocator is null");
-        this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
-        requireNonNull(metadata, "metadata is null");
-        this.countFunction = metadata.resolveBuiltinFunction("count", fromTypes(BOOLEAN));
-        this.rowNumberFunction = metadata.resolveBuiltinFunction("row_number", ImmutableList.of());
-    }
 
     public TranslationResult makeSetContainmentPlanForDistinct(SetOperationNode node)
     {
@@ -90,6 +81,15 @@ public class SetOperationNodeTranslator
         AggregationNode aggregation = computeCounts(union, outputs, markers, aggregationOutputs);
 
         return new TranslationResult(aggregation, aggregationOutputs);
+    }
+
+    public SetOperationNodeTranslator(Session session, Metadata metadata, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    {
+        this.symbolAllocator = requireNonNull(symbolAllocator, "SymbolAllocator is null");
+        this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
+        requireNonNull(metadata, "metadata is null");
+        this.countFunction = metadata.resolveBuiltinFunction("count", fromTypes(BOOLEAN));
+        this.rowNumberFunction = metadata.resolveBuiltinFunction("row_number", ImmutableList.of());
     }
 
     public TranslationResult makeSetContainmentPlanForAll(SetOperationNode node)

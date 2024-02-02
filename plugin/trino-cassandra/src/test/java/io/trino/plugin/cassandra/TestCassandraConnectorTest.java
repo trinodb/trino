@@ -1262,20 +1262,20 @@ public class TestCassandraConnectorTest
             assertThat(execute("SELECT * FROM " + keyspaceAndTable).getRowCount()).isEqualTo(15);
 
             // error
-            assertThatThrownBy(() -> execute("DELETE FROM " + keyspaceAndTable))
-                    .isInstanceOf(RuntimeException.class);
+            assertThat(query("DELETE FROM " + keyspaceAndTable))
+                    .failure().hasMessage("Deleting without partition key is not supported");
             assertThat(execute("SELECT * FROM " + keyspaceAndTable).getRowCount()).isEqualTo(15);
 
             String whereClusteringKeyOnly = " WHERE clust_one='clust_one_2'";
-            assertThatThrownBy(() -> execute("DELETE FROM " + keyspaceAndTable + whereClusteringKeyOnly))
-                    .isInstanceOf(RuntimeException.class);
+            assertThat(query("DELETE FROM " + keyspaceAndTable + whereClusteringKeyOnly))
+                    .failure().hasMessage("Delete without primary key or partition key is not supported");
             assertThat(execute("SELECT * FROM " + keyspaceAndTable).getRowCount()).isEqualTo(15);
 
             String whereMultiplePartitionKeyWithClusteringKey = " WHERE " +
                     " (partition_one=1 AND partition_two=1 AND clust_one='clust_one_1') OR " +
                     " (partition_one=1 AND partition_two=2 AND clust_one='clust_one_2') ";
-            assertThatThrownBy(() -> execute("DELETE FROM " + keyspaceAndTable + whereMultiplePartitionKeyWithClusteringKey))
-                    .isInstanceOf(RuntimeException.class);
+            assertThat(query("DELETE FROM " + keyspaceAndTable + whereMultiplePartitionKeyWithClusteringKey))
+                    .failure().hasMessage("Delete without primary key or partition key is not supported");
             assertThat(execute("SELECT * FROM " + keyspaceAndTable).getRowCount()).isEqualTo(15);
 
             // success
@@ -1435,8 +1435,8 @@ public class TestCassandraConnectorTest
     {
         String tableName = "test_create" + randomNameSuffix();
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(cassandra.system.query(query => 'CREATE TABLE tpch." + tableName + "(col INT PRIMARY KEY)'))"))
-                .hasMessage("Handle doesn't have columns info");
+        assertThat(query("SELECT * FROM TABLE(cassandra.system.query(query => 'CREATE TABLE tpch." + tableName + "(col INT PRIMARY KEY)'))"))
+                .nonTrinoExceptionFailure().hasMessage("Handle doesn't have columns info");
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
     }
 
@@ -1445,7 +1445,8 @@ public class TestCassandraConnectorTest
     {
         String tableName = "test_insert" + randomNameSuffix();
         assertThat(getQueryRunner().tableExists(getSession(), tableName)).isFalse();
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(cassandra.system.query(query => 'INSERT INTO tpch." + tableName + "(col) VALUES (1)'))"))
+        assertThat(query("SELECT * FROM TABLE(cassandra.system.query(query => 'INSERT INTO tpch." + tableName + "(col) VALUES (1)'))"))
+                .failure()
                 .hasMessage("Cannot get column definition")
                 .hasStackTraceContaining("unconfigured table");
     }
@@ -1460,10 +1461,10 @@ public class TestCassandraConnectorTest
                 .row(tableName)
                 .build(), new Duration(1, MINUTES));
 
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(cassandra.system.query(query => 'INSERT INTO tpch." + tableName + "(col) VALUES (3)'))"))
-                .hasMessage("Handle doesn't have columns info");
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(cassandra.system.query(query => 'DELETE FROM tpch." + tableName + " WHERE col = 1'))"))
-                .hasMessage("Handle doesn't have columns info");
+        assertThat(query("SELECT * FROM TABLE(cassandra.system.query(query => 'INSERT INTO tpch." + tableName + "(col) VALUES (3)'))"))
+                .nonTrinoExceptionFailure().hasMessage("Handle doesn't have columns info");
+        assertThat(query("SELECT * FROM TABLE(cassandra.system.query(query => 'DELETE FROM tpch." + tableName + " WHERE col = 1'))"))
+                .nonTrinoExceptionFailure().hasMessage("Handle doesn't have columns info");
 
         assertQuery("SELECT * FROM " + tableName, "VALUES 1");
 
@@ -1473,7 +1474,8 @@ public class TestCassandraConnectorTest
     @Test
     public void testNativeQueryIncorrectSyntax()
     {
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
+                .failure()
                 .hasMessage("Cannot get column definition")
                 .hasStackTraceContaining("no viable alternative at input 'some'");
     }

@@ -42,9 +42,13 @@ import io.trino.sql.planner.plan.LimitNode;
 import io.trino.sql.planner.plan.OutputNode;
 import io.trino.sql.planner.plan.ProjectNode;
 import io.trino.sql.planner.plan.TableScanNode;
+import io.trino.sql.query.QueryAssertions.QueryAssert;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
+import io.trino.testing.assertions.TrinoExceptionAssert;
 import io.trino.testing.sql.TestTable;
 import io.trino.testing.sql.TestView;
 import io.trino.tpch.TpchTable;
+import org.assertj.core.api.AssertProvider;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.RepeatedTest;
@@ -151,7 +155,6 @@ import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_TRUNCATE;
 import static io.trino.testing.TestingConnectorBehavior.SUPPORTS_UPDATE;
 import static io.trino.testing.TestingNames.randomNameSuffix;
 import static io.trino.testing.assertions.Assert.assertEventually;
-import static io.trino.testing.assertions.TestUtil.verifyResultOrFailure;
 import static io.trino.tpch.TpchTable.CUSTOMER;
 import static java.lang.String.format;
 import static java.lang.String.join;
@@ -226,8 +229,7 @@ public abstract class BaseConnectorTest
     }
 
     /**
-     * Ensure the tests are run with {@link DistributedQueryRunner}. E.g. {@link LocalQueryRunner} takes some
-     * shortcuts, not exercising certain aspects.
+     * Ensure the tests are run with {@link io.trino.testing.DistributedQueryRunner} with multiple workers.
      */
     @Test
     public void ensureDistributedQueryRunner()
@@ -614,30 +616,30 @@ public abstract class BaseConnectorTest
                 "varchar_as_date_pred",
                 "(a varchar)",
                 List.of("'2005-06-bad-date'", "'2005-09-10'"))) {
-            assertThatThrownBy(() -> query("SELECT a FROM %s WHERE CAST(a AS date) < DATE '2005-09-10'".formatted(table.getName())))
-                    .hasMessage("Value cannot be cast to date: 2005-06-bad-date");
+            assertThat(query("SELECT a FROM %s WHERE CAST(a AS date) < DATE '2005-09-10'".formatted(table.getName())))
+                    .failure().hasMessage("Value cannot be cast to date: 2005-06-bad-date");
             verifyResultOrFailure(
-                    () -> query("SELECT a FROM %s WHERE CAST(a AS date) = DATE '2005-09-10'".formatted(table.getName())),
-                    queryAssert -> assertThat(queryAssert)
+                    query("SELECT a FROM %s WHERE CAST(a AS date) = DATE '2005-09-10'".formatted(table.getName())),
+                    queryAssert -> queryAssert
                             .skippingTypesCheck()
                             .matches("VALUES '2005-09-10'"),
-                    failure -> assertThat(failure)
+                    failureAssert -> failureAssert
                             .hasMessage("Value cannot be cast to date: 2005-06-bad-date"));
             // This failure isn't guaranteed: a row may be filtered out on the connector side with a derived predicate on a varchar column.
             verifyResultOrFailure(
-                    () -> query("SELECT a FROM %s WHERE CAST(a AS date) != DATE '2005-9-1'".formatted(table.getName())),
-                    queryAssert -> assertThat(queryAssert)
+                    query("SELECT a FROM %s WHERE CAST(a AS date) != DATE '2005-9-1'".formatted(table.getName())),
+                    queryAssert -> queryAssert
                             .skippingTypesCheck()
                             .matches("VALUES '2005-09-10'"),
-                    failure -> assertThat(failure)
+                    failureAssert -> failureAssert
                             .hasMessage("Value cannot be cast to date: 2005-06-bad-date"));
             // This failure isn't guaranteed: a row may be filtered out on the connector side with a derived predicate on a varchar column.
             verifyResultOrFailure(
-                    () -> query("SELECT a FROM %s WHERE CAST(a AS date) > DATE '2022-08-10'".formatted(table.getName())),
-                    queryAssert -> assertThat(queryAssert)
+                    query("SELECT a FROM %s WHERE CAST(a AS date) > DATE '2022-08-10'".formatted(table.getName())),
+                    queryAssert -> queryAssert
                             .skippingTypesCheck()
                             .returnsEmptyResult(),
-                    failure -> assertThat(failure)
+                    failureAssert -> failureAssert
                             .hasMessage("Value cannot be cast to date: 2005-06-bad-date"));
         }
         try (TestTable table = new TestTable(
@@ -650,6 +652,22 @@ public abstract class BaseConnectorTest
                     .skippingTypesCheck()
                     .matches("VALUES '2005-09-10'");
         }
+    }
+
+    private static void verifyResultOrFailure(AssertProvider<QueryAssert> queryAssertProvider, Consumer<QueryAssert> verifyResults, Consumer<TrinoExceptionAssert> verifyFailure)
+    {
+        requireNonNull(verifyResults, "verifyResults is null");
+        requireNonNull(verifyFailure, "verifyFailure is null");
+
+        QueryAssert queryAssert = assertThat(queryAssertProvider);
+        try {
+            var ignored = queryAssert.result();
+        }
+        catch (Throwable t) {
+            verifyFailure.accept(queryAssert.failure());
+            return;
+        }
+        verifyResults.accept(queryAssert);
     }
 
     @Test
@@ -681,10 +699,10 @@ public abstract class BaseConnectorTest
         String catalog = getSession().getCatalog().orElseThrow();
         String schema = getSession().getSchema().orElseThrow();
         String tableName = "foo_" + randomNameSuffix();
-        assertThatThrownBy(() -> query("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '2021-03-01 00:00:01'"))
-                .hasMessage(format("line 1:15: Table '%s.%s.%s' does not exist", catalog, schema, tableName));
-        assertThatThrownBy(() -> query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'version1'"))
-                .hasMessage(format("line 1:15: Table '%s.%s.%s' does not exist", catalog, schema, tableName));
+        assertThat(query("SELECT * FROM " + tableName + " FOR TIMESTAMP AS OF TIMESTAMP '2021-03-01 00:00:01'"))
+                .failure().hasMessage(format("line 1:15: Table '%s.%s.%s' does not exist", catalog, schema, tableName));
+        assertThat(query("SELECT * FROM " + tableName + " FOR VERSION AS OF 'version1'"))
+                .failure().hasMessage(format("line 1:15: Table '%s.%s.%s' does not exist", catalog, schema, tableName));
     }
 
     /**
@@ -4200,9 +4218,9 @@ public abstract class BaseConnectorTest
 
         String tableName = "test_insert_array_" + randomNameSuffix();
         if (!hasBehavior(SUPPORTS_ARRAY)) {
-            assertThatThrownBy(() -> query("CREATE TABLE " + tableName + " (a array(bigint))"))
+            assertThat(query("CREATE TABLE " + tableName + " (a array(bigint))"))
                     // TODO Unify failure message across connectors
-                    .hasMessageMatching("[Uu]nsupported (column )?type: \\Qarray(bigint)");
+                    .failure().hasMessageMatching("[Uu]nsupported (column )?type: \\Qarray(bigint)");
             abort("not supported");
         }
 
@@ -5095,7 +5113,7 @@ public abstract class BaseConnectorTest
             // The completed queries counter is updated in a final query info listener, which is called eventually.
             // Therefore, here we wait until the value of this counter gets stable.
 
-            DispatchManager dispatchManager = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getDispatchManager();
+            DispatchManager dispatchManager = getQueryRunner().getCoordinator().getDispatchManager();
             long beforeCompletedQueriesCount = waitUntilStable(() -> dispatchManager.getStats().getCompletedQueries().getTotalCount(), new Duration(5, SECONDS));
             long beforeSubmittedQueriesCount = dispatchManager.getStats().getSubmittedQueries().getTotalCount();
             String tableName = "test_logging_count" + randomNameSuffix();
@@ -5164,16 +5182,16 @@ public abstract class BaseConnectorTest
         String tableName = "test_written_stats_" + randomNameSuffix();
         try {
             String sql = "CREATE TABLE " + tableName + " AS SELECT * FROM nation";
-            MaterializedResultWithQueryId resultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
-            QueryInfo queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
+            MaterializedResultWithPlan result = getDistributedQueryRunner().executeWithPlan(getSession(), sql);
+            QueryInfo queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(result.queryId());
 
             assertThat(queryInfo.getQueryStats().getOutputPositions()).isEqualTo(1L);
             assertThat(queryInfo.getQueryStats().getWrittenPositions()).isEqualTo(25L);
             assertThat(queryInfo.getQueryStats().getLogicalWrittenDataSize().toBytes() > 0L).isTrue();
 
             sql = "INSERT INTO " + tableName + " SELECT * FROM nation LIMIT 10";
-            resultResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(getSession(), sql);
-            queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(resultResultWithQueryId.getQueryId());
+            result = getDistributedQueryRunner().executeWithPlan(getSession(), sql);
+            queryInfo = getDistributedQueryRunner().getCoordinator().getQueryManager().getFullQueryInfo(result.queryId());
 
             assertThat(queryInfo.getQueryStats().getOutputPositions()).isEqualTo(1L);
             assertThat(queryInfo.getQueryStats().getWrittenPositions()).isEqualTo(10L);
@@ -6408,6 +6426,7 @@ public abstract class BaseConnectorTest
         assertUpdate("CREATE FUNCTION " + name + "(x double) RETURNS double COMMENT 't88' RETURN x * 8.8");
 
         assertThat(query("SHOW FUNCTIONS"))
+                .result()
                 .skippingTypesCheck()
                 .containsAll(resultBuilder(getSession())
                         .row(name, "bigint", "integer", "scalar", true, "t42")
@@ -6426,6 +6445,7 @@ public abstract class BaseConnectorTest
         assertUpdate("CREATE FUNCTION " + name2 + "(s varchar) RETURNS varchar RETURN 'Hello ' || s");
 
         assertThat(query("SHOW FUNCTIONS"))
+                .result()
                 .skippingTypesCheck()
                 .containsAll(resultBuilder(getSession())
                         .row(name, "bigint", "integer", "scalar", true, "t42")
@@ -6444,6 +6464,7 @@ public abstract class BaseConnectorTest
         assertUpdate("CREATE FUNCTION " + name3 + "() RETURNS double NOT DETERMINISTIC RETURN random()");
 
         assertThat(query("SHOW FUNCTIONS"))
+                .result()
                 .skippingTypesCheck()
                 .containsAll(resultBuilder(getSession())
                         .row(name3, "double", "", "scalar", false, "")

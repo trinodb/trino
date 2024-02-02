@@ -93,7 +93,7 @@ class TestCreateMaterializedViewTask
     @BeforeEach
     void setUp()
     {
-        StandaloneQueryRunner queryRunner = new StandaloneQueryRunner(testSessionBuilder()
+        QueryRunner queryRunner = new StandaloneQueryRunner(testSessionBuilder()
                 .setCatalog(TEST_CATALOG_NAME)
                 .build());
         metadata = new MockMetadata();
@@ -105,7 +105,7 @@ class TestCreateMaterializedViewTask
                         .build())
                 .build()));
         queryRunner.createCatalog(TEST_CATALOG_NAME, "mock", ImmutableMap.of());
-        Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks = queryRunner.getServer().getInstance(Key.get(new TypeLiteral<Map<Class<? extends Statement>, DataDefinitionTask<?>>>() {}));
+        Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks = queryRunner.getCoordinator().getInstance(Key.get(new TypeLiteral<Map<Class<? extends Statement>, DataDefinitionTask<?>>>() {}));
         task = (CreateMaterializedViewTask) tasks.get(CreateMaterializedView.class);
         this.queryRunner = queryRunner;
     }

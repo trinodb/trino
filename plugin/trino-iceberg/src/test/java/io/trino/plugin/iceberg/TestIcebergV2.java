@@ -38,7 +38,6 @@ import io.trino.spi.statistics.TableStatistics;
 import io.trino.spi.type.TestingTypeManager;
 import io.trino.spi.type.TypeManager;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import io.trino.testing.sql.TestTable;
 import org.apache.iceberg.BaseTable;
@@ -98,7 +97,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.iceberg.FileFormat.ORC;
 import static org.apache.iceberg.TableProperties.SPLIT_SIZE;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 
 @TestInstance(PER_CLASS)
@@ -112,7 +110,7 @@ public class TestIcebergV2
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = IcebergQueryRunner.builder()
+        QueryRunner queryRunner = IcebergQueryRunner.builder()
                 .setInitialTables(NATION)
                 .build();
 
@@ -249,7 +247,7 @@ public class TestIcebergV2
         assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
         writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
         List<String> initialActiveFiles = getActiveFiles(tableName);
-        query("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
         // nationkey is before the equality delete column in the table schema, comment is after
         assertQuery("SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE regionkey != 1");
@@ -268,7 +266,7 @@ public class TestIcebergV2
         assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
         List<String> initialActiveFiles = getActiveFiles(tableName);
         writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
-        query("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE regionkey != 1");
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE regionkey != 1");
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
         // nationkey is before the equality delete column in the table schema, comment is after
         assertQuery("SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE regionkey != 1");
@@ -285,7 +283,7 @@ public class TestIcebergV2
         assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['nationkey']) AS SELECT * FROM tpch.tiny.nation", 25);
         Table icebergTable = loadTable(tableName);
         writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
-        query("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE nationkey < 5");
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE nationkey < 5");
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1 OR nationkey != 1");
         assertThat(loadTable(tableName).currentSnapshot().summary()).containsEntry("total-equality-deletes", "1");
     }
@@ -409,7 +407,7 @@ public class TestIcebergV2
         }
 
         // TODO: support read equality deletes with nested fields(https://github.com/trinodb/trino/issues/18625)
-        assertThatThrownBy(() -> query("SELECT * FROM " + tableName)).hasMessageContaining("Multiple entries with same key");
+        assertThat(query("SELECT * FROM " + tableName)).failure().hasMessageContaining("Multiple entries with same key");
         assertUpdate("DROP TABLE " + tableName);
     }
 
@@ -421,7 +419,7 @@ public class TestIcebergV2
         assertUpdate("CREATE TABLE " + tableName + " WITH (partitioning = ARRAY['nationkey']) AS SELECT * FROM tpch.tiny.nation", 25);
         Table icebergTable = loadTable(tableName);
         writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
-        query("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1 OR nationkey != 1");
         assertThat(loadTable(tableName).currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
     }
@@ -436,7 +434,7 @@ public class TestIcebergV2
         assertThat(icebergTable.currentSnapshot().summary()).containsEntry("total-equality-deletes", "0");
         writeEqualityDeleteToNationTable(icebergTable);
         List<String> initialActiveFiles = getActiveFiles(tableName);
-        query("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE");
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
         // nationkey is before the equality delete column in the table schema, comment is after
         assertQuery("SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE regionkey != 1");
@@ -456,7 +454,7 @@ public class TestIcebergV2
         writeEqualityDeleteToNationTable(icebergTable, Optional.of(icebergTable.spec()), Optional.of(new PartitionData(new Long[] {1L})));
         List<String> initialActiveFiles = getActiveFiles(tableName);
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
-        query("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE regionkey != 1");
+        assertUpdate("ALTER TABLE " + tableName + " EXECUTE OPTIMIZE WHERE regionkey != 1");
         assertQuery("SELECT * FROM " + tableName, "SELECT * FROM nation WHERE regionkey != 1");
         // nationkey is before the equality delete column in the table schema, comment is after
         assertQuery("SELECT nationkey, comment FROM " + tableName, "SELECT nationkey, comment FROM nation WHERE regionkey != 1");
@@ -577,7 +575,8 @@ public class TestIcebergV2
         String tableName = "test_downgrading_v2_table_to_v1_fails_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 2) AS SELECT * FROM tpch.tiny.nation", 25);
         assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(2);
-        assertThatThrownBy(() -> query("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 1"))
+        assertThat(query("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 1"))
+                .failure()
                 .hasMessage("Failed to set new property values")
                 .rootCause()
                 .hasMessage("Cannot downgrade v2 table to v1");
@@ -589,8 +588,8 @@ public class TestIcebergV2
         String tableName = "test_upgrading_to_invalid_version_fails_" + randomNameSuffix();
         assertUpdate("CREATE TABLE " + tableName + " WITH (format_version = 2) AS SELECT * FROM tpch.tiny.nation", 25);
         assertThat(loadTable(tableName).operations().current().formatVersion()).isEqualTo(2);
-        assertThatThrownBy(() -> query("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 42"))
-                .hasMessage("Unable to set catalog 'iceberg' table property 'format_version' to [42]: format_version must be between 1 and 2");
+        assertThat(query("ALTER TABLE " + tableName + " SET PROPERTIES format_version = 42"))
+                .failure().hasMessage("Unable to set catalog 'iceberg' table property 'format_version' to [42]: format_version must be between 1 and 2");
     }
 
     @Test

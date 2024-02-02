@@ -20,6 +20,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicLongArray;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -33,35 +34,42 @@ import static java.util.Objects.requireNonNull;
 public class SpoolingOutputStats
 {
     private final int partitionCount;
-    private volatile AtomicLongArray accumulators;
+    private volatile AtomicLongArray partitionDataSizes;
     private volatile Snapshot finalSnapshot;
+    private volatile AtomicLong rowCount;
 
     public SpoolingOutputStats(int partitionCount)
     {
         checkArgument(partitionCount > 0, "partitionCount must be greater than zero");
         this.partitionCount = partitionCount;
-        accumulators = new AtomicLongArray(partitionCount);
+        partitionDataSizes = new AtomicLongArray(partitionCount);
+        rowCount = new AtomicLong();
     }
 
-    public void update(int partition, long dataSizeInBytes)
+    public void updatePartitionDataSize(int partition, long dataSizeInBytes)
     {
         checkPositionIndex(partition, partitionCount);
         checkArgument(dataSizeInBytes >= 0, "dataSizeInBytes must be greater than or equal to zero");
-        AtomicLongArray accumulators = this.accumulators;
-        if (accumulators != null) {
-            accumulators.addAndGet(partition, dataSizeInBytes);
+        AtomicLongArray partitionDataSizes = this.partitionDataSizes;
+        if (partitionDataSizes != null) {
+            partitionDataSizes.addAndGet(partition, dataSizeInBytes);
         }
+    }
+
+    public void updateRowCount(int rowCount)
+    {
+        this.rowCount.addAndGet(rowCount);
     }
 
     public void finish()
     {
-        AtomicLongArray accumulators = this.accumulators;
-        this.accumulators = null;
-        if (accumulators == null) {
+        AtomicLongArray partitionDataSizes = this.partitionDataSizes;
+        this.partitionDataSizes = null;
+        if (partitionDataSizes == null) {
             // already processed
             return;
         }
-        finalSnapshot = createSnapshot(accumulators);
+        finalSnapshot = createSnapshot(partitionDataSizes, rowCount);
     }
 
     public Optional<Snapshot> getFinalSnapshot()
@@ -69,14 +77,14 @@ public class SpoolingOutputStats
         return Optional.ofNullable(finalSnapshot);
     }
 
-    private static Snapshot createSnapshot(AtomicLongArray accumulators)
+    private static Snapshot createSnapshot(AtomicLongArray partitionDataSizes, AtomicLong rowCount)
     {
-        int size = accumulators.length();
+        int size = partitionDataSizes.length();
         Slice values = Slices.allocate(Short.BYTES * size);
         for (int i = 0; i < size; i++) {
-            values.setShort(Short.BYTES * i, truncate(accumulators.get(i)));
+            values.setShort(Short.BYTES * i, truncate(partitionDataSizes.get(i)));
         }
-        return new Snapshot(values);
+        return new Snapshot(values, rowCount.get());
     }
 
     private static short truncate(long value)
@@ -101,26 +109,34 @@ public class SpoolingOutputStats
 
     public static class Snapshot
     {
-        private final Slice values;
+        private final Slice partitionDataSizes;
+        private final long rowCount;
 
         @JsonCreator
-        public Snapshot(@JsonProperty("values") Slice values)
+        public Snapshot(@JsonProperty("partitionDataSizes") Slice partitionDataSizes, @JsonProperty("rowCount") long rowCount)
         {
-            this.values = requireNonNull(values, "values is null");
+            this.partitionDataSizes = requireNonNull(partitionDataSizes, "partitionDataSizes is null");
+            this.rowCount = rowCount;
         }
 
         // visible for Jackson
         @JsonProperty
-        public Slice getValues()
+        public Slice getPartitionDataSizes()
         {
-            return values;
+            return partitionDataSizes;
+        }
+
+        @JsonProperty
+        public long getRowCount()
+        {
+            return rowCount;
         }
 
         public long getPartitionSizeInBytes(int partition)
         {
-            int partitionCount = values.length() / Short.BYTES;
+            int partitionCount = partitionDataSizes.length() / Short.BYTES;
             checkArgument(partition < partitionCount, "partition must be less than %s", partitionCount);
-            return expand(values.getShort(partition * Short.BYTES));
+            return expand(partitionDataSizes.getShort(partition * Short.BYTES));
         }
     }
 }

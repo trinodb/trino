@@ -18,6 +18,7 @@ import com.google.inject.Key;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.connector.MockConnectorPlugin;
 import io.trino.spi.eventlistener.EventListener;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.StandaloneQueryRunner;
 import org.junit.jupiter.api.Test;
 
@@ -33,9 +34,9 @@ public class TestConnectorEventListener
     @Test
     public void testConnectorWithoutEventListener()
     {
-        StandaloneQueryRunner queryRunner = new StandaloneQueryRunner(testSessionBuilder().build());
+        QueryRunner queryRunner = new StandaloneQueryRunner(testSessionBuilder().build());
 
-        queryRunner.getServer().getInstance(Key.get(EventListenerManager.class)).loadEventListeners();
+        queryRunner.getCoordinator().getInstance(Key.get(EventListenerManager.class)).loadEventListeners();
 
         assertThatCode(() -> queryRunner.execute("SELECT 1"))
                 .doesNotThrowAnyException();
@@ -45,13 +46,13 @@ public class TestConnectorEventListener
     public void testConnectorWithEventListener()
     {
         MockEventListenerFactory listenerFactory = new MockEventListenerFactory();
-        StandaloneQueryRunner queryRunner = new StandaloneQueryRunner(testSessionBuilder().build());
+        QueryRunner queryRunner = new StandaloneQueryRunner(testSessionBuilder().build());
         queryRunner.installPlugin(new MockConnectorPlugin(MockConnectorFactory.builder()
                 .withEventListener(listenerFactory)
                 .build()));
         queryRunner.createCatalog("event_listening", "mock", ImmutableMap.of());
 
-        queryRunner.getServer().getInstance(Key.get(EventListenerManager.class)).loadEventListeners();
+        queryRunner.getCoordinator().getInstance(Key.get(EventListenerManager.class)).loadEventListeners();
 
         assertThat(listenerFactory.getEventListenerInvocationCounter).hasValue(1);
     }

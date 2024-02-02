@@ -21,6 +21,7 @@ import io.trino.execution.warnings.WarningCollectorConfig;
 import io.trino.spi.TrinoWarning;
 import io.trino.spi.WarningCode;
 import io.trino.testing.DistributedQueryRunner;
+import io.trino.testing.QueryRunner;
 import io.trino.testing.TestingWarningCollector;
 import io.trino.testing.TestingWarningCollectorConfig;
 import org.intellij.lang.annotations.Language;
@@ -57,7 +58,7 @@ public class TestCompletedEventWarnings
             throws Exception
     {
         closer = Closer.create();
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(TEST_SESSION)
+        QueryRunner queryRunner = DistributedQueryRunner.builder(TEST_SESSION)
                 .setExtraProperties(ImmutableMap.of("testing-warning-collector.preloaded-warnings", String.valueOf(TEST_WARNINGS)))
                 .setNodeCount(1)
                 .build();

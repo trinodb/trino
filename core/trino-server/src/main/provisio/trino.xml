@@ -325,4 +325,10 @@
             <unpack />
         </artifact>
     </artifactSet>
+
+    <artifactSet to="plugin/opa">
+        <artifact id="${project.groupId}:trino-opa:zip:${project.version}">
+            <unpack />
+        </artifact>
+    </artifactSet>
 </runtime>

@@ -30,7 +30,7 @@ import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.PrincipalType;
 import io.trino.sql.planner.assertions.BasePushdownPlanTest;
-import io.trino.testing.LocalQueryRunner;
+import io.trino.testing.PlanTester;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 
@@ -53,7 +53,7 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -72,7 +72,7 @@ public class TestHiveProjectionPushdownIntoTableScan
     private File baseDir;
 
     @Override
-    protected LocalQueryRunner createLocalQueryRunner()
+    protected PlanTester createPlanTester()
     {
         try {
             baseDir = Files.createTempDirectory(null).toFile();
@@ -81,10 +81,10 @@ public class TestHiveProjectionPushdownIntoTableScan
             throw new UncheckedIOException(e);
         }
 
-        LocalQueryRunner queryRunner = LocalQueryRunner.create(HIVE_SESSION);
-        queryRunner.createCatalog(HIVE_CATALOG_NAME, new TestingHiveConnectorFactory(baseDir.toPath()), ImmutableMap.of());
+        PlanTester planTester = PlanTester.create(HIVE_SESSION);
+        planTester.createCatalog(HIVE_CATALOG_NAME, new TestingHiveConnectorFactory(baseDir.toPath()), ImmutableMap.of());
 
-        HiveMetastore metastore = getConnectorService(queryRunner, HiveMetastoreFactory.class)
+        HiveMetastore metastore = getConnectorService(planTester, HiveMetastoreFactory.class)
                 .createMetastore(Optional.empty());
 
         metastore.createDatabase(Database.builder()
@@ -93,7 +93,7 @@ public class TestHiveProjectionPushdownIntoTableScan
                 .setOwnerType(Optional.of(PrincipalType.ROLE))
                 .build());
 
-        return queryRunner;
+        return planTester;
     }
 
     @Test
@@ -101,11 +101,11 @@ public class TestHiveProjectionPushdownIntoTableScan
     {
         String testTable = "test_disabled_pushdown";
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
+        Session session = Session.builder(getPlanTester().getDefaultSession())
                 .setCatalogSessionProperty(HIVE_CATALOG_NAME, "projection_pushdown_enabled", "false")
                 .build();
 
-        getQueryRunner().execute(format(
+        getPlanTester().executeStatement(format(
                 "CREATE TABLE %s (col0) AS" +
                         " SELECT cast(row(5, 6) as row(a bigint, b bigint)) AS col0 WHERE false",
                 testTable));
@@ -125,12 +125,12 @@ public class TestHiveProjectionPushdownIntoTableScan
         String testTable = "test_simple_projection_pushdown";
         QualifiedObjectName completeTableName = new QualifiedObjectName(HIVE_CATALOG_NAME, SCHEMA_NAME, testTable);
 
-        getQueryRunner().execute(format(
+        getPlanTester().executeStatement(format(
                 "CREATE TABLE %s (col0, col1) AS" +
                         " SELECT cast(row(5, 6) as row(x bigint, y bigint)) AS col0, 5 AS col1 WHERE false",
                 testTable));
 
-        Session session = getQueryRunner().getDefaultSession();
+        Session session = getPlanTester().getDefaultSession();
 
         Optional<TableHandle> tableHandle = getTableHandle(session, completeTableName);
         assertThat(tableHandle.isPresent())

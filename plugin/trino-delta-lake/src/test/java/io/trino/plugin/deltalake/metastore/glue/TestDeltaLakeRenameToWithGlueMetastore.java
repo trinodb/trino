@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.plugin.deltalake.DeltaLakeQueryRunner;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -48,7 +47,7 @@ public class TestDeltaLakeRenameToWithGlueMetastore
                 .setSchema(SCHEMA)
                 .build();
 
-        DistributedQueryRunner queryRunner = DeltaLakeQueryRunner.builder(deltaLakeSession)
+        QueryRunner queryRunner = DeltaLakeQueryRunner.builder(deltaLakeSession)
                 .setCatalogName(CATALOG_NAME)
                 .setDeltaProperties(ImmutableMap.of("hive.metastore", "glue"))
                 .build();

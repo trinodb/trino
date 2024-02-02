@@ -26,10 +26,10 @@ import io.airlift.drift.transport.netty.server.DriftNettyServerTransport;
 import io.airlift.drift.transport.netty.server.DriftNettyServerTransportFactory;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
+import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.Session;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
@@ -75,7 +75,7 @@ public final class ThriftQueryRunner
             throws Exception
     {
         List<DriftServer> servers = null;
-        DistributedQueryRunner runner = null;
+        QueryRunner runner = null;
         try {
             servers = startThriftServers(thriftServers, enableIndexJoin);
             runner = createThriftQueryRunnerInternal(servers, properties);
@@ -98,7 +98,7 @@ public final class ThriftQueryRunner
     {
         Logging.initialize();
         Map<String, String> properties = ImmutableMap.of("http-server.http.port", "8080");
-        ThriftQueryRunnerWithServers queryRunner = (ThriftQueryRunnerWithServers) createThriftQueryRunner(3, true, properties);
+        QueryRunner queryRunner = createThriftQueryRunner(3, true, properties);
         Thread.sleep(10);
         Logger log = Logger.get(ThriftQueryRunner.class);
         log.info("======== SERVER STARTED ========");
@@ -122,7 +122,7 @@ public final class ThriftQueryRunner
         return servers;
     }
 
-    private static DistributedQueryRunner createThriftQueryRunnerInternal(List<DriftServer> servers, Map<String, String> properties)
+    private static QueryRunner createThriftQueryRunnerInternal(List<DriftServer> servers, Map<String, String> properties)
             throws Exception
     {
         String addresses = servers.stream()
@@ -134,7 +134,7 @@ public final class ThriftQueryRunner
                 .setSchema("tiny")
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(defaultSession)
+        QueryRunner queryRunner = DistributedQueryRunner.builder(defaultSession)
                 .setExtraProperties(properties)
                 .build();
 
@@ -163,15 +163,16 @@ public final class ThriftQueryRunner
     private static class ThriftQueryRunnerWithServers
             implements QueryRunner
     {
-        private DistributedQueryRunner source;
+        private QueryRunner source;
         private List<DriftServer> thriftServers;
 
-        private ThriftQueryRunnerWithServers(DistributedQueryRunner source, List<DriftServer> thriftServers)
+        private ThriftQueryRunnerWithServers(QueryRunner source, List<DriftServer> thriftServers)
         {
             this.source = requireNonNull(source, "source is null");
             this.thriftServers = ImmutableList.copyOf(requireNonNull(thriftServers, "thriftServers is null"));
         }
 
+        @Override
         public TestingTrinoServer getCoordinator()
         {
             return source.getCoordinator();
@@ -270,9 +271,9 @@ public final class ThriftQueryRunner
         }
 
         @Override
-        public MaterializedResult execute(String sql)
+        public List<SpanData> getSpans()
         {
-            return source.execute(sql);
+            return source.getSpans();
         }
 
         @Override
@@ -282,9 +283,9 @@ public final class ThriftQueryRunner
         }
 
         @Override
-        public MaterializedResultWithPlan executeWithPlan(Session session, String sql, WarningCollector warningCollector)
+        public MaterializedResultWithPlan executeWithPlan(Session session, String sql)
         {
-            return source.executeWithPlan(session, sql, warningCollector);
+            return source.executeWithPlan(session, sql);
         }
 
         @Override

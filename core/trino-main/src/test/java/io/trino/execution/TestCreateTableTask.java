@@ -107,7 +107,7 @@ class TestCreateTableTask
     @BeforeEach
     void setUp()
     {
-        StandaloneQueryRunner queryRunner = new StandaloneQueryRunner(testSessionBuilder()
+        QueryRunner queryRunner = new StandaloneQueryRunner(testSessionBuilder()
                 .setCatalog(TEST_CATALOG_NAME)
                 .build());
         metadata = new MockMetadata();
@@ -127,7 +127,7 @@ class TestCreateTableTask
                 "other_mock",
                 ImmutableMap.of());
 
-        Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks = queryRunner.getServer().getInstance(Key.get(new TypeLiteral<Map<Class<? extends Statement>, DataDefinitionTask<?>>>() {}));
+        Map<Class<? extends Statement>, DataDefinitionTask<?>> tasks = queryRunner.getCoordinator().getInstance(Key.get(new TypeLiteral<Map<Class<? extends Statement>, DataDefinitionTask<?>>>() {}));
         createTableTask = (CreateTableTask) tasks.get(CreateTable.class);
         this.queryRunner = queryRunner;
     }

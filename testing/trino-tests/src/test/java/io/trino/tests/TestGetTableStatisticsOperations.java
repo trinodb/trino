@@ -14,21 +14,18 @@
 package io.trino.tests;
 
 import com.google.common.collect.ImmutableMap;
-import io.opentelemetry.sdk.testing.junit5.OpenTelemetryExtension;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.trino.plugin.tpch.TpchPlugin;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.LocalQueryRunner;
 import io.trino.testing.QueryRunner;
-import io.trino.tracing.TracingMetadata;
+import io.trino.testing.StandaloneQueryRunner;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.extension.RegisterExtension;
 import org.junit.jupiter.api.parallel.Execution;
 
-import static io.trino.testing.TestingSession.testSessionBuilder;
+import static io.trino.testing.TestingSession.testSession;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
@@ -39,28 +36,23 @@ import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
 public class TestGetTableStatisticsOperations
         extends AbstractTestQueryFramework
 {
-    @RegisterExtension
-    static final OpenTelemetryExtension TELEMETRY = OpenTelemetryExtension.create();
-
-    private LocalQueryRunner localQueryRunner;
+    private QueryRunner queryRunner;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        localQueryRunner = LocalQueryRunner.builder(testSessionBuilder().build())
-                .withMetadataDecorator(metadata -> new TracingMetadata(TELEMETRY.getOpenTelemetry().getTracer("test"), metadata))
-                .build();
-        localQueryRunner.installPlugin(new TpchPlugin());
-        localQueryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
-        return localQueryRunner;
+        queryRunner = new StandaloneQueryRunner(testSession());
+        queryRunner.installPlugin(new TpchPlugin());
+        queryRunner.createCatalog("tpch", "tpch", ImmutableMap.of());
+        return queryRunner;
     }
 
     @AfterAll
     public void tearDown()
     {
-        localQueryRunner.close();
-        localQueryRunner = null;
+        queryRunner.close();
+        queryRunner = null;
     }
 
     @Test
@@ -83,15 +75,15 @@ public class TestGetTableStatisticsOperations
 
     private void planDistributedQuery(@Language("SQL") String sql)
     {
-        transaction(localQueryRunner.getTransactionManager(), localQueryRunner.getPlannerContext().getMetadata(), localQueryRunner.getAccessControl())
-                .execute(localQueryRunner.getDefaultSession(), transactionSession -> {
-                    localQueryRunner.createPlan(transactionSession, sql);
+        transaction(queryRunner.getTransactionManager(), queryRunner.getPlannerContext().getMetadata(), queryRunner.getAccessControl())
+                .execute(queryRunner.getDefaultSession(), transactionSession -> {
+                    queryRunner.createPlan(transactionSession, sql);
                 });
     }
 
-    private static long getTableStatisticsMethodInvocations()
+    private long getTableStatisticsMethodInvocations()
     {
-        return TELEMETRY.getSpans().stream()
+        return queryRunner.getSpans().stream()
                 .map(SpanData::getName)
                 .filter(name -> name.equals("Metadata.getTableStatistics"))
                 .count();

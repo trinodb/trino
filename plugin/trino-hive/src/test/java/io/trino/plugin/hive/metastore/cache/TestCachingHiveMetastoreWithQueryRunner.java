@@ -25,7 +25,6 @@ import io.trino.plugin.hive.metastore.RawHiveMetastoreFactory;
 import io.trino.spi.security.Identity;
 import io.trino.spi.security.SelectedRole;
 import io.trino.testing.AbstractTestQueryFramework;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.QueryRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -62,7 +61,7 @@ public class TestCachingHiveMetastoreWithQueryRunner
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        DistributedQueryRunner queryRunner = HiveQueryRunner.builder(ADMIN)
+        QueryRunner queryRunner = HiveQueryRunner.builder(ADMIN)
                 .setNodeCount(3)
                 // Required by testPartitionAppend test.
                 // Coordinator needs to be excluded from workers to deterministically reproduce the original problem

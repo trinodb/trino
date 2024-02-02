@@ -16,9 +16,9 @@ package io.trino.plugin.iceberg;
 import io.trino.Session;
 import io.trino.filesystem.Location;
 import io.trino.operator.OperatorStats;
-import io.trino.testing.DistributedQueryRunner;
 import io.trino.testing.MaterializedResult;
-import io.trino.testing.MaterializedResultWithQueryId;
+import io.trino.testing.QueryRunner;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.sql.TestTable;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.Test;
@@ -111,22 +111,22 @@ public class TestIcebergParquetConnectorTest
 
             @Language("SQL") String query = "SELECT * FROM " + table.getName() + " WHERE custkey = 100";
 
-            DistributedQueryRunner queryRunner = getDistributedQueryRunner();
-            MaterializedResultWithQueryId resultWithoutParquetStatistics = queryRunner.executeWithQueryId(
+            QueryRunner queryRunner = getDistributedQueryRunner();
+            MaterializedResultWithPlan resultWithoutParquetStatistics = queryRunner.executeWithPlan(
                     Session.builder(getSession())
                             .setCatalogSessionProperty(getSession().getCatalog().orElseThrow(), "parquet_ignore_statistics", "true")
                             .build(),
                     query);
-            OperatorStats queryStatsWithoutParquetStatistics = getOperatorStats(resultWithoutParquetStatistics.getQueryId());
+            OperatorStats queryStatsWithoutParquetStatistics = getOperatorStats(resultWithoutParquetStatistics.queryId());
             assertThat(queryStatsWithoutParquetStatistics.getPhysicalInputPositions()).isGreaterThan(0);
 
-            MaterializedResultWithQueryId resultWithParquetStatistics = queryRunner.executeWithQueryId(getSession(), query);
-            OperatorStats queryStatsWithParquetStatistics = getOperatorStats(resultWithParquetStatistics.getQueryId());
+            MaterializedResultWithPlan resultWithParquetStatistics = queryRunner.executeWithPlan(getSession(), query);
+            OperatorStats queryStatsWithParquetStatistics = getOperatorStats(resultWithParquetStatistics.queryId());
             assertThat(queryStatsWithParquetStatistics.getPhysicalInputPositions()).isGreaterThan(0);
             assertThat(queryStatsWithParquetStatistics.getPhysicalInputPositions())
                     .isLessThan(queryStatsWithoutParquetStatistics.getPhysicalInputPositions());
 
-            assertEqualsIgnoreOrder(resultWithParquetStatistics.getResult(), resultWithoutParquetStatistics.getResult());
+            assertEqualsIgnoreOrder(resultWithParquetStatistics.result(), resultWithoutParquetStatistics.result());
         }
     }
 
@@ -144,19 +144,19 @@ public class TestIcebergParquetConnectorTest
 
             assertUpdate("ALTER TABLE " + table.getName() + " RENAME COLUMN custkey TO custkey1");
 
-            DistributedQueryRunner queryRunner = getDistributedQueryRunner();
-            MaterializedResultWithQueryId resultWithoutPredicate = queryRunner.executeWithQueryId(getSession(), "TABLE " + table.getName());
-            OperatorStats queryStatsWithoutPredicate = getOperatorStats(resultWithoutPredicate.getQueryId());
+            QueryRunner queryRunner = getDistributedQueryRunner();
+            MaterializedResultWithPlan resultWithoutPredicate = queryRunner.executeWithPlan(getSession(), "TABLE " + table.getName());
+            OperatorStats queryStatsWithoutPredicate = getOperatorStats(resultWithoutPredicate.queryId());
             assertThat(queryStatsWithoutPredicate.getPhysicalInputPositions()).isGreaterThan(0);
-            assertThat(resultWithoutPredicate.getResult()).hasSize(1500);
+            assertThat(resultWithoutPredicate.result()).hasSize(1500);
 
             @Language("SQL") String selectiveQuery = "SELECT * FROM " + table.getName() + " WHERE custkey1 = 100";
-            MaterializedResultWithQueryId selectiveQueryResult = queryRunner.executeWithQueryId(getSession(), selectiveQuery);
-            OperatorStats queryStatsSelectiveQuery = getOperatorStats(selectiveQueryResult.getQueryId());
+            MaterializedResultWithPlan selectiveQueryResult = queryRunner.executeWithPlan(getSession(), selectiveQuery);
+            OperatorStats queryStatsSelectiveQuery = getOperatorStats(selectiveQueryResult.queryId());
             assertThat(queryStatsSelectiveQuery.getPhysicalInputPositions()).isGreaterThan(0);
             assertThat(queryStatsSelectiveQuery.getPhysicalInputPositions())
                     .isLessThan(queryStatsWithoutPredicate.getPhysicalInputPositions());
-            assertThat(selectiveQueryResult.getResult()).hasSize(1);
+            assertThat(selectiveQueryResult.result()).hasSize(1);
         }
     }
 

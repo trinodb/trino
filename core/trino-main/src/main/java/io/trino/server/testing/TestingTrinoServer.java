@@ -457,7 +457,7 @@ public class TestingTrinoServer
         return queryManager;
     }
 
-    public Plan getQueryPlan(QueryId queryId)
+    public Optional<Plan> getQueryPlan(QueryId queryId)
     {
         return queryManager.getQueryPlan(queryId);
     }
@@ -756,9 +756,9 @@ public class TestingTrinoServer
             return this;
         }
 
-        public Builder setSpanProcessor(Optional<SpanProcessor> spanProcessor)
+        public Builder setSpanProcessor(SpanProcessor spanProcessor)
         {
-            this.spanProcessor = requireNonNull(spanProcessor, "spanProcessor is null");
+            this.spanProcessor = Optional.of(spanProcessor);
             return this;
         }
 

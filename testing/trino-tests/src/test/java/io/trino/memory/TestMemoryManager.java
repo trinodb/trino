@@ -99,7 +99,7 @@ public class TestMemoryManager
                 .put("query.max-memory", "1kB")
                 .buildOrThrow();
 
-        try (DistributedQueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
+        try (QueryRunner queryRunner = createQueryRunner(TINY_SESSION, properties)) {
             assertThatThrownBy(() -> queryRunner.execute("SELECT COUNT(*), clerk FROM orders GROUP BY clerk"))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessageStartingWith("Query exceeded per-node memory limit of ");
@@ -169,7 +169,7 @@ public class TestMemoryManager
         }
     }
 
-    private void waitForQueryToBeKilled(DistributedQueryRunner queryRunner)
+    private void waitForQueryToBeKilled(QueryRunner queryRunner)
             throws InterruptedException
     {
         while (true) {

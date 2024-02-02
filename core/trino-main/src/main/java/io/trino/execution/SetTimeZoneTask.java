@@ -13,7 +13,6 @@
  */
 package io.trino.execution;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.inject.Inject;
 import io.airlift.slice.Slice;
@@ -108,12 +107,10 @@ public class SetTimeZoneTask
 
         Object timeZoneValue = evaluateConstantExpression(
                 expression,
-                analyzer.getExpressionCoercions(),
-                analyzer.getTypeOnlyCoercions(),
+                type,
                 plannerContext,
                 stateMachine.getSession(),
                 accessControl,
-                ImmutableSet.of(),
                 parameterLookup);
 
         TimeZoneKey timeZoneKey;

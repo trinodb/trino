@@ -31,9 +31,7 @@ import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.DataOrganizationSpecification;
 import io.trino.sql.planner.plan.UnnestNode;
 import io.trino.sql.planner.plan.WindowNode;
-import io.trino.sql.tree.FrameBound;
 import io.trino.sql.tree.SortItem;
-import io.trino.sql.tree.WindowFrame;
 import io.trino.testing.TestingTransactionHandle;
 import org.junit.jupiter.api.Test;
 
@@ -65,8 +63,11 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.unnest;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.window;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_FOLLOWING;
+import static io.trino.sql.planner.plan.FrameBoundType.UNBOUNDED_PRECEDING;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static io.trino.sql.planner.plan.TopNRankingNode.RankingType.ROW_NUMBER;
+import static io.trino.sql.planner.plan.WindowFrameType.RANGE;
 import static io.trino.sql.tree.SortItem.NullOrdering.FIRST;
 import static io.trino.sql.tree.SortItem.Ordering.ASCENDING;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
@@ -600,11 +601,11 @@ public class TestPushDownDereferencesRules
                                                         createTestMetadataManager().resolveBuiltinFunction("min", fromTypes(ROW_TYPE)),
                                                         ImmutableList.of(p.symbol("msg3", ROW_TYPE).toSymbolReference()),
                                                         new WindowNode.Frame(
-                                                                WindowFrame.Type.RANGE,
-                                                                FrameBound.Type.UNBOUNDED_PRECEDING,
+                                                                RANGE,
+                                                                UNBOUNDED_PRECEDING,
                                                                 Optional.empty(),
                                                                 Optional.empty(),
-                                                                FrameBound.Type.UNBOUNDED_FOLLOWING,
+                                                                UNBOUNDED_FOLLOWING,
                                                                 Optional.empty(),
                                                                 Optional.empty(),
                                                                 Optional.empty(),

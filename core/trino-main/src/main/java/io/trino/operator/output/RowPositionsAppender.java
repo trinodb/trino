@@ -214,6 +214,9 @@ public class RowPositionsAppender
     @Override
     public void reset()
     {
+        for (UnnestingPositionsAppender field : fieldAppenders) {
+            field.reset();
+        }
         initialEntryCount = calculateBlockResetSize(positionCount);
         initialized = false;
         rowIsNull = new boolean[0];

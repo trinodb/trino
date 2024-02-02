@@ -40,8 +40,8 @@ import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
-import static io.trino.sql.planner.plan.JoinNode.Type.LEFT;
+import static io.trino.sql.planner.plan.JoinType.INNER;
+import static io.trino.sql.planner.plan.JoinType.LEFT;
 import static io.trino.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 public abstract class AbstractPredicatePushdownTest
@@ -210,7 +210,7 @@ public abstract class AbstractPredicatePushdownTest
     public void testFilteredSelectFromPartitionedTable()
     {
         // use all optimizers, including AddExchanges
-        List<PlanOptimizer> allOptimizers = getQueryRunner().getPlanOptimizers(false);
+        List<PlanOptimizer> allOptimizers = getPlanTester().getPlanOptimizers(false);
 
         assertPlan(
                 "SELECT DISTINCT orderstatus FROM orders",
@@ -529,7 +529,7 @@ public abstract class AbstractPredicatePushdownTest
 
     protected Session noSemiJoinRewrite()
     {
-        return Session.builder(getQueryRunner().getDefaultSession())
+        return Session.builder(getPlanTester().getDefaultSession())
                 .setSystemProperty(FILTERING_SEMI_JOIN_TO_INNER, "false")
                 .build();
     }

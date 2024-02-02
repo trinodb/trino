@@ -10,7 +10,7 @@
 
     <groupId>io.trino</groupId>
     <artifactId>trino-root</artifactId>
-    <version>438-SNAPSHOT</version>
+    <version>439-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>${project.artifactId}</name>
@@ -92,6 +92,7 @@
         <module>plugin/trino-mongodb</module>
         <module>plugin/trino-mysql</module>
         <module>plugin/trino-mysql-event-listener</module>
+        <module>plugin/trino-opa</module>
         <module>plugin/trino-opensearch</module>
         <module>plugin/trino-oracle</module>
         <module>plugin/trino-password-authenticators</module>
@@ -183,19 +184,19 @@
         <dep.docker.images.version>87</dep.docker.images.version>
         <dep.drift.version>1.21</dep.drift.version>
         <dep.duct-tape.version>1.0.8</dep.duct-tape.version>
-        <dep.errorprone.version>2.23.0</dep.errorprone.version>
+        <dep.errorprone.version>2.24.1</dep.errorprone.version>
         <dep.flyway.version>10.6.0</dep.flyway.version>
         <dep.google.http.client.version>1.43.3</dep.google.http.client.version>
         <dep.iceberg.version>1.4.3</dep.iceberg.version>
         <dep.jna.version>5.14.0</dep.jna.version>
         <dep.joda.version>2.12.6</dep.joda.version>
-        <dep.jsonwebtoken.version>0.12.3</dep.jsonwebtoken.version>
+        <dep.jsonwebtoken.version>0.12.4</dep.jsonwebtoken.version>
         <dep.kafka-clients.version>3.6.1</dep.kafka-clients.version>
         <dep.kotlin.version>1.9.20</dep.kotlin.version>
         <dep.okio.version>3.6.0</dep.okio.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.parquet.version>1.13.1</dep.parquet.version>
-        <dep.protobuf.version>3.25.1</dep.protobuf.version>
+        <dep.protobuf.version>3.25.2</dep.protobuf.version>
         <dep.swagger.version>2.2.20</dep.swagger.version>
         <dep.takari.version>2.1.2</dep.takari.version>
         <dep.tcnative.version>2.0.62.Final</dep.tcnative.version>
@@ -217,7 +218,7 @@
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
-                <version>26.30.0</version>
+                <version>26.31.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -273,7 +274,7 @@
             <dependency>
                 <groupId>org.eclipse.jetty</groupId>
                 <artifactId>jetty-bom</artifactId>
-                <version>11.0.19</version>
+                <version>11.0.20</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -281,7 +282,7 @@
             <dependency>
                 <groupId>org.jdbi</groupId>
                 <artifactId>jdbi3-bom</artifactId>
-                <version>3.43.0</version>
+                <version>3.44.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -841,7 +842,7 @@
             <dependency>
                 <groupId>io.dropwizard.metrics</groupId>
                 <artifactId>metrics-core</artifactId>
-                <version>4.2.24</version>
+                <version>4.2.25</version>
             </dependency>
 
             <dependency>
@@ -2543,7 +2544,7 @@
             <plugin>
                 <groupId>io.trino</groupId>
                 <artifactId>trino-maven-plugin</artifactId>
-                <version>12</version>
+                <version>13</version>
                 <extensions>true</extensions>
             </plugin>
 

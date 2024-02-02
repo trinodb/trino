@@ -36,8 +36,8 @@ import io.trino.sql.planner.plan.ValuesNode;
 import io.trino.sql.query.QueryAssertions.QueryAssert;
 import io.trino.testing.BaseConnectorTest;
 import io.trino.testing.MaterializedResult;
-import io.trino.testing.MaterializedResultWithQueryId;
 import io.trino.testing.QueryRunner;
+import io.trino.testing.QueryRunner.MaterializedResultWithPlan;
 import io.trino.testing.TestingConnectorBehavior;
 import io.trino.testing.sql.SqlExecutor;
 import io.trino.testing.sql.TestTable;
@@ -1080,12 +1080,12 @@ public abstract class BaseJdbcConnectorTest
                 .isFullyPushedDown()
                 .matches("VALUES (BIGINT '3', CAST('CANADA' AS varchar(25)), BIGINT '1')");
 
-        assertThatThrownBy(() -> query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % 0 = 2"))
-                .hasMessageContaining("by zero");
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % 0 = 2"))
+                .failure().hasMessageContaining("by zero");
 
         // Expression that evaluates to 0 for some rows on RHS of modulus
-        assertThatThrownBy(() -> query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % (regionkey - 1) = 2"))
-                .hasMessageContaining("by zero");
+        assertThat(query("SELECT nationkey, name, regionkey FROM nation WHERE nationkey > 0 AND (nationkey - regionkey) % (regionkey - 1) = 2"))
+                .failure().hasMessageContaining("by zero");
 
         // TODO add coverage for other arithmetic pushdowns https://github.com/trinodb/trino/issues/14808
     }
@@ -1988,8 +1988,9 @@ public abstract class BaseJdbcConnectorTest
             // Check that column 'two' is not supported.
             assertQuery("SELECT column_name FROM information_schema.columns WHERE table_name = '" + unqualifiedTableName + "'", "VALUES 'one', 'three'");
             assertUpdate("INSERT INTO " + testTable.getName() + " (one, three) VALUES (123, 'test')", 1);
-            assertThatThrownBy(() -> query(format("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM %s'))", testTable.getName())))
-                    .hasMessageContaining("Unsupported type");
+            assertThat(query(format("SELECT * FROM TABLE(system.query(query => 'SELECT * FROM %s'))", testTable.getName())))
+                    // TODO should be TrinoException
+                    .nonTrinoExceptionFailure().hasMessageContaining("Unsupported type");
         }
     }
 
@@ -1998,8 +1999,8 @@ public abstract class BaseJdbcConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE numbers(n INTEGER)'))"))
-                .hasMessageContaining("Query not supported: ResultSetMetaData not available for query: CREATE TABLE numbers(n INTEGER)");
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'CREATE TABLE numbers(n INTEGER)'))"))
+                .failure().hasMessageContaining("Query not supported: ResultSetMetaData not available for query: CREATE TABLE numbers(n INTEGER)");
         assertThat(getQueryRunner().tableExists(getSession(), "numbers")).isFalse();
     }
 
@@ -2008,8 +2009,8 @@ public abstract class BaseJdbcConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         assertThat(getQueryRunner().tableExists(getSession(), "non_existent_table")).isFalse();
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
-                .hasMessageContaining("Failed to get table handle for prepared query");
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'INSERT INTO non_existent_table VALUES (1)'))"))
+                .failure().hasMessageContaining("Failed to get table handle for prepared query");
     }
 
     @Test
@@ -2017,8 +2018,8 @@ public abstract class BaseJdbcConnectorTest
     {
         skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
         try (TestTable testTable = simpleTable()) {
-            assertThatThrownBy(() -> query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
-                    .hasMessageContaining(format("Query not supported: ResultSetMetaData not available for query: INSERT INTO %s VALUES (3)", testTable.getName()));
+            assertThat(query(format("SELECT * FROM TABLE(system.query(query => 'INSERT INTO %s VALUES (3)'))", testTable.getName())))
+                    .failure().hasMessageContaining(format("Query not supported: ResultSetMetaData not available for query: INSERT INTO %s VALUES (3)", testTable.getName()));
             assertQuery("SELECT * FROM " + testTable.getName(), "VALUES 1, 2");
         }
     }
@@ -2027,8 +2028,8 @@ public abstract class BaseJdbcConnectorTest
     public void testNativeQueryIncorrectSyntax()
     {
         skipTestUnless(hasBehavior(SUPPORTS_NATIVE_QUERY));
-        assertThatThrownBy(() -> query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
-                .hasMessageContaining("Failed to get table handle for prepared query");
+        assertThat(query("SELECT * FROM TABLE(system.query(query => 'some wrong syntax'))"))
+                .failure().hasMessageContaining("Failed to get table handle for prepared query");
     }
 
     protected TestTable simpleTable()
@@ -2089,11 +2090,11 @@ public abstract class BaseJdbcConnectorTest
     private void testDynamicFilteringWithAggregationAggregateColumnUnsafe()
     {
         skipTestUnless(hasBehavior(SUPPORTS_DYNAMIC_FILTER_PUSHDOWN));
-        MaterializedResultWithQueryId resultWithQueryId = getDistributedQueryRunner()
-                .executeWithQueryId(getSession(), "SELECT custkey, count(*) count FROM orders GROUP BY custkey");
+        MaterializedResultWithPlan resultWithPlan = getDistributedQueryRunner()
+                .executeWithPlan(getSession(), "SELECT custkey, count(*) count FROM orders GROUP BY custkey");
         // Detecting whether above aggregation is fully pushed down explicitly as there are cases where SUPPORTS_AGGREGATION_PUSHDOWN
         // is false as not all aggregations are pushed down but the above aggregation is.
-        boolean isAggregationPushedDown = getPhysicalInputPositions(resultWithQueryId.getQueryId()) == 1000;
+        boolean isAggregationPushedDown = getPhysicalInputPositions(resultWithPlan.queryId()) == 1000;
         assertDynamicFiltering(
                 "SELECT * FROM (SELECT custkey, count(*) count FROM orders GROUP BY custkey) a JOIN orders b " +
                         "ON a.count = b.custkey AND b.totalprice < 1000",
@@ -2135,27 +2136,27 @@ public abstract class BaseJdbcConnectorTest
         assertUpdate("CREATE TABLE " + tableName + " (orderkey) AS VALUES 30000, 60000", 2);
         @Language("SQL") String query = "SELECT * FROM orders a JOIN " + tableName + " b ON a.orderkey = b.orderkey";
 
-        MaterializedResultWithQueryId dynamicFilteringResult = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan dynamicFilteringResult = getDistributedQueryRunner().executeWithPlan(
                 dynamicFiltering(true),
                 query);
-        long filteredInputPositions = getPhysicalInputPositions(dynamicFilteringResult.getQueryId());
+        long filteredInputPositions = getPhysicalInputPositions(dynamicFilteringResult.queryId());
 
-        MaterializedResultWithQueryId dynamicFilteringWithCompactionThresholdResult = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan dynamicFilteringWithCompactionThresholdResult = getDistributedQueryRunner().executeWithPlan(
                 dynamicFilteringWithCompactionThreshold(1),
                 query);
-        long smallCompactionInputPositions = getPhysicalInputPositions(dynamicFilteringWithCompactionThresholdResult.getQueryId());
+        long smallCompactionInputPositions = getPhysicalInputPositions(dynamicFilteringWithCompactionThresholdResult.queryId());
         assertEqualsIgnoreOrder(
-                dynamicFilteringResult.getResult(),
-                dynamicFilteringWithCompactionThresholdResult.getResult(),
+                dynamicFilteringResult.result(),
+                dynamicFilteringWithCompactionThresholdResult.result(),
                 "For query: \n " + query);
 
-        MaterializedResultWithQueryId noDynamicFilteringResult = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan noDynamicFilteringResult = getDistributedQueryRunner().executeWithPlan(
                 dynamicFiltering(false),
                 query);
-        long unfilteredInputPositions = getPhysicalInputPositions(noDynamicFilteringResult.getQueryId());
+        long unfilteredInputPositions = getPhysicalInputPositions(noDynamicFilteringResult.queryId());
         assertEqualsIgnoreOrder(
-                dynamicFilteringWithCompactionThresholdResult.getResult(),
-                noDynamicFilteringResult.getResult(),
+                dynamicFilteringWithCompactionThresholdResult.result(),
+                noDynamicFilteringResult.result(),
                 "For query: \n " + query);
 
         assertThat(unfilteredInputPositions)
@@ -2206,22 +2207,22 @@ public abstract class BaseJdbcConnectorTest
 
     private void assertDynamicFilteringUnsafe(@Language("SQL") String sql, JoinDistributionType joinDistributionType, boolean expectDynamicFiltering)
     {
-        MaterializedResultWithQueryId dynamicFilteringResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan dynamicFilteringResultWithQueryId = getDistributedQueryRunner().executeWithPlan(
                 dynamicFiltering(joinDistributionType, true),
                 sql);
 
-        MaterializedResultWithQueryId noDynamicFilteringResultWithQueryId = getDistributedQueryRunner().executeWithQueryId(
+        MaterializedResultWithPlan noDynamicFilteringResultWithQueryId = getDistributedQueryRunner().executeWithPlan(
                 dynamicFiltering(joinDistributionType, false),
                 sql);
 
         // ensure results are the same
         assertEqualsIgnoreOrder(
-                dynamicFilteringResultWithQueryId.getResult(),
-                noDynamicFilteringResultWithQueryId.getResult(),
+                dynamicFilteringResultWithQueryId.result(),
+                noDynamicFilteringResultWithQueryId.result(),
                 "For query: \n " + sql);
 
-        long dynamicFilteringInputPositions = getPhysicalInputPositions(dynamicFilteringResultWithQueryId.getQueryId());
-        long noDynamicFilteringInputPositions = getPhysicalInputPositions(noDynamicFilteringResultWithQueryId.getQueryId());
+        long dynamicFilteringInputPositions = getPhysicalInputPositions(dynamicFilteringResultWithQueryId.queryId());
+        long noDynamicFilteringInputPositions = getPhysicalInputPositions(noDynamicFilteringResultWithQueryId.queryId());
 
         if (expectDynamicFiltering) {
             // Physical input positions is smaller in dynamic filtering case than in no dynamic filtering case

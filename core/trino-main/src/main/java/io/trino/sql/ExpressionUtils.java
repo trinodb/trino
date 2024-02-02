@@ -14,22 +14,18 @@
 package io.trino.sql;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import io.trino.Session;
-import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
-import io.trino.sql.analyzer.ExpressionAnalyzer;
-import io.trino.sql.analyzer.Scope;
 import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.ExpressionInterpreter;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
+import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
@@ -302,29 +298,10 @@ public final class ExpressionUtils
 
     private static boolean constantExpressionEvaluatesSuccessfully(PlannerContext plannerContext, Session session, Expression constantExpression)
     {
-        Map<NodeRef<Expression>, Type> types = getExpressionTypes(plannerContext, session, constantExpression, TypeProvider.empty());
+        Map<NodeRef<Expression>, Type> types = TypeAnalyzer.createTestingTypeAnalyzer(plannerContext).getTypes(session, TypeProvider.empty(), constantExpression);
         ExpressionInterpreter interpreter = new ExpressionInterpreter(constantExpression, plannerContext, session, types);
         Object literalValue = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
         return !(literalValue instanceof Expression);
-    }
-
-    /**
-     * @deprecated Use {@link io.trino.sql.planner.TypeAnalyzer#getTypes(Session, TypeProvider, Expression)}.
-     */
-    @Deprecated
-    public static Map<NodeRef<Expression>, Type> getExpressionTypes(PlannerContext plannerContext, Session session, Expression expression, TypeProvider types)
-    {
-        ExpressionAnalyzer expressionAnalyzer = ExpressionAnalyzer.createWithoutSubqueries(
-                plannerContext,
-                new AllowAllAccessControl(),
-                session,
-                types,
-                ImmutableMap.of(),
-                node -> new IllegalStateException("Unexpected node: " + node),
-                WarningCollector.NOOP,
-                false);
-        expressionAnalyzer.analyze(expression, Scope.create());
-        return expressionAnalyzer.getExpressionTypes();
     }
 
     /**

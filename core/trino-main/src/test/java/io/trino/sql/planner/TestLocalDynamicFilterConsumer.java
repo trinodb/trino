@@ -48,7 +48,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.SmallintType.SMALLINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
-import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
+import static io.trino.sql.planner.plan.JoinType.INNER;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -226,7 +226,7 @@ public class TestLocalDynamicFilterConsumer
     @Test
     public void testDynamicFilterPruning()
     {
-        PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), getQueryRunner().getPlannerContext(), getQueryRunner().getDefaultSession());
+        PlanBuilder planBuilder = new PlanBuilder(new PlanNodeIdAllocator(), getPlanTester().getPlannerContext(), getPlanTester().getDefaultSession());
         Symbol left1 = planBuilder.symbol("left1", BIGINT);
         Symbol left2 = planBuilder.symbol("left2", INTEGER);
         Symbol left3 = planBuilder.symbol("left3", SMALLINT);

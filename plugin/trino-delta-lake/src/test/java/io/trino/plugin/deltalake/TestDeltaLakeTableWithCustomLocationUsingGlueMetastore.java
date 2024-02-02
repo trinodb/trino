@@ -46,7 +46,7 @@ public class TestDeltaLakeTableWithCustomLocationUsingGlueMetastore
                 .setSchema(SCHEMA)
                 .build();
 
-        DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(deltaLakeSession).build();
+        QueryRunner queryRunner = DistributedQueryRunner.builder(deltaLakeSession).build();
 
         this.metastoreDir = new File(queryRunner.getCoordinator().getBaseDataDir().resolve("delta_lake_data").toString());
         this.metastoreDir.deleteOnExit();

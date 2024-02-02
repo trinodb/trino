@@ -236,7 +236,7 @@ public class DistributedQueryRunner
                 environment,
                 additionalModule,
                 baseDataDir,
-                Optional.of(SimpleSpanProcessor.create(spanExporter)),
+                SimpleSpanProcessor.create(spanExporter),
                 systemAccessControlConfiguration,
                 systemAccessControls,
                 eventListeners));
@@ -265,7 +265,7 @@ public class DistributedQueryRunner
             String environment,
             Module additionalModule,
             Optional<Path> baseDataDir,
-            Optional<SpanProcessor> spanProcessor,
+            SpanProcessor spanProcessor,
             Optional<FactoryConfiguration> systemAccessControlConfiguration,
             Optional<List<SystemAccessControl>> systemAccessControls,
             List<EventListener> eventListeners)
@@ -334,6 +334,7 @@ public class DistributedQueryRunner
         return trinoClient;
     }
 
+    @Override
     public List<SpanData> getSpans()
     {
         return spanExporter.getFinishedSpanItems();
@@ -416,6 +417,7 @@ public class DistributedQueryRunner
         return coordinator.getSessionPropertyDefaults();
     }
 
+    @Override
     public TestingTrinoServer getCoordinator()
     {
         return coordinator;
@@ -438,11 +440,6 @@ public class DistributedQueryRunner
     {
         functionBundles.add(functionBundle);
         servers.forEach(server -> server.addFunctions(functionBundle));
-    }
-
-    public void createCatalog(String catalogName, String connectorName)
-    {
-        createCatalog(catalogName, connectorName, ImmutableMap.of());
     }
 
     @Override
@@ -479,24 +476,24 @@ public class DistributedQueryRunner
     }
 
     @Override
-    public MaterializedResult execute(@Language("SQL") String sql)
+    public MaterializedResult execute(Session session, @Language("SQL") String sql)
     {
-        return execute(getDefaultSession(), sql);
+        return executeInternal(session, sql).getResult();
     }
 
     @Override
-    public MaterializedResult execute(Session session, @Language("SQL") String sql)
+    public MaterializedResultWithPlan executeWithPlan(Session session, String sql)
     {
-        return executeWithQueryId(session, sql).getResult();
+        ResultWithQueryId<MaterializedResult> result = executeInternal(session, sql);
+        return new MaterializedResultWithPlan(result.getQueryId(), coordinator.getQueryPlan(result.getQueryId()), result.getResult());
     }
 
-    public MaterializedResultWithQueryId executeWithQueryId(Session session, @Language("SQL") String sql)
+    private ResultWithQueryId<MaterializedResult> executeInternal(Session session, @Language("SQL") String sql)
     {
         lock.readLock().lock();
         try {
             spanExporter.reset();
-            ResultWithQueryId<MaterializedResult> result = trinoClient.execute(session, sql);
-            return new MaterializedResultWithQueryId(result.getQueryId(), result.getResult());
+            return trinoClient.execute(session, sql);
         }
         catch (Throwable e) {
             e.addSuppressed(new Exception("SQL: " + sql));
@@ -508,18 +505,12 @@ public class DistributedQueryRunner
     }
 
     @Override
-    public MaterializedResultWithPlan executeWithPlan(Session session, String sql, WarningCollector warningCollector)
-    {
-        MaterializedResultWithQueryId resultWithQueryId = executeWithQueryId(session, sql);
-        return new MaterializedResultWithPlan(resultWithQueryId.getResult().toTestTypes(), getQueryPlan(resultWithQueryId.getQueryId()));
-    }
-
-    @Override
     public Plan createPlan(Session session, String sql)
     {
         // session must be in a transaction registered with the transaction manager in this query runner
         getTransactionManager().getTransactionInfo(session.getRequiredTransactionId());
 
+        spanExporter.reset();
         return coordinator.getQueryExplainer().getLogicalPlan(
                 session,
                 coordinator.getInstance(Key.get(SqlParser.class)).createStatement(sql),
@@ -530,7 +521,7 @@ public class DistributedQueryRunner
 
     public Plan getQueryPlan(QueryId queryId)
     {
-        return coordinator.getQueryPlan(queryId);
+        return coordinator.getQueryPlan(queryId).orElseThrow();
     }
 
     @Override

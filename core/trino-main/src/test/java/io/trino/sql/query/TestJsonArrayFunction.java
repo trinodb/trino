@@ -24,7 +24,6 @@ import java.nio.charset.Charset;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.trino.spi.StandardErrorCode.JSON_INPUT_CONVERSION_ERROR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -100,8 +99,9 @@ public class TestJsonArrayFunction
                 .matches("VALUES VARCHAR '[{\"a\":1}]'");
 
         // malformed string to be read as JSON
-        assertTrinoExceptionThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT json_array('[...' FORMAT JSON)"))
+                .failure()
                 .hasErrorCode(JSON_INPUT_CONVERSION_ERROR);
 
         // duplicate key inside the formatted element: only one entry is retained
@@ -128,8 +128,9 @@ public class TestJsonArrayFunction
                 .matches("VALUES VARCHAR '[\"2001-01-31\"]'");
 
         // HyperLogLog cannot be cast to varchar
-        assertTrinoExceptionThrownBy(() -> assertions.query(
+        assertThat(assertions.query(
                 "SELECT json_array(approx_set(1))"))
+                .failure()
                 .hasErrorCode(NOT_SUPPORTED);
     }
 
