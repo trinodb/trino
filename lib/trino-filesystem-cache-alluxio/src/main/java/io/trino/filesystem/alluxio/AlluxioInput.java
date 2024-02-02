@@ -16,12 +16,19 @@ package io.trino.filesystem.alluxio;
 import alluxio.client.file.URIStatus;
 import alluxio.client.file.cache.CacheManager;
 import alluxio.conf.AlluxioConfiguration;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
 
 import java.io.EOFException;
 import java.io.IOException;
 
+import static io.trino.filesystem.alluxio.AlluxioTracing.withTracing;
+import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_LOCATION;
+import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_READ_POSITION;
+import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_READ_SIZE;
+import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_KEY;
 import static java.lang.Math.min;
 import static java.util.Objects.checkFromIndexSize;
 import static java.util.Objects.requireNonNull;
@@ -32,22 +39,28 @@ public class AlluxioInput
     private final TrinoInputFile inputFile;
     private final long fileLength;
     private final AlluxioCacheStats statistics;
+    private final String cacheKey;
     private final AlluxioInputHelper helper;
+    private final Tracer tracer;
 
     private TrinoInput input;
     private boolean closed;
 
     public AlluxioInput(
+            Tracer tracer,
             TrinoInputFile inputFile,
+            String cacheKey,
             URIStatus status,
             CacheManager cacheManager,
             AlluxioConfiguration configuration,
             AlluxioCacheStats statistics)
     {
+        this.tracer = requireNonNull(tracer, "tracer is null");
         this.inputFile = requireNonNull(inputFile, "inputFile is null");
         this.fileLength = requireNonNull(status, "status is null").getLength();
         this.statistics = requireNonNull(statistics, "statistics is null");
-        this.helper = new AlluxioInputHelper(inputFile.location(), status, cacheManager, configuration, statistics);
+        this.cacheKey = requireNonNull(cacheKey, "cacheKey is null");
+        this.helper = new AlluxioInputHelper(tracer, inputFile.location(), cacheKey, status, cacheManager, configuration, statistics);
     }
 
     @Override
@@ -76,13 +89,23 @@ public class AlluxioInput
         if (length == 0) {
             return 0;
         }
-        AlluxioInputHelper.PageAlignedRead aligned = helper.alignRead(position, length);
-        byte[] readBuffer = new byte[aligned.length()];
-        getInput().readFully(aligned.pageStart(), readBuffer, 0, readBuffer.length);
-        helper.putCache(aligned.pageStart(), aligned.pageEnd(), readBuffer, aligned.length());
-        System.arraycopy(readBuffer, aligned.pageOffset(), buffer, offset, length);
-        statistics.recordExternalRead(inputFile.location(), readBuffer.length);
-        return length;
+
+        Span span = tracer.spanBuilder("Alluxio.readExternal")
+                .setAttribute(CACHE_KEY, cacheKey)
+                .setAttribute(CACHE_FILE_LOCATION, inputFile.location().toString())
+                .setAttribute(CACHE_FILE_READ_SIZE, (long) length)
+                .setAttribute(CACHE_FILE_READ_POSITION, position)
+                .startSpan();
+
+        return withTracing(span, () -> {
+            AlluxioInputHelper.PageAlignedRead aligned = helper.alignRead(position, length);
+            byte[] readBuffer = new byte[aligned.length()];
+            getInput().readFully(aligned.pageStart(), readBuffer, 0, readBuffer.length);
+            helper.putCache(aligned.pageStart(), aligned.pageEnd(), readBuffer, aligned.length());
+            System.arraycopy(readBuffer, aligned.pageOffset(), buffer, offset, length);
+            statistics.recordExternalRead(readBuffer.length);
+            return length;
+        });
     }
 
     private TrinoInput getInput()

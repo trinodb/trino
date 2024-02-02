@@ -15,7 +15,6 @@ package io.trino.filesystem.alluxio;
 
 import com.google.errorprone.annotations.ThreadSafe;
 import io.airlift.stats.DistributionStat;
-import io.trino.filesystem.Location;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -39,12 +38,12 @@ public class AlluxioCacheStats
         return cacheReads;
     }
 
-    public void recordCacheRead(Location location, int length)
+    public void recordCacheRead(int length)
     {
         cacheReads.add(length);
     }
 
-    public void recordExternalRead(Location location, int length)
+    public void recordExternalRead(int length)
     {
         externalReads.add(length);
     }
