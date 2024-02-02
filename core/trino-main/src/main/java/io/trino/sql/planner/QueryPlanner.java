@@ -1398,7 +1398,7 @@ class QueryPlanner
                 analysis.getGroupingOperations(node),
                 symbolAllocator,
                 idAllocator,
-                (translations, groupingOperation) -> rewriteGroupingOperation(groupingOperation, descriptor, analysis.getColumnReferenceFields(), groupIdSymbol),
+                (translations, groupingOperation) -> rewriteGroupingOperation(groupingOperation, analysis.getType(groupingOperation), descriptor, analysis.getColumnReferenceFields(), groupIdSymbol),
                 (translations, groupingOperation) -> false);
     }
 
