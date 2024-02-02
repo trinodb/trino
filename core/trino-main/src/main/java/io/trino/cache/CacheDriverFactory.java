@@ -302,6 +302,7 @@ public class CacheDriverFactory
         }
     }
 
+    @VisibleForTesting
     public CacheMetrics getCacheMetrics()
     {
         return cacheMetrics;
