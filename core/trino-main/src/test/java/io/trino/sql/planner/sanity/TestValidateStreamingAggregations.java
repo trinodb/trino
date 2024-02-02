@@ -22,8 +22,8 @@ import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.plugin.tpch.TpchTransactionHandle;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.PlanNodeIdAllocator;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.assertions.BasePlanTest;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
@@ -34,7 +34,6 @@ import org.junit.jupiter.api.Test;
 import java.util.function.Function;
 
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -42,7 +41,7 @@ public class TestValidateStreamingAggregations
         extends BasePlanTest
 {
     private PlannerContext plannerContext;
-    private TypeAnalyzer typeAnalyzer;
+    private IrTypeAnalyzer typeAnalyzer;
     private PlanNodeIdAllocator idAllocator = new PlanNodeIdAllocator();
     private TableHandle nationTableHandle;
 
@@ -50,7 +49,7 @@ public class TestValidateStreamingAggregations
     public void setup()
     {
         plannerContext = getPlanTester().getPlannerContext();
-        typeAnalyzer = createTestingTypeAnalyzer(plannerContext);
+        typeAnalyzer = new IrTypeAnalyzer(plannerContext);
 
         CatalogHandle catalogHandle = getCurrentCatalogHandle();
         nationTableHandle = new TableHandle(

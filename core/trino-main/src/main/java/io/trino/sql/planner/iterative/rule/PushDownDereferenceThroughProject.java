@@ -17,7 +17,7 @@ import com.google.common.collect.HashBiMap;
 import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.ProjectNode;
@@ -54,9 +54,9 @@ public class PushDownDereferenceThroughProject
         implements Rule<ProjectNode>
 {
     private static final Capture<ProjectNode> CHILD = newCapture();
-    private final TypeAnalyzer typeAnalyzer;
+    private final IrTypeAnalyzer typeAnalyzer;
 
-    public PushDownDereferenceThroughProject(TypeAnalyzer typeAnalyzer)
+    public PushDownDereferenceThroughProject(IrTypeAnalyzer typeAnalyzer)
     {
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
     }
