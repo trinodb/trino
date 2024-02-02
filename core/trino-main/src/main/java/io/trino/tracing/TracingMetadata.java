@@ -693,14 +693,14 @@ public class TracingMetadata
     }
 
     @Override
-    public Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public Optional<ConnectorOutputMetadata> finishInsert(Session session, InsertTableHandle tableHandle, List<TableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         Span span = startSpan("finishInsert", tableHandle.getCatalogHandle().getCatalogName());
         if (span.isRecording()) {
             span.setAttribute(TrinoAttributes.TABLE, tableHandle.getConnectorHandle().toString());
         }
         try (var ignored = scopedSpan(span)) {
-            return delegate.finishInsert(session, tableHandle, fragments, computedStatistics);
+            return delegate.finishInsert(session, tableHandle, sourceTableHandles, fragments, computedStatistics);
         }
     }
 
@@ -827,14 +827,14 @@ public class TracingMetadata
     }
 
     @Override
-    public void finishMerge(Session session, MergeHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    public void finishMerge(Session session, MergeHandle tableHandle, List<TableHandle> sourceTableHandles, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         Span span = startSpan("finishMerge", tableHandle.getTableHandle().getCatalogHandle().getCatalogName());
         if (span.isRecording()) {
             span.setAttribute(TrinoAttributes.TABLE, tableHandle.getTableHandle().getConnectorHandle().toString());
         }
         try (var ignored = scopedSpan(span)) {
-            delegate.finishMerge(session, tableHandle, fragments, computedStatistics);
+            delegate.finishMerge(session, tableHandle, sourceTableHandles, fragments, computedStatistics);
         }
     }
 

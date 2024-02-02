@@ -98,7 +98,7 @@ public class S3NativeTransactionLogSynchronizer
                 else {
                     if (lockInfo.getEntryFilename().equals(newEntryFilename)) {
                         if (currentLock.isPresent()) {
-                            throw new IllegalStateException(format(
+                            throw new TransactionConflictException(format(
                                     "Multiple live locks found for: %s; lock1: %s; lock2: %s",
                                     newLogEntryPath,
                                     currentLock.get().getLockFilename(),

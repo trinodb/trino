@@ -20,34 +20,32 @@ import io.trino.filesystem.TrinoFileSystemFactory;
 import io.trino.spi.connector.ConnectorSession;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.nio.file.FileAlreadyExistsException;
 
-import static io.airlift.slice.Slices.wrappedBuffer;
 import static java.util.Objects.requireNonNull;
 
-public class GcsTransactionLogSynchronizer
+public class LocalTransactionLogSynchronizer
         implements TransactionLogSynchronizer
 {
     private final TrinoFileSystemFactory fileSystemFactory;
 
     @Inject
-    public GcsTransactionLogSynchronizer(TrinoFileSystemFactory fileSystemFactory)
+    public LocalTransactionLogSynchronizer(TrinoFileSystemFactory fileSystemFactory)
     {
         this.fileSystemFactory = requireNonNull(fileSystemFactory, "fileSystemFactory is null");
     }
 
-    // This approach is compatible with OSS Delta Lake
-    // https://github.com/delta-io/delta/blob/225e2bbf9ecaf034d08ef8d2fee1929e51c951bf/storage/src/main/java/io/delta/storage/GCSLogStore.java
     @Override
     public void write(ConnectorSession session, String clusterId, Location newLogEntryPath, byte[] entryContents)
     {
         TrinoFileSystem fileSystem = fileSystemFactory.create(session);
-        try {
-            fileSystem.newOutputFile(newLogEntryPath).createExclusive(wrappedBuffer(entryContents));
+        try (OutputStream outputStream = fileSystem.newOutputFile(newLogEntryPath).create()) {
+            outputStream.write(entryContents);
         }
         catch (FileAlreadyExistsException e) {
-            throw new TransactionConflictException("Conflict detected while writing Transaction Log entry " + newLogEntryPath + " to GCS", e);
+            throw new TransactionConflictException("Conflict detected while writing Transaction Log entry " + newLogEntryPath, e);
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);

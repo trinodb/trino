@@ -91,6 +91,7 @@ public final class DeltaLakeSchemaSupport
     public static final String COLUMN_MAPPING_MODE_CONFIGURATION_KEY = "delta.columnMapping.mode";
     public static final String COLUMN_MAPPING_PHYSICAL_NAME_CONFIGURATION_KEY = "delta.columnMapping.physicalName";
     public static final String MAX_COLUMN_ID_CONFIGURATION_KEY = "delta.columnMapping.maxColumnId";
+    public static final String ISOLATION_LEVEL_CONFIGURATION_KEY = "delta.isolationLevel";
     private static final String DELETION_VECTORS_CONFIGURATION_KEY = "delta.enableDeletionVectors";
 
     // https://github.com/delta-io/delta/blob/master/PROTOCOL.md#valid-feature-names-in-table-features
@@ -124,6 +125,24 @@ public final class DeltaLakeSchemaSupport
         NONE,
         UNKNOWN,
         /**/;
+    }
+
+    public enum IsolationLevel
+    {
+        WRITESERIALIZABLE("WriteSerializable"),
+        SERIALIZABLE("Serializable");
+
+        private final String value;
+
+        IsolationLevel(String value)
+        {
+            this.value = value;
+        }
+
+        public String getValue()
+        {
+            return value;
+        }
     }
 
     // only non-parametrized types are stored here
@@ -172,6 +191,13 @@ public final class DeltaLakeSchemaSupport
         }
         String columnMappingMode = metadata.getConfiguration().getOrDefault(COLUMN_MAPPING_MODE_CONFIGURATION_KEY, "none");
         return Enums.getIfPresent(ColumnMappingMode.class, columnMappingMode.toUpperCase(ENGLISH)).or(ColumnMappingMode.UNKNOWN);
+    }
+
+    public static IsolationLevel getIsolationLevel(MetadataEntry metadata)
+    {
+        // WriteSerializable isolation level provides the best balance between data consistency and availability
+        String isolationLevel = metadata.getConfiguration().getOrDefault(ISOLATION_LEVEL_CONFIGURATION_KEY, IsolationLevel.WRITESERIALIZABLE.getValue());
+        return Enums.getIfPresent(IsolationLevel.class, isolationLevel.toUpperCase(ENGLISH)).toJavaUtil().orElseThrow(() -> new TrinoException(NOT_SUPPORTED, "Unsupported isolation level '%s'".formatted(isolationLevel)));
     }
 
     public static int getMaxColumnId(MetadataEntry metadata)
