@@ -22,6 +22,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
 import com.google.inject.Inject;
+import io.airlift.units.DataSize;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.TrinoInputFile;
@@ -36,16 +38,21 @@ import static java.util.Objects.requireNonNull;
 public class AlluxioFileSystemCache
         implements TrinoFileSystemCache
 {
+    private final Tracer tracer;
+    private final DataSize pageSize;
     private final CacheManager cacheManager;
     private final AlluxioConfiguration config;
     private final AlluxioCacheStats statistics;
     private final HashFunction hashFunction = Hashing.murmur3_128();
 
     @Inject
-    public AlluxioFileSystemCache(CacheManager cacheManager, AlluxioConfiguration config, AlluxioCacheStats statistics)
+    public AlluxioFileSystemCache(Tracer tracer, AlluxioFileSystemCacheConfig config, AlluxioCacheStats statistics)
+            throws IOException
     {
-        this.cacheManager = requireNonNull(cacheManager, "cacheManager is null");
-        this.config = requireNonNull(config, "config is null");
+        this.tracer = requireNonNull(tracer, "tracer is null");
+        this.config = AlluxioConfigurationFactory.create(requireNonNull(config, "config is null"));
+        this.pageSize = config.getCachePageSize();
+        this.cacheManager = CacheManager.Factory.create(this.config);
         this.statistics = requireNonNull(statistics, "statistics is null");
     }
 
@@ -53,14 +60,14 @@ public class AlluxioFileSystemCache
     public TrinoInput cacheInput(TrinoInputFile delegate, String key)
             throws IOException
     {
-        return new AlluxioInput(delegate, uriStatus(delegate, key), cacheManager, config, statistics);
+        return new AlluxioInput(tracer, delegate, key, uriStatus(delegate, key), new TracingCacheManager(tracer, key, pageSize, cacheManager), config, statistics);
     }
 
     @Override
     public TrinoInputStream cacheStream(TrinoInputFile delegate, String key)
             throws IOException
     {
-        return new AlluxioInputStream(delegate, uriStatus(delegate, key), cacheManager, config, statistics);
+        return new AlluxioInputStream(tracer, delegate, key, uriStatus(delegate, key), new TracingCacheManager(tracer, key, pageSize, cacheManager), config, statistics);
     }
 
     @Override

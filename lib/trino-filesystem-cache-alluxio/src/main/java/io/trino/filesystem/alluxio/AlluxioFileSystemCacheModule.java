@@ -13,21 +13,15 @@
  */
 package io.trino.filesystem.alluxio;
 
-import alluxio.client.file.cache.CacheManager;
-import alluxio.conf.AlluxioConfiguration;
 import alluxio.metrics.MetricsConfig;
 import alluxio.metrics.MetricsSystem;
 import com.google.inject.Binder;
-import com.google.inject.Provides;
-import com.google.inject.Singleton;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.trino.filesystem.cache.CachingHostAddressProvider;
 import io.trino.filesystem.cache.ConsistentHashingHostAddressProvider;
 import io.trino.filesystem.cache.ConsistentHashingHostAddressProviderConfiguration;
 import io.trino.filesystem.cache.TrinoFileSystemCache;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.util.Properties;
 
 import static com.google.inject.Scopes.SINGLETON;
@@ -53,17 +47,5 @@ public class AlluxioFileSystemCacheModule
         metricProps.put("sink.jmx.class", "alluxio.metrics.sink.JmxSink");
         metricProps.put("sink.jmx.domain", "org.alluxio");
         MetricsSystem.startSinksFromConfig(new MetricsConfig(metricProps));
-    }
-
-    @Provides
-    @Singleton
-    public static CacheManager getCacheManager(AlluxioConfiguration alluxioConfiguration)
-    {
-        try {
-            return CacheManager.Factory.create(alluxioConfiguration);
-        }
-        catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
     }
 }
