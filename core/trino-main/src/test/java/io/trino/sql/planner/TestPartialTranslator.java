@@ -19,8 +19,6 @@ import io.trino.Session;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.type.Type;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
-import io.trino.sql.tree.AtTimeZone;
-import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.LongLiteral;
@@ -76,21 +74,13 @@ public class TestPartialTranslator
         Expression rowSymbolReference = new SymbolReference("row_symbol_1");
         Expression dereferenceExpression1 = new SubscriptExpression(rowSymbolReference, new LongLiteral("1"));
         Expression dereferenceExpression2 = new SubscriptExpression(rowSymbolReference, new LongLiteral("2"));
-        Expression dereferenceExpression3 = new SubscriptExpression(rowSymbolReference, new LongLiteral("3"));
         Expression stringLiteral = new StringLiteral("abcd");
         Expression symbolReference1 = new SymbolReference("double_symbol_1");
-        SymbolReference timestamp3SymbolReference = new SymbolReference("timestamp3_symbol_1");
 
         assertFullTranslation(symbolReference1);
         assertFullTranslation(dereferenceExpression1);
         assertFullTranslation(stringLiteral);
         assertFullTranslation(new ArithmeticBinaryExpression(ADD, symbolReference1, dereferenceExpression1));
-
-        assertPartialTranslation(
-                new CoalesceExpression(
-                        new AtTimeZone(timestamp3SymbolReference, stringLiteral),
-                        dereferenceExpression3),
-                List.of(timestamp3SymbolReference, stringLiteral, dereferenceExpression3));
 
         Expression functionCallExpression = new FunctionCall(
                 PLANNER_CONTEXT.getMetadata().resolveBuiltinFunction("concat", fromTypes(VARCHAR, VARCHAR)).toQualifiedName(),
