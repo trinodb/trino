@@ -19,6 +19,8 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.trino.Session;
 import io.trino.dispatcher.DispatchManager;
+import io.trino.execution.ExecutionFailureInfo;
+import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
 import io.trino.execution.resourcegroups.InternalResourceGroupManager;
 import io.trino.plugin.resourcegroups.db.DbResourceGroupConfigurationManager;
@@ -269,7 +271,14 @@ public class TestQueuesDb
 
         DispatchManager dispatchManager = queryRunner.getCoordinator().getDispatchManager();
         BasicQueryInfo basicQueryInfo = dispatchManager.getQueryInfo(secondQuery);
-        assertThat(basicQueryInfo.getErrorCode()).isEqualTo(QUERY_QUEUE_FULL.toErrorCode());
+        if (!QUERY_QUEUE_FULL.toErrorCode().equals(basicQueryInfo.getErrorCode())) {
+            AssertionError failure = new AssertionError("Expected query to fail with QUERY_QUEUE_FULL error code, but got: %s".formatted(basicQueryInfo.getErrorCode()));
+            dispatchManager.getFullQueryInfo(secondQuery)
+                    .map(QueryInfo::getFailureInfo) // nullable
+                    .map(ExecutionFailureInfo::toException)
+                    .ifPresent(failure::addSuppressed);
+            throw failure;
+        }
     }
 
     @Test
