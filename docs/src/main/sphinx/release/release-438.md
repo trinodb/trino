@@ -19,6 +19,7 @@
 * Add support for configuring the maximum number of values per page when writing
   to Parquet files with the `parquet.writer.page-value-count` configuration
   property or the `parquet_writer_page_value_count` session property. ({issue}`20171`)
+* Add support for `ALTER COLUMN ... DROP NOT NULL` statements. ({issue}`20448`)
 
 ## Hive connector
 
