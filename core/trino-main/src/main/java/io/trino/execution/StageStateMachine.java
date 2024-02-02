@@ -193,7 +193,7 @@ public class StageStateMachine
         failureCause.compareAndSet(null, Failures.toFailure(throwable));
         boolean failed = stageState.setIf(FAILED, currentState -> !currentState.isDone());
         if (failed) {
-            log.error(throwable, "Stage %s failed", stageId);
+            log.debug(throwable, "Stage %s failed", stageId);
         }
         else {
             log.debug(throwable, "Failure after stage %s finished", stageId);
