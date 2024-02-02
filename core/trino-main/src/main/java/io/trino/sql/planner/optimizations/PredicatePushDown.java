@@ -27,13 +27,13 @@ import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.EffectivePredicateExtractor;
 import io.trino.sql.planner.EqualityInference;
 import io.trino.sql.planner.IrExpressionInterpreter;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.SymbolsExtractor;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AssignUniqueId;
@@ -127,13 +127,13 @@ public class PredicatePushDown
             LESS_THAN_OR_EQUAL);
 
     private final PlannerContext plannerContext;
-    private final TypeAnalyzer typeAnalyzer;
+    private final IrTypeAnalyzer typeAnalyzer;
     private final boolean useTableProperties;
     private final boolean dynamicFiltering;
 
     public PredicatePushDown(
             PlannerContext plannerContext,
-            TypeAnalyzer typeAnalyzer,
+            IrTypeAnalyzer typeAnalyzer,
             boolean useTableProperties,
             boolean dynamicFiltering)
     {
@@ -161,7 +161,7 @@ public class PredicatePushDown
         private final PlanNodeIdAllocator idAllocator;
         private final PlannerContext plannerContext;
         private final Metadata metadata;
-        private final TypeAnalyzer typeAnalyzer;
+        private final IrTypeAnalyzer typeAnalyzer;
         private final Session session;
         private final TypeProvider types;
         private final ExpressionEquivalence expressionEquivalence;
@@ -173,7 +173,7 @@ public class PredicatePushDown
                 SymbolAllocator symbolAllocator,
                 PlanNodeIdAllocator idAllocator,
                 PlannerContext plannerContext,
-                TypeAnalyzer typeAnalyzer,
+                IrTypeAnalyzer typeAnalyzer,
                 Session session,
                 TypeProvider types,
                 boolean useTableProperties,

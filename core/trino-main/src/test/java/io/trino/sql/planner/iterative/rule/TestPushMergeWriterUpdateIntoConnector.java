@@ -24,8 +24,8 @@ import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.TestingColumnHandle;
 import io.trino.spi.expression.Constant;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.TableUpdateNode;
@@ -175,7 +175,7 @@ public class TestPushMergeWriterUpdateIntoConnector
     private static PushMergeWriterUpdateIntoConnector createRule(RuleTester tester)
     {
         PlannerContext plannerContext = tester.getPlannerContext();
-        TypeAnalyzer typeAnalyzer = tester.getTypeAnalyzer();
+        IrTypeAnalyzer typeAnalyzer = tester.getTypeAnalyzer();
         return new PushMergeWriterUpdateIntoConnector(
                 plannerContext,
                 typeAnalyzer,

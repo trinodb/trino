@@ -45,11 +45,11 @@ import io.trino.sql.ExpressionUtils;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.DomainTranslator;
 import io.trino.sql.planner.DomainTranslator.ExtractionResult;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.SymbolsExtractor;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.optimizations.SymbolMapper;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -131,7 +131,7 @@ public final class CommonSubqueriesExtractor
     private final Session session;
     private final PlanNodeIdAllocator idAllocator;
     private final SymbolAllocator symbolAllocator;
-    private final TypeAnalyzer typeAnalyzer;
+    private final IrTypeAnalyzer typeAnalyzer;
     private final PlanNode root;
 
     public static Map<PlanNode, CommonPlanAdaptation> extractCommonSubqueries(
@@ -140,7 +140,7 @@ public final class CommonSubqueriesExtractor
             Session session,
             PlanNodeIdAllocator idAllocator,
             SymbolAllocator symbolAllocator,
-            TypeAnalyzer typeAnalyzer,
+            IrTypeAnalyzer typeAnalyzer,
             PlanNode root)
     {
         return new CommonSubqueriesExtractor(cacheController, plannerContext, session, idAllocator, symbolAllocator, typeAnalyzer, root)
@@ -153,7 +153,7 @@ public final class CommonSubqueriesExtractor
             Session session,
             PlanNodeIdAllocator idAllocator,
             SymbolAllocator symbolAllocator,
-            TypeAnalyzer typeAnalyzer,
+            IrTypeAnalyzer typeAnalyzer,
             PlanNode root)
     {
         this.cacheController = requireNonNull(cacheController, "cacheController is null");

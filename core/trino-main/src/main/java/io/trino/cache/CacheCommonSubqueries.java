@@ -18,9 +18,9 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.spi.cache.CacheManager;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.optimizations.PlanNodeSearcher;
 import io.trino.sql.planner.plan.CacheDataPlanNode;
@@ -56,7 +56,7 @@ public class CacheCommonSubqueries
     private final Session session;
     private final PlanNodeIdAllocator idAllocator;
     private final SymbolAllocator symbolAllocator;
-    private final TypeAnalyzer typeAnalyzer;
+    private final IrTypeAnalyzer typeAnalyzer;
 
     public CacheCommonSubqueries(
             CacheController cacheController,
@@ -64,7 +64,7 @@ public class CacheCommonSubqueries
             Session session,
             PlanNodeIdAllocator idAllocator,
             SymbolAllocator symbolAllocator,
-            TypeAnalyzer typeAnalyzer)
+            IrTypeAnalyzer typeAnalyzer)
     {
         this.cacheController = requireNonNull(cacheController, "cacheController is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");

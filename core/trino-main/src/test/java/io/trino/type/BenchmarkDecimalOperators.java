@@ -27,8 +27,8 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.gen.ExpressionCompiler;
 import io.trino.sql.gen.PageFunctionCompiler;
 import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.relational.RowExpression;
 import io.trino.sql.relational.SqlToRowExpressionTranslator;
@@ -65,7 +65,6 @@ import static io.trino.spi.type.DecimalType.createDecimalType;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.ExpressionTestUtils.createExpression;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.TestingConnectorSession.SESSION;
 import static java.lang.String.format;
 import static java.math.BigInteger.ONE;
@@ -556,7 +555,7 @@ public class BenchmarkDecimalOperators
 
     private static class BaseState
     {
-        private final TypeAnalyzer typeAnalyzer = createTestingTypeAnalyzer(PLANNER_CONTEXT);
+        private final IrTypeAnalyzer typeAnalyzer = new IrTypeAnalyzer(PLANNER_CONTEXT);
         private final Random random = new Random();
 
         protected final Map<String, Symbol> symbols = new HashMap<>();

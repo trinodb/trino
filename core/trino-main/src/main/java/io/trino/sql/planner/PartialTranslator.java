@@ -40,7 +40,7 @@ public final class PartialTranslator
     public static Map<NodeRef<Expression>, ConnectorExpression> extractPartialTranslations(
             Expression inputExpression,
             Session session,
-            TypeAnalyzer typeAnalyzer,
+            IrTypeAnalyzer typeAnalyzer,
             TypeProvider typeProvider,
             PlannerContext plannerContext)
     {

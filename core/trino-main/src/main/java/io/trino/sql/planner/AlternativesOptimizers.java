@@ -37,7 +37,7 @@ public class AlternativesOptimizers
     @Inject
     public AlternativesOptimizers(
             PlannerContext plannerContext,
-            TypeAnalyzer typeAnalyzer,
+            IrTypeAnalyzer typeAnalyzer,
             StatsCalculator statsCalculator,
             @EstimatedExchanges CostCalculator costCalculatorWithEstimatedExchanges,
             RuleStatsRecorder ruleStats)

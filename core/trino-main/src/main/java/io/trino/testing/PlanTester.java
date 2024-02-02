@@ -173,6 +173,7 @@ import io.trino.sql.gen.columnar.ColumnarFilterCompiler;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.AlternativesOptimizers;
 import io.trino.sql.planner.CompilerConfig;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.LocalExecutionPlanner;
 import io.trino.sql.planner.LocalExecutionPlanner.LocalExecutionPlan;
 import io.trino.sql.planner.LogicalPlanner;
@@ -184,7 +185,6 @@ import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.PlanOptimizers;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.SubPlan;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.rule.DistinctAggregationController;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.plan.PlanNode;
@@ -443,7 +443,7 @@ public class PlanTester
                 tablePropertyManager,
                 analyzePropertyManager,
                 tableProceduresPropertyManager);
-        TypeAnalyzer typeAnalyzer = new TypeAnalyzer(plannerContext, statementAnalyzerFactory);
+        IrTypeAnalyzer typeAnalyzer = new IrTypeAnalyzer(plannerContext);
         this.statsCalculator = createNewStatsCalculator(plannerContext, typeAnalyzer);
         this.scalarStatsCalculator = new ScalarStatsCalculator(plannerContext, typeAnalyzer);
         this.taskCountEstimator = new TaskCountEstimator(() -> nodeCountForStats);
@@ -554,7 +554,7 @@ public class PlanTester
         return CatalogServiceProviderModule.createSessionPropertyManager(systemSessionProperties, connectorServicesProvider);
     }
 
-    private static StatsCalculator createNewStatsCalculator(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
+    private static StatsCalculator createNewStatsCalculator(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
     {
         StatsNormalizer normalizer = new StatsNormalizer();
         ScalarStatsCalculator scalarStatsCalculator = new ScalarStatsCalculator(plannerContext, typeAnalyzer);
@@ -765,7 +765,7 @@ public class PlanTester
         tableExecuteContextManager.registerTableExecuteContextForQuery(taskContext.getQueryContext().getQueryId());
         LocalExecutionPlanner executionPlanner = new LocalExecutionPlanner(
                 plannerContext,
-                new TypeAnalyzer(plannerContext, statementAnalyzerFactory),
+                new IrTypeAnalyzer(plannerContext),
                 Optional.empty(),
                 pageSourceManager,
                 dynamicRowFilteringPageSourceProvider,
@@ -879,7 +879,7 @@ public class PlanTester
     {
         return new PlanOptimizers(
                 plannerContext,
-                new TypeAnalyzer(plannerContext, statementAnalyzerFactory),
+                new IrTypeAnalyzer(plannerContext),
                 taskManagerConfig,
                 forceSingleNode,
                 splitManager,
@@ -899,7 +899,7 @@ public class PlanTester
     {
         return new AlternativesOptimizers(
                 plannerContext,
-                new TypeAnalyzer(plannerContext, statementAnalyzerFactory),
+                new IrTypeAnalyzer(plannerContext),
                 statsCalculator,
                 costCalculator,
                 new RuleStatsRecorder()).get();
@@ -936,7 +936,7 @@ public class PlanTester
                 new PlanSanityChecker(true),
                 idAllocator,
                 getPlannerContext(),
-                new TypeAnalyzer(plannerContext, statementAnalyzerFactory),
+                new IrTypeAnalyzer(plannerContext),
                 statsCalculator,
                 costCalculator,
                 warningCollector,
@@ -954,7 +954,6 @@ public class PlanTester
                 ImmutableList::of, // TODO: when alternatives planning is supported by PlanTester, pass the optimizers
                 planFragmenter,
                 plannerContext,
-                statementAnalyzerFactory,
                 statsCalculator,
                 costCalculator,
                 new NodeVersion("test"));

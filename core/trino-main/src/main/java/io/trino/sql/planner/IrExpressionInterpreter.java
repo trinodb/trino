@@ -500,7 +500,9 @@ public class IrExpressionInterpreter
 
         private Type type(Expression expression)
         {
-            return expressionTypes.get(NodeRef.of(expression));
+            Type type = expressionTypes.get(NodeRef.of(expression));
+            checkState(type != null, "Type not found for expression: %s", expression);
+            return type;
         }
 
         @Override

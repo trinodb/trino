@@ -24,6 +24,7 @@ import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
@@ -55,7 +56,6 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.trino.sql.ExpressionUtils.combineConjuncts;
 import static io.trino.sql.ExpressionUtils.combineDisjuncts;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.join;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.output;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.semiJoin;
@@ -493,7 +493,7 @@ public class TestRemoveUnsupportedDynamicFilters
                             new CachingTableStatsProvider(metadata, session)));
             new DynamicFiltersChecker().validate(rewrittenPlan,
                     session,
-                    plannerContext, createTestingTypeAnalyzer(plannerContext),
+                    plannerContext, new IrTypeAnalyzer(plannerContext),
                     builder.getTypes(),
                     WarningCollector.NOOP);
             return rewrittenPlan;

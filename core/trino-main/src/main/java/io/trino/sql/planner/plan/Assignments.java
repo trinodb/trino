@@ -20,9 +20,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import io.trino.Session;
 import io.trino.spi.type.Type;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.SymbolReference;
 
@@ -80,7 +80,7 @@ public class Assignments
         return builder().put(symbol1, expression1).put(symbol2, expression2).build();
     }
 
-    public static Assignments of(Collection<? extends Expression> expressions, Session session, SymbolAllocator symbolAllocator, TypeAnalyzer typeAnalyzer)
+    public static Assignments of(Collection<? extends Expression> expressions, Session session, SymbolAllocator symbolAllocator, IrTypeAnalyzer typeAnalyzer)
     {
         Assignments.Builder assignments = Assignments.builder();
 

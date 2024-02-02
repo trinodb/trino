@@ -334,7 +334,7 @@ public class TestLiteralEncoder
         return transaction(transactionManager, metadata, new AllowAllAccessControl())
                 .singleStatement()
                 .execute(TEST_SESSION, transactionSession -> {
-                    return TypeAnalyzer.createTestingTypeAnalyzer(PLANNER_CONTEXT).getTypes(transactionSession, TypeProvider.empty(), expression);
+                    return new IrTypeAnalyzer(PLANNER_CONTEXT).getTypes(transactionSession, TypeProvider.empty(), expression);
                 });
     }
 

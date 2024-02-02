@@ -23,7 +23,7 @@ import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.ConnectorExpressionTranslator;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.MergeProcessorNode;
 import io.trino.sql.planner.plan.MergeWriterNode;
@@ -68,7 +68,7 @@ public class PushMergeWriterUpdateIntoConnector
                                     project().capturedAs(PROJECT_NODE_CAPTURE).with(source().matching(
                                             tableScan().capturedAs(TABLE_SCAN)))))))));
 
-    public PushMergeWriterUpdateIntoConnector(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, Metadata metadata)
+    public PushMergeWriterUpdateIntoConnector(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer, Metadata metadata)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
@@ -77,7 +77,7 @@ public class PushMergeWriterUpdateIntoConnector
 
     private final Metadata metadata;
     private final PlannerContext plannerContext;
-    private final TypeAnalyzer typeAnalyzer;
+    private final IrTypeAnalyzer typeAnalyzer;
 
     @Override
     public Pattern<TableFinishNode> getPattern()

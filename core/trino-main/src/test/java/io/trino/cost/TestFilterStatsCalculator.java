@@ -23,6 +23,7 @@ import io.trino.spi.type.DoubleType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.Expression;
@@ -35,7 +36,6 @@ import java.util.function.Consumer;
 import static io.trino.SystemSessionProperties.FILTER_CONJUNCTION_INDEPENDENCE_FACTOR;
 import static io.trino.sql.ExpressionTestUtils.planExpression;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static io.trino.testing.TransactionBuilder.transaction;
@@ -108,7 +108,7 @@ public class TestFilterStatsCalculator
             .setHighValue(POSITIVE_INFINITY)
             .setNullsFraction(0.34)
             .build();
-    private final FilterStatsCalculator statsCalculator = new FilterStatsCalculator(PLANNER_CONTEXT, new ScalarStatsCalculator(PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT)), new StatsNormalizer(), createTestingTypeAnalyzer(PLANNER_CONTEXT));
+    private final FilterStatsCalculator statsCalculator = new FilterStatsCalculator(PLANNER_CONTEXT, new ScalarStatsCalculator(PLANNER_CONTEXT, new IrTypeAnalyzer(PLANNER_CONTEXT)), new StatsNormalizer(), new IrTypeAnalyzer(PLANNER_CONTEXT));
     private final PlanNodeStatsEstimate standardInputStatistics = PlanNodeStatsEstimate.builder()
             .addSymbolStatistics(new Symbol("x"), xStats)
             .addSymbolStatistics(new Symbol("y"), yStats)

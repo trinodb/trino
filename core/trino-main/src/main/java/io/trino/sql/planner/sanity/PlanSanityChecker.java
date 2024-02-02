@@ -19,7 +19,7 @@ import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.PlanNode;
 
@@ -39,11 +39,11 @@ public final class PlanSanityChecker
         checkers = ImmutableListMultimap.<Stage, Checker>builder()
                 .putAll(
                         Stage.INTERMEDIATE,
+                        new NoSubqueryExpressionLeftChecker(),
                         new ValidateDependenciesChecker(),
                         new NoDuplicatePlanNodeIdsChecker(),
                         new AllFunctionsResolved(),
                         new TypeValidator(),
-                        new NoSubqueryExpressionLeftChecker(),
                         new NoIdentifierLeftChecker(),
                         new VerifyOnlyOneOutputNode())
                 .putAll(
@@ -87,7 +87,7 @@ public final class PlanSanityChecker
             PlanNode planNode,
             Session session,
             PlannerContext plannerContext,
-            TypeAnalyzer typeAnalyzer,
+            IrTypeAnalyzer typeAnalyzer,
             TypeProvider types,
             WarningCollector warningCollector)
     {
@@ -98,7 +98,7 @@ public final class PlanSanityChecker
             PlanNode planNode,
             Session session,
             PlannerContext plannerContext,
-            TypeAnalyzer typeAnalyzer,
+            IrTypeAnalyzer typeAnalyzer,
             TypeProvider types,
             WarningCollector warningCollector)
     {
@@ -109,7 +109,7 @@ public final class PlanSanityChecker
             PlanNode planNode,
             Session session,
             PlannerContext plannerContext,
-            TypeAnalyzer typeAnalyzer,
+            IrTypeAnalyzer typeAnalyzer,
             TypeProvider types,
             WarningCollector warningCollector)
     {
@@ -121,7 +121,7 @@ public final class PlanSanityChecker
             PlanNode planNode,
             Session session,
             PlannerContext plannerContext,
-            TypeAnalyzer typeAnalyzer,
+            IrTypeAnalyzer typeAnalyzer,
             TypeProvider types,
             WarningCollector warningCollector)
     {
@@ -155,7 +155,7 @@ public final class PlanSanityChecker
                 PlanNode planNode,
                 Session session,
                 PlannerContext plannerContext,
-                TypeAnalyzer typeAnalyzer,
+                IrTypeAnalyzer typeAnalyzer,
                 TypeProvider types,
                 WarningCollector warningCollector);
     }

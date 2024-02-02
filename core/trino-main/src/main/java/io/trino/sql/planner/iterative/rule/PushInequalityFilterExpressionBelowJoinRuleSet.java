@@ -20,8 +20,8 @@ import io.trino.matching.Capture;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.FilterNode;
@@ -91,9 +91,9 @@ public class PushInequalityFilterExpressionBelowJoinRuleSet
             join().capturedAs(JOIN_CAPTURE)));
 
     private final Metadata metadata;
-    private final TypeAnalyzer typeAnalyzer;
+    private final IrTypeAnalyzer typeAnalyzer;
 
-    public PushInequalityFilterExpressionBelowJoinRuleSet(Metadata metadata, TypeAnalyzer typeAnalyzer)
+    public PushInequalityFilterExpressionBelowJoinRuleSet(Metadata metadata, IrTypeAnalyzer typeAnalyzer)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");

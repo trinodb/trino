@@ -15,6 +15,7 @@ package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.RowType;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.trino.sql.planner.plan.Assignments;
@@ -27,7 +28,6 @@ import java.util.List;
 
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.apply;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
@@ -42,7 +42,7 @@ public class TestUnwrapSingleColumnRowInApply
     @Test
     public void testDoesNotFireOnNoSingleColumnRow()
     {
-        tester().assertThat(new UnwrapSingleColumnRowInApply(createTestingTypeAnalyzer(tester().getPlannerContext())))
+        tester().assertThat(new UnwrapSingleColumnRowInApply(new IrTypeAnalyzer(tester().getPlannerContext())))
                 .on(p -> p.apply(
                         Assignments.builder()
                                 .put(p.symbol("output1", BOOLEAN), new InPredicate(new SymbolReference("value"), new SymbolReference("element")))
@@ -57,7 +57,7 @@ public class TestUnwrapSingleColumnRowInApply
     @Test
     public void testUnwrapInPredicate()
     {
-        tester().assertThat(new UnwrapSingleColumnRowInApply(createTestingTypeAnalyzer(tester().getPlannerContext())))
+        tester().assertThat(new UnwrapSingleColumnRowInApply(new IrTypeAnalyzer(tester().getPlannerContext())))
                 .on(p -> p.apply(
                         Assignments.builder()
                                 .put(p.symbol("unwrapped", BOOLEAN), new InPredicate(new SymbolReference("rowValue"), new SymbolReference("rowElement")))
@@ -95,7 +95,7 @@ public class TestUnwrapSingleColumnRowInApply
     @Test
     public void testUnwrapQuantifiedComparison()
     {
-        tester().assertThat(new UnwrapSingleColumnRowInApply(createTestingTypeAnalyzer(tester().getPlannerContext())))
+        tester().assertThat(new UnwrapSingleColumnRowInApply(new IrTypeAnalyzer(tester().getPlannerContext())))
                 .on(p -> p.apply(
                         Assignments.builder()
                                 .put(p.symbol("unwrapped", BOOLEAN), new QuantifiedComparisonExpression(EQUAL, ALL, new SymbolReference("rowValue"), new SymbolReference("rowElement")))

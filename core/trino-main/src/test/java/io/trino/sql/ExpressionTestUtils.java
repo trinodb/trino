@@ -22,6 +22,7 @@ import io.trino.spi.type.Type;
 import io.trino.sql.analyzer.ExpressionAnalyzer;
 import io.trino.sql.analyzer.Scope;
 import io.trino.sql.parser.SqlParser;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.assertions.ExpressionVerifier;
 import io.trino.sql.planner.assertions.SymbolAliases;
@@ -42,7 +43,6 @@ import static io.trino.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
 import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.TransactionBuilder.transaction;
 
 public final class ExpressionTestUtils
@@ -169,12 +169,12 @@ public final class ExpressionTestUtils
     public static Map<NodeRef<Expression>, Type> getTypes(Session session, PlannerContext plannerContext, TypeProvider typeProvider, Expression expression)
     {
         if (session.getTransactionId().isPresent()) {
-            return createTestingTypeAnalyzer(plannerContext).getTypes(session, typeProvider, expression);
+            return new IrTypeAnalyzer(plannerContext).getTypes(session, typeProvider, expression);
         }
         return transaction(new TestingTransactionManager(), plannerContext.getMetadata(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(session, transactionSession -> {
-                    return createTestingTypeAnalyzer(plannerContext).getTypes(transactionSession, typeProvider, expression);
+                    return new IrTypeAnalyzer(plannerContext).getTypes(transactionSession, typeProvider, expression);
                 });
     }
 }

@@ -24,6 +24,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarbinaryType;
 import io.trino.sql.parser.SqlParser;
 import io.trino.sql.planner.IrExpressionInterpreter;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolResolver;
 import io.trino.sql.planner.TypeProvider;
@@ -69,7 +70,6 @@ import static io.trino.sql.ExpressionTestUtils.getTypes;
 import static io.trino.sql.ExpressionTestUtils.resolveFunctionCalls;
 import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.testing.assertions.TrinoExceptionAssert.assertTrinoExceptionThrownBy;
 import static io.trino.type.DateTimes.scaleEpochMillisToMicros;
@@ -1700,7 +1700,7 @@ public class TestExpressionInterpreter
                             parsedExpression,
                             transactionSession,
                             PLANNER_CONTEXT,
-                            createTestingTypeAnalyzer(PLANNER_CONTEXT),
+                            new IrTypeAnalyzer(PLANNER_CONTEXT),
                             SYMBOL_TYPES);
                     return parsedExpression;
                 });
