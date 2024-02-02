@@ -22,6 +22,7 @@ import io.trino.spi.connector.GroupingProperty;
 import io.trino.spi.connector.LocalProperty;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PartitioningScheme;
@@ -29,7 +30,6 @@ import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.SystemPartitioningHandle;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.optimizations.StreamPropertyDerivations.StreamProperties;
 import io.trino.sql.planner.plan.AggregationNode;
@@ -115,9 +115,9 @@ public class AddLocalExchanges
         implements PlanOptimizer
 {
     private final PlannerContext plannerContext;
-    private final TypeAnalyzer typeAnalyzer;
+    private final IrTypeAnalyzer typeAnalyzer;
 
-    public AddLocalExchanges(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
+    public AddLocalExchanges(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");

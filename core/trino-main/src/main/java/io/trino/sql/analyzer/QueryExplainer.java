@@ -22,13 +22,13 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.spi.TrinoException;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.SqlFormatter;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.LogicalPlanner;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.PlanFragmenter;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.PlanOptimizersFactory;
 import io.trino.sql.planner.SubPlan;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.optimizations.PlanOptimizer;
 import io.trino.sql.planner.planprinter.PlanPrinter;
 import io.trino.sql.tree.CreateCatalog;
@@ -63,7 +63,6 @@ public class QueryExplainer
     private final PlanFragmenter planFragmenter;
     private final PlannerContext plannerContext;
     private final AnalyzerFactory analyzerFactory;
-    private final StatementAnalyzerFactory statementAnalyzerFactory;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
     private final NodeVersion version;
@@ -73,7 +72,6 @@ public class QueryExplainer
             PlanFragmenter planFragmenter,
             PlannerContext plannerContext,
             AnalyzerFactory analyzerFactory,
-            StatementAnalyzerFactory statementAnalyzerFactory,
             StatsCalculator statsCalculator,
             CostCalculator costCalculator,
             NodeVersion version)
@@ -82,7 +80,6 @@ public class QueryExplainer
         this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.analyzerFactory = requireNonNull(analyzerFactory, "analyzerFactory is null");
-        this.statementAnalyzerFactory = requireNonNull(statementAnalyzerFactory, "statementAnalyzerFactory is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
         this.version = requireNonNull(version, "version is null");
@@ -171,7 +168,7 @@ public class QueryExplainer
                 planOptimizers,
                 idAllocator,
                 plannerContext,
-                new TypeAnalyzer(plannerContext, statementAnalyzerFactory),
+                new IrTypeAnalyzer(plannerContext),
                 statsCalculator,
                 costCalculator,
                 warningCollector,

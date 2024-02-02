@@ -21,11 +21,11 @@ import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.DeterminismEvaluator;
 import io.trino.sql.planner.IrExpressionInterpreter;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.Expression;
@@ -298,7 +298,7 @@ public final class ExpressionUtils
 
     private static boolean constantExpressionEvaluatesSuccessfully(PlannerContext plannerContext, Session session, Expression constantExpression)
     {
-        Map<NodeRef<Expression>, Type> types = TypeAnalyzer.createTestingTypeAnalyzer(plannerContext).getTypes(session, TypeProvider.empty(), constantExpression);
+        Map<NodeRef<Expression>, Type> types = new IrTypeAnalyzer(plannerContext).getTypes(session, TypeProvider.empty(), constantExpression);
         IrExpressionInterpreter interpreter = new IrExpressionInterpreter(constantExpression, plannerContext, session, types);
         Object literalValue = interpreter.optimize(NoOpSymbolResolver.INSTANCE);
         return !(literalValue instanceof Expression);

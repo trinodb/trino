@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.assertions.SymbolAliases;
 import io.trino.sql.planner.iterative.rule.test.PlanBuilder;
@@ -37,7 +37,6 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.ExpressionTestUtils.assertExpressionEquals;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.iterative.rule.CanonicalizeExpressionRewriter.rewrite;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -48,7 +47,7 @@ public class TestCanonicalizeExpressionRewriter
     private static final PlannerContext PLANNER_CONTEXT = plannerContextBuilder()
             .withTransactionManager(TRANSACTION_MANAGER)
             .build();
-    private static final TypeAnalyzer TYPE_ANALYZER = createTestingTypeAnalyzer(PLANNER_CONTEXT);
+    private static final IrTypeAnalyzer TYPE_ANALYZER = new IrTypeAnalyzer(PLANNER_CONTEXT);
     private static final AllowAllAccessControl ACCESS_CONTROL = new AllowAllAccessControl();
 
     @Test

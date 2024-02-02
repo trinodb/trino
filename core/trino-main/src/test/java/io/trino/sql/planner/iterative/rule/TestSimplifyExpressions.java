@@ -16,6 +16,7 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableMap;
 import io.trino.spi.type.Type;
 import io.trino.sql.parser.SqlParser;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolAllocator;
 import io.trino.sql.planner.SymbolsExtractor;
@@ -46,7 +47,6 @@ import static io.trino.sql.ExpressionUtils.extractPredicates;
 import static io.trino.sql.ExpressionUtils.logicalExpression;
 import static io.trino.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.iterative.rule.SimplifyExpressions.rewrite;
 import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -281,7 +281,7 @@ public class TestSimplifyExpressions
     {
         Map<Symbol, Type> symbols = symbolTypes.entrySet().stream().collect(toImmutableMap(symbolTypeEntry -> new Symbol(symbolTypeEntry.getKey()), Map.Entry::getValue));
         Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression));
-        return normalize(rewrite(actualExpression, TEST_SESSION, new SymbolAllocator(symbols), PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT)));
+        return normalize(rewrite(actualExpression, TEST_SESSION, new SymbolAllocator(symbols), PLANNER_CONTEXT, new IrTypeAnalyzer(PLANNER_CONTEXT)));
     }
 
     @Test
@@ -340,7 +340,7 @@ public class TestSimplifyExpressions
     {
         Expression actualExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expression));
         Expression expectedExpression = rewriteIdentifiersToSymbolReferences(SQL_PARSER.createExpression(expected));
-        Expression rewritten = rewrite(actualExpression, TEST_SESSION, new SymbolAllocator(numericAndBooleanSymbolTypeMapFor(actualExpression)), PLANNER_CONTEXT, createTestingTypeAnalyzer(PLANNER_CONTEXT));
+        Expression rewritten = rewrite(actualExpression, TEST_SESSION, new SymbolAllocator(numericAndBooleanSymbolTypeMapFor(actualExpression)), PLANNER_CONTEXT, new IrTypeAnalyzer(PLANNER_CONTEXT));
         assertThat(normalize(rewritten)).isEqualTo(normalize(expectedExpression));
     }
 

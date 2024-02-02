@@ -34,11 +34,11 @@ import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.EqualityInference;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.OptimizerConfig.JoinDistributionType;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.SymbolsExtractor;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.iterative.Lookup;
 import io.trino.sql.planner.iterative.Rule;
@@ -102,12 +102,12 @@ public class ReorderJoins
     // We check that join distribution type is absent because we only want
     // to do this transformation once (reordered joins will have distribution type already set).
     private final Pattern<JoinNode> pattern;
-    private final TypeAnalyzer typeAnalyzer;
+    private final IrTypeAnalyzer typeAnalyzer;
 
     private final PlannerContext plannerContext;
     private final CostComparator costComparator;
 
-    public ReorderJoins(PlannerContext plannerContext, CostComparator costComparator, TypeAnalyzer typeAnalyzer)
+    public ReorderJoins(PlannerContext plannerContext, CostComparator costComparator, IrTypeAnalyzer typeAnalyzer)
     {
         this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.costComparator = requireNonNull(costComparator, "costComparator is null");
@@ -546,7 +546,7 @@ public class ReorderJoins
                     && this.pushedProjectionThroughJoin == other.pushedProjectionThroughJoin;
         }
 
-        static MultiJoinNode toMultiJoinNode(PlannerContext plannerContext, JoinNode joinNode, Context context, boolean pushProjectionsThroughJoin, TypeAnalyzer typeAnalyzer)
+        static MultiJoinNode toMultiJoinNode(PlannerContext plannerContext, JoinNode joinNode, Context context, boolean pushProjectionsThroughJoin, IrTypeAnalyzer typeAnalyzer)
         {
             return toMultiJoinNode(
                     plannerContext,
@@ -568,7 +568,7 @@ public class ReorderJoins
                 int joinLimit,
                 boolean pushProjectionsThroughJoin,
                 Session session,
-                TypeAnalyzer typeAnalyzer,
+                IrTypeAnalyzer typeAnalyzer,
                 TypeProvider types)
         {
             // the number of sources is the number of joins + 1
@@ -580,7 +580,7 @@ public class ReorderJoins
         {
             private final PlannerContext plannerContext;
             private final Session session;
-            private final TypeAnalyzer typeAnalyzer;
+            private final IrTypeAnalyzer typeAnalyzer;
             private final TypeProvider types;
             private final Lookup lookup;
             private final PlanNodeIdAllocator planNodeIdAllocator;
@@ -601,7 +601,7 @@ public class ReorderJoins
                     int sourceLimit,
                     boolean pushProjectionsThroughJoin,
                     Session session,
-                    TypeAnalyzer typeAnalyzer,
+                    IrTypeAnalyzer typeAnalyzer,
                     TypeProvider types)
             {
                 this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");

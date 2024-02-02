@@ -18,10 +18,10 @@ import io.trino.Session;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.IrExpressionInterpreter;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.LiteralEncoder;
 import io.trino.sql.planner.NoOpSymbolResolver;
 import io.trino.sql.planner.SymbolAllocator;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.Rule;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.NodeRef;
@@ -38,7 +38,7 @@ import static java.util.Objects.requireNonNull;
 public class SimplifyExpressions
         extends ExpressionRewriteRuleSet
 {
-    public static Expression rewrite(Expression expression, Session session, SymbolAllocator symbolAllocator, PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
+    public static Expression rewrite(Expression expression, Session session, SymbolAllocator symbolAllocator, PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
     {
         requireNonNull(plannerContext, "plannerContext is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");
@@ -55,7 +55,7 @@ public class SimplifyExpressions
         return new LiteralEncoder(plannerContext).toExpression(optimized, expressionTypes.get(NodeRef.of(expression)));
     }
 
-    public SimplifyExpressions(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
+    public SimplifyExpressions(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
     {
         super(createRewrite(plannerContext, typeAnalyzer));
     }
@@ -71,7 +71,7 @@ public class SimplifyExpressions
                 patternRecognitionExpressionRewrite()); // ApplyNode and AggregationNode are not supported, because ExpressionInterpreter doesn't support them
     }
 
-    private static ExpressionRewriter createRewrite(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
+    private static ExpressionRewriter createRewrite(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
     {
         requireNonNull(plannerContext, "plannerContext is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");

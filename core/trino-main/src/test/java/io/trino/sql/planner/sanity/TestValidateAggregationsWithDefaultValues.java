@@ -22,6 +22,7 @@ import io.trino.plugin.tpch.TpchColumnHandle;
 import io.trino.plugin.tpch.TpchTableHandle;
 import io.trino.spi.connector.CatalogHandle;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
@@ -35,7 +36,6 @@ import org.junit.jupiter.api.Test;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.spi.type.BigintType.BIGINT;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.trino.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.trino.sql.planner.plan.AggregationNode.groupingSets;
@@ -199,7 +199,7 @@ public class TestValidateAggregationsWithDefaultValues
                     root,
                     session,
                     plannerContext,
-                    createTestingTypeAnalyzer(plannerContext),
+                    new IrTypeAnalyzer(plannerContext),
                     TypeProvider.empty(),
                     WarningCollector.NOOP);
             return null;

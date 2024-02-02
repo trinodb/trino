@@ -26,6 +26,7 @@ import io.trino.spi.connector.ConnectorTransactionHandle;
 import io.trino.spi.connector.SchemaTableName;
 import io.trino.spi.connector.WriterScalingOptions;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Partitioning;
 import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.planner.PartitioningScheme;
@@ -52,7 +53,6 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_HASH_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SCALED_WRITER_ROUND_ROBIN_DISTRIBUTION;
 import static io.trino.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.TestingHandles.TEST_CATALOG_HANDLE;
 import static io.trino.testing.TestingHandles.createTestCatalogHandle;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -292,7 +292,7 @@ public class TestValidateScaledWritersUsage
                     root,
                     session,
                     plannerContext,
-                    createTestingTypeAnalyzer(plannerContext),
+                    new IrTypeAnalyzer(plannerContext),
                     TypeProvider.empty(),
                     WarningCollector.NOOP);
             return null;
