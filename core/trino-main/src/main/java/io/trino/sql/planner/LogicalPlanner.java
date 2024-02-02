@@ -668,7 +668,7 @@ public class LogicalPlanner
 
     private Expression coerceOrCastToTableType(Symbol fieldMapping, Type tableType, Type queryType)
     {
-        if (queryType.equals(tableType) || typeCoercion.isTypeOnlyCoercion(queryType, tableType)) {
+        if (queryType.equals(tableType)) {
             return fieldMapping.toSymbolReference();
         }
         return noTruncationCast(fieldMapping.toSymbolReference(), queryType, tableType);
