@@ -179,6 +179,25 @@ public class TestIgniteConnectorTest
     }
 
     @Test
+    public void testBitwiseAndPushdown()
+    {
+        assertThat(query("SELECT bitwise_and_agg(regionkey) FROM nation WHERE NOT(name LIKE '%A%')")).isFullyPushedDown();
+
+        try (TestTable table = new TestTable(
+                getQueryRunner()::execute,
+                "test_bitwise_and_pushdown",
+                "(a_bigint bigint, b_bigint bigint)",
+                List.of(
+                        "1, 1",
+                        "2, 2",
+                        "1, 3",
+                        "2, 3"))) {
+            assertThat(query("SELECT bitwise_and_agg(a_bigint) FROM " + table.getName() + " WHERE a_bigint > 0")).isFullyPushedDown();
+            assertThat(query("SELECT bitwise_and_agg(b_bigint) FROM " + table.getName() + " where a_bigint != b_bigint")).isFullyPushedDown();
+        }
+    }
+
+    @Test
     public void testDatabaseMetadataSearchEscapedWildCardCharacters()
     {
         // wildcard characters on schema name

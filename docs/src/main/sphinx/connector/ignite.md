@@ -209,6 +209,7 @@ The connector supports pushdown for a number of operations:
 - {func}`max`
 - {func}`min`
 - {func}`sum`
+- {func}`bitwise_and_agg`
 
 
 ```{include} no-pushdown-text-type.fragment

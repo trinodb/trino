@@ -167,6 +167,16 @@ public class TestIgniteClient
     }
 
     @Test
+    public void testImplementBitwiseAndAggregate()
+    {
+        Variable bigintVariable = new Variable("v_bigint", BIGINT);
+        testImplementAggregation(
+                new AggregateFunction("bitwise_and_agg", BIGINT, List.of(bigintVariable), List.of(), false, Optional.empty()),
+                Map.of(bigintVariable.getName(), BIGINT_COLUMN),
+                Optional.of("bit_and(`c_bigint`)"));
+    }
+
+    @Test
     public void testConvertIsNull()
     {
         // c_varchar IS NULL

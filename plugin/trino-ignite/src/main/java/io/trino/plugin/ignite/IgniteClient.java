@@ -189,6 +189,7 @@ public class IgniteClient
                         .add(new ImplementAvgDecimal())
                         .add(new ImplementAvgBigint())
                         .add(new ImplementCountDistinct(bigintTypeHandle, true))
+                        .add(new ImplementBitwiseAndAggregate(bigintTypeHandle))
                         .build());
     }
 
