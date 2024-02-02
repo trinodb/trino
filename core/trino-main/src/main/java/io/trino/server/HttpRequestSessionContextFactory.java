@@ -135,14 +135,14 @@ public class HttpRequestSessionContextFactory
                 case ParsedSessionPropertyName(Optional<String> catalogName, String propertyName) when catalogName.isEmpty() -> {
                     assertRequest(!propertyName.isEmpty(), "Invalid %s header", protocolHeaders.requestSession());
 
-                    // catalog session properties cannot be validated until the transaction has stated, so we delay system property validation also
+                    // catalog session properties cannot be validated until the transaction has started, so we delay system property validation also
                     systemProperties.put(propertyName, propertyValue);
                 }
                 case ParsedSessionPropertyName(Optional<String> catalogName, String propertyName) -> {
                     assertRequest(!catalogName.orElseThrow().isEmpty(), "Invalid %s header", protocolHeaders.requestSession());
                     assertRequest(!propertyName.isEmpty(), "Invalid %s header", protocolHeaders.requestSession());
 
-                    // catalog session properties cannot be validated until the transaction has stated
+                    // catalog session properties cannot be validated until the transaction has started
                     catalogSessionProperties.computeIfAbsent(catalogName.orElseThrow(), id -> new HashMap<>()).put(propertyName, propertyValue);
                 }
                 default -> throw badRequest(format("Invalid %s header", protocolHeaders.requestSession()));
