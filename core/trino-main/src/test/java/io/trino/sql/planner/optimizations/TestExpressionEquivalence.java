@@ -23,6 +23,7 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.parser.SqlParser;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.Expression;
@@ -40,7 +41,6 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.sql.ExpressionTestUtils.planExpression;
 import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.testing.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.util.function.Function.identity;
@@ -57,7 +57,7 @@ public class TestExpressionEquivalence
     private static final ExpressionEquivalence EQUIVALENCE = new ExpressionEquivalence(
             PLANNER_CONTEXT.getMetadata(),
             PLANNER_CONTEXT.getFunctionManager(),
-            createTestingTypeAnalyzer(PLANNER_CONTEXT));
+            new IrTypeAnalyzer(PLANNER_CONTEXT));
     private static final TypeProvider TYPE_PROVIDER = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
             .put(new Symbol("a_boolean"), BOOLEAN)
             .put(new Symbol("b_boolean"), BOOLEAN)

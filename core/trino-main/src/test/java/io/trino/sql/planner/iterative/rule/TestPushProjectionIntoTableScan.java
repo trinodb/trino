@@ -41,8 +41,8 @@ import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.iterative.rule.test.RuleTester;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.tree.Expression;
@@ -68,7 +68,6 @@ import static io.trino.spi.type.RowType.field;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.sql.planner.ConnectorExpressionTranslator.translate;
-import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.TypeProvider.viewOf;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.anyTree;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.expression;
@@ -129,7 +128,7 @@ public class TestPushProjectionIntoTableScan
         // Create catalog with applyProjection enabled
         MockConnectorFactory factory = createMockFactory(ImmutableMap.of(columnName, columnHandle), Optional.of(this::mockApplyProjection));
         try (RuleTester ruleTester = RuleTester.builder().withDefaultCatalogConnectorFactory(factory).build()) {
-            TypeAnalyzer typeAnalyzer = createTestingTypeAnalyzer(ruleTester.getPlannerContext());
+            IrTypeAnalyzer typeAnalyzer = new IrTypeAnalyzer(ruleTester.getPlannerContext());
 
             // Prepare project node symbols and types
             Symbol identity = new Symbol("symbol_identity");
@@ -330,7 +329,7 @@ public class TestPushProjectionIntoTableScan
     private static PushProjectionIntoTableScan createRule(RuleTester tester)
     {
         PlannerContext plannerContext = tester.getPlannerContext();
-        TypeAnalyzer typeAnalyzer = tester.getTypeAnalyzer();
+        IrTypeAnalyzer typeAnalyzer = tester.getTypeAnalyzer();
         return new PushProjectionIntoTableScan(
                 plannerContext,
                 typeAnalyzer,

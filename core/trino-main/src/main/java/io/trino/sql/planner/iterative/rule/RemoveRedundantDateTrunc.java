@@ -20,8 +20,8 @@ import io.trino.spi.type.Type;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.IrExpressionInterpreter;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.NoOpSymbolResolver;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.ExpressionTreeRewriter;
@@ -42,12 +42,12 @@ import static java.util.Objects.requireNonNull;
 public class RemoveRedundantDateTrunc
         extends ExpressionRewriteRuleSet
 {
-    public RemoveRedundantDateTrunc(PlannerContext plannerContext, TypeAnalyzer typeAnalyzer)
+    public RemoveRedundantDateTrunc(PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer)
     {
         super((expression, context) -> rewrite(expression, context.getSession(), plannerContext, typeAnalyzer, context.getSymbolAllocator().getTypes()));
     }
 
-    private static Expression rewrite(Expression expression, Session session, PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, TypeProvider types)
+    private static Expression rewrite(Expression expression, Session session, PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer, TypeProvider types)
     {
         requireNonNull(plannerContext, "plannerContext is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");

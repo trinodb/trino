@@ -16,7 +16,7 @@ package io.trino.sql.planner.sanity;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.sql.PlannerContext;
-import io.trino.sql.planner.TypeAnalyzer;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.optimizations.ActualProperties;
 import io.trino.sql.planner.optimizations.PropertyDerivations;
@@ -63,7 +63,7 @@ public class ValidateAggregationsWithDefaultValues
     public void validate(PlanNode planNode,
             Session session,
             PlannerContext plannerContext,
-            TypeAnalyzer typeAnalyzer,
+            IrTypeAnalyzer typeAnalyzer,
             TypeProvider types,
             WarningCollector warningCollector)
     {
@@ -75,10 +75,10 @@ public class ValidateAggregationsWithDefaultValues
     {
         final Session session;
         final PlannerContext plannerContext;
-        final TypeAnalyzer typeAnalyzer;
+        final IrTypeAnalyzer typeAnalyzer;
         final TypeProvider types;
 
-        Visitor(Session session, PlannerContext plannerContext, TypeAnalyzer typeAnalyzer, TypeProvider types)
+        Visitor(Session session, PlannerContext plannerContext, IrTypeAnalyzer typeAnalyzer, TypeProvider types)
         {
             this.session = requireNonNull(session, "session is null");
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");

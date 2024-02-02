@@ -20,9 +20,9 @@ import io.trino.spi.function.BoundSignature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.PlannerContext;
+import io.trino.sql.planner.IrTypeAnalyzer;
 import io.trino.sql.planner.SimplePlanVisitor;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.TypeAnalyzer;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
@@ -52,7 +52,7 @@ public final class TypeValidator
     public void validate(PlanNode plan,
             Session session,
             PlannerContext plannerContext,
-            TypeAnalyzer typeAnalyzer,
+            IrTypeAnalyzer typeAnalyzer,
             TypeProvider types,
             WarningCollector warningCollector)
     {
@@ -64,10 +64,10 @@ public final class TypeValidator
     {
         private final Session session;
         private final TypeCoercion typeCoercion;
-        private final TypeAnalyzer typeAnalyzer;
+        private final IrTypeAnalyzer typeAnalyzer;
         private final TypeProvider types;
 
-        public Visitor(Session session, TypeManager typeManager, TypeAnalyzer typeAnalyzer, TypeProvider types)
+        public Visitor(Session session, TypeManager typeManager, IrTypeAnalyzer typeAnalyzer, TypeProvider types)
         {
             this.session = requireNonNull(session, "session is null");
             this.typeCoercion = new TypeCoercion(typeManager::getType);
