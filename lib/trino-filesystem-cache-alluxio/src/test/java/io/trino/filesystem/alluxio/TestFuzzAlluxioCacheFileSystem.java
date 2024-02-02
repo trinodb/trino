@@ -13,15 +13,14 @@
  */
 package io.trino.filesystem.alluxio;
 
-import alluxio.conf.AlluxioConfiguration;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
+import io.airlift.tracing.Tracing;
 import io.airlift.units.DataSize;
 import io.trino.filesystem.Location;
 import io.trino.filesystem.TrinoFileSystem;
 import io.trino.filesystem.TrinoInput;
 import io.trino.filesystem.cache.CacheFileSystem;
-import io.trino.filesystem.cache.DefaultCacheKeyProvider;
 import io.trino.filesystem.memory.MemoryFileSystemFactory;
 import io.trino.spi.security.ConnectorIdentity;
 import org.junit.jupiter.api.Test;
@@ -171,12 +170,10 @@ public class TestFuzzAlluxioCacheFileSystem
                     .setCachePageSize(DataSize.ofBytes(PAGE_SIZE))
                     .disableTTL()
                     .setMaxCacheSizes(CACHE_SIZE + "B");
-            AlluxioConfiguration alluxioConfiguration = AlluxioConfigurationFactory.create(configuration);
-
             MemoryFileSystemFactory fileSystemFactory = new MemoryFileSystemFactory();
-            TestingAlluxioFileSystemCache alluxioCache = new TestingAlluxioFileSystemCache(alluxioConfiguration, new DefaultCacheKeyProvider());
+            AlluxioFileSystemCache alluxioCache = new AlluxioFileSystemCache(Tracing.noopTracer(), configuration, new AlluxioCacheStats());
             return new CacheFileSystem(fileSystemFactory.create(ConnectorIdentity.ofUser("hello")),
-                    alluxioCache, alluxioCache.getCacheKeyProvider());
+                    alluxioCache, new TestingCacheKeyProvider());
         }
 
         @Override

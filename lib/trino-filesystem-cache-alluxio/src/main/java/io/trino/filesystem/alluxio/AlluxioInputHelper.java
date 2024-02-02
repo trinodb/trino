@@ -20,12 +20,21 @@ import alluxio.client.file.cache.PageId;
 import alluxio.conf.AlluxioConfiguration;
 import alluxio.conf.PropertyKey;
 import com.google.common.primitives.Ints;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.Tracer;
 import io.trino.filesystem.Location;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.filesystem.alluxio.AlluxioTracing.withTracing;
+import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_LOCATION;
+import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_READ_POSITION;
+import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_READ_SIZE;
+import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_WRITE_POSITION;
+import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_FILE_WRITE_SIZE;
+import static io.trino.filesystem.tracing.CacheSystemAttributes.CACHE_KEY;
 import static java.lang.Integer.max;
 import static java.lang.Math.addExact;
 import static java.lang.Math.min;
@@ -35,7 +44,9 @@ import static java.util.Objects.requireNonNull;
 // We implement a variant of this class to enable positioned reads
 public class AlluxioInputHelper
 {
+    private final Tracer tracer;
     private final URIStatus status;
+    private final String cacheKey;
     private final CacheManager cacheManager;
     private final AlluxioCacheStats statistics;
     private final Location location;
@@ -48,9 +59,11 @@ public class AlluxioInputHelper
     private long bufferStartPosition;
     private long bufferEndPosition;
 
-    public AlluxioInputHelper(Location location, URIStatus status, CacheManager cacheManager, AlluxioConfiguration configuration, AlluxioCacheStats statistics)
+    public AlluxioInputHelper(Tracer tracer, Location location, String cacheKey, URIStatus status, CacheManager cacheManager, AlluxioConfiguration configuration, AlluxioCacheStats statistics)
     {
+        this.tracer = requireNonNull(tracer, "tracer is null");
         this.status = requireNonNull(status, "status is null");
+        this.cacheKey = requireNonNull(cacheKey, "cacheKey is null");
         this.fileLength = status.getLength();
         this.cacheManager = requireNonNull(cacheManager, "cacheManager is null");
         this.pageSize = (int) requireNonNull(configuration, "configuration is null").getBytes(PropertyKey.USER_CLIENT_CACHE_PAGE_SIZE);
@@ -64,8 +77,17 @@ public class AlluxioInputHelper
     public int doCacheRead(long position, byte[] bytes, int offset, int length)
             throws IOException
     {
-        int bytesRead = doBufferRead(position, bytes, offset, length);
-        return addExact(bytesRead, doInternalCacheRead(position + bytesRead, bytes, offset + bytesRead, length - bytesRead));
+        Span span = tracer.spanBuilder("Alluxio.readCached")
+                .setAttribute(CACHE_KEY, cacheKey)
+                .setAttribute(CACHE_FILE_LOCATION, location.toString())
+                .setAttribute(CACHE_FILE_READ_SIZE, (long) length)
+                .setAttribute(CACHE_FILE_READ_POSITION, position)
+                .startSpan();
+
+        return withTracing(span, () -> {
+            int bytesRead = doBufferRead(position, bytes, offset, length);
+            return addExact(bytesRead, doInternalCacheRead(position + bytesRead, bytes, offset + bytesRead, length - bytesRead));
+        });
     }
 
     private int doBufferRead(long position, byte[] bytes, int offset, int length)
@@ -102,7 +124,7 @@ public class AlluxioInputHelper
             offset += bytesReadFromCache;
         }
         int bytesRead = length - remainingLength;
-        statistics.recordCacheRead(location, bytesRead);
+        statistics.recordCacheRead(bytesRead);
         return bytesRead;
     }
 
@@ -169,20 +191,28 @@ public class AlluxioInputHelper
     // Put length bytes from readBuffer into cache between pageStart and pageEnd
     public void putCache(long pageStart, long pageEnd, byte[] readBuffer, int length)
     {
-        checkArgument(pageStart + length <= pageEnd);
-        long end = pageEnd;
-        if (pageStart + length < pageEnd) {
-            end = pageStart + length - (length % pageSize);
-        }
-        int offset = 0;
-        while (pageStart < end) {
-            long currentPage = pageStart / pageSize;
-            int currentPageSize = (int) min(pageSize, pageEnd - pageStart);
-            CacheContext cacheContext = status.getCacheContext();
-            PageId pageId = new PageId(cacheContext.getCacheIdentifier(), currentPage);
-            cacheManager.put(pageId, ByteBuffer.wrap(readBuffer, offset, currentPageSize));
-            pageStart += currentPageSize;
-            offset += pageSize;
-        }
+        Span span = tracer.spanBuilder("Alluxio.writeCache")
+                .setAttribute(CACHE_KEY, cacheKey)
+                .setAttribute(CACHE_FILE_LOCATION, location.toString())
+                .setAttribute(CACHE_FILE_WRITE_SIZE, (long) length)
+                .setAttribute(CACHE_FILE_WRITE_POSITION, pageStart)
+                .startSpan();
+        withTracing(span, () -> {
+            checkArgument(pageStart + length <= pageEnd);
+            long end = pageEnd;
+            if (pageStart + length < pageEnd) {
+                end = pageStart + length - (length % pageSize);
+            }
+            int offset = 0;
+            long currentPageStart = pageStart;
+            while (currentPageStart < end) {
+                long currentPage = currentPageStart / pageSize;
+                int currentPageSize = (int) min(pageSize, pageEnd - currentPageStart);
+                PageId pageId = new PageId(status.getCacheContext().getCacheIdentifier(), currentPage);
+                cacheManager.put(pageId, ByteBuffer.wrap(readBuffer, offset, currentPageSize));
+                currentPageStart += currentPageSize;
+                offset += pageSize;
+            }
+        });
     }
 }
