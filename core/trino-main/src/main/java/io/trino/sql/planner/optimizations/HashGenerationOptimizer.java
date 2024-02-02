@@ -61,7 +61,6 @@ import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.FunctionCall;
 import io.trino.sql.tree.GenericLiteral;
-import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.SymbolReference;
 
 import java.util.Collection;
@@ -871,7 +870,7 @@ public class HashGenerationOptimizer
                     .addArgument(symbolAllocator.getTypes().get(symbol), new SymbolReference(symbol.getName()))
                     .build();
 
-            hashField = new CoalesceExpression(hashField, new LongLiteral(String.valueOf(NULL_HASH_CODE)));
+            hashField = new CoalesceExpression(hashField, new GenericLiteral("BIGINT", String.valueOf(NULL_HASH_CODE)));
 
             result = BuiltinFunctionCallBuilder.resolve(metadata)
                     .setName("combine_hash")
@@ -941,7 +940,7 @@ public class HashGenerationOptimizer
 
         private static Expression orNullHashCode(Expression expression)
         {
-            return new CoalesceExpression(expression, new LongLiteral(String.valueOf(NULL_HASH_CODE)));
+            return new CoalesceExpression(expression, new GenericLiteral("BIGINT", String.valueOf(NULL_HASH_CODE)));
         }
 
         @Override
