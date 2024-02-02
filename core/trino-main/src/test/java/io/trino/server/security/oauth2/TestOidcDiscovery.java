@@ -171,7 +171,7 @@ public class TestOidcDiscovery
                     ImmutableMap.<String, String>builder()
                             .put("/.well-known/openid-configuration", "oidc/openid-configuration.json")
                             .put("/jwks.json", "jwk/jwk-public.json")
-                            .buildOrThrow(), 10));
+                            .buildOrThrow(), 60));
                     TestingTrinoServer server = createServer(
                             ImmutableMap.<String, String>builder()
                                     .put("http-server.authentication.oauth2.issuer", metadataServer.getBaseUrl().toString())
