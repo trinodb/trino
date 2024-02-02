@@ -189,7 +189,7 @@ public class JdbcMergeSink
             for (int i = 0; i < columnWriters.size() - mergeRowIdFieldNames.size(); i++) {
                 updateConjunctsBuilder.add(jdbcClient.quoted(columnNames.get(i)) + " = " + columnWriters.get(i).getBindExpression());
             }
-            return "UPDATE %s.%s SET %s WHERE %s".formatted(schemaName, tableName, Joiner.on(", ").join(updateConjunctsBuilder.build()), mergeRowIdConjuncts);
+            return "UPDATE %s.%s SET %s WHERE %s".formatted(jdbcClient.quoted(schemaName), jdbcClient.quoted(tableName), Joiner.on(", ").join(updateConjunctsBuilder.build()), mergeRowIdConjuncts);
         }
     }
 
@@ -204,7 +204,7 @@ public class JdbcMergeSink
         @Override
         protected String getSinkSql(JdbcClient jdbcClient, JdbcOutputTableHandle outputTableHandle, List<WriteFunction> columnWriters)
         {
-            return "DELETE FROM %s.%s WHERE %s".formatted(schemaName, tableName, mergeRowIdConjuncts);
+            return "DELETE FROM %s.%s WHERE %s".formatted(jdbcClient.quoted(schemaName), jdbcClient.quoted(tableName), mergeRowIdConjuncts);
         }
     }
 
