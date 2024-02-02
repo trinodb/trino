@@ -48,6 +48,7 @@ import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionFilter;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
+import io.trino.plugin.hive.metastore.StatisticsUpdateMode;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.RelationType;
@@ -542,13 +543,10 @@ public final class CachingHiveMetastore
     }
 
     @Override
-    public void updateTableStatistics(String databaseName,
-            String tableName,
-            AcidTransaction transaction,
-            Function<PartitionStatistics, PartitionStatistics> update)
+    public void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
     {
         try {
-            delegate.updateTableStatistics(databaseName, tableName, transaction, update);
+            delegate.updateTableStatistics(databaseName, tableName, transaction, mode, statisticsUpdate);
         }
         finally {
             HiveTableName hiveTableName = hiveTableName(databaseName, tableName);
@@ -559,13 +557,13 @@ public final class CachingHiveMetastore
     }
 
     @Override
-    public void updatePartitionStatistics(Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
+    public void updatePartitionStatistics(Table table, StatisticsUpdateMode mode, Map<String, PartitionStatistics> partitionUpdates)
     {
         try {
-            delegate.updatePartitionStatistics(table, updates);
+            delegate.updatePartitionStatistics(table, mode, partitionUpdates);
         }
         finally {
-            updates.keySet().forEach(partitionName -> {
+            partitionUpdates.keySet().forEach(partitionName -> {
                 HivePartitionName hivePartitionName = hivePartitionName(hiveTableName(table.getDatabaseName(), table.getTableName()), partitionName);
                 partitionStatisticsCache.invalidate(hivePartitionName);
                 // basic stats are stored as partition properties

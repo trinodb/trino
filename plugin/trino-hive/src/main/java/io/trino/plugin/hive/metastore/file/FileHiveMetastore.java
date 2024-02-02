@@ -51,6 +51,7 @@ import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
+import io.trino.plugin.hive.metastore.StatisticsUpdateMode;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.metastore.file.FileHiveMetastoreConfig.VersionCompatibility;
 import io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil;
@@ -496,10 +497,10 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, Function<PartitionStatistics, PartitionStatistics> update)
+    public synchronized void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
     {
         PartitionStatistics originalStatistics = getTableStatistics(databaseName, tableName);
-        PartitionStatistics updatedStatistics = update.apply(originalStatistics);
+        PartitionStatistics updatedStatistics = mode.updatePartitionStatistics(originalStatistics, statisticsUpdate);
 
         Location tableMetadataDirectory = getTableMetadataDirectory(databaseName, tableName);
         TableMetadata tableMetadata = readSchemaFile(TABLE, tableMetadataDirectory, tableCodec)
@@ -514,11 +515,11 @@ public class FileHiveMetastore
     }
 
     @Override
-    public synchronized void updatePartitionStatistics(Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
+    public synchronized void updatePartitionStatistics(Table table, StatisticsUpdateMode mode, Map<String, PartitionStatistics> partitionUpdates)
     {
-        updates.forEach((partitionName, update) -> {
+        partitionUpdates.forEach((partitionName, partitionUpdate) -> {
             PartitionStatistics originalStatistics = getPartitionStatisticsInternal(table, extractPartitionValues(partitionName));
-            PartitionStatistics updatedStatistics = update.apply(originalStatistics);
+            PartitionStatistics updatedStatistics = mode.updatePartitionStatistics(originalStatistics, partitionUpdate);
 
             List<String> partitionValues = extractPartitionValues(partitionName);
             Location partitionDirectory = getPartitionMetadataDirectory(table, partitionValues);

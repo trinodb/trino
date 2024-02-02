@@ -80,6 +80,7 @@ import static io.trino.plugin.hive.TestingThriftHiveMetastoreBuilder.testingThri
 import static io.trino.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.computePartitionKeyFilter;
 import static io.trino.plugin.hive.metastore.MetastoreUtil.makePartitionName;
+import static io.trino.plugin.hive.metastore.StatisticsUpdateMode.MERGE_INCREMENTAL;
 import static io.trino.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static io.trino.plugin.hive.metastore.cache.CachingHiveMetastore.createPerTransactionCache;
 import static io.trino.plugin.hive.metastore.thrift.MockThriftMetastoreClient.BAD_DATABASE;
@@ -103,7 +104,6 @@ import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static java.util.function.Function.identity;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
 import static org.junit.jupiter.api.parallel.ExecutionMode.SAME_THREAD;
@@ -929,7 +929,7 @@ public class TestCachingHiveMetastore
         Table table = hiveMetastoreClosure.getTable(TEST_DATABASE, TEST_TABLE).orElseThrow();
         assertThat(mockClient.getAccessCount()).isEqualTo(1);
 
-        hiveMetastoreClosure.updatePartitionStatistics(table.getDatabaseName(), table.getTableName(), Map.of(TEST_PARTITION1, identity()));
+        hiveMetastoreClosure.updatePartitionStatistics(table.getDatabaseName(), table.getTableName(), MERGE_INCREMENTAL, Map.of(TEST_PARTITION1, TEST_STATS));
         assertThat(mockClient.getAccessCount()).isEqualTo(5);
     }
 

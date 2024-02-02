@@ -27,6 +27,7 @@ import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
+import io.trino.plugin.hive.metastore.StatisticsUpdateMode;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.spi.connector.RelationType;
 import io.trino.spi.connector.SchemaTableName;
@@ -40,7 +41,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.plugin.hive.metastore.HivePartitionName.hivePartitionName;
@@ -108,17 +108,18 @@ public class RecordingHiveMetastore
     public void updateTableStatistics(String databaseName,
             String tableName,
             AcidTransaction transaction,
-            Function<PartitionStatistics, PartitionStatistics> update)
+            StatisticsUpdateMode mode,
+            PartitionStatistics update)
     {
         verifyRecordingMode();
-        delegate.updateTableStatistics(databaseName, tableName, transaction, update);
+        delegate.updateTableStatistics(databaseName, tableName, transaction, mode, update);
     }
 
     @Override
-    public void updatePartitionStatistics(Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
+    public void updatePartitionStatistics(Table table, StatisticsUpdateMode mode, Map<String, PartitionStatistics> updates)
     {
         verifyRecordingMode();
-        delegate.updatePartitionStatistics(table, updates);
+        delegate.updatePartitionStatistics(table, mode, updates);
     }
 
     @Override

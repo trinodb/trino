@@ -268,6 +268,7 @@ import static io.trino.plugin.hive.metastore.PrincipalPrivileges.NO_PRIVILEGES;
 import static io.trino.plugin.hive.metastore.PrincipalPrivileges.fromHivePrivilegeInfos;
 import static io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore.PartitionUpdateInfo;
 import static io.trino.plugin.hive.metastore.SemiTransactionalHiveMetastore.cleanExtraOutputFiles;
+import static io.trino.plugin.hive.metastore.StatisticsUpdateMode.MERGE_INCREMENTAL;
 import static io.trino.plugin.hive.metastore.StorageFormat.VIEW_STORAGE_FORMAT;
 import static io.trino.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.trino.plugin.hive.metastore.thrift.ThriftMetastoreUtil.STATS_PROPERTIES;
@@ -298,11 +299,9 @@ import static io.trino.plugin.hive.util.HiveWriteUtils.createPartitionValues;
 import static io.trino.plugin.hive.util.HiveWriteUtils.isFileCreatedByQuery;
 import static io.trino.plugin.hive.util.HiveWriteUtils.isWritableType;
 import static io.trino.plugin.hive.util.RetryDriver.retry;
-import static io.trino.plugin.hive.util.Statistics.ReduceOperator.ADD;
 import static io.trino.plugin.hive.util.Statistics.createComputedStatisticsToPartitionMap;
 import static io.trino.plugin.hive.util.Statistics.createEmptyPartitionStatistics;
 import static io.trino.plugin.hive.util.Statistics.fromComputedStatistics;
-import static io.trino.plugin.hive.util.Statistics.reduce;
 import static io.trino.plugin.hive.util.SystemTables.getSourceTableNameFromSystemTable;
 import static io.trino.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
 import static io.trino.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
@@ -1869,7 +1868,9 @@ public class HiveMetadata
         if (table.getPartitionColumns().isEmpty()) {
             HiveBasicStatistics basicStatistics = partitionUpdates.stream()
                     .map(PartitionUpdate::getStatistics)
-                    .reduce((first, second) -> reduce(first, second, ADD))
+                    .map(hiveBasicStatistics -> new PartitionStatistics(hiveBasicStatistics, ImmutableMap.of()))
+                    .reduce(MERGE_INCREMENTAL::updatePartitionStatistics)
+                    .map(PartitionStatistics::getBasicStatistics)
                     .orElse(createZeroStatistics());
             tableStatistics = createPartitionStatistics(basicStatistics, columnTypes, getColumnStatistics(partitionComputedStatistics, ImmutableList.of()));
         }

@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 
 public class UnimplementedHiveMetastore
         implements HiveMetastore
@@ -75,13 +74,14 @@ public class UnimplementedHiveMetastore
     public void updateTableStatistics(String databaseName,
             String tableName,
             AcidTransaction transaction,
-            Function<PartitionStatistics, PartitionStatistics> update)
+            StatisticsUpdateMode mode,
+            PartitionStatistics update)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void updatePartitionStatistics(Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
+    public void updatePartitionStatistics(Table table, StatisticsUpdateMode mode, Map<String, PartitionStatistics> updates)
     {
         throw new UnsupportedOperationException();
     }

@@ -33,6 +33,7 @@ import io.trino.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.trino.plugin.hive.metastore.Partition;
 import io.trino.plugin.hive.metastore.PartitionWithStatistics;
 import io.trino.plugin.hive.metastore.PrincipalPrivileges;
+import io.trino.plugin.hive.metastore.StatisticsUpdateMode;
 import io.trino.plugin.hive.metastore.Table;
 import io.trino.plugin.hive.util.HiveUtil;
 import io.trino.spi.TrinoException;
@@ -51,7 +52,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -132,16 +132,16 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, Function<PartitionStatistics, PartitionStatistics> update)
+    public void updateTableStatistics(String databaseName, String tableName, AcidTransaction transaction, StatisticsUpdateMode mode, PartitionStatistics statisticsUpdate)
     {
-        delegate.updateTableStatistics(databaseName, tableName, transaction, update);
+        delegate.updateTableStatistics(databaseName, tableName, transaction, mode, statisticsUpdate);
     }
 
     @Override
-    public void updatePartitionStatistics(Table table, Map<String, Function<PartitionStatistics, PartitionStatistics>> updates)
+    public void updatePartitionStatistics(Table table, StatisticsUpdateMode mode, Map<String, PartitionStatistics> partitionUpdates)
     {
         io.trino.hive.thrift.metastore.Table metastoreTable = toMetastoreApiTable(table);
-        updates.forEach((partitionName, update) -> delegate.updatePartitionStatistics(metastoreTable, partitionName, update));
+        partitionUpdates.forEach((partitionName, update) -> delegate.updatePartitionStatistics(metastoreTable, partitionName, mode, update));
     }
 
     @Override
