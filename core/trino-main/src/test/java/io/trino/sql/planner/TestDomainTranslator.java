@@ -1440,7 +1440,7 @@ public class TestDomainTranslator
 
         assertPredicateIsAlwaysFalse(not(new InPredicate(
                 C_BIGINT.toSymbolReference(),
-                new InListExpression(ImmutableList.of(cast(toExpression(null, SMALLINT), BIGINT), toExpression(1L, SMALLINT))))));
+                new InListExpression(ImmutableList.of(cast(toExpression(null, SMALLINT), BIGINT), toExpression(1L, BIGINT))))));
     }
 
     @Test

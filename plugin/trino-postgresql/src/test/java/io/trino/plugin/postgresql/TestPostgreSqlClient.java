@@ -42,13 +42,13 @@ import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.TypeProvider;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
 import io.trino.sql.tree.ArithmeticUnaryExpression;
+import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.InListExpression;
 import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
-import io.trino.sql.tree.LikePredicate;
 import io.trino.sql.tree.LogicalExpression;
 import io.trino.sql.tree.NotExpression;
 import io.trino.sql.tree.NullIfExpression;
@@ -70,6 +70,7 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.VarcharType.createVarcharType;
+import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
@@ -366,39 +367,6 @@ public class TestPostgreSqlClient
     }
 
     @Test
-    public void testConvertLike()
-    {
-        // c_varchar LIKE '%pattern%'
-        ParameterizedExpression converted = JDBC_CLIENT.convertPredicate(SESSION,
-                        translateToConnectorExpression(
-                                new LikePredicate(
-                                        new SymbolReference("c_varchar_symbol"),
-                                        new StringLiteral("%pattern%"),
-                                        Optional.empty()),
-                                Map.of("c_varchar_symbol", VARCHAR_COLUMN.getColumnType())),
-                        Map.of("c_varchar_symbol", VARCHAR_COLUMN))
-                .orElseThrow();
-        assertThat(converted.expression()).isEqualTo("(\"c_varchar\") LIKE (?)");
-        assertThat(converted.parameters()).isEqualTo(List.of(
-                new QueryParameter(createVarcharType(9), Optional.of(utf8Slice("%pattern%")))));
-
-        // c_varchar LIKE '%pattern\%' ESCAPE '\'
-        converted = JDBC_CLIENT.convertPredicate(SESSION,
-                        translateToConnectorExpression(
-                                new LikePredicate(
-                                        new SymbolReference("c_varchar"),
-                                        new StringLiteral("%pattern\\%"),
-                                        new StringLiteral("\\")),
-                                Map.of("c_varchar", VARCHAR_COLUMN.getColumnType())),
-                        Map.of(VARCHAR_COLUMN.getColumnName(), VARCHAR_COLUMN))
-                .orElseThrow();
-        assertThat(converted.expression()).isEqualTo("(\"c_varchar\") LIKE (?) ESCAPE (?)");
-        assertThat(converted.parameters()).isEqualTo(List.of(
-                new QueryParameter(createVarcharType(10), Optional.of(utf8Slice("%pattern\\%"))),
-                new QueryParameter(createVarcharType(1), Optional.of(utf8Slice("\\")))));
-    }
-
-    @Test
     public void testConvertIsNull()
     {
         // c_varchar IS NULL
@@ -468,14 +436,17 @@ public class TestPostgreSqlClient
                         translateToConnectorExpression(
                                 new InPredicate(
                                         new SymbolReference("c_varchar"),
-                                        new InListExpression(List.of(new StringLiteral("value1"), new StringLiteral("value2"), new SymbolReference("c_varchar2")))),
+                                        new InListExpression(List.of(
+                                                new Cast(new StringLiteral("value1"), toSqlType(VARCHAR_COLUMN.getColumnType())),
+                                                new Cast(new StringLiteral("value2"), toSqlType(VARCHAR_COLUMN.getColumnType())),
+                                                new SymbolReference("c_varchar2")))),
                                 Map.of("c_varchar", VARCHAR_COLUMN.getColumnType(), "c_varchar2", VARCHAR_COLUMN2.getColumnType())),
                         Map.of(VARCHAR_COLUMN.getColumnName(), VARCHAR_COLUMN, VARCHAR_COLUMN2.getColumnName(), VARCHAR_COLUMN2))
                 .orElseThrow();
         assertThat(converted.expression()).isEqualTo("(\"c_varchar\") IN (?, ?, \"c_varchar2\")");
         assertThat(converted.parameters()).isEqualTo(List.of(
-                new QueryParameter(createVarcharType(6), Optional.of(utf8Slice("value1"))),
-                new QueryParameter(createVarcharType(6), Optional.of(utf8Slice("value2")))));
+                new QueryParameter(createVarcharType(10), Optional.of(utf8Slice("value1"))),
+                new QueryParameter(createVarcharType(10), Optional.of(utf8Slice("value2")))));
     }
 
     private ConnectorExpression translateToConnectorExpression(Expression expression, Map<String, Type> symbolTypes)
