@@ -653,7 +653,7 @@ public class PipelinedStageExecution
             failureCause.compareAndSet(null, Failures.toFailure(throwable));
             boolean failed = state.setIf(FAILED, currentState -> !currentState.isDone());
             if (failed) {
-                log.error(throwable, "Pipelined stage execution for stage %s failed", stageId);
+                log.debug(throwable, "Pipelined stage execution for stage %s failed", stageId);
             }
             else {
                 log.debug(throwable, "Failure in pipelined stage execution for stage %s after finished", stageId);

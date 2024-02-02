@@ -1483,7 +1483,7 @@ public class PipelinedQueryScheduler
             failureCause.compareAndSet(null, new StageFailureInfo(toFailure(throwable), failedStageId));
             boolean failed = state.setIf(DistributedStagesSchedulerState.FAILED, currentState -> !currentState.isDone());
             if (failed) {
-                log.error(throwable, "Failure in distributed stage for query %s", queryId);
+                log.debug(throwable, "Failure in distributed stage for query %s", queryId);
             }
             else {
                 log.debug(throwable, "Failure in distributed stage for query %s after finished", queryId);
