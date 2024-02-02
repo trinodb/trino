@@ -16,6 +16,7 @@ package io.trino.filesystem.s3;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.net.HostAndPort;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.trino.filesystem.s3.S3FileSystemConfig.S3SseType;
 import org.junit.jupiter.api.Test;
 
@@ -25,6 +26,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class TestS3FileSystemConfig
 {
@@ -47,6 +49,11 @@ public class TestS3FileSystemConfig
                 .setStreamingPartSize(DataSize.of(16, MEGABYTE))
                 .setRequesterPays(false)
                 .setMaxConnections(null)
+                .setConnectionTtl(null)
+                .setConnectionMaxIdleTime(null)
+                .setSocketConnectTimeout(null)
+                .setSocketReadTimeout(null)
+                .setTcpKeepAlive(false)
                 .setHttpProxy(null)
                 .setHttpProxySecure(false));
     }
@@ -70,6 +77,11 @@ public class TestS3FileSystemConfig
                 .put("s3.streaming.part-size", "42MB")
                 .put("s3.requester-pays", "true")
                 .put("s3.max-connections", "42")
+                .put("s3.connection-ttl", "1m")
+                .put("s3.connection-max-idle-time", "2m")
+                .put("s3.socket-connect-timeout", "3m")
+                .put("s3.socket-read-timeout", "4m")
+                .put("s3.tcp-keep-alive", "true")
                 .put("s3.http-proxy", "localhost:8888")
                 .put("s3.http-proxy.secure", "true")
                 .buildOrThrow();
@@ -90,6 +102,11 @@ public class TestS3FileSystemConfig
                 .setSseKmsKeyId("mykey")
                 .setRequesterPays(true)
                 .setMaxConnections(42)
+                .setConnectionTtl(new Duration(1, MINUTES))
+                .setConnectionMaxIdleTime(new Duration(2, MINUTES))
+                .setSocketConnectTimeout(new Duration(3, MINUTES))
+                .setSocketReadTimeout(new Duration(4, MINUTES))
+                .setTcpKeepAlive(true)
                 .setHttpProxy(HostAndPort.fromParts("localhost", 8888))
                 .setHttpProxySecure(true);
 
