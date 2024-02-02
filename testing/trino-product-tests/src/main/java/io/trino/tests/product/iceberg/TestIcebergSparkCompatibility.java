@@ -1057,9 +1057,7 @@ public class TestIcebergSparkCompatibility
         assertThat(queryResult).hasRowsCount(1).hasColumnsCount(1);
         assertTrue(((String) queryResult.getOnlyValue()).contains(dataPath));
 
-        assertQueryFailure(() -> onTrino().executeQuery("DROP TABLE " + trinoTableName))
-                .hasMessageContaining("contains Iceberg path override properties and cannot be dropped from Trino");
-        onSpark().executeQuery("DROP TABLE " + sparkTableName);
+        onTrino().executeQuery("DROP TABLE " + trinoTableName);
     }
 
     @Test(groups = {ICEBERG, ICEBERG_JDBC, PROFILE_SPECIFIC_TESTS, ICEBERG_NESSIE}, dataProvider = "storageFormatsWithSpecVersion")
@@ -1070,7 +1068,7 @@ public class TestIcebergSparkCompatibility
         String trinoTableName = trinoTableName(baseTableName);
         String dataPath = "hdfs://hadoop-master:9000/user/hive/warehouse/test_trino_object_storage_location_provider/obj-data";
 
-        onTrino().executeQuery(format("CREATE TABLE %s (_string STRING, _bigint BIGINT) WITH (" +
+        onTrino().executeQuery(format("CREATE TABLE %s (_string VARCHAR, _bigint BIGINT) WITH (" +
                           "object_store_enabled = true," +
                           "data_location = '%s'," +
                           "format = '%s'," +
