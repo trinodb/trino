@@ -33,7 +33,6 @@ import io.trino.spi.type.Decimals;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeSignatureParameter;
 import io.trino.spi.type.VarcharType;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.ArithmeticBinaryExpression;
@@ -101,7 +100,6 @@ import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractLocation;
 import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
-import static io.trino.type.ArrayParametricType.ARRAY;
 import static io.trino.type.DateTimes.extractTimePrecision;
 import static io.trino.type.DateTimes.extractTimestampPrecision;
 import static io.trino.type.DateTimes.parseTime;
@@ -384,23 +382,16 @@ public class IrTypeAnalyzer
         @Override
         protected Type visitArray(Array node, Context context)
         {
-            Type type = null;
-            for (Expression item : node.getValues()) {
-                Type itemType = process(item, context);
+            Set<Type> types = node.getValues().stream()
+                    .map(entry -> process(entry, context))
+                    .collect(Collectors.toSet());
 
-                if (type == null) {
-                    type = itemType;
-                }
-
-                checkArgument(itemType.equals(type), "Types must be equal: %s vs %s", itemType, type);
+            if (types.isEmpty()) {
+                return setExpressionType(node, new ArrayType(UNKNOWN));
             }
 
-            if (type == null) {
-                type = UNKNOWN;
-            }
-
-            Type arrayType = plannerContext.getTypeManager().getParameterizedType(ARRAY.getName(), ImmutableList.of(TypeSignatureParameter.typeParameter(type.getTypeSignature())));
-            return setExpressionType(node, arrayType);
+            checkArgument(types.size() == 1, "All entries must have the same type: %s", types);
+            return setExpressionType(node, new ArrayType(types.iterator().next()));
         }
 
         @Override
