@@ -39,6 +39,9 @@ Trino offers the following built-in system access control implementations:
 * - `file`
   - Authorization rules are specified in a config file. See
     [](/security/file-system-access-control).
+* - `opa`
+  - Use Open Policy Agent (OPA) for authorization. See
+    [](/security/opa-access-control).
 :::
 
 If you want to limit access on a system level in any other way than the ones
