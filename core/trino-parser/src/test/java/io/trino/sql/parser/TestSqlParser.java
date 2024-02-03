@@ -32,7 +32,6 @@ import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Call;
 import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.CharLiteral;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.Comment;
@@ -207,8 +206,6 @@ import io.trino.sql.tree.TableFunctionArgument;
 import io.trino.sql.tree.TableFunctionInvocation;
 import io.trino.sql.tree.TableFunctionTableArgument;
 import io.trino.sql.tree.TableSubquery;
-import io.trino.sql.tree.TimeLiteral;
-import io.trino.sql.tree.TimestampLiteral;
 import io.trino.sql.tree.TransactionAccessMode;
 import io.trino.sql.tree.Trim;
 import io.trino.sql.tree.TruncateTable;
@@ -406,15 +403,15 @@ public class TestSqlParser
     {
         NodeLocation location = new NodeLocation(1, 1);
         assertThat(expression("TIME 'abc'"))
-                .isEqualTo(new TimeLiteral(location, "abc"));
+                .isEqualTo(new GenericLiteral(location, "TIME", "abc"));
         assertThat(expression("TIMESTAMP 'abc'"))
-                .isEqualTo(new TimestampLiteral(location, "abc"));
+                .isEqualTo(new GenericLiteral(location, "TIMESTAMP", "abc"));
         assertThat(expression("INTERVAL '33' day"))
                 .isEqualTo(new IntervalLiteral(location, "33", Sign.POSITIVE, IntervalField.DAY, Optional.empty()));
         assertThat(expression("INTERVAL '33' day to second"))
                 .isEqualTo(new IntervalLiteral(location, "33", Sign.POSITIVE, IntervalField.DAY, Optional.of(IntervalField.SECOND)));
         assertThat(expression("CHAR 'abc'"))
-                .isEqualTo(new CharLiteral(location, "abc"));
+                .isEqualTo(new GenericLiteral(location, "CHAR", "abc"));
     }
 
     @Test
@@ -1250,7 +1247,7 @@ public class TestSqlParser
     {
         NodeLocation location = new NodeLocation(1, 1);
         assertThat(expression("TIME '03:04:05'"))
-                .isEqualTo(new TimeLiteral(location, "03:04:05"));
+                .isEqualTo(new GenericLiteral(location, "TIME", "03:04:05"));
     }
 
     @Test
@@ -3834,9 +3831,9 @@ public class TestSqlParser
     @Test
     public void testAtTimeZone()
     {
-        assertStatement("SELECT timestamp '2012-10-31 01:00 UTC' AT TIME ZONE 'America/Los_Angeles'",
+        assertStatement("SELECT TIMESTAMP '2012-10-31 01:00 UTC' AT TIME ZONE 'America/Los_Angeles'",
                 simpleQuery(selectList(
-                        new AtTimeZone(new TimestampLiteral("2012-10-31 01:00 UTC"), new StringLiteral("America/Los_Angeles")))));
+                        new AtTimeZone(new GenericLiteral("TIMESTAMP", "2012-10-31 01:00 UTC"), new StringLiteral("America/Los_Angeles")))));
     }
 
     @Test
@@ -5246,7 +5243,7 @@ public class TestSqlParser
     @Test
     public void testQueryPeriod()
     {
-        Expression rangeValue = new TimestampLiteral(location(1, 37), "2021-03-01 00:00:01");
+        Expression rangeValue = new GenericLiteral(location(1, 37), "TIMESTAMP", "2021-03-01 00:00:01");
         QueryPeriod queryPeriod = new QueryPeriod(location(1, 17), QueryPeriod.RangeType.TIMESTAMP, rangeValue);
         Table table = new Table(location(1, 15), qualifiedName(location(1, 15), "t"), queryPeriod);
         assertThat(statement("SELECT * FROM t FOR TIMESTAMP AS OF TIMESTAMP '2021-03-01 00:00:01'"))

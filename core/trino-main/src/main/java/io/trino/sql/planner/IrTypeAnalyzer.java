@@ -24,7 +24,6 @@ import io.trino.metadata.FunctionResolver;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.security.AccessControl;
 import io.trino.security.AllowAllAccessControl;
-import io.trino.spi.TrinoException;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ArrayType;
@@ -44,7 +43,6 @@ import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BindExpression;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.CharLiteral;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.DecimalLiteral;
@@ -72,8 +70,6 @@ import io.trino.sql.tree.SimpleCaseExpression;
 import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
-import io.trino.sql.tree.TimeLiteral;
-import io.trino.sql.tree.TimestampLiteral;
 import io.trino.type.FunctionType;
 
 import java.util.ArrayList;
@@ -87,7 +83,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.trino.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.cache.SafeCaches.buildNonEvictableCache;
-import static io.trino.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DoubleType.DOUBLE;
@@ -97,15 +92,9 @@ import static io.trino.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.trino.spi.type.TimestampType.createTimestampType;
 import static io.trino.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
-import static io.trino.sql.analyzer.ExpressionTreeUtils.extractLocation;
-import static io.trino.sql.analyzer.SemanticExceptions.semanticException;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.trino.type.DateTimes.extractTimePrecision;
 import static io.trino.type.DateTimes.extractTimestampPrecision;
-import static io.trino.type.DateTimes.parseTime;
-import static io.trino.type.DateTimes.parseTimeWithTimeZone;
-import static io.trino.type.DateTimes.parseTimestamp;
-import static io.trino.type.DateTimes.parseTimestampWithTimeZone;
 import static io.trino.type.DateTimes.timeHasTimeZone;
 import static io.trino.type.DateTimes.timestampHasTimeZone;
 import static io.trino.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
@@ -401,12 +390,6 @@ public class IrTypeAnalyzer
         }
 
         @Override
-        protected Type visitCharLiteral(CharLiteral node, Context context)
-        {
-            return setExpressionType(node, CharType.createCharType(node.length()));
-        }
-
-        @Override
         protected Type visitBinaryLiteral(BinaryLiteral node, Context context)
         {
             return setExpressionType(node, VARBINARY);
@@ -443,60 +426,16 @@ public class IrTypeAnalyzer
         @Override
         protected Type visitGenericLiteral(GenericLiteral node, Context context)
         {
-            Type type = uncheckedCacheGet(varcharCastableTypeCache, node.getType(), () -> plannerContext.getTypeManager().fromSqlType(node.getType()));
-            return setExpressionType(node, type);
-        }
-
-        @Override
-        protected Type visitTimeLiteral(TimeLiteral node, Context context)
-        {
-            Type type;
-            try {
-                int precision = extractTimePrecision(node.getValue());
-
-                if (timeHasTimeZone(node.getValue())) {
-                    type = createTimeWithTimeZoneType(precision);
-                    parseTimeWithTimeZone(precision, node.getValue());
-                }
-                else {
-                    type = createTimeType(precision);
-                    parseTime(node.getValue());
-                }
-            }
-            catch (TrinoException e) {
-                throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
-            }
-            catch (IllegalArgumentException e) {
-                throw semanticException(INVALID_LITERAL, node, "'%s' is not a valid TIME literal", node.getValue());
-            }
-
-            return setExpressionType(node, type);
-        }
-
-        @Override
-        protected Type visitTimestampLiteral(TimestampLiteral node, Context context)
-        {
-            Type type;
-            try {
-                if (timestampHasTimeZone(node.getValue())) {
-                    int precision = extractTimestampPrecision(node.getValue());
-                    type = createTimestampWithTimeZoneType(precision);
-                    parseTimestampWithTimeZone(precision, node.getValue());
-                }
-                else {
-                    int precision = extractTimestampPrecision(node.getValue());
-                    type = createTimestampType(precision);
-                    parseTimestamp(precision, node.getValue());
-                }
-            }
-            catch (TrinoException e) {
-                throw new TrinoException(e::getErrorCode, extractLocation(node), e.getMessage(), e);
-            }
-            catch (Exception e) {
-                throw semanticException(INVALID_LITERAL, node, e, "'%s' is not a valid TIMESTAMP literal", node.getValue());
-            }
-
-            return setExpressionType(node, type);
+            return setExpressionType(
+                    node,
+                    switch (node.getType()) {
+                        case String name when name.equalsIgnoreCase("CHAR") -> CharType.createCharType(node.getValue().length());
+                        case String name when name.equalsIgnoreCase("TIMESTAMP") && timestampHasTimeZone(node.getValue()) -> createTimestampWithTimeZoneType(extractTimestampPrecision(node.getValue()));
+                        case String name when name.equalsIgnoreCase("TIMESTAMP") -> createTimestampType(extractTimestampPrecision(node.getValue()));
+                        case String name when name.equalsIgnoreCase("TIME") && timeHasTimeZone(node.getValue()) -> createTimeWithTimeZoneType(extractTimePrecision(node.getValue()));
+                        case String name when name.equalsIgnoreCase("TIME") -> createTimeType(extractTimePrecision(node.getValue()));
+                        default -> uncheckedCacheGet(varcharCastableTypeCache, node.getType(), () -> plannerContext.getTypeManager().fromSqlType(node.getType()));
+                    });
         }
 
         @Override

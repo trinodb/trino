@@ -33,7 +33,6 @@ import io.trino.sql.PlannerContext;
 import io.trino.sql.tree.AstVisitor;
 import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BooleanLiteral;
-import io.trino.sql.tree.CharLiteral;
 import io.trino.sql.tree.DecimalLiteral;
 import io.trino.sql.tree.DoubleLiteral;
 import io.trino.sql.tree.Expression;
@@ -43,8 +42,6 @@ import io.trino.sql.tree.Literal;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.StringLiteral;
-import io.trino.sql.tree.TimeLiteral;
-import io.trino.sql.tree.TimestampLiteral;
 
 import java.util.function.Function;
 
@@ -133,12 +130,6 @@ public final class LiteralInterpreter
         }
 
         @Override
-        protected Object visitCharLiteral(CharLiteral node, Void context)
-        {
-            return Slices.utf8Slice(node.getValue());
-        }
-
-        @Override
         protected Slice visitBinaryLiteral(BinaryLiteral node, Void context)
         {
             return Slices.wrappedBuffer(node.getValue());
@@ -147,57 +138,37 @@ public final class LiteralInterpreter
         @Override
         protected Object visitGenericLiteral(GenericLiteral node, Void context)
         {
-            Function<GenericLiteral, Object> evaluator = CacheUtils.uncheckedCacheGet(genericLiteralEvaluatorCache, type, () -> {
-                boolean isJson = JSON.equals(type);
-                ResolvedFunction resolvedFunction;
-                if (isJson) {
-                    resolvedFunction = plannerContext.getMetadata().resolveBuiltinFunction("json_parse", fromTypes(VARCHAR));
-                }
-                else {
-                    resolvedFunction = plannerContext.getMetadata().getCoercion(VARCHAR, type);
-                }
-                return evaluatedNode -> {
-                    try {
-                        return functionInvoker.invoke(resolvedFunction, connectorSession, ImmutableList.of(utf8Slice(evaluatedNode.getValue())));
-                    }
-                    catch (IllegalArgumentException e) {
+            return switch (type) {
+                case TimeType unused -> parseTime(node.getValue());
+                case TimeWithTimeZoneType value -> parseTimeWithTimeZone(value.getPrecision(), node.getValue());
+                case TimestampType value -> parseTimestamp(value.getPrecision(), node.getValue());
+                case TimestampWithTimeZoneType value -> parseTimestampWithTimeZone(value.getPrecision(), node.getValue());
+                default -> {
+                    Function<GenericLiteral, Object> evaluator = CacheUtils.uncheckedCacheGet(genericLiteralEvaluatorCache, type, () -> {
+                        boolean isJson = JSON.equals(type);
+                        ResolvedFunction resolvedFunction;
                         if (isJson) {
-                            // TODO it may be not correct to propagate this exceptiion as-is in JSON case
-                            throw e;
+                            resolvedFunction = plannerContext.getMetadata().resolveBuiltinFunction("json_parse", fromTypes(VARCHAR));
                         }
-                        throw semanticException(INVALID_LITERAL, evaluatedNode, "No literal form for type %s", type);
-                    }
-                };
-            });
-            return evaluator.apply(node);
-        }
-
-        @Override
-        protected Object visitTimeLiteral(TimeLiteral node, Void session)
-        {
-            if (type instanceof TimeType) {
-                return parseTime(node.getValue());
-            }
-            if (type instanceof TimeWithTimeZoneType) {
-                return parseTimeWithTimeZone(((TimeWithTimeZoneType) type).getPrecision(), node.getValue());
-            }
-
-            throw new IllegalStateException("Unexpected type: " + type);
-        }
-
-        @Override
-        protected Object visitTimestampLiteral(TimestampLiteral node, Void session)
-        {
-            if (type instanceof TimestampType) {
-                int precision = ((TimestampType) type).getPrecision();
-                return parseTimestamp(precision, node.getValue());
-            }
-            if (type instanceof TimestampWithTimeZoneType) {
-                int precision = ((TimestampWithTimeZoneType) type).getPrecision();
-                return parseTimestampWithTimeZone(precision, node.getValue());
-            }
-
-            throw new IllegalStateException("Unexpected type: " + type);
+                        else {
+                            resolvedFunction = plannerContext.getMetadata().getCoercion(VARCHAR, type);
+                        }
+                        return evaluatedNode -> {
+                            try {
+                                return functionInvoker.invoke(resolvedFunction, connectorSession, ImmutableList.of(utf8Slice(evaluatedNode.getValue())));
+                            }
+                            catch (IllegalArgumentException e) {
+                                if (isJson) {
+                                    // TODO it may be not correct to propagate this exceptiion as-is in JSON case
+                                    throw e;
+                                }
+                                throw semanticException(INVALID_LITERAL, evaluatedNode, "No literal form for type %s", type);
+                            }
+                        };
+                    });
+                    yield evaluator.apply(node);
+                }
+            };
         }
 
         @Override
