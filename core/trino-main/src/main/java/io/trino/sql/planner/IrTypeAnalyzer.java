@@ -75,7 +75,6 @@ import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
 import io.trino.sql.tree.TimeLiteral;
 import io.trino.sql.tree.TimestampLiteral;
-import io.trino.sql.tree.TryExpression;
 import io.trino.type.FunctionType;
 
 import java.util.ArrayList;
@@ -592,12 +591,6 @@ public class IrTypeAnalyzer
             process(node.getMax(), context);
 
             return setExpressionType(node, BOOLEAN);
-        }
-
-        @Override
-        public Type visitTryExpression(TryExpression node, Context context)
-        {
-            return setExpressionType(node, process(node.getInnerExpression(), context));
         }
 
         @Override
