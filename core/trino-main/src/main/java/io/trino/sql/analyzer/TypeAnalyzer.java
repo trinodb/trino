@@ -17,10 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.trino.Session;
-import io.trino.connector.CatalogServiceProvider;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.AnalyzePropertyManager;
-import io.trino.metadata.TablePropertyManager;
 import io.trino.security.AllowAllAccessControl;
 import io.trino.spi.type.Type;
 import io.trino.sql.PlannerContext;
@@ -32,7 +29,6 @@ import java.util.Map;
 
 import static io.trino.sql.analyzer.ExpressionAnalyzer.analyzeExpressions;
 import static io.trino.sql.analyzer.QueryType.OTHERS;
-import static io.trino.sql.analyzer.StatementAnalyzerFactory.createTestingStatementAnalyzerFactory;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -75,16 +71,5 @@ public class TypeAnalyzer
     public Type getType(Session session, TypeProvider inputTypes, Expression expression)
     {
         return getTypes(session, inputTypes, expression).get(NodeRef.of(expression));
-    }
-
-    public static TypeAnalyzer createTestingTypeAnalyzer(PlannerContext plannerContext)
-    {
-        return new TypeAnalyzer(
-                plannerContext,
-                createTestingStatementAnalyzerFactory(
-                        plannerContext,
-                        new AllowAllAccessControl(),
-                        new TablePropertyManager(CatalogServiceProvider.fail("table properties not supported in testing type analyzer")),
-                        new AnalyzePropertyManager(CatalogServiceProvider.fail("analyze properties not supported in testing type analyzer"))));
     }
 }
