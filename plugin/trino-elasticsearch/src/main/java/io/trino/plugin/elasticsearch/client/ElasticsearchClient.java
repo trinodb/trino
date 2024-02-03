@@ -542,7 +542,7 @@ public class ElasticsearchClient
         try {
             response = client.getLowLevelClient()
                     .performRequest(
-                            "GET",
+                            "POST",
                             path,
                             ImmutableMap.of(),
                             new ByteArrayEntity(query.getBytes(UTF_8)),
