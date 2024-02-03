@@ -13,7 +13,6 @@
  */
 package io.trino.sql;
 
-import io.trino.sql.tree.CharLiteral;
 import io.trino.sql.tree.Expression;
 import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.IntervalLiteral;
@@ -49,13 +48,13 @@ public class TestExpressionFormatter
     public void testCharLiteral()
     {
         assertFormattedExpression(
-                new CharLiteral("test"),
+                new GenericLiteral("CHAR", "test"),
                 "CHAR 'test'");
         assertFormattedExpression(
-                new CharLiteral("攻殻機動隊"),
+                new GenericLiteral("CHAR", "攻殻機動隊"),
                 "CHAR '攻殻機動隊'");
         assertFormattedExpression(
-                new CharLiteral("😂"),
+                new GenericLiteral("CHAR", "😂"),
                 "CHAR '😂'");
     }
 

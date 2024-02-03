@@ -70,7 +70,6 @@ import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BindExpression;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.CharLiteral;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.CurrentCatalog;
@@ -138,8 +137,6 @@ import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
-import io.trino.sql.tree.TimeLiteral;
-import io.trino.sql.tree.TimestampLiteral;
 import io.trino.sql.tree.Trim;
 import io.trino.sql.tree.TryExpression;
 import io.trino.sql.tree.ValueColumn;
@@ -1070,13 +1067,6 @@ public class ExpressionAnalyzer
         }
 
         @Override
-        protected Type visitCharLiteral(CharLiteral node, StackableAstVisitorContext<Context> context)
-        {
-            CharType type = CharType.createCharType(node.length());
-            return setExpressionType(node, type);
-        }
-
-        @Override
         protected Type visitBinaryLiteral(BinaryLiteral node, StackableAstVisitorContext<Context> context)
         {
             return setExpressionType(node, VARBINARY);
@@ -1120,37 +1110,45 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitGenericLiteral(GenericLiteral node, StackableAstVisitorContext<Context> context)
         {
-            Type type = uncheckedCacheGet(varcharCastableTypeCache, node.getType(), () -> {
-                Type resolvedType;
-                try {
-                    resolvedType = plannerContext.getTypeManager().fromSqlType(node.getType());
-                }
-                catch (TypeNotFoundException e) {
-                    throw semanticException(TYPE_NOT_FOUND, node, "Unknown resolvedType: %s", node.getType());
-                }
+            return setExpressionType(
+                    node,
+                    switch (node.getType()) {
+                        case String value when value.equalsIgnoreCase("CHAR") -> CharType.createCharType(node.getValue().length());
+                        case String value when value.equalsIgnoreCase("TIME") -> processTimeLiteral(node);
+                        case String value when value.equalsIgnoreCase("TIMESTAMP") -> processTimestampLiteral(node);
+                        default -> {
+                            Type type = uncheckedCacheGet(varcharCastableTypeCache, node.getType(), () -> {
+                                Type resolvedType;
+                                try {
+                                    resolvedType = plannerContext.getTypeManager().fromSqlType(node.getType());
+                                }
+                                catch (TypeNotFoundException e) {
+                                    throw semanticException(TYPE_NOT_FOUND, node, "Unknown resolvedType: %s", node.getType());
+                                }
 
-                if (!JSON.equals(resolvedType)) {
-                    try {
-                        plannerContext.getMetadata().getCoercion(VARCHAR, resolvedType);
-                    }
-                    catch (IllegalArgumentException e) {
-                        throw semanticException(INVALID_LITERAL, node, "No literal form for resolvedType %s", resolvedType);
-                    }
-                }
-                return resolvedType;
-            });
-            try {
-                literalInterpreter.evaluate(node, type);
-            }
-            catch (RuntimeException e) {
-                throw semanticException(INVALID_LITERAL, node, e, "'%s' is not a valid %s literal", node.getValue(), type.getDisplayName().toUpperCase(ENGLISH));
-            }
+                                if (!JSON.equals(resolvedType)) {
+                                    try {
+                                        plannerContext.getMetadata().getCoercion(VARCHAR, resolvedType);
+                                    }
+                                    catch (IllegalArgumentException e) {
+                                        throw semanticException(INVALID_LITERAL, node, "No literal form for resolvedType %s", resolvedType);
+                                    }
+                                }
+                                return resolvedType;
+                            });
+                            try {
+                                literalInterpreter.evaluate(node, type);
+                            }
+                            catch (RuntimeException e) {
+                                throw semanticException(INVALID_LITERAL, node, e, "'%s' is not a valid %s literal", node.getValue(), type.getDisplayName().toUpperCase(ENGLISH));
+                            }
 
-            return setExpressionType(node, type);
+                            yield type;
+                        }
+                    });
         }
 
-        @Override
-        protected Type visitTimeLiteral(TimeLiteral node, StackableAstVisitorContext<Context> context)
+        private Type processTimeLiteral(GenericLiteral node)
         {
             Type type;
             try {
@@ -1172,11 +1170,10 @@ public class ExpressionAnalyzer
                 throw semanticException(INVALID_LITERAL, node, "'%s' is not a valid TIME literal", node.getValue());
             }
 
-            return setExpressionType(node, type);
+            return type;
         }
 
-        @Override
-        protected Type visitTimestampLiteral(TimestampLiteral node, StackableAstVisitorContext<Context> context)
+        private Type processTimestampLiteral(GenericLiteral node)
         {
             Type type;
             try {
@@ -1198,7 +1195,7 @@ public class ExpressionAnalyzer
                 throw semanticException(INVALID_LITERAL, node, e, "'%s' is not a valid TIMESTAMP literal", node.getValue());
             }
 
-            return setExpressionType(node, type);
+            return type;
         }
 
         @Override

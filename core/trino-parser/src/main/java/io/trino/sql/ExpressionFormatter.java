@@ -27,7 +27,6 @@ import io.trino.sql.tree.BinaryLiteral;
 import io.trino.sql.tree.BindExpression;
 import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.CharLiteral;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.CurrentCatalog;
@@ -93,8 +92,6 @@ import io.trino.sql.tree.StringLiteral;
 import io.trino.sql.tree.SubqueryExpression;
 import io.trino.sql.tree.SubscriptExpression;
 import io.trino.sql.tree.SymbolReference;
-import io.trino.sql.tree.TimeLiteral;
-import io.trino.sql.tree.TimestampLiteral;
 import io.trino.sql.tree.Trim;
 import io.trino.sql.tree.TryExpression;
 import io.trino.sql.tree.TypeParameter;
@@ -261,14 +258,6 @@ public final class ExpressionFormatter
         }
 
         @Override
-        protected String visitCharLiteral(CharLiteral node, Void context)
-        {
-            return literalFormatter
-                    .map(formatter -> formatter.apply(node))
-                    .orElseGet(() -> "CHAR " + formatStringLiteral(node.getValue()));
-        }
-
-        @Override
         protected String visitBinaryLiteral(BinaryLiteral node, Void context)
         {
             return literalFormatter
@@ -333,22 +322,6 @@ public final class ExpressionFormatter
             return literalFormatter
                     .map(formatter -> formatter.apply(node))
                     .orElseGet(() -> node.getType() + " " + formatStringLiteral(node.getValue()));
-        }
-
-        @Override
-        protected String visitTimeLiteral(TimeLiteral node, Void context)
-        {
-            return literalFormatter
-                    .map(formatter -> formatter.apply(node))
-                    .orElseGet(() -> "TIME '" + node.getValue() + "'");
-        }
-
-        @Override
-        protected String visitTimestampLiteral(TimestampLiteral node, Void context)
-        {
-            return literalFormatter
-                    .map(formatter -> formatter.apply(node))
-                    .orElseGet(() -> "TIMESTAMP '" + node.getValue() + "'");
         }
 
         @Override

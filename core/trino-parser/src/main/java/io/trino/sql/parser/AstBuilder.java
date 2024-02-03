@@ -42,7 +42,6 @@ import io.trino.sql.tree.CallArgument;
 import io.trino.sql.tree.CaseStatement;
 import io.trino.sql.tree.CaseStatementWhenClause;
 import io.trino.sql.tree.Cast;
-import io.trino.sql.tree.CharLiteral;
 import io.trino.sql.tree.CoalesceExpression;
 import io.trino.sql.tree.ColumnDefinition;
 import io.trino.sql.tree.Comment;
@@ -276,8 +275,6 @@ import io.trino.sql.tree.TableFunctionArgument;
 import io.trino.sql.tree.TableFunctionInvocation;
 import io.trino.sql.tree.TableFunctionTableArgument;
 import io.trino.sql.tree.TableSubquery;
-import io.trino.sql.tree.TimeLiteral;
-import io.trino.sql.tree.TimestampLiteral;
 import io.trino.sql.tree.TransactionAccessMode;
 import io.trino.sql.tree.TransactionMode;
 import io.trino.sql.tree.Trim;
@@ -3285,17 +3282,8 @@ class AstBuilder
         }
 
         String type = context.identifier().getText();
-        if (type.equalsIgnoreCase("time")) {
-            return new TimeLiteral(getLocation(context), value);
-        }
-        if (type.equalsIgnoreCase("timestamp")) {
-            return new TimestampLiteral(getLocation(context), value);
-        }
         if (type.equalsIgnoreCase("decimal")) {
             return new DecimalLiteral(getLocation(context), value);
-        }
-        if (type.equalsIgnoreCase("char")) {
-            return new CharLiteral(getLocation(context), value);
         }
 
         return new GenericLiteral(getLocation(context), type, value);

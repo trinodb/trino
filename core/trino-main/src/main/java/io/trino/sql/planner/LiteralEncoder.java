@@ -47,7 +47,6 @@ import io.trino.sql.tree.GenericLiteral;
 import io.trino.sql.tree.LongLiteral;
 import io.trino.sql.tree.NullLiteral;
 import io.trino.sql.tree.StringLiteral;
-import io.trino.sql.tree.TimestampLiteral;
 import jakarta.annotation.Nullable;
 
 import java.util.List;
@@ -230,7 +229,7 @@ public final class LiteralEncoder
             else {
                 representation = TimestampToVarcharCast.cast(timestampType.getPrecision(), (LongTimestamp) object).toStringUtf8();
             }
-            return new TimestampLiteral(representation);
+            return new GenericLiteral("TIMESTAMP", representation);
         }
 
         if (type instanceof TimestampWithTimeZoneType timestampWithTimeZoneType) {
@@ -248,7 +247,7 @@ public final class LiteralEncoder
                 // TODO (https://github.com/trinodb/trino/issues/5781) consider treating such values as illegal
             }
             else {
-                return new TimestampLiteral(representation);
+                return new GenericLiteral("TIMESTAMP", representation);
             }
         }
 
