@@ -211,7 +211,6 @@
         <dep.joda.version>2.12.6</dep.joda.version>
         <dep.jsonwebtoken.version>0.12.5</dep.jsonwebtoken.version>
         <dep.kafka-clients.version>3.6.1</dep.kafka-clients.version>
-        <dep.kotlin.version>1.9.20</dep.kotlin.version>
         <dep.okio.version>3.6.0</dep.okio.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.parquet.version>1.13.1</dep.parquet.version>
