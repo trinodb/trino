@@ -207,7 +207,7 @@ the {doc}`/admin/web-interface`.
 
 - **Type:** {ref}`prop-type-boolean`
 - **Default value:** `true`
-- **Session property:** `query_remote_task_enable_adaptive_request_size`
+- **Session property:** `remote_task_adaptive_update_request_size_enabled`
 
 Enables dynamically splitting up server requests sent by tasks, which can
 prevent out-of-memory errors for large schemas. The default settings are
@@ -218,7 +218,7 @@ working with extremely large tables.
 
 - **Type:** {ref}`prop-type-integer`
 - **Default value:** `3`
-- **Session property:** `query_remote_task_guaranteed_splits_per_task`
+- **Session property:** `remote_task_guaranteed_splits_per_request`
 
 The minimum number of splits that should be assigned to each remote task to
 ensure that each task has a minimum amount of work to perform. Requires
@@ -237,7 +237,7 @@ value is reached, the coordinator treats the task as failed.
 
 - **Type:** {ref}`prop-type-data-size`
 - **Default value:** `8MB`
-- **Session property:** `query_remote_task_max_request_size`
+- **Session property:** `remote_task_max_request_size`
 
 The maximum size of a single request made by a remote task. Requires
 `query.remote-task.enable-adaptive-request-size` to be enabled.
@@ -246,7 +246,7 @@ The maximum size of a single request made by a remote task. Requires
 
 - **Type:** {ref}`prop-type-data-size`
 - **Default value:** `2MB`
-- **Session property:** `query_remote_task_request_size_headroom`
+- **Session property:** `remote_task_request_size_headroom`
 
 Determines the amount of headroom that should be allocated beyond the size of
 the request data. Requires `query.remote-task.enable-adaptive-request-size` to
