@@ -16,7 +16,7 @@ package io.trino.sql.planner.assertions;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.spi.function.CatalogSchemaFunctionName;
-import io.trino.sql.planner.OrderingScheme;
+import io.trino.sql.planner.OrderingTranslator;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.AggregationNode;
 import io.trino.sql.planner.plan.AggregationNode.Aggregation;
@@ -75,7 +75,7 @@ public class AggregationFunctionMatcher
 
         return Objects.equals(expectedFunctionName, aggregation.getResolvedFunction().getSignature().getName()) &&
                 Objects.equals(expectedCall.getFilter(), aggregation.getFilter().map(Symbol::toSymbolReference)) &&
-                Objects.equals(expectedCall.getOrderBy().map(OrderingScheme::fromOrderBy), aggregation.getOrderingScheme()) &&
+                Objects.equals(expectedCall.getOrderBy().map(OrderingTranslator::fromOrderBy), aggregation.getOrderingScheme()) &&
                 Objects.equals(expectedCall.isDistinct(), aggregation.isDistinct()) &&
                 Objects.equals(expectedCall.getArguments(), aggregation.getArguments());
     }

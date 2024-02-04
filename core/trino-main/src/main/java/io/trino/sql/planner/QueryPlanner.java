@@ -157,7 +157,7 @@ import static io.trino.sql.analyzer.ExpressionAnalyzer.isNumericType;
 import static io.trino.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.trino.sql.planner.GroupingOperationRewriter.rewriteGroupingOperation;
 import static io.trino.sql.planner.LogicalPlanner.failFunction;
-import static io.trino.sql.planner.OrderingScheme.sortItemToSortOrder;
+import static io.trino.sql.planner.OrderingTranslator.sortItemToSortOrder;
 import static io.trino.sql.planner.PlanBuilder.newPlanBuilder;
 import static io.trino.sql.planner.ScopeAware.scopeAwareKey;
 import static io.trino.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
@@ -1320,7 +1320,7 @@ class QueryPlanner
             // ORDER BY x DESC, x ASC, y --> ORDER BY x DESC, y
             if (!orders.containsKey(symbol)) {
                 symbols.add(symbol);
-                orders.put(symbol, OrderingScheme.sortItemToSortOrder(items.get(i)));
+                orders.put(symbol, OrderingTranslator.sortItemToSortOrder(items.get(i)));
             }
         }
 
