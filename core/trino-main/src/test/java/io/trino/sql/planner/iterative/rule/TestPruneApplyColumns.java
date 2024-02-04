@@ -16,19 +16,18 @@ package io.trino.sql.planner.iterative.rule;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.Symbol;
-import io.trino.sql.planner.assertions.ExpressionMatcher;
 import io.trino.sql.planner.assertions.PlanMatchPattern;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
+import io.trino.sql.planner.plan.ApplyNode;
 import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.FilterNode;
 import io.trino.sql.tree.ComparisonExpression;
-import io.trino.sql.tree.InPredicate;
-import io.trino.sql.tree.SymbolReference;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.apply;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.node;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.project;
+import static io.trino.sql.planner.assertions.PlanMatchPattern.setExpression;
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
 import static io.trino.sql.tree.ComparisonExpression.Operator.GREATER_THAN;
 
@@ -47,7 +46,7 @@ public class TestPruneApplyColumns
                     return p.project(
                             Assignments.identity(a),
                             p.apply(
-                                    Assignments.of(inResult, new InPredicate(a.toSymbolReference(), subquerySymbol.toSymbolReference())),
+                                    ImmutableMap.of(inResult, new ApplyNode.In(a, subquerySymbol)),
                                     ImmutableList.of(correlationSymbol),
                                     p.values(a, correlationSymbol),
                                     p.filter(
@@ -75,9 +74,9 @@ public class TestPruneApplyColumns
                     return p.project(
                             Assignments.identity(a, inResult1),
                             p.apply(
-                                    Assignments.of(
-                                            inResult1, new InPredicate(a.toSymbolReference(), subquerySymbol.toSymbolReference()),
-                                            inResult2, new InPredicate(b.toSymbolReference(), subquerySymbol.toSymbolReference())),
+                                    ImmutableMap.of(
+                                            inResult1, new ApplyNode.In(a, subquerySymbol),
+                                            inResult2, new ApplyNode.In(b, subquerySymbol)),
                                     ImmutableList.of(correlationSymbol),
                                     p.values(a, b, correlationSymbol),
                                     p.filter(
@@ -89,7 +88,7 @@ public class TestPruneApplyColumns
                                 ImmutableMap.of("a", PlanMatchPattern.expression("a"), "in_result_1", PlanMatchPattern.expression("in_result_1")),
                                 apply(
                                         ImmutableList.of("correlation_symbol"),
-                                        ImmutableMap.of("in_result_1", ExpressionMatcher.inPredicate(new SymbolReference("a"), new SymbolReference("subquery_symbol"))),
+                                        ImmutableMap.of("in_result_1", setExpression(new ApplyNode.In(new Symbol("a"), new Symbol("subquery_symbol")))),
                                         project(
                                                 ImmutableMap.of("a", PlanMatchPattern.expression("a"), "correlation_symbol", PlanMatchPattern.expression("correlation_symbol")),
                                                 values("a", "b", "correlation_symbol")),
@@ -109,9 +108,9 @@ public class TestPruneApplyColumns
                     return p.project(
                             Assignments.identity(a, inResult1),
                             p.apply(
-                                    Assignments.of(
-                                            inResult1, new InPredicate(a.toSymbolReference(), subquerySymbol1.toSymbolReference()),
-                                            inResult2, new InPredicate(a.toSymbolReference(), subquerySymbol2.toSymbolReference())),
+                                    ImmutableMap.of(
+                                            inResult1, new ApplyNode.In(a, subquerySymbol1),
+                                            inResult2, new ApplyNode.In(a, subquerySymbol2)),
                                     ImmutableList.of(correlationSymbol),
                                     p.values(a, correlationSymbol),
                                     p.filter(
@@ -123,7 +122,7 @@ public class TestPruneApplyColumns
                                 ImmutableMap.of("a", PlanMatchPattern.expression("a"), "in_result_1", PlanMatchPattern.expression("in_result_1")),
                                 apply(
                                         ImmutableList.of("correlation_symbol"),
-                                        ImmutableMap.of("in_result_1", ExpressionMatcher.inPredicate(new SymbolReference("a"), new SymbolReference("subquery_symbol_1"))),
+                                        ImmutableMap.of("in_result_1", setExpression(new ApplyNode.In(new Symbol("a"), new Symbol("subquery_symbol_1")))),
                                         values("a", "correlation_symbol"),
                                         project(
                                                 ImmutableMap.of("subquery_symbol_1", PlanMatchPattern.expression("subquery_symbol_1")),
@@ -145,7 +144,7 @@ public class TestPruneApplyColumns
                     return p.project(
                             Assignments.identity(correlationSymbol, inResult),
                             p.apply(
-                                    Assignments.of(inResult, new InPredicate(a.toSymbolReference(), subquerySymbol.toSymbolReference())),
+                                    ImmutableMap.of(inResult, new ApplyNode.In(a, subquerySymbol)),
                                     ImmutableList.of(correlationSymbol),
                                     p.values(a, correlationSymbol),
                                     p.filter(
@@ -157,7 +156,7 @@ public class TestPruneApplyColumns
                                 ImmutableMap.of("correlation_symbol", PlanMatchPattern.expression("correlation_symbol"), "in_result", PlanMatchPattern.expression("in_result")),
                                 apply(
                                         ImmutableList.of("correlation_symbol"),
-                                        ImmutableMap.of("in_result", ExpressionMatcher.inPredicate(new SymbolReference("a"), new SymbolReference("subquery_symbol"))),
+                                        ImmutableMap.of("in_result", setExpression(new ApplyNode.In(new Symbol("a"), new Symbol("subquery_symbol")))),
                                         values("a", "correlation_symbol"),
                                         project(
                                                 ImmutableMap.of("subquery_symbol", PlanMatchPattern.expression("subquery_symbol")),
@@ -179,7 +178,7 @@ public class TestPruneApplyColumns
                     return p.project(
                             Assignments.identity(correlationSymbol, inResult),
                             p.apply(
-                                    Assignments.of(inResult, new InPredicate(a.toSymbolReference(), subquerySymbol.toSymbolReference())),
+                                    ImmutableMap.of(inResult, new ApplyNode.In(a, subquerySymbol)),
                                     ImmutableList.of(correlationSymbol),
                                     p.values(a, unreferenced, correlationSymbol),
                                     p.filter(
@@ -191,7 +190,7 @@ public class TestPruneApplyColumns
                                 ImmutableMap.of("correlation_symbol", PlanMatchPattern.expression("correlation_symbol"), "in_result", PlanMatchPattern.expression("in_result")),
                                 apply(
                                         ImmutableList.of("correlation_symbol"),
-                                        ImmutableMap.of("in_result", ExpressionMatcher.inPredicate(new SymbolReference("a"), new SymbolReference("subquery_symbol"))),
+                                        ImmutableMap.of("in_result", setExpression(new ApplyNode.In(new Symbol("a"), new Symbol("subquery_symbol")))),
                                         project(
                                                 ImmutableMap.of("a", PlanMatchPattern.expression("a"), "correlation_symbol", PlanMatchPattern.expression("correlation_symbol")),
                                                 values("a", "unreferenced", "correlation_symbol")),
@@ -212,7 +211,7 @@ public class TestPruneApplyColumns
                     return p.project(
                             Assignments.identity(a, inResult),
                             p.apply(
-                                    Assignments.of(inResult, new InPredicate(a.toSymbolReference(), subquerySymbol.toSymbolReference())),
+                                    ImmutableMap.of(inResult, new ApplyNode.In(a, subquerySymbol)),
                                     ImmutableList.of(correlationSymbol),
                                     p.values(a, correlationSymbol),
                                     p.filter(
@@ -234,7 +233,7 @@ public class TestPruneApplyColumns
                     return p.project(
                             Assignments.identity(a, inResult),
                             p.apply(
-                                    Assignments.of(inResult, new InPredicate(a.toSymbolReference(), subquerySymbol.toSymbolReference())),
+                                    ImmutableMap.of(inResult, new ApplyNode.In(a, subquerySymbol)),
                                     ImmutableList.of(correlationSymbol),
                                     p.values(a, correlationSymbol),
                                     p.values(subquerySymbol)));
@@ -254,7 +253,7 @@ public class TestPruneApplyColumns
                     return p.project(
                             Assignments.identity(a, correlationSymbol, inResult),
                             p.apply(
-                                    Assignments.of(inResult, new InPredicate(a.toSymbolReference(), subquerySymbol.toSymbolReference())),
+                                    ImmutableMap.of(inResult, new ApplyNode.In(a, subquerySymbol)),
                                     ImmutableList.of(correlationSymbol),
                                     p.values(a, correlationSymbol),
                                     p.filter(

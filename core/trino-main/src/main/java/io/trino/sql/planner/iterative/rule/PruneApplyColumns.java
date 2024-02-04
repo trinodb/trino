@@ -13,19 +13,17 @@
  */
 package io.trino.sql.planner.iterative.rule;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.trino.sql.planner.Symbol;
 import io.trino.sql.planner.plan.ApplyNode;
-import io.trino.sql.planner.plan.Assignments;
 import io.trino.sql.planner.plan.PlanNode;
-import io.trino.sql.tree.Expression;
 
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.collect.Sets.intersection;
-import static io.trino.sql.planner.SymbolsExtractor.extractUnique;
 import static io.trino.sql.planner.iterative.rule.Util.restrictOutputs;
 import static io.trino.sql.planner.plan.Patterns.applyNode;
 
@@ -86,16 +84,16 @@ public class PruneApplyColumns
             Set<Symbol> referencedOutputs)
     {
         // remove unused apply node
-        if (intersection(applyNode.getSubqueryAssignments().getSymbols(), referencedOutputs).isEmpty()) {
+        if (intersection(applyNode.getSubqueryAssignments().keySet(), referencedOutputs).isEmpty()) {
             return Optional.of(applyNode.getInput());
         }
 
         // extract referenced assignments
         ImmutableSet.Builder<Symbol> requiredAssignmentsSymbols = ImmutableSet.builder();
-        Assignments.Builder newSubqueryAssignments = Assignments.builder();
-        for (Map.Entry<Symbol, Expression> entry : applyNode.getSubqueryAssignments().entrySet()) {
+        ImmutableMap.Builder<Symbol, ApplyNode.SetExpression> newSubqueryAssignments = ImmutableMap.builder();
+        for (Map.Entry<Symbol, ApplyNode.SetExpression> entry : applyNode.getSubqueryAssignments().entrySet()) {
             if (referencedOutputs.contains(entry.getKey())) {
-                requiredAssignmentsSymbols.addAll(extractUnique(entry.getValue()));
+                requiredAssignmentsSymbols.addAll(entry.getValue().inputs());
                 newSubqueryAssignments.put(entry);
             }
         }
@@ -114,14 +112,14 @@ public class PruneApplyColumns
 
         boolean pruned = newSubquery.isPresent()
                 || newInput.isPresent()
-                || newSubqueryAssignments.build().size() < applyNode.getSubqueryAssignments().size();
+                || newSubqueryAssignments.buildOrThrow().size() < applyNode.getSubqueryAssignments().size();
 
         if (pruned) {
             return Optional.of(new ApplyNode(
                     applyNode.getId(),
                     newInput.orElse(applyNode.getInput()),
                     newSubquery.orElse(applyNode.getSubquery()),
-                    newSubqueryAssignments.build(),
+                    newSubqueryAssignments.buildOrThrow(),
                     applyNode.getCorrelation(),
                     applyNode.getOriginSubquery()));
         }
