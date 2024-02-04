@@ -147,7 +147,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.google.common.base.CaseFormat.UPPER_UNDERSCORE;
@@ -262,7 +261,7 @@ public class PlanPrinter
     {
         TypeProvider typeProvider = TypeProvider.copyOf(symbols.entrySet().stream()
                 .distinct()
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue)));
 
         TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
         ValuePrinter valuePrinter = new ValuePrinter(metadata, functionManager, session);
@@ -315,7 +314,7 @@ public class PlanPrinter
                 .map(StageInfo::getTables)
                 .map(Map::entrySet)
                 .flatMap(Collection::stream)
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue));
 
         ValuePrinter valuePrinter = new ValuePrinter(metadata, functionManager, session);
         List<PlanFragment> planFragments = allStages.stream()
@@ -635,7 +634,7 @@ public class PlanPrinter
         return TypeProvider.copyOf(fragments.stream()
                 .flatMap(f -> f.getSymbols().entrySet().stream())
                 .distinct()
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
+                .collect(toImmutableMap(Entry::getKey, Entry::getValue)));
     }
 
     public static String graphvizLogicalPlan(PlanNode plan, TypeProvider types)
@@ -771,7 +770,7 @@ public class PlanPrinter
                             "lookup", formatSymbols(node.getLookupSymbols())),
                     context);
 
-            for (Map.Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
+            for (Entry<Symbol, ColumnHandle> entry : node.getAssignments().entrySet()) {
                 if (node.getOutputSymbols().contains(entry.getKey())) {
                     nodeOutput.appendDetails("%s := %s", anonymizer.anonymize(entry.getKey()), anonymizer.anonymize(entry.getValue()));
                 }
@@ -880,7 +879,7 @@ public class PlanPrinter
                     ImmutableMap.of("symbols", formatCollection(anonymizedInputGroupingSetSymbols, Objects::toString)),
                     context);
 
-            for (Map.Entry<Symbol, Symbol> mapping : node.getGroupingColumns().entrySet()) {
+            for (Entry<Symbol, Symbol> mapping : node.getGroupingColumns().entrySet()) {
                 nodeOutput.appendDetails("%s := %s", anonymizer.anonymize(mapping.getKey()), anonymizer.anonymize(mapping.getValue()));
             }
 
@@ -938,7 +937,7 @@ public class PlanPrinter
                     descriptor.put("hash", formatHash(node.getHashSymbol())).buildOrThrow(),
                     context);
 
-            for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
+            for (Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
                 WindowNode.Function function = entry.getValue();
                 String frameInfo = formatFrame(function.getFrame());
 
@@ -992,7 +991,7 @@ public class PlanPrinter
             if (node.getCommonBaseFrame().isPresent()) {
                 nodeOutput.appendDetails("base frame: %s", formatFrame(node.getCommonBaseFrame().get()));
             }
-            for (Map.Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
+            for (Entry<Symbol, WindowNode.Function> entry : node.getWindowFunctions().entrySet()) {
                 WindowNode.Function function = entry.getValue();
                 nodeOutput.appendDetails(
                         "%s := %s(%s)",
@@ -1001,7 +1000,7 @@ public class PlanPrinter
                         Joiner.on(", ").join(anonymizeExpressions(function.getArguments())));
             }
 
-            for (Map.Entry<Symbol, Measure> entry : node.getMeasures().entrySet()) {
+            for (Entry<Symbol, Measure> entry : node.getMeasures().entrySet()) {
                 nodeOutput.appendDetails(
                         "%s := %s",
                         anonymizer.anonymize(entry.getKey()),
@@ -1018,9 +1017,9 @@ public class PlanPrinter
                             " := " +
                             subset.getValue().stream()
                                     .map(IrLabel::getName)
-                                    .collect(Collectors.joining(", ", "{", "}")))
+                                    .collect(joining(", ", "{", "}")))
                     .collect(joining(", ")));
-            for (Map.Entry<IrLabel, ExpressionAndValuePointers> entry : node.getVariableDefinitions().entrySet()) {
+            for (Entry<IrLabel, ExpressionAndValuePointers> entry : node.getVariableDefinitions().entrySet()) {
                 nodeOutput.appendDetails("%s := %s", entry.getKey().getName(), anonymizer.anonymize(unresolveFunctions(entry.getValue().getExpression())));
                 appendValuePointers(nodeOutput, entry.getValue());
             }
@@ -1383,14 +1382,14 @@ public class PlanPrinter
         {
             return filters.stream()
                     .map(filter -> anonymizer.anonymize(filter.getInput()) + " " + filter.getOperator().getValue() + " #" + filter.getId())
-                    .collect(Collectors.joining(", ", "{", "}"));
+                    .collect(joining(", ", "{", "}"));
         }
 
         private String printDynamicFilterAssignments(Map<DynamicFilterId, Symbol> filters)
         {
             return filters.entrySet().stream()
                     .map(filter -> anonymizer.anonymize(filter.getValue()) + " -> #" + filter.getKey())
-                    .collect(Collectors.joining(", ", "{", "}"));
+                    .collect(joining(", ", "{", "}"));
         }
 
         private void printTableScanInfo(NodeRepresentation nodeOutput, TableScanNode node, TableInfo tableInfo)
@@ -1402,7 +1401,7 @@ public class PlanPrinter
             }
             else {
                 // first, print output columns and their constraints
-                for (Map.Entry<Symbol, ColumnHandle> assignment : node.getAssignments().entrySet()) {
+                for (Entry<Symbol, ColumnHandle> assignment : node.getAssignments().entrySet()) {
                     ColumnHandle column = assignment.getValue();
                     nodeOutput.appendDetails("%s := %s", anonymizer.anonymize(assignment.getKey()), anonymizer.anonymize(column));
                     printConstraint(nodeOutput, column, predicate);
@@ -1616,10 +1615,10 @@ public class PlanPrinter
                 NodeRepresentation nodeOutput,
                 Map<TableStatisticType, Symbol> tableStatistics,
                 Map<ColumnStatisticMetadata, Symbol> columnStatistics,
-                Map<Symbol, AggregationNode.Aggregation> aggregations)
+                Map<Symbol, Aggregation> aggregations)
         {
             nodeOutput.appendDetails("aggregations =>");
-            for (Map.Entry<TableStatisticType, Symbol> tableStatistic : tableStatistics.entrySet()) {
+            for (Entry<TableStatisticType, Symbol> tableStatistic : tableStatistics.entrySet()) {
                 nodeOutput.appendDetails("%s%s => [%s := %s]",
                         indentString(1),
                         anonymizer.anonymize(tableStatistic.getValue()),
@@ -1627,7 +1626,7 @@ public class PlanPrinter
                         formatAggregation(anonymizer, aggregations.get(tableStatistic.getValue())));
             }
 
-            for (Map.Entry<ColumnStatisticMetadata, Symbol> columnStatistic : columnStatistics.entrySet()) {
+            for (Entry<ColumnStatisticMetadata, Symbol> columnStatistic : columnStatistics.entrySet()) {
                 String aggregationName;
                 if (columnStatistic.getKey().getStatisticTypeIfPresent().isPresent()) {
                     aggregationName = columnStatistic.getKey().getStatisticType().name();
@@ -1839,7 +1838,7 @@ public class PlanPrinter
 
                 if (!node.getCopartitioningLists().isEmpty()) {
                     nodeOutput.appendDetails("%s", node.getCopartitioningLists().stream()
-                            .map(list -> list.stream().collect(Collectors.joining(", ", "(", ")")))
+                            .map(list -> list.stream().collect(joining(", ", "(", ")")))
                             .collect(joining(", ", "Co-partition: [", "]")));
                 }
             }
@@ -1976,12 +1975,36 @@ public class PlanPrinter
 
         private void printAssignments(NodeRepresentation nodeOutput, Assignments assignments)
         {
-            for (Map.Entry<Symbol, Expression> entry : assignments.getMap().entrySet()) {
+            for (Entry<Symbol, Expression> entry : assignments.getMap().entrySet()) {
                 if (entry.getValue() instanceof SymbolReference && ((SymbolReference) entry.getValue()).getName().equals(entry.getKey().getName())) {
                     // skip identity assignments
                     continue;
                 }
                 nodeOutput.appendDetails("%s := %s", anonymizer.anonymize(entry.getKey()), anonymizer.anonymize(unresolveFunctions(entry.getValue())));
+            }
+        }
+
+        private void printAssignments(NodeRepresentation nodeOutput, Map<Symbol, ApplyNode.SetExpression> assignments)
+        {
+            for (Entry<Symbol, ApplyNode.SetExpression> entry : assignments.entrySet()) {
+                String assignment = switch (entry.getValue()) {
+                    case ApplyNode.In in -> "%s IN %s".formatted(anonymizer.anonymize(in.value()), anonymizer.anonymize(in.reference()));
+                    case ApplyNode.Exists unused -> "EXISTS";
+                    case ApplyNode.QuantifiedComparison comparison -> "%s %s %s %s".formatted(
+                            anonymizer.anonymize(comparison.value()),
+                            switch (comparison.operator()) {
+                                case EQUAL -> "=";
+                                case NOT_EQUAL -> "<>";
+                                case LESS_THAN -> "<";
+                                case LESS_THAN_OR_EQUAL -> "<=";
+                                case GREATER_THAN -> ">";
+                                case GREATER_THAN_OR_EQUAL -> ">=";
+                            },
+                            comparison.quantifier(),
+                            anonymizer.anonymize(comparison.reference()));
+                };
+
+                nodeOutput.appendDetails("%s := %s", anonymizer.anonymize(entry.getKey()), assignment);
             }
         }
 

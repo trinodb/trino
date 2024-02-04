@@ -15,12 +15,12 @@
 package io.trino.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.trino.sql.planner.iterative.rule.test.BaseRuleTest;
-import io.trino.sql.planner.plan.Assignments;
+import io.trino.sql.planner.plan.ApplyNode;
 import org.junit.jupiter.api.Test;
 
 import static io.trino.sql.planner.assertions.PlanMatchPattern.values;
-import static io.trino.sql.planner.iterative.rule.test.PlanBuilder.expression;
 
 public class TestRemoveUnreferencedScalarApplyNodes
         extends BaseRuleTest
@@ -30,7 +30,7 @@ public class TestRemoveUnreferencedScalarApplyNodes
     {
         tester().assertThat(new RemoveUnreferencedScalarApplyNodes())
                 .on(p -> p.apply(
-                        Assignments.of(p.symbol("z"), expression("x IN (y)")),
+                        ImmutableMap.of(p.symbol("z"), new ApplyNode.In(p.symbol("x"), p.symbol("y"))),
                         ImmutableList.of(),
                         p.values(p.symbol("x")),
                         p.values(p.symbol("y"))))
@@ -42,7 +42,7 @@ public class TestRemoveUnreferencedScalarApplyNodes
     {
         tester().assertThat(new RemoveUnreferencedScalarApplyNodes())
                 .on(p -> p.apply(
-                        Assignments.of(),
+                        ImmutableMap.of(),
                         ImmutableList.of(),
                         p.values(p.symbol("x")),
                         p.values(p.symbol("y"))))

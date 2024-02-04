@@ -39,7 +39,6 @@ import io.trino.sql.tree.BooleanLiteral;
 import io.trino.sql.tree.Cast;
 import io.trino.sql.tree.ComparisonExpression;
 import io.trino.sql.tree.Expression;
-import io.trino.sql.tree.InPredicate;
 import io.trino.sql.tree.IsNotNullPredicate;
 import io.trino.sql.tree.IsNullPredicate;
 import io.trino.sql.tree.LongLiteral;
@@ -52,6 +51,7 @@ import io.trino.sql.util.AstUtils;
 import jakarta.annotation.Nullable;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -112,23 +112,23 @@ public class TransformCorrelatedInPredicateToJoin
     @Override
     public Result apply(ApplyNode apply, Captures captures, Context context)
     {
-        Assignments subqueryAssignments = apply.getSubqueryAssignments();
+        Map<Symbol, ApplyNode.SetExpression> subqueryAssignments = apply.getSubqueryAssignments();
         if (subqueryAssignments.size() != 1) {
             return Result.empty();
         }
-        Expression assignmentExpression = getOnlyElement(subqueryAssignments.getExpressions());
-        if (!(assignmentExpression instanceof InPredicate inPredicate)) {
+        ApplyNode.SetExpression assignmentExpression = getOnlyElement(subqueryAssignments.values());
+        if (!(assignmentExpression instanceof ApplyNode.In inPredicate)) {
             return Result.empty();
         }
 
-        Symbol inPredicateOutputSymbol = getOnlyElement(subqueryAssignments.getSymbols());
+        Symbol inPredicateOutputSymbol = getOnlyElement(subqueryAssignments.keySet());
 
         return apply(apply, inPredicate, inPredicateOutputSymbol, context.getLookup(), context.getIdAllocator(), context.getSymbolAllocator());
     }
 
     private Result apply(
             ApplyNode apply,
-            InPredicate inPredicate,
+            ApplyNode.In inPredicate,
             Symbol inPredicateOutputSymbol,
             Lookup lookup,
             PlanNodeIdAllocator idAllocator,
@@ -154,7 +154,7 @@ public class TransformCorrelatedInPredicateToJoin
 
     private PlanNode buildInPredicateEquivalent(
             ApplyNode apply,
-            InPredicate inPredicate,
+            ApplyNode.In inPredicate,
             Symbol inPredicateOutputSymbol,
             Decorrelated decorrelated,
             PlanNodeIdAllocator idAllocator,
@@ -177,8 +177,8 @@ public class TransformCorrelatedInPredicateToJoin
                         .put(buildSideKnownNonNull, bigint(0))
                         .build());
 
-        Symbol probeSideSymbol = Symbol.from(inPredicate.getValue());
-        Symbol buildSideSymbol = Symbol.from(inPredicate.getValueList());
+        Symbol probeSideSymbol = inPredicate.value();
+        Symbol buildSideSymbol = inPredicate.reference();
 
         Expression joinExpression = and(
                 or(
