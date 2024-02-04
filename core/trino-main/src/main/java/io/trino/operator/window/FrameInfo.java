@@ -15,7 +15,6 @@ package io.trino.operator.window;
 
 import io.trino.sql.planner.plan.FrameBoundType;
 import io.trino.sql.planner.plan.WindowFrameType;
-import io.trino.sql.tree.SortItem.Ordering;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -146,5 +145,11 @@ public class FrameInfo
                 .add("sortKeyChannel", sortKeyChannel)
                 .add("ordering", ordering)
                 .toString();
+    }
+
+    public enum Ordering
+    {
+        ASCENDING,
+        DESCENDING
     }
 }
